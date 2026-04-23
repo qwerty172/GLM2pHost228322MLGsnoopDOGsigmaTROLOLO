@@ -33,3 +33,8 @@ externalPort = 3000
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+WALLET_ENCRYPTION_KEY = "542cfffa42f9fc90323a302bf50b819f3a6ed8a641e4010c0e12c079e4fedb67"

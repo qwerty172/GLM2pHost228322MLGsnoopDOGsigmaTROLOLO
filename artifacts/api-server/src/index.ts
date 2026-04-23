@@ -2,6 +2,8 @@ import { createServer } from "node:http";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { attachSignaling } from "./lib/signaling";
+import { startBillingWorker } from "./lib/billingWorker";
+import { startDepositWorker } from "./lib/depositWorker";
 
 const rawPort = process.env["PORT"];
 
@@ -22,6 +24,8 @@ attachSignaling(server);
 
 server.listen(port, () => {
   logger.info({ port }, "Server listening");
+  startBillingWorker();
+  startDepositWorker();
 });
 
 server.on("error", (err) => {

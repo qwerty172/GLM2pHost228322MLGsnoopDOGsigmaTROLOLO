@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRoute } from "wouter";
-import { useGetSessionByPlayerToken, getGetSessionByPlayerTokenQueryKey } from "@workspace/api-client-react";
+import { useRoute, Link } from "wouter";
+import {
+  useGetSessionByPlayerToken,
+  getGetSessionByPlayerTokenQueryKey,
+  useClaimSession,
+  useGetWallet,
+  getGetWalletQueryKey,
+} from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Gamepad2, AlertCircle, Loader2, Wifi, WifiOff, VolumeX } from "lucide-react";
+import { Gamepad2, AlertCircle, Loader2, Wifi, WifiOff, VolumeX, Wallet } from "lucide-react";
 import { toast } from "sonner";
+import { usePlayerWallet } from "@/hooks/use-player-wallet";
 
 export default function Play() {
   const [, params] = useRoute("/play/:playerToken");
@@ -14,6 +21,18 @@ export default function Play() {
   const { data: session, isLoading, isError } = useGetSessionByPlayerToken(playerToken, {
     query: { enabled: !!playerToken, queryKey: getGetSessionByPlayerTokenQueryKey(playerToken) }
   });
+
+  const { playerWalletToken } = usePlayerWallet();
+  const { data: wallet } = useGetWallet(playerWalletToken || "", {
+    query: {
+      enabled: !!playerWalletToken,
+      queryKey: getGetWalletQueryKey(playerWalletToken || ""),
+      refetchInterval: 30000,
+    },
+  });
+  const claimSession = useClaimSession();
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const [hasClaimed, setHasClaimed] = useState(false);
 
   const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>("new");
   const [isPlaying, setIsPlaying] = useState(false);
@@ -113,14 +132,57 @@ export default function Play() {
   }, [playerToken, cleanupConnection]);
 
   useEffect(() => {
-    if (session && session.status !== "ended" && !startedRef.current) {
+    if (
+      !session ||
+      session.status === "ended" ||
+      !playerWalletToken ||
+      hasClaimed ||
+      claimSession.isPending
+    ) {
+      return;
+    }
+    if (session.claimedByPlayerId) {
+      setHasClaimed(true);
+      return;
+    }
+    claimSession.mutate(
+      {
+        playerToken,
+        data: { playerWalletToken },
+      },
+      {
+        onSuccess: () => {
+          setHasClaimed(true);
+          setClaimError(null);
+        },
+        onError: (err: unknown) => {
+          const msg =
+            err instanceof Error
+              ? err.message
+              : typeof err === "string"
+                ? err
+                : "Failed to claim session";
+          setClaimError(msg);
+        },
+      },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.id, playerWalletToken, hasClaimed]);
+
+  useEffect(() => {
+    if (
+      session &&
+      session.status !== "ended" &&
+      hasClaimed &&
+      !startedRef.current
+    ) {
       void startConnection();
     }
     return () => {
       cleanupConnection();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.id]);
+  }, [session?.id, hasClaimed]);
 
   const handleEnableAudio = () => {
     if (videoRef.current) {
@@ -218,32 +280,66 @@ export default function Play() {
   }
 
   if (!isPlaying) {
+    const balance = wallet?.creditBalance ?? 0;
+    const ratePerMin = session.ratePerMinute;
+    const minutesAffordable =
+      ratePerMin > 0 ? Math.floor(balance / ratePerMin) : 0;
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
         <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_center,rgba(0,255,170,0.1),transparent_50%)]" />
         <Card className="w-full max-w-md relative z-10 bg-card/80 backdrop-blur border-primary/20">
-          <CardHeader className="text-center pb-8">
+          <CardHeader className="text-center pb-6">
             <Gamepad2 className="h-16 w-16 text-primary mx-auto mb-6" />
             <CardTitle className="text-3xl font-bold tracking-tight mb-2">{session.appName}</CardTitle>
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground font-mono">
               <Badge variant="outline">{session.resolution}</Badge>
               <Badge variant="outline">{session.bitrateKbps} kbps</Badge>
+              <Badge variant="outline">${ratePerMin.toFixed(2)}/min</Badge>
             </div>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between p-4 rounded-lg bg-background/50 border border-border/50">
+              <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Wallet className="h-4 w-4" /> Wallet Balance
+              </div>
+              <div className="text-right">
+                <div className="font-bold font-mono">${balance.toFixed(2)}</div>
+                <div className="text-[10px] text-muted-foreground">
+                  ~{minutesAffordable} min playtime
+                </div>
+              </div>
+            </div>
             <div className="flex items-center justify-between p-4 rounded-lg bg-background/50 border border-border/50">
               <div className="text-sm font-medium text-muted-foreground">Host Status</div>
               <Badge variant={session.status === 'active' ? 'default' : 'secondary'}>
                 {session.status.toUpperCase()}
               </Badge>
             </div>
-            <Button 
-              className="w-full h-14 text-lg font-bold tracking-wider" 
-              onClick={startConnection}
-              disabled={session.status === 'ended'}
-            >
-              {session.status === 'ended' ? 'Session Ended' : 'CONNECT & PLAY'}
-            </Button>
+            {claimError && (
+              <div className="p-3 rounded-md bg-destructive/10 border border-destructive/40 text-sm text-destructive">
+                {claimError}
+              </div>
+            )}
+            {!playerWalletToken || claimSession.isPending ? (
+              <Button className="w-full h-14 text-lg font-bold tracking-wider" disabled>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                {playerWalletToken ? "Claiming session…" : "Setting up wallet…"}
+              </Button>
+            ) : balance < ratePerMin && !hasClaimed ? (
+              <Link href="/wallet" className="block">
+                <Button className="w-full h-14 text-lg font-bold tracking-wider">
+                  Top Up Wallet
+                </Button>
+              </Link>
+            ) : (
+              <Button
+                className="w-full h-14 text-lg font-bold tracking-wider"
+                onClick={() => void startConnection()}
+                disabled={session.status === 'ended'}
+              >
+                {session.status === 'ended' ? 'Session Ended' : 'CONNECT & PLAY'}
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>

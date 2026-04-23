@@ -10,14 +10,17 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@solana/web3.js": "^1.98.4",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
     "cookie-parser": "^1.4.7",
     "cors": "^2",
     "drizzle-orm": "catalog:",
     "express": "^5",
+    "nanocurrency": "^2.5.0",
     "pino": "^9",
     "pino-http": "^10",
+    "tronweb": "^6.3.0",
     "ws": "^8.20.0"
   },
   "devDependencies": {

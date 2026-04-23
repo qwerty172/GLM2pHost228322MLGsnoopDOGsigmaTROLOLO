@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import {
   db,
   hostsTable,
@@ -201,7 +201,12 @@ router.get(
     const withdrawals = await db
       .select()
       .from(withdrawalsTable)
-      .where(eq(withdrawalsTable.hostId, host.id))
+      .where(
+        and(
+          eq(withdrawalsTable.ownerType, "host"),
+          eq(withdrawalsTable.ownerId, host.id),
+        ),
+      )
       .orderBy(desc(withdrawalsTable.requestedAt))
       .limit(25);
 

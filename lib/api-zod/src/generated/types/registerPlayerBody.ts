@@ -6,8 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface RequestWithdrawalBody {
-  currency: string;
-  address: string;
-  amount: number;
+export interface RegisterPlayerBody {
+  displayName: string;
 }

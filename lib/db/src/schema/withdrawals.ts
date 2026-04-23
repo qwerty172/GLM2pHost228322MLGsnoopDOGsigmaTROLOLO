@@ -5,13 +5,11 @@ import {
   timestamp,
   numeric,
 } from "drizzle-orm/pg-core";
-import { hostsTable } from "./hosts";
 
 export const withdrawalsTable = pgTable("withdrawals", {
   id: uuid("id").primaryKey().defaultRandom(),
-  hostId: uuid("host_id")
-    .notNull()
-    .references(() => hostsTable.id, { onDelete: "cascade" }),
+  ownerType: text("owner_type").notNull().default("host"),
+  ownerId: uuid("owner_id").notNull(),
   currency: text("currency").notNull(),
   address: text("address").notNull(),
   amount: numeric("amount", { precision: 18, scale: 6 }).notNull(),

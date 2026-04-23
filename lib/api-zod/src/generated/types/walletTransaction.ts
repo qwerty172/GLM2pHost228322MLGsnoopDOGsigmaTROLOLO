@@ -6,15 +6,16 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface ActivityItem {
+export interface WalletTransaction {
   id: string;
+  /** deposit | withdrawal | session_billing */
   kind: string;
-  title: string;
-  /** @nullable */
-  subtitle?: string | null;
-  /** @nullable */
-  amount?: number | null;
   /** @nullable */
   currency?: string | null;
+  /** Signed (negative for debits, positive for credits) */
+  amount: number;
+  /** @nullable */
+  status?: string | null;
+  description: string;
   timestamp: Date;
 }

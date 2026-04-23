@@ -3,7 +3,7 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: P2P Cloud Gaming signaling and session management API
+  description: P2P Cloud Gaming signaling, session, and wallet API
 servers:
   - url: /api
     description: Base API path
@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: hosts
     description: Host registration and management
+  - name: players
+    description: Player registration and wallet identity
   - name: sessions
     description: Session lifecycle and discovery
   - name: wallet
@@ -130,7 +132,7 @@ paths:
     get:
       operationId: getHostActivity
       tags: [hosts]
-      summary: Recent activity feed for a host (sessions started/ended, payouts)
+      summary: Recent activity feed for a host
       parameters:
         - in: path
           name: hostToken
@@ -148,6 +150,50 @@ paths:
                   $ref: "#/components/schemas/ActivityItem"
         "404":
           description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /players/register:
+    post:
+      operationId: registerPlayer
+      tags: [players]
+      summary: Register a new player wallet identity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterPlayerBody"
+      responses:
+        "201":
+          description: Player registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+
+  /players/{playerToken}:
+    get:
+      operationId: getPlayer
+      tags: [players]
+      summary: Look up player by token
+      parameters:
+        - in: path
+          name: playerToken
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Player
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+        "404":
+          description: Not found
           content:
             application/json:
               schema:
@@ -239,6 +285,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /sessions/by-player-token/{playerToken}/claim:
+    post:
+      operationId: claimSession
+      tags: [sessions]
+      summary: Claim a session by linking it to a player's wallet (enables billing)
+      parameters:
+        - in: path
+          name: playerToken
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaimSessionBody"
+      responses:
+        "200":
+          description: Session claimed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          description: Invalid request (insufficient balance, already claimed, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /sessions/{id}/end:
     patch:
       operationId: endSession
@@ -276,17 +359,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /wallet/{hostToken}:
+  /wallet/{userToken}:
     get:
       operationId: getWallet
       tags: [wallet]
       summary: Wallet overview — balance, deposit addresses, withdrawal history
       parameters:
         - in: path
-          name: hostToken
+          name: userToken
           required: true
           schema:
             type: string
+          description: Either a host token or a player token
       responses:
         "200":
           description: Wallet
@@ -295,20 +379,47 @@ paths:
               schema:
                 $ref: "#/components/schemas/Wallet"
         "404":
-          description: Host not found
+          description: User not found
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /wallet/{hostToken}/withdraw:
+  /wallet/{userToken}/transactions:
+    get:
+      operationId: listWalletTransactions
+      tags: [wallet]
+      summary: Recent wallet transactions (deposits, withdrawals, billing)
+      parameters:
+        - in: path
+          name: userToken
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WalletTransaction"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /wallet/{userToken}/withdraw:
     post:
       operationId: requestWithdrawal
       tags: [wallet]
-      summary: Submit a withdrawal request (queued for processing by wallet worker)
+      summary: Submit a withdrawal request (queued for processing)
       parameters:
         - in: path
-          name: hostToken
+          name: userToken
           required: true
           schema:
             type: string
@@ -332,7 +443,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
-          description: Host not found
+          description: User not found
           content:
             application/json:
               schema:
@@ -382,7 +493,40 @@ components:
         - createdAt
         - lastSeenAt
 
+    Player:
+      type: object
+      properties:
+        id:
+          type: string
+        playerToken:
+          type: string
+        displayName:
+          type: string
+        creditBalance:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        lastSeenAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - playerToken
+        - displayName
+        - creditBalance
+        - createdAt
+        - lastSeenAt
+
     RegisterHostBody:
+      type: object
+      properties:
+        displayName:
+          type: string
+      required:
+        - displayName
+
+    RegisterPlayerBody:
       type: object
       properties:
         displayName:
@@ -399,6 +543,8 @@ components:
           type: string
         playerToken:
           type: string
+        claimedByPlayerId:
+          type: ["string", "null"]
         appName:
           type: string
         status:
@@ -408,6 +554,9 @@ components:
           type: string
         bitrateKbps:
           type: integer
+        ratePerMinute:
+          type: number
+          description: Player credits charged per minute (host receives net of commission)
         createdAt:
           type: string
           format: date-time
@@ -425,6 +574,7 @@ components:
         - status
         - resolution
         - bitrateKbps
+        - ratePerMinute
         - createdAt
 
     EndSessionBody:
@@ -434,6 +584,15 @@ components:
           type: string
       required:
         - hostToken
+
+    ClaimSessionBody:
+      type: object
+      properties:
+        playerWalletToken:
+          type: string
+          description: The player's wallet token (issued via /players/register)
+      required:
+        - playerWalletToken
 
     CreateSessionBody:
       type: object
@@ -446,6 +605,8 @@ components:
           type: string
         bitrateKbps:
           type: integer
+        ratePerMinute:
+          type: number
       required:
         - hostToken
         - appName
@@ -480,7 +641,6 @@ components:
           type: string
         kind:
           type: string
-          description: "session_started | session_ended | withdrawal_requested | withdrawal_completed | deposit_received"
         title:
           type: string
         subtitle:
@@ -524,7 +684,9 @@ components:
       properties:
         id:
           type: string
-        hostId:
+        ownerType:
+          type: string
+        ownerId:
           type: string
         currency:
           type: string
@@ -534,7 +696,6 @@ components:
           type: number
         status:
           type: string
-          description: "pending | processing | completed | failed"
         requestedAt:
           type: string
           format: date-time
@@ -543,7 +704,8 @@ components:
           format: date-time
       required:
         - id
-        - hostId
+        - ownerType
+        - ownerId
         - currency
         - address
         - amount
@@ -567,6 +729,13 @@ components:
     Wallet:
       type: object
       properties:
+        ownerType:
+          type: string
+          description: "host | player"
+        ownerId:
+          type: string
+        displayName:
+          type: string
         creditBalance:
           type: number
         pendingWithdrawals:
@@ -580,7 +749,37 @@ components:
           items:
             $ref: "#/components/schemas/Withdrawal"
       required:
+        - ownerType
+        - ownerId
+        - displayName
         - creditBalance
         - pendingWithdrawals
         - depositAddresses
         - recentWithdrawals
+
+    WalletTransaction:
+      type: object
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+          description: "deposit | withdrawal | session_billing"
+        currency:
+          type: ["string", "null"]
+        amount:
+          type: number
+          description: Signed (negative for debits, positive for credits)
+        status:
+          type: ["string", "null"]
+        description:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - id
+        - kind
+        - amount
+        - description
+        - timestamp

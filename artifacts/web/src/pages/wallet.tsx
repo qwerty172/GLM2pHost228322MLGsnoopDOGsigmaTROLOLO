@@ -17,6 +17,7 @@ import { formatDistanceToNow } from "date-fns";
 export default function WalletPage() {
   const { hostToken } = useAuth();
   const { data: wallet, isLoading, refetch } = useGetWallet(hostToken || "", { query: { enabled: !!hostToken, queryKey: getGetWalletQueryKey(hostToken || "") } });
+
   
   const [withdrawCurrency, setWithdrawCurrency] = useState("USDT_TRC20");
   const [withdrawAddress, setWithdrawAddress] = useState("");
@@ -46,7 +47,7 @@ export default function WalletPage() {
 
     requestWithdrawal.mutate(
       {
-        hostToken,
+        userToken: hostToken,
         data: {
           currency: withdrawCurrency,
           address: withdrawAddress,

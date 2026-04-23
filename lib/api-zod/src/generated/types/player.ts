@@ -6,11 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HostStats {
-  totalSessions: number;
-  activeSessions: number;
-  totalMinutesStreamed: number;
-  lifetimeEarnings: number;
-  earnings7d: number;
+export interface Player {
+  id: string;
+  playerToken: string;
+  displayName: string;
   creditBalance: number;
+  createdAt: Date;
+  lastSeenAt: Date;
 }

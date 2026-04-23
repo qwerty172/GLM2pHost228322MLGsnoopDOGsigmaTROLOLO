@@ -5,20 +5,20 @@ import {
   timestamp,
   numeric,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
-import { hostsTable } from "./hosts";
 
 export const depositAddressesTable = pgTable(
   "deposit_addresses",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    hostId: uuid("host_id")
-      .notNull()
-      .references(() => hostsTable.id, { onDelete: "cascade" }),
+    ownerType: text("owner_type").notNull(),
+    ownerId: uuid("owner_id").notNull(),
     currency: text("currency").notNull(),
     label: text("label").notNull(),
     address: text("address").notNull(),
     network: text("network").notNull(),
+    encryptedPrivateKey: text("encrypted_private_key"),
     minDeposit: numeric("min_deposit", { precision: 18, scale: 6 })
       .notNull()
       .default("0"),
@@ -27,10 +27,10 @@ export const depositAddressesTable = pgTable(
       .defaultNow(),
   },
   (t) => ({
-    hostCurrencyUnique: uniqueIndex("deposit_addresses_host_currency_idx").on(
-      t.hostId,
-      t.currency,
-    ),
+    ownerCurrencyUnique: uniqueIndex(
+      "deposit_addresses_owner_currency_idx",
+    ).on(t.ownerType, t.ownerId, t.currency),
+    addressIdx: index("deposit_addresses_address_idx").on(t.address),
   }),
 );
 
