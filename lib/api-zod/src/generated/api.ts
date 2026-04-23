@@ -8,7 +8,6 @@
 import * as zod from "zod";
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -16,7 +15,6 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
- * Returns a host token used by the agent to sign in to the signaling server.
  * @summary Register a new host
  */
 export const RegisterHostBody = zod.object({
@@ -34,6 +32,9 @@ export const GetHostResponse = zod.object({
   id: zod.string(),
   hostToken: zod.string(),
   displayName: zod.string(),
+  creditBalance: zod
+    .number()
+    .describe("Available credit balance in USD-equivalent"),
   createdAt: zod.coerce.date(),
   lastSeenAt: zod.coerce.date(),
 });
@@ -60,7 +61,44 @@ export const ListHostSessionsResponseItem = zod.object({
 export const ListHostSessionsResponse = zod.array(ListHostSessionsResponseItem);
 
 /**
- * Host creates a session and receives a player token (used to build the share link).
+ * @summary Aggregate stats for a host (sessions, minutes streamed, earnings)
+ */
+export const GetHostStatsParams = zod.object({
+  hostToken: zod.coerce.string(),
+});
+
+export const GetHostStatsResponse = zod.object({
+  totalSessions: zod.number(),
+  activeSessions: zod.number(),
+  totalMinutesStreamed: zod.number(),
+  lifetimeEarnings: zod.number(),
+  earnings7d: zod.number(),
+  creditBalance: zod.number(),
+});
+
+/**
+ * @summary Recent activity feed for a host (sessions started/ended, payouts)
+ */
+export const GetHostActivityParams = zod.object({
+  hostToken: zod.coerce.string(),
+});
+
+export const GetHostActivityResponseItem = zod.object({
+  id: zod.string(),
+  kind: zod
+    .string()
+    .describe(
+      "session_started | session_ended | withdrawal_requested | withdrawal_completed | deposit_received",
+    ),
+  title: zod.string(),
+  subtitle: zod.string().nullish(),
+  amount: zod.number().nullish(),
+  currency: zod.string().nullish(),
+  timestamp: zod.coerce.date(),
+});
+export const GetHostActivityResponse = zod.array(GetHostActivityResponseItem);
+
+/**
  * @summary Create a new session
  */
 export const CreateSessionBody = zod.object({
@@ -71,7 +109,6 @@ export const CreateSessionBody = zod.object({
 });
 
 /**
- * Requires the owning host token. Use /sessions/by-player-token/{playerToken} for players.
  * @summary Get a session by id (host-authenticated)
  */
 export const GetSessionParams = zod.object({
@@ -116,7 +153,6 @@ export const GetSessionByPlayerTokenResponse = zod.object({
 });
 
 /**
- * Requires the owning host token in the body.
  * @summary End an active session (host-authenticated)
  */
 export const EndSessionParams = zod.object({
@@ -138,4 +174,52 @@ export const EndSessionResponse = zod.object({
   createdAt: zod.coerce.date(),
   startedAt: zod.coerce.date().nullish(),
   endedAt: zod.coerce.date().nullish(),
+});
+
+/**
+ * @summary Wallet overview — balance, deposit addresses, withdrawal history
+ */
+export const GetWalletParams = zod.object({
+  hostToken: zod.coerce.string(),
+});
+
+export const GetWalletResponse = zod.object({
+  creditBalance: zod.number(),
+  pendingWithdrawals: zod.number(),
+  depositAddresses: zod.array(
+    zod.object({
+      currency: zod.string().describe("USDT_TRC20 | NANO | SOL"),
+      label: zod.string(),
+      address: zod.string(),
+      network: zod.string(),
+      minDeposit: zod.number(),
+    }),
+  ),
+  recentWithdrawals: zod.array(
+    zod.object({
+      id: zod.string(),
+      hostId: zod.string(),
+      currency: zod.string(),
+      address: zod.string(),
+      amount: zod.number(),
+      status: zod
+        .string()
+        .describe("pending | processing | completed | failed"),
+      requestedAt: zod.coerce.date(),
+      completedAt: zod.coerce.date().nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary Submit a withdrawal request (queued for processing by wallet worker)
+ */
+export const RequestWithdrawalParams = zod.object({
+  hostToken: zod.coerce.string(),
+});
+
+export const RequestWithdrawalBody = zod.object({
+  currency: zod.string(),
+  address: zod.string(),
+  amount: zod.number(),
 });

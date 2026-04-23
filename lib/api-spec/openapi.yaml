@@ -14,13 +14,14 @@ tags:
     description: Host registration and management
   - name: sessions
     description: Session lifecycle and discovery
+  - name: wallet
+    description: Crypto wallet, balances, deposits, withdrawals
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -34,7 +35,6 @@ paths:
       operationId: registerHost
       tags: [hosts]
       summary: Register a new host
-      description: Returns a host token used by the agent to sign in to the signaling server.
       requestBody:
         required: true
         content:
@@ -101,12 +101,63 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /hosts/{hostToken}/stats:
+    get:
+      operationId: getHostStats
+      tags: [hosts]
+      summary: Aggregate stats for a host (sessions, minutes streamed, earnings)
+      parameters:
+        - in: path
+          name: hostToken
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Host stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HostStats"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /hosts/{hostToken}/activity:
+    get:
+      operationId: getHostActivity
+      tags: [hosts]
+      summary: Recent activity feed for a host (sessions started/ended, payouts)
+      parameters:
+        - in: path
+          name: hostToken
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Activity items, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /sessions:
     post:
       operationId: createSession
       tags: [sessions]
       summary: Create a new session
-      description: Host creates a session and receives a player token (used to build the share link).
       requestBody:
         required: true
         content:
@@ -132,7 +183,6 @@ paths:
       operationId: getSession
       tags: [sessions]
       summary: Get a session by id (host-authenticated)
-      description: Requires the owning host token. Use /sessions/by-player-token/{playerToken} for players.
       parameters:
         - in: path
           name: id
@@ -194,7 +244,6 @@ paths:
       operationId: endSession
       tags: [sessions]
       summary: End an active session (host-authenticated)
-      description: Requires the owning host token in the body.
       parameters:
         - in: path
           name: id
@@ -227,6 +276,68 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /wallet/{hostToken}:
+    get:
+      operationId: getWallet
+      tags: [wallet]
+      summary: Wallet overview — balance, deposit addresses, withdrawal history
+      parameters:
+        - in: path
+          name: hostToken
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Wallet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /wallet/{hostToken}/withdraw:
+    post:
+      operationId: requestWithdrawal
+      tags: [wallet]
+      summary: Submit a withdrawal request (queued for processing by wallet worker)
+      parameters:
+        - in: path
+          name: hostToken
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestWithdrawalBody"
+      responses:
+        "201":
+          description: Withdrawal queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Withdrawal"
+        "400":
+          description: Invalid request (e.g. insufficient balance)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -254,6 +365,9 @@ components:
           type: string
         displayName:
           type: string
+        creditBalance:
+          type: number
+          description: Available credit balance in USD-equivalent
         createdAt:
           type: string
           format: date-time
@@ -264,6 +378,7 @@ components:
         - id
         - hostToken
         - displayName
+        - creditBalance
         - createdAt
         - lastSeenAt
 
@@ -334,3 +449,138 @@ components:
       required:
         - hostToken
         - appName
+
+    HostStats:
+      type: object
+      properties:
+        totalSessions:
+          type: integer
+        activeSessions:
+          type: integer
+        totalMinutesStreamed:
+          type: integer
+        lifetimeEarnings:
+          type: number
+        earnings7d:
+          type: number
+        creditBalance:
+          type: number
+      required:
+        - totalSessions
+        - activeSessions
+        - totalMinutesStreamed
+        - lifetimeEarnings
+        - earnings7d
+        - creditBalance
+
+    ActivityItem:
+      type: object
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+          description: "session_started | session_ended | withdrawal_requested | withdrawal_completed | deposit_received"
+        title:
+          type: string
+        subtitle:
+          type: ["string", "null"]
+        amount:
+          type: ["number", "null"]
+        currency:
+          type: ["string", "null"]
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - id
+        - kind
+        - title
+        - timestamp
+
+    DepositAddress:
+      type: object
+      properties:
+        currency:
+          type: string
+          description: "USDT_TRC20 | NANO | SOL"
+        label:
+          type: string
+        address:
+          type: string
+        network:
+          type: string
+        minDeposit:
+          type: number
+      required:
+        - currency
+        - label
+        - address
+        - network
+        - minDeposit
+
+    Withdrawal:
+      type: object
+      properties:
+        id:
+          type: string
+        hostId:
+          type: string
+        currency:
+          type: string
+        address:
+          type: string
+        amount:
+          type: number
+        status:
+          type: string
+          description: "pending | processing | completed | failed"
+        requestedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+      required:
+        - id
+        - hostId
+        - currency
+        - address
+        - amount
+        - status
+        - requestedAt
+
+    RequestWithdrawalBody:
+      type: object
+      properties:
+        currency:
+          type: string
+        address:
+          type: string
+        amount:
+          type: number
+      required:
+        - currency
+        - address
+        - amount
+
+    Wallet:
+      type: object
+      properties:
+        creditBalance:
+          type: number
+        pendingWithdrawals:
+          type: number
+        depositAddresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/DepositAddress"
+        recentWithdrawals:
+          type: array
+          items:
+            $ref: "#/components/schemas/Withdrawal"
+      required:
+        - creditBalance
+        - pendingWithdrawals
+        - depositAddresses
+        - recentWithdrawals

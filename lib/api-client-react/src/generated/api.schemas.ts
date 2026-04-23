@@ -17,6 +17,8 @@ export interface Host {
   id: string;
   hostToken: string;
   displayName: string;
+  /** Available credit balance in USD-equivalent */
+  creditBalance: number;
   createdAt: string;
   lastSeenAt: string;
 }
@@ -50,6 +52,64 @@ export interface CreateSessionBody {
   appName: string;
   resolution?: string;
   bitrateKbps?: number;
+}
+
+export interface HostStats {
+  totalSessions: number;
+  activeSessions: number;
+  totalMinutesStreamed: number;
+  lifetimeEarnings: number;
+  earnings7d: number;
+  creditBalance: number;
+}
+
+export interface ActivityItem {
+  id: string;
+  /** session_started | session_ended | withdrawal_requested | withdrawal_completed | deposit_received */
+  kind: string;
+  title: string;
+  /** @nullable */
+  subtitle?: string | null;
+  /** @nullable */
+  amount?: number | null;
+  /** @nullable */
+  currency?: string | null;
+  timestamp: string;
+}
+
+export interface DepositAddress {
+  /** USDT_TRC20 | NANO | SOL */
+  currency: string;
+  label: string;
+  address: string;
+  network: string;
+  minDeposit: number;
+}
+
+export interface Withdrawal {
+  id: string;
+  hostId: string;
+  currency: string;
+  address: string;
+  amount: number;
+  /** pending | processing | completed | failed */
+  status: string;
+  requestedAt: string;
+  /** @nullable */
+  completedAt?: string | null;
+}
+
+export interface RequestWithdrawalBody {
+  currency: string;
+  address: string;
+  amount: number;
+}
+
+export interface Wallet {
+  creditBalance: number;
+  pendingWithdrawals: number;
+  depositAddresses: DepositAddress[];
+  recentWithdrawals: Withdrawal[];
 }
 
 export type GetSessionParams = {

@@ -10,6 +10,8 @@ export interface Host {
   id: string;
   hostToken: string;
   displayName: string;
+  /** Available credit balance in USD-equivalent */
+  creditBalance: number;
   createdAt: Date;
   lastSeenAt: Date;
 }

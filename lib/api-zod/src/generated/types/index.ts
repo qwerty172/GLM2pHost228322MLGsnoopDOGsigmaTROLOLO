@@ -6,11 +6,17 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./activityItem";
 export * from "./createSessionBody";
+export * from "./depositAddress";
 export * from "./endSessionBody";
 export * from "./errorResponse";
 export * from "./getSessionParams";
 export * from "./healthStatus";
 export * from "./host";
+export * from "./hostStats";
 export * from "./registerHostBody";
+export * from "./requestWithdrawalBody";
 export * from "./session";
+export * from "./wallet";
+export * from "./withdrawal";

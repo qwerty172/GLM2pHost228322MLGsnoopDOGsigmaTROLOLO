@@ -1,0 +1,26 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "vtnnl9E9APbzvxVnlesK_"
+uri = "file://artifacts/web/public/hero.png"
+type = "image"
+title = "Streamline hero background"
+
+[[generated]]
+id = "1ruQCKb82lQi5kb9ZtRZ5"
+uri = "file://artifacts/web/public/game-1.png"
+type = "image"
+title = "Cyberpunk game cover"
+
+[[generated]]
+id = "lyl2mkI_2Ua-Zx8-4gIdN"
+uri = "file://artifacts/web/public/game-2.png"
+type = "image"
+title = "Fantasy game cover"
+
+[[generated]]
+id = "RBENgnNx_ERz1tRllI-F5"
+uri = "file://artifacts/web/public/game-3.png"
+type = "image"
+title = "Sci-fi shooter game cover"

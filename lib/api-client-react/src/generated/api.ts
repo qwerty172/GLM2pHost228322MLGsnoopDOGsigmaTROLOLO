@@ -17,14 +17,19 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  ActivityItem,
   CreateSessionBody,
   EndSessionBody,
   ErrorResponse,
   GetSessionParams,
   HealthStatus,
   Host,
+  HostStats,
   RegisterHostBody,
+  RequestWithdrawalBody,
   Session,
+  Wallet,
+  Withdrawal,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -37,7 +42,6 @@ type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const getHealthCheckUrl = () => {
@@ -113,7 +117,6 @@ export function useHealthCheck<
 }
 
 /**
- * Returns a host token used by the agent to sign in to the signaling server.
  * @summary Register a new host
  */
 export const getRegisterHostUrl = () => {
@@ -366,7 +369,181 @@ export function useListHostSessions<
 }
 
 /**
- * Host creates a session and receives a player token (used to build the share link).
+ * @summary Aggregate stats for a host (sessions, minutes streamed, earnings)
+ */
+export const getGetHostStatsUrl = (hostToken: string) => {
+  return `/api/hosts/${hostToken}/stats`;
+};
+
+export const getHostStats = async (
+  hostToken: string,
+  options?: RequestInit,
+): Promise<HostStats> => {
+  return customFetch<HostStats>(getGetHostStatsUrl(hostToken), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetHostStatsQueryKey = (hostToken: string) => {
+  return [`/api/hosts/${hostToken}/stats`] as const;
+};
+
+export const getGetHostStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getHostStats>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  hostToken: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHostStats>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetHostStatsQueryKey(hostToken);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getHostStats>>> = ({
+    signal,
+  }) => getHostStats(hostToken, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!hostToken,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getHostStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetHostStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getHostStats>>
+>;
+export type GetHostStatsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Aggregate stats for a host (sessions, minutes streamed, earnings)
+ */
+
+export function useGetHostStats<
+  TData = Awaited<ReturnType<typeof getHostStats>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  hostToken: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHostStats>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetHostStatsQueryOptions(hostToken, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Recent activity feed for a host (sessions started/ended, payouts)
+ */
+export const getGetHostActivityUrl = (hostToken: string) => {
+  return `/api/hosts/${hostToken}/activity`;
+};
+
+export const getHostActivity = async (
+  hostToken: string,
+  options?: RequestInit,
+): Promise<ActivityItem[]> => {
+  return customFetch<ActivityItem[]>(getGetHostActivityUrl(hostToken), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetHostActivityQueryKey = (hostToken: string) => {
+  return [`/api/hosts/${hostToken}/activity`] as const;
+};
+
+export const getGetHostActivityQueryOptions = <
+  TData = Awaited<ReturnType<typeof getHostActivity>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  hostToken: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHostActivity>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetHostActivityQueryKey(hostToken);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getHostActivity>>> = ({
+    signal,
+  }) => getHostActivity(hostToken, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!hostToken,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getHostActivity>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetHostActivityQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getHostActivity>>
+>;
+export type GetHostActivityQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Recent activity feed for a host (sessions started/ended, payouts)
+ */
+
+export function useGetHostActivity<
+  TData = Awaited<ReturnType<typeof getHostActivity>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  hostToken: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHostActivity>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetHostActivityQueryOptions(hostToken, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Create a new session
  */
 export const getCreateSessionUrl = () => {
@@ -453,7 +630,6 @@ export const useCreateSession = <
 };
 
 /**
- * Requires the owning host token. Use /sessions/by-player-token/{playerToken} for players.
  * @summary Get a session by id (host-authenticated)
  */
 export const getGetSessionUrl = (id: string, params: GetSessionParams) => {
@@ -651,7 +827,6 @@ export function useGetSessionByPlayerToken<
 }
 
 /**
- * Requires the owning host token in the body.
  * @summary End an active session (host-authenticated)
  */
 export const getEndSessionUrl = (id: string) => {
@@ -736,4 +911,176 @@ export const useEndSession = <
   TContext
 > => {
   return useMutation(getEndSessionMutationOptions(options));
+};
+
+/**
+ * @summary Wallet overview — balance, deposit addresses, withdrawal history
+ */
+export const getGetWalletUrl = (hostToken: string) => {
+  return `/api/wallet/${hostToken}`;
+};
+
+export const getWallet = async (
+  hostToken: string,
+  options?: RequestInit,
+): Promise<Wallet> => {
+  return customFetch<Wallet>(getGetWalletUrl(hostToken), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetWalletQueryKey = (hostToken: string) => {
+  return [`/api/wallet/${hostToken}`] as const;
+};
+
+export const getGetWalletQueryOptions = <
+  TData = Awaited<ReturnType<typeof getWallet>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  hostToken: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getWallet>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetWalletQueryKey(hostToken);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getWallet>>> = ({
+    signal,
+  }) => getWallet(hostToken, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!hostToken,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof getWallet>>, TError, TData> & {
+    queryKey: QueryKey;
+  };
+};
+
+export type GetWalletQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getWallet>>
+>;
+export type GetWalletQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Wallet overview — balance, deposit addresses, withdrawal history
+ */
+
+export function useGetWallet<
+  TData = Awaited<ReturnType<typeof getWallet>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  hostToken: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getWallet>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetWalletQueryOptions(hostToken, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Submit a withdrawal request (queued for processing by wallet worker)
+ */
+export const getRequestWithdrawalUrl = (hostToken: string) => {
+  return `/api/wallet/${hostToken}/withdraw`;
+};
+
+export const requestWithdrawal = async (
+  hostToken: string,
+  requestWithdrawalBody: RequestWithdrawalBody,
+  options?: RequestInit,
+): Promise<Withdrawal> => {
+  return customFetch<Withdrawal>(getRequestWithdrawalUrl(hostToken), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(requestWithdrawalBody),
+  });
+};
+
+export const getRequestWithdrawalMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestWithdrawal>>,
+    TError,
+    { hostToken: string; data: BodyType<RequestWithdrawalBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof requestWithdrawal>>,
+  TError,
+  { hostToken: string; data: BodyType<RequestWithdrawalBody> },
+  TContext
+> => {
+  const mutationKey = ["requestWithdrawal"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof requestWithdrawal>>,
+    { hostToken: string; data: BodyType<RequestWithdrawalBody> }
+  > = (props) => {
+    const { hostToken, data } = props ?? {};
+
+    return requestWithdrawal(hostToken, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RequestWithdrawalMutationResult = NonNullable<
+  Awaited<ReturnType<typeof requestWithdrawal>>
+>;
+export type RequestWithdrawalMutationBody = BodyType<RequestWithdrawalBody>;
+export type RequestWithdrawalMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Submit a withdrawal request (queued for processing by wallet worker)
+ */
+export const useRequestWithdrawal = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestWithdrawal>>,
+    TError,
+    { hostToken: string; data: BodyType<RequestWithdrawalBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof requestWithdrawal>>,
+  TError,
+  { hostToken: string; data: BodyType<RequestWithdrawalBody> },
+  TContext
+> => {
+  return useMutation(getRequestWithdrawalMutationOptions(options));
 };
