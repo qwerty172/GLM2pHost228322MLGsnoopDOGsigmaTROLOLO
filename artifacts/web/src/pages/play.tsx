@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRoute } from "wouter";
 import { useGetSessionByPlayerToken, getGetSessionByPlayerTokenQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -23,14 +23,9 @@ export default function Play() {
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const dcRef = useRef<RTCDataChannel | null>(null);
+  const startedRef = useRef(false);
 
-  useEffect(() => {
-    return () => {
-      cleanupConnection();
-    };
-  }, []);
-
-  const cleanupConnection = () => {
+  const cleanupConnection = useCallback(() => {
     if (dcRef.current) {
       dcRef.current.close();
       dcRef.current = null;
@@ -43,12 +38,14 @@ export default function Play() {
       pcRef.current.close();
       pcRef.current = null;
     }
+    startedRef.current = false;
     setIsPlaying(false);
     setConnectionState("closed");
-  };
+  }, []);
 
-  const startConnection = async () => {
-    if (!playerToken) return;
+  const startConnection = useCallback(async () => {
+    if (!playerToken || startedRef.current) return;
+    startedRef.current = true;
 
     setIsPlaying(true);
     setConnectionState("connecting");
@@ -113,7 +110,17 @@ export default function Play() {
       toast.error("Signaling server connection error");
       cleanupConnection();
     };
-  };
+  }, [playerToken, cleanupConnection]);
+
+  useEffect(() => {
+    if (session && session.status !== "ended" && !startedRef.current) {
+      void startConnection();
+    }
+    return () => {
+      cleanupConnection();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.id]);
 
   const handleEnableAudio = () => {
     if (videoRef.current) {
@@ -128,7 +135,12 @@ export default function Play() {
   useEffect(() => {
     if (!isPlaying) return;
 
-    const sendInput = (data: any) => {
+    type KeyInput = { type: "input"; kind: "key"; action: "down" | "up"; key: string };
+    type MouseButtonInput = { type: "input"; kind: "mouse"; action: "down" | "up"; button: number };
+    type MouseMoveInput = { type: "input"; kind: "mouse"; action: "move"; movementX: number; movementY: number };
+    type InputEvent = KeyInput | MouseButtonInput | MouseMoveInput;
+
+    const sendInput = (data: InputEvent) => {
       if (dcRef.current && dcRef.current.readyState === "open") {
         dcRef.current.send(JSON.stringify(data));
       }
@@ -152,12 +164,12 @@ export default function Play() {
 
     const handleMouseMove = (e: MouseEvent) => {
       if (document.pointerLockElement === videoRef.current) {
-        sendInput({ 
-          type: "input", 
-          kind: "mouse", 
-          action: "move", 
-          movementX: e.movementX, 
-          movementY: e.movementY 
+        sendInput({
+          type: "input",
+          kind: "mouse",
+          action: "move",
+          movementX: e.movementX,
+          movementY: e.movementY,
         });
       }
     };

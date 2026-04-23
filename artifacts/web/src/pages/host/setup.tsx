@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useCreateSession } from "@workspace/api-client-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -8,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Slider } from "@/components/ui/slider";
-import { Gamepad2, Monitor, Zap, Loader2 } from "lucide-react";
+import { Gamepad2, Monitor, Zap, Loader2, Copy, CheckCircle2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
+import { Link } from "wouter";
 
 const PRESET_GAMES = [
   "Cyberpunk 2077",
@@ -21,11 +21,14 @@ const PRESET_GAMES = [
 
 export default function SetupSession() {
   const { hostToken } = useAuth();
-  const [, setLocation] = useLocation();
   const [appName, setAppName] = useState("");
   const [resolution, setResolution] = useState("1080p");
   const [bitrateKbps, setBitrateKbps] = useState<number[]>([8000]);
-  
+  const [createdSession, setCreatedSession] = useState<{
+    appName: string;
+    playerToken: string;
+  } | null>(null);
+
   const createSession = useCreateSession();
 
   const handleCreate = (e: React.FormEvent) => {
@@ -33,28 +36,89 @@ export default function SetupSession() {
     if (!hostToken || !appName.trim()) return;
 
     createSession.mutate(
-      { 
-        data: { 
-          hostToken, 
-          appName, 
-          resolution, 
-          bitrateKbps: bitrateKbps[0] 
-        } 
+      {
+        data: {
+          hostToken,
+          appName,
+          resolution,
+          bitrateKbps: bitrateKbps[0],
+        },
       },
       {
         onSuccess: (session) => {
-          toast.success("Session created successfully", {
-            description: `Share link ready for ${session.appName}`,
-            duration: 5000,
+          setCreatedSession({
+            appName: session.appName,
+            playerToken: session.playerToken,
           });
-          setLocation("/host");
         },
         onError: () => {
           toast.error("Failed to create session");
-        }
-      }
+        },
+      },
     );
   };
+
+  if (createdSession) {
+    const shareLink = `${window.location.origin}${import.meta.env.BASE_URL}play/${createdSession.playerToken}`;
+    const handleCopy = async () => {
+      await navigator.clipboard.writeText(shareLink);
+      toast.success("Share link copied");
+    };
+    return (
+      <div className="max-w-2xl mx-auto space-y-6">
+        <Card className="bg-card/50 backdrop-blur border-primary/30">
+          <CardHeader className="text-center pb-4">
+            <CheckCircle2 className="h-12 w-12 text-primary mx-auto mb-3" />
+            <CardTitle className="text-2xl">Session ready</CardTitle>
+            <CardDescription>
+              Your stream for{" "}
+              <span className="text-foreground font-semibold">
+                {createdSession.appName}
+              </span>{" "}
+              is queued. Send the share link to your player to start streaming.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground uppercase tracking-wider">
+                Player share link
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  readOnly
+                  value={shareLink}
+                  className="font-mono text-sm bg-background/60"
+                  onFocus={(e) => e.currentTarget.select()}
+                />
+                <Button type="button" onClick={handleCopy} className="gap-2">
+                  <Copy className="h-4 w-4" />
+                  Copy
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="bg-muted/20 flex justify-between py-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setCreatedSession(null);
+                setAppName("");
+              }}
+            >
+              Start another
+            </Button>
+            <Link href="/host">
+              <Button className="gap-2 font-bold uppercase tracking-wider">
+                Open dashboard
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
