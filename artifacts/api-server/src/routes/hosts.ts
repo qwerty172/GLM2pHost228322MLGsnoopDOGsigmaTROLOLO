@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, sql, and, gte } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import {
   db,
   hostsTable,
@@ -170,10 +170,6 @@ router.get("/hosts/:hostToken/stats", async (req, res): Promise<void> => {
       creditBalance: Number(host.creditBalance),
     }),
   );
-  void sevenDaysAgo;
-  void and;
-  void gte;
-  void sql;
 });
 
 router.get(

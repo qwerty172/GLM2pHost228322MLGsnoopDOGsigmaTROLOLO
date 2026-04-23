@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useRoute } from "wouter";
-import { useGetSessionByPlayerToken } from "@workspace/api-client-react";
+import { useGetSessionByPlayerToken, getGetSessionByPlayerTokenQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ export default function Play() {
   const playerToken = params?.playerToken || "";
 
   const { data: session, isLoading, isError } = useGetSessionByPlayerToken(playerToken, {
-    query: { enabled: !!playerToken }
+    query: { enabled: !!playerToken, queryKey: getGetSessionByPlayerTokenQueryKey(playerToken) }
   });
 
   const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>("new");

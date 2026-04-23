@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, sql, and, inArray, gte } from "drizzle-orm";
+import { eq, desc, sql, and, inArray } from "drizzle-orm";
 import {
   db,
   hostsTable,
@@ -126,7 +126,6 @@ router.get("/wallet/:hostToken", async (req, res): Promise<void> => {
       ),
     );
   const pendingTotal = Number(pendingTotalRows[0]?.total ?? 0);
-  void gte;
 
   res.json(
     GetWalletResponse.parse({

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useGetWallet, useRequestWithdrawal } from "@workspace/api-client-react";
+import { useGetWallet, useRequestWithdrawal, getGetWalletQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,7 @@ import { formatDistanceToNow } from "date-fns";
 
 export default function WalletPage() {
   const { hostToken } = useAuth();
-  const { data: wallet, isLoading, refetch } = useGetWallet(hostToken || "", { query: { enabled: !!hostToken } });
+  const { data: wallet, isLoading, refetch } = useGetWallet(hostToken || "", { query: { enabled: !!hostToken, queryKey: getGetWalletQueryKey(hostToken || "") } });
   
   const [withdrawCurrency, setWithdrawCurrency] = useState("USDT_TRC20");
   const [withdrawAddress, setWithdrawAddress] = useState("");

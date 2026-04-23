@@ -1,5 +1,5 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useGetHostStats, useGetHostActivity, useListHostSessions, useEndSession } from "@workspace/api-client-react";
+import { useGetHostStats, useGetHostActivity, useListHostSessions, useEndSession, getGetHostStatsQueryKey, getGetHostActivityQueryKey, getListHostSessionsQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,9 +12,9 @@ import { formatDistanceToNow } from "date-fns";
 export default function Dashboard() {
   const { hostToken } = useAuth();
   
-  const { data: stats, isLoading: statsLoading } = useGetHostStats(hostToken || "", { query: { enabled: !!hostToken } });
-  const { data: activity, isLoading: activityLoading } = useGetHostActivity(hostToken || "", { query: { enabled: !!hostToken } });
-  const { data: sessions, isLoading: sessionsLoading, refetch: refetchSessions } = useListHostSessions(hostToken || "", { query: { enabled: !!hostToken } });
+  const { data: stats, isLoading: statsLoading } = useGetHostStats(hostToken || "", { query: { enabled: !!hostToken, queryKey: getGetHostStatsQueryKey(hostToken || "") } });
+  const { data: activity, isLoading: activityLoading } = useGetHostActivity(hostToken || "", { query: { enabled: !!hostToken, queryKey: getGetHostActivityQueryKey(hostToken || "") } });
+  const { data: sessions, isLoading: sessionsLoading, refetch: refetchSessions } = useListHostSessions(hostToken || "", { query: { enabled: !!hostToken, queryKey: getListHostSessionsQueryKey(hostToken || "") } });
   
   const endSession = useEndSession();
 
