@@ -39,7 +39,5 @@ channel = "stable-25_05"
 [userenv.shared]
 
 [userenv.development]
-WALLET_ENCRYPTION_KEY = "dece70c1cb235202a4c8d0a8ab9d1436ec54c7aa30463d6c43bae5853bef4b65"
 
 [userenv.production]
-WALLET_ENCRYPTION_KEY = "dece70c1cb235202a4c8d0a8ab9d1436ec54c7aa30463d6c43bae5853bef4b65"
