@@ -1,0 +1,27 @@
+{
+  "name": "@workspace/host-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cloud Gaming Platform — Windows host agent (Electron). Captures the configured game window and streams it to a remote player over WebRTC, injecting their keyboard/mouse input via the Windows SendInput API.",
+  "main": "dist/main/main/index.js",
+  "scripts": {
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:renderer": "tsc -p tsconfig.renderer.json && node scripts/copy-renderer-assets.js",
+    "build": "pnpm run build:main && pnpm run build:renderer",
+    "start": "pnpm run build && electron .",
+    "dev": "pnpm run build && electron . --dev",
+    "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
+    "package:win": "pnpm run build && electron-builder --win --x64 --config electron-builder.yml"
+  },
+  "dependencies": {
+    "koffi": "^2.15.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/ws": "^8.5.13",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.6.3"
+  }
+}

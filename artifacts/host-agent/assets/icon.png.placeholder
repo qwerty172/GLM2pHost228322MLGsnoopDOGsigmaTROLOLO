@@ -1,0 +1,5 @@
+This directory should contain icon.ico (Windows tray + installer) and icon.png
+(non-Windows fallback). Generate from your brand mark; recommended sizes:
+  - icon.ico: multi-resolution (16, 32, 48, 64, 128, 256)
+  - icon.png: 512x512
+For dev, leave them missing — Electron will fall back to a blank icon.

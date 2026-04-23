@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cloud Gaming Host Agent</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header>
+        <h1>Cloud Gaming Host Agent</h1>
+        <div class="status" id="status">
+          <span class="dot" data-status="idle"></span>
+          <span id="status-text">Idle</span>
+        </div>
+      </header>
+
+      <section class="card" id="share-card" hidden>
+        <h2>Share with player</h2>
+        <p class="muted">
+          Send this link to the player. They will be able to claim the session
+          and connect once their wallet has enough balance.
+        </p>
+        <div class="row share">
+          <input id="player-link" type="text" readonly />
+          <button type="button" id="copy-link">Copy</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Settings</h2>
+        <form id="settings-form">
+          <label>
+            <span>Host token</span>
+            <input
+              id="hostToken"
+              type="text"
+              placeholder="Paste from web dashboard"
+              required
+            />
+          </label>
+          <label>
+            <span>Platform URL</span>
+            <input
+              id="apiBaseUrl"
+              type="url"
+              placeholder="https://your-host.example.com"
+              required
+            />
+          </label>
+          <label>
+            <span>Signaling URL (optional override)</span>
+            <input
+              id="signalingUrl"
+              type="text"
+              placeholder="wss://your-host.example.com/api/signal"
+            />
+          </label>
+          <label>
+            <span>Game / app path</span>
+            <input
+              id="appPath"
+              type="text"
+              placeholder="C:\\Path\\To\\Game.exe"
+              required
+            />
+          </label>
+          <label>
+            <span>Launch args (optional)</span>
+            <input id="appArgs" type="text" placeholder="-windowed -nosplash" />
+          </label>
+          <label>
+            <span>App name shown to players</span>
+            <input id="appName" type="text" placeholder="My Game" />
+          </label>
+          <div class="row">
+            <label>
+              <span>Rate per minute (USD)</span>
+              <input
+                id="ratePerMinute"
+                type="number"
+                min="0"
+                step="0.001"
+              />
+            </label>
+            <label>
+              <span>Width</span>
+              <input id="width" type="number" min="640" max="3840" />
+            </label>
+            <label>
+              <span>Height</span>
+              <input id="height" type="number" min="480" max="2160" />
+            </label>
+          </div>
+          <label>
+            <span>Bitrate (kbps)</span>
+            <input id="bitrateKbps" type="number" min="500" max="50000" />
+          </label>
+          <label class="checkbox">
+            <input id="killAppOnDisconnect" type="checkbox" />
+            <span>Close the game when the player disconnects</span>
+          </label>
+          <label class="checkbox">
+            <input id="autoLaunchAtStartup" type="checkbox" />
+            <span>Start automatically when Windows logs in</span>
+          </label>
+          <div class="actions">
+            <button type="submit" id="save">Save</button>
+            <button type="button" id="connect">Go online &amp; create session</button>
+            <button type="button" id="disconnect" disabled>Disconnect</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card log">
+        <h2>Activity</h2>
+        <pre id="log"></pre>
+      </section>
+    </main>
+    <script type="module" src="renderer/index.js"></script>
+  </body>
+</html>

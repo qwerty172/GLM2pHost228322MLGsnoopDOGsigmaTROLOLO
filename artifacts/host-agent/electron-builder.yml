@@ -1,0 +1,40 @@
+appId: com.cloudgaming.hostagent
+productName: Cloud Gaming Host Agent
+copyright: Copyright (c) 2026 Cloud Gaming Platform
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist/**/*
+  - assets/**/*
+  - package.json
+  - "!**/*.map"
+  - "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme,test,__tests__,tests,powered-test,example,examples,*.d.ts}"
+
+asar: true
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+  artifactName: ${productName}-Setup-${version}.${ext}
+  requestedExecutionLevel: asInvoker
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Cloud Gaming Host Agent
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  include: build/installer.nsh
+  runAfterFinish: true
+
+# Auto-launch at Windows startup is registered programmatically via
+# app.setLoginItemSettings() on first run, so no extra registry hook is needed
+# in the installer itself.
