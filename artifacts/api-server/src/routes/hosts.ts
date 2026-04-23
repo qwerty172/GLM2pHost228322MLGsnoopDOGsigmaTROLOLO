@@ -18,6 +18,7 @@ import {
   GetHostActivityResponseItem,
 } from "@workspace/api-zod";
 import { generateToken } from "../lib/tokens";
+import { ensureDepositAddressesForOwner } from "../lib/walletOwner";
 
 const router: IRouter = Router();
 
@@ -49,6 +50,11 @@ router.post("/hosts/register", async (req, res): Promise<void> => {
     return;
   }
 
+  try {
+    await ensureDepositAddressesForOwner("host", host.id);
+  } catch (err) {
+    req.log.error({ err, hostId: host.id }, "Failed to provision host deposit addresses");
+  }
   req.log.info({ hostId: host.id }, "Host registered");
   res.status(201).json(GetHostResponse.parse(serializeHost(host)));
 });
@@ -98,7 +104,14 @@ router.get(
       .where(eq(sessionsTable.hostId, host.id))
       .orderBy(desc(sessionsTable.createdAt));
 
-    res.json(sessions.map((s) => ListHostSessionsResponseItem.parse(s)));
+    res.json(
+      sessions.map((s) =>
+        ListHostSessionsResponseItem.parse({
+          ...s,
+          ratePerMinute: Number(s.ratePerMinute),
+        }),
+      ),
+    );
   },
 );
 

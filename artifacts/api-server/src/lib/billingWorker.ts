@@ -9,7 +9,6 @@ import {
 import { logger } from "./logger";
 
 const BILLING_INTERVAL_MS = 60_000;
-const COMMISSION_RATE = Number(process.env["WALLET_COMMISSION_RATE"] ?? "0.3");
 let interval: NodeJS.Timeout | null = null;
 
 async function billOnce(): Promise<void> {
@@ -33,12 +32,13 @@ async function billOnce(): Promise<void> {
     if (!session.claimedByPlayerId) continue;
     const rate = Number(session.ratePerMinute);
     if (!Number.isFinite(rate) || rate <= 0) continue;
+    // Commission is taken at deposit-time (see depositWorker), not on each
+    // billing tick. The host receives the full per-minute rate in credits.
     const playerDebit = rate;
-    const commission = playerDebit * COMMISSION_RATE;
-    const hostCredit = playerDebit - commission;
+    const hostCredit = playerDebit;
     const playerDebitStr = playerDebit.toFixed(6);
     const hostCreditStr = hostCredit.toFixed(6);
-    const commissionStr = commission.toFixed(6);
+    const commissionStr = "0";
 
     try {
       const ended = await db.transaction(async (tx) => {
@@ -102,7 +102,7 @@ async function billOnce(): Promise<void> {
 export function startBillingWorker(): void {
   if (interval) return;
   logger.info(
-    { intervalMs: BILLING_INTERVAL_MS, commission: COMMISSION_RATE },
+    { intervalMs: BILLING_INTERVAL_MS },
     "Starting billing worker",
   );
   interval = setInterval(() => {
