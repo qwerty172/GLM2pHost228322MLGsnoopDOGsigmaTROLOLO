@@ -13,6 +13,8 @@ const api = {
   },
   launchApp: (): Promise<{ ok: boolean; pid?: number; error?: string }> =>
     ipcRenderer.invoke("app:launch"),
+  getCaptureSources: (): Promise<{ id: string; name: string }[]> =>
+    ipcRenderer.invoke("capture:get-sources"),
   killApp: (): void => {
     ipcRenderer.send("app:kill");
   },

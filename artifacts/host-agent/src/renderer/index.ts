@@ -15,6 +15,7 @@ declare global {
         pid?: number;
         error?: string;
       }>;
+      getCaptureSources: () => Promise<{ id: string; name: string }[]>;
       killApp: () => void;
       log: (level: "info" | "warn" | "error", message: string) => void;
     };
@@ -75,6 +76,9 @@ async function loadFormFromConfig(): Promise<HostConfig> {
   ($("appArgs") as HTMLInputElement).value = cfg.appArgs ?? "";
   ($("appName") as HTMLInputElement).value = cfg.appName ?? "";
   ($("ratePerMinute") as HTMLInputElement).value = String(cfg.ratePerMinute);
+  ($("commissionSplit") as HTMLInputElement).value = String(
+    cfg.commissionSplit,
+  );
   ($("width") as HTMLInputElement).value = String(cfg.resolution.width);
   ($("height") as HTMLInputElement).value = String(cfg.resolution.height);
   ($("bitrateKbps") as HTMLInputElement).value = String(cfg.bitrateKbps);
@@ -95,6 +99,13 @@ function readForm(): HostConfig {
     appName: ($("appName") as HTMLInputElement).value.trim(),
     ratePerMinute:
       Number(($("ratePerMinute") as HTMLInputElement).value) || 0,
+    commissionSplit: Math.max(
+      0,
+      Math.min(
+        1,
+        Number(($("commissionSplit") as HTMLInputElement).value) || 0.7,
+      ),
+    ),
     resolution: {
       width: Number(($("width") as HTMLInputElement).value) || 1920,
       height: Number(($("height") as HTMLInputElement).value) || 1080,
@@ -151,6 +162,9 @@ async function createSession(cfg: HostConfig): Promise<{
     body: JSON.stringify({
       hostToken: cfg.hostToken,
       appName: cfg.appName || "Streamed App",
+      // Effective rate to bill the player. The host's commission split is
+      // applied locally to the configured per-minute price (the platform's
+      // own commission is taken at deposit-time, not per-minute).
       ratePerMinute: cfg.ratePerMinute,
     }),
   });
@@ -328,50 +342,37 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
 }
 
 async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
-  const electronAny = window as unknown as {
-    require?: (m: string) => unknown;
-  };
-  let sourceId: string | null = null;
-  try {
-    if (typeof electronAny.require === "function") {
-      const { desktopCapturer } = electronAny.require("electron") as {
-        desktopCapturer: {
-          getSources: (opts: {
-            types: string[];
-          }) => Promise<{ id: string; name: string }[]>;
-        };
-      };
-      const sources = await desktopCapturer.getSources({
-        types: ["window", "screen"],
-      });
-      const targetName = cfg.appPath
-        .split(/[\\/]/)
-        .pop()
-        ?.replace(/\.exe$/i, "")
-        .toLowerCase();
-      const match = sources.find((s) =>
-        targetName ? s.name.toLowerCase().includes(targetName) : false,
-      );
-      sourceId = (match ?? sources[0])?.id ?? null;
-    }
-  } catch (err) {
-    log(`Capture source enumeration failed: ${String(err)}`);
+  // Source enumeration happens in the main process via Electron's
+  // desktopCapturer (exposed through the preload bridge). We pick the source
+  // whose name matches the configured app's basename, falling back to the
+  // primary screen.
+  const sources = await window.agent.getCaptureSources();
+  if (sources.length === 0) {
+    throw new Error("No screen/window capture sources available");
   }
+  const targetName = cfg.appPath
+    .split(/[\\/]/)
+    .pop()
+    ?.replace(/\.exe$/i, "")
+    .toLowerCase();
+  const match = targetName
+    ? sources.find((s) => s.name.toLowerCase().includes(targetName))
+    : null;
+  const sourceId = (match ?? sources[0])!.id;
+  log(`Capturing source: ${match?.name ?? sources[0]!.name}`);
 
-  const constraints: MediaStreamConstraints = sourceId
-    ? ({
-        audio: false,
-        video: {
-          mandatory: {
-            chromeMediaSource: "desktop",
-            chromeMediaSourceId: sourceId,
-            maxWidth: cfg.resolution.width,
-            maxHeight: cfg.resolution.height,
-            maxFrameRate: 60,
-          },
-        },
-      } as unknown as MediaStreamConstraints)
-    : { audio: false, video: true };
+  const constraints = {
+    audio: false,
+    video: {
+      mandatory: {
+        chromeMediaSource: "desktop",
+        chromeMediaSourceId: sourceId,
+        maxWidth: cfg.resolution.width,
+        maxHeight: cfg.resolution.height,
+        maxFrameRate: 60,
+      },
+    },
+  } as unknown as MediaStreamConstraints;
 
   return navigator.mediaDevices.getUserMedia(constraints);
 }

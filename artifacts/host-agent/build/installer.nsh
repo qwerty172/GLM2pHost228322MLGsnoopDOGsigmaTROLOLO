@@ -1,10 +1,13 @@
 !macro customInstall
-  ; The agent registers itself for auto-launch at first run via
-  ; app.setLoginItemSettings(). No installer-side registry write needed.
-  DetailPrint "Cloud Gaming Host Agent installed. It will start automatically at Windows login after the first launch."
+  ; Register the agent for auto-launch at Windows login. The agent itself
+  ; can later toggle this via app.setLoginItemSettings(), but the installer
+  ; sets it up by default so the host doesn't have to open the app once
+  ; before getting auto-start behavior.
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" \
+    "CloudGamingHostAgent" '"$INSTDIR\${PRODUCT_FILENAME}.exe" --hidden'
+  DetailPrint "Cloud Gaming Host Agent registered for auto-launch at Windows login."
 !macroend
 
 !macro customUnInstall
-  ; Best-effort cleanup of the auto-launch registry entry.
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "CloudGamingHostAgent"
 !macroend

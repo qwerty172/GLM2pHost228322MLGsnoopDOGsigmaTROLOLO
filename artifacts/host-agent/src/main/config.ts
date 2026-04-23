@@ -11,6 +11,7 @@ const DEFAULTS: HostConfig = {
   appArgs: "",
   appName: "",
   ratePerMinute: 0.05,
+  commissionSplit: 0.7,
   resolution: { width: 1920, height: 1080 },
   bitrateKbps: 6000,
   killAppOnDisconnect: false,

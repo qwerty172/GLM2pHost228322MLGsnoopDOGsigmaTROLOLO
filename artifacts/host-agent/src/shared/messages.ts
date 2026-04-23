@@ -12,6 +12,9 @@ export interface HostConfig {
   appArgs?: string;
   appName?: string;
   ratePerMinute: number;
+  // Host's share of the per-minute rate (0..1). The remainder is the
+  // platform's commission split. Defaults to 0.7 (host keeps 70%).
+  commissionSplit: number;
   resolution: { width: number; height: number };
   bitrateKbps: number;
   killAppOnDisconnect: boolean;

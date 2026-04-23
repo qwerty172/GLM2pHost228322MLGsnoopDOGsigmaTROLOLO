@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, desktopCapturer, ipcMain } from "electron";
 import path from "node:path";
 import { loadConfig, saveConfig } from "./config";
 import { createTray, setStatus } from "./tray";
@@ -33,8 +33,12 @@ function createWindow(): void {
       sandbox: false,
     },
   });
+  // dist layout:
+  //   dist/main/main/index.js       <- this file (__dirname = dist/main/main)
+  //   dist/main/preload/index.js
+  //   dist/renderer/index.html
   mainWindow.loadFile(
-    path.join(__dirname, "..", "renderer", "index.html"),
+    path.join(__dirname, "..", "..", "renderer", "index.html"),
   );
   mainWindow.on("close", (e) => {
     // Hide to tray instead of quitting on window close.
@@ -85,6 +89,20 @@ void app.whenReady().then(async () => {
   ipcMain.on("input:inject", (_e, event: InputEvent) => {
     injectInput(event);
   });
+
+  ipcMain.handle(
+    "capture:get-sources",
+    async (): Promise<{ id: string; name: string }[]> => {
+      // Surface Electron's desktopCapturer to the sandboxed renderer through
+      // a preload bridge. The renderer cannot access it directly because
+      // contextIsolation is enabled and nodeIntegration is disabled.
+      const sources = await desktopCapturer.getSources({
+        types: ["window", "screen"],
+        thumbnailSize: { width: 0, height: 0 },
+      });
+      return sources.map((s) => ({ id: s.id, name: s.name }));
+    },
+  );
 
   ipcMain.handle("app:launch", async () => {
     const cfg = await loadConfig();
