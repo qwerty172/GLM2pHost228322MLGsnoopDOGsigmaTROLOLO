@@ -122,9 +122,12 @@ async function authenticate(
 }
 
 async function markSessionActive(sessionId: string): Promise<void> {
+  // Initialize lastBilledAt to "now" so the first billing tick fires only
+  // after a full minute of play, not on the next global tick.
+  const now = new Date();
   await db
     .update(sessionsTable)
-    .set({ status: "active", startedAt: new Date() })
+    .set({ status: "active", startedAt: now, lastBilledAt: now })
     .where(eq(sessionsTable.id, sessionId));
 }
 

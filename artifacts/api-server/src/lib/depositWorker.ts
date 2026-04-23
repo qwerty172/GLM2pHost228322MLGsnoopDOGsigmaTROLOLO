@@ -126,40 +126,45 @@ async function creditDeposit(
   const netStr = net.toFixed(6);
 
   try {
-    const inserted = await db
-      .insert(depositsTable)
-      .values({
-        ownerType,
-        ownerId,
-        currency,
-        network,
-        address,
-        txHash: detected.txHash,
-        grossAmount: grossStr,
-        commissionAmount: commissionStr,
-        netAmount: netStr,
-        status: "credited",
-        creditedAt: new Date(),
-      })
-      .onConflictDoNothing({
-        target: [depositsTable.network, depositsTable.txHash],
-      })
-      .returning({ id: depositsTable.id });
+    const credited = await db.transaction(async (tx) => {
+      const inserted = await tx
+        .insert(depositsTable)
+        .values({
+          ownerType,
+          ownerId,
+          currency,
+          network,
+          address,
+          txHash: detected.txHash,
+          grossAmount: grossStr,
+          commissionAmount: commissionStr,
+          netAmount: netStr,
+          status: "credited",
+          creditedAt: new Date(),
+        })
+        .onConflictDoNothing({
+          target: [depositsTable.network, depositsTable.txHash],
+        })
+        .returning({ id: depositsTable.id });
 
-    if (inserted.length === 0) return; // duplicate
+      if (inserted.length === 0) return false;
 
-    const balanceTable = ownerType === "host" ? hostsTable : playersTable;
-    await db
-      .update(balanceTable)
-      .set({
-        creditBalance: sql`${balanceTable.creditBalance} + ${netStr}::numeric`,
-      })
-      .where(eq(balanceTable.id, ownerId));
+      const balanceTable = ownerType === "host" ? hostsTable : playersTable;
+      await tx
+        .update(balanceTable)
+        .set({
+          creditBalance: sql`${balanceTable.creditBalance} + ${netStr}::numeric`,
+        })
+        .where(eq(balanceTable.id, ownerId));
+      return true;
+    });
 
-    logger.info(
-      { ownerType, ownerId, currency, txHash: detected.txHash, net },
-      "Deposit credited",
-    );
+    if (credited) {
+      logger.info(
+        { ownerType, ownerId, currency, txHash: detected.txHash, net },
+        "Deposit credited",
+      );
+    }
   } catch (err) {
     logger.error({ err, txHash: detected.txHash }, "Failed to credit deposit");
   }
