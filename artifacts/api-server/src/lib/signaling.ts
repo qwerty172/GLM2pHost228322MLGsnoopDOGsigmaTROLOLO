@@ -77,6 +77,9 @@ async function authenticate(
     if (!session || session.hostId !== host.id) {
       return { ok: false, reason: "session not found for this host" };
     }
+    if (session.status === "ended") {
+      return { ok: false, reason: "session has ended" };
+    }
     return { ok: true, result: { sessionId, role } };
   }
 
@@ -91,6 +94,9 @@ async function authenticate(
     .where(eq(sessionsTable.playerToken, playerToken));
   if (!session) {
     return { ok: false, reason: "invalid player token" };
+  }
+  if (session.status === "ended") {
+    return { ok: false, reason: "session has ended" };
   }
   return { ok: true, result: { sessionId: session.id, role } };
 }
