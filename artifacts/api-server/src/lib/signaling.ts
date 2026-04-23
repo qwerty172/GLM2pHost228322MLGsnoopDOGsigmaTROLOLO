@@ -1,6 +1,6 @@
 import type { Server as HttpServer, IncomingMessage } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { db, hostsTable, sessionsTable, playersTable } from "@workspace/db";
 import { logger } from "./logger";
 
@@ -122,12 +122,18 @@ async function authenticate(
 }
 
 async function markSessionActive(sessionId: string): Promise<void> {
-  // Initialize lastBilledAt to "now" so the first billing tick fires only
-  // after a full minute of play, not on the next global tick.
+  // Idempotent: only initialize startedAt/lastBilledAt on first activation.
+  // Subsequent reconnects must not reset billing cadence (would underbill).
   const now = new Date();
   await db
     .update(sessionsTable)
     .set({ status: "active", startedAt: now, lastBilledAt: now })
+    .where(
+      and(eq(sessionsTable.id, sessionId), isNull(sessionsTable.startedAt)),
+    );
+  await db
+    .update(sessionsTable)
+    .set({ status: "active" })
     .where(eq(sessionsTable.id, sessionId));
 }
 
