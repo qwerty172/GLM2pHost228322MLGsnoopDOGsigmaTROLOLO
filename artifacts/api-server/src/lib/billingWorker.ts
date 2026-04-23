@@ -80,6 +80,22 @@ async function billOnce(): Promise<void> {
           commissionAmount: commissionStr,
         });
 
+        // Check post-debit balance: if player can't afford another minute,
+        // end the session in this same transaction so we never grant a free
+        // unpaid minute on the next tick.
+        const [postPlayer] = await tx
+          .select({ bal: playersTable.creditBalance })
+          .from(playersTable)
+          .where(eq(playersTable.id, session.claimedByPlayerId!));
+        const postBal = Number(postPlayer?.bal ?? 0);
+        if (!Number.isFinite(postBal) || postBal < rate) {
+          await tx
+            .update(sessionsTable)
+            .set({ status: "ended", endedAt: now, lastBilledAt: now })
+            .where(eq(sessionsTable.id, session.id));
+          return true;
+        }
+
         await tx
           .update(sessionsTable)
           .set({ lastBilledAt: now })

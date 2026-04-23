@@ -70,7 +70,8 @@ export default function Play() {
     setConnectionState("connecting");
 
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&playerToken=${playerToken}`;
+    if (!playerWalletToken) return;
+    const wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&playerToken=${playerToken}&playerWalletToken=${playerWalletToken}`;
     
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -129,7 +130,7 @@ export default function Play() {
       toast.error("Signaling server connection error");
       cleanupConnection();
     };
-  }, [playerToken, cleanupConnection]);
+  }, [playerToken, playerWalletToken, cleanupConnection]);
 
   useEffect(() => {
     if (

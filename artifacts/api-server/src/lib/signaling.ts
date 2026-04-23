@@ -1,7 +1,7 @@
 import type { Server as HttpServer, IncomingMessage } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import { eq } from "drizzle-orm";
-import { db, hostsTable, sessionsTable } from "@workspace/db";
+import { db, hostsTable, sessionsTable, playersTable } from "@workspace/db";
 import { logger } from "./logger";
 
 type Role = "host" | "player";
@@ -88,6 +88,10 @@ async function authenticate(
   if (!playerToken) {
     return { ok: false, reason: "playerToken required" };
   }
+  const playerWalletToken = url.searchParams.get("playerWalletToken");
+  if (!playerWalletToken) {
+    return { ok: false, reason: "playerWalletToken required" };
+  }
   const [session] = await db
     .select()
     .from(sessionsTable)
@@ -97,6 +101,22 @@ async function authenticate(
   }
   if (session.status === "ended") {
     return { ok: false, reason: "session has ended" };
+  }
+  if (!session.claimedByPlayerId) {
+    return { ok: false, reason: "session not claimed — wallet required" };
+  }
+  const [wallet] = await db
+    .select()
+    .from(playersTable)
+    .where(eq(playersTable.playerToken, playerWalletToken));
+  if (!wallet) {
+    return { ok: false, reason: "invalid wallet token" };
+  }
+  if (wallet.id !== session.claimedByPlayerId) {
+    return { ok: false, reason: "wallet does not match session claimant" };
+  }
+  if (Number(wallet.creditBalance) < Number(session.ratePerMinute)) {
+    return { ok: false, reason: "insufficient balance to start" };
   }
   return { ok: true, result: { sessionId: session.id, role } };
 }
