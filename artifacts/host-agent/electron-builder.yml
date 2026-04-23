@@ -19,7 +19,10 @@ win:
   target:
     - target: nsis
       arch: [x64]
-  icon: build/icon.ico
+  # Icon paths are intentionally not pinned here so the project can build
+  # without shipping branded assets in the repo. To brand the installer,
+  # drop a 256x256 .ico at build/icon.ico and uncomment the lines below.
+  # icon: build/icon.ico
   artifactName: ${productName}-Setup-${version}.${ext}
   requestedExecutionLevel: asInvoker
 
@@ -30,8 +33,8 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: Cloud Gaming Host Agent
-  installerIcon: build/icon.ico
-  uninstallerIcon: build/icon.ico
+  # installerIcon: build/icon.ico
+  # uninstallerIcon: build/icon.ico
   include: build/installer.nsh
   runAfterFinish: true
 

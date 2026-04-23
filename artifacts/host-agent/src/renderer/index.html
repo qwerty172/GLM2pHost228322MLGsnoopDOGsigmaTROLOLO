@@ -73,6 +73,15 @@
             <span>App name shown to players</span>
             <input id="appName" type="text" placeholder="My Game" />
           </label>
+          <label>
+            <span>Capture target</span>
+            <div class="row share">
+              <select id="captureSourceName">
+                <option value="">(auto — match launched app, else screen)</option>
+              </select>
+              <button type="button" id="refresh-sources">Refresh</button>
+            </div>
+          </label>
           <div class="row">
             <label>
               <span>Rate per minute (USD)</span>

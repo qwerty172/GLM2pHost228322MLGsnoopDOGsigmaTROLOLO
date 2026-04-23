@@ -75,6 +75,7 @@ async function loadFormFromConfig(): Promise<HostConfig> {
   ($("appPath") as HTMLInputElement).value = cfg.appPath;
   ($("appArgs") as HTMLInputElement).value = cfg.appArgs ?? "";
   ($("appName") as HTMLInputElement).value = cfg.appName ?? "";
+  await refreshCaptureSources(cfg.captureSourceName ?? "");
   ($("ratePerMinute") as HTMLInputElement).value = String(cfg.ratePerMinute);
   ($("commissionSplit") as HTMLInputElement).value = String(
     cfg.commissionSplit,
@@ -97,6 +98,7 @@ function readForm(): HostConfig {
     appPath: ($("appPath") as HTMLInputElement).value.trim(),
     appArgs: ($("appArgs") as HTMLInputElement).value.trim(),
     appName: ($("appName") as HTMLInputElement).value.trim(),
+    captureSourceName: ($("captureSourceName") as HTMLSelectElement).value,
     ratePerMinute:
       Number(($("ratePerMinute") as HTMLInputElement).value) || 0,
     commissionSplit: Math.max(
@@ -137,6 +139,37 @@ copyLinkBtn.addEventListener("click", () => {
   playerLinkInput.select();
   document.execCommand("copy");
 });
+
+const refreshSourcesBtn = $("refresh-sources") as HTMLButtonElement;
+refreshSourcesBtn.addEventListener("click", () => {
+  void refreshCaptureSources(
+    ($("captureSourceName") as HTMLSelectElement).value,
+  );
+});
+
+async function refreshCaptureSources(selected: string): Promise<void> {
+  const sel = $("captureSourceName") as HTMLSelectElement;
+  let sources: { id: string; name: string }[] = [];
+  try {
+    sources = await window.agent.getCaptureSources();
+  } catch (err) {
+    log(`Could not enumerate capture sources: ${String(err)}`);
+  }
+  // Reset options
+  sel.innerHTML = "";
+  const auto = document.createElement("option");
+  auto.value = "";
+  auto.textContent =
+    "(auto — match launched app, else primary screen)";
+  sel.appendChild(auto);
+  for (const s of sources) {
+    const opt = document.createElement("option");
+    opt.value = s.name;
+    opt.textContent = s.name;
+    sel.appendChild(opt);
+  }
+  sel.value = selected;
+}
 
 connectBtn.addEventListener("click", async () => {
   const cfg = await window.agent.setConfig(readForm());
@@ -350,16 +383,35 @@ async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
   if (sources.length === 0) {
     throw new Error("No screen/window capture sources available");
   }
-  const targetName = cfg.appPath
-    .split(/[\\/]/)
-    .pop()
-    ?.replace(/\.exe$/i, "")
-    .toLowerCase();
-  const match = targetName
-    ? sources.find((s) => s.name.toLowerCase().includes(targetName))
-    : null;
-  const sourceId = (match ?? sources[0])!.id;
-  log(`Capturing source: ${match?.name ?? sources[0]!.name}`);
+  // Selection order:
+  //   1. Explicit captureSourceName from config (host picked from dropdown).
+  //   2. First source whose window title contains the launched .exe basename
+  //      (best-effort heuristic — Electron's desktopCapturer does not expose
+  //      PIDs, so true PID-based matching is not available here).
+  //   3. First "screen" source (whole monitor) so we never silently capture
+  //      an unrelated window.
+  let chosen: { id: string; name: string } | undefined;
+  if (cfg.captureSourceName) {
+    chosen = sources.find((s) => s.name === cfg.captureSourceName);
+  }
+  if (!chosen) {
+    const targetName = cfg.appPath
+      .split(/[\\/]/)
+      .pop()
+      ?.replace(/\.exe$/i, "")
+      .toLowerCase();
+    if (targetName) {
+      chosen = sources.find((s) =>
+        s.name.toLowerCase().includes(targetName),
+      );
+    }
+  }
+  if (!chosen) {
+    chosen =
+      sources.find((s) => s.id.startsWith("screen:")) ?? sources[0];
+  }
+  const sourceId = chosen!.id;
+  log(`Capturing source: ${chosen!.name}`);
 
   const constraints = {
     audio: false,

@@ -11,6 +11,10 @@ export interface HostConfig {
   appPath: string;
   appArgs?: string;
   appName?: string;
+  // Optional explicit capture source name (window title or screen label) as
+  // returned by Electron's desktopCapturer. When unset, we match by the
+  // launched .exe basename and fall back to the primary screen.
+  captureSourceName?: string;
   ratePerMinute: number;
   // Host's share of the per-minute rate (0..1). The remainder is the
   // platform's commission split. Defaults to 0.7 (host keeps 70%).

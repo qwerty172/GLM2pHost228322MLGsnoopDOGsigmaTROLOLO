@@ -10,6 +10,7 @@ const DEFAULTS: HostConfig = {
   appPath: "",
   appArgs: "",
   appName: "",
+  captureSourceName: "",
   ratePerMinute: 0.05,
   commissionSplit: 0.7,
   resolution: { width: 1920, height: 1080 },

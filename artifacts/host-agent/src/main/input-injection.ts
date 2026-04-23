@@ -80,10 +80,9 @@ export function initInputInjector(): void {
     const KEYEVENTF_SCANCODE = 0x0008;
     const KEYEVENTF_EXTENDEDKEY = 0x0001;
 
-    const SM_CXSCREEN = 0;
-    const SM_CYSCREEN = 1;
-    const screenW = GetSystemMetrics(SM_CXSCREEN) || 1920;
-    const screenH = GetSystemMetrics(SM_CYSCREEN) || 1080;
+    // Reserved for diagnostics; absolute mouse positioning uses the
+    // [0..65535] virtual desktop coordinate space directly.
+    void GetSystemMetrics;
 
     function sendMouse(
       flags: number,
@@ -127,10 +126,15 @@ export function initInputInjector(): void {
     injector = (event: InputEvent): void => {
       try {
         if (event.kind === "mousemove") {
-          // Map normalized [0..1] coords (sent by renderer) to absolute
-          // 16-bit Windows screen coordinates.
-          const dx = Math.round((event.x / Math.max(1, screenW)) * 65535);
-          const dy = Math.round((event.y / Math.max(1, screenH)) * 65535);
+          // Contract: the player sends normalized [0..1] coordinates relative
+          // to the streamed video area. Windows SendInput with
+          // MOUSEEVENTF_ABSOLUTE expects [0..65535] over the primary screen
+          // (or virtual desktop with MOUSEEVENTF_VIRTUALDESK), so we scale
+          // directly without dividing by screen size.
+          const nx = Math.max(0, Math.min(1, event.x));
+          const ny = Math.max(0, Math.min(1, event.y));
+          const dx = Math.round(nx * 65535);
+          const dy = Math.round(ny * 65535);
           sendMouse(MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE, dx, dy);
         } else if (event.kind === "mousedown" || event.kind === "mouseup") {
           const down = event.kind === "mousedown";
@@ -159,7 +163,7 @@ export function initInputInjector(): void {
         log("error", `Input injection failed: ${String(err)}`);
       }
     };
-    log("info", `Input injector ready (screen=${screenW}x${screenH}).`);
+    log("info", "Input injector ready.");
   } catch (err) {
     log("error", `Failed to initialize input injector: ${String(err)}`);
   }
