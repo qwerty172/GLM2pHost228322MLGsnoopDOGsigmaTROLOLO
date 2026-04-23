@@ -3,13 +3,17 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: P2P Cloud Gaming signaling and session management API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: hosts
+    description: Host registration and management
+  - name: sessions
+    description: Session lifecycle and discovery
 paths:
   /healthz:
     get:
@@ -24,6 +28,205 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /hosts/register:
+    post:
+      operationId: registerHost
+      tags: [hosts]
+      summary: Register a new host
+      description: Returns a host token used by the agent to sign in to the signaling server.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterHostBody"
+      responses:
+        "201":
+          description: Host registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Host"
+
+  /hosts/{hostToken}:
+    get:
+      operationId: getHost
+      tags: [hosts]
+      summary: Look up host by token
+      parameters:
+        - in: path
+          name: hostToken
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Host
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Host"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /hosts/{hostToken}/sessions:
+    get:
+      operationId: listHostSessions
+      tags: [hosts]
+      summary: List sessions for a host
+      parameters:
+        - in: path
+          name: hostToken
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Session"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions:
+    post:
+      operationId: createSession
+      tags: [sessions]
+      summary: Create a new session
+      description: Host creates a session and receives a player token (used to build the share link).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSessionBody"
+      responses:
+        "201":
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions/{id}:
+    get:
+      operationId: getSession
+      tags: [sessions]
+      summary: Get a session by id (host-authenticated)
+      description: Requires the owning host token. Use /sessions/by-player-token/{playerToken} for players.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: hostToken
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions/by-player-token/{playerToken}:
+    get:
+      operationId: getSessionByPlayerToken
+      tags: [sessions]
+      summary: Get a session by its player token (used by player share link)
+      parameters:
+        - in: path
+          name: playerToken
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions/{id}/end:
+    patch:
+      operationId: endSession
+      tags: [sessions]
+      summary: End an active session (host-authenticated)
+      description: Requires the owning host token in the body.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EndSessionBody"
+      responses:
+        "200":
+          description: Session ended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +237,100 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    Host:
+      type: object
+      properties:
+        id:
+          type: string
+        hostToken:
+          type: string
+        displayName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        lastSeenAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - hostToken
+        - displayName
+        - createdAt
+        - lastSeenAt
+
+    RegisterHostBody:
+      type: object
+      properties:
+        displayName:
+          type: string
+      required:
+        - displayName
+
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+        hostId:
+          type: string
+        playerToken:
+          type: string
+        appName:
+          type: string
+        status:
+          type: string
+          description: One of pending, active, ended
+        resolution:
+          type: string
+        bitrateKbps:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: ["string", "null"]
+          format: date-time
+        endedAt:
+          type: ["string", "null"]
+          format: date-time
+      required:
+        - id
+        - hostId
+        - playerToken
+        - appName
+        - status
+        - resolution
+        - bitrateKbps
+        - createdAt
+
+    EndSessionBody:
+      type: object
+      properties:
+        hostToken:
+          type: string
+      required:
+        - hostToken
+
+    CreateSessionBody:
+      type: object
+      properties:
+        hostToken:
+          type: string
+        appName:
+          type: string
+        resolution:
+          type: string
+        bitrateKbps:
+          type: integer
+      required:
+        - hostToken
+        - appName
