@@ -106,8 +106,32 @@ export function initInputInjector(): void {
       SendInput(1, [input], koffi.sizeof(INPUT));
     }
 
+    // Per Win32 docs, KEYEVENTF_EXTENDEDKEY only applies to a specific set of
+    // keys (right-side modifiers, navigation cluster, arrow keys, numpad
+    // divide, numpad enter, etc.). Setting it for all keys can cause the
+    // wrong scancode mapping for some layouts/games.
+    const EXTENDED_VKS = new Set<number>([
+      0x21, // VK_PRIOR (Page Up)
+      0x22, // VK_NEXT (Page Down)
+      0x23, // VK_END
+      0x24, // VK_HOME
+      0x25, // VK_LEFT
+      0x26, // VK_UP
+      0x27, // VK_RIGHT
+      0x28, // VK_DOWN
+      0x2c, // VK_SNAPSHOT (Print Screen)
+      0x2d, // VK_INSERT
+      0x2e, // VK_DELETE
+      0x6f, // VK_DIVIDE (numpad /)
+      0x90, // VK_NUMLOCK
+      0xa3, // VK_RCONTROL
+      0xa5, // VK_RMENU (right Alt)
+    ]);
+
     function sendKey(vk: number, up: boolean): void {
-      const flags = (up ? KEYEVENTF_KEYUP : 0) | KEYEVENTF_EXTENDEDKEY;
+      const flags =
+        (up ? KEYEVENTF_KEYUP : 0) |
+        (EXTENDED_VKS.has(vk) ? KEYEVENTF_EXTENDEDKEY : 0);
       const input = {
         type: INPUT_KEYBOARD,
         u: {

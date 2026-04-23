@@ -407,11 +407,17 @@ async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
     }
   }
   if (!chosen) {
-    chosen =
-      sources.find((s) => s.id.startsWith("screen:")) ?? sources[0];
+    // Only fall back to a full screen capture — never to an arbitrary
+    // window, since that could silently expose unrelated content.
+    chosen = sources.find((s) => s.id.startsWith("screen:"));
   }
-  const sourceId = chosen!.id;
-  log(`Capturing source: ${chosen!.name}`);
+  if (!chosen) {
+    throw new Error(
+      "No matching capture source found. Pick a Capture Target in settings.",
+    );
+  }
+  const sourceId = chosen.id;
+  log(`Capturing source: ${chosen.name}`);
 
   const constraints = {
     audio: false,

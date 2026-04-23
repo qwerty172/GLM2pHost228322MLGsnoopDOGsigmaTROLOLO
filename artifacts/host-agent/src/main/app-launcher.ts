@@ -19,9 +19,7 @@ export function launchApp(
     return { ok: true, pid: current!.pid };
   }
   try {
-    const args = (config.appArgs ?? "").trim().length
-      ? config.appArgs!.split(" ").filter(Boolean)
-      : [];
+    const args = parseArgs(config.appArgs ?? "");
     const cwd = path.dirname(config.appPath);
     const child = spawn(config.appPath, args, {
       cwd,
@@ -43,6 +41,33 @@ export function launchApp(
   } catch (err) {
     return { ok: false, error: String(err) };
   }
+}
+
+// Windows-style command-line tokenizer that respects double-quoted spans
+// and backslash-escaped quotes. Behaves like a simplified CommandLineToArgvW
+// so users can paste args such as: -map "Custom Map.umap" -log
+export function parseArgs(input: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  let inQuote = false;
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i]!;
+    if (ch === "\\" && input[i + 1] === '"') {
+      cur += '"';
+      i++;
+    } else if (ch === '"') {
+      inQuote = !inQuote;
+    } else if (!inQuote && (ch === " " || ch === "\t")) {
+      if (cur.length > 0) {
+        out.push(cur);
+        cur = "";
+      }
+    } else {
+      cur += ch;
+    }
+  }
+  if (cur.length > 0) out.push(cur);
+  return out;
 }
 
 export function killApp(): void {
