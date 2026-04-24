@@ -561,6 +561,18 @@ function teardownPeer(cfg: HostConfig): void {
 
 function teardown(reason: string): void {
   log(reason);
+  // Tell the server to mark the session as ended so the host doesn't leave
+  // a stale "active" row behind (which would block billing reconciliation
+  // and prevent the host from listing as available again).
+  if (currentSessionId && currentConfig?.hostToken && currentConfig.apiBaseUrl) {
+    const sid = currentSessionId;
+    const base = currentConfig.apiBaseUrl.replace(/\/$/, "");
+    void fetch(`${base}/api/sessions/${encodeURIComponent(sid)}/end`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hostToken: currentConfig.hostToken }),
+    }).catch((err) => log(`Failed to end session on server: ${String(err)}`));
+  }
   try {
     ws?.close();
   } catch {
