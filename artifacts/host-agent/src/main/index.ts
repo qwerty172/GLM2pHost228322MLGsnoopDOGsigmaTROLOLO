@@ -1,4 +1,4 @@
-import { app, BrowserWindow, desktopCapturer, ipcMain } from "electron";
+import { app, BrowserWindow, desktopCapturer, dialog, ipcMain } from "electron";
 import path from "node:path";
 import { loadConfig, saveConfig } from "./config";
 import { createTray, setStatus } from "./tray";
@@ -110,6 +110,19 @@ void app.whenReady().then(async () => {
   });
 
   ipcMain.on("app:kill", () => killApp());
+
+  ipcMain.handle("dialog:open-file", async () => {
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      title: "Select executable",
+      filters: [
+        { name: "Executables", extensions: ["exe"] },
+        { name: "All files", extensions: ["*"] },
+      ],
+      properties: ["openFile"],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
+  });
 
   ipcMain.on(
     "log",

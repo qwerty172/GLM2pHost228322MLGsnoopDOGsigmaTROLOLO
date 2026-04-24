@@ -57,12 +57,17 @@
             />
           </label>
           <label>
-            <span>Game / app path</span>
-            <input
-              id="appPath"
-              type="text"
-              placeholder="C:\\Path\\To\\Game.exe"
-            />
+            <span>Executable path on this PC</span>
+            <div class="row share">
+              <input
+                id="appPath"
+                type="text"
+                placeholder="Choose a file…"
+                readonly
+                style="flex:1;cursor:default;"
+              />
+              <button type="button" id="browse-exe">Browse…</button>
+            </div>
           </label>
           <label>
             <span>Browser URL (for browser games — overrides app path)</span>

@@ -17,6 +17,7 @@ declare global {
       }>;
       getCaptureSources: () => Promise<{ id: string; name: string }[]>;
       killApp: () => void;
+      openFileDialog: () => Promise<string | null>;
       log: (level: "info" | "warn" | "error", message: string) => void;
     };
   }
@@ -45,6 +46,24 @@ let dataChannel: RTCDataChannel | null = null;
 let currentSessionId: string | null = null;
 let currentConfig: HostConfig | null = null;
 
+// Full path stored here; #appPath input shows only the basename.
+let resolvedAppPath = "";
+
+function pathBasename(p: string): string {
+  return p.split(/[\\/]/).pop() ?? p;
+}
+
+function setAppPath(fullPath: string): void {
+  resolvedAppPath = fullPath;
+  ($("appPath") as HTMLInputElement).value = fullPath ? pathBasename(fullPath) : "";
+}
+
+const browseExeBtn = $("browse-exe") as HTMLButtonElement;
+browseExeBtn.addEventListener("click", async () => {
+  const picked = await window.agent.openFileDialog();
+  if (picked) setAppPath(picked);
+});
+
 function setStatus(status: AgentStatus, message?: string): void {
   statusDot.dataset["status"] = status;
   statusText.textContent =
@@ -72,7 +91,7 @@ async function loadFormFromConfig(): Promise<HostConfig> {
   ($("hostToken") as HTMLInputElement).value = cfg.hostToken;
   ($("apiBaseUrl") as HTMLInputElement).value = cfg.apiBaseUrl;
   ($("signalingUrl") as HTMLInputElement).value = cfg.signalingUrl;
-  ($("appPath") as HTMLInputElement).value = cfg.appPath;
+  setAppPath(cfg.appPath);
   ($("boundUrl") as HTMLInputElement).value = cfg.boundUrl ?? "";
   ($("appArgs") as HTMLInputElement).value = cfg.appArgs ?? "";
   ($("appName") as HTMLInputElement).value = cfg.appName ?? "";
@@ -96,7 +115,7 @@ function readForm(): HostConfig {
     hostToken: ($("hostToken") as HTMLInputElement).value.trim(),
     apiBaseUrl: ($("apiBaseUrl") as HTMLInputElement).value.trim(),
     signalingUrl: ($("signalingUrl") as HTMLInputElement).value.trim(),
-    appPath: ($("appPath") as HTMLInputElement).value.trim(),
+    appPath: resolvedAppPath,
     boundUrl: ($("boundUrl") as HTMLInputElement).value.trim(),
     appArgs: ($("appArgs") as HTMLInputElement).value.trim(),
     appName: ($("appName") as HTMLInputElement).value.trim(),
@@ -163,7 +182,7 @@ pullBtn.addEventListener("click", async () => {
     };
     let touched = 0;
     if (data.boundAppPath !== undefined) {
-      ($("appPath") as HTMLInputElement).value = data.boundAppPath;
+      setAppPath(data.boundAppPath);
       touched++;
     }
     if (data.boundUrl !== undefined) {

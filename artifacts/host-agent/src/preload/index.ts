@@ -18,6 +18,8 @@ const api = {
   killApp: (): void => {
     ipcRenderer.send("app:kill");
   },
+  openFileDialog: (): Promise<string | null> =>
+    ipcRenderer.invoke("dialog:open-file"),
   log: (level: "info" | "warn" | "error", message: string): void => {
     ipcRenderer.send("log", level, message);
   },
