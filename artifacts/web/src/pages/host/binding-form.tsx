@@ -67,6 +67,7 @@ export default function BindingForm({ hostToken }: Props) {
   const [streamPlatform, setStreamPlatform] = useState("");
   const [streamUrl, setStreamUrl] = useState("");
   const [streamKey, setStreamKey] = useState("");
+  const [clearStreamKey, setClearStreamKey] = useState(false);
 
   // Hydrate from server response, only on initial load.
   useEffect(() => {
@@ -147,10 +148,15 @@ export default function BindingForm({ hostToken }: Props) {
       streamPlatform,
       streamUrl,
     };
-    // Only send streamKey when the user typed something (empty preserves
-    // the existing one — but they can clear it by typing a single space and
-    // we'll trim it; explicit clear is "set platform/url empty" or contact us).
-    if (streamKey.length > 0) body.streamKey = streamKey;
+    // Only send streamKey when the user typed something (an empty field
+    // preserves the existing value). To explicitly remove the previously
+    // saved key, the user toggles "Clear stream key" — we then send an empty
+    // string, which the API treats as "wipe".
+    if (clearStreamKey) {
+      body.streamKey = "";
+    } else if (streamKey.length > 0) {
+      body.streamKey = streamKey;
+    }
 
     update.mutate(
       { hostToken, data: body },
@@ -158,6 +164,7 @@ export default function BindingForm({ hostToken }: Props) {
         onSuccess: () => {
           toast.success("Host offer saved");
           setStreamKey(""); // don't keep the secret in memory
+          setClearStreamKey(false);
           qc.invalidateQueries({ queryKey: getGetHostQueryKey(hostToken) });
         },
         onError: (err) => {
@@ -433,9 +440,27 @@ export default function BindingForm({ hostToken }: Props) {
                     data-testid="input-stream-key"
                     type="password"
                     value={streamKey}
-                    onChange={(e) => setStreamKey(e.target.value)}
+                    onChange={(e) => {
+                      setStreamKey(e.target.value);
+                      if (e.target.value.length > 0) setClearStreamKey(false);
+                    }}
                     placeholder="••••••••"
+                    disabled={clearStreamKey}
                   />
+                  {host?.streamKeySet && (
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        data-testid="checkbox-clear-stream-key"
+                        checked={clearStreamKey}
+                        onChange={(e) => {
+                          setClearStreamKey(e.target.checked);
+                          if (e.target.checked) setStreamKey("");
+                        }}
+                      />
+                      Clear the saved stream key on next save
+                    </label>
+                  )}
                 </div>
               </div>
             </div>
