@@ -201,7 +201,8 @@ export default function Play() {
     type KeyInput = { type: "input"; kind: "key"; action: "down" | "up"; key: string };
     type MouseButtonInput = { type: "input"; kind: "mouse"; action: "down" | "up"; button: number };
     type MouseMoveInput = { type: "input"; kind: "mouse"; action: "move"; movementX: number; movementY: number };
-    type InputEvent = KeyInput | MouseButtonInput | MouseMoveInput;
+    type WheelInput = { type: "input"; kind: "wheel"; deltaY: number };
+    type InputEvent = KeyInput | MouseButtonInput | MouseMoveInput | WheelInput;
 
     const sendInput = (data: InputEvent) => {
       if (dcRef.current && dcRef.current.readyState === "open") {
@@ -242,11 +243,7 @@ export default function Play() {
       // locked); otherwise we'd hijack normal page scrolling.
       if (document.pointerLockElement === videoRef.current) {
         e.preventDefault();
-        sendInput({
-          type: "input",
-          kind: "wheel",
-          deltaY: e.deltaY,
-        } as unknown as InputEvent);
+        sendInput({ type: "input", kind: "wheel", deltaY: e.deltaY });
       }
     };
 
