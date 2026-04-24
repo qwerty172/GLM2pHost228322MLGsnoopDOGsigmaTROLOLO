@@ -150,16 +150,26 @@ export function initInputInjector(): void {
     injector = (event: InputEvent): void => {
       try {
         if (event.kind === "mousemove") {
-          // Contract: the player sends normalized [0..1] coordinates relative
-          // to the streamed video area. Windows SendInput with
-          // MOUSEEVENTF_ABSOLUTE expects [0..65535] over the primary screen
-          // (or virtual desktop with MOUSEEVENTF_VIRTUALDESK), so we scale
-          // directly without dividing by screen size.
-          const nx = Math.max(0, Math.min(1, event.x));
-          const ny = Math.max(0, Math.min(1, event.y));
-          const dx = Math.round(nx * 65535);
-          const dy = Math.round(ny * 65535);
-          sendMouse(MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE, dx, dy);
+          if (event.mode === "relative") {
+            // Player is in pointer-lock and sends signed pixel deltas. Use
+            // SendInput's relative path; we clamp each delta to a sane range
+            // to avoid runaway values from a malicious/buggy client.
+            const dx = Math.max(-4096, Math.min(4096, Math.round(event.x)));
+            const dy = Math.max(-4096, Math.min(4096, Math.round(event.y)));
+            if (dx !== 0 || dy !== 0) {
+              sendMouse(MOUSEEVENTF_MOVE, dx, dy);
+            }
+          } else {
+            // Default contract: normalized [0..1] coordinates relative to the
+            // streamed video area. Windows SendInput with MOUSEEVENTF_ABSOLUTE
+            // expects [0..65535] over the primary screen (or virtual desktop
+            // with MOUSEEVENTF_VIRTUALDESK).
+            const nx = Math.max(0, Math.min(1, event.x));
+            const ny = Math.max(0, Math.min(1, event.y));
+            const dx = Math.round(nx * 65535);
+            const dy = Math.round(ny * 65535);
+            sendMouse(MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE, dx, dy);
+          }
         } else if (event.kind === "mousedown" || event.kind === "mouseup") {
           const down = event.kind === "mousedown";
           const flag =

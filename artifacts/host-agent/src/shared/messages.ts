@@ -26,7 +26,16 @@ export interface HostConfig {
 }
 
 export type InputEvent =
-  | { kind: "mousemove"; x: number; y: number }
+  // mode === "absolute" (default): x/y are normalized to [0..1] over the
+  //   streamed video; the injector scales to SendInput's [0..65535] range.
+  // mode === "relative": x/y are signed pixel deltas (e.g. from pointer-lock
+  //   movementX/Y) and the injector emits a relative SendInput move.
+  | {
+      kind: "mousemove";
+      x: number;
+      y: number;
+      mode?: "absolute" | "relative";
+    }
   | { kind: "mousedown"; button: "left" | "right" | "middle" }
   | { kind: "mouseup"; button: "left" | "right" | "middle" }
   | { kind: "wheel"; deltaY: number }

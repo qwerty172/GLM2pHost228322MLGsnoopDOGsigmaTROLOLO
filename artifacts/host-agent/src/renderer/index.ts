@@ -442,10 +442,10 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
 }
 
 // Translate the web player's input wire format into the agent's native
-// InputEvent. The player tracks mouse position via pointer-lock relative
-// movement, so we accumulate it into absolute coordinates the injector wants.
-let mouseAbsX = 0;
-let mouseAbsY = 0;
+// InputEvent. The player streams pointer-lock relative movement (movementX/Y
+// in CSS pixels per event), so we forward those as relative SendInput moves
+// instead of accumulating into ever-growing absolute coordinates that would
+// clamp at the screen edge.
 function mapPlayerInput(raw: Record<string, unknown>): InputEvent | null {
   if (raw["type"] !== "input") return null;
   const kind = raw["kind"];
@@ -458,9 +458,12 @@ function mapPlayerInput(raw: Record<string, unknown>): InputEvent | null {
   }
   if (kind === "mouse") {
     if (action === "move") {
-      mouseAbsX += Number(raw["movementX"] ?? 0);
-      mouseAbsY += Number(raw["movementY"] ?? 0);
-      return { kind: "mousemove", x: mouseAbsX, y: mouseAbsY };
+      return {
+        kind: "mousemove",
+        x: Number(raw["movementX"] ?? 0),
+        y: Number(raw["movementY"] ?? 0),
+        mode: "relative",
+      };
     }
     if (action === "down" || action === "up") {
       const buttonIdx = Number(raw["button"] ?? 0);
