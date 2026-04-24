@@ -406,6 +406,7 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
           (raw["kind"] === "mousemove" ||
             raw["kind"] === "mousedown" ||
             raw["kind"] === "mouseup" ||
+            raw["kind"] === "wheel" ||
             raw["kind"] === "keydown" ||
             raw["kind"] === "keyup")
             ? (raw as unknown as InputEvent)
@@ -473,6 +474,9 @@ function mapPlayerInput(raw: Record<string, unknown>): InputEvent | null {
         ? { kind: "mousedown", button }
         : { kind: "mouseup", button };
     }
+  }
+  if (kind === "wheel") {
+    return { kind: "wheel", deltaY: Number(raw["deltaY"] ?? 0) };
   }
   return null;
 }

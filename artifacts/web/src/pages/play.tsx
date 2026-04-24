@@ -237,11 +237,25 @@ export default function Play() {
       }
     };
 
+    const handleWheel = (e: WheelEvent) => {
+      // Only forward when the player has actually focused the stream (pointer
+      // locked); otherwise we'd hijack normal page scrolling.
+      if (document.pointerLockElement === videoRef.current) {
+        e.preventDefault();
+        sendInput({
+          type: "input",
+          kind: "wheel",
+          deltaY: e.deltaY,
+        } as unknown as InputEvent);
+      }
+    };
+
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
     window.addEventListener("mousedown", handleMouseDown);
     window.addEventListener("mouseup", handleMouseUp);
     window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("wheel", handleWheel, { passive: false });
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
@@ -249,6 +263,7 @@ export default function Play() {
       window.removeEventListener("mousedown", handleMouseDown);
       window.removeEventListener("mouseup", handleMouseUp);
       window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("wheel", handleWheel);
     };
   }, [isPlaying]);
 
