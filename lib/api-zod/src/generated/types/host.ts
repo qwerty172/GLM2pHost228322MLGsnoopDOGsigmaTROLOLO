@@ -5,6 +5,8 @@
  * P2P Cloud Gaming signaling, session, and wallet API
  * OpenAPI spec version: 0.1.0
  */
+import type { HostScheduleMode } from "./hostScheduleMode";
+import type { ScheduleSlot } from "./scheduleSlot";
 
 export interface Host {
   id: string;
@@ -12,6 +14,27 @@ export interface Host {
   displayName: string;
   /** Available credit balance in USD-equivalent */
   creditBalance: number;
+  /**
+   * Catalog game this host is bound to
+   * @nullable
+   */
+  gameId: string | null;
+  /** Absolute Windows path to the .exe the agent will launch */
+  boundAppPath: string;
+  /** Friendly label shown in the games library */
+  boundAppLabel: string;
+  description: string;
+  /** Charged once when a player joins (may be negative) */
+  launchPriceUsd: number;
+  /** Charged per minute while streaming (may be negative) */
+  minutePriceUsd: number;
+  scheduleMode: HostScheduleMode;
+  scheduleJson: ScheduleSlot[];
+  /** e.g. "twitch", "youtube", "rtmp" */
+  streamPlatform: string;
+  streamUrl: string;
+  /** True if a stream key is stored. The key itself is never returned. */
+  streamKeySet: boolean;
   createdAt: Date;
   lastSeenAt: Date;
 }

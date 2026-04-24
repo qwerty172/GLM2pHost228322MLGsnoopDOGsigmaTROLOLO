@@ -22,6 +22,8 @@ import {
 } from "@workspace/api-zod";
 
 import { generateToken } from "../lib/tokens";
+import { applyLaunchFee } from "../lib/launchFee";
+import { isHostAvailableNow } from "../lib/schedule";
 
 const router: IRouter = Router();
 
@@ -49,10 +51,27 @@ router.post("/sessions", async (req, res): Promise<void> => {
     return;
   }
 
+  // Reject session creation when the host is outside their declared
+  // schedule window — the agent wouldn't accept the connection anyway.
+  if (
+    !isHostAvailableNow(
+      host.scheduleMode,
+      host.scheduleJson ?? [],
+      new Date(),
+    )
+  ) {
+    res.status(409).json({ error: "Host is not currently available" });
+    return;
+  }
+
   const playerToken = generateToken();
-  const ratePerMinute = parsed.data.ratePerMinute ?? 0.04;
-  if (!Number.isFinite(ratePerMinute) || ratePerMinute <= 0 || ratePerMinute > 100) {
-    res.status(400).json({ error: "ratePerMinute must be > 0 and <= 100" });
+  // Host's configured per-minute price wins over any client-supplied value.
+  // Negative rates are allowed (host-pays-player promo) and validated at the
+  // host config endpoint, so we just clamp the per-tick amount used by the
+  // billing worker against the configured cap.
+  const ratePerMinute = Number(host.minutePriceUsd);
+  if (!Number.isFinite(ratePerMinute) || Math.abs(ratePerMinute) > 100) {
+    res.status(400).json({ error: "Host's minute price is invalid" });
     return;
   }
   const [session] = await db
@@ -142,11 +161,28 @@ router.post(
       res.status(400).json({ error: "Session already claimed by another player" });
       return;
     }
+    // Re-claim by the same player must be idempotent: do NOT charge the launch
+    // fee a second time.
+    const isReclaimBySamePlayer = session.claimedByPlayerId === player.id;
 
-    const minBalance = Number(session.ratePerMinute);
+    // Lookup host to compute pre-claim balance requirement (launch fee +
+    // one minute of streaming if the per-minute rate is positive).
+    const [host] = await db
+      .select()
+      .from(hostsTable)
+      .where(eq(hostsTable.id, session.hostId));
+    if (!host) {
+      res.status(404).json({ error: "Host not found" });
+      return;
+    }
+
+    const launchFee = Number(host.launchPriceUsd);
+    const perMinute = Number(session.ratePerMinute);
+    const minBalance =
+      Math.max(0, launchFee) + Math.max(0, perMinute);
     if (Number(player.creditBalance) < minBalance) {
       res.status(400).json({
-        error: `Insufficient balance — need at least ${minBalance} credits to start`,
+        error: `Insufficient balance — need at least ${minBalance.toFixed(4)} credits to start`,
       });
       return;
     }
@@ -170,8 +206,28 @@ router.post(
       return;
     }
 
+    // One-time launch fee transfer (no-op if launchPriceUsd is 0). Skipped on
+    // an idempotent re-claim by the same player.
+    if (!isReclaimBySamePlayer) {
+      const fee = await applyLaunchFee({
+        sessionId: updated.id,
+        hostId: host.id,
+        playerId: player.id,
+        launchPriceUsd: launchFee,
+      });
+      if (!fee.ok) {
+        // Roll back the claim so the player isn't stuck.
+        await db
+          .update(sessionsTable)
+          .set({ claimedByPlayerId: null })
+          .where(eq(sessionsTable.id, updated.id));
+        res.status(400).json({ error: fee.reason ?? "Launch fee failed" });
+        return;
+      }
+    }
+
     req.log.info(
-      { sessionId: updated.id, playerId: player.id },
+      { sessionId: updated.id, playerId: player.id, launchFee },
       "Session claimed",
     );
     res.json(ClaimSessionResponse.parse(serialize(updated)));

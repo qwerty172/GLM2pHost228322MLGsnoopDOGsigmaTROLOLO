@@ -28,6 +28,15 @@ export const GetHostParams = zod.object({
   hostToken: zod.coerce.string(),
 });
 
+export const getHostResponseScheduleJsonItemDayMin = 0;
+export const getHostResponseScheduleJsonItemDayMax = 6;
+
+export const getHostResponseScheduleJsonItemStartMinMin = 0;
+export const getHostResponseScheduleJsonItemStartMinMax = 1440;
+
+export const getHostResponseScheduleJsonItemEndMinMin = 0;
+export const getHostResponseScheduleJsonItemEndMinMax = 1440;
+
 export const GetHostResponse = zod.object({
   id: zod.string(),
   hostToken: zod.string(),
@@ -35,6 +44,173 @@ export const GetHostResponse = zod.object({
   creditBalance: zod
     .number()
     .describe("Available credit balance in USD-equivalent"),
+  gameId: zod
+    .string()
+    .nullable()
+    .describe("Catalog game this host is bound to"),
+  boundAppPath: zod
+    .string()
+    .describe("Absolute Windows path to the .exe the agent will launch"),
+  boundAppLabel: zod
+    .string()
+    .describe("Friendly label shown in the games library"),
+  description: zod.string(),
+  launchPriceUsd: zod
+    .number()
+    .describe("Charged once when a player joins (may be negative)"),
+  minutePriceUsd: zod
+    .number()
+    .describe("Charged per minute while streaming (may be negative)"),
+  scheduleMode: zod.enum(["always", "scheduled"]),
+  scheduleJson: zod.array(
+    zod
+      .object({
+        day: zod
+          .number()
+          .min(getHostResponseScheduleJsonItemDayMin)
+          .max(getHostResponseScheduleJsonItemDayMax)
+          .describe("0 = Sunday … 6 = Saturday"),
+        startMin: zod
+          .number()
+          .min(getHostResponseScheduleJsonItemStartMinMin)
+          .max(getHostResponseScheduleJsonItemStartMinMax),
+        endMin: zod
+          .number()
+          .min(getHostResponseScheduleJsonItemEndMinMin)
+          .max(getHostResponseScheduleJsonItemEndMinMax),
+      })
+      .describe("A single weekly availability window (UTC)."),
+  ),
+  streamPlatform: zod
+    .string()
+    .describe('e.g. \"twitch\", \"youtube\", \"rtmp\"'),
+  streamUrl: zod.string(),
+  streamKeySet: zod
+    .boolean()
+    .describe(
+      "True if a stream key is stored. The key itself is never returned.",
+    ),
+  createdAt: zod.coerce.date(),
+  lastSeenAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update the host's offer config (binding, pricing, schedule, restream)
+ */
+export const UpdateHostConfigParams = zod.object({
+  hostToken: zod.coerce.string(),
+});
+
+export const updateHostConfigBodyScheduleJsonItemDayMin = 0;
+export const updateHostConfigBodyScheduleJsonItemDayMax = 6;
+
+export const updateHostConfigBodyScheduleJsonItemStartMinMin = 0;
+export const updateHostConfigBodyScheduleJsonItemStartMinMax = 1440;
+
+export const updateHostConfigBodyScheduleJsonItemEndMinMin = 0;
+export const updateHostConfigBodyScheduleJsonItemEndMinMax = 1440;
+
+export const UpdateHostConfigBody = zod
+  .object({
+    gameId: zod.string().nullish(),
+    boundAppPath: zod.string().optional(),
+    boundAppLabel: zod.string().optional(),
+    description: zod.string().optional(),
+    launchPriceUsd: zod.number().optional(),
+    minutePriceUsd: zod.number().optional(),
+    scheduleMode: zod.enum(["always", "scheduled"]).optional(),
+    scheduleJson: zod
+      .array(
+        zod
+          .object({
+            day: zod
+              .number()
+              .min(updateHostConfigBodyScheduleJsonItemDayMin)
+              .max(updateHostConfigBodyScheduleJsonItemDayMax)
+              .describe("0 = Sunday … 6 = Saturday"),
+            startMin: zod
+              .number()
+              .min(updateHostConfigBodyScheduleJsonItemStartMinMin)
+              .max(updateHostConfigBodyScheduleJsonItemStartMinMax),
+            endMin: zod
+              .number()
+              .min(updateHostConfigBodyScheduleJsonItemEndMinMin)
+              .max(updateHostConfigBodyScheduleJsonItemEndMinMax),
+          })
+          .describe("A single weekly availability window (UTC)."),
+      )
+      .optional(),
+    streamPlatform: zod.string().optional(),
+    streamUrl: zod.string().optional(),
+    streamKey: zod
+      .string()
+      .optional()
+      .describe("Pass empty string to clear the stored key."),
+  })
+  .describe("Partial update — omit a field to leave it unchanged.");
+
+export const updateHostConfigResponseScheduleJsonItemDayMin = 0;
+export const updateHostConfigResponseScheduleJsonItemDayMax = 6;
+
+export const updateHostConfigResponseScheduleJsonItemStartMinMin = 0;
+export const updateHostConfigResponseScheduleJsonItemStartMinMax = 1440;
+
+export const updateHostConfigResponseScheduleJsonItemEndMinMin = 0;
+export const updateHostConfigResponseScheduleJsonItemEndMinMax = 1440;
+
+export const UpdateHostConfigResponse = zod.object({
+  id: zod.string(),
+  hostToken: zod.string(),
+  displayName: zod.string(),
+  creditBalance: zod
+    .number()
+    .describe("Available credit balance in USD-equivalent"),
+  gameId: zod
+    .string()
+    .nullable()
+    .describe("Catalog game this host is bound to"),
+  boundAppPath: zod
+    .string()
+    .describe("Absolute Windows path to the .exe the agent will launch"),
+  boundAppLabel: zod
+    .string()
+    .describe("Friendly label shown in the games library"),
+  description: zod.string(),
+  launchPriceUsd: zod
+    .number()
+    .describe("Charged once when a player joins (may be negative)"),
+  minutePriceUsd: zod
+    .number()
+    .describe("Charged per minute while streaming (may be negative)"),
+  scheduleMode: zod.enum(["always", "scheduled"]),
+  scheduleJson: zod.array(
+    zod
+      .object({
+        day: zod
+          .number()
+          .min(updateHostConfigResponseScheduleJsonItemDayMin)
+          .max(updateHostConfigResponseScheduleJsonItemDayMax)
+          .describe("0 = Sunday … 6 = Saturday"),
+        startMin: zod
+          .number()
+          .min(updateHostConfigResponseScheduleJsonItemStartMinMin)
+          .max(updateHostConfigResponseScheduleJsonItemStartMinMax),
+        endMin: zod
+          .number()
+          .min(updateHostConfigResponseScheduleJsonItemEndMinMin)
+          .max(updateHostConfigResponseScheduleJsonItemEndMinMax),
+      })
+      .describe("A single weekly availability window (UTC)."),
+  ),
+  streamPlatform: zod
+    .string()
+    .describe('e.g. \"twitch\", \"youtube\", \"rtmp\"'),
+  streamUrl: zod.string(),
+  streamKeySet: zod
+    .boolean()
+    .describe(
+      "True if a stream key is stored. The key itself is never returned.",
+    ),
   createdAt: zod.coerce.date(),
   lastSeenAt: zod.coerce.date(),
 });
@@ -181,6 +357,15 @@ export const GetGameBySlugParams = zod.object({
   slug: zod.coerce.string(),
 });
 
+export const getGameBySlugResponseTwoLiveSessionsItemScheduleJsonItemDayMin = 0;
+export const getGameBySlugResponseTwoLiveSessionsItemScheduleJsonItemDayMax = 6;
+
+export const getGameBySlugResponseTwoLiveSessionsItemScheduleJsonItemStartMinMin = 0;
+export const getGameBySlugResponseTwoLiveSessionsItemScheduleJsonItemStartMinMax = 1440;
+
+export const getGameBySlugResponseTwoLiveSessionsItemScheduleJsonItemEndMinMin = 0;
+export const getGameBySlugResponseTwoLiveSessionsItemScheduleJsonItemEndMinMax = 1440;
+
 export const GetGameBySlugResponse = zod
   .object({
     id: zod.string(),
@@ -214,6 +399,44 @@ export const GetGameBySlugResponse = zod
           bitrateKbps: zod.number(),
           status: zod.string(),
           createdAt: zod.coerce.date(),
+          hostDisplayName: zod.string(),
+          boundAppLabel: zod.string(),
+          description: zod.string(),
+          launchPriceUsd: zod.number(),
+          minutePriceUsd: zod.number(),
+          scheduleMode: zod.enum(["always", "scheduled"]),
+          scheduleJson: zod.array(
+            zod
+              .object({
+                day: zod
+                  .number()
+                  .min(
+                    getGameBySlugResponseTwoLiveSessionsItemScheduleJsonItemDayMin,
+                  )
+                  .max(
+                    getGameBySlugResponseTwoLiveSessionsItemScheduleJsonItemDayMax,
+                  )
+                  .describe("0 = Sunday … 6 = Saturday"),
+                startMin: zod
+                  .number()
+                  .min(
+                    getGameBySlugResponseTwoLiveSessionsItemScheduleJsonItemStartMinMin,
+                  )
+                  .max(
+                    getGameBySlugResponseTwoLiveSessionsItemScheduleJsonItemStartMinMax,
+                  ),
+                endMin: zod
+                  .number()
+                  .min(
+                    getGameBySlugResponseTwoLiveSessionsItemScheduleJsonItemEndMinMin,
+                  )
+                  .max(
+                    getGameBySlugResponseTwoLiveSessionsItemScheduleJsonItemEndMinMax,
+                  ),
+              })
+              .describe("A single weekly availability window (UTC)."),
+          ),
+          streamPlatform: zod.string(),
         }),
       ),
     }),

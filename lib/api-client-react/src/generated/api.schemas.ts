@@ -13,14 +13,92 @@ export interface ErrorResponse {
   error: string;
 }
 
+/**
+ * A single weekly availability window (UTC).
+ */
+export interface ScheduleSlot {
+  /**
+   * 0 = Sunday … 6 = Saturday
+   * @minimum 0
+   * @maximum 6
+   */
+  day: number;
+  /**
+   * @minimum 0
+   * @maximum 1440
+   */
+  startMin: number;
+  /**
+   * @minimum 0
+   * @maximum 1440
+   */
+  endMin: number;
+}
+
+export type HostScheduleMode =
+  (typeof HostScheduleMode)[keyof typeof HostScheduleMode];
+
+export const HostScheduleMode = {
+  always: "always",
+  scheduled: "scheduled",
+} as const;
+
 export interface Host {
   id: string;
   hostToken: string;
   displayName: string;
   /** Available credit balance in USD-equivalent */
   creditBalance: number;
+  /**
+   * Catalog game this host is bound to
+   * @nullable
+   */
+  gameId: string | null;
+  /** Absolute Windows path to the .exe the agent will launch */
+  boundAppPath: string;
+  /** Friendly label shown in the games library */
+  boundAppLabel: string;
+  description: string;
+  /** Charged once when a player joins (may be negative) */
+  launchPriceUsd: number;
+  /** Charged per minute while streaming (may be negative) */
+  minutePriceUsd: number;
+  scheduleMode: HostScheduleMode;
+  scheduleJson: ScheduleSlot[];
+  /** e.g. "twitch", "youtube", "rtmp" */
+  streamPlatform: string;
+  streamUrl: string;
+  /** True if a stream key is stored. The key itself is never returned. */
+  streamKeySet: boolean;
   createdAt: string;
   lastSeenAt: string;
+}
+
+export type UpdateHostConfigBodyScheduleMode =
+  (typeof UpdateHostConfigBodyScheduleMode)[keyof typeof UpdateHostConfigBodyScheduleMode];
+
+export const UpdateHostConfigBodyScheduleMode = {
+  always: "always",
+  scheduled: "scheduled",
+} as const;
+
+/**
+ * Partial update — omit a field to leave it unchanged.
+ */
+export interface UpdateHostConfigBody {
+  /** @nullable */
+  gameId?: string | null;
+  boundAppPath?: string;
+  boundAppLabel?: string;
+  description?: string;
+  launchPriceUsd?: number;
+  minutePriceUsd?: number;
+  scheduleMode?: UpdateHostConfigBodyScheduleMode;
+  scheduleJson?: ScheduleSlot[];
+  streamPlatform?: string;
+  streamUrl?: string;
+  /** Pass empty string to clear the stored key. */
+  streamKey?: string;
 }
 
 export interface Player {
@@ -55,6 +133,14 @@ export interface GameListItem {
   liveSessionCount: number;
 }
 
+export type GameLiveSessionScheduleMode =
+  (typeof GameLiveSessionScheduleMode)[keyof typeof GameLiveSessionScheduleMode];
+
+export const GameLiveSessionScheduleMode = {
+  always: "always",
+  scheduled: "scheduled",
+} as const;
+
 export interface GameLiveSession {
   /** Player share token — visit /play/{playerToken} to join */
   playerToken: string;
@@ -64,6 +150,14 @@ export interface GameLiveSession {
   bitrateKbps: number;
   status: string;
   createdAt: string;
+  hostDisplayName: string;
+  boundAppLabel: string;
+  description: string;
+  launchPriceUsd: number;
+  minutePriceUsd: number;
+  scheduleMode: GameLiveSessionScheduleMode;
+  scheduleJson: ScheduleSlot[];
+  streamPlatform: string;
 }
 
 export type GameDetail = GameListItem & {

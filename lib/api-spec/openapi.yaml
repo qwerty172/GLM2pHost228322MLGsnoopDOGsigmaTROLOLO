@@ -78,6 +78,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /hosts/{hostToken}/config:
+    patch:
+      operationId: updateHostConfig
+      tags: [hosts]
+      summary: Update the host's offer config (binding, pricing, schedule, restream)
+      parameters:
+        - in: path
+          name: hostToken
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateHostConfigBody"
+      responses:
+        "200":
+          description: Updated host
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Host"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /hosts/{hostToken}/sessions:
     get:
       operationId: listHostSessions
@@ -546,6 +583,28 @@ components:
       required:
         - error
 
+    ScheduleSlot:
+      type: object
+      description: A single weekly availability window (UTC).
+      properties:
+        day:
+          type: integer
+          minimum: 0
+          maximum: 6
+          description: 0 = Sunday … 6 = Saturday
+        startMin:
+          type: integer
+          minimum: 0
+          maximum: 1440
+        endMin:
+          type: integer
+          minimum: 0
+          maximum: 1440
+      required:
+        - day
+        - startMin
+        - endMin
+
     Host:
       type: object
       properties:
@@ -558,6 +617,38 @@ components:
         creditBalance:
           type: number
           description: Available credit balance in USD-equivalent
+        gameId:
+          type: ["string", "null"]
+          description: Catalog game this host is bound to
+        boundAppPath:
+          type: string
+          description: Absolute Windows path to the .exe the agent will launch
+        boundAppLabel:
+          type: string
+          description: Friendly label shown in the games library
+        description:
+          type: string
+        launchPriceUsd:
+          type: number
+          description: Charged once when a player joins (may be negative)
+        minutePriceUsd:
+          type: number
+          description: Charged per minute while streaming (may be negative)
+        scheduleMode:
+          type: string
+          enum: [always, scheduled]
+        scheduleJson:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleSlot"
+        streamPlatform:
+          type: string
+          description: e.g. "twitch", "youtube", "rtmp"
+        streamUrl:
+          type: string
+        streamKeySet:
+          type: boolean
+          description: True if a stream key is stored. The key itself is never returned.
         createdAt:
           type: string
           format: date-time
@@ -569,8 +660,50 @@ components:
         - hostToken
         - displayName
         - creditBalance
+        - gameId
+        - boundAppPath
+        - boundAppLabel
+        - description
+        - launchPriceUsd
+        - minutePriceUsd
+        - scheduleMode
+        - scheduleJson
+        - streamPlatform
+        - streamUrl
+        - streamKeySet
         - createdAt
         - lastSeenAt
+
+    UpdateHostConfigBody:
+      type: object
+      description: Partial update — omit a field to leave it unchanged.
+      properties:
+        gameId:
+          type: ["string", "null"]
+        boundAppPath:
+          type: string
+        boundAppLabel:
+          type: string
+        description:
+          type: string
+        launchPriceUsd:
+          type: number
+        minutePriceUsd:
+          type: number
+        scheduleMode:
+          type: string
+          enum: [always, scheduled]
+        scheduleJson:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleSlot"
+        streamPlatform:
+          type: string
+        streamUrl:
+          type: string
+        streamKey:
+          type: string
+          description: Pass empty string to clear the stored key.
 
     Player:
       type: object
@@ -671,6 +804,25 @@ components:
         createdAt:
           type: string
           format: date-time
+        hostDisplayName:
+          type: string
+        boundAppLabel:
+          type: string
+        description:
+          type: string
+        launchPriceUsd:
+          type: number
+        minutePriceUsd:
+          type: number
+        scheduleMode:
+          type: string
+          enum: [always, scheduled]
+        scheduleJson:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleSlot"
+        streamPlatform:
+          type: string
       required:
         - playerToken
         - appName
@@ -679,6 +831,14 @@ components:
         - bitrateKbps
         - status
         - createdAt
+        - hostDisplayName
+        - boundAppLabel
+        - description
+        - launchPriceUsd
+        - minutePriceUsd
+        - scheduleMode
+        - scheduleJson
+        - streamPlatform
 
     GameDetail:
       allOf:

@@ -1,12 +1,13 @@
 import { Router, type IRouter } from "express";
-import { and, eq, ilike, ne, sql } from "drizzle-orm";
+import { and, eq, ilike, ne, sql, or } from "drizzle-orm";
 import { z } from "zod/v4";
-import { db, gamesTable, sessionsTable } from "@workspace/db";
+import { db, gamesTable, hostsTable, sessionsTable } from "@workspace/db";
 import {
   GetGameBySlugParams,
   GetGameBySlugResponse,
   ListGamesResponse,
 } from "@workspace/api-zod";
+import { isHostAvailableNow } from "../lib/schedule";
 
 // Strict boolean coercion for URL query strings. The orval-generated
 // schema uses `zod.coerce.boolean()`, which treats any non-empty string
@@ -118,29 +119,52 @@ router.get("/games/:slug", async (req, res): Promise<void> => {
     return;
   }
 
-  const liveSessions = await db
+  // A "live" host listing for this game = either:
+  //  (a) an open session whose appName matches the game title, OR
+  //  (b) a host explicitly bound to this game via gameId (no session yet —
+  //      players can request one via the existing session-create flow).
+  // We then apply schedule-mode filtering so only currently-available hosts
+  // appear in the catalog.
+  const sessionRows = await db
     .select({
-      playerToken: sessionsTable.playerToken,
-      appName: sessionsTable.appName,
-      ratePerMinute: sessionsTable.ratePerMinute,
-      resolution: sessionsTable.resolution,
-      bitrateKbps: sessionsTable.bitrateKbps,
-      status: sessionsTable.status,
-      createdAt: sessionsTable.createdAt,
+      session: sessionsTable,
+      host: hostsTable,
     })
     .from(sessionsTable)
+    .innerJoin(hostsTable, eq(sessionsTable.hostId, hostsTable.id))
     .where(
       and(
         ne(sessionsTable.status, "ended"),
-        ilike(sessionsTable.appName, game.title),
+        or(
+          ilike(sessionsTable.appName, game.title),
+          eq(hostsTable.gameId, game.id),
+        ),
       ),
     )
     .orderBy(sessionsTable.createdAt);
 
-  const shapedSessions = liveSessions.map((s) => ({
-    ...s,
-    ratePerMinute: Number(s.ratePerMinute),
-  }));
+  const now = new Date();
+  const shapedSessions = sessionRows
+    .filter(({ host }) =>
+      isHostAvailableNow(host.scheduleMode, host.scheduleJson ?? [], now),
+    )
+    .map(({ session: s, host: h }) => ({
+      playerToken: s.playerToken,
+      appName: s.appName,
+      ratePerMinute: Number(s.ratePerMinute),
+      resolution: s.resolution,
+      bitrateKbps: s.bitrateKbps,
+      status: s.status,
+      createdAt: s.createdAt,
+      hostDisplayName: h.displayName,
+      boundAppLabel: h.boundAppLabel || s.appName,
+      description: h.description,
+      launchPriceUsd: Number(h.launchPriceUsd),
+      minutePriceUsd: Number(h.minutePriceUsd),
+      scheduleMode: h.scheduleMode,
+      scheduleJson: h.scheduleJson ?? [],
+      streamPlatform: h.streamPlatform,
+    }));
 
   const detail = {
     ...shapeGame(game, shapedSessions.length),

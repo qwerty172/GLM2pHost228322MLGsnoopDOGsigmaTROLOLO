@@ -135,6 +135,52 @@ form.addEventListener("submit", async (e) => {
   log("Settings saved.");
 });
 
+const pullBtn = $("pull-from-server") as HTMLButtonElement;
+pullBtn.addEventListener("click", async () => {
+  // Fetch the host's "offer" (game binding / .exe / pricing / schedule) that
+  // the operator configured in the web dashboard, then prefill the agent's
+  // local form so we know which file to launch when a player connects.
+  const cfg = readForm();
+  if (!cfg.hostToken || !cfg.apiBaseUrl) {
+    log("Set host token and platform URL before pulling from the server.");
+    return;
+  }
+  pullBtn.disabled = true;
+  try {
+    const url = `${cfg.apiBaseUrl.replace(/\/$/, "")}/api/hosts/${encodeURIComponent(cfg.hostToken)}`;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      log(`Pull failed (${resp.status}).`);
+      return;
+    }
+    const data = (await resp.json()) as {
+      boundAppPath?: string;
+      boundAppLabel?: string;
+      minutePriceUsd?: number;
+    };
+    let touched = 0;
+    if (data.boundAppPath) {
+      ($("appPath") as HTMLInputElement).value = data.boundAppPath;
+      touched++;
+    }
+    if (data.boundAppLabel) {
+      ($("appName") as HTMLInputElement).value = data.boundAppLabel;
+      touched++;
+    }
+    if (typeof data.minutePriceUsd === "number") {
+      ($("ratePerMinute") as HTMLInputElement).value = String(
+        data.minutePriceUsd,
+      );
+      touched++;
+    }
+    log(`Pulled offer from server (${touched} field(s) updated). Click Save to persist.`);
+  } catch (err) {
+    log(`Pull failed: ${String(err)}`);
+  } finally {
+    pullBtn.disabled = false;
+  }
+});
+
 copyLinkBtn.addEventListener("click", () => {
   playerLinkInput.select();
   document.execCommand("copy");

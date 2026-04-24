@@ -7,14 +7,39 @@ import {
   Activity,
   ArrowLeft,
   ArrowRight,
+  Calendar,
+  Clock,
+  DollarSign,
   Eye,
+  FileCode,
   Gamepad2,
+  Radio,
   Trophy,
   Users,
   Wand2,
 } from "lucide-react";
+import type { ScheduleSlot } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+function formatScheduleSummary(slots: ScheduleSlot[]): string {
+  if (!slots || slots.length === 0) return "no slots";
+  return (
+    slots
+      .slice(0, 4)
+      .map((s) => {
+        const fmt = (m: number) =>
+          `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+        return `${DAY_LABELS[s.day] ?? "?"} ${fmt(s.startMin)}–${fmt(s.endMin)}`;
+      })
+      .join(", ") + (slots.length > 4 ? "…" : "")
+  );
+}
+function formatPrice(usd: number): string {
+  const sign = usd < 0 ? "−" : "";
+  return `${sign}$${Math.abs(usd).toFixed(usd === Math.floor(usd) ? 2 : 4)}`;
+}
 
 export default function GameDetailPage() {
   const params = useParams<{ slug: string }>();
@@ -138,26 +163,101 @@ export default function GameDetailPage() {
                     {game.liveSessions.map((s) => (
                       <li
                         key={s.playerToken}
-                        className="flex items-center justify-between gap-4 rounded-lg border border-border/50 bg-card px-4 py-3 hover:border-primary/50 transition-colors"
+                        className="rounded-lg border border-border/50 bg-card px-4 py-4 hover:border-primary/50 transition-colors"
+                        data-testid={`live-host-${s.playerToken}`}
                       >
-                        <div className="min-w-0">
-                          <div className="font-medium truncate">
-                            {s.appName}
+                        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold truncate">
+                                {s.hostDisplayName}
+                              </span>
+                              <Badge
+                                variant={
+                                  s.scheduleMode === "always"
+                                    ? "default"
+                                    : "secondary"
+                                }
+                                className="text-[10px]"
+                              >
+                                {s.scheduleMode}
+                              </Badge>
+                              {s.streamPlatform && (
+                                <Badge variant="outline" className="text-[10px] gap-1">
+                                  <Radio className="h-3 w-3" />
+                                  {s.streamPlatform}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="text-xs text-muted-foreground font-mono mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                              <span className="flex items-center gap-1">
+                                <FileCode className="h-3 w-3" />
+                                {s.boundAppLabel || s.appName}
+                              </span>
+                              <span>·</span>
+                              <span>
+                                {s.resolution} · {s.bitrateKbps} kbps
+                              </span>
+                            </div>
+                            {s.description && (
+                              <p
+                                className="text-sm text-muted-foreground mt-2 line-clamp-2"
+                                data-testid={`text-host-description-${s.playerToken}`}
+                              >
+                                {s.description}
+                              </p>
+                            )}
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs">
+                              <span
+                                className="flex items-center gap-1"
+                                data-testid={`text-launch-price-${s.playerToken}`}
+                              >
+                                <DollarSign className="h-3 w-3 text-primary" />
+                                <span className="text-muted-foreground">launch:</span>
+                                <span
+                                  className={
+                                    s.launchPriceUsd < 0
+                                      ? "text-emerald-400 font-semibold"
+                                      : "font-semibold"
+                                  }
+                                >
+                                  {formatPrice(s.launchPriceUsd)}
+                                </span>
+                              </span>
+                              <span
+                                className="flex items-center gap-1"
+                                data-testid={`text-minute-price-${s.playerToken}`}
+                              >
+                                <Clock className="h-3 w-3 text-primary" />
+                                <span className="text-muted-foreground">per min:</span>
+                                <span
+                                  className={
+                                    s.minutePriceUsd < 0
+                                      ? "text-emerald-400 font-semibold"
+                                      : "font-semibold"
+                                  }
+                                >
+                                  {formatPrice(s.minutePriceUsd)}
+                                </span>
+                              </span>
+                              {s.scheduleMode === "scheduled" && (
+                                <span className="flex items-center gap-1 text-muted-foreground">
+                                  <Calendar className="h-3 w-3" />
+                                  {formatScheduleSummary(s.scheduleJson)}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div className="text-xs text-muted-foreground font-mono mt-0.5">
-                            {s.resolution} · {s.bitrateKbps} kbps ·{" "}
-                            {s.ratePerMinute.toFixed(3)} cred/min
-                          </div>
+                          <Link href={`/play/${s.playerToken}`} className="shrink-0">
+                            <Button
+                              size="sm"
+                              data-testid={`button-join-${s.playerToken}`}
+                            >
+                              Join
+                              <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                            </Button>
+                          </Link>
                         </div>
-                        <Link href={`/play/${s.playerToken}`}>
-                          <Button
-                            size="sm"
-                            data-testid={`button-join-${s.playerToken}`}
-                          >
-                            Join
-                            <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-                          </Button>
-                        </Link>
                       </li>
                     ))}
                   </ul>

@@ -34,6 +34,7 @@ import type {
   RegisterPlayerBody,
   RequestWithdrawalBody,
   Session,
+  UpdateHostConfigBody,
   Wallet,
   WalletTransaction,
   Withdrawal,
@@ -285,6 +286,93 @@ export function useGetHost<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Update the host's offer config (binding, pricing, schedule, restream)
+ */
+export const getUpdateHostConfigUrl = (hostToken: string) => {
+  return `/api/hosts/${hostToken}/config`;
+};
+
+export const updateHostConfig = async (
+  hostToken: string,
+  updateHostConfigBody: UpdateHostConfigBody,
+  options?: RequestInit,
+): Promise<Host> => {
+  return customFetch<Host>(getUpdateHostConfigUrl(hostToken), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateHostConfigBody),
+  });
+};
+
+export const getUpdateHostConfigMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateHostConfig>>,
+    TError,
+    { hostToken: string; data: BodyType<UpdateHostConfigBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateHostConfig>>,
+  TError,
+  { hostToken: string; data: BodyType<UpdateHostConfigBody> },
+  TContext
+> => {
+  const mutationKey = ["updateHostConfig"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateHostConfig>>,
+    { hostToken: string; data: BodyType<UpdateHostConfigBody> }
+  > = (props) => {
+    const { hostToken, data } = props ?? {};
+
+    return updateHostConfig(hostToken, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateHostConfigMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateHostConfig>>
+>;
+export type UpdateHostConfigMutationBody = BodyType<UpdateHostConfigBody>;
+export type UpdateHostConfigMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update the host's offer config (binding, pricing, schedule, restream)
+ */
+export const useUpdateHostConfig = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateHostConfig>>,
+    TError,
+    { hostToken: string; data: BodyType<UpdateHostConfigBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateHostConfig>>,
+  TError,
+  { hostToken: string; data: BodyType<UpdateHostConfigBody> },
+  TContext
+> => {
+  return useMutation(getUpdateHostConfigMutationOptions(options));
+};
 
 /**
  * @summary List sessions for a host

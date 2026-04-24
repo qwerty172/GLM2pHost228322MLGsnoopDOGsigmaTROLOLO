@@ -1,5 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useGetHostStats, useGetHostActivity, useListHostSessions, useEndSession, getGetHostStatsQueryKey, getGetHostActivityQueryKey, getListHostSessionsQueryKey } from "@workspace/api-client-react";
+import BindingForm from "./binding-form";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +73,8 @@ export default function Dashboard() {
           </CardDescription>
         </CardHeader>
       </Card>
+
+      {hostToken && <BindingForm hostToken={hostToken} />}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-card/50 backdrop-blur">

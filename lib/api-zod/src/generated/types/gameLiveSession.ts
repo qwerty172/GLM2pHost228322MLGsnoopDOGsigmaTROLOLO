@@ -5,6 +5,8 @@
  * P2P Cloud Gaming signaling, session, and wallet API
  * OpenAPI spec version: 0.1.0
  */
+import type { GameLiveSessionScheduleMode } from "./gameLiveSessionScheduleMode";
+import type { ScheduleSlot } from "./scheduleSlot";
 
 export interface GameLiveSession {
   /** Player share token — visit /play/{playerToken} to join */
@@ -15,4 +17,12 @@ export interface GameLiveSession {
   bitrateKbps: number;
   status: string;
   createdAt: Date;
+  hostDisplayName: string;
+  boundAppLabel: string;
+  description: string;
+  launchPriceUsd: number;
+  minutePriceUsd: number;
+  scheduleMode: GameLiveSessionScheduleMode;
+  scheduleJson: ScheduleSlot[];
+  streamPlatform: string;
 }
