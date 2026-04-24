@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Activity, Copy, MonitorPlay, PowerOff, Clock, DollarSign, Download, HardDrive, Gamepad2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
 
@@ -47,20 +46,32 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold tracking-tight">Host Dashboard</h1>
           <p className="text-muted-foreground">Manage your hardware node and active sessions.</p>
         </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div>
-              <Button variant="outline" className="gap-2" disabled>
-                <Download className="h-4 w-4" />
-                Streamline Agent for Windows
-              </Button>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Coming soon</p>
-          </TooltipContent>
-        </Tooltip>
+        <a
+          href="/api/downloads/host-agent.zip"
+          download="cloud-gaming-host-agent.zip"
+          data-testid="link-download-host-agent"
+        >
+          <Button variant="outline" className="gap-2">
+            <Download className="h-4 w-4" />
+            Download Host Agent
+          </Button>
+        </a>
       </div>
+
+      <Card className="bg-card/50 backdrop-blur border-primary/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Download className="h-4 w-4 text-primary" />
+            Get the host agent
+          </CardTitle>
+          <CardDescription>
+            The agent runs on your Windows PC and streams your game window to
+            players over WebRTC. Download the portable bundle, extract it, and
+            double-click <span className="font-mono text-xs">start.bat</span>.
+            Node.js 20+ is required (see <span className="font-mono text-xs">INSTALL.txt</span> inside the ZIP).
+          </CardDescription>
+        </CardHeader>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-card/50 backdrop-blur">

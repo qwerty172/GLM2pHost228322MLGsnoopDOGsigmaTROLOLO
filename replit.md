@@ -36,3 +36,9 @@ P2P cloud gaming where Windows hosts stream games to players via WebRTC. The web
 - Catalog table: `lib/db/src/schema/games.ts`. 8 games are seeded on API server boot via `artifacts/api-server/src/lib/seedGames.ts` (idempotent by slug).
 - API: `GET /api/games` and `GET /api/games/:slug` (see `lib/api-spec/openapi.yaml` and `artifacts/api-server/src/routes/games.ts`).
 - v1 link between sessions and games is by case-insensitive title match on `sessions.appName` (no FK yet) — host agent still sends free-text app names. Adding `sessions.gameId` is a planned follow-up.
+
+### Host agent download
+
+- The Electron host agent (`artifacts/host-agent`) is exposed to hosts as a portable ZIP via `GET /api/downloads/host-agent.zip` (`artifacts/api-server/src/routes/downloads.ts`). The endpoint streams the agent's `dist/`, `src/`, build configs, plus a generated `start.bat` and `INSTALL.txt`. Hosts extract, run `start.bat`, and the agent installs deps and launches.
+- A signed Windows installer (`.exe` via electron-builder NSIS) requires Windows or Wine and isn't built in this Linux env — that build is best run from CI.
+- The Host Dashboard exposes the download via a "Download Host Agent" button + an instructions card.
