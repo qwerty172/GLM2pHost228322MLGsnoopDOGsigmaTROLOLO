@@ -1,11 +1,11 @@
-import { Link } from "wouter";
-import { useMemo, useState } from "react";
+import { Link, useSearch } from "wouter";
+import { useEffect, useMemo, useState } from "react";
 import {
   useListGames,
   getListGamesQueryKey,
   type GameListItem,
 } from "@workspace/api-client-react";
-import { Activity, ArrowRight, Gamepad2, Search, Users, Wand2, Eye, Trophy } from "lucide-react";
+import { Activity, ArrowRight, Gamepad2, Search, Tag, Users, Wand2, Eye, Trophy, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ const FILTERS: {
 ];
 
 export default function GamesPage() {
+  const search$ = useSearch();
   const [active, setActive] = useState<Record<FilterKey, boolean>>({
     hasMods: false,
     isMultiplayer: false,
@@ -38,6 +39,33 @@ export default function GamesPage() {
     liveOnly: false,
   });
   const [search, setSearch] = useState("");
+  // The capability-tag filter is also reflected in `?tag=` so a host can
+  // share a deep-link like /games?tag=Adobe%20license. We hydrate from the
+  // URL on mount and write it back when the user edits the input.
+  const [tag, setTag] = useState<string>("");
+  const [tagInput, setTagInput] = useState("");
+
+  useEffect(() => {
+    const sp = new URLSearchParams(search$);
+    const t = sp.get("tag")?.trim() ?? "";
+    setTag(t);
+    setTagInput(t);
+    // We intentionally only sync from the URL on mount; user edits below
+    // are pushed back via history.replaceState.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function applyTag(next: string) {
+    const trimmed = next.trim();
+    setTag(trimmed);
+    const sp = new URLSearchParams(window.location.search);
+    if (trimmed) sp.set("tag", trimmed);
+    else sp.delete("tag");
+    const qs = sp.toString();
+    const newUrl =
+      window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash;
+    window.history.replaceState(null, "", newUrl);
+  }
 
   // Only send `true` filters; backend treats `undefined` as "no filter".
   const params = useMemo(() => {
@@ -46,8 +74,9 @@ export default function GamesPage() {
       if (active[f.key]) p[f.key] = true;
     }
     if (search.trim()) p.search = search.trim();
+    if (tag) p.tag = tag;
     return p;
-  }, [active, search]);
+  }, [active, search, tag]);
 
   const { data: games, isLoading } = useListGames(params, {
     query: { queryKey: getListGamesQueryKey(params) },
@@ -103,7 +132,7 @@ export default function GamesPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 mb-8">
+          <div className="flex flex-wrap gap-2 mb-4">
             {FILTERS.map((f) => {
               const Icon = f.icon;
               const on = active[f.key];
@@ -122,6 +151,48 @@ export default function GamesPage() {
                 </Button>
               );
             })}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 mb-8">
+            <div className="relative w-full sm:w-72">
+              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Filter by host capability tag…"
+                className="pl-9"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    applyTag(tagInput);
+                  }
+                }}
+                data-testid="input-tag-filter"
+              />
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => applyTag(tagInput)}
+              data-testid="button-apply-tag"
+            >
+              Apply
+            </Button>
+            {tag && (
+              <Badge
+                variant="default"
+                className="gap-1 cursor-pointer"
+                onClick={() => {
+                  setTagInput("");
+                  applyTag("");
+                }}
+                data-testid="badge-active-tag"
+              >
+                {tag}
+                <X className="h-3 w-3" />
+              </Badge>
+            )}
           </div>
 
           {isLoading ? (

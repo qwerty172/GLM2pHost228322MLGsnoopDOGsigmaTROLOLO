@@ -62,11 +62,18 @@
               id="appPath"
               type="text"
               placeholder="C:\\Path\\To\\Game.exe"
-              required
             />
           </label>
           <label>
-            <span>Launch args (optional)</span>
+            <span>Browser URL (for browser games — overrides app path)</span>
+            <input
+              id="boundUrl"
+              type="url"
+              placeholder="https://shellshock.io"
+            />
+          </label>
+          <label>
+            <span>Launch args (optional, .exe only)</span>
             <input id="appArgs" type="text" placeholder="-windowed -nosplash" />
           </label>
           <label>

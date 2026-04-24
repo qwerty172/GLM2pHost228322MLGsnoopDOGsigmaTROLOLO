@@ -38,8 +38,10 @@ function serializeHost(h: typeof hostsTable.$inferSelect) {
     creditBalance: Number(h.creditBalance),
     gameId: h.gameId,
     boundAppPath: h.boundAppPath,
+    boundUrl: h.boundUrl,
     boundAppLabel: h.boundAppLabel,
     description: h.description,
+    tags: h.tags ?? [],
     launchPriceUsd: Number(h.launchPriceUsd),
     minutePriceUsd: Number(h.minutePriceUsd),
     scheduleMode: h.scheduleMode,
@@ -156,6 +158,62 @@ router.patch("/hosts/:hostToken/config", async (req, res): Promise<void> => {
     res.status(400).json({ error: "description too long (max 4000)" });
     return;
   }
+  // Browser-game URL: must be a valid http(s) URL when non-empty.
+  let normalizedBoundUrl: string | undefined;
+  if (body.boundUrl !== undefined) {
+    const trimmed = body.boundUrl.trim();
+    if (trimmed.length > 0) {
+      let parsed: URL;
+      try {
+        parsed = new URL(trimmed);
+      } catch {
+        res.status(400).json({ error: "boundUrl must be a valid http(s) URL" });
+        return;
+      }
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        res.status(400).json({ error: "boundUrl must use http or https" });
+        return;
+      }
+      if (trimmed.length > 2048) {
+        res.status(400).json({ error: "boundUrl too long" });
+        return;
+      }
+      normalizedBoundUrl = parsed.toString();
+    } else {
+      normalizedBoundUrl = "";
+    }
+  }
+  // Tags: ≤20 entries, each ≤40 chars, trimmed and de-duplicated case-insensitively.
+  let normalizedTags: string[] | undefined;
+  if (body.tags !== undefined) {
+    if (!Array.isArray(body.tags)) {
+      res.status(400).json({ error: "tags must be an array of strings" });
+      return;
+    }
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const raw of body.tags) {
+      if (typeof raw !== "string") {
+        res.status(400).json({ error: "tags must be an array of strings" });
+        return;
+      }
+      const t = raw.trim();
+      if (t.length === 0) continue;
+      if (t.length > 40) {
+        res.status(400).json({ error: "Each tag must be ≤40 characters" });
+        return;
+      }
+      const key = t.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(t);
+      if (out.length > 20) {
+        res.status(400).json({ error: "At most 20 tags are allowed" });
+        return;
+      }
+    }
+    normalizedTags = out;
+  }
 
   const [existing] = await db
     .select()
@@ -181,8 +239,10 @@ router.patch("/hosts/:hostToken/config", async (req, res): Promise<void> => {
   const update: Partial<typeof hostsTable.$inferInsert> = {};
   if (body.gameId !== undefined) update.gameId = body.gameId;
   if (body.boundAppPath !== undefined) update.boundAppPath = body.boundAppPath;
+  if (normalizedBoundUrl !== undefined) update.boundUrl = normalizedBoundUrl;
   if (body.boundAppLabel !== undefined) update.boundAppLabel = body.boundAppLabel;
   if (body.description !== undefined) update.description = body.description;
+  if (normalizedTags !== undefined) update.tags = normalizedTags;
   if (body.launchPriceUsd !== undefined)
     update.launchPriceUsd = String(body.launchPriceUsd);
   if (body.minutePriceUsd !== undefined)

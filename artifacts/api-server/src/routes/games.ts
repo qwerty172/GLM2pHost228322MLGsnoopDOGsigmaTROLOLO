@@ -25,7 +25,17 @@ const ListGamesQuery = z.object({
   hasQuests: strictBool,
   liveOnly: strictBool,
   search: z.string().optional(),
+  tag: z.string().optional(),
 });
+
+const GetGameQuery = z.object({
+  tag: z.string().optional(),
+});
+
+// Match any element of a jsonb string-array case-insensitively.
+function tagMatchSql(needle: string) {
+  return sql`exists (select 1 from jsonb_array_elements_text(${hostsTable.tags}) e where lower(e) = lower(${needle}))`;
+}
 
 const router: IRouter = Router();
 
@@ -100,6 +110,36 @@ router.get("/games", async (req, res): Promise<void> => {
     shaped = shaped.filter((g) => g.liveSessionCount > 0);
   }
 
+  // Tag filter: keep only games that have at least one currently-available
+  // host (active session, host-tags @>= [tag] case-insensitively, and host
+  // is "open right now" per its schedule). We compute the matching set in a
+  // single query and intersect.
+  const tag = q.tag?.trim();
+  if (tag && tag.length > 0) {
+    const matchedHosts = await db
+      .select({
+        gameId: hostsTable.gameId,
+        title: sessionsTable.appName,
+        scheduleMode: hostsTable.scheduleMode,
+        scheduleJson: hostsTable.scheduleJson,
+      })
+      .from(sessionsTable)
+      .innerJoin(hostsTable, eq(sessionsTable.hostId, hostsTable.id))
+      .where(and(ne(sessionsTable.status, "ended"), tagMatchSql(tag)));
+    const now = new Date();
+    const liveGameIds = new Set<string>();
+    const liveTitles = new Set<string>();
+    for (const r of matchedHosts) {
+      if (!isHostAvailableNow(r.scheduleMode, r.scheduleJson ?? [], now))
+        continue;
+      if (r.gameId) liveGameIds.add(r.gameId);
+      if (r.title) liveTitles.add(r.title.toLowerCase());
+    }
+    shaped = shaped.filter(
+      (g) => liveGameIds.has(g.id) || liveTitles.has(g.title.toLowerCase()),
+    );
+  }
+
   res.json(ListGamesResponse.parse(shaped));
 });
 
@@ -109,6 +149,12 @@ router.get("/games/:slug", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
+  const queryParsed = GetGameQuery.safeParse(req.query);
+  if (!queryParsed.success) {
+    res.status(400).json({ error: queryParsed.error.message });
+    return;
+  }
+  const tagFilter = queryParsed.data.tag?.trim() ?? "";
 
   const [game] = await db
     .select()
@@ -148,10 +194,16 @@ router.get("/games/:slug", async (req, res): Promise<void> => {
     .orderBy(sessionsTable.createdAt);
 
   const now = new Date();
+  const tagLc = tagFilter.toLowerCase();
   const shapedSessions = sessionRows
     .filter(({ host }) =>
       isHostAvailableNow(host.scheduleMode, host.scheduleJson ?? [], now),
     )
+    .filter(({ host }) => {
+      if (!tagLc) return true;
+      const tags = host.tags ?? [];
+      return tags.some((t) => t.toLowerCase() === tagLc);
+    })
     .map(({ session: s, host: h }) => ({
       playerToken: s.playerToken,
       appName: s.appName,
@@ -162,7 +214,9 @@ router.get("/games/:slug", async (req, res): Promise<void> => {
       createdAt: s.createdAt,
       hostDisplayName: h.displayName,
       boundAppLabel: h.boundAppLabel || s.appName,
+      boundUrl: h.boundUrl ?? "",
       description: h.description,
+      tags: h.tags ?? [],
       launchPriceUsd: Number(h.launchPriceUsd),
       minutePriceUsd: Number(h.minutePriceUsd),
       scheduleMode: h.scheduleMode,

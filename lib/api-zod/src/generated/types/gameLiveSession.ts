@@ -19,7 +19,10 @@ export interface GameLiveSession {
   createdAt: Date;
   hostDisplayName: string;
   boundAppLabel: string;
+  /** When set, the agent opens this URL instead of launching an .exe. */
+  boundUrl: string;
   description: string;
+  tags: string[];
   launchPriceUsd: number;
   minutePriceUsd: number;
   scheduleMode: GameLiveSessionScheduleMode;

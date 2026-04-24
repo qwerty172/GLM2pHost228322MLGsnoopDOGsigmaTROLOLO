@@ -21,9 +21,13 @@ export interface Host {
   gameId: string | null;
   /** Absolute Windows path to the .exe the agent will launch */
   boundAppPath: string;
+  /** URL of a browser game the agent will open. When set, takes precedence over boundAppPath. */
+  boundUrl: string;
   /** Friendly label shown in the games library */
   boundAppLabel: string;
   description: string;
+  /** Capability tags shown as badges and used as library filters */
+  tags: string[];
   /** Charged once when a player joins (may be negative) */
   launchPriceUsd: number;
   /** Charged per minute while streaming (may be negative) */

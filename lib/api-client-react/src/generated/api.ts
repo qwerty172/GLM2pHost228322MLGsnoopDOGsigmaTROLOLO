@@ -24,6 +24,7 @@ import type {
   ErrorResponse,
   GameDetail,
   GameListItem,
+  GetGameBySlugParams,
   GetSessionParams,
   HealthStatus,
   Host,
@@ -906,22 +907,41 @@ export function useListGames<
 /**
  * @summary Game detail with currently-live sessions
  */
-export const getGetGameBySlugUrl = (slug: string) => {
-  return `/api/games/${slug}`;
+export const getGetGameBySlugUrl = (
+  slug: string,
+  params?: GetGameBySlugParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/games/${slug}?${stringifiedParams}`
+    : `/api/games/${slug}`;
 };
 
 export const getGameBySlug = async (
   slug: string,
+  params?: GetGameBySlugParams,
   options?: RequestInit,
 ): Promise<GameDetail> => {
-  return customFetch<GameDetail>(getGetGameBySlugUrl(slug), {
+  return customFetch<GameDetail>(getGetGameBySlugUrl(slug, params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getGetGameBySlugQueryKey = (slug: string) => {
-  return [`/api/games/${slug}`] as const;
+export const getGetGameBySlugQueryKey = (
+  slug: string,
+  params?: GetGameBySlugParams,
+) => {
+  return [`/api/games/${slug}`, ...(params ? [params] : [])] as const;
 };
 
 export const getGetGameBySlugQueryOptions = <
@@ -929,6 +949,7 @@ export const getGetGameBySlugQueryOptions = <
   TError = ErrorType<ErrorResponse>,
 >(
   slug: string,
+  params?: GetGameBySlugParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getGameBySlug>>,
@@ -940,11 +961,12 @@ export const getGetGameBySlugQueryOptions = <
 ) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetGameBySlugQueryKey(slug);
+  const queryKey =
+    queryOptions?.queryKey ?? getGetGameBySlugQueryKey(slug, params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof getGameBySlug>>> = ({
     signal,
-  }) => getGameBySlug(slug, { signal, ...requestOptions });
+  }) => getGameBySlug(slug, params, { signal, ...requestOptions });
 
   return {
     queryKey,
@@ -972,6 +994,7 @@ export function useGetGameBySlug<
   TError = ErrorType<ErrorResponse>,
 >(
   slug: string,
+  params?: GetGameBySlugParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getGameBySlug>>,
@@ -981,7 +1004,7 @@ export function useGetGameBySlug<
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetGameBySlugQueryOptions(slug, options);
+  const queryOptions = getGetGameBySlugQueryOptions(slug, params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

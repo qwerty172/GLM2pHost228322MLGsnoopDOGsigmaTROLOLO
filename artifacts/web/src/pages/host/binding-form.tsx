@@ -55,9 +55,13 @@ export default function BindingForm({ hostToken }: Props) {
   const update = useUpdateHostConfig();
 
   const [gameId, setGameId] = useState<string | null>(null);
+  const [bindingKind, setBindingKind] = useState<"app" | "browser">("app");
   const [boundAppPath, setBoundAppPath] = useState("");
+  const [boundUrl, setBoundUrl] = useState("");
   const [boundAppLabel, setBoundAppLabel] = useState("");
   const [description, setDescription] = useState("");
+  const [tagsInput, setTagsInput] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const [launchPriceUsd, setLaunchPriceUsd] = useState("0");
   const [minutePriceUsd, setMinutePriceUsd] = useState("0.04");
   const [scheduleMode, setScheduleMode] = useState<"always" | "scheduled">(
@@ -74,8 +78,16 @@ export default function BindingForm({ hostToken }: Props) {
     if (!host) return;
     setGameId(host.gameId);
     setBoundAppPath(host.boundAppPath ?? "");
+    setBoundUrl(host.boundUrl ?? "");
+    // Switch to "browser" mode when the saved offer has a URL but no .exe.
+    setBindingKind(
+      (host.boundUrl ?? "").length > 0 && (host.boundAppPath ?? "").length === 0
+        ? "browser"
+        : "app",
+    );
     setBoundAppLabel(host.boundAppLabel ?? "");
     setDescription(host.description ?? "");
+    setTags(host.tags ?? []);
     setLaunchPriceUsd(String(host.launchPriceUsd ?? 0));
     setMinutePriceUsd(String(host.minutePriceUsd ?? 0));
     setScheduleMode(host.scheduleMode === "scheduled" ? "scheduled" : "always");
@@ -136,11 +148,44 @@ export default function BindingForm({ hostToken }: Props) {
         }
       }
     }
+    // Browser/app are mutually exclusive at runtime — clear the other field
+    // when saving so the agent doesn't see stale data.
+    const isBrowser = bindingKind === "browser";
+    const sendAppPath = isBrowser ? "" : boundAppPath;
+    const sendUrl = isBrowser ? boundUrl.trim() : "";
+    if (isBrowser) {
+      if (!sendUrl) {
+        toast.error("Browser games need a URL");
+        return;
+      }
+      try {
+        const u = new URL(sendUrl);
+        if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error("");
+      } catch {
+        toast.error("URL must start with http:// or https://");
+        return;
+      }
+    }
+    const defaultLabel = isBrowser
+      ? (() => {
+          try {
+            return new URL(sendUrl).hostname;
+          } catch {
+            return "";
+          }
+        })()
+      : sendAppPath.split(/[\\/]/).pop() || "";
+    // Merge any text the host typed in the chip input but hasn't committed
+    // (Enter / comma) so it isn't silently lost on save.
+    const pendingTag = tagsInput.trim();
+    const allTags = pendingTag ? [...tags, pendingTag] : tags;
     const body: Record<string, unknown> = {
       gameId,
-      boundAppPath,
-      boundAppLabel: boundAppLabel || boundAppPath.split(/[\\/]/).pop() || "",
+      boundAppPath: sendAppPath,
+      boundUrl: sendUrl,
+      boundAppLabel: boundAppLabel || defaultLabel,
       description,
+      tags: allTags,
       launchPriceUsd: lp,
       minutePriceUsd: mp,
       scheduleMode,
@@ -165,6 +210,7 @@ export default function BindingForm({ hostToken }: Props) {
           toast.success("Host offer saved");
           setStreamKey(""); // don't keep the secret in memory
           setClearStreamKey(false);
+          setTagsInput("");
           qc.invalidateQueries({ queryKey: getGetHostQueryKey(hostToken) });
         },
         onError: (err) => {
@@ -229,17 +275,136 @@ export default function BindingForm({ hostToken }: Props) {
                 />
               </div>
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="appPath">Executable path on this PC</Label>
+                <Label>What does the agent launch?</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={bindingKind === "app" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setBindingKind("app")}
+                    data-testid="button-binding-kind-app"
+                  >
+                    Native .exe
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={bindingKind === "browser" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setBindingKind("browser")}
+                    data-testid="button-binding-kind-browser"
+                  >
+                    Browser game (URL)
+                  </Button>
+                </div>
+              </div>
+              {bindingKind === "app" ? (
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="appPath">Executable path on this PC</Label>
+                  <Input
+                    id="appPath"
+                    data-testid="input-app-path"
+                    value={boundAppPath}
+                    onChange={(e) => setBoundAppPath(e.target.value)}
+                    placeholder="C:/Games/Cyberpunk 2077/bin/x64/Cyberpunk2077.exe"
+                    className="font-mono text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    The agent will run this file when a player joins.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="boundUrl">Browser game URL</Label>
+                  <Input
+                    id="boundUrl"
+                    data-testid="input-bound-url"
+                    type="url"
+                    value={boundUrl}
+                    onChange={(e) => setBoundUrl(e.target.value)}
+                    placeholder="https://shellshock.io"
+                    className="font-mono text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    The agent opens this URL in your default browser when a
+                    player connects.
+                  </p>
+                </div>
+              )}
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="hostTags">Capability tags</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {tags.map((t) => (
+                    <Badge
+                      key={t}
+                      variant="secondary"
+                      className="gap-1"
+                      data-testid={`badge-tag-${t}`}
+                    >
+                      {t}
+                      <button
+                        type="button"
+                        aria-label={`Remove tag ${t}`}
+                        onClick={() =>
+                          setTags((prev) => prev.filter((x) => x !== t))
+                        }
+                        className="ml-1 text-muted-foreground hover:text-foreground"
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
                 <Input
-                  id="appPath"
-                  data-testid="input-app-path"
-                  value={boundAppPath}
-                  onChange={(e) => setBoundAppPath(e.target.value)}
-                  placeholder="C:/Games/Cyberpunk 2077/bin/x64/Cyberpunk2077.exe"
-                  className="font-mono text-sm"
+                  id="hostTags"
+                  data-testid="input-tag"
+                  value={tagsInput}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    // Comma commits a tag — feels natural for chip inputs.
+                    if (v.includes(",")) {
+                      const parts = v.split(",").map((s) => s.trim()).filter(Boolean);
+                      setTags((prev) => {
+                        const seen = new Set(prev.map((p) => p.toLowerCase()));
+                        const merged = [...prev];
+                        for (const p of parts) {
+                          if (seen.has(p.toLowerCase())) continue;
+                          if (merged.length >= 20) break;
+                          if (p.length > 40) continue;
+                          seen.add(p.toLowerCase());
+                          merged.push(p);
+                        }
+                        return merged;
+                      });
+                      setTagsInput("");
+                    } else {
+                      setTagsInput(v);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const v = tagsInput.trim();
+                      if (!v) return;
+                      if (v.length > 40 || tags.length >= 20) return;
+                      if (tags.some((t) => t.toLowerCase() === v.toLowerCase())) {
+                        setTagsInput("");
+                        return;
+                      }
+                      setTags((prev) => [...prev, v]);
+                      setTagsInput("");
+                    } else if (
+                      e.key === "Backspace" &&
+                      tagsInput === "" &&
+                      tags.length > 0
+                    ) {
+                      setTags((prev) => prev.slice(0, -1));
+                    }
+                  }}
+                  placeholder="Type and press Enter (e.g. Leveled-up account, Adobe license)"
                 />
                 <p className="text-xs text-muted-foreground">
-                  The agent will run this file when a player joins.
+                  Up to 20 tags, ≤40 chars each. Players can filter the library
+                  by these tags.
                 </p>
               </div>
               <div className="space-y-2 md:col-span-2">

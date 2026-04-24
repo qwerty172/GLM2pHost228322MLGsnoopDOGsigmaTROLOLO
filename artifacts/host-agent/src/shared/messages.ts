@@ -11,6 +11,9 @@ export interface HostConfig {
   appPath: string;
   appArgs?: string;
   appName?: string;
+  // Browser-game URL. When non-empty the agent opens this in the system
+  // browser instead of spawning appPath.
+  boundUrl?: string;
   // Optional explicit capture source name (window title or screen label) as
   // returned by Electron's desktopCapturer. When unset, we match by the
   // launched .exe basename and fall back to the primary screen.

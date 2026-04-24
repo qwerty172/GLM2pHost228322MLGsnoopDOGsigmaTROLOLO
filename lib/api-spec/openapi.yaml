@@ -280,6 +280,12 @@ paths:
           schema:
             type: string
           description: Case-insensitive substring match against the game title
+        - in: query
+          name: tag
+          required: false
+          schema:
+            type: string
+          description: Only return games that have at least one currently-available host whose capability tags contain this value (case-insensitive).
       responses:
         "200":
           description: Games catalog
@@ -301,6 +307,12 @@ paths:
           required: true
           schema:
             type: string
+        - in: query
+          name: tag
+          required: false
+          schema:
+            type: string
+          description: When set, only live hosts whose capability tags contain this value are returned.
       responses:
         "200":
           description: Game detail
@@ -623,11 +635,19 @@ components:
         boundAppPath:
           type: string
           description: Absolute Windows path to the .exe the agent will launch
+        boundUrl:
+          type: string
+          description: URL of a browser game the agent will open. When set, takes precedence over boundAppPath.
         boundAppLabel:
           type: string
           description: Friendly label shown in the games library
         description:
           type: string
+        tags:
+          type: array
+          items:
+            type: string
+          description: Capability tags shown as badges and used as library filters
         launchPriceUsd:
           type: number
           description: Charged once when a player joins (may be negative)
@@ -662,8 +682,10 @@ components:
         - creditBalance
         - gameId
         - boundAppPath
+        - boundUrl
         - boundAppLabel
         - description
+        - tags
         - launchPriceUsd
         - minutePriceUsd
         - scheduleMode
@@ -682,10 +704,17 @@ components:
           type: ["string", "null"]
         boundAppPath:
           type: string
+        boundUrl:
+          type: string
+          description: URL of a browser game; mutually exclusive with boundAppPath at runtime.
         boundAppLabel:
           type: string
         description:
           type: string
+        tags:
+          type: array
+          items:
+            type: string
         launchPriceUsd:
           type: number
         minutePriceUsd:
@@ -808,8 +837,15 @@ components:
           type: string
         boundAppLabel:
           type: string
+        boundUrl:
+          type: string
+          description: When set, the agent opens this URL instead of launching an .exe.
         description:
           type: string
+        tags:
+          type: array
+          items:
+            type: string
         launchPriceUsd:
           type: number
         minutePriceUsd:
@@ -833,7 +869,9 @@ components:
         - createdAt
         - hostDisplayName
         - boundAppLabel
+        - boundUrl
         - description
+        - tags
         - launchPriceUsd
         - minutePriceUsd
         - scheduleMode

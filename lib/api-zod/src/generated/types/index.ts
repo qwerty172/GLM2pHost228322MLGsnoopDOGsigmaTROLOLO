@@ -16,6 +16,7 @@ export * from "./gameDetail";
 export * from "./gameListItem";
 export * from "./gameLiveSession";
 export * from "./gameLiveSessionScheduleMode";
+export * from "./getGameBySlugParams";
 export * from "./getSessionParams";
 export * from "./healthStatus";
 export * from "./host";

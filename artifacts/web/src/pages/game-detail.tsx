@@ -1,4 +1,5 @@
-import { Link, useParams } from "wouter";
+import { Link, useParams, useSearch } from "wouter";
+import { useEffect, useMemo, useState } from "react";
 import {
   useGetGameBySlug,
   getGetGameBySlugQueryKey,
@@ -11,12 +12,15 @@ import {
   Clock,
   DollarSign,
   Eye,
+  ExternalLink,
   FileCode,
   Gamepad2,
+  Globe,
   Radio,
   Trophy,
   Users,
   Wand2,
+  X,
 } from "lucide-react";
 import type { ScheduleSlot } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
@@ -44,9 +48,37 @@ function formatPrice(usd: number): string {
 export default function GameDetailPage() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug ?? "";
-  const { data: game, isLoading, isError } = useGetGameBySlug(slug, {
-    query: { enabled: !!slug, queryKey: getGetGameBySlugQueryKey(slug) },
-  });
+  const search$ = useSearch();
+  // `?tag=...` lets a player narrow live hosts (e.g. only those with a
+  // "leveled-up account"). The user can clear it from the badge below.
+  const [tag, setTag] = useState<string>("");
+  useEffect(() => {
+    const sp = new URLSearchParams(search$);
+    setTag(sp.get("tag")?.trim() ?? "");
+  }, [search$]);
+  const queryParams = useMemo(() => (tag ? { tag } : {}), [tag]);
+  const { data: game, isLoading, isError } = useGetGameBySlug(
+    slug,
+    queryParams,
+    {
+      query: {
+        enabled: !!slug,
+        queryKey: getGetGameBySlugQueryKey(slug, queryParams),
+      },
+    },
+  );
+
+  function clearTag() {
+    setTag("");
+    const sp = new URLSearchParams(window.location.search);
+    sp.delete("tag");
+    const qs = sp.toString();
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname + (qs ? `?${qs}` : ""),
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -137,10 +169,21 @@ export default function GameDetailPage() {
               </div>
 
               <section>
-                <h2 className="text-xl font-bold tracking-tight mb-4 flex items-center gap-2">
+                <h2 className="text-xl font-bold tracking-tight mb-4 flex items-center gap-2 flex-wrap">
                   <Activity className="h-5 w-5 text-primary" />
                   Live hosts
                   <Badge variant="outline">{game.liveSessions.length}</Badge>
+                  {tag && (
+                    <Badge
+                      variant="default"
+                      className="gap-1 cursor-pointer"
+                      onClick={clearTag}
+                      data-testid="badge-active-tag"
+                      title="Click to clear filter"
+                    >
+                      tag: {tag} <X className="h-3 w-3" />
+                    </Badge>
+                  )}
                 </h2>
                 {game.liveSessions.length === 0 ? (
                   <div className="text-center py-12 border border-dashed border-border/60 rounded-xl">
@@ -190,15 +233,52 @@ export default function GameDetailPage() {
                               )}
                             </div>
                             <div className="text-xs text-muted-foreground font-mono mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-                              <span className="flex items-center gap-1">
-                                <FileCode className="h-3 w-3" />
-                                {s.boundAppLabel || s.appName}
-                              </span>
+                              {s.boundUrl ? (
+                                <a
+                                  href={s.boundUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 text-primary hover:underline"
+                                  data-testid={`link-bound-url-${s.playerToken}`}
+                                  title={s.boundUrl}
+                                >
+                                  <Globe className="h-3 w-3" />
+                                  {s.boundAppLabel || (() => {
+                                    try {
+                                      return new URL(s.boundUrl).hostname;
+                                    } catch {
+                                      return s.boundUrl;
+                                    }
+                                  })()}
+                                  <ExternalLink className="h-3 w-3" />
+                                </a>
+                              ) : (
+                                <span className="flex items-center gap-1">
+                                  <FileCode className="h-3 w-3" />
+                                  {s.boundAppLabel || s.appName}
+                                </span>
+                              )}
                               <span>·</span>
                               <span>
                                 {s.resolution} · {s.bitrateKbps} kbps
                               </span>
                             </div>
+                            {s.tags && s.tags.length > 0 && (
+                              <div
+                                className="flex flex-wrap gap-1 mt-2"
+                                data-testid={`tags-${s.playerToken}`}
+                              >
+                                {s.tags.map((t) => (
+                                  <Badge
+                                    key={t}
+                                    variant="outline"
+                                    className="text-[10px]"
+                                  >
+                                    {t}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
                             {s.description && (
                               <p
                                 className="text-sm text-muted-foreground mt-2 line-clamp-2"

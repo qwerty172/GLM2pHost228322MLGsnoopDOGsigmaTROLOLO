@@ -31,4 +31,8 @@ export type ListGamesParams = {
    * Case-insensitive substring match against the game title
    */
   search?: string;
+  /**
+   * Only return games that have at least one currently-available host whose capability tags contain this value (case-insensitive).
+   */
+  tag?: string;
 };

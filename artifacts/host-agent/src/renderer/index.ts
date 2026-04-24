@@ -73,6 +73,7 @@ async function loadFormFromConfig(): Promise<HostConfig> {
   ($("apiBaseUrl") as HTMLInputElement).value = cfg.apiBaseUrl;
   ($("signalingUrl") as HTMLInputElement).value = cfg.signalingUrl;
   ($("appPath") as HTMLInputElement).value = cfg.appPath;
+  ($("boundUrl") as HTMLInputElement).value = cfg.boundUrl ?? "";
   ($("appArgs") as HTMLInputElement).value = cfg.appArgs ?? "";
   ($("appName") as HTMLInputElement).value = cfg.appName ?? "";
   await refreshCaptureSources(cfg.captureSourceName ?? "");
@@ -96,6 +97,7 @@ function readForm(): HostConfig {
     apiBaseUrl: ($("apiBaseUrl") as HTMLInputElement).value.trim(),
     signalingUrl: ($("signalingUrl") as HTMLInputElement).value.trim(),
     appPath: ($("appPath") as HTMLInputElement).value.trim(),
+    boundUrl: ($("boundUrl") as HTMLInputElement).value.trim(),
     appArgs: ($("appArgs") as HTMLInputElement).value.trim(),
     appName: ($("appName") as HTMLInputElement).value.trim(),
     captureSourceName: ($("captureSourceName") as HTMLSelectElement).value,
@@ -155,12 +157,17 @@ pullBtn.addEventListener("click", async () => {
     }
     const data = (await resp.json()) as {
       boundAppPath?: string;
+      boundUrl?: string;
       boundAppLabel?: string;
       minutePriceUsd?: number;
     };
     let touched = 0;
-    if (data.boundAppPath) {
+    if (data.boundAppPath !== undefined) {
       ($("appPath") as HTMLInputElement).value = data.boundAppPath;
+      touched++;
+    }
+    if (data.boundUrl !== undefined) {
+      ($("boundUrl") as HTMLInputElement).value = data.boundUrl;
       touched++;
     }
     if (data.boundAppLabel) {

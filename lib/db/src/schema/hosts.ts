@@ -42,11 +42,19 @@ export const hostsTable = pgTable("hosts", {
   }),
   // Absolute Windows path to the executable the agent should launch
   // when a player connects (e.g. "C:/Games/Cyberpunk 2077/bin/x64/Cyberpunk2077.exe").
+  // Empty when the host streams a browser game instead — see boundUrl.
   boundAppPath: text("bound_app_path").notNull().default(""),
+  // URL of a browser game the agent should open in the system browser
+  // when a player connects (e.g. "https://shellshock.io"). When set, the
+  // agent ignores boundAppPath. Empty when the host streams a native .exe.
+  boundUrl: text("bound_url").notNull().default(""),
   // Friendly label shown in the library (defaults to the file name).
   boundAppLabel: text("bound_app_label").notNull().default(""),
   // Free-form host description (rules, hardware, vibe).
   description: text("description").notNull().default(""),
+  // Capability tags shown in the library and used as filter facets,
+  // e.g. ["Leveled-up account", "Adobe Premiere license"].
+  tags: jsonb("tags").$type<string[]>().notNull().default([]),
 
   // Pricing (USD). Both rates may be negative, which inverts the cash flow
   // (the host pays the player — used for promos / "loss leaders").

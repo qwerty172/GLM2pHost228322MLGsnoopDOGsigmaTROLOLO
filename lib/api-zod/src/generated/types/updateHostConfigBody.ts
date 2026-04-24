@@ -15,8 +15,11 @@ export interface UpdateHostConfigBody {
   /** @nullable */
   gameId?: string | null;
   boundAppPath?: string;
+  /** URL of a browser game; mutually exclusive with boundAppPath at runtime. */
+  boundUrl?: string;
   boundAppLabel?: string;
   description?: string;
+  tags?: string[];
   launchPriceUsd?: number;
   minutePriceUsd?: number;
   scheduleMode?: UpdateHostConfigBodyScheduleMode;

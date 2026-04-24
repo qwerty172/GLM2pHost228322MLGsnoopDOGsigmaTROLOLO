@@ -1,9 +1,14 @@
 import { spawn, ChildProcess } from "node:child_process";
 import path from "node:path";
+import { shell } from "electron";
 import type { HostConfig } from "../shared/messages";
 import { log } from "./logger";
 
 let current: ChildProcess | null = null;
+// Tracks whether the current "launch" was a browser URL (no child process,
+// just a shell.openExternal). killApp() can't actually close the browser
+// tab, but we use this flag to skip the kill attempt cleanly.
+let lastWasUrl = false;
 
 export function isRunning(): boolean {
   return current !== null && current.exitCode === null;
@@ -12,8 +17,27 @@ export function isRunning(): boolean {
 export function launchApp(
   config: HostConfig,
 ): { ok: boolean; pid?: number; error?: string } {
+  // Browser game takes precedence: open the URL in the host's default
+  // browser. We don't keep a handle to the spawned browser, so this also
+  // makes killApp a no-op for URL bindings.
+  const url = (config.boundUrl ?? "").trim();
+  if (url.length > 0) {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        return { ok: false, error: "boundUrl must be http(s)" };
+      }
+      void shell.openExternal(parsed.toString());
+      lastWasUrl = true;
+      log("info", `Opened browser URL ${parsed.toString()}`);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: `Invalid boundUrl: ${String(err)}` };
+    }
+  }
+
   if (!config.appPath) {
-    return { ok: false, error: "No app path configured" };
+    return { ok: false, error: "No app path or URL configured" };
   }
   if (isRunning()) {
     return { ok: true, pid: current!.pid };
@@ -36,6 +60,7 @@ export function launchApp(
       current = null;
     });
     current = child;
+    lastWasUrl = false;
     log("info", `Launched ${config.appPath} pid=${child.pid}`);
     return { ok: true, pid: child.pid };
   } catch (err) {
@@ -71,6 +96,13 @@ export function parseArgs(input: string): string[] {
 }
 
 export function killApp(): void {
+  // We can't close a browser tab we opened via shell.openExternal; the user
+  // (or their OS) handles it. Just log and bail.
+  if (lastWasUrl && !current) {
+    log("info", "Skip killApp: browser-URL binding has no child process.");
+    lastWasUrl = false;
+    return;
+  }
   if (!current) return;
   try {
     current.kill();
@@ -78,4 +110,5 @@ export function killApp(): void {
     log("warn", `Failed to kill app: ${String(err)}`);
   }
   current = null;
+  lastWasUrl = false;
 }

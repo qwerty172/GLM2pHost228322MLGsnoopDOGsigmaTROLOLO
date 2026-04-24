@@ -51,10 +51,18 @@ export const GetHostResponse = zod.object({
   boundAppPath: zod
     .string()
     .describe("Absolute Windows path to the .exe the agent will launch"),
+  boundUrl: zod
+    .string()
+    .describe(
+      "URL of a browser game the agent will open. When set, takes precedence over boundAppPath.",
+    ),
   boundAppLabel: zod
     .string()
     .describe("Friendly label shown in the games library"),
   description: zod.string(),
+  tags: zod
+    .array(zod.string())
+    .describe("Capability tags shown as badges and used as library filters"),
   launchPriceUsd: zod
     .number()
     .describe("Charged once when a player joins (may be negative)"),
@@ -114,8 +122,15 @@ export const UpdateHostConfigBody = zod
   .object({
     gameId: zod.string().nullish(),
     boundAppPath: zod.string().optional(),
+    boundUrl: zod
+      .string()
+      .optional()
+      .describe(
+        "URL of a browser game; mutually exclusive with boundAppPath at runtime.",
+      ),
     boundAppLabel: zod.string().optional(),
     description: zod.string().optional(),
+    tags: zod.array(zod.string()).optional(),
     launchPriceUsd: zod.number().optional(),
     minutePriceUsd: zod.number().optional(),
     scheduleMode: zod.enum(["always", "scheduled"]).optional(),
@@ -172,10 +187,18 @@ export const UpdateHostConfigResponse = zod.object({
   boundAppPath: zod
     .string()
     .describe("Absolute Windows path to the .exe the agent will launch"),
+  boundUrl: zod
+    .string()
+    .describe(
+      "URL of a browser game the agent will open. When set, takes precedence over boundAppPath.",
+    ),
   boundAppLabel: zod
     .string()
     .describe("Friendly label shown in the games library"),
   description: zod.string(),
+  tags: zod
+    .array(zod.string())
+    .describe("Capability tags shown as badges and used as library filters"),
   launchPriceUsd: zod
     .number()
     .describe("Charged once when a player joins (may be negative)"),
@@ -329,6 +352,12 @@ export const ListGamesQueryParams = zod.object({
     .string()
     .optional()
     .describe("Case-insensitive substring match against the game title"),
+  tag: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "Only return games that have at least one currently-available host whose capability tags contain this value (case-insensitive).",
+    ),
 });
 
 export const ListGamesResponseItem = zod.object({
@@ -355,6 +384,15 @@ export const ListGamesResponse = zod.array(ListGamesResponseItem);
  */
 export const GetGameBySlugParams = zod.object({
   slug: zod.coerce.string(),
+});
+
+export const GetGameBySlugQueryParams = zod.object({
+  tag: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "When set, only live hosts whose capability tags contain this value are returned.",
+    ),
 });
 
 export const getGameBySlugResponseTwoLiveSessionsItemScheduleJsonItemDayMin = 0;
@@ -401,7 +439,13 @@ export const GetGameBySlugResponse = zod
           createdAt: zod.coerce.date(),
           hostDisplayName: zod.string(),
           boundAppLabel: zod.string(),
+          boundUrl: zod
+            .string()
+            .describe(
+              "When set, the agent opens this URL instead of launching an .exe.",
+            ),
           description: zod.string(),
+          tags: zod.array(zod.string()),
           launchPriceUsd: zod.number(),
           minutePriceUsd: zod.number(),
           scheduleMode: zod.enum(["always", "scheduled"]),
