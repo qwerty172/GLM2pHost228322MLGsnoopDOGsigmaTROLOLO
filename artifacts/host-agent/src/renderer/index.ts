@@ -264,6 +264,9 @@ function showPlayerLink(cfg: HostConfig, playerToken: string): void {
 }
 
 async function connect(cfg: HostConfig): Promise<void> {
+  // Operator clicked Go online again — cancel any pending grace teardown so
+  // we don't accidentally PATCH /sessions/:id/end on the new session.
+  cancelDeferredTeardown();
   currentConfig = cfg;
   setStatus("connecting", "Creating session…");
   connectBtn.disabled = true;
@@ -353,7 +356,13 @@ async function connect(cfg: HostConfig): Promise<void> {
 
   ws.onclose = () => {
     log("Signaling closed.");
-    teardown("Signaling closed");
+    // Don't kill the active session row immediately on a transient WS close —
+    // mobile/laptop networks routinely drop the socket for a few seconds.
+    // Schedule the end-session PATCH after a short grace window; if anything
+    // (a manual reconnect, the player rejoining, etc) calls teardown() with
+    // an explicit reason or clears currentSessionId in the meantime, we skip
+    // it.
+    teardownDeferred("Signaling closed", 8000);
   };
 }
 
@@ -563,7 +572,30 @@ function teardownPeer(cfg: HostConfig): void {
   setStatus("idle", "Player disconnected — waiting");
 }
 
+let pendingTeardown: ReturnType<typeof setTimeout> | null = null;
+
+function cancelDeferredTeardown(): void {
+  if (pendingTeardown) {
+    clearTimeout(pendingTeardown);
+    pendingTeardown = null;
+  }
+}
+
+function teardownDeferred(reason: string, graceMs: number): void {
+  cancelDeferredTeardown();
+  const sidAtSchedule = currentSessionId;
+  pendingTeardown = setTimeout(() => {
+    pendingTeardown = null;
+    // Only proceed if the same session is still considered active. If the
+    // user reconnected, currentSessionId would have been cleared/replaced.
+    if (currentSessionId && currentSessionId === sidAtSchedule) {
+      teardown(reason);
+    }
+  }, graceMs);
+}
+
 function teardown(reason: string): void {
+  cancelDeferredTeardown();
   log(reason);
   // Tell the server to mark the session as ended so the host doesn't leave
   // a stale "active" row behind (which would block billing reconciliation
