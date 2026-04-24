@@ -119,12 +119,16 @@ router.get("/games/:slug", async (req, res): Promise<void> => {
     return;
   }
 
-  // A "live" host listing for this game = either:
-  //  (a) an open session whose appName matches the game title, OR
-  //  (b) a host explicitly bound to this game via gameId (no session yet —
-  //      players can request one via the existing session-create flow).
-  // We then apply schedule-mode filtering so only currently-available hosts
-  // appear in the catalog.
+  // A "live" host listing for this game requires an open session row. The
+  // session can be associated with this game in two ways:
+  //  (a) its appName matches the game title (the legacy free-text path), or
+  //  (b) the host that owns the session is explicitly bound to this game via
+  //      gameId.
+  // Hosts that are bound to the game (gameId match) but have NOT yet created
+  // a session do NOT appear here — the player joins through the host-shared
+  // /play/{playerToken} link that the agent generates when the host goes
+  // online. We then apply schedule-mode filtering so only currently-available
+  // hosts appear in the catalog.
   const sessionRows = await db
     .select({
       session: sessionsTable,
