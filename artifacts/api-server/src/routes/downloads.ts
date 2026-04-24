@@ -1,5 +1,5 @@
 import path from "node:path";
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { Router, type IRouter } from "express";
 import archiver from "archiver";
 import { logger } from "../lib/logger";
@@ -169,7 +169,11 @@ router.get("/downloads/host-agent.zip", (req, res): void => {
   includeIfPresent("assets");
   includeIfPresent("scripts");
   includeIfPresent("build");
-  includeIfPresent("package.json");
+  // The host-agent's package.json uses pnpm's `catalog:` protocol for shared
+  // versions. Standalone `npm install` (run by the portable bundle's start.bat)
+  // does not understand `catalog:`, so we resolve those entries to the concrete
+  // version from pnpm-workspace.yaml before adding the file to the zip.
+  appendNormalizedPackageJson(archive, agentDir);
   includeIfPresent("tsconfig.main.json");
   includeIfPresent("tsconfig.renderer.json");
   includeIfPresent("electron-builder.yml");
@@ -182,5 +186,73 @@ router.get("/downloads/host-agent.zip", (req, res): void => {
     logger.error({ err }, "archiver finalize failed");
   });
 });
+
+function loadPnpmCatalog(agentDir: string): Record<string, string> {
+  // Walk up to the workspace root looking for pnpm-workspace.yaml. We only
+  // need the `catalog:` mapping, so a tiny regex parser is enough — adding a
+  // YAML dep just for this would be overkill.
+  let dir = agentDir;
+  for (let i = 0; i < 6; i++) {
+    const candidate = path.join(dir, "pnpm-workspace.yaml");
+    if (existsSync(candidate)) {
+      const text = readFileSync(candidate, "utf8");
+      const out: Record<string, string> = {};
+      const m = text.match(/^catalog:\s*\n((?:[ \t]+.*\n?)+)/m);
+      if (m && m[1]) {
+        for (const line of m[1].split("\n")) {
+          const e = line.match(/^\s+['"]?([^'":\s]+)['"]?:\s*(.+?)\s*$/);
+          if (e && e[1] && e[2]) out[e[1]] = e[2].replace(/^['"]|['"]$/g, "");
+        }
+      }
+      return out;
+    }
+    dir = path.dirname(dir);
+  }
+  return {};
+}
+
+function appendNormalizedPackageJson(
+  archive: archiver.Archiver,
+  agentDir: string,
+): void {
+  const pkgPath = path.join(agentDir, "package.json");
+  if (!existsSync(pkgPath)) return;
+  const raw = readFileSync(pkgPath, "utf8");
+  let pkg: Record<string, unknown>;
+  try {
+    pkg = JSON.parse(raw);
+  } catch (err) {
+    logger.warn({ err }, "host-agent package.json is not valid JSON");
+    archive.file(pkgPath, { name: "package.json" });
+    return;
+  }
+  const catalog = loadPnpmCatalog(agentDir);
+  const normalize = (group: "dependencies" | "devDependencies"): void => {
+    const deps = pkg[group] as Record<string, string> | undefined;
+    if (!deps) return;
+    for (const [name, version] of Object.entries(deps)) {
+      if (version.startsWith("catalog:")) {
+        const resolved = catalog[name];
+        if (resolved) {
+          deps[name] = resolved;
+        } else {
+          logger.warn(
+            { name },
+            "No catalog entry for dependency; falling back to '*'",
+          );
+          deps[name] = "*";
+        }
+      } else if (version.startsWith("workspace:")) {
+        // Standalone npm install can't resolve workspace refs either; drop
+        // them — the bundle is self-contained and shouldn't depend on
+        // sibling workspace packages.
+        delete deps[name];
+      }
+    }
+  };
+  normalize("dependencies");
+  normalize("devDependencies");
+  archive.append(JSON.stringify(pkg, null, 2) + "\n", { name: "package.json" });
+}
 
 export default router;

@@ -258,7 +258,7 @@ async function createSession(cfg: HostConfig): Promise<{
 }
 
 function showPlayerLink(cfg: HostConfig, playerToken: string): void {
-  const link = `${cfg.apiBaseUrl.replace(/\/$/, "")}/play?token=${encodeURIComponent(playerToken)}`;
+  const link = `${cfg.apiBaseUrl.replace(/\/$/, "")}/play/${encodeURIComponent(playerToken)}`;
   playerLinkInput.value = link;
   shareCard.hidden = false;
 }
@@ -312,11 +312,13 @@ async function connect(cfg: HostConfig): Promise<void> {
     } else if (msg.type === "peer-joined" && msg["role"] === "player") {
       await onPlayerJoined(cfg);
     } else if (msg.type === "answer" && pc) {
+      // Web player serializes the full RTCSessionDescriptionInit object on
+      // `sdp`, so pass it through verbatim.
+      const sdp = msg["sdp"] as RTCSessionDescriptionInit | string;
+      const desc: RTCSessionDescriptionInit =
+        typeof sdp === "string" ? { type: "answer", sdp } : sdp;
       await pc
-        .setRemoteDescription({
-          type: "answer",
-          sdp: msg["sdp"] as string,
-        })
+        .setRemoteDescription(desc)
         .catch((err) => log(`setRemoteDescription failed: ${String(err)}`));
     } else if (msg.type === "ice-candidate" && pc) {
       try {
@@ -327,12 +329,13 @@ async function connect(cfg: HostConfig): Promise<void> {
         log(`ICE add failed: ${String(err)}`);
       }
     } else if (msg.type === "input") {
-      // Fallback path: input arrived via signaling, not data channel.
+      // Fallback path: input arrived via signaling, not data channel. The
+      // payload may either follow the agent's native InputEvent shape (under
+      // msg.event) or the web player's wire format (msg.kind/action/...).
       try {
-        const event = msg["event"] as InputEvent;
-        if (event && typeof event === "object") {
-          window.agent.injectInput(event);
-        }
+        const fallback = msg["event"] as InputEvent | undefined;
+        const event = fallback ?? mapPlayerInput(msg);
+        if (event) window.agent.injectInput(event);
       } catch {
         /* ignore */
       }
@@ -395,8 +398,19 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     dataChannel = ev.channel;
     dataChannel.onmessage = (m) => {
       try {
-        const event = JSON.parse(m.data) as InputEvent;
-        window.agent.injectInput(event);
+        const raw = JSON.parse(m.data) as Record<string, unknown>;
+        // Accept either the native agent InputEvent (already in the right
+        // shape) or the web player's wire format and translate it.
+        const event =
+          typeof raw["kind"] === "string" &&
+          (raw["kind"] === "mousemove" ||
+            raw["kind"] === "mousedown" ||
+            raw["kind"] === "mouseup" ||
+            raw["kind"] === "keydown" ||
+            raw["kind"] === "keyup")
+            ? (raw as unknown as InputEvent)
+            : mapPlayerInput(raw);
+        if (event) window.agent.injectInput(event);
       } catch {
         /* ignore */
       }
@@ -417,7 +431,47 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
 
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
-  ws?.send(JSON.stringify({ type: "offer", sdp: offer.sdp }));
+  // Send the full RTCSessionDescriptionInit so the web player can hand it to
+  // `new RTCSessionDescription(msg.sdp)` directly.
+  ws?.send(
+    JSON.stringify({
+      type: "offer",
+      sdp: { type: offer.type, sdp: offer.sdp },
+    }),
+  );
+}
+
+// Translate the web player's input wire format into the agent's native
+// InputEvent. The player tracks mouse position via pointer-lock relative
+// movement, so we accumulate it into absolute coordinates the injector wants.
+let mouseAbsX = 0;
+let mouseAbsY = 0;
+function mapPlayerInput(raw: Record<string, unknown>): InputEvent | null {
+  if (raw["type"] !== "input") return null;
+  const kind = raw["kind"];
+  const action = raw["action"];
+  if (kind === "key" && (action === "down" || action === "up")) {
+    const code = String(raw["key"] ?? "");
+    return action === "down"
+      ? { kind: "keydown", code, key: code }
+      : { kind: "keyup", code, key: code };
+  }
+  if (kind === "mouse") {
+    if (action === "move") {
+      mouseAbsX += Number(raw["movementX"] ?? 0);
+      mouseAbsY += Number(raw["movementY"] ?? 0);
+      return { kind: "mousemove", x: mouseAbsX, y: mouseAbsY };
+    }
+    if (action === "down" || action === "up") {
+      const buttonIdx = Number(raw["button"] ?? 0);
+      const button: "left" | "right" | "middle" =
+        buttonIdx === 2 ? "right" : buttonIdx === 1 ? "middle" : "left";
+      return action === "down"
+        ? { kind: "mousedown", button }
+        : { kind: "mouseup", button };
+    }
+  }
+  return null;
 }
 
 async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
