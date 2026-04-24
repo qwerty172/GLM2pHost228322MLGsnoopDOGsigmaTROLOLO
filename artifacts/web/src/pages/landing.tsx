@@ -27,6 +27,13 @@ export default function Landing() {
             STREAMLINE
           </div>
           <div className="flex items-center gap-4">
+            <Link
+              href="/games"
+              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+              data-testid="link-games-library"
+            >
+              Games Library
+            </Link>
             <Link href="/host" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
               Host Dashboard
             </Link>
@@ -88,10 +95,18 @@ export default function Landing() {
         {/* Games Grid */}
         <section className="py-20 border-y border-border/50 bg-muted/20">
           <div className="container mx-auto px-6">
-            <h2 className="text-2xl font-bold tracking-tight mb-10 flex items-center gap-2">
-              <Gamepad2 className="h-6 w-6 text-primary" />
-              POPULAR TITLES
-            </h2>
+            <div className="flex items-end justify-between mb-10 gap-4 flex-wrap">
+              <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+                <Gamepad2 className="h-6 w-6 text-primary" />
+                POPULAR TITLES
+              </h2>
+              <Link href="/games">
+                <Button variant="outline" size="sm" data-testid="button-browse-all-games">
+                  Browse the full library
+                  <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                </Button>
+              </Link>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
                 { img: "game-1.png", title: "Cyberpunk 2077", req: "1440p / RTX 4090" },

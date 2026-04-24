@@ -10,6 +10,8 @@ import Dashboard from "@/pages/host/dashboard";
 import SetupSession from "@/pages/host/setup";
 import WalletPage from "@/pages/wallet";
 import Play from "@/pages/play";
+import GamesPage from "@/pages/games";
+import GameDetailPage from "@/pages/game-detail";
 import { HostLayout } from "@/components/layout";
 import { HostAuthGuard } from "@/components/host-auth-guard";
 
@@ -34,6 +36,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
+      <Route path="/games" component={GamesPage} />
+      <Route path="/games/:slug" component={GameDetailPage} />
       <Route path="/play/:playerToken" component={Play} />
       <Route path="/host*" component={HostRoutes} />
       <Route path="/wallet*" component={HostRoutes} />

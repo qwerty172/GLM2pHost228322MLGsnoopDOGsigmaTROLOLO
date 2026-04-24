@@ -40,6 +40,36 @@ export interface RegisterPlayerBody {
   displayName: string;
 }
 
+export interface GameListItem {
+  id: string;
+  slug: string;
+  title: string;
+  coverImageUrl: string;
+  description: string;
+  genre: string;
+  hasMods: boolean;
+  isMultiplayer: boolean;
+  hostSpectatesPlayer: boolean;
+  hasQuests: boolean;
+  /** Number of pending or active sessions matching this game right now */
+  liveSessionCount: number;
+}
+
+export interface GameLiveSession {
+  /** Player share token — visit /play/{playerToken} to join */
+  playerToken: string;
+  appName: string;
+  ratePerMinute: number;
+  resolution: string;
+  bitrateKbps: number;
+  status: string;
+  createdAt: string;
+}
+
+export type GameDetail = GameListItem & {
+  liveSessions: GameLiveSession[];
+};
+
 export interface Session {
   id: string;
   hostId: string;
@@ -151,6 +181,33 @@ export interface WalletTransaction {
   description: string;
   timestamp: string;
 }
+
+export type ListGamesParams = {
+  /**
+   * Only return games tagged as supporting mods
+   */
+  hasMods?: boolean;
+  /**
+   * Only return multiplayer games
+   */
+  isMultiplayer?: boolean;
+  /**
+   * Only return games where the host watches the player's session
+   */
+  hostSpectatesPlayer?: boolean;
+  /**
+   * Only return games that support paid quests
+   */
+  hasQuests?: boolean;
+  /**
+   * Only return games that have at least one live session right now
+   */
+  liveOnly?: boolean;
+  /**
+   * Case-insensitive substring match against the game title
+   */
+  search?: string;
+};
 
 export type GetSessionParams = {
   hostToken: string;

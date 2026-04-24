@@ -18,6 +18,8 @@ tags:
     description: Session lifecycle and discovery
   - name: wallet
     description: Crypto wallet, balances, deposits, withdrawals
+  - name: games
+    description: Catalog of games available to stream
 paths:
   /healthz:
     get:
@@ -194,6 +196,83 @@ paths:
                 $ref: "#/components/schemas/Player"
         "404":
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /games:
+    get:
+      operationId: listGames
+      tags: [games]
+      summary: List the games catalog with live-session counts
+      parameters:
+        - in: query
+          name: hasMods
+          required: false
+          schema:
+            type: boolean
+          description: Only return games tagged as supporting mods
+        - in: query
+          name: isMultiplayer
+          required: false
+          schema:
+            type: boolean
+          description: Only return multiplayer games
+        - in: query
+          name: hostSpectatesPlayer
+          required: false
+          schema:
+            type: boolean
+          description: Only return games where the host watches the player's session
+        - in: query
+          name: hasQuests
+          required: false
+          schema:
+            type: boolean
+          description: Only return games that support paid quests
+        - in: query
+          name: liveOnly
+          required: false
+          schema:
+            type: boolean
+          description: Only return games that have at least one live session right now
+        - in: query
+          name: search
+          required: false
+          schema:
+            type: string
+          description: Case-insensitive substring match against the game title
+      responses:
+        "200":
+          description: Games catalog
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GameListItem"
+
+  /games/{slug}:
+    get:
+      operationId: getGameBySlug
+      tags: [games]
+      summary: Game detail with currently-live sessions
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Game detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameDetail"
+        "404":
+          description: Game not found
           content:
             application/json:
               schema:
@@ -533,6 +612,85 @@ components:
           type: string
       required:
         - displayName
+
+    GameListItem:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        title:
+          type: string
+        coverImageUrl:
+          type: string
+        description:
+          type: string
+        genre:
+          type: string
+        hasMods:
+          type: boolean
+        isMultiplayer:
+          type: boolean
+        hostSpectatesPlayer:
+          type: boolean
+        hasQuests:
+          type: boolean
+        liveSessionCount:
+          type: integer
+          description: Number of pending or active sessions matching this game right now
+      required:
+        - id
+        - slug
+        - title
+        - coverImageUrl
+        - description
+        - genre
+        - hasMods
+        - isMultiplayer
+        - hostSpectatesPlayer
+        - hasQuests
+        - liveSessionCount
+
+    GameLiveSession:
+      type: object
+      properties:
+        playerToken:
+          type: string
+          description: Player share token — visit /play/{playerToken} to join
+        appName:
+          type: string
+        ratePerMinute:
+          type: number
+        resolution:
+          type: string
+        bitrateKbps:
+          type: integer
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - playerToken
+        - appName
+        - ratePerMinute
+        - resolution
+        - bitrateKbps
+        - status
+        - createdAt
+
+    GameDetail:
+      allOf:
+        - $ref: "#/components/schemas/GameListItem"
+        - type: object
+          properties:
+            liveSessions:
+              type: array
+              items:
+                $ref: "#/components/schemas/GameLiveSession"
+          required:
+            - liveSessions
 
     Session:
       type: object

@@ -124,6 +124,102 @@ export const GetPlayerResponse = zod.object({
 });
 
 /**
+ * @summary List the games catalog with live-session counts
+ */
+export const ListGamesQueryParams = zod.object({
+  hasMods: zod.coerce
+    .boolean()
+    .optional()
+    .describe("Only return games tagged as supporting mods"),
+  isMultiplayer: zod.coerce
+    .boolean()
+    .optional()
+    .describe("Only return multiplayer games"),
+  hostSpectatesPlayer: zod.coerce
+    .boolean()
+    .optional()
+    .describe("Only return games where the host watches the player's session"),
+  hasQuests: zod.coerce
+    .boolean()
+    .optional()
+    .describe("Only return games that support paid quests"),
+  liveOnly: zod.coerce
+    .boolean()
+    .optional()
+    .describe(
+      "Only return games that have at least one live session right now",
+    ),
+  search: zod.coerce
+    .string()
+    .optional()
+    .describe("Case-insensitive substring match against the game title"),
+});
+
+export const ListGamesResponseItem = zod.object({
+  id: zod.string(),
+  slug: zod.string(),
+  title: zod.string(),
+  coverImageUrl: zod.string(),
+  description: zod.string(),
+  genre: zod.string(),
+  hasMods: zod.boolean(),
+  isMultiplayer: zod.boolean(),
+  hostSpectatesPlayer: zod.boolean(),
+  hasQuests: zod.boolean(),
+  liveSessionCount: zod
+    .number()
+    .describe(
+      "Number of pending or active sessions matching this game right now",
+    ),
+});
+export const ListGamesResponse = zod.array(ListGamesResponseItem);
+
+/**
+ * @summary Game detail with currently-live sessions
+ */
+export const GetGameBySlugParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const GetGameBySlugResponse = zod
+  .object({
+    id: zod.string(),
+    slug: zod.string(),
+    title: zod.string(),
+    coverImageUrl: zod.string(),
+    description: zod.string(),
+    genre: zod.string(),
+    hasMods: zod.boolean(),
+    isMultiplayer: zod.boolean(),
+    hostSpectatesPlayer: zod.boolean(),
+    hasQuests: zod.boolean(),
+    liveSessionCount: zod
+      .number()
+      .describe(
+        "Number of pending or active sessions matching this game right now",
+      ),
+  })
+  .and(
+    zod.object({
+      liveSessions: zod.array(
+        zod.object({
+          playerToken: zod
+            .string()
+            .describe(
+              "Player share token — visit \/play\/{playerToken} to join",
+            ),
+          appName: zod.string(),
+          ratePerMinute: zod.number(),
+          resolution: zod.string(),
+          bitrateKbps: zod.number(),
+          status: zod.string(),
+          createdAt: zod.coerce.date(),
+        }),
+      ),
+    }),
+  );
+
+/**
  * @summary Create a new session
  */
 export const CreateSessionBody = zod.object({

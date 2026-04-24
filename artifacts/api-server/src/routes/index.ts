@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import gamesRouter from "./games";
 import healthRouter from "./health";
 import hostsRouter from "./hosts";
 import playersRouter from "./players";
@@ -7,6 +8,7 @@ import walletRouter from "./wallet";
 
 const router: IRouter = Router();
 
+router.use(gamesRouter);
 router.use(healthRouter);
 router.use(hostsRouter);
 router.use(playersRouter);

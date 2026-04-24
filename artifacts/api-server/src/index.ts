@@ -4,6 +4,7 @@ import { logger } from "./lib/logger";
 import { attachSignaling } from "./lib/signaling";
 import { startBillingWorker } from "./lib/billingWorker";
 import { startDepositWorker } from "./lib/depositWorker";
+import { seedGames } from "./lib/seedGames";
 
 const rawPort = process.env["PORT"];
 
@@ -26,6 +27,9 @@ server.listen(port, () => {
   logger.info({ port }, "Server listening");
   startBillingWorker();
   startDepositWorker();
+  seedGames().catch((err) => {
+    logger.error({ err }, "Failed to seed games catalog");
+  });
 });
 
 server.on("error", (err) => {

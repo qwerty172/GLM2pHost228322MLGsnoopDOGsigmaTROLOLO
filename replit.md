@@ -25,3 +25,14 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+
+## Cloud Gaming Platform
+
+P2P cloud gaming where Windows hosts stream games to players via WebRTC. The web app is the host dashboard + player client; the API server handles signaling, sessions, the wallet, and the games catalog. Hosts run a native Windows agent (`artifacts/host-agent`).
+
+### Games Library
+
+- Public catalog at `/games` with capability filters: mods, multiplayer, host-spectates, has-quests, plus a "live now" toggle and free-text search. Detail page at `/games/:slug` lists currently-live hosts with join links.
+- Catalog table: `lib/db/src/schema/games.ts`. 8 games are seeded on API server boot via `artifacts/api-server/src/lib/seedGames.ts` (idempotent by slug).
+- API: `GET /api/games` and `GET /api/games/:slug` (see `lib/api-spec/openapi.yaml` and `artifacts/api-server/src/routes/games.ts`).
+- v1 link between sessions and games is by case-insensitive title match on `sessions.appName` (no FK yet) — host agent still sends free-text app names. Adding `sessions.gameId` is a planned follow-up.

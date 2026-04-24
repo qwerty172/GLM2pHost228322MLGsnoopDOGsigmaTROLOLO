@@ -21,7 +21,8 @@
     "pino": "^9",
     "pino-http": "^10",
     "tronweb": "^6.3.0",
-    "ws": "^8.20.0"
+    "ws": "^8.20.0",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",

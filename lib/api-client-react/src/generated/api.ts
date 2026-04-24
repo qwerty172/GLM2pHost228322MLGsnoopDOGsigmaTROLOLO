@@ -22,10 +22,13 @@ import type {
   CreateSessionBody,
   EndSessionBody,
   ErrorResponse,
+  GameDetail,
+  GameListItem,
   GetSessionParams,
   HealthStatus,
   Host,
   HostStats,
+  ListGamesParams,
   Player,
   RegisterHostBody,
   RegisterPlayerBody,
@@ -710,6 +713,187 @@ export function useGetPlayer<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetPlayerQueryOptions(playerToken, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List the games catalog with live-session counts
+ */
+export const getListGamesUrl = (params?: ListGamesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/games?${stringifiedParams}`
+    : `/api/games`;
+};
+
+export const listGames = async (
+  params?: ListGamesParams,
+  options?: RequestInit,
+): Promise<GameListItem[]> => {
+  return customFetch<GameListItem[]>(getListGamesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListGamesQueryKey = (params?: ListGamesParams) => {
+  return [`/api/games`, ...(params ? [params] : [])] as const;
+};
+
+export const getListGamesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listGames>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListGamesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listGames>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListGamesQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listGames>>> = ({
+    signal,
+  }) => listGames(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listGames>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListGamesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listGames>>
+>;
+export type ListGamesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List the games catalog with live-session counts
+ */
+
+export function useListGames<
+  TData = Awaited<ReturnType<typeof listGames>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListGamesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listGames>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListGamesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Game detail with currently-live sessions
+ */
+export const getGetGameBySlugUrl = (slug: string) => {
+  return `/api/games/${slug}`;
+};
+
+export const getGameBySlug = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<GameDetail> => {
+  return customFetch<GameDetail>(getGetGameBySlugUrl(slug), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetGameBySlugQueryKey = (slug: string) => {
+  return [`/api/games/${slug}`] as const;
+};
+
+export const getGetGameBySlugQueryOptions = <
+  TData = Awaited<ReturnType<typeof getGameBySlug>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getGameBySlug>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetGameBySlugQueryKey(slug);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getGameBySlug>>> = ({
+    signal,
+  }) => getGameBySlug(slug, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!slug,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getGameBySlug>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetGameBySlugQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getGameBySlug>>
+>;
+export type GetGameBySlugQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Game detail with currently-live sessions
+ */
+
+export function useGetGameBySlug<
+  TData = Awaited<ReturnType<typeof getGameBySlug>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getGameBySlug>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetGameBySlugQueryOptions(slug, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
