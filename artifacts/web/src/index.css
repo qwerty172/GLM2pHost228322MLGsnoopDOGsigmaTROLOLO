@@ -74,12 +74,12 @@
   --elevate-2: rgba(255,255,255, .09);
 
   /* Deep dark base, almost black but slightly cool */
-  --background: 230 25% 6%;
+  --background: 207 42% 5%;
   --foreground: 210 40% 98%;
 
-  --border: 230 25% 14%;
+  --border: 207 30% 12%;
 
-  --card: 230 25% 8%;
+  --card: 207 38% 8%;
   --card-foreground: 210 40% 98%;
   --card-border: 230 25% 14%;
 
@@ -97,14 +97,14 @@
   --popover-border: 230 25% 14%;
 
   /* Primary cyber green */
-  --primary: 160 84% 39%;
-  --primary-foreground: 230 25% 6%;
+  --primary: 199 89% 48%;
+  --primary-foreground: 207 42% 5%;
 
   /* Secondary futuristic blue */
   --secondary: 217 91% 60%;
   --secondary-foreground: 210 40% 98%;
 
-  --muted: 230 25% 14%;
+  --muted: 207 30% 12%;
   --muted-foreground: 215 20% 65%;
 
   --accent: 230 25% 14%;
@@ -115,7 +115,7 @@
   --destructive-foreground: 210 40% 98%;
 
   --input: 230 25% 14%;
-  --ring: 160 84% 39%;
+  --ring: 199 89% 48%;
   
   --chart-1: 160 84% 39%;
   --chart-2: 217 91% 60%;
