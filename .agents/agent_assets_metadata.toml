@@ -24,3 +24,9 @@ id = "RBENgnNx_ERz1tRllI-F5"
 uri = "file://artifacts/web/public/game-3.png"
 type = "image"
 title = "Sci-fi shooter game cover"
+
+[[generated]]
+id = "DY_Lpv8a52ATf1RHyND96"
+uri = "file://artifacts/mockup-sandbox/public/lan-party-hero.png"
+type = "image"
+title = "warm LAN party hero background"
