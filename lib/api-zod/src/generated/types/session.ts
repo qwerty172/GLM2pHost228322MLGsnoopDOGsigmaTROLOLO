@@ -5,6 +5,7 @@
  * P2P Cloud Gaming signaling, session, and wallet API
  * OpenAPI spec version: 0.1.0
  */
+import type { SessionPaymentSource } from "./sessionPaymentSource";
 
 export interface Session {
   id: string;
@@ -19,6 +20,7 @@ export interface Session {
   bitrateKbps: number;
   /** Player credits charged per minute (host receives net of commission) */
   ratePerMinute: number;
+  paymentSource?: SessionPaymentSource;
   createdAt: Date;
   /** @nullable */
   startedAt?: Date | null;

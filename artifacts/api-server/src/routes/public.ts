@@ -117,7 +117,8 @@ router.get("/stats", async (_req, res): Promise<void> => {
   if (paidCents === 0) {
     const [{ accrued }] = await db
       .select({
-        accrued: sql<number>`coalesce(round(sum(${billingEventsTable.hostCredit}) * 100)::int, 0)`,
+        // hostCreditLzt is integer LZT (200 LZT = 1 USDT = 100¢), so cents = sum/2.
+        accrued: sql<number>`coalesce(round(sum(${billingEventsTable.hostCreditLzt}) / 2.0)::int, 0)`,
       })
       .from(billingEventsTable);
     paidCents = Number(accrued) || 0;

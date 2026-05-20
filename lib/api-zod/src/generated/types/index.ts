@@ -8,7 +8,9 @@
 
 export * from "./activityItem";
 export * from "./claimSessionBody";
+export * from "./claimSessionBodyPaymentSource";
 export * from "./createSessionBody";
+export * from "./createSessionBodyPaymentSource";
 export * from "./depositAddress";
 export * from "./endSessionBody";
 export * from "./errorResponse";
@@ -31,6 +33,7 @@ export * from "./registerPlayerBody";
 export * from "./requestWithdrawalBody";
 export * from "./scheduleSlot";
 export * from "./session";
+export * from "./sessionPaymentSource";
 export * from "./updateHostConfigBody";
 export * from "./updateHostConfigBodyScheduleMode";
 export * from "./wallet";

@@ -13,8 +13,13 @@ const router: IRouter = Router();
 
 function serialize(p: typeof playersTable.$inferSelect) {
   return {
-    ...p,
-    creditBalance: Number(p.creditBalance),
+    id: p.id,
+    playerToken: p.playerToken,
+    displayName: p.displayName,
+    internalBalanceLzt: p.internalBalanceLzt,
+    withdrawableBalanceLzt: p.withdrawableBalanceLzt,
+    createdAt: p.createdAt,
+    lastSeenAt: p.lastSeenAt,
   };
 }
 
@@ -39,8 +44,6 @@ router.post("/players/register", async (req, res): Promise<void> => {
     return;
   }
 
-  // Best-effort: pre-generate deposit addresses so the wallet UI is populated
-  // immediately. Errors are logged inside the helper and don't block register.
   await ensureDepositAddressesForOwner("player", player.id);
 
   req.log.info({ playerId: player.id }, "Player registered");

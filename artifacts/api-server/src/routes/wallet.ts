@@ -20,6 +20,7 @@ import {
   ensureDepositAddressesForOwner,
   type OwnerType,
 } from "../lib/walletOwner";
+import { LZT_PER_USDT, lztToUsdt, usdtToLzt } from "../lib/lzt";
 
 const router: IRouter = Router();
 
@@ -54,6 +55,8 @@ router.get("/wallet/:userToken", async (req, res): Promise<void> => {
     .orderBy(desc(withdrawalsTable.requestedAt))
     .limit(10);
 
+  // `withdrawals.amount` is stored in crypto-USDT units; total pending in LZT
+  // for the wallet headline.
   const pendingTotalRows = await db
     .select({
       total: sql<string>`COALESCE(SUM(${withdrawalsTable.amount}), 0)`,
@@ -66,15 +69,18 @@ router.get("/wallet/:userToken", async (req, res): Promise<void> => {
         inArray(withdrawalsTable.status, ["pending", "processing"]),
       ),
     );
-  const pendingTotal = Number(pendingTotalRows[0]?.total ?? 0);
+  const pendingUsdt = Number(pendingTotalRows[0]?.total ?? 0);
+  const pendingWithdrawalsLzt = usdtToLzt(pendingUsdt);
 
   res.json(
     GetWalletResponse.parse({
       ownerType: owner.type,
       ownerId: owner.id,
       displayName: owner.displayName,
-      creditBalance: Number(owner.creditBalance),
-      pendingWithdrawals: pendingTotal,
+      internalBalanceLzt: owner.internalBalanceLzt,
+      withdrawableBalanceLzt: owner.withdrawableBalanceLzt,
+      pendingWithdrawalsLzt,
+      lztPerUsdt: LZT_PER_USDT,
       depositAddresses: addresses.map((a) => ({
         currency: a.currency,
         label: a.label,
@@ -88,7 +94,8 @@ router.get("/wallet/:userToken", async (req, res): Promise<void> => {
         ownerId: w.ownerId,
         currency: w.currency,
         address: w.address,
-        amount: Number(w.amount),
+        amountUsdt: Number(w.amount),
+        amountLzt: usdtToLzt(Number(w.amount)),
         status: w.status,
         requestedAt: new Date(w.requestedAt).toISOString(),
         completedAt: w.completedAt
@@ -154,7 +161,7 @@ router.get(
       id: string;
       kind: string;
       currency: string | null;
-      amount: number;
+      amountLzt: number;
       status: string | null;
       description: string;
       timestamp: string;
@@ -162,42 +169,43 @@ router.get(
     const txs: Tx[] = [];
 
     for (const d of deposits) {
+      const netUsdt = Number(d.netAmount);
       txs.push({
         id: `dep-${d.id}`,
         kind: "deposit",
         currency: d.currency,
-        amount: Number(d.netAmount),
+        amountLzt: usdtToLzt(netUsdt),
         status: d.status,
-        description: `${d.currency} deposit (gross ${d.grossAmount}, commission ${d.commissionAmount})`,
+        description: `${d.currency} deposit (net ≈ ${netUsdt} USDT)`,
         timestamp: new Date(d.detectedAt).toISOString(),
       });
     }
     for (const w of withdrawals) {
+      const wUsdt = Number(w.amount);
       txs.push({
         id: `wd-${w.id}`,
         kind: "withdrawal",
         currency: w.currency,
-        amount: -Number(w.amount),
+        amountLzt: -usdtToLzt(wUsdt),
         status: w.status,
         description: `Withdraw to ${w.address.slice(0, 14)}…`,
         timestamp: new Date(w.requestedAt).toISOString(),
       });
     }
     for (const b of billing) {
-      const amount =
-        owner.type === "host"
-          ? Number(b.hostCredit)
-          : -Number(b.playerDebit);
+      const amountLzt =
+        owner.type === "host" ? b.hostCreditLzt : -b.playerDebitLzt;
+      if (amountLzt === 0) continue;
       txs.push({
         id: `bill-${b.id}`,
         kind: "session_billing",
-        currency: "USD",
-        amount,
+        currency: `LZT/${b.bucket}`,
+        amountLzt,
         status: null,
         description:
           owner.type === "host"
-            ? `Earned from session (${b.minutes} min)`
-            : `Played session (${b.minutes} min)`,
+            ? `Earned from session — ${b.bucket} (${b.minutes} min)`
+            : `Played session (${b.minutes} min) — ${b.bucket}`,
         timestamp: new Date(b.billedAt).toISOString(),
       });
     }
@@ -224,35 +232,39 @@ router.post(
       return;
     }
 
-    if (body.data.amount <= 0) {
-      res.status(400).json({ error: "Amount must be positive" });
+    const amountLzt = Math.floor(body.data.amountLzt);
+    if (!Number.isFinite(amountLzt) || amountLzt <= 0) {
+      res.status(400).json({ error: "amountLzt must be a positive integer" });
       return;
     }
-
     const owner = await resolveOwnerByToken(params.data.userToken);
     if (!owner) {
       res.status(404).json({ error: "User not found" });
       return;
     }
 
-    const amountStr = String(body.data.amount);
     const balanceTable = ownerBalanceTable(owner.type);
+    const amountUsdt = lztToUsdt(amountLzt);
+    const amountUsdtStr = amountUsdt.toFixed(6);
 
+    // Withdrawals only consume the зелёный (withdrawable) bucket.
     const debited = await db
       .update(balanceTable)
       .set({
-        creditBalance: sql`${balanceTable.creditBalance} - ${amountStr}::numeric`,
+        withdrawableBalanceLzt: sql`${balanceTable.withdrawableBalanceLzt} - ${amountLzt}`,
       })
       .where(
         and(
           eq(balanceTable.id, owner.id),
-          sql`${balanceTable.creditBalance} >= ${amountStr}::numeric`,
+          sql`${balanceTable.withdrawableBalanceLzt} >= ${amountLzt}`,
         ),
       )
       .returning({ id: balanceTable.id });
 
     if (debited.length === 0) {
-      res.status(400).json({ error: "Insufficient balance" });
+      res.status(400).json({
+        error: "Insufficient зелёный (withdrawable) balance",
+      });
       return;
     }
 
@@ -263,7 +275,7 @@ router.post(
         ownerId: owner.id,
         currency: body.data.currency,
         address: body.data.address,
-        amount: amountStr,
+        amount: amountUsdtStr,
         status: "pending",
       })
       .returning();
@@ -272,7 +284,7 @@ router.post(
       await db
         .update(balanceTable)
         .set({
-          creditBalance: sql`${balanceTable.creditBalance} + ${amountStr}::numeric`,
+          withdrawableBalanceLzt: sql`${balanceTable.withdrawableBalanceLzt} + ${amountLzt}`,
         })
         .where(eq(balanceTable.id, owner.id));
       res.status(500).json({ error: "Failed to create withdrawal" });
@@ -285,6 +297,8 @@ router.post(
         ownerId: owner.id,
         withdrawalId: w.id,
         currency: w.currency,
+        amountLzt,
+        amountUsdt,
       },
       "Withdrawal requested",
     );
@@ -295,7 +309,8 @@ router.post(
       ownerId: w.ownerId,
       currency: w.currency,
       address: w.address,
-      amount: Number(w.amount),
+      amountUsdt,
+      amountLzt,
       status: w.status,
       requestedAt: new Date(w.requestedAt).toISOString(),
       completedAt: w.completedAt

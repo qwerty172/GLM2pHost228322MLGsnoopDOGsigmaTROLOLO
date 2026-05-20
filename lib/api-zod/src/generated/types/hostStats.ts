@@ -12,5 +12,6 @@ export interface HostStats {
   totalMinutesStreamed: number;
   lifetimeEarnings: number;
   earnings7d: number;
-  creditBalance: number;
+  internalBalanceLzt: number;
+  withdrawableBalanceLzt: number;
 }

@@ -23,6 +23,7 @@ import {
 
 import { generateToken } from "../lib/tokens";
 import { applyLaunchFee } from "../lib/launchFee";
+import { pickPlayerBucket } from "../lib/lzt";
 import { isHostAvailableNow } from "../lib/schedule";
 
 const router: IRouter = Router();
@@ -83,6 +84,7 @@ router.post("/sessions", async (req, res): Promise<void> => {
       resolution: parsed.data.resolution ?? "1920x1080",
       bitrateKbps: parsed.data.bitrateKbps ?? 6000,
       ratePerMinute: String(ratePerMinute),
+      paymentSource: parsed.data.paymentSource ?? "auto",
     })
     .returning();
 
@@ -165,6 +167,19 @@ router.post(
     // fee a second time.
     const isReclaimBySamePlayer = session.claimedByPlayerId === player.id;
 
+    // Player gets to pick the LZT bucket they're paying from. If they didn't
+    // specify, keep whatever the session was created with (defaulting to
+    // "auto"). Persist now so the rest of the claim path — balance check,
+    // launch fee, signaling, billing worker — all see the same source.
+    const chosenPaymentSource = body.data.paymentSource ?? session.paymentSource;
+    if (chosenPaymentSource !== session.paymentSource) {
+      await db
+        .update(sessionsTable)
+        .set({ paymentSource: chosenPaymentSource })
+        .where(eq(sessionsTable.id, session.id));
+      session.paymentSource = chosenPaymentSource;
+    }
+
     // Lookup host to compute pre-claim balance requirement (launch fee +
     // one minute of streaming if the per-minute rate is positive).
     const [host] = await db
@@ -178,11 +193,22 @@ router.post(
 
     const launchFee = Number(host.launchPriceUsd);
     const perMinute = Number(session.ratePerMinute);
-    const minBalance =
-      Math.max(0, launchFee) + Math.max(0, perMinute);
-    if (Number(player.creditBalance) < minBalance) {
+    // We require a single bucket to cover both the (positive) launch fee AND
+    // one minute of streaming. We must not let "auto" combine buckets here —
+    // billing debits from one bucket at a time, so a combined total can pass
+    // this check but immediately fail on the first tick.
+    const launchFeeLzt = Math.round(Math.max(0, launchFee) * 200);
+    const perMinuteLzt = Math.round(Math.max(0, perMinute) * 200);
+    const minBalanceLzt = launchFeeLzt + perMinuteLzt;
+    const picked = pickPlayerBucket(
+      session.paymentSource,
+      minBalanceLzt,
+      player.withdrawableBalanceLzt,
+      player.internalBalanceLzt,
+    );
+    if (picked === null && minBalanceLzt > 0) {
       res.status(400).json({
-        error: `Insufficient balance — need at least ${minBalance.toFixed(4)} credits to start`,
+        error: `Insufficient LZT — need at least ${minBalanceLzt} LZT in a single ${session.paymentSource === "auto" ? "(green or blue)" : session.paymentSource} bucket to start`,
       });
       return;
     }
@@ -214,6 +240,7 @@ router.post(
         hostId: host.id,
         playerId: player.id,
         launchPriceUsd: launchFee,
+        paymentSource: session.paymentSource,
       });
       if (!fee.ok) {
         // Roll back the claim so the player isn't stuck.

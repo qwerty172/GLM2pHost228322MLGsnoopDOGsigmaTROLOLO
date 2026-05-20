@@ -47,8 +47,10 @@ export interface Host {
   id: string;
   hostToken: string;
   displayName: string;
-  /** Available credit balance in USD-equivalent */
-  creditBalance: number;
+  /** Синий — internal LZT, cannot be withdrawn */
+  internalBalanceLzt: number;
+  /** Зелёный — LZT convertible back to crypto at 200:1 */
+  withdrawableBalanceLzt: number;
   /**
    * Catalog game this host is bound to
    * @nullable
@@ -112,7 +114,10 @@ export interface Player {
   id: string;
   playerToken: string;
   displayName: string;
-  creditBalance: number;
+  /** Синий — internal LZT, cannot be withdrawn */
+  internalBalanceLzt: number;
+  /** Зелёный — LZT convertible back to crypto at 200:1 */
+  withdrawableBalanceLzt: number;
   createdAt: string;
   lastSeenAt: string;
 }
@@ -174,6 +179,15 @@ export type GameDetail = GameListItem & {
   liveSessions: GameLiveSession[];
 };
 
+export type SessionPaymentSource =
+  (typeof SessionPaymentSource)[keyof typeof SessionPaymentSource];
+
+export const SessionPaymentSource = {
+  blue: "blue",
+  green: "green",
+  auto: "auto",
+} as const;
+
 export interface Session {
   id: string;
   hostId: string;
@@ -187,6 +201,7 @@ export interface Session {
   bitrateKbps: number;
   /** Player credits charged per minute (host receives net of commission) */
   ratePerMinute: number;
+  paymentSource?: SessionPaymentSource;
   createdAt: string;
   /** @nullable */
   startedAt?: string | null;
@@ -198,10 +213,37 @@ export interface EndSessionBody {
   hostToken: string;
 }
 
+/**
+ * Which LZT bucket the player wants to pay from. "auto" prefers
+зелёный (withdrawable) and falls back to синий (internal).
+
+ */
+export type ClaimSessionBodyPaymentSource =
+  (typeof ClaimSessionBodyPaymentSource)[keyof typeof ClaimSessionBodyPaymentSource];
+
+export const ClaimSessionBodyPaymentSource = {
+  blue: "blue",
+  green: "green",
+  auto: "auto",
+} as const;
+
 export interface ClaimSessionBody {
   /** The player's wallet token (issued via /players/register) */
   playerWalletToken: string;
+  /** Which LZT bucket the player wants to pay from. "auto" prefers
+зелёный (withdrawable) and falls back to синий (internal).
+ */
+  paymentSource?: ClaimSessionBodyPaymentSource;
 }
+
+export type CreateSessionBodyPaymentSource =
+  (typeof CreateSessionBodyPaymentSource)[keyof typeof CreateSessionBodyPaymentSource];
+
+export const CreateSessionBodyPaymentSource = {
+  blue: "blue",
+  green: "green",
+  auto: "auto",
+} as const;
 
 export interface CreateSessionBody {
   hostToken: string;
@@ -209,6 +251,7 @@ export interface CreateSessionBody {
   resolution?: string;
   bitrateKbps?: number;
   ratePerMinute?: number;
+  paymentSource?: CreateSessionBodyPaymentSource;
 }
 
 export interface HostStats {
@@ -217,7 +260,8 @@ export interface HostStats {
   totalMinutesStreamed: number;
   lifetimeEarnings: number;
   earnings7d: number;
-  creditBalance: number;
+  internalBalanceLzt: number;
+  withdrawableBalanceLzt: number;
 }
 
 export interface ActivityItem {
@@ -248,7 +292,9 @@ export interface Withdrawal {
   ownerId: string;
   currency: string;
   address: string;
-  amount: number;
+  /** Amount in crypto USDT-equivalent (LZT / 200) */
+  amountUsdt: number;
+  amountLzt: number;
   status: string;
   requestedAt: string;
   /** @nullable */
@@ -258,7 +304,8 @@ export interface Withdrawal {
 export interface RequestWithdrawalBody {
   currency: string;
   address: string;
-  amount: number;
+  /** Amount in LZT (must be a multiple of 200 — i.e. whole USDT) */
+  amountLzt: number;
 }
 
 export interface Wallet {
@@ -266,8 +313,10 @@ export interface Wallet {
   ownerType: string;
   ownerId: string;
   displayName: string;
-  creditBalance: number;
-  pendingWithdrawals: number;
+  internalBalanceLzt: number;
+  withdrawableBalanceLzt: number;
+  pendingWithdrawalsLzt: number;
+  lztPerUsdt: number;
   depositAddresses: DepositAddress[];
   recentWithdrawals: Withdrawal[];
 }
@@ -305,8 +354,8 @@ export interface WalletTransaction {
   kind: string;
   /** @nullable */
   currency?: string | null;
-  /** Signed (negative for debits, positive for credits) */
-  amount: number;
+  /** Signed LZT (negative for debits, positive for credits) */
+  amountLzt: number;
   /** @nullable */
   status?: string | null;
   description: string;

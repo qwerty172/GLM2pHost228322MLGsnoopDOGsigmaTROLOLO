@@ -10,7 +10,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Gamepad2, AlertCircle, Loader2, Wifi, WifiOff, VolumeX, Wallet } from "lucide-react";
+import { Gamepad2, AlertCircle, Loader2, Wifi, WifiOff, VolumeX, Wallet, Banknote, Coins } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+
+const LZT_PER_USDT = 200;
+type PaymentSource = "auto" | "blue" | "green";
 import { toast } from "sonner";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
 
@@ -33,6 +38,7 @@ export default function Play() {
   const claimSession = useClaimSession();
   const [claimError, setClaimError] = useState<string | null>(null);
   const [hasClaimed, setHasClaimed] = useState(false);
+  const [paymentSource, setPaymentSource] = useState<PaymentSource>("auto");
 
   const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>("new");
   const [isPlaying, setIsPlaying] = useState(false);
@@ -149,7 +155,7 @@ export default function Play() {
     claimSession.mutate(
       {
         playerToken,
-        data: { playerWalletToken },
+        data: { playerWalletToken, paymentSource },
       },
       {
         onSuccess: () => {
@@ -307,10 +313,24 @@ export default function Play() {
   }
 
   if (!isPlaying) {
-    const balance = wallet?.creditBalance ?? 0;
-    const ratePerMin = session.ratePerMinute;
+    const greenLzt = wallet?.withdrawableBalanceLzt ?? 0;
+    const blueLzt = wallet?.internalBalanceLzt ?? 0;
+    const totalLzt = greenLzt + blueLzt;
+    const ratePerMinUsd = session.ratePerMinute;
+    const ratePerMinLzt = Math.round(ratePerMinUsd * LZT_PER_USDT);
+    const sourceBalance =
+      paymentSource === "blue"
+        ? blueLzt
+        : paymentSource === "green"
+          ? greenLzt
+          : totalLzt;
     const minutesAffordable =
-      ratePerMin > 0 ? Math.floor(balance / ratePerMin) : 0;
+      ratePerMinLzt > 0 ? Math.floor(sourceBalance / ratePerMinLzt) : 0;
+    const sourceLabel: Record<PaymentSource, string> = {
+      auto: "Авто (зелёный → синий)",
+      green: "Зелёный (выводимый)",
+      blue: "Синий (внутренний)",
+    };
     return (
       <div
         className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
@@ -346,30 +366,93 @@ export default function Play() {
                 variant="outline"
                 className="border-white/10 text-slate-400"
               >
-                ${ratePerMin.toFixed(2)}/мин
+                {ratePerMinLzt} LZT/мин
+              </Badge>
+              <Badge
+                variant="outline"
+                className="border-white/10 text-slate-500 text-[10px]"
+              >
+                ≈ ${ratePerMinUsd.toFixed(2)}/мин
               </Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div
-              className="flex items-center justify-between p-4 rounded-lg"
-              style={{
-                background: "rgba(255,255,255,0.02)",
-                border: "1px solid rgba(255,255,255,0.06)",
-              }}
-            >
-              <div className="text-sm font-medium text-slate-400 flex items-center gap-2">
-                <Wallet className="h-4 w-4" /> Баланс
-              </div>
-              <div className="text-right">
-                <div className="font-bold font-mono text-white">
-                  ${balance.toFixed(2)}
+            <div className="grid grid-cols-2 gap-2">
+              <div
+                className="rounded-lg p-3"
+                style={{
+                  background: "rgba(14,165,233,0.1)",
+                  border: "1px solid rgba(14,165,233,0.3)",
+                }}
+              >
+                <div className="text-[10px] uppercase text-sky-300 flex items-center gap-1">
+                  <Wallet className="h-3 w-3" /> Синий
+                </div>
+                <div className="font-bold font-mono text-sky-300">
+                  {blueLzt.toLocaleString("ru-RU")} LZT
                 </div>
                 <div className="text-[10px] text-slate-500">
-                  ~{minutesAffordable} мин игры
+                  ≈ ${(blueLzt / LZT_PER_USDT).toFixed(2)}
+                </div>
+              </div>
+              <div
+                className="rounded-lg p-3"
+                style={{
+                  background: "rgba(16,185,129,0.1)",
+                  border: "1px solid rgba(16,185,129,0.3)",
+                }}
+              >
+                <div className="text-[10px] uppercase text-emerald-300 flex items-center gap-1">
+                  <Banknote className="h-3 w-3" /> Зелёный
+                </div>
+                <div className="font-bold font-mono text-emerald-300">
+                  {greenLzt.toLocaleString("ru-RU")} LZT
+                </div>
+                <div className="text-[10px] text-slate-500">
+                  ≈ ${(greenLzt / LZT_PER_USDT).toFixed(2)}
                 </div>
               </div>
             </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                <Coins className="h-3 w-3" /> Источник оплаты
+              </Label>
+              <RadioGroup
+                value={paymentSource}
+                onValueChange={(v) => setPaymentSource(v as PaymentSource)}
+                className="grid grid-cols-3 gap-2"
+                disabled={hasClaimed}
+              >
+                {(["auto", "green", "blue"] as PaymentSource[]).map((s) => (
+                  <div key={s}>
+                    <RadioGroupItem value={s} id={`src-${s}`} className="peer sr-only" />
+                    <Label
+                      htmlFor={`src-${s}`}
+                      className="flex flex-col items-center justify-center rounded-md p-2 cursor-pointer transition-all text-center text-xs text-slate-300"
+                      style={{
+                        background:
+                          paymentSource === s
+                            ? "rgba(14,165,233,0.12)"
+                            : "rgba(255,255,255,0.02)",
+                        border:
+                          paymentSource === s
+                            ? "2px solid #0ea5e9"
+                            : "2px solid rgba(255,255,255,0.06)",
+                      }}
+                    >
+                      <span className="font-bold capitalize">
+                        {s === "auto" ? "Авто" : s === "green" ? "Зелёный" : "Синий"}
+                      </span>
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+              <p className="text-[10px] text-slate-500">
+                {sourceLabel[paymentSource]} · ~{minutesAffordable} мин игры
+              </p>
+            </div>
+
             <div
               className="flex items-center justify-between p-4 rounded-lg"
               style={{
@@ -401,6 +484,7 @@ export default function Play() {
                     : "ЗАВЕРШЁН"}
               </Badge>
             </div>
+
             {claimError && (
               <div
                 className="p-3 rounded-md text-sm"
@@ -424,7 +508,7 @@ export default function Play() {
                   ? "Подключаемся к сессии…"
                   : "Создаём кошелёк…"}
               </Button>
-            ) : balance < ratePerMin && !hasClaimed ? (
+            ) : sourceBalance < ratePerMinLzt && !hasClaimed ? (
               <Link href="/wallet" className="block">
                 <Button
                   className="w-full h-14 text-base font-bold"

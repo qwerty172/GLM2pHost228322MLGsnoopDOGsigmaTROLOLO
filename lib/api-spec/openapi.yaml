@@ -655,9 +655,12 @@ components:
           type: string
         displayName:
           type: string
-        creditBalance:
-          type: number
-          description: Available credit balance in USD-equivalent
+        internalBalanceLzt:
+          type: integer
+          description: Синий — internal LZT, cannot be withdrawn
+        withdrawableBalanceLzt:
+          type: integer
+          description: Зелёный — LZT convertible back to crypto at 200:1
         gameId:
           type: ["string", "null"]
           description: Catalog game this host is bound to
@@ -708,7 +711,8 @@ components:
         - id
         - hostToken
         - displayName
-        - creditBalance
+        - internalBalanceLzt
+        - withdrawableBalanceLzt
         - gameId
         - boundAppPath
         - boundUrl
@@ -772,8 +776,12 @@ components:
           type: string
         displayName:
           type: string
-        creditBalance:
-          type: number
+        internalBalanceLzt:
+          type: integer
+          description: Синий — internal LZT, cannot be withdrawn
+        withdrawableBalanceLzt:
+          type: integer
+          description: Зелёный — LZT convertible back to crypto at 200:1
         createdAt:
           type: string
           format: date-time
@@ -784,7 +792,8 @@ components:
         - id
         - playerToken
         - displayName
-        - creditBalance
+        - internalBalanceLzt
+        - withdrawableBalanceLzt
         - createdAt
         - lastSeenAt
 
@@ -942,6 +951,9 @@ components:
         ratePerMinute:
           type: number
           description: Player credits charged per minute (host receives net of commission)
+        paymentSource:
+          type: string
+          enum: [blue, green, auto]
         createdAt:
           type: string
           format: date-time
@@ -976,6 +988,12 @@ components:
         playerWalletToken:
           type: string
           description: The player's wallet token (issued via /players/register)
+        paymentSource:
+          type: string
+          enum: [blue, green, auto]
+          description: |
+            Which LZT bucket the player wants to pay from. "auto" prefers
+            зелёный (withdrawable) and falls back to синий (internal).
       required:
         - playerWalletToken
 
@@ -992,6 +1010,9 @@ components:
           type: integer
         ratePerMinute:
           type: number
+        paymentSource:
+          type: string
+          enum: [blue, green, auto]
       required:
         - hostToken
         - appName
@@ -1009,15 +1030,18 @@ components:
           type: number
         earnings7d:
           type: number
-        creditBalance:
-          type: number
+        internalBalanceLzt:
+          type: integer
+        withdrawableBalanceLzt:
+          type: integer
       required:
         - totalSessions
         - activeSessions
         - totalMinutesStreamed
         - lifetimeEarnings
         - earnings7d
-        - creditBalance
+        - internalBalanceLzt
+        - withdrawableBalanceLzt
 
     ActivityItem:
       type: object
@@ -1077,8 +1101,11 @@ components:
           type: string
         address:
           type: string
-        amount:
+        amountUsdt:
           type: number
+          description: Amount in crypto USDT-equivalent (LZT / 200)
+        amountLzt:
+          type: integer
         status:
           type: string
         requestedAt:
@@ -1093,7 +1120,8 @@ components:
         - ownerId
         - currency
         - address
-        - amount
+        - amountUsdt
+        - amountLzt
         - status
         - requestedAt
 
@@ -1104,12 +1132,13 @@ components:
           type: string
         address:
           type: string
-        amount:
-          type: number
+        amountLzt:
+          type: integer
+          description: Amount in LZT (must be a multiple of 200 — i.e. whole USDT)
       required:
         - currency
         - address
-        - amount
+        - amountLzt
 
     Wallet:
       type: object
@@ -1121,10 +1150,14 @@ components:
           type: string
         displayName:
           type: string
-        creditBalance:
-          type: number
-        pendingWithdrawals:
-          type: number
+        internalBalanceLzt:
+          type: integer
+        withdrawableBalanceLzt:
+          type: integer
+        pendingWithdrawalsLzt:
+          type: integer
+        lztPerUsdt:
+          type: integer
         depositAddresses:
           type: array
           items:
@@ -1137,8 +1170,10 @@ components:
         - ownerType
         - ownerId
         - displayName
-        - creditBalance
-        - pendingWithdrawals
+        - internalBalanceLzt
+        - withdrawableBalanceLzt
+        - pendingWithdrawalsLzt
+        - lztPerUsdt
         - depositAddresses
         - recentWithdrawals
 
@@ -1209,9 +1244,9 @@ components:
           description: "deposit | withdrawal | session_billing"
         currency:
           type: ["string", "null"]
-        amount:
-          type: number
-          description: Signed (negative for debits, positive for credits)
+        amountLzt:
+          type: integer
+          description: Signed LZT (negative for debits, positive for credits)
         status:
           type: ["string", "null"]
         description:
@@ -1222,6 +1257,6 @@ components:
       required:
         - id
         - kind
-        - amount
+        - amountLzt
         - description
         - timestamp

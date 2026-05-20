@@ -35,7 +35,8 @@ function serializeHost(h: typeof hostsTable.$inferSelect) {
     id: h.id,
     hostToken: h.hostToken,
     displayName: h.displayName,
-    creditBalance: Number(h.creditBalance),
+    internalBalanceLzt: h.internalBalanceLzt,
+    withdrawableBalanceLzt: h.withdrawableBalanceLzt,
     gameId: h.gameId,
     boundAppPath: h.boundAppPath,
     boundUrl: h.boundUrl,
@@ -378,7 +379,8 @@ router.get("/hosts/:hostToken/stats", async (req, res): Promise<void> => {
       totalMinutesStreamed,
       lifetimeEarnings,
       earnings7d,
-      creditBalance: Number(host.creditBalance),
+      internalBalanceLzt: host.internalBalanceLzt,
+      withdrawableBalanceLzt: host.withdrawableBalanceLzt,
     }),
   );
 });

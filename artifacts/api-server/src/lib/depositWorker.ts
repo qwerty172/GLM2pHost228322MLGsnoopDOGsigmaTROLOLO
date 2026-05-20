@@ -7,10 +7,12 @@ import {
   depositsTable,
 } from "@workspace/db";
 import { logger } from "./logger";
+import { usdtToLzt } from "./lzt";
 
 const POLL_INTERVAL_MS = Number(
   process.env["WALLET_DEPOSIT_POLL_MS"] ?? 60_000,
 );
+// Platform commission on incoming deposits, applied before conversion to LZT.
 const COMMISSION_RATE = Number(process.env["WALLET_COMMISSION_RATE"] ?? "0.3");
 let interval: NodeJS.Timeout | null = null;
 
@@ -149,11 +151,16 @@ async function creditDeposit(
 
       if (inserted.length === 0) return false;
 
+      // Convert net USDT-equivalent → LZT at 200:1 (floor) and credit to the
+      // owner's зелёный (withdrawable) bucket. Crypto deposits are always
+      // withdrawable; only on-platform earnings touch the синий side.
+      const lzt = usdtToLzt(net);
+      if (lzt <= 0) return true;
       const balanceTable = ownerType === "host" ? hostsTable : playersTable;
       await tx
         .update(balanceTable)
         .set({
-          creditBalance: sql`${balanceTable.creditBalance} + ${netStr}::numeric`,
+          withdrawableBalanceLzt: sql`${balanceTable.withdrawableBalanceLzt} + ${lzt}`,
         })
         .where(eq(balanceTable.id, ownerId));
       return true;

@@ -25,6 +25,11 @@ export const sessionsTable = pgTable("sessions", {
   resolution: text("resolution").notNull().default("1920x1080"),
   bitrateKbps: integer("bitrate_kbps").notNull().default(6000),
   ratePerMinute: text("rate_per_minute").notNull().default("0.04"),
+  // Which LZT bucket the player wants to be billed from:
+  //   "green" → only зелёный (withdrawable)
+  //   "blue"  → only синий (internal)
+  //   "auto"  → prefer green, fall back to blue
+  paymentSource: text("payment_source").notNull().default("auto"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

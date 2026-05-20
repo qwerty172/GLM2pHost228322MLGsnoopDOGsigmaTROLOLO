@@ -5,6 +5,7 @@
  * P2P Cloud Gaming signaling, session, and wallet API
  * OpenAPI spec version: 0.1.0
  */
+import type { CreateSessionBodyPaymentSource } from "./createSessionBodyPaymentSource";
 
 export interface CreateSessionBody {
   hostToken: string;
@@ -12,4 +13,5 @@ export interface CreateSessionBody {
   resolution?: string;
   bitrateKbps?: number;
   ratePerMinute?: number;
+  paymentSource?: CreateSessionBodyPaymentSource;
 }

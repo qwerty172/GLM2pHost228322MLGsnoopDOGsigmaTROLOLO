@@ -14,7 +14,8 @@ export interface OwnerRecord {
   id: string;
   type: OwnerType;
   displayName: string;
-  creditBalance: string;
+  internalBalanceLzt: number;
+  withdrawableBalanceLzt: number;
   token: string;
   createdAt: Date;
 }
@@ -31,7 +32,8 @@ export async function resolveOwnerByToken(
       id: host.id,
       type: "host",
       displayName: host.displayName,
-      creditBalance: host.creditBalance,
+      internalBalanceLzt: host.internalBalanceLzt,
+      withdrawableBalanceLzt: host.withdrawableBalanceLzt,
       token: host.hostToken,
       createdAt: host.createdAt,
     };
@@ -45,7 +47,8 @@ export async function resolveOwnerByToken(
       id: player.id,
       type: "player",
       displayName: player.displayName,
-      creditBalance: player.creditBalance,
+      internalBalanceLzt: player.internalBalanceLzt,
+      withdrawableBalanceLzt: player.withdrawableBalanceLzt,
       token: player.playerToken,
       createdAt: player.createdAt,
     };

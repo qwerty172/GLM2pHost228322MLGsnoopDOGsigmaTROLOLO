@@ -12,8 +12,10 @@ export interface Host {
   id: string;
   hostToken: string;
   displayName: string;
-  /** Available credit balance in USD-equivalent */
-  creditBalance: number;
+  /** Синий — internal LZT, cannot be withdrawn */
+  internalBalanceLzt: number;
+  /** Зелёный — LZT convertible back to crypto at 200:1 */
+  withdrawableBalanceLzt: number;
   /**
    * Catalog game this host is bound to
    * @nullable

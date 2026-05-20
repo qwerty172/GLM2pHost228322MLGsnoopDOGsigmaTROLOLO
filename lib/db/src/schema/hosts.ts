@@ -4,6 +4,7 @@ import {
   uuid,
   timestamp,
   numeric,
+  integer,
   jsonb,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -26,9 +27,12 @@ export const hostsTable = pgTable("hosts", {
   id: uuid("id").primaryKey().defaultRandom(),
   hostToken: text("host_token").notNull().unique(),
   displayName: text("display_name").notNull(),
-  creditBalance: numeric("credit_balance", { precision: 18, scale: 6 })
+  // Two LZT buckets (integer LZT, 1 USDT = 200 LZT). See players schema for
+  // a fuller description of the blue (internal) / green (withdrawable) split.
+  internalBalanceLzt: integer("internal_balance_lzt").notNull().default(0),
+  withdrawableBalanceLzt: integer("withdrawable_balance_lzt")
     .notNull()
-    .default("0"),
+    .default(0),
 
   // -----------------------------------------------------------------
   // Host "offer" config — what this host streams and on what terms.

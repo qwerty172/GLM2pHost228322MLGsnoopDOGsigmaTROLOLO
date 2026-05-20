@@ -41,9 +41,12 @@ export const GetHostResponse = zod.object({
   id: zod.string(),
   hostToken: zod.string(),
   displayName: zod.string(),
-  creditBalance: zod
+  internalBalanceLzt: zod
     .number()
-    .describe("Available credit balance in USD-equivalent"),
+    .describe("Синий — internal LZT, cannot be withdrawn"),
+  withdrawableBalanceLzt: zod
+    .number()
+    .describe("Зелёный — LZT convertible back to crypto at 200:1"),
   gameId: zod
     .string()
     .nullable()
@@ -177,9 +180,12 @@ export const UpdateHostConfigResponse = zod.object({
   id: zod.string(),
   hostToken: zod.string(),
   displayName: zod.string(),
-  creditBalance: zod
+  internalBalanceLzt: zod
     .number()
-    .describe("Available credit balance in USD-equivalent"),
+    .describe("Синий — internal LZT, cannot be withdrawn"),
+  withdrawableBalanceLzt: zod
+    .number()
+    .describe("Зелёный — LZT convertible back to crypto at 200:1"),
   gameId: zod
     .string()
     .nullable()
@@ -259,6 +265,7 @@ export const ListHostSessionsResponseItem = zod.object({
     .describe(
       "Player credits charged per minute (host receives net of commission)",
     ),
+  paymentSource: zod.enum(["blue", "green", "auto"]).optional(),
   createdAt: zod.coerce.date(),
   startedAt: zod.coerce.date().nullish(),
   endedAt: zod.coerce.date().nullish(),
@@ -278,7 +285,8 @@ export const GetHostStatsResponse = zod.object({
   totalMinutesStreamed: zod.number(),
   lifetimeEarnings: zod.number(),
   earnings7d: zod.number(),
-  creditBalance: zod.number(),
+  internalBalanceLzt: zod.number(),
+  withdrawableBalanceLzt: zod.number(),
 });
 
 /**
@@ -354,7 +362,12 @@ export const GetPlayerResponse = zod.object({
   id: zod.string(),
   playerToken: zod.string(),
   displayName: zod.string(),
-  creditBalance: zod.number(),
+  internalBalanceLzt: zod
+    .number()
+    .describe("Синий — internal LZT, cannot be withdrawn"),
+  withdrawableBalanceLzt: zod
+    .number()
+    .describe("Зелёный — LZT convertible back to crypto at 200:1"),
   createdAt: zod.coerce.date(),
   lastSeenAt: zod.coerce.date(),
 });
@@ -532,6 +545,7 @@ export const CreateSessionBody = zod.object({
   resolution: zod.string().optional(),
   bitrateKbps: zod.number().optional(),
   ratePerMinute: zod.number().optional(),
+  paymentSource: zod.enum(["blue", "green", "auto"]).optional(),
 });
 
 /**
@@ -559,6 +573,7 @@ export const GetSessionResponse = zod.object({
     .describe(
       "Player credits charged per minute (host receives net of commission)",
     ),
+  paymentSource: zod.enum(["blue", "green", "auto"]).optional(),
   createdAt: zod.coerce.date(),
   startedAt: zod.coerce.date().nullish(),
   endedAt: zod.coerce.date().nullish(),
@@ -585,6 +600,7 @@ export const GetSessionByPlayerTokenResponse = zod.object({
     .describe(
       "Player credits charged per minute (host receives net of commission)",
     ),
+  paymentSource: zod.enum(["blue", "green", "auto"]).optional(),
   createdAt: zod.coerce.date(),
   startedAt: zod.coerce.date().nullish(),
   endedAt: zod.coerce.date().nullish(),
@@ -601,6 +617,12 @@ export const ClaimSessionBody = zod.object({
   playerWalletToken: zod
     .string()
     .describe("The player's wallet token (issued via \/players\/register)"),
+  paymentSource: zod
+    .enum(["blue", "green", "auto"])
+    .optional()
+    .describe(
+      'Which LZT bucket the player wants to pay from. \"auto\" prefers\nзелёный (withdrawable) and falls back to синий (internal).\n',
+    ),
 });
 
 export const ClaimSessionResponse = zod.object({
@@ -617,6 +639,7 @@ export const ClaimSessionResponse = zod.object({
     .describe(
       "Player credits charged per minute (host receives net of commission)",
     ),
+  paymentSource: zod.enum(["blue", "green", "auto"]).optional(),
   createdAt: zod.coerce.date(),
   startedAt: zod.coerce.date().nullish(),
   endedAt: zod.coerce.date().nullish(),
@@ -647,6 +670,7 @@ export const EndSessionResponse = zod.object({
     .describe(
       "Player credits charged per minute (host receives net of commission)",
     ),
+  paymentSource: zod.enum(["blue", "green", "auto"]).optional(),
   createdAt: zod.coerce.date(),
   startedAt: zod.coerce.date().nullish(),
   endedAt: zod.coerce.date().nullish(),
@@ -665,8 +689,10 @@ export const GetWalletResponse = zod.object({
   ownerType: zod.string().describe("host | player"),
   ownerId: zod.string(),
   displayName: zod.string(),
-  creditBalance: zod.number(),
-  pendingWithdrawals: zod.number(),
+  internalBalanceLzt: zod.number(),
+  withdrawableBalanceLzt: zod.number(),
+  pendingWithdrawalsLzt: zod.number(),
+  lztPerUsdt: zod.number(),
   depositAddresses: zod.array(
     zod.object({
       currency: zod.string().describe("USDT_TRC20 | NANO | SOL"),
@@ -683,7 +709,10 @@ export const GetWalletResponse = zod.object({
       ownerId: zod.string(),
       currency: zod.string(),
       address: zod.string(),
-      amount: zod.number(),
+      amountUsdt: zod
+        .number()
+        .describe("Amount in crypto USDT-equivalent (LZT \/ 200)"),
+      amountLzt: zod.number(),
       status: zod.string(),
       requestedAt: zod.coerce.date(),
       completedAt: zod.coerce.date().nullish(),
@@ -702,9 +731,9 @@ export const ListWalletTransactionsResponseItem = zod.object({
   id: zod.string(),
   kind: zod.string().describe("deposit | withdrawal | session_billing"),
   currency: zod.string().nullish(),
-  amount: zod
+  amountLzt: zod
     .number()
-    .describe("Signed (negative for debits, positive for credits)"),
+    .describe("Signed LZT (negative for debits, positive for credits)"),
   status: zod.string().nullish(),
   description: zod.string(),
   timestamp: zod.coerce.date(),
@@ -723,5 +752,7 @@ export const RequestWithdrawalParams = zod.object({
 export const RequestWithdrawalBody = zod.object({
   currency: zod.string(),
   address: zod.string(),
-  amount: zod.number(),
+  amountLzt: zod
+    .number()
+    .describe("Amount in LZT (must be a multiple of 200 — i.e. whole USDT)"),
 });

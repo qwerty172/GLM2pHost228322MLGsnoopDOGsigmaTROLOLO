@@ -13,8 +13,10 @@ export interface Wallet {
   ownerType: string;
   ownerId: string;
   displayName: string;
-  creditBalance: number;
-  pendingWithdrawals: number;
+  internalBalanceLzt: number;
+  withdrawableBalanceLzt: number;
+  pendingWithdrawalsLzt: number;
+  lztPerUsdt: number;
   depositAddresses: DepositAddress[];
   recentWithdrawals: Withdrawal[];
 }

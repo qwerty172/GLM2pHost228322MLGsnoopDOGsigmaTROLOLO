@@ -5,8 +5,13 @@
  * P2P Cloud Gaming signaling, session, and wallet API
  * OpenAPI spec version: 0.1.0
  */
+import type { ClaimSessionBodyPaymentSource } from "./claimSessionBodyPaymentSource";
 
 export interface ClaimSessionBody {
   /** The player's wallet token (issued via /players/register) */
   playerWalletToken: string;
+  /** Which LZT bucket the player wants to pay from. "auto" prefers
+зелёный (withdrawable) and falls back to синий (internal).
+ */
+  paymentSource?: ClaimSessionBodyPaymentSource;
 }

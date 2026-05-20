@@ -3,6 +3,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, hostsTable, sessionsTable, playersTable } from "@workspace/db";
 import { logger } from "./logger";
+import { pickPlayerBucket } from "./lzt";
 
 type Role = "host" | "player";
 
@@ -115,8 +116,20 @@ async function authenticate(
   if (wallet.id !== session.claimedByPlayerId) {
     return { ok: false, reason: "wallet does not match session claimant" };
   }
-  if (Number(wallet.creditBalance) < Number(session.ratePerMinute)) {
-    return { ok: false, reason: "insufficient balance to start" };
+  const rateLzt = Math.round(Number(session.ratePerMinute) * 200);
+  // Use the same shared bucket-selection rule as the per-minute billing path
+  // so signaling never authorizes a session that billing would immediately
+  // tear down on the next tick. "auto" must NOT combine buckets here.
+  if (rateLzt > 0) {
+    const picked = pickPlayerBucket(
+      session.paymentSource,
+      rateLzt,
+      wallet.withdrawableBalanceLzt,
+      wallet.internalBalanceLzt,
+    );
+    if (picked === null) {
+      return { ok: false, reason: "insufficient balance to start" };
+    }
   }
   return { ok: true, result: { sessionId: session.id, role } };
 }

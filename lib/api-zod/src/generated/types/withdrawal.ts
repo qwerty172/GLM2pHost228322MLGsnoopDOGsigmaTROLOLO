@@ -12,7 +12,9 @@ export interface Withdrawal {
   ownerId: string;
   currency: string;
   address: string;
-  amount: number;
+  /** Amount in crypto USDT-equivalent (LZT / 200) */
+  amountUsdt: number;
+  amountLzt: number;
   status: string;
   requestedAt: Date;
   /** @nullable */

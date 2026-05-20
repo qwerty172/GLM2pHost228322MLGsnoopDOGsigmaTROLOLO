@@ -12,8 +12,8 @@ export interface WalletTransaction {
   kind: string;
   /** @nullable */
   currency?: string | null;
-  /** Signed (negative for debits, positive for credits) */
-  amount: number;
+  /** Signed LZT (negative for debits, positive for credits) */
+  amountLzt: number;
   /** @nullable */
   status?: string | null;
   description: string;

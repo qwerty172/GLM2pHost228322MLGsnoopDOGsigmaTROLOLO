@@ -28,6 +28,8 @@ import {
   Download,
   HardDrive,
   Gamepad2,
+  Wallet,
+  Banknote,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -139,7 +141,7 @@ export default function Dashboard() {
 
       {hostToken && <BindingForm hostToken={hostToken} />}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {[
           {
             label: "Активные сессии",
@@ -159,13 +161,6 @@ export default function Dashboard() {
             hint: "за последние 7 дней",
             icon: <Activity className="h-4 w-4 text-sky-400" />,
           },
-          {
-            label: "Баланс",
-            value: `$${(stats?.creditBalance ?? 0).toFixed(2)}`,
-            hint: "доступно к выводу",
-            icon: <DollarSign className="h-4 w-4 text-teal-400" />,
-            accent: true,
-          },
         ].map((s) => (
           <Card key={s.label} style={cardStyle}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -175,15 +170,63 @@ export default function Dashboard() {
               {s.icon}
             </CardHeader>
             <CardContent>
-              <div
-                className={`text-2xl font-bold ${s.accent ? "text-teal-400" : "text-white"}`}
-              >
+              <div className="text-2xl font-bold text-white">
                 {statsLoading ? <Skeleton className="h-8 w-16" /> : s.value}
               </div>
               <p className="text-[11px] text-slate-500 mt-0.5">{s.hint}</p>
             </CardContent>
           </Card>
         ))}
+        <Card
+          style={{
+            background: "rgba(14,165,233,0.08)",
+            border: "1px solid rgba(14,165,233,0.35)",
+          }}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs font-medium text-sky-300">
+              Внутренний (синий)
+            </CardTitle>
+            <Wallet className="h-4 w-4 text-sky-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-sky-300">
+              {statsLoading ? (
+                <Skeleton className="h-8 w-20" />
+              ) : (
+                `${(stats?.internalBalanceLzt ?? 0).toLocaleString("ru-RU")} LZT`
+              )}
+            </div>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              ≈ ${((stats?.internalBalanceLzt ?? 0) / 200).toFixed(2)} · нельзя вывести
+            </p>
+          </CardContent>
+        </Card>
+        <Card
+          style={{
+            background: "rgba(16,185,129,0.08)",
+            border: "1px solid rgba(16,185,129,0.35)",
+          }}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs font-medium text-emerald-300">
+              Выводимый (зелёный)
+            </CardTitle>
+            <Banknote className="h-4 w-4 text-emerald-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-emerald-300">
+              {statsLoading ? (
+                <Skeleton className="h-8 w-20" />
+              ) : (
+                `${(stats?.withdrawableBalanceLzt ?? 0).toLocaleString("ru-RU")} LZT`
+              )}
+            </div>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              ≈ ${((stats?.withdrawableBalanceLzt ?? 0) / 200).toFixed(2)} · можно вывести
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid gap-6 md:grid-cols-7">

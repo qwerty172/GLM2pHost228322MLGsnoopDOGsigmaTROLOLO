@@ -7,6 +7,7 @@ import {
   billingEventsTable,
 } from "@workspace/db";
 import { logger } from "./logger";
+import { usdtToLztRound, pickPlayerBucket } from "./lzt";
 
 const BILLING_INTERVAL_MS = 60_000;
 let interval: NodeJS.Timeout | null = null;
@@ -30,27 +31,62 @@ async function billOnce(): Promise<void> {
 
   for (const session of eligible) {
     if (!session.claimedByPlayerId) continue;
-    const rate = Number(session.ratePerMinute);
-    if (!Number.isFinite(rate) || rate <= 0) continue;
-    // Commission is taken at deposit-time (see depositWorker), not on each
-    // billing tick. The host receives the full per-minute rate in credits.
-    const playerDebit = rate;
-    const hostCredit = playerDebit;
-    const playerDebitStr = playerDebit.toFixed(6);
-    const hostCreditStr = hostCredit.toFixed(6);
-    const commissionStr = "0";
+    const rateUsd = Number(session.ratePerMinute);
+    if (!Number.isFinite(rateUsd) || rateUsd <= 0) continue;
+    const costLzt = usdtToLztRound(rateUsd);
+    if (costLzt <= 0) continue;
+
+    // Host receives the full per-minute cost in LZT, split 50/50 between
+    // their зелёный (withdrawable) and синий (internal) buckets. If costLzt
+    // is odd, the leftover LZT goes to зелёный (the bucket the player can
+    // actually cash out).
+    const hostGreenLzt = Math.ceil(costLzt / 2);
+    const hostBlueLzt = Math.floor(costLzt / 2);
 
     try {
       const ended = await db.transaction(async (tx) => {
+        const [player] = await tx
+          .select({
+            green: playersTable.withdrawableBalanceLzt,
+            blue: playersTable.internalBalanceLzt,
+          })
+          .from(playersTable)
+          .where(eq(playersTable.id, session.claimedByPlayerId!));
+
+        const bucket = pickPlayerBucket(
+          session.paymentSource,
+          costLzt,
+          player?.green ?? 0,
+          player?.blue ?? 0,
+        );
+        if (bucket === null) {
+          await tx
+            .update(sessionsTable)
+            .set({ status: "ended", endedAt: now })
+            .where(eq(sessionsTable.id, session.id));
+          return true;
+        }
+
+        const playerCol =
+          bucket === "green"
+            ? playersTable.withdrawableBalanceLzt
+            : playersTable.internalBalanceLzt;
+
         const debited = await tx
           .update(playersTable)
-          .set({
-            creditBalance: sql`${playersTable.creditBalance} - ${playerDebitStr}::numeric`,
-          })
+          .set(
+            bucket === "green"
+              ? {
+                  withdrawableBalanceLzt: sql`${playersTable.withdrawableBalanceLzt} - ${costLzt}`,
+                }
+              : {
+                  internalBalanceLzt: sql`${playersTable.internalBalanceLzt} - ${costLzt}`,
+                },
+          )
           .where(
             and(
               eq(playersTable.id, session.claimedByPlayerId!),
-              sql`${playersTable.creditBalance} >= ${playerDebitStr}::numeric`,
+              sql`${playerCol} >= ${costLzt}`,
             ),
           )
           .returning({ id: playersTable.id });
@@ -63,32 +99,63 @@ async function billOnce(): Promise<void> {
           return true;
         }
 
-        await tx
-          .update(hostsTable)
-          .set({
-            creditBalance: sql`${hostsTable.creditBalance} + ${hostCreditStr}::numeric`,
+        if (hostGreenLzt > 0) {
+          await tx
+            .update(hostsTable)
+            .set({
+              withdrawableBalanceLzt: sql`${hostsTable.withdrawableBalanceLzt} + ${hostGreenLzt}`,
+            })
+            .where(eq(hostsTable.id, session.hostId));
+        }
+        if (hostBlueLzt > 0) {
+          await tx
+            .update(hostsTable)
+            .set({
+              internalBalanceLzt: sql`${hostsTable.internalBalanceLzt} + ${hostBlueLzt}`,
+            })
+            .where(eq(hostsTable.id, session.hostId));
+        }
+
+        // One billing_events row per bucket the host got credited in. The
+        // player's debit is attributed to the row matching the bucket they
+        // actually paid from (so debits never double-count).
+        await tx.insert(billingEventsTable).values([
+          {
+            sessionId: session.id,
+            hostId: session.hostId,
+            playerId: session.claimedByPlayerId!,
+            minutes: 1,
+            bucket: "green",
+            playerDebitLzt: bucket === "green" ? costLzt : 0,
+            hostCreditLzt: hostGreenLzt,
+          },
+          {
+            sessionId: session.id,
+            hostId: session.hostId,
+            playerId: session.claimedByPlayerId!,
+            minutes: 1,
+            bucket: "blue",
+            playerDebitLzt: bucket === "blue" ? costLzt : 0,
+            hostCreditLzt: hostBlueLzt,
+          },
+        ]);
+
+        // After the debit, can the player still afford another minute on
+        // any allowed bucket? If not, end the session in the same tx.
+        const [post] = await tx
+          .select({
+            green: playersTable.withdrawableBalanceLzt,
+            blue: playersTable.internalBalanceLzt,
           })
-          .where(eq(hostsTable.id, session.hostId));
-
-        await tx.insert(billingEventsTable).values({
-          sessionId: session.id,
-          hostId: session.hostId,
-          playerId: session.claimedByPlayerId!,
-          minutes: 1,
-          playerDebit: playerDebitStr,
-          hostCredit: hostCreditStr,
-          commissionAmount: commissionStr,
-        });
-
-        // Check post-debit balance: if player can't afford another minute,
-        // end the session in this same transaction so we never grant a free
-        // unpaid minute on the next tick.
-        const [postPlayer] = await tx
-          .select({ bal: playersTable.creditBalance })
           .from(playersTable)
           .where(eq(playersTable.id, session.claimedByPlayerId!));
-        const postBal = Number(postPlayer?.bal ?? 0);
-        if (!Number.isFinite(postBal) || postBal < rate) {
+        const nextBucket = pickPlayerBucket(
+          session.paymentSource,
+          costLzt,
+          post?.green ?? 0,
+          post?.blue ?? 0,
+        );
+        if (nextBucket === null) {
           await tx
             .update(sessionsTable)
             .set({ status: "ended", endedAt: now, lastBilledAt: now })
@@ -106,7 +173,7 @@ async function billOnce(): Promise<void> {
       if (ended) {
         logger.info(
           { sessionId: session.id },
-          "Session ended — player out of credits",
+          "Session ended — player out of LZT in allowed bucket(s)",
         );
       }
     } catch (err) {
@@ -126,7 +193,6 @@ export function startBillingWorker(): void {
       logger.error({ err }, "Billing loop crashed");
     });
   }, BILLING_INTERVAL_MS);
-  // Run once shortly after startup so we don't wait a full minute.
   setTimeout(() => void billOnce().catch(() => {}), 5_000);
 }
 
