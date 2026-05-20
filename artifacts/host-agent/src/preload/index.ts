@@ -71,6 +71,31 @@ const api = {
   log: (level: "info" | "warn" | "error", message: string): void => {
     ipcRenderer.send("log", level, message);
   },
+
+  // ── Crypto key & PC binding ─────────────────────────────────────────────
+  // Returns the hex-encoded Ed25519 public key, or null if not yet generated.
+  getAgentPubkey: (): Promise<string | null> =>
+    ipcRenderer.invoke("agent:get-pubkey"),
+  // Binds this agent's public key to the host account (requires valid hostToken + apiBaseUrl).
+  bindAgentKey: (
+    hostToken: string,
+    apiBaseUrl: string,
+  ): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke("agent:bind-key", hostToken, apiBaseUrl),
+  // Opens the web dashboard in the browser, authenticated via key signature.
+  agentLogin: (
+    apiBaseUrl: string,
+  ): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke("agent:login", apiBaseUrl),
+  // Uploads PC specs (GPU/CPU/RAM) to the platform API.
+  updatePcSpecs: (
+    hostToken: string,
+    apiBaseUrl: string,
+  ): Promise<{ ok: boolean; error?: string; pcSpecs?: { gpu: string; cpu: string; ramGb: number } }> =>
+    ipcRenderer.invoke("agent:update-pc-specs", hostToken, apiBaseUrl),
+  // Returns local PC specs without uploading them.
+  getPcSpecs: (): Promise<{ gpu: string; cpu: string; ramGb: number }> =>
+    ipcRenderer.invoke("agent:get-pc-specs"),
 };
 
 contextBridge.exposeInMainWorld("agent", api);

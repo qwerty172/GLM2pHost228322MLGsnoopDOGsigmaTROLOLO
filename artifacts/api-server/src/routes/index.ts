@@ -13,9 +13,11 @@ import submissionsRouter from "./submissions";
 import storageRouter from "./storage";
 import loansRouter from "./loans";
 import premiumRouter from "./premium";
+import agentAuthRouter from "./agentAuth";
 
 const router: IRouter = Router();
 
+router.use(agentAuthRouter);
 router.use(downloadsRouter);
 router.use(gamesRouter);
 router.use(healthRouter);

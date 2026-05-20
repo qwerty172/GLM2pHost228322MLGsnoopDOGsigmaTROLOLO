@@ -27,6 +27,18 @@
         </div>
       </section>
 
+      <!-- Agent key & PC binding -->
+      <section class="card" id="agent-key-card">
+        <h2>Agent Key &amp; PC Binding</h2>
+        <p class="muted" id="agent-key-status">Checking key…</p>
+        <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px">
+          <button type="button" id="bind-agent-key" disabled>Привязать к аккаунту</button>
+          <button type="button" id="agent-login" disabled>Войти на сайте</button>
+          <button type="button" id="update-pc-specs" disabled>Обновить характеристики ПК</button>
+        </div>
+        <p class="muted" id="pc-specs-info" style="margin-top:6px;font-size:12px"></p>
+      </section>
+
       <!-- My Library — populated from GET /api/hosts/:token/library -->
       <section class="card" id="library-card" hidden>
         <h2>My Library</h2>

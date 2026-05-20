@@ -2,12 +2,15 @@ import { app, BrowserWindow, desktopCapturer, dialog, ipcMain, shell } from "ele
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import http from "node:http";
+import os from "node:os";
+import { execSync } from "node:child_process";
 import { loadConfig, saveConfig } from "./config";
 import { createTray, setStatus } from "./tray";
 import { initInputInjector, injectInput } from "./input-injection";
 import { launchApp, launchEntry, killApp, setExitCallback } from "./app-launcher";
 import { fetchLibrary, patchLocalAvailability } from "./api-client";
 import { scanSteam, loadScanState, saveScanState } from "./steam-scanner";
+import { loadOrGenerateKeyPair, signChallenge } from "./crypto-key";
 import { log } from "./logger";
 import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry, SteamScanResult } from "../shared/messages";
 
@@ -323,6 +326,160 @@ void app.whenReady().then(async () => {
   pingServer.on("error", (err: NodeJS.ErrnoException) => {
     // EADDRINUSE: another agent instance already running — harmless.
     log("warn", `Ping server error: ${err.message}`);
+  });
+
+  // ── Crypto key & PC binding ───────────────────────────────────────────────
+  // Load (or generate) the Ed25519 key pair on startup.
+  let keyStore: { privateKeyHex: string; publicKeyHex: string } | null = null;
+  try {
+    keyStore = await loadOrGenerateKeyPair();
+    log("info", `Agent pubkey: ${keyStore.publicKeyHex.slice(0, 16)}…`);
+  } catch (err) {
+    log("warn", `Failed to load/generate key pair: ${String(err)}`);
+  }
+
+  // Collect local PC specs (GPU via wmic on Windows, CPU + RAM from Node os).
+  function collectPcSpecs(): { gpu: string; cpu: string; ramGb: number } {
+    const cpus = os.cpus();
+    const cpu =
+      cpus.length > 0
+        ? `${cpus[0]?.model ?? "Unknown"} (${cpus.length} cores)`
+        : "Unknown";
+    const ramGb = Math.round(os.totalmem() / 1024 ** 3);
+
+    let gpu = "Unknown";
+    if (process.platform === "win32") {
+      try {
+        const out = execSync(
+          "wmic path Win32_VideoController get Name /value",
+          { timeout: 5000 },
+        ).toString();
+        const match = out.match(/Name=([^\r\n]+)/);
+        if (match?.[1]) gpu = match[1].trim();
+      } catch {
+        // wmic unavailable or timeout — leave gpu as "Unknown"
+      }
+    }
+    return { gpu, cpu, ramGb };
+  }
+
+  // Returns the hex-encoded public key (or null when no key is available).
+  ipcMain.handle("agent:get-pubkey", (): string | null => {
+    return keyStore?.publicKeyHex ?? null;
+  });
+
+  // Fetches a challenge from the server, signs it, and binds the public key
+  // to the host account identified by `hostToken`.
+  ipcMain.handle(
+    "agent:bind-key",
+    async (
+      _e,
+      hostToken: string,
+      apiBaseUrl: string,
+    ): Promise<{ ok: boolean; error?: string }> => {
+      if (!keyStore) return { ok: false, error: "Key pair not available" };
+      const base = apiBaseUrl.replace(/\/$/, "");
+      try {
+        const challengeResp = await fetch(`${base}/api/auth/agent-challenge`);
+        if (!challengeResp.ok) {
+          return { ok: false, error: `Challenge fetch failed (${challengeResp.status})` };
+        }
+        const { challenge } = (await challengeResp.json()) as { challenge: string };
+        const signature = signChallenge(keyStore.privateKeyHex, challenge);
+        const bindResp = await fetch(`${base}/api/auth/bind-agent-key`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            hostToken,
+            pubkey: keyStore.publicKeyHex,
+            challenge,
+            signature,
+          }),
+        });
+        if (!bindResp.ok) {
+          const body = (await bindResp.json()) as { error?: string };
+          return { ok: false, error: body.error ?? `HTTP ${bindResp.status}` };
+        }
+        log("info", "[agent-key] Key bound to account successfully");
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: String(err) };
+      }
+    },
+  );
+
+  // Fetches a challenge, signs it, and calls agent-login to get a hostToken,
+  // then opens the browser with /host/dashboard pre-authenticated.
+  ipcMain.handle(
+    "agent:login",
+    async (
+      _e,
+      apiBaseUrl: string,
+    ): Promise<{ ok: boolean; error?: string }> => {
+      if (!keyStore) return { ok: false, error: "Key pair not available" };
+      const base = apiBaseUrl.replace(/\/$/, "");
+      try {
+        const challengeResp = await fetch(`${base}/api/auth/agent-challenge`);
+        if (!challengeResp.ok) {
+          return { ok: false, error: `Challenge fetch failed (${challengeResp.status})` };
+        }
+        const { challenge } = (await challengeResp.json()) as { challenge: string };
+        const signature = signChallenge(keyStore.privateKeyHex, challenge);
+        const loginResp = await fetch(`${base}/api/auth/agent-login`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            pubkey: keyStore.publicKeyHex,
+            challenge,
+            signature,
+          }),
+        });
+        if (!loginResp.ok) {
+          const body = (await loginResp.json()) as { error?: string };
+          return { ok: false, error: body.error ?? `HTTP ${loginResp.status}` };
+        }
+        const { hostToken } = (await loginResp.json()) as { hostToken: string };
+        const dashboardUrl = `${base}/host/dashboard?token=${encodeURIComponent(hostToken)}`;
+        await shell.openExternal(dashboardUrl);
+        log("info", "[agent-key] Opened dashboard in browser via agent login");
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: String(err) };
+      }
+    },
+  );
+
+  // Collects PC specs and uploads them to the platform.
+  ipcMain.handle(
+    "agent:update-pc-specs",
+    async (
+      _e,
+      hostToken: string,
+      apiBaseUrl: string,
+    ): Promise<{ ok: boolean; error?: string; pcSpecs?: { gpu: string; cpu: string; ramGb: number } }> => {
+      const base = apiBaseUrl.replace(/\/$/, "");
+      try {
+        const pcSpecs = collectPcSpecs();
+        const resp = await fetch(`${base}/api/hosts/me/pc-specs`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ hostToken, ...pcSpecs }),
+        });
+        if (!resp.ok) {
+          const body = (await resp.json()) as { error?: string };
+          return { ok: false, error: body.error ?? `HTTP ${resp.status}` };
+        }
+        log("info", `[pc-specs] Updated: GPU=${pcSpecs.gpu}, CPU=${pcSpecs.cpu}, RAM=${pcSpecs.ramGb}GB`);
+        return { ok: true, pcSpecs };
+      } catch (err) {
+        return { ok: false, error: String(err) };
+      }
+    },
+  );
+
+  // Returns local PC specs without uploading them (used for display in UI).
+  ipcMain.handle("agent:get-pc-specs", (): { gpu: string; cpu: string; ramGb: number } => {
+    return collectPcSpecs();
   });
 
   setStatus("idle");

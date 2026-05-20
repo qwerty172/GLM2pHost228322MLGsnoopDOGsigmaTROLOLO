@@ -36,6 +36,11 @@ declare global {
       markSteamGamesAdded: (appIds: string[]) => Promise<void>;
       platform: string;
       log: (level: "info" | "warn" | "error", message: string) => void;
+      getAgentPubkey: () => Promise<string | null>;
+      bindAgentKey: (hostToken: string, apiBaseUrl: string) => Promise<{ ok: boolean; error?: string }>;
+      agentLogin: (apiBaseUrl: string) => Promise<{ ok: boolean; error?: string }>;
+      updatePcSpecs: (hostToken: string, apiBaseUrl: string) => Promise<{ ok: boolean; error?: string; pcSpecs?: { gpu: string; cpu: string; ramGb: number } }>;
+      getPcSpecs: () => Promise<{ gpu: string; cpu: string; ramGb: number }>;
     };
   }
 }
@@ -1397,11 +1402,102 @@ steamSubmitReviewBtn.addEventListener("click", async () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Agent key & PC binding UI
+// ─────────────────────────────────────────────────────────────────────────────
+
+const agentKeyStatusEl = document.getElementById("agent-key-status") as HTMLParagraphElement;
+const bindKeyBtn = document.getElementById("bind-agent-key") as HTMLButtonElement;
+const agentLoginBtn = document.getElementById("agent-login") as HTMLButtonElement;
+const updatePcSpecsBtn = document.getElementById("update-pc-specs") as HTMLButtonElement;
+const pcSpecsInfoEl = document.getElementById("pc-specs-info") as HTMLParagraphElement;
+
+async function initAgentKey(): Promise<void> {
+  try {
+    const pubkey = await window.agent.getAgentPubkey();
+    if (pubkey) {
+      agentKeyStatusEl.textContent = `Ключ: ${pubkey.slice(0, 16)}…${pubkey.slice(-8)} (готов к привязке)`;
+    } else {
+      agentKeyStatusEl.textContent = "Ключ не найден. Перезапустите агент.";
+    }
+  } catch {
+    agentKeyStatusEl.textContent = "Ошибка загрузки ключа.";
+  }
+
+  try {
+    const specs = await window.agent.getPcSpecs();
+    pcSpecsInfoEl.textContent = `CPU: ${specs.cpu} · GPU: ${specs.gpu} · RAM: ${specs.ramGb} GB`;
+  } catch {
+    pcSpecsInfoEl.textContent = "";
+  }
+
+  bindKeyBtn.disabled = false;
+  agentLoginBtn.disabled = false;
+  updatePcSpecsBtn.disabled = false;
+}
+
+bindKeyBtn.addEventListener("click", async () => {
+  const cfg = currentConfig ?? (await window.agent.getConfig());
+  if (!cfg.hostToken || !cfg.apiBaseUrl) {
+    log("Bind key: сначала сохрани Host Token и Platform URL.");
+    return;
+  }
+  bindKeyBtn.disabled = true;
+  agentKeyStatusEl.textContent = "Привязываем ключ…";
+  const result = await window.agent.bindAgentKey(cfg.hostToken, cfg.apiBaseUrl);
+  bindKeyBtn.disabled = false;
+  if (result.ok) {
+    agentKeyStatusEl.textContent = "Ключ успешно привязан к аккаунту.";
+    log("Ключ агента привязан к аккаунту.");
+  } else {
+    agentKeyStatusEl.textContent = `Ошибка привязки: ${result.error ?? "Unknown error"}`;
+    log(`Bind key error: ${result.error ?? "Unknown"}`);
+  }
+});
+
+agentLoginBtn.addEventListener("click", async () => {
+  const cfg = currentConfig ?? (await window.agent.getConfig());
+  if (!cfg.apiBaseUrl) {
+    log("Login: сначала сохрани Platform URL.");
+    return;
+  }
+  agentLoginBtn.disabled = true;
+  agentKeyStatusEl.textContent = "Авторизуемся…";
+  const result = await window.agent.agentLogin(cfg.apiBaseUrl);
+  agentLoginBtn.disabled = false;
+  if (result.ok) {
+    agentKeyStatusEl.textContent = "Браузер открыт — дашборд загружается.";
+    log("Открыт браузер с дашбордом (agent login).");
+  } else {
+    agentKeyStatusEl.textContent = `Ошибка входа: ${result.error ?? "Unknown error"}`;
+    log(`Agent login error: ${result.error ?? "Unknown"}`);
+  }
+});
+
+updatePcSpecsBtn.addEventListener("click", async () => {
+  const cfg = currentConfig ?? (await window.agent.getConfig());
+  if (!cfg.hostToken || !cfg.apiBaseUrl) {
+    log("Update specs: сначала сохрани Host Token и Platform URL.");
+    return;
+  }
+  updatePcSpecsBtn.disabled = true;
+  const result = await window.agent.updatePcSpecs(cfg.hostToken, cfg.apiBaseUrl);
+  updatePcSpecsBtn.disabled = false;
+  if (result.ok && result.pcSpecs) {
+    const s = result.pcSpecs;
+    pcSpecsInfoEl.textContent = `CPU: ${s.cpu} · GPU: ${s.gpu} · RAM: ${s.ramGb} GB`;
+    log(`PC-спецификации обновлены. GPU: ${s.gpu}, RAM: ${s.ramGb}GB`);
+  } else {
+    log(`Update PC specs error: ${result.error ?? "Unknown"}`);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────────────────────────────────────
 
 void loadFormFromConfig().then(async (cfg) => {
   log("Agent UI loaded.");
+  void initAgentKey();
   if (cfg.hostToken && cfg.apiBaseUrl) {
     log("Stored credentials detected. Loading library…");
     await loadLibrary(cfg);

@@ -41,6 +41,8 @@ import {
   Globe,
   Monitor,
   Loader2,
+  Cpu,
+  MemoryStick,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -436,9 +438,16 @@ function HostTemplates({ hostToken }: { hostToken: string }) {
 
 // ── Dashboard ─────────────────────────────────────────────────────────────
 
+interface PcSpecs {
+  gpu: string;
+  cpu: string;
+  ramGb: number;
+}
+
 export default function Dashboard() {
   const { hostToken } = useAuth();
   const [agent, setAgent] = useState<AgentState>({ status: "checking" });
+  const [pcSpecs, setPcSpecs] = useState<PcSpecs | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -447,6 +456,16 @@ export default function Dashboard() {
     });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!hostToken) return;
+    fetch(`/api/hosts/${hostToken}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data: { pcSpecs?: PcSpecs | null } | null) => {
+        if (data?.pcSpecs) setPcSpecs(data.pcSpecs);
+      })
+      .catch(() => {});
+  }, [hostToken]);
 
   const { data: stats, isLoading: statsLoading } = useGetHostStats(
     hostToken || "",
@@ -518,6 +537,58 @@ export default function Dashboard() {
       <AgentStatusCard agent={agent} />
 
       {hostToken && <BindingForm hostToken={hostToken} />}
+
+      {/* PC Specs card — shown only when the agent has reported specs */}
+      {pcSpecs && (
+        <Card style={cardStyle}>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-white text-base">
+              <HardDrive className="h-4 w-4 text-sky-400" />
+              Характеристики ПК хоста
+            </CardTitle>
+            <CardDescription className="text-slate-500">
+              Железо, с которого ведётся стриминг.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div
+                className="p-3 rounded-lg"
+                style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
+              >
+                <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 font-mono flex items-center gap-1">
+                  <Monitor className="h-3 w-3" /> GPU
+                </div>
+                <div className="text-sm font-semibold text-white truncate" title={pcSpecs.gpu}>
+                  {pcSpecs.gpu}
+                </div>
+              </div>
+              <div
+                className="p-3 rounded-lg"
+                style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
+              >
+                <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 font-mono flex items-center gap-1">
+                  <Cpu className="h-3 w-3" /> CPU
+                </div>
+                <div className="text-sm font-semibold text-white truncate" title={pcSpecs.cpu}>
+                  {pcSpecs.cpu}
+                </div>
+              </div>
+              <div
+                className="p-3 rounded-lg"
+                style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
+              >
+                <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 font-mono flex items-center gap-1">
+                  <MemoryStick className="h-3 w-3" /> RAM
+                </div>
+                <div className="text-sm font-semibold text-white">
+                  {pcSpecs.ramGb} GB
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">

@@ -67,6 +67,10 @@ function serializeHost(h: typeof hostsTable.$inferSelect) {
     lastSubmissionNote: h.lastSubmissionNote ?? "",
     gamesContributed: h.gamesContributed,
     isAdmin: h.isAdmin === 1,
+    // Agent key: expose whether a key is bound, not the key itself.
+    agentKeyBound: (h.agentPubkey ?? "").length > 0,
+    // PC hardware specs reported by the agent (null until first upload).
+    pcSpecs: h.pcSpecs ?? null,
   };
 }
 
@@ -697,5 +701,62 @@ router.delete(
     res.status(204).send();
   },
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PC-specs endpoint — agent reports hardware details
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PcSpecsBody = z.object({
+  gpu: z.string().max(256),
+  cpu: z.string().max(256),
+  ramGb: z.number().int().min(0).max(65536),
+});
+
+router.post("/hosts/me/pc-specs", async (req, res): Promise<void> => {
+  // Auth by hostToken supplied in the Authorization header or the body.
+  // Prefer the header (Bearer <token>) for cleanliness; fall back to body field
+  // so the agent can use a simple JSON POST without extra headers.
+  let hostToken: string | undefined;
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    hostToken = authHeader.slice(7).trim();
+  } else if (typeof req.body?.hostToken === "string") {
+    hostToken = (req.body as { hostToken: string }).hostToken.trim();
+  }
+
+  if (!hostToken) {
+    res.status(401).json({ error: "Missing hostToken" });
+    return;
+  }
+
+  const body = PcSpecsBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  const [host] = await db
+    .select({ id: hostsTable.id })
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, hostToken));
+  if (!host) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+
+  const pcSpecs = {
+    gpu: body.data.gpu,
+    cpu: body.data.cpu,
+    ramGb: body.data.ramGb,
+  };
+
+  await db
+    .update(hostsTable)
+    .set({ pcSpecs })
+    .where(eq(hostsTable.id, host.id));
+
+  req.log.info({ hostId: host.id }, "PC specs updated");
+  res.json({ ok: true, pcSpecs });
+});
 
 export default router;
