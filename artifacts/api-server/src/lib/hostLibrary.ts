@@ -187,12 +187,40 @@ export async function updateEntry(
     }
   }
 
-  const [existing] = await db
-    .select()
-    .from(hostGamesTable)
-    .where(and(eq(hostGamesTable.hostId, hostId), eq(hostGamesTable.gameId, gameId)));
+  const [[existing], [game]] = await Promise.all([
+    db
+      .select()
+      .from(hostGamesTable)
+      .where(and(eq(hostGamesTable.hostId, hostId), eq(hostGamesTable.gameId, gameId))),
+    db
+      .select()
+      .from(gamesTable)
+      .where(eq(gamesTable.id, gameId)),
+  ]);
   if (!existing) {
     return { ok: false, reason: "Library entry not found", status: 404 };
+  }
+
+  // Game-type-aware path/URL validation — same rules as addToLibrary.
+  const isBrowser = game?.browserHostUrl !== "";
+  if (opts.appPath !== undefined && !isBrowser) {
+    if (opts.appPath.trim() === "") {
+      return {
+        ok: false,
+        reason: "Native game requires a non-empty appPath",
+        status: 400,
+      };
+    }
+  }
+  if (opts.boundUrl !== undefined && isBrowser && opts.boundUrl.trim() !== "") {
+    try {
+      const u = new URL(opts.boundUrl.trim());
+      if (u.protocol !== "http:" && u.protocol !== "https:") {
+        return { ok: false, reason: "boundUrl must use http or https", status: 400 };
+      }
+    } catch {
+      return { ok: false, reason: "boundUrl is not a valid URL", status: 400 };
+    }
   }
 
   const patch: Partial<typeof hostGamesTable.$inferInsert> = {};

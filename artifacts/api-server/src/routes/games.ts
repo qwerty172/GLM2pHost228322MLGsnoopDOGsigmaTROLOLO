@@ -272,9 +272,13 @@ router.get("/games/:slug", async (req, res): Promise<void> => {
       return tags.some((t) => t.toLowerCase() === tagLc);
     })
     .map(({ session: s, host: h }) => ({
+      hostId: h.id,
       playerToken: s.playerToken,
       appName: s.appName,
       ratePerMinute: Number(s.ratePerMinute),
+      // LZT price resolved from host_games when session was created;
+      // fall back to deriving it from ratePerMinute for legacy sessions.
+      pricePerMinuteLzt: Math.round(Number(s.ratePerMinute) * 200),
       resolution: s.resolution,
       bitrateKbps: s.bitrateKbps,
       status: s.status,
@@ -289,6 +293,9 @@ router.get("/games/:slug", async (req, res): Promise<void> => {
       scheduleMode: h.scheduleMode,
       scheduleJson: h.scheduleJson ?? [],
       streamPlatform: h.streamPlatform,
+      // Placeholders — ping and rating system land in a later task.
+      pingMs: null as number | null,
+      ratingScore: null as number | null,
     }));
 
   // Per-game aggregates from host_games for this single game.
