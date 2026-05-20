@@ -3,7 +3,9 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   useCreateSession,
   useListApplicableQuotas,
+  useListGames,
   getListApplicableQuotasQueryKey,
+  getListGamesQueryKey,
   type Quota,
 } from "@workspace/api-client-react";
 import { Coins, Sparkles } from "lucide-react";
@@ -32,13 +34,6 @@ import {
 import { toast } from "sonner";
 import { Link } from "wouter";
 
-const PRESET_GAMES = [
-  "Cyberpunk 2077",
-  "Witcher 3",
-  "Elden Ring",
-  "Helldivers 2",
-  "Microsoft Flight Simulator",
-];
 
 const cardStyle = {
   background: "#0a1018",
@@ -56,6 +51,15 @@ export default function SetupSession() {
   } | null>(null);
   const [selectedQuotaId, setSelectedQuotaId] = useState<string | null>(null);
   const [accessCode, setAccessCode] = useState<string>("");
+
+  const { data: catalogGames } = useListGames(
+    {},
+    { query: { queryKey: getListGamesQueryKey({}), staleTime: 60_000 } },
+  );
+  const presetGames =
+    catalogGames && catalogGames.length > 0
+      ? catalogGames.slice(0, 6).map((g) => g.title)
+      : ["Cyberpunk 2077", "Witcher 3", "Elden Ring", "Helldivers 2", "CS2"];
 
   const createSession = useCreateSession();
   const applicableParams = {
@@ -221,7 +225,7 @@ export default function SetupSession() {
                 Быстрые пресеты
               </Label>
               <div className="flex flex-wrap gap-2">
-                {PRESET_GAMES.map((game) => (
+                {presetGames.map((game) => (
                   <button
                     key={game}
                     type="button"

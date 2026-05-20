@@ -66,10 +66,15 @@ function Router() {
       <Route path="/play/:playerToken" component={Play} />
       {/* Browser-host page is a player-side feature (the human running it
           authenticates via their own wallet, not a hostToken). Route it
-          before /host* so HostAuthGuard does not gate it. */}
+          before /host so HostAuthGuard does not gate it. */}
       <Route path="/host/play/:sessionId" component={BrowserPlay} />
-      <Route path="/host*" component={HostRoutes} />
-      <Route path="/wallet*" component={HostRoutes} />
+      {/* Enumerate all host-panel paths explicitly so Wouter v3 does NOT
+          shift the router base (wildcard /host* strips the prefix and breaks
+          the nested Switch whose routes use full absolute paths). */}
+      <Route path="/host" component={HostRoutes} />
+      <Route path="/host/setup" component={HostRoutes} />
+      <Route path="/host/library" component={HostRoutes} />
+      <Route path="/wallet" component={HostRoutes} />
       <Route component={NotFound} />
     </Switch>
   );
