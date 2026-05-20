@@ -344,6 +344,10 @@ form.addEventListener("submit", async (e) => {
 
 const pullBtn = $("pull-from-server") as HTMLButtonElement;
 pullBtn.addEventListener("click", async () => {
+  // Pulls connection credentials and pricing from the server profile.
+  // Note: legacy game-binding fields (boundAppPath, boundUrl on the host row)
+  // are intentionally NOT applied — the multi-game library is now authoritative.
+  // Use the Library section above to manage games and their exe paths.
   const cfg = readForm();
   if (!cfg.hostToken || !cfg.apiBaseUrl) {
     log("Set host token and platform URL before pulling from the server.");
@@ -358,29 +362,17 @@ pullBtn.addEventListener("click", async () => {
       return;
     }
     const data = (await resp.json()) as {
-      boundAppPath?: string;
-      boundUrl?: string;
-      boundAppLabel?: string;
       minutePriceUsd?: number;
     };
     let touched = 0;
-    if (data.boundAppPath !== undefined) {
-      setAppPath(data.boundAppPath);
-      touched++;
-    }
-    if (data.boundUrl !== undefined) {
-      ($("boundUrl") as HTMLInputElement).value = data.boundUrl;
-      touched++;
-    }
-    if (data.boundAppLabel) {
-      ($("appName") as HTMLInputElement).value = data.boundAppLabel;
-      touched++;
-    }
     if (typeof data.minutePriceUsd === "number") {
       ($("ratePerMinute") as HTMLInputElement).value = String(data.minutePriceUsd);
       touched++;
     }
-    log(`Pulled offer from server (${touched} field(s) updated). Click Save to persist.`);
+    const note = touched > 0
+      ? `Pulled ${touched} field(s) from server. Click Save to persist.`
+      : "No updateable fields returned from server. Manage games via the Library section.";
+    log(note);
   } catch (err) {
     log(`Pull failed: ${String(err)}`);
   } finally {
@@ -643,9 +635,15 @@ async function connect(cfg: HostConfig, gameId: string | null): Promise<void> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function onPlayerJoined(cfg: HostConfig): Promise<void> {
-  // One-active-session guard: ignore a second peer-joined while streaming.
+  // One-active-session guard. If already streaming, the host machine is busy.
+  // Teardown the incoming signaling path so the player gets no stream and the
+  // session stays in a clean state. The server-side host_busy guard in
+  // POST /api/sessions prevents a second session from being created while one
+  // is active; this renderer guard covers edge cases where signaling fires
+  // a duplicate peer-joined on the same session.
   if (isStreaming) {
-    log("Already streaming — ignoring second peer-joined (host_busy).");
+    log("host_busy — already streaming. Closing signaling for duplicate peer.");
+    try { ws?.close(); } catch { /* */ }
     return;
   }
   isStreaming = true;
@@ -687,18 +685,26 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
       launchArgs: entry.launchArgs,
     });
     if (!launchResult.ok) {
-      log(`Failed to launch ${entry.game.title}: ${launchResult.error}`);
-    } else {
-      log(`Launched ${entry.game.title} (pid=${launchResult.pid ?? "browser"}).`);
+      // Hard-fail: do not start WebRTC capture when the game couldn't launch.
+      log(`[game_unavailable] Launch failed for ${entry.game.title}: ${launchResult.error}`);
+      setStatus("error", `Launch failed: ${launchResult.error}`);
+      isStreaming = false;
+      teardown("game_unavailable");
+      return;
     }
+    log(`Launched ${entry.game.title} (pid=${launchResult.pid ?? "browser"}).`);
   } else {
     // Legacy path: launch from HostConfig.appPath / boundUrl
     const launchResult = await window.agent.launchApp();
     if (!launchResult.ok) {
-      log(`Failed to launch app: ${launchResult.error}`);
-    } else {
-      log(`App launched (pid=${launchResult.pid}).`);
+      // Hard-fail: do not capture if legacy app couldn't launch.
+      log(`[game_unavailable] Legacy launch failed: ${launchResult.error}`);
+      setStatus("error", `Launch failed: ${launchResult.error}`);
+      isStreaming = false;
+      teardown("game_unavailable");
+      return;
     }
+    log(`App launched (pid=${launchResult.pid}).`);
   }
 
   captureStream = await captureScreen(cfg);

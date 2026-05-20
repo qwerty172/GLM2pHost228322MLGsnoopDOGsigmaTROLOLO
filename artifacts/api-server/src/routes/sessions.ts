@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, or, isNull } from "drizzle-orm";
+import { eq, and, or, isNull, ne } from "drizzle-orm";
 import {
   db,
   gamesTable,
@@ -68,6 +68,24 @@ router.post("/sessions", async (req, res): Promise<void> => {
     )
   ) {
     res.status(409).json({ error: "Host is not currently available" });
+    return;
+  }
+
+  // One active session per host machine — the host agent can only stream one
+  // game at a time (hardware constraint). Reject creation if a non-ended
+  // session already exists for this host.
+  const [existingActive] = await db
+    .select({ id: sessionsTable.id })
+    .from(sessionsTable)
+    .where(
+      and(
+        eq(sessionsTable.hostId, host.id),
+        ne(sessionsTable.status, "ended"),
+      ),
+    )
+    .limit(1);
+  if (existingActive) {
+    res.status(409).json({ error: "host_busy" });
     return;
   }
 
