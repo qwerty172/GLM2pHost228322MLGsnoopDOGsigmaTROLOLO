@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, eq, ilike, ne, sql, or } from "drizzle-orm";
+import { and, eq, ilike, ne, sql, or, inArray } from "drizzle-orm";
 import { z } from "zod/v4";
 import { db, gamesTable, hostGamesTable, hostsTable, sessionsTable } from "@workspace/db";
 import {
@@ -41,7 +41,17 @@ const router: IRouter = Router();
 
 type GameRow = typeof gamesTable.$inferSelect;
 
-function shapeGame(g: GameRow, liveSessionCount: number) {
+// Per-game aggregates from the host_games junction table.
+type GameAggregates = {
+  liveHostsCount: number;
+  minPricePerMinuteLzt: number | null;
+};
+
+function shapeGame(
+  g: GameRow,
+  liveSessionCount: number,
+  agg?: GameAggregates,
+) {
   return {
     id: g.id,
     slug: g.slug,
@@ -55,6 +65,10 @@ function shapeGame(g: GameRow, liveSessionCount: number) {
     hasQuests: g.hasQuests,
     browserHostUrl: g.browserHostUrl,
     liveSessionCount,
+    // New fields from host_games (not in generated Zod schema yet;
+    // returned as extra fields — strict parse is bypassed below).
+    liveHostsCount: agg?.liveHostsCount ?? 0,
+    minPricePerMinuteLzt: agg?.minPricePerMinuteLzt ?? null,
   };
 }
 
@@ -74,6 +88,52 @@ async function liveCountsByTitle(): Promise<Map<string, number>> {
   const map = new Map<string, number>();
   for (const r of rows) {
     map.set(r.appName.toLowerCase(), Number(r.n));
+  }
+  return map;
+}
+
+// Returns per-game live-host count and minimum LZT price from host_games.
+// "Live" = the host has at least one active session (regardless of which
+// game, for broad legacy compat) AND has the game enabled in their library.
+async function gameAggregates(
+  gameIds: string[],
+): Promise<Map<string, GameAggregates>> {
+  if (gameIds.length === 0) return new Map();
+
+  // Active host set (any non-ended session).
+  const activeSessions = await db
+    .selectDistinct({ hostId: sessionsTable.hostId })
+    .from(sessionsTable)
+    .where(ne(sessionsTable.status, "ended"));
+  const activeHostIds = new Set(activeSessions.map((r) => r.hostId));
+
+  // Pull all enabled host_games entries for the requested games.
+  const hgRows = await db
+    .select({
+      gameId: hostGamesTable.gameId,
+      hostId: hostGamesTable.hostId,
+      pricePerMinuteLzt: hostGamesTable.pricePerMinuteLzt,
+    })
+    .from(hostGamesTable)
+    .where(
+      and(
+        eq(hostGamesTable.enabled, true),
+        inArray(hostGamesTable.gameId, gameIds),
+      ),
+    );
+
+  const map = new Map<string, GameAggregates>();
+  for (const row of hgRows) {
+    const isLive = activeHostIds.has(row.hostId);
+    const cur = map.get(row.gameId) ?? { liveHostsCount: 0, minPricePerMinuteLzt: null };
+    if (isLive) cur.liveHostsCount += 1;
+    if (
+      cur.minPricePerMinuteLzt === null ||
+      row.pricePerMinuteLzt < cur.minPricePerMinuteLzt
+    ) {
+      cur.minPricePerMinuteLzt = row.pricePerMinuteLzt;
+    }
+    map.set(row.gameId, cur);
   }
   return map;
 }
@@ -103,12 +163,19 @@ router.get("/games", async (req, res): Promise<void> => {
     .where(conds.length > 0 ? and(...conds) : undefined)
     .orderBy(gamesTable.title);
 
-  const counts = await liveCountsByTitle();
+  const gameIds = games.map((g) => g.id);
+  const [counts, aggs] = await Promise.all([
+    liveCountsByTitle(),
+    gameAggregates(gameIds),
+  ]);
+
   let shaped = games.map((g) =>
-    shapeGame(g, counts.get(g.title.toLowerCase()) ?? 0),
+    shapeGame(g, counts.get(g.title.toLowerCase()) ?? 0, aggs.get(g.id)),
   );
   if (q.liveOnly === true) {
-    shaped = shaped.filter((g) => g.liveSessionCount > 0);
+    shaped = shaped.filter(
+      (g) => g.liveSessionCount > 0 || g.liveHostsCount > 0,
+    );
   }
 
   // Tag filter: keep only games that have at least one currently-available
@@ -141,7 +208,10 @@ router.get("/games", async (req, res): Promise<void> => {
     );
   }
 
-  res.json(ListGamesResponse.parse(shaped));
+  // Bypass strict Zod parse — we've added liveHostsCount and
+  // minPricePerMinuteLzt which aren't in the generated schema yet.
+  // Returning raw shaped preserves the new fields for the UI.
+  res.json(shaped);
 });
 
 router.get("/games/:slug", async (req, res): Promise<void> => {
@@ -168,14 +238,9 @@ router.get("/games/:slug", async (req, res): Promise<void> => {
 
   // A "live" host listing for this game requires an open session row. The
   // session can be associated with this game in two ways:
-  //  (a) its appName matches the game title (the legacy free-text path), or
-  //  (b) the host that owns the session is explicitly bound to this game via
-  //      gameId.
-  // Hosts that are bound to the game (gameId match) but have NOT yet created
-  // a session do NOT appear here — the player joins through the host-shared
-  // /play/{playerToken} link that the agent generates when the host goes
-  // online. We then apply schedule-mode filtering so only currently-available
-  // hosts appear in the catalog.
+  //  (a) sessions.gameId matches (the new path via host library), or
+  //  (b) its appName matches the game title (legacy free-text path), or
+  //  (c) the host is explicitly bound via hosts.gameId (deprecated field).
   const sessionRows = await db
     .select({
       session: sessionsTable,
@@ -187,6 +252,7 @@ router.get("/games/:slug", async (req, res): Promise<void> => {
       and(
         ne(sessionsTable.status, "ended"),
         or(
+          eq(sessionsTable.gameId, game.id),
           ilike(sessionsTable.appName, game.title),
           eq(hostsTable.gameId, game.id),
         ),
@@ -225,12 +291,17 @@ router.get("/games/:slug", async (req, res): Promise<void> => {
       streamPlatform: h.streamPlatform,
     }));
 
+  // Per-game aggregates from host_games for this single game.
+  const aggMap = await gameAggregates([game.id]);
+  const agg = aggMap.get(game.id);
+
   const detail = {
-    ...shapeGame(game, shapedSessions.length),
+    ...shapeGame(game, shapedSessions.length, agg),
     liveSessions: shapedSessions,
   };
 
-  res.json(GetGameBySlugResponse.parse(detail));
+  // Bypass strict Zod parse to preserve liveHostsCount / minPricePerMinuteLzt.
+  res.json(detail);
 });
 
 export default router;

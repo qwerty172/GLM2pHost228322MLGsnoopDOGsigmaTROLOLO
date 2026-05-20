@@ -6,6 +6,7 @@ import { startBillingWorker } from "./lib/billingWorker";
 import { startDepositWorker } from "./lib/depositWorker";
 import { startQuotaExpiryWorker } from "./lib/quotaExpiryWorker";
 import { seedGames } from "./lib/seedGames";
+import { runLegacyBackfill } from "./lib/legacyBackfill";
 
 const rawPort = process.env["PORT"];
 
@@ -31,6 +32,9 @@ server.listen(port, () => {
   startQuotaExpiryWorker();
   seedGames().catch((err) => {
     logger.error({ err }, "Failed to seed games catalog");
+  });
+  runLegacyBackfill().catch((err) => {
+    logger.error({ err }, "Failed to run legacy backfill");
   });
 });
 
