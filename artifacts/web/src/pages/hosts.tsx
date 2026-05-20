@@ -112,6 +112,22 @@ function GameChips({ games }: { games: LibraryGame[] }) {
   );
 }
 
+// Resolve session playerToken for a specific host+game combo via public API.
+// Returns null if the host has no active session for this game (not online).
+async function resolvePlayerToken(
+  hostId: string,
+  gameSlug: string,
+): Promise<string | null> {
+  const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
+  const resp = await fetch(
+    `${base}/api/public/games/${encodeURIComponent(gameSlug)}/hosts`,
+  );
+  if (!resp.ok) return null;
+  const list: Array<{ hostId: string; playerToken: string | null }> =
+    await resp.json();
+  return list.find((h) => h.hostId === hostId)?.playerToken ?? null;
+}
+
 function GamePickerDialog({
   open,
   games,
@@ -121,7 +137,7 @@ function GamePickerDialog({
   open: boolean;
   games: LibraryGame[];
   onClose: () => void;
-  onPick: (slug: string) => void;
+  onPick: (game: LibraryGame) => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -142,14 +158,20 @@ function GamePickerDialog({
               <button
                 key={g.gameId}
                 type="button"
-                onClick={() => onPick(g.slug)}
+                onClick={() => onPick(g)}
                 className="flex items-center gap-3 p-3 rounded-lg text-left transition-colors"
                 style={{
                   background: "rgba(255,255,255,0.03)",
                   border: "1px solid rgba(255,255,255,0.07)",
                 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(14,165,233,0.35)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.07)"; }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor =
+                    "rgba(14,165,233,0.35)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor =
+                    "rgba(255,255,255,0.07)";
+                }}
                 data-testid={`picker-game-${g.slug}`}
               >
                 {src ? (
@@ -157,17 +179,28 @@ function GamePickerDialog({
                     src={src}
                     alt=""
                     className="w-10 h-14 rounded object-cover flex-shrink-0"
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = "none";
+                    }}
                   />
                 ) : (
-                  <div className="w-10 h-14 rounded flex items-center justify-center flex-shrink-0" style={{ background: "rgba(14,165,233,0.08)" }}>
+                  <div
+                    className="w-10 h-14 rounded flex items-center justify-center flex-shrink-0"
+                    style={{ background: "rgba(14,165,233,0.08)" }}
+                  >
                     <Gamepad2 className="h-5 w-5 text-slate-600" />
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-white text-sm truncate">{g.title}</div>
-                  {g.genre && <div className="text-[11px] text-sky-400 font-mono">{g.genre}</div>}
-                  <div className="text-[11px] text-blue-400 mt-1 font-mono">🔵 {g.pricePerMinuteLzt} LZT/мин</div>
+                  <div className="font-semibold text-white text-sm truncate">
+                    {g.title}
+                  </div>
+                  {g.genre && (
+                    <div className="text-[11px] text-sky-400 font-mono">{g.genre}</div>
+                  )}
+                  <div className="text-[11px] text-blue-400 mt-1 font-mono">
+                    🔵 {g.pricePerMinuteLzt} LZT/мин
+                  </div>
                 </div>
               </button>
             );
@@ -177,7 +210,10 @@ function GamePickerDialog({
           type="button"
           onClick={onClose}
           className="mt-3 w-full h-8 rounded-md text-xs text-slate-500 transition-colors"
-          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
+          style={{
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.07)",
+          }}
         >
           Отмена
         </button>
@@ -187,49 +223,73 @@ function GamePickerDialog({
 }
 
 function PlayButton({
-  host,
+  hostId,
   games,
   fallbackPlayerToken,
 }: {
-  host: { id: string; playerToken: string };
+  hostId: string;
   games: LibraryGame[];
   fallbackPlayerToken: string;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [, navigate] = useLocation();
 
-  const handlePlay = () => {
+  // Connect to the host for a specific game.
+  // Tries to resolve an active session playerToken from the public API;
+  // if found, goes directly to /play/:playerToken.
+  // If not, falls back to the game detail page so the player can try again.
+  const connectToGame = async (game: LibraryGame) => {
+    setLoading(true);
+    try {
+      const playerToken = await resolvePlayerToken(hostId, game.slug);
+      if (playerToken) {
+        navigate(`/play/${playerToken}`);
+      } else {
+        // Host has no active session for this game — send to game page
+        // so the user can wait or pick another host.
+        navigate(`/games/${game.slug}`);
+      }
+    } catch {
+      navigate(`/games/${game.slug}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePlay = async () => {
     if (games.length === 0) {
       navigate(`/play/${fallbackPlayerToken}`);
     } else if (games.length === 1) {
-      navigate(`/games/${games[0].slug}`);
+      await connectToGame(games[0]);
     } else {
       setPickerOpen(true);
     }
   };
 
-  const handlePick = (slug: string) => {
+  const handlePick = async (game: LibraryGame) => {
     setPickerOpen(false);
-    navigate(`/games/${slug}`);
+    await connectToGame(game);
   };
 
   return (
     <>
       <button
         type="button"
-        onClick={handlePlay}
-        className="h-9 px-4 text-xs font-semibold rounded-md transition-colors"
+        onClick={() => void handlePlay()}
+        disabled={loading}
+        className="h-9 px-4 text-xs font-semibold rounded-md transition-colors disabled:opacity-60"
         style={{ background: "#0ea5e9", color: "#fff" }}
-        data-testid={`button-join-${host.id}`}
+        data-testid={`button-join-${hostId}`}
       >
-        {games.length === 0 ? "Подключиться" : "Играть"}
+        {loading ? "…" : games.length === 0 ? "Подключиться" : "Играть"}
       </button>
       {games.length > 1 && (
         <GamePickerDialog
           open={pickerOpen}
           games={games}
           onClose={() => setPickerOpen(false)}
-          onPick={handlePick}
+          onPick={(g) => void handlePick(g)}
         />
       )}
     </>
@@ -372,7 +432,7 @@ export default function HostsPage() {
                       </div>
 
                       <PlayButton
-                        host={{ id: h.id, playerToken: h.playerToken }}
+                        hostId={h.id}
                         games={games}
                         fallbackPlayerToken={h.playerToken}
                       />

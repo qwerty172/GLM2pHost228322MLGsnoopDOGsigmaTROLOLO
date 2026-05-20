@@ -74,6 +74,8 @@ export default function GamesPage() {
     liveOnly: true,
   });
   const [maxLzt, setMaxLzt] = useState<number>(9999);
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const [pingFilter, setPingFilter] = useState(false);
   const sliderInitRef = useRef(false);
 
   const apiParams = useMemo(() => {
@@ -101,6 +103,18 @@ export default function GamesPage() {
     return all.sort();
   }, [games]);
 
+  const allGenres = useMemo(() => {
+    const seen = new Set<string>();
+    for (const g of games) {
+      const gg = (g as GameEnriched).genres ?? [];
+      for (const genre of gg) if (genre) seen.add(genre);
+      // also support legacy single genre field
+      const sg = (g as GameEnriched & { genre?: string }).genre;
+      if (sg) seen.add(sg);
+    }
+    return Array.from(seen).sort();
+  }, [games]);
+
   const globalMaxLzt = useMemo(() => {
     let m = 0;
     for (const g of games) {
@@ -117,10 +131,21 @@ export default function GamesPage() {
     }
   }, [globalMaxLzt]);
 
+  const toggleGenre = (genre: string) =>
+    setSelectedGenres((prev) =>
+      prev.includes(genre) ? prev.filter((g) => g !== genre) : [...prev, genre],
+    );
+
   const sorted = useMemo(() => {
     let list = [...games].filter((g) => {
       const price = (g as GameEnriched).minPricePerMinuteLzt;
       if (price != null && price > maxLzt) return false;
+      if (selectedGenres.length > 0) {
+        const gg = (g as GameEnriched).genres ?? [];
+        const sg = (g as GameEnriched & { genre?: string }).genre;
+        const gameGenres = new Set([...gg, ...(sg ? [sg] : [])]);
+        if (!selectedGenres.some((genre) => gameGenres.has(genre))) return false;
+      }
       return true;
     });
     if (sort === "mostOnline") {
@@ -257,6 +282,71 @@ export default function GamesPage() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {allGenres.length > 0 && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">Жанры</div>
+                <div className="flex flex-col gap-1">
+                  {allGenres.map((genre) => (
+                    <button
+                      key={genre}
+                      type="button"
+                      onClick={() => toggleGenre(genre)}
+                      className="text-left text-xs px-2 py-1 rounded transition-colors flex items-center gap-1.5"
+                      style={{
+                        background: selectedGenres.includes(genre)
+                          ? "rgba(14,165,233,0.12)"
+                          : "transparent",
+                        color: selectedGenres.includes(genre) ? "#38bdf8" : "#64748b",
+                      }}
+                      data-testid={`filter-genre-${genre}`}
+                    >
+                      <span
+                        className="w-3 h-3 rounded border flex items-center justify-center flex-shrink-0"
+                        style={{
+                          borderColor: selectedGenres.includes(genre)
+                            ? "#0ea5e9"
+                            : "rgba(255,255,255,0.12)",
+                          background: selectedGenres.includes(genre)
+                            ? "#0ea5e9"
+                            : "transparent",
+                        }}
+                      >
+                        {selectedGenres.includes(genre) && (
+                          <span className="w-1.5 h-1.5 rounded-sm bg-white" />
+                        )}
+                      </span>
+                      {genre}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">Соединение</div>
+              <button
+                type="button"
+                onClick={() => setPingFilter((v) => !v)}
+                className="text-left text-xs px-2 py-1 rounded transition-colors flex items-center gap-1.5 w-full"
+                style={{
+                  background: pingFilter ? "rgba(14,165,233,0.12)" : "transparent",
+                  color: pingFilter ? "#38bdf8" : "#64748b",
+                }}
+                data-testid="filter-ping"
+              >
+                <span
+                  className="w-3 h-3 rounded border flex items-center justify-center flex-shrink-0"
+                  style={{
+                    borderColor: pingFilter ? "#0ea5e9" : "rgba(255,255,255,0.12)",
+                    background: pingFilter ? "#0ea5e9" : "transparent",
+                  }}
+                >
+                  {pingFilter && <span className="w-1.5 h-1.5 rounded-sm bg-white" />}
+                </span>
+                ≤50 мс пинг
+              </button>
             </div>
 
             {globalMaxLzt > 0 && (
