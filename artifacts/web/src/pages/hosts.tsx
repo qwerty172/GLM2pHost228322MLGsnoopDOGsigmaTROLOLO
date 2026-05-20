@@ -1,11 +1,17 @@
-import { Link } from "wouter";
-import { ChevronDown, ChevronUp, Cpu, Gamepad2 } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { ChevronDown, ChevronUp, Cpu, Gamepad2, X } from "lucide-react";
 import { useState } from "react";
 import {
   useListPublicHosts,
   getListPublicHostsQueryKey,
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type LibraryGame = {
   gameId: string;
@@ -21,7 +27,13 @@ function formatPrice(usd: number): string {
   return `${sign}$${Math.abs(usd).toFixed(2)}`;
 }
 
-function GameChips({ games, playerToken }: { games: LibraryGame[]; playerToken: string }) {
+function coverSrc(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith("http")) return url;
+  return `${import.meta.env.BASE_URL}${url.replace(/^\//, "")}`;
+}
+
+function GameChips({ games }: { games: LibraryGame[] }) {
   const [expanded, setExpanded] = useState(false);
   const SHOW = 3;
   const visible = expanded ? games : games.slice(0, SHOW);
@@ -34,11 +46,7 @@ function GameChips({ games, playerToken }: { games: LibraryGame[]; playerToken: 
       </div>
       <div className="flex flex-wrap gap-1.5">
         {visible.map((g) => {
-          const cover = g.coverImageUrl
-            ? g.coverImageUrl.startsWith("http")
-              ? g.coverImageUrl
-              : `${import.meta.env.BASE_URL}${g.coverImageUrl.replace(/^\//, "")}`
-            : null;
+          const src = coverSrc(g.coverImageUrl);
           return (
             <Link key={g.gameId} href={`/games/${g.slug}`}>
               <span
@@ -51,9 +59,9 @@ function GameChips({ games, playerToken }: { games: LibraryGame[]; playerToken: 
                 title={`${g.title} · 🔵 ${g.pricePerMinuteLzt} LZT/мин`}
                 data-testid={`game-chip-${g.slug}`}
               >
-                {cover ? (
+                {src ? (
                   <img
-                    src={cover}
+                    src={src}
                     alt=""
                     className="w-4 h-4 rounded object-cover flex-shrink-0"
                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
@@ -101,6 +109,130 @@ function GameChips({ games, playerToken }: { games: LibraryGame[]; playerToken: 
         )}
       </div>
     </div>
+  );
+}
+
+function GamePickerDialog({
+  open,
+  games,
+  onClose,
+  onPick,
+}: {
+  open: boolean;
+  games: LibraryGame[];
+  onClose: () => void;
+  onPick: (slug: string) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent
+        className="sm:max-w-md"
+        style={{ background: "#0d1420", border: "1px solid rgba(14,165,233,0.2)" }}
+      >
+        <DialogHeader>
+          <DialogTitle className="text-white text-lg font-bold">Выбери игру</DialogTitle>
+          <p className="text-xs text-slate-500 mt-1">
+            Выбери, в какую игру хочешь играть у этого хоста.
+          </p>
+        </DialogHeader>
+        <div className="flex flex-col gap-2 mt-2 max-h-80 overflow-y-auto pr-1">
+          {games.map((g) => {
+            const src = coverSrc(g.coverImageUrl);
+            return (
+              <button
+                key={g.gameId}
+                type="button"
+                onClick={() => onPick(g.slug)}
+                className="flex items-center gap-3 p-3 rounded-lg text-left transition-colors"
+                style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(14,165,233,0.35)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.07)"; }}
+                data-testid={`picker-game-${g.slug}`}
+              >
+                {src ? (
+                  <img
+                    src={src}
+                    alt=""
+                    className="w-10 h-14 rounded object-cover flex-shrink-0"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                  />
+                ) : (
+                  <div className="w-10 h-14 rounded flex items-center justify-center flex-shrink-0" style={{ background: "rgba(14,165,233,0.08)" }}>
+                    <Gamepad2 className="h-5 w-5 text-slate-600" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold text-white text-sm truncate">{g.title}</div>
+                  {g.genre && <div className="text-[11px] text-sky-400 font-mono">{g.genre}</div>}
+                  <div className="text-[11px] text-blue-400 mt-1 font-mono">🔵 {g.pricePerMinuteLzt} LZT/мин</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-3 w-full h-8 rounded-md text-xs text-slate-500 transition-colors"
+          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
+        >
+          Отмена
+        </button>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PlayButton({
+  host,
+  games,
+  fallbackPlayerToken,
+}: {
+  host: { id: string; playerToken: string };
+  games: LibraryGame[];
+  fallbackPlayerToken: string;
+}) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [, navigate] = useLocation();
+
+  const handlePlay = () => {
+    if (games.length === 0) {
+      navigate(`/play/${fallbackPlayerToken}`);
+    } else if (games.length === 1) {
+      navigate(`/games/${games[0].slug}`);
+    } else {
+      setPickerOpen(true);
+    }
+  };
+
+  const handlePick = (slug: string) => {
+    setPickerOpen(false);
+    navigate(`/games/${slug}`);
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={handlePlay}
+        className="h-9 px-4 text-xs font-semibold rounded-md transition-colors"
+        style={{ background: "#0ea5e9", color: "#fff" }}
+        data-testid={`button-join-${host.id}`}
+      >
+        {games.length === 0 ? "Подключиться" : "Играть"}
+      </button>
+      {games.length > 1 && (
+        <GamePickerDialog
+          open={pickerOpen}
+          games={games}
+          onClose={() => setPickerOpen(false)}
+          onPick={handlePick}
+        />
+      )}
+    </>
   );
 }
 
@@ -216,7 +348,7 @@ export default function HostsPage() {
                       )}
 
                       {games.length > 0 && (
-                        <GameChips games={games} playerToken={h.playerToken} />
+                        <GameChips games={games} />
                       )}
                     </div>
 
@@ -239,27 +371,11 @@ export default function HostsPage() {
                         )}
                       </div>
 
-                      {games.length === 0 ? (
-                        <Link href={`/play/${h.playerToken}`}>
-                          <button
-                            className="h-9 px-4 text-xs font-semibold rounded-md transition-colors"
-                            style={{ background: "#0ea5e9", color: "#fff" }}
-                            data-testid={`button-join-${h.id}`}
-                          >
-                            Подключиться
-                          </button>
-                        </Link>
-                      ) : (
-                        <Link href={`/play/${h.playerToken}`}>
-                          <button
-                            className="h-9 px-4 text-xs font-semibold rounded-md transition-colors"
-                            style={{ background: "#0ea5e9", color: "#fff" }}
-                            data-testid={`button-join-${h.id}`}
-                          >
-                            Играть
-                          </button>
-                        </Link>
-                      )}
+                      <PlayButton
+                        host={{ id: h.id, playerToken: h.playerToken }}
+                        games={games}
+                        fallbackPlayerToken={h.playerToken}
+                      />
                     </div>
                   </div>
                 </div>

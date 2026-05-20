@@ -120,6 +120,17 @@ export default function Play() {
           ws.send(JSON.stringify({ type: "answer", sdp: answer }));
         } else if (msg.type === "ice-candidate") {
           await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+        } else if (msg.type === "control" && msg.action === "reject") {
+          // Host explicitly rejected this player: host_busy or game_unavailable.
+          const reason: string = msg.reason ?? "unknown";
+          const msgText =
+            reason === "host_busy"
+              ? "Хост сейчас занят с другим игроком. Попробуй позже."
+              : reason === "game_unavailable"
+                ? "Игра временно недоступна на этом хосте."
+                : `Хост отклонил соединение (${reason}).`;
+          toast.error(msgText);
+          cleanupConnection();
         }
       } catch (err) {
         console.error("Error handling WS message", err);

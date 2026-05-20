@@ -60,14 +60,16 @@ function shapeGame(
     coverImageUrl: g.coverImageUrl,
     description: g.description,
     genre: g.genre,
+    // Extra catalog fields (not in generated Zod schema; bypass strict parse below).
+    category: g.category,
+    genres: g.genres,
+    createdAt: g.createdAt,
     hasMods: g.hasMods,
     isMultiplayer: g.isMultiplayer,
     hostSpectatesPlayer: g.hostSpectatesPlayer,
     hasQuests: g.hasQuests,
     browserHostUrl: g.browserHostUrl,
     liveSessionCount,
-    // New fields from host_games (not in generated Zod schema yet;
-    // returned as extra fields — strict parse is bypassed below).
     liveHostsCount: agg?.liveHostsCount ?? 0,
     minPricePerMinuteLzt: agg?.minPricePerMinuteLzt ?? null,
   };

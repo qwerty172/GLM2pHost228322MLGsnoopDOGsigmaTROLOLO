@@ -1,5 +1,5 @@
-import { Link, useLocation, useSearch } from "wouter";
-import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation } from "wouter";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useListGames,
   getListGamesQueryKey,
@@ -12,123 +12,159 @@ import {
   Activity,
   ArrowRight,
   Gamepad2,
-  Search,
-  Tag,
-  Users,
-  Wand2,
-  Eye,
-  Trophy,
-  X,
   Rocket,
+  Search,
+  SlidersHorizontal,
+  Users,
+  X,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SiteNav } from "@/components/site-nav";
 
 const LZT_PER_USDT = 200;
-// Default per-minute price the API server uses for browser-host sessions.
-// Mirrored here so the library card can show price/min even before any
-// live session exists for the game.
 const DEFAULT_PRICE_PER_MIN_USD = 0.04;
 
-type FilterKey =
-  | "hasMods"
-  | "isMultiplayer"
-  | "hostSpectatesPlayer"
-  | "hasQuests"
-  | "liveOnly";
+type SortKey = "mostOnline" | "cheapest" | "newest";
 
-const FILTERS: {
-  key: FilterKey;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-}[] = [
-  { key: "liveOnly", label: "Сейчас онлайн", icon: Activity },
-  { key: "isMultiplayer", label: "Мультиплеер", icon: Users },
-  { key: "hasMods", label: "С модами", icon: Wand2 },
-  { key: "hostSpectatesPlayer", label: "Хост наблюдает", icon: Eye },
-  { key: "hasQuests", label: "С квестами", icon: Trophy },
+type FilterKey = "hasMods" | "isMultiplayer" | "hostSpectatesPlayer" | "hasQuests" | "liveOnly";
+
+type GameEnriched = GameListItem & {
+  category?: string;
+  genres?: string[];
+  createdAt?: string;
+  liveHostsCount?: number;
+  minPricePerMinuteLzt?: number | null;
+  browserHostUrl?: string | null;
+};
+
+const BOOL_FILTERS: { key: FilterKey; label: string }[] = [
+  { key: "isMultiplayer", label: "Мультиплеер" },
+  { key: "hasMods", label: "С модами" },
+  { key: "hostSpectatesPlayer", label: "Хост наблюдает" },
+  { key: "hasQuests", label: "С квестами" },
 ];
 
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "mostOnline", label: "Больше онлайн-хостов" },
+  { key: "cheapest", label: "Сначала дешевле" },
+  { key: "newest", label: "Новые игры" },
+];
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
+
 export default function GamesPage() {
-  const search$ = useSearch();
-  const [active, setActive] = useState<Record<FilterKey, boolean>>({
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
+  const [liveOnly, setLiveOnly] = useState(true);
+  const [category, setCategory] = useState("");
+  const [sort, setSort] = useState<SortKey>("mostOnline");
+  const [boolFilters, setBoolFilters] = useState<Record<FilterKey, boolean>>({
     hasMods: false,
     isMultiplayer: false,
     hostSpectatesPlayer: false,
     hasQuests: false,
-    liveOnly: false,
+    liveOnly: true,
   });
-  const [search, setSearch] = useState("");
-  const [tag, setTag] = useState<string>("");
-  const [tagInput, setTagInput] = useState("");
+  const [maxLzt, setMaxLzt] = useState<number>(9999);
+  const sliderInitRef = useRef(false);
+
+  const apiParams = useMemo(() => {
+    const p: Record<string, boolean | string> = {};
+    for (const f of BOOL_FILTERS) if (boolFilters[f.key]) p[f.key] = true;
+    if (liveOnly) p.liveOnly = true;
+    if (debouncedSearch.trim()) p.search = debouncedSearch.trim();
+    if (category) p.category = category;
+    return p;
+  }, [boolFilters, liveOnly, debouncedSearch, category]);
+
+  const { data: rawGames, isLoading } = useListGames(apiParams, {
+    query: { queryKey: getListGamesQueryKey(apiParams) },
+  });
+
+  const games = (rawGames ?? []) as GameEnriched[];
+
+  const categories = useMemo(() => {
+    const seen = new Set<string>();
+    const all: string[] = [];
+    for (const g of games) {
+      const cat = (g as GameEnriched).category;
+      if (cat && !seen.has(cat)) { seen.add(cat); all.push(cat); }
+    }
+    return all.sort();
+  }, [games]);
+
+  const globalMaxLzt = useMemo(() => {
+    let m = 0;
+    for (const g of games) {
+      const p = (g as GameEnriched).minPricePerMinuteLzt;
+      if (p != null && p > m) m = p;
+    }
+    return m || Math.round(DEFAULT_PRICE_PER_MIN_USD * LZT_PER_USDT * 3);
+  }, [games]);
 
   useEffect(() => {
-    const sp = new URLSearchParams(search$);
-    const t = sp.get("tag")?.trim() ?? "";
-    setTag(t);
-    setTagInput(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!sliderInitRef.current && globalMaxLzt > 0) {
+      setMaxLzt(globalMaxLzt);
+      sliderInitRef.current = true;
+    }
+  }, [globalMaxLzt]);
 
-  function applyTag(next: string) {
-    const trimmed = next.trim();
-    setTag(trimmed);
-    const sp = new URLSearchParams(window.location.search);
-    if (trimmed) sp.set("tag", trimmed);
-    else sp.delete("tag");
-    const qs = sp.toString();
-    window.history.replaceState(
-      null,
-      "",
-      window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash,
-    );
-  }
+  const sorted = useMemo(() => {
+    let list = [...games].filter((g) => {
+      const price = (g as GameEnriched).minPricePerMinuteLzt;
+      if (price != null && price > maxLzt) return false;
+      return true;
+    });
+    if (sort === "mostOnline") {
+      list.sort((a, b) => ((b as GameEnriched).liveHostsCount ?? 0) - ((a as GameEnriched).liveHostsCount ?? 0));
+    } else if (sort === "cheapest") {
+      list.sort((a, b) => {
+        const pa = (a as GameEnriched).minPricePerMinuteLzt ?? Infinity;
+        const pb = (b as GameEnriched).minPricePerMinuteLzt ?? Infinity;
+        return pa - pb;
+      });
+    } else if (sort === "newest") {
+      list.sort((a, b) => {
+        const da = (a as GameEnriched).createdAt ?? "";
+        const db = (b as GameEnriched).createdAt ?? "";
+        return db.localeCompare(da);
+      });
+    }
+    return list;
+  }, [games, sort, maxLzt]);
 
-  const params = useMemo(() => {
-    const p: Record<string, boolean | string> = {};
-    for (const f of FILTERS) if (active[f.key]) p[f.key] = true;
-    if (search.trim()) p.search = search.trim();
-    if (tag) p.tag = tag;
-    return p;
-  }, [active, search, tag]);
-
-  const { data: games, isLoading } = useListGames(params, {
-    query: { queryKey: getListGamesQueryKey(params) },
-  });
-
-  const toggle = (key: FilterKey) =>
-    setActive((s) => ({ ...s, [key]: !s[key] }));
+  const toggleBool = (key: FilterKey) =>
+    setBoolFilters((s) => ({ ...s, [key]: !s[key] }));
 
   return (
-    <div
-      className="min-h-screen text-slate-300"
-      style={{ background: "#06090e" }}
-    >
+    <div className="min-h-screen text-slate-300" style={{ background: "#06090e" }}>
       <SiteNav activePath="/games" />
 
-      <main className="max-w-6xl mx-auto px-6 pt-10 pb-16">
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
+      <main className="max-w-7xl mx-auto px-4 md:px-6 pt-8 pb-16">
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-6">
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
               <Gamepad2 className="h-7 w-7 text-sky-400" />
-              Библиотека игр
+              Каталог игр
             </h1>
-            <p className="text-sm text-slate-500 mt-2">
-              Каталог поддерживаемых игр. Фильтруй по возможностям и подключайся
-              к живому хосту в один клик.
+            <p className="text-sm text-slate-500 mt-1">
+              Выбери игру и подключись к хосту в один клик.
             </p>
           </div>
-          <div className="relative w-full md:w-80">
+          <div className="relative w-full md:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
             <Input
               placeholder="Поиск игр…"
               className="pl-9 h-9 rounded-md"
-              style={{
-                background: "#0a1018",
-                border: "1px solid rgba(255,255,255,0.08)",
-                color: "#e2e8f0",
-              }}
+              style={{ background: "#0a1018", border: "1px solid rgba(255,255,255,0.08)", color: "#e2e8f0" }}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               data-testid="input-search-games"
@@ -136,122 +172,220 @@ export default function GamesPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 mb-4">
-          {FILTERS.map((f) => {
-            const Icon = f.icon;
-            const on = active[f.key];
-            return (
+        <div className="flex gap-6">
+          {/* ── Sidebar ── */}
+          <aside className="hidden lg:flex flex-col gap-5 w-52 shrink-0 pt-1">
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono flex items-center gap-1">
+                <SlidersHorizontal className="h-3 w-3" /> Только онлайн
+              </div>
               <button
-                key={f.key}
                 type="button"
-                onClick={() => toggle(f.key)}
-                className="h-8 px-3 rounded-full text-xs font-medium flex items-center gap-1.5 transition-colors"
+                onClick={() => setLiveOnly((v) => !v)}
+                className="w-full h-8 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 px-3"
                 style={{
-                  background: on ? "#0ea5e9" : "rgba(14,165,233,0.06)",
-                  color: on ? "#fff" : "#94a3b8",
-                  border: on
-                    ? "1px solid #0ea5e9"
-                    : "1px solid rgba(255,255,255,0.08)",
+                  background: liveOnly ? "rgba(45,212,191,0.15)" : "rgba(255,255,255,0.04)",
+                  border: liveOnly ? "1px solid rgba(45,212,191,0.4)" : "1px solid rgba(255,255,255,0.07)",
+                  color: liveOnly ? "#2dd4bf" : "#64748b",
                 }}
-                data-testid={`filter-${f.key}`}
+                data-testid="filter-liveOnly"
               >
-                <Icon className="h-3.5 w-3.5" />
-                {f.label}
+                <span className={`w-1.5 h-1.5 rounded-full ${liveOnly ? "bg-teal-400" : "bg-slate-600"}`} />
+                {liveOnly ? "Только онлайн" : "Все игры"}
               </button>
-            );
-          })}
-        </div>
+            </div>
 
-        <div className="flex flex-wrap items-center gap-2 mb-8">
-          <div className="relative w-full sm:w-72">
-            <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-            <Input
-              placeholder="Тег возможностей хоста…"
-              className="pl-9 h-9 rounded-md"
-              style={{
-                background: "#0a1018",
-                border: "1px solid rgba(255,255,255,0.08)",
-                color: "#e2e8f0",
-              }}
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  applyTag(tagInput);
-                }
-              }}
-              data-testid="input-tag-filter"
-            />
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-9 rounded-md border-white/10 text-slate-400 hover:text-white"
-            onClick={() => applyTag(tagInput)}
-            data-testid="button-apply-tag"
-          >
-            Применить
-          </Button>
-          {tag && (
-            <span
-              className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded cursor-pointer"
-              style={{
-                background: "#0ea5e9",
-                color: "#fff",
-              }}
-              onClick={() => {
-                setTagInput("");
-                applyTag("");
-              }}
-              data-testid="badge-active-tag"
-            >
-              {tag}
-              <X className="h-3 w-3" />
-            </span>
-          )}
-        </div>
+            {categories.length > 0 && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">Категория</div>
+                <div className="flex flex-col gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCategory("")}
+                    className="text-left text-xs px-2 py-1 rounded transition-colors"
+                    style={{
+                      background: !category ? "rgba(14,165,233,0.12)" : "transparent",
+                      color: !category ? "#38bdf8" : "#64748b",
+                    }}
+                  >
+                    Все категории
+                  </button>
+                  {categories.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setCategory(cat === category ? "" : cat)}
+                      className="text-left text-xs px-2 py-1 rounded transition-colors truncate"
+                      style={{
+                        background: category === cat ? "rgba(14,165,233,0.12)" : "transparent",
+                        color: category === cat ? "#38bdf8" : "#64748b",
+                      }}
+                      data-testid={`filter-category-${cat}`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
-        {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div
-                key={i}
-                className="aspect-[3/4] rounded-xl animate-pulse"
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">Возможности</div>
+              <div className="flex flex-col gap-1">
+                {BOOL_FILTERS.map((f) => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => toggleBool(f.key)}
+                    className="text-left text-xs px-2 py-1 rounded transition-colors flex items-center gap-1.5"
+                    style={{
+                      background: boolFilters[f.key] ? "rgba(14,165,233,0.12)" : "transparent",
+                      color: boolFilters[f.key] ? "#38bdf8" : "#64748b",
+                    }}
+                    data-testid={`filter-${f.key}`}
+                  >
+                    <span
+                      className="w-3 h-3 rounded border flex items-center justify-center flex-shrink-0"
+                      style={{
+                        borderColor: boolFilters[f.key] ? "#0ea5e9" : "rgba(255,255,255,0.12)",
+                        background: boolFilters[f.key] ? "#0ea5e9" : "transparent",
+                      }}
+                    >
+                      {boolFilters[f.key] && <span className="w-1.5 h-1.5 rounded-sm bg-white" />}
+                    </span>
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {globalMaxLzt > 0 && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">
+                  Макс. цена: 🔵{maxLzt} LZT/мин
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={globalMaxLzt}
+                  value={maxLzt}
+                  onChange={(e) => setMaxLzt(Number(e.target.value))}
+                  className="w-full accent-sky-400"
+                  style={{ accentColor: "#0ea5e9" }}
+                  data-testid="slider-max-price"
+                />
+                <div className="flex justify-between text-[10px] text-slate-600 font-mono mt-0.5">
+                  <span>0</span>
+                  <span>{globalMaxLzt}</span>
+                </div>
+              </div>
+            )}
+          </aside>
+
+          {/* ── Main content ── */}
+          <div className="flex-1 min-w-0">
+            {/* Mobile filters */}
+            <div className="lg:hidden flex items-center gap-2 mb-3 overflow-x-auto pb-1 scrollbar-none">
+              <button
+                type="button"
+                onClick={() => setLiveOnly((v) => !v)}
+                className="h-8 px-3 rounded-full text-xs font-medium flex items-center gap-1.5 flex-shrink-0 transition-colors"
                 style={{
-                  background: "#0a1018",
-                  border: "1px solid rgba(255,255,255,0.05)",
+                  background: liveOnly ? "rgba(45,212,191,0.15)" : "rgba(255,255,255,0.04)",
+                  border: liveOnly ? "1px solid rgba(45,212,191,0.4)" : "1px solid rgba(255,255,255,0.07)",
+                  color: liveOnly ? "#2dd4bf" : "#64748b",
                 }}
-              />
-            ))}
+                data-testid="filter-liveOnly-mobile"
+              >
+                <Activity className="h-3.5 w-3.5" />
+                {liveOnly ? "Онлайн" : "Все игры"}
+              </button>
+              {BOOL_FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => toggleBool(f.key)}
+                  className="h-8 px-3 rounded-full text-xs font-medium flex items-center gap-1 flex-shrink-0 transition-colors"
+                  style={{
+                    background: boolFilters[f.key] ? "#0ea5e9" : "rgba(14,165,233,0.06)",
+                    color: boolFilters[f.key] ? "#fff" : "#94a3b8",
+                    border: boolFilters[f.key] ? "1px solid #0ea5e9" : "1px solid rgba(255,255,255,0.08)",
+                  }}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Sort + stats bar */}
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <span className="text-xs text-slate-600 font-mono">
+                {isLoading ? "…" : `${sorted.length} игр`}
+              </span>
+              <div className="flex items-center gap-1">
+                {SORT_OPTIONS.map((s) => (
+                  <button
+                    key={s.key}
+                    type="button"
+                    onClick={() => setSort(s.key)}
+                    className="h-7 px-2.5 rounded text-[11px] font-medium transition-colors"
+                    style={{
+                      background: sort === s.key ? "rgba(14,165,233,0.15)" : "transparent",
+                      color: sort === s.key ? "#38bdf8" : "#475569",
+                      border: sort === s.key ? "1px solid rgba(14,165,233,0.3)" : "1px solid transparent",
+                    }}
+                    data-testid={`sort-${s.key}`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {isLoading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="aspect-[3/4] rounded-xl animate-pulse"
+                    style={{ background: "#0a1018", border: "1px solid rgba(255,255,255,0.05)" }}
+                  />
+                ))}
+              </div>
+            ) : sorted.length === 0 ? (
+              <div
+                className="text-center py-20 rounded-xl"
+                style={{ background: "#0a1018", border: "1px dashed rgba(255,255,255,0.08)" }}
+              >
+                <Gamepad2 className="h-12 w-12 text-slate-700 mx-auto mb-4" />
+                <p className="text-lg font-medium text-slate-300">Ничего не найдено</p>
+                <p className="text-sm text-slate-500 mt-1">
+                  Попробуй убрать фильтры или изменить поисковый запрос.
+                </p>
+                {liveOnly && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="mt-4 border-white/10 text-slate-400"
+                    onClick={() => setLiveOnly(false)}
+                  >
+                    Показать все игры
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div
+                className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4"
+                data-testid="grid-games"
+              >
+                {sorted.map((g) => (
+                  <GameCard key={g.id} game={g as GameEnriched} />
+                ))}
+              </div>
+            )}
           </div>
-        ) : !games || games.length === 0 ? (
-          <div
-            className="text-center py-20 rounded-xl"
-            style={{
-              background: "#0a1018",
-              border: "1px dashed rgba(255,255,255,0.08)",
-            }}
-          >
-            <Gamepad2 className="h-12 w-12 text-slate-700 mx-auto mb-4" />
-            <p className="text-lg font-medium text-slate-300">
-              По этим фильтрам ничего не найдено
-            </p>
-            <p className="text-sm text-slate-500 mt-1">
-              Попробуй убрать фильтр или поискать другое название.
-            </p>
-          </div>
-        ) : (
-          <div
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-            data-testid="grid-games"
-          >
-            {games.map((g) => (
-              <GameCard key={g.id} game={g} />
-            ))}
-          </div>
-        )}
+        </div>
       </main>
     </div>
   );
@@ -260,7 +394,7 @@ export default function GamesPage() {
 const HOST_TOKEN_STORAGE_PREFIX = "streamline.browserHostToken:";
 const BROWSER_HOST_URL_STORAGE_PREFIX = "streamline.browserHostUrl:";
 
-function GameCard({ game }: { game: GameListItem }) {
+function GameCard({ game }: { game: GameEnriched }) {
   const [, navigate] = useLocation();
   const { playerWalletToken, isRegistering } = usePlayerWallet();
   const createBrowserHost = useCreateBrowserHostSession();
@@ -272,30 +406,15 @@ function GameCard({ game }: { game: GameListItem }) {
     }
     try {
       const res = await createBrowserHost.mutateAsync({
-        data: {
-          playerWalletToken,
-          gameSlug: game.slug,
-        },
+        data: { playerWalletToken, gameSlug: game.slug },
       });
       try {
-        localStorage.setItem(
-          HOST_TOKEN_STORAGE_PREFIX + res.session.id,
-          res.hostToken,
-        );
-        localStorage.setItem(
-          BROWSER_HOST_URL_STORAGE_PREFIX + res.session.id,
-          res.browserHostUrl,
-        );
-      } catch {
-        // ignore — page will surface "session not found" instead
-      }
+        localStorage.setItem(HOST_TOKEN_STORAGE_PREFIX + res.session.id, res.hostToken);
+        localStorage.setItem(BROWSER_HOST_URL_STORAGE_PREFIX + res.session.id, res.browserHostUrl);
+      } catch { /* ignore */ }
       navigate(`/host/play/${res.session.id}`);
     } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : "Не удалось создать сессию хоста",
-      );
+      toast.error(err instanceof Error ? err.message : "Не удалось создать сессию хоста");
     }
   };
 
@@ -304,73 +423,79 @@ function GameCard({ game }: { game: GameListItem }) {
       ? game.coverImageUrl
       : `${import.meta.env.BASE_URL}${game.coverImageUrl.replace(/^\//, "")}`
     : null;
-  const isLive = game.liveSessionCount > 0;
+
+  const liveHosts = game.liveHostsCount ?? game.liveSessionCount ?? 0;
+  const minLzt = game.minPricePerMinuteLzt;
+  const priceLabel = minLzt != null
+    ? `🔵${minLzt} LZT/мин`
+    : `🔵${Math.round(DEFAULT_PRICE_PER_MIN_USD * LZT_PER_USDT)} LZT/мин`;
+  const isLive = liveHosts > 0;
 
   return (
     <div
       className="group relative overflow-hidden rounded-xl transition-all cursor-pointer"
-      style={{
-        background: "#0a1018",
-        border: "1px solid rgba(255,255,255,0.06)",
-      }}
+      style={{ background: "#0a1018", border: "1px solid rgba(255,255,255,0.06)" }}
       data-testid={`card-game-${game.slug}`}
     >
-      <div className="aspect-[3/4] w-full">
+      <div className="aspect-[3/4] w-full bg-slate-900">
         {cover ? (
           <img
             src={cover}
             alt={game.title}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            loading="lazy"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <Gamepad2 className="h-16 w-16 text-slate-700" />
+            <Gamepad2 className="h-12 w-12 text-slate-700" />
           </div>
         )}
       </div>
-      <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
-        {isLive && (
+
+      {/* Live hosts badge */}
+      {isLive && (
+        <div className="absolute top-2.5 right-2.5">
           <span
-            className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded"
+            className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded"
             style={{ background: "rgba(20,184,166,0.85)", color: "#fff" }}
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-white opacity-80" />
-            {game.liveSessionCount} live
+            <Users className="h-2.5 w-2.5" />
+            {liveHosts}
           </span>
-        )}
-      </div>
-      <div className="absolute inset-0 bg-gradient-to-t from-[#06090e]/95 via-[#06090e]/40 to-transparent p-4 flex flex-col justify-end">
-        <h3 className="text-base font-bold text-white leading-tight">
-          {game.title}
-        </h3>
+        </div>
+      )}
+
+      {/* Gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#06090e]/96 via-[#06090e]/30 to-transparent p-3 flex flex-col justify-end">
+        <h3 className="text-sm font-bold text-white leading-snug line-clamp-2">{game.title}</h3>
         {game.genre && (
-          <p className="text-[11px] text-sky-400 font-mono mt-0.5">{game.genre}</p>
+          <p className="text-[10px] text-sky-400 font-mono mt-0.5 truncate">{game.genre}</p>
         )}
         <p
-          className="text-[11px] font-mono mt-1 text-slate-400"
+          className="text-[10px] font-mono mt-1"
+          style={{ color: isLive ? "#34d399" : "#64748b" }}
           data-testid={`text-price-${game.slug}`}
         >
-          <span className="text-emerald-300 font-bold">
-            {Math.round(DEFAULT_PRICE_PER_MIN_USD * LZT_PER_USDT)} LZT/мин
-          </span>
-          <span className="text-slate-500">
-            {" "}· ≈ ${DEFAULT_PRICE_PER_MIN_USD.toFixed(2)}/мин
-          </span>
+          {priceLabel}
+          {minLzt != null && (
+            <span className="text-slate-600"> · ≈${(minLzt / LZT_PER_USDT).toFixed(3)}</span>
+          )}
         </p>
-        <div className="mt-3 flex flex-col gap-1.5">
+        <div className="mt-2 flex flex-col gap-1">
           <Link href={`/games/${game.slug}`}>
             <Button
               size="sm"
-              className="w-full h-8 text-xs font-semibold rounded-md"
+              className="w-full h-7 text-[11px] font-semibold rounded-md"
               style={{
-                background: isLive ? "#0ea5e9" : "rgba(14,165,233,0.12)",
+                background: isLive ? "#0ea5e9" : "rgba(14,165,233,0.10)",
                 color: isLive ? "#fff" : "#38bdf8",
                 border: isLive ? "none" : "1px solid rgba(14,165,233,0.2)",
               }}
               data-testid={`button-open-${game.slug}`}
             >
               {isLive ? "Найти хоста" : "Подробнее"}
-              <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+              <ArrowRight className="ml-1 h-3 w-3" />
             </Button>
           </Link>
           {game.browserHostUrl && (
@@ -378,21 +503,17 @@ function GameCard({ game }: { game: GameListItem }) {
               size="sm"
               type="button"
               onClick={handleHost}
-              disabled={
-                createBrowserHost.isPending || isRegistering || !playerWalletToken
-              }
-              className="w-full h-8 text-xs font-semibold rounded-md"
+              disabled={createBrowserHost.isPending || isRegistering || !playerWalletToken}
+              className="w-full h-7 text-[11px] font-semibold rounded-md"
               style={{
-                background: "rgba(16,185,129,0.16)",
+                background: "rgba(16,185,129,0.14)",
                 color: "#34d399",
-                border: "1px solid rgba(16,185,129,0.35)",
+                border: "1px solid rgba(16,185,129,0.3)",
               }}
               data-testid={`button-host-${game.slug}`}
             >
-              <Rocket className="mr-1.5 h-3.5 w-3.5" />
-              {createBrowserHost.isPending
-                ? "Создаём…"
-                : "Хостить из браузера"}
+              <Rocket className="mr-1 h-3 w-3" />
+              {createBrowserHost.isPending ? "…" : "Хостить"}
             </Button>
           )}
         </div>
