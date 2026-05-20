@@ -3,11 +3,8 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   useGetWallet,
   useRequestWithdrawal,
-  useListMyQuotas,
   getGetWalletQueryKey,
 } from "@workspace/api-client-react";
-import { Link } from "wouter";
-import { Coins, Sparkles, Plus } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -20,14 +17,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Tooltip,
@@ -37,20 +26,18 @@ import {
 } from "@/components/ui/tooltip";
 import {
   Copy,
-  Wallet,
   ArrowUpRight,
-  ArrowDownLeft,
-  Banknote,
   Loader2,
-  CheckCircle2,
   Info,
   CreditCard,
   Bitcoin,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
-import { formatDistanceToNow } from "date-fns";
 
 const cardStyle = {
   background: "#0a1018",
@@ -65,7 +52,7 @@ const inputStyle = {
 
 const LZT_PER_USDT = 200;
 const formatLzt = (lzt: number) =>
-  new Intl.NumberFormat("ru-RU").format(Math.trunc(lzt)) + " LZT";
+  new Intl.NumberFormat("ru-RU").format(Math.trunc(lzt));
 const lztToUsdt = (lzt: number) => lzt / LZT_PER_USDT;
 
 const TRANSAK_API_KEY = import.meta.env.VITE_TRANSAK_API_KEY as
@@ -216,6 +203,32 @@ function CardTopUp({
   );
 }
 
+function LightningIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M13 2L4.09 12.97H11L10 22L20.5 10.5H13.5L13 2Z" />
+    </svg>
+  );
+}
+
+function LeafIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M17 8C8 10 5.9 16.17 3.82 21.34L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 5.5-8 5.5z" />
+    </svg>
+  );
+}
+
 export default function WalletPage() {
   const { hostToken } = useAuth();
   const {
@@ -232,15 +245,9 @@ export default function WalletPage() {
   const [withdrawCurrency, setWithdrawCurrency] = useState("USDT_TRC20");
   const [withdrawAddress, setWithdrawAddress] = useState("");
   const [withdrawAmountLzt, setWithdrawAmountLzt] = useState("");
+  const [topupOpen, setTopupOpen] = useState(false);
 
   const requestWithdrawal = useRequestWithdrawal();
-  const myQuotasParams = { ownerToken: hostToken ?? "" };
-  const { data: myQuotas } = useListMyQuotas(myQuotasParams, {
-    query: {
-      enabled: !!hostToken,
-      queryKey: ["listMyQuotas", myQuotasParams] as const,
-    },
-  });
 
   const greenLzt = wallet?.withdrawableBalanceLzt ?? 0;
   const blueLzt = wallet?.internalBalanceLzt ?? 0;
@@ -289,7 +296,6 @@ export default function WalletPage() {
 
   const parsedAmount = parseInt(withdrawAmountLzt || "0", 10) || 0;
   const overGreen = parsedAmount > greenLzt;
-  const pendingLzt = wallet?.pendingWithdrawalsLzt ?? 0;
 
   return (
     <TooltipProvider>
@@ -303,215 +309,235 @@ export default function WalletPage() {
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <Card
-            style={{
-              background: "rgba(14,165,233,0.08)",
-              border: "1px solid rgba(14,165,233,0.35)",
-            }}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs font-medium text-sky-300 flex items-center gap-2">
-                Внутренний (синий)
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-3.5 w-3.5 text-slate-500" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Синие LZT можно тратить на платформе (хосты, будущие
-                    Биржа / Форум / Кредиты), но нельзя вывести.
-                  </TooltipContent>
-                </Tooltip>
-              </CardTitle>
-              <Wallet className="h-4 w-4 text-sky-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold text-sky-300">
-                {isLoading ? (
-                  <Skeleton className="h-10 w-40" />
-                ) : (
-                  formatLzt(blueLzt)
-                )}
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                ≈ ${lztToUsdt(blueLzt).toFixed(2)} · нельзя вывести
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card
-            style={{
-              background: "rgba(16,185,129,0.08)",
-              border: "1px solid rgba(16,185,129,0.35)",
-            }}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs font-medium text-emerald-300">
-                Выводимый (зелёный)
-              </CardTitle>
-              <Banknote className="h-4 w-4 text-emerald-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold text-emerald-300">
-                {isLoading ? (
-                  <Skeleton className="h-10 w-40" />
-                ) : (
-                  formatLzt(greenLzt)
-                )}
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                ≈ ${lztToUsdt(greenLzt).toFixed(2)} · можно вывести в крипту
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card style={cardStyle}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs font-medium text-slate-400">
-                Выводы в обработке
-              </CardTitle>
-              <ArrowUpRight className="h-4 w-4 text-slate-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold text-white">
-                {isLoading ? (
-                  <Skeleton className="h-10 w-32" />
-                ) : (
-                  formatLzt(pendingLzt)
-                )}
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                ≈ ${lztToUsdt(pendingLzt).toFixed(2)} сейчас обрабатываются
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
         <div className="grid gap-6 md:grid-cols-2">
-          <Card style={cardStyle}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white">
-                <ArrowDownLeft className="h-5 w-5 text-sky-400" />
-                Пополнить кошелёк
-              </CardTitle>
-              <CardDescription className="text-slate-500">
-                Любое пополнение зачисляется на{" "}
-                <span className="text-emerald-400">зелёный</span> баланс по
-                курсу {LZT_PER_USDT} LZT за 1 USDT.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="crypto" className="w-full">
-                <TabsList
-                  className="grid w-full grid-cols-2 mb-4"
-                  style={{
-                    background: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(255,255,255,0.06)",
-                  }}
-                >
-                  <TabsTrigger
-                    value="crypto"
-                    className="data-[state=active]:bg-sky-500/15 data-[state=active]:text-sky-300 text-slate-400"
+          <div className="space-y-3">
+            <Card
+              style={{
+                background: "rgba(14,165,233,0.08)",
+                border: "1px solid rgba(14,165,233,0.35)",
+              }}
+            >
+              <CardContent className="pt-6 pb-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-baseline gap-3">
+                      <span className="text-5xl font-extrabold text-sky-300 tabular-nums">
+                        {isLoading ? (
+                          <Skeleton className="h-12 w-40 inline-block" />
+                        ) : (
+                          formatLzt(blueLzt)
+                        )}
+                      </span>
+                      <LightningIcon className="h-7 w-7 text-sky-400 shrink-0" />
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1.5">
+                      ≈ ${lztToUsdt(blueLzt).toFixed(2)} · нельзя вывести
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3 w-3 text-slate-600 cursor-default" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Синие LZT можно тратить на платформе (хосты, будущие
+                          Биржа / Форум / Кредиты), но нельзя вывести.
+                        </TooltipContent>
+                      </Tooltip>
+                    </p>
+                  </div>
+                  <div
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
+                    style={{ background: "rgba(14,165,233,0.15)" }}
                   >
-                    <Bitcoin className="h-4 w-4 mr-2" />
-                    Криптой
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="card"
-                    className="data-[state=active]:bg-sky-500/15 data-[state=active]:text-sky-300 text-slate-400"
-                  >
-                    <CreditCard className="h-4 w-4 mr-2" />
-                    Картой
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="crypto" className="mt-0">
-              {isLoading ? (
-                <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <Skeleton key={i} className="h-24 w-full" />
-                  ))}
+                    <LightningIcon className="h-8 w-8 text-sky-400" />
+                  </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Button
+              type="button"
+              className="w-full font-semibold h-10"
+              style={{ background: "#0ea5e9", color: "#fff" }}
+              onClick={() => setTopupOpen((v) => !v)}
+              data-testid="button-topup-toggle"
+            >
+              {topupOpen ? (
+                <>
+                  <ChevronUp className="h-4 w-4 mr-2" />
+                  Свернуть
+                </>
               ) : (
-                <div className="space-y-4">
-                  {wallet?.depositAddresses.map((addr) => (
-                    <div
-                      key={addr.currency}
-                      className="flex items-center gap-4 p-4 rounded-lg"
+                <>
+                  <LightningIcon className="h-4 w-4 mr-2" />
+                  Пополнить
+                </>
+              )}
+            </Button>
+
+            {topupOpen && (
+              <div
+                className="rounded-xl overflow-hidden"
+                style={{
+                  border: "1px solid rgba(14,165,233,0.2)",
+                  background: "rgba(14,165,233,0.04)",
+                }}
+              >
+                <div className="p-4">
+                  <p className="text-xs text-slate-500 mb-3">
+                    Любое пополнение зачисляется на{" "}
+                    <span className="text-emerald-400">зелёный</span> баланс по
+                    курсу {LZT_PER_USDT} LZT за 1 USDT.
+                  </p>
+                  <Tabs defaultValue="crypto" className="w-full">
+                    <TabsList
+                      className="grid w-full grid-cols-2 mb-4"
                       style={{
-                        background: "rgba(255,255,255,0.02)",
+                        background: "rgba(255,255,255,0.03)",
                         border: "1px solid rgba(255,255,255,0.06)",
                       }}
                     >
-                      <div className="p-2 bg-white rounded flex-shrink-0">
-                        <QRCodeSVG value={addr.address} size={64} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="font-bold text-sm text-white">
-                            {addr.label}
-                          </div>
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] font-mono border-white/10 text-slate-400"
-                          >
-                            {addr.network}
-                          </Badge>
+                      <TabsTrigger
+                        value="crypto"
+                        className="data-[state=active]:bg-sky-500/15 data-[state=active]:text-sky-300 text-slate-400"
+                      >
+                        <Bitcoin className="h-4 w-4 mr-2" />
+                        Криптой
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="card"
+                        className="data-[state=active]:bg-sky-500/15 data-[state=active]:text-sky-300 text-slate-400"
+                      >
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Картой
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="crypto" className="mt-0">
+                      {isLoading ? (
+                        <div className="space-y-4">
+                          {[1, 2, 3].map((i) => (
+                            <Skeleton key={i} className="h-24 w-full" />
+                          ))}
                         </div>
-                        <div className="text-xs font-mono text-slate-500 truncate mb-2 select-all">
-                          {addr.address}
+                      ) : (
+                        <div className="space-y-3">
+                          {wallet?.depositAddresses.map((addr) => (
+                            <div
+                              key={addr.currency}
+                              className="flex items-center gap-4 p-4 rounded-lg"
+                              style={{
+                                background: "rgba(255,255,255,0.02)",
+                                border: "1px solid rgba(255,255,255,0.06)",
+                              }}
+                            >
+                              <div className="p-2 bg-white rounded flex-shrink-0">
+                                <QRCodeSVG value={addr.address} size={56} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between mb-1">
+                                  <div className="font-bold text-sm text-white">
+                                    {addr.label}
+                                  </div>
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] font-mono border-white/10 text-slate-400"
+                                  >
+                                    {addr.network}
+                                  </Badge>
+                                </div>
+                                <div className="text-xs font-mono text-slate-500 truncate mb-2 select-all">
+                                  {addr.address}
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <div className="text-[10px] text-slate-500">
+                                    мин: {addr.minDeposit}{" "}
+                                    {addr.currency.split("_")[0]}
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs border-white/10 text-slate-300 hover:text-white"
+                                    onClick={() =>
+                                      handleCopy(
+                                        addr.address,
+                                        `Адрес ${addr.label}`,
+                                      )
+                                    }
+                                  >
+                                    <Copy className="h-3 w-3 mr-1" /> Копировать
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                        <div className="flex items-center justify-between">
-                          <div className="text-[10px] text-slate-500">
-                            мин: {addr.minDeposit} {addr.currency.split("_")[0]}
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs border-white/10 text-slate-300 hover:text-white"
-                            onClick={() =>
-                              handleCopy(addr.address, `Адрес ${addr.label}`)
-                            }
-                          >
-                            <Copy className="h-3 w-3 mr-1" /> Копировать
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="card" className="mt-0">
+                      <CardTopUp
+                        usdtAddress={
+                          wallet?.depositAddresses.find(
+                            (a) => a.currency === "USDT_TRC20",
+                          )?.address
+                        }
+                        isLoading={isLoading}
+                      />
+                    </TabsContent>
+                  </Tabs>
                 </div>
-              )}
-                </TabsContent>
+              </div>
+            )}
+          </div>
 
-                <TabsContent value="card" className="mt-0">
-                  <CardTopUp
-                    usdtAddress={
-                      wallet?.depositAddresses.find(
-                        (a) => a.currency === "USDT_TRC20",
-                      )?.address
-                    }
-                    isLoading={isLoading}
-                  />
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            <Card
+              style={{
+                background: "rgba(16,185,129,0.08)",
+                border: "1px solid rgba(16,185,129,0.35)",
+              }}
+            >
+              <CardContent className="pt-6 pb-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-baseline gap-3">
+                      <span className="text-5xl font-extrabold text-emerald-300 tabular-nums">
+                        {isLoading ? (
+                          <Skeleton className="h-12 w-40 inline-block" />
+                        ) : (
+                          formatLzt(greenLzt)
+                        )}
+                      </span>
+                      <LeafIcon className="h-7 w-7 text-emerald-400 shrink-0" />
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1.5">
+                      ≈ ${lztToUsdt(greenLzt).toFixed(2)} · можно вывести в
+                      крипту
+                    </p>
+                  </div>
+                  <div
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
+                    style={{ background: "rgba(16,185,129,0.15)" }}
+                  >
+                    <LeafIcon className="h-8 w-8 text-emerald-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card style={cardStyle}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white">
-                <ArrowUpRight className="h-5 w-5 text-sky-400" />
-                Запрос на вывод
-              </CardTitle>
-              <CardDescription className="text-slate-500">
-                Конвертируем <span className="text-emerald-400">зелёный</span>{" "}
-                LZT в крипту по курсу {LZT_PER_USDT} LZT = 1 USDT.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleWithdraw} className="space-y-6">
-                <div className="space-y-3">
-                  <Label className="text-slate-300">Сеть</Label>
+            <Card style={cardStyle}>
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-white text-base">
+                  <ArrowUpRight className="h-4 w-4 text-sky-400" />
+                  Вывод средств
+                </CardTitle>
+                <CardDescription className="text-slate-500 text-xs">
+                  Конвертируем{" "}
+                  <span className="text-emerald-400">зелёный</span> LZT в крипту
+                  по курсу {LZT_PER_USDT}:1.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleWithdraw} className="space-y-4">
                   <RadioGroup
                     value={withdrawCurrency}
                     onValueChange={setWithdrawCurrency}
@@ -530,7 +556,7 @@ export default function WalletPage() {
                         />
                         <Label
                           htmlFor={`withdraw-${c.id}`}
-                          className="flex flex-col items-center justify-center rounded-md p-3 cursor-pointer transition-all text-center"
+                          className="flex flex-col items-center justify-center rounded-md p-2.5 cursor-pointer transition-all text-center"
                           style={{
                             background:
                               withdrawCurrency === c.id
@@ -552,266 +578,110 @@ export default function WalletPage() {
                       </div>
                     ))}
                   </RadioGroup>
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="withdrawAddress" className="text-slate-300">
-                    Адрес получателя
-                  </Label>
-                  <Input
-                    id="withdrawAddress"
-                    placeholder="Вставь адрес своего кошелька"
-                    value={withdrawAddress}
-                    onChange={(e) => setWithdrawAddress(e.target.value)}
-                    className="font-mono text-sm"
-                    style={inputStyle}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="withdrawAmount" className="text-slate-300">
-                    Сумма (LZT)
-                  </Label>
-                  <div className="relative">
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="withdrawAddress"
+                      className="text-xs text-slate-400"
+                    >
+                      Адрес получателя
+                    </Label>
                     <Input
-                      id="withdrawAmount"
-                      type="number"
-                      step="1"
-                      min="0"
-                      placeholder="0"
-                      value={withdrawAmountLzt}
-                      onChange={(e) => setWithdrawAmountLzt(e.target.value)}
-                      className="font-mono pr-16"
+                      id="withdrawAddress"
+                      placeholder="Вставь адрес своего кошелька"
+                      value={withdrawAddress}
+                      onChange={(e) => setWithdrawAddress(e.target.value)}
+                      className="font-mono text-sm"
                       style={inputStyle}
                     />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 text-xs text-sky-400 hover:text-sky-300"
-                      onClick={() => setWithdrawAmountLzt(String(greenLzt))}
-                      disabled={greenLzt < 1}
-                    >
-                      МАКС
-                    </Button>
                   </div>
-                  <p className="text-xs text-slate-500">
-                    ≈ ${lztToUsdt(parsedAmount).toFixed(4)} · конвертация по
-                    курсу {LZT_PER_USDT}:1
-                  </p>
-                </div>
 
-                {greenLzt === 0 ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <Button
-                          type="submit"
-                          className="w-full font-bold"
-                          style={{ background: "#0ea5e9", color: "#fff" }}
-                          disabled
-                        >
-                          Подтвердить вывод
-                        </Button>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      У тебя нет{" "}
-                      <span className="text-emerald-400">зелёного</span> LZT.
-                      Синий баланс вывести нельзя.
-                    </TooltipContent>
-                  </Tooltip>
-                ) : (
-                  <Button
-                    type="submit"
-                    className="w-full font-bold"
-                    style={{ background: "#0ea5e9", color: "#fff" }}
-                    disabled={
-                      requestWithdrawal.isPending ||
-                      !withdrawAddress ||
-                      !withdrawAmountLzt ||
-                      overGreen ||
-                      parsedAmount <= 0
-                    }
-                  >
-                    {requestWithdrawal.isPending && (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    )}
-                    Подтвердить вывод
-                  </Button>
-                )}
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card style={cardStyle}>
-          <CardHeader>
-            <CardTitle className="text-white">Недавние выводы</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-            ) : wallet?.recentWithdrawals.length === 0 ? (
-              <div className="text-center py-6 text-slate-500 text-sm">
-                Выводов пока нет.
-              </div>
-            ) : (
-              <div className="rounded-md border border-white/5 overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-white/5">
-                      <TableHead className="text-slate-500">Дата</TableHead>
-                      <TableHead className="text-slate-500">Сеть</TableHead>
-                      <TableHead className="text-slate-500">Адрес</TableHead>
-                      <TableHead className="text-slate-500">Сумма</TableHead>
-                      <TableHead className="text-right text-slate-500">
-                        Статус
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {wallet?.recentWithdrawals.map((w) => (
-                      <TableRow key={w.id} className="border-white/5">
-                        <TableCell className="text-xs text-slate-500">
-                          {formatDistanceToNow(new Date(w.requestedAt))} назад
-                        </TableCell>
-                        <TableCell className="font-mono text-xs text-slate-300">
-                          {w.currency}
-                        </TableCell>
-                        <TableCell
-                          className="font-mono text-xs truncate max-w-[100px] md:max-w-[200px] text-slate-400"
-                          title={w.address}
-                        >
-                          {w.address.substring(0, 8)}...
-                          {w.address.substring(w.address.length - 8)}
-                        </TableCell>
-                        <TableCell className="font-bold font-mono text-white">
-                          {formatLzt(w.amountLzt)}
-                          <span className="block text-[10px] text-slate-500 font-normal">
-                            ≈ ${w.amountUsdt.toFixed(2)}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] uppercase"
-                            style={{
-                              background:
-                                w.status === "completed"
-                                  ? "rgba(20,184,166,0.15)"
-                                  : w.status === "failed"
-                                    ? "rgba(239,68,68,0.15)"
-                                    : "rgba(255,255,255,0.04)",
-                              color:
-                                w.status === "completed"
-                                  ? "#2dd4bf"
-                                  : w.status === "failed"
-                                    ? "#f87171"
-                                    : "#94a3b8",
-                              border:
-                                w.status === "completed"
-                                  ? "1px solid rgba(20,184,166,0.3)"
-                                  : w.status === "failed"
-                                    ? "1px solid rgba(239,68,68,0.3)"
-                                    : "1px solid rgba(255,255,255,0.08)",
-                            }}
-                          >
-                            {w.status === "completed" && (
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                            )}
-                            {w.status === "completed"
-                              ? "ВЫПОЛНЕН"
-                              : w.status === "failed"
-                                ? "ОШИБКА"
-                                : "В ОБРАБОТКЕ"}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card style={cardStyle}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <div>
-              <CardTitle className="text-base text-white flex items-center gap-2">
-                <Coins className="h-4 w-4 text-amber-400" />
-                Мои квоты
-              </CardTitle>
-              <CardDescription className="text-slate-500">
-                Пресет-контракты (роялти и спонсорские) от твоего лица.
-              </CardDescription>
-            </div>
-            <Link href="/quotas/new">
-              <Button
-                size="sm"
-                className="font-semibold"
-                style={{ background: "#0ea5e9", color: "#fff" }}
-                data-testid="button-wallet-new-quota"
-              >
-                <Plus className="h-3.5 w-3.5 mr-1.5" /> Новая
-              </Button>
-            </Link>
-          </CardHeader>
-          <CardContent>
-            {!myQuotas || myQuotas.length === 0 ? (
-              <p className="text-xs text-slate-500" data-testid="wallet-quotas-empty">
-                У тебя пока нет квот.{" "}
-                <Link href="/quotas">
-                  <span className="text-sky-400 underline cursor-pointer">
-                    Посмотреть все
-                  </span>
-                </Link>
-                .
-              </p>
-            ) : (
-              <ul className="divide-y divide-white/5">
-                {myQuotas.slice(0, 6).map((q) => (
-                  <li key={q.id} className="py-3">
-                    <Link href={`/quotas/${q.id}`}>
-                      <div
-                        className="flex items-center justify-between gap-3 cursor-pointer"
-                        data-testid={`wallet-quota-${q.id}`}
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="withdrawAmount"
+                      className="text-xs text-slate-400"
+                    >
+                      Сумма (LZT)
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="withdrawAmount"
+                        type="number"
+                        step="1"
+                        min="0"
+                        placeholder="0"
+                        value={withdrawAmountLzt}
+                        onChange={(e) => setWithdrawAmountLzt(e.target.value)}
+                        className="font-mono pr-16"
+                        style={inputStyle}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 text-xs text-sky-400 hover:text-sky-300"
+                        onClick={() => setWithdrawAmountLzt(String(greenLzt))}
+                        disabled={greenLzt < 1}
                       >
-                        <div className="flex items-center gap-2 min-w-0">
-                          {q.kind === "royalty" ? (
-                            <Coins className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                          ) : (
-                            <Sparkles className="h-3.5 w-3.5 text-sky-400 shrink-0" />
-                          )}
-                          <div className="min-w-0">
-                            <div className="text-sm font-semibold text-white truncate">
-                              {q.title}
-                            </div>
-                            <div className="text-[11px] text-slate-500 font-mono">
-                              {q.status} ·{" "}
-                              {q.kind === "royalty"
-                                ? q.royaltyBasis === "percent"
-                                  ? `${q.royaltyValue ?? 0}% / мин`
-                                  : `${q.royaltyValue ?? 0} LZT/мин`
-                                : `Эскроу: ${(q.escrowRemainingLzt ?? 0).toLocaleString("ru-RU")} LZT`}
-                            </div>
-                          </div>
+                        МАКС
+                      </Button>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      ≈ ${lztToUsdt(parsedAmount).toFixed(4)}
+                    </p>
+                  </div>
+
+                  {greenLzt === 0 ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <Button
+                            type="submit"
+                            className="w-full font-bold"
+                            style={{ background: "#0ea5e9", color: "#fff" }}
+                            disabled
+                          >
+                            Подтвердить вывод
+                          </Button>
                         </div>
-                        <div className="text-[11px] text-slate-500 shrink-0">
-                          {q.gameTitle ?? ""}
-                        </div>
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        У тебя нет{" "}
+                        <span className="text-emerald-400">зелёного</span> LZT.
+                        Синий баланс вывести нельзя.
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <Button
+                      type="submit"
+                      className="w-full font-bold"
+                      style={{ background: "#0ea5e9", color: "#fff" }}
+                      disabled={
+                        requestWithdrawal.isPending ||
+                        !withdrawAddress ||
+                        !withdrawAmountLzt ||
+                        overGreen ||
+                        parsedAmount <= 0
+                      }
+                    >
+                      {requestWithdrawal.isPending && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      {overGreen ? (
+                        "Недостаточно баланса"
+                      ) : (
+                        <>
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          Подтвердить вывод
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </TooltipProvider>
   );
