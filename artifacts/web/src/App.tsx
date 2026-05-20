@@ -8,6 +8,7 @@ import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/host/dashboard";
 import SetupSession from "@/pages/host/setup";
+import HostLibrary from "@/pages/host/library";
 import WalletPage from "@/pages/wallet";
 import Play from "@/pages/play";
 import BrowserPlay from "@/pages/host/browser-play";
@@ -31,6 +32,7 @@ function HostRoutes() {
         <Switch>
           <Route path="/host" component={Dashboard} />
           <Route path="/host/setup" component={SetupSession} />
+          <Route path="/host/library" component={HostLibrary} />
           <Route path="/wallet" component={WalletPage} />
           <Route component={NotFound} />
         </Switch>

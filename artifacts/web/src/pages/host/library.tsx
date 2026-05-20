@@ -1,0 +1,1103 @@
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  GripVertical,
+  Plus,
+  Pencil,
+  Trash2,
+  Gamepad2,
+  Globe,
+  Monitor,
+  Search,
+  Loader2,
+  ArrowLeft,
+  CheckCircle2,
+  AlertCircle,
+  Image as ImageIcon,
+} from "lucide-react";
+import { toast } from "sonner";
+
+const cardStyle = {
+  background: "#0a1018",
+  border: "1px solid rgba(255,255,255,0.06)",
+};
+
+const inputStyle = {
+  background: "rgba(255,255,255,0.03)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  color: "#e2e8f0",
+};
+
+// --------------------------------------------------------------------------
+// Types
+// --------------------------------------------------------------------------
+interface CatalogGame {
+  id: string;
+  slug: string;
+  title: string;
+  coverImageUrl?: string | null;
+  description?: string | null;
+  genre?: string | null;
+  category?: string | null;
+  genres?: string[] | null;
+  steamAppId?: string | null;
+  isMultiplayer?: boolean;
+  browserHostUrl?: string | null;
+}
+
+interface LibraryEntry {
+  id: string;
+  hostId: string;
+  gameId: string;
+  pricePerMinuteLzt: number;
+  appPath: string;
+  boundUrl: string;
+  launchArgs: string;
+  enabled: boolean;
+  sortOrder: number;
+  localAvailable: boolean;
+  lastError: string;
+  addedAt: string;
+  game: {
+    id: string;
+    slug: string;
+    title: string;
+    coverImageUrl: string | null;
+    genre: string | null;
+    browserHostUrl: string | null;
+    hasMods: boolean;
+    isMultiplayer: boolean;
+  };
+}
+
+function entryKind(e: LibraryEntry): "native" | "browser" {
+  return e.boundUrl || e.game.browserHostUrl ? "browser" : "native";
+}
+
+// --------------------------------------------------------------------------
+// Helpers
+// --------------------------------------------------------------------------
+const LZT_PER_USD = 200;
+
+function lztToUsd(lzt: number) {
+  return (lzt / LZT_PER_USD).toFixed(2);
+}
+
+function LztBadge({ lzt, className = "" }: { lzt: number; className?: string }) {
+  return (
+    <span className={`inline-flex items-center gap-1 font-mono ${className}`}>
+      <span
+        title="Внутренний (синий)"
+        className="inline-block w-2 h-2 rounded-full"
+        style={{ background: "#38bdf8" }}
+      />
+      <span className="text-sky-300 font-bold">{lzt.toLocaleString("ru-RU")}</span>
+      <span className="text-slate-500 text-xs">LZT</span>
+      <span className="text-slate-600 text-xs">≈${lztToUsd(lzt)}</span>
+    </span>
+  );
+}
+
+function isWindowsPath(s: string) {
+  return /^[a-zA-Z]:\\/.test(s) || s.startsWith("\\\\") || s.startsWith("/");
+}
+
+// --------------------------------------------------------------------------
+// API helpers
+// --------------------------------------------------------------------------
+async function apiFetch<T>(
+  url: string,
+  opts?: RequestInit,
+): Promise<{ ok: true; data: T } | { ok: false; error: string; status: number }> {
+  try {
+    const res = await fetch(url, {
+      headers: { "Content-Type": "application/json" },
+      ...opts,
+    });
+    if (res.status === 204) return { ok: true, data: undefined as T };
+    const json = await res.json();
+    if (!res.ok) return { ok: false, error: json?.error ?? "Ошибка сервера", status: res.status };
+    return { ok: true, data: json };
+  } catch {
+    return { ok: false, error: "Нет соединения", status: 0 };
+  }
+}
+
+// --------------------------------------------------------------------------
+// Sortable row
+// --------------------------------------------------------------------------
+function SortableRow({
+  entry,
+  hasActiveSession,
+  onToggle,
+  onEdit,
+  onDelete,
+  toggling,
+}: {
+  entry: LibraryEntry;
+  hasActiveSession: boolean;
+  onToggle: (e: LibraryEntry) => void;
+  onEdit: (e: LibraryEntry) => void;
+  onDelete: (e: LibraryEntry) => void;
+  toggling: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: entry.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  const isBrowser = entryKind(entry) === "browser";
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        ...style,
+        background: isDragging ? "rgba(14,165,233,0.08)" : undefined,
+        border: isDragging ? "1px solid rgba(14,165,233,0.25)" : undefined,
+      }}
+      className="flex items-center gap-3 px-3 py-3 rounded-lg"
+    >
+      {/* Drag handle */}
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        className="text-slate-600 hover:text-slate-400 cursor-grab active:cursor-grabbing flex-shrink-0"
+        title="Перетащи для изменения порядка"
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+
+      {/* Cover */}
+      <div
+        className="w-9 h-9 rounded flex-shrink-0 flex items-center justify-center overflow-hidden"
+        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}
+      >
+        {entry.game.coverImageUrl ? (
+          <img src={entry.game.coverImageUrl} alt="" className="w-full h-full object-cover rounded" />
+        ) : (
+          <Gamepad2 className="h-4 w-4 text-slate-600" />
+        )}
+      </div>
+
+      {/* Title + meta */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-semibold text-white text-sm truncate">{entry.game.title}</span>
+          <Badge
+            variant="outline"
+            className="text-[10px] h-4 px-1.5 flex-shrink-0"
+            style={{
+              background: isBrowser ? "rgba(16,185,129,0.12)" : "rgba(14,165,233,0.12)",
+              color: isBrowser ? "#34d399" : "#38bdf8",
+              border: isBrowser ? "1px solid rgba(16,185,129,0.3)" : "1px solid rgba(14,165,233,0.3)",
+            }}
+          >
+            {isBrowser ? <Globe className="h-2.5 w-2.5 mr-0.5" /> : <Monitor className="h-2.5 w-2.5 mr-0.5" />}
+            {isBrowser ? "browser" : "native"}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-2 mt-0.5">
+          <LztBadge lzt={entry.pricePerMinuteLzt} className="text-xs" />
+          {!entry.enabled && (
+            <span className="text-[10px] text-slate-600 italic">выключена</span>
+          )}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Toggle */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span>
+              <Switch
+                checked={entry.enabled}
+                disabled={toggling}
+                onCheckedChange={() => onToggle(entry)}
+                className="data-[state=checked]:bg-sky-500"
+              />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>
+            {entry.enabled ? "Выключить игру" : "Включить игру"}
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Edit */}
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 w-7 p-0 text-slate-400 hover:text-white"
+          onClick={() => onEdit(entry)}
+          title="Редактировать"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+
+        {/* Delete */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 p-0 text-slate-500 hover:text-red-400"
+                onClick={() => !hasActiveSession && onDelete(entry)}
+                disabled={hasActiveSession}
+                title={hasActiveSession ? "Есть активная сессия" : "Удалить"}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </span>
+          </TooltipTrigger>
+          {hasActiveSession && (
+            <TooltipContent>Нельзя удалить: идёт активная сессия</TooltipContent>
+          )}
+        </Tooltip>
+      </div>
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------
+// Catalog search step (inside Add modal)
+// --------------------------------------------------------------------------
+function CatalogSearch({
+  onSelect,
+  onSuggestNew,
+}: {
+  onSelect: (g: CatalogGame) => void;
+  onSuggestNew: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<CatalogGame[]>([]);
+  const [loading, setLoading] = useState(false);
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const doSearch = useCallback(async (q: string) => {
+    setLoading(true);
+    const r = await apiFetch<CatalogGame[]>(`/api/public/games?search=${encodeURIComponent(q)}`);
+    setLoading(false);
+    if (r.ok) setResults(r.data);
+  }, []);
+
+  useEffect(() => {
+    if (debounce.current) clearTimeout(debounce.current);
+    debounce.current = setTimeout(() => doSearch(query), 300);
+    return () => { if (debounce.current) clearTimeout(debounce.current); };
+  }, [query, doSearch]);
+
+  useEffect(() => { doSearch(""); }, [doSearch]);
+
+  return (
+    <div className="space-y-4">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+        <Input
+          placeholder="Поиск игры в каталоге…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="pl-9"
+          style={inputStyle}
+          autoFocus
+        />
+      </div>
+
+      <div
+        className="rounded-lg overflow-y-auto space-y-1"
+        style={{ maxHeight: "340px", border: "1px solid rgba(255,255,255,0.06)" }}
+      >
+        {loading && (
+          <div className="flex items-center justify-center py-6 text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            Поиск…
+          </div>
+        )}
+        {!loading && results.length === 0 && (
+          <div className="py-8 text-center text-slate-500 text-sm">
+            Ничего не найдено по «{query}»
+          </div>
+        )}
+        {!loading &&
+          results.map((g) => (
+            <button
+              key={g.id}
+              type="button"
+              onClick={() => onSelect(g)}
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-white/5 transition-colors"
+            >
+              <div
+                className="w-9 h-9 rounded flex-shrink-0 flex items-center justify-center overflow-hidden"
+                style={{ background: "rgba(255,255,255,0.04)" }}
+              >
+                {g.coverImageUrl ? (
+                  <img src={g.coverImageUrl} alt="" className="w-full h-full object-cover rounded" />
+                ) : (
+                  <ImageIcon className="h-4 w-4 text-slate-600" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-white truncate">{g.title}</div>
+                <div className="text-[11px] text-slate-500 truncate">
+                  {[g.category, g.genre, g.genres?.join(", ")].filter(Boolean).join(" · ") || "Без категории"}
+                </div>
+              </div>
+              {g.browserHostUrl && (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] h-4 flex-shrink-0"
+                  style={{ color: "#34d399", border: "1px solid rgba(16,185,129,0.3)" }}
+                >
+                  browser
+                </Badge>
+              )}
+            </button>
+          ))}
+      </div>
+
+      <div className="pt-1 border-t border-white/5 flex items-center justify-between">
+        <p className="text-xs text-slate-500">Нет нужной игры?</p>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="text-xs border-white/10 text-slate-300 hover:text-white"
+          onClick={onSuggestNew}
+        >
+          <Plus className="h-3.5 w-3.5 mr-1" />
+          Предложить новую
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------
+// Config form (path/url/price after selecting a catalog game)
+// --------------------------------------------------------------------------
+function LibraryConfigForm({
+  game,
+  onSubmit,
+  onBack,
+  submitting,
+}: {
+  game: CatalogGame;
+  onSubmit: (v: { pricePerMinuteLzt: number; appPath: string; boundUrl: string; launchArgs: string }) => void;
+  onBack: () => void;
+  submitting: boolean;
+}) {
+  const isBrowser = !!(game.browserHostUrl);
+  const [price, setPrice] = useState("8");
+  const [appPath, setAppPath] = useState("");
+  const [boundUrl, setBoundUrl] = useState(game.browserHostUrl ?? "");
+  const [launchArgs, setLaunchArgs] = useState("");
+  const [pathErr, setPathErr] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isBrowser && appPath.trim() && !isWindowsPath(appPath.trim())) {
+      setPathErr("Путь должен выглядеть как C:\\path\\to\\game.exe или /path/to/binary");
+      return;
+    }
+    setPathErr("");
+    onSubmit({
+      pricePerMinuteLzt: Math.max(0, parseInt(price, 10) || 0),
+      appPath: isBrowser ? "" : appPath.trim(),
+      boundUrl: isBrowser ? boundUrl.trim() : "",
+      launchArgs: launchArgs.trim(),
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <button type="button" onClick={onBack} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white mb-1">
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Назад к поиску
+      </button>
+
+      <div className="flex items-center gap-3 p-3 rounded-lg" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="w-10 h-10 rounded flex-shrink-0 overflow-hidden flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)" }}>
+          {game.coverImageUrl ? (
+            <img src={game.coverImageUrl} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <Gamepad2 className="h-5 w-5 text-slate-600" />
+          )}
+        </div>
+        <div>
+          <div className="font-semibold text-white text-sm">{game.title}</div>
+          <div className="text-[11px] text-slate-500">{game.category ?? game.genre ?? "Каталог"}</div>
+        </div>
+      </div>
+
+      {/* Price */}
+      <div className="space-y-1.5">
+        <Label className="text-slate-300 text-sm">
+          Цена за минуту (LZT)
+          <span className="ml-2 text-slate-500 font-normal text-xs">
+            🟢 зелёный (выводимый)
+          </span>
+        </Label>
+        <div className="flex items-center gap-3">
+          <Input
+            type="number"
+            min={0}
+            max={200000}
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            className="w-32"
+            style={inputStyle}
+          />
+          <span className="text-xs text-slate-500">
+            ≈ ${lztToUsd(parseInt(price, 10) || 0)} / мин
+          </span>
+        </div>
+        <p className="text-[11px] text-slate-500">200 LZT = 1 USDT. Рекомендуется: 5–20 LZT/мин.</p>
+      </div>
+
+      {isBrowser ? (
+        <div className="space-y-1.5">
+          <Label className="text-slate-300 text-sm">URL браузерной игры</Label>
+          <Input
+            placeholder="https://example.com/game"
+            value={boundUrl}
+            onChange={(e) => setBoundUrl(e.target.value)}
+            style={inputStyle}
+          />
+        </div>
+      ) : (
+        <>
+          <div className="space-y-1.5">
+            <Label className="text-slate-300 text-sm">Путь к .exe (Windows)</Label>
+            <Input
+              placeholder="C:\Games\MyGame\game.exe"
+              value={appPath}
+              onChange={(e) => { setAppPath(e.target.value); setPathErr(""); }}
+              style={inputStyle}
+              className="font-mono"
+            />
+            {pathErr && (
+              <p className="text-xs text-red-400 flex items-center gap-1">
+                <AlertCircle className="h-3.5 w-3.5" /> {pathErr}
+              </p>
+            )}
+            <p className="text-[11px] text-slate-500">
+              Реальная проверка существования файла — на стороне агента хоста.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-slate-300 text-sm">Аргументы запуска <span className="text-slate-500 font-normal">(опционально)</span></Label>
+            <Input
+              placeholder="-window-mode borderless"
+              value={launchArgs}
+              onChange={(e) => setLaunchArgs(e.target.value)}
+              style={inputStyle}
+              className="font-mono"
+            />
+          </div>
+        </>
+      )}
+
+      <div className="flex justify-end pt-1">
+        <Button
+          type="submit"
+          disabled={submitting}
+          className="font-bold"
+          style={{ background: "#0ea5e9", color: "#fff" }}
+        >
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+          Добавить в библиотеку
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// --------------------------------------------------------------------------
+// New game submission form (suggest new to moderators)
+// --------------------------------------------------------------------------
+function SubmitGameForm({
+  hostToken,
+  onBack,
+  onSubmitted,
+}: {
+  hostToken: string;
+  onBack: () => void;
+  onSubmitted: (game: CatalogGame) => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [coverUrl, setCoverUrl] = useState("");
+  const [category, setCategory] = useState("");
+  const [description, setDescription] = useState("");
+  const [steamId, setSteamId] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState<CatalogGame | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    setSubmitting(true);
+    const r = await apiFetch<{ id: string; title: string; slug: string }>("/api/games/submit", {
+      method: "POST",
+      body: JSON.stringify({
+        hostToken,
+        title: title.trim(),
+        coverImageUrl: coverUrl.trim() || undefined,
+        category: category.trim() || undefined,
+        description: description.trim() || undefined,
+        steamAppId: steamId.trim() || undefined,
+        kind: "native",
+      }),
+    });
+    setSubmitting(false);
+    if (!r.ok) {
+      toast.error(r.error);
+      return;
+    }
+    const placeholder: CatalogGame = {
+      id: r.data.id,
+      slug: r.data.slug,
+      title: r.data.title,
+      coverImageUrl: coverUrl.trim() || null,
+      category: category.trim() || null,
+    };
+    setDone(placeholder);
+  };
+
+  if (done) {
+    return (
+      <div className="space-y-5 text-center py-4">
+        <CheckCircle2 className="h-12 w-12 text-teal-400 mx-auto" />
+        <div>
+          <h3 className="font-bold text-white text-lg">Заявка отправлена!</h3>
+          <p className="text-sm text-slate-400 mt-2 max-w-sm mx-auto">
+            Модераторы рассмотрят «{done.title}» и одобрят или отклонят заявку. Пока можешь прописать путь — игра появится в библиотеке как только заявку одобрят.
+          </p>
+        </div>
+        <Button
+          type="button"
+          onClick={() => onSubmitted(done)}
+          className="font-bold"
+          style={{ background: "#0ea5e9", color: "#fff" }}
+        >
+          Прописать путь сейчас
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <button type="button" onClick={onBack} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white mb-1">
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Назад к поиску
+      </button>
+
+      <div>
+        <h3 className="font-semibold text-white mb-0.5">Предложить новую игру</h3>
+        <p className="text-xs text-slate-500">Заявка уйдёт на модерацию. После одобрения игра появится в каталоге.</p>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-slate-300 text-sm">Название *</Label>
+        <Input placeholder="Grand Theft Auto VI" value={title} onChange={(e) => setTitle(e.target.value)} style={inputStyle} autoFocus required />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-slate-300 text-sm">URL обложки</Label>
+        <Input placeholder="https://…/cover.jpg" value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} style={inputStyle} />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-slate-300 text-sm">Категория</Label>
+        <Input placeholder="Action, RPG, Strategy…" value={category} onChange={(e) => setCategory(e.target.value)} style={inputStyle} />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-slate-300 text-sm">Steam App ID <span className="text-slate-500 font-normal">(опционально)</span></Label>
+        <Input placeholder="730" value={steamId} onChange={(e) => setSteamId(e.target.value)} style={inputStyle} className="font-mono" />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-slate-300 text-sm">Краткое описание <span className="text-slate-500 font-normal">(опционально)</span></Label>
+        <textarea
+          rows={3}
+          placeholder="Краткое описание игры для модератора…"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className="w-full px-3 py-2 rounded-md text-sm resize-none"
+          style={{ ...inputStyle, outline: "none" }}
+        />
+      </div>
+
+      <div className="flex justify-end pt-1">
+        <Button type="submit" disabled={submitting || !title.trim()} className="font-bold" style={{ background: "#0ea5e9", color: "#fff" }}>
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+          Отправить заявку
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// --------------------------------------------------------------------------
+// Edit modal
+// --------------------------------------------------------------------------
+function EditModal({
+  entry,
+  open,
+  onClose,
+  onSave,
+}: {
+  entry: LibraryEntry | null;
+  open: boolean;
+  onClose: () => void;
+  onSave: (gameId: string, v: { pricePerMinuteLzt: number; appPath: string; boundUrl: string; launchArgs: string }) => Promise<void>;
+}) {
+  const [price, setPrice] = useState("0");
+  const [appPath, setAppPath] = useState("");
+  const [boundUrl, setBoundUrl] = useState("");
+  const [launchArgs, setLaunchArgs] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [pathErr, setPathErr] = useState("");
+
+  useEffect(() => {
+    if (entry) {
+      setPrice(String(entry.pricePerMinuteLzt));
+      setAppPath(entry.appPath);
+      setBoundUrl(entry.boundUrl);
+      setLaunchArgs(entry.launchArgs);
+      setPathErr("");
+    }
+  }, [entry]);
+
+  if (!entry) return null;
+  const isBrowser = entryKind(entry) === "browser";
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isBrowser && appPath.trim() && !isWindowsPath(appPath.trim())) {
+      setPathErr("Путь должен выглядеть как C:\\path\\to\\game.exe");
+      return;
+    }
+    setSaving(true);
+    await onSave(entry.gameId, {
+      pricePerMinuteLzt: Math.max(0, parseInt(price, 10) || 0),
+      appPath: isBrowser ? "" : appPath.trim(),
+      boundUrl: isBrowser ? boundUrl.trim() : "",
+      launchArgs: launchArgs.trim(),
+    });
+    setSaving(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="sm:max-w-md" style={{ background: "#0d1520", border: "1px solid rgba(255,255,255,0.08)" }}>
+        <DialogHeader>
+          <DialogTitle className="text-white">Редактировать: {entry.game.title}</DialogTitle>
+          <DialogDescription className="text-slate-500">Измени настройки запуска и цену.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSave} className="space-y-4 mt-2">
+          <div className="space-y-1.5">
+            <Label className="text-slate-300 text-sm">Цена за минуту (LZT)</Label>
+            <div className="flex items-center gap-3">
+              <Input type="number" min={0} max={200000} value={price} onChange={(e) => setPrice(e.target.value)} className="w-32" style={inputStyle} />
+              <span className="text-xs text-slate-500">≈ ${lztToUsd(parseInt(price, 10) || 0)} / мин</span>
+            </div>
+          </div>
+          {isBrowser ? (
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-sm">URL браузерной игры</Label>
+              <Input value={boundUrl} onChange={(e) => setBoundUrl(e.target.value)} style={inputStyle} />
+            </div>
+          ) : (
+            <>
+              <div className="space-y-1.5">
+                <Label className="text-slate-300 text-sm">Путь к .exe</Label>
+                <Input value={appPath} onChange={(e) => { setAppPath(e.target.value); setPathErr(""); }} style={inputStyle} className="font-mono" />
+                {pathErr && <p className="text-xs text-red-400">{pathErr}</p>}
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-slate-300 text-sm">Аргументы <span className="text-slate-500 font-normal">(опционально)</span></Label>
+                <Input value={launchArgs} onChange={(e) => setLaunchArgs(e.target.value)} style={inputStyle} className="font-mono" />
+              </div>
+            </>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={onClose} className="border-white/10 text-slate-300 hover:text-white">Отмена</Button>
+            <Button type="submit" disabled={saving} style={{ background: "#0ea5e9", color: "#fff" }}>
+              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Сохранить
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// --------------------------------------------------------------------------
+// Delete confirmation modal
+// --------------------------------------------------------------------------
+function DeleteModal({
+  entry,
+  open,
+  onClose,
+  onConfirm,
+}: {
+  entry: LibraryEntry | null;
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => Promise<void>;
+}) {
+  const [deleting, setDeleting] = useState(false);
+
+  const handle = async () => {
+    setDeleting(true);
+    await onConfirm();
+    setDeleting(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="sm:max-w-sm" style={{ background: "#0d1520", border: "1px solid rgba(255,255,255,0.08)" }}>
+        <DialogHeader>
+          <DialogTitle className="text-white">Удалить игру?</DialogTitle>
+          <DialogDescription className="text-slate-500">
+            «{entry?.game.title}» будет удалена из твоей библиотеки. Это действие необратимо.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex justify-end gap-2 mt-4">
+          <Button type="button" variant="outline" onClick={onClose} className="border-white/10 text-slate-300 hover:text-white">Отмена</Button>
+          <Button type="button" onClick={handle} disabled={deleting} style={{ background: "rgba(239,68,68,0.15)", color: "#f87171", border: "1px solid rgba(239,68,68,0.3)" }}>
+            {deleting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            Удалить
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// --------------------------------------------------------------------------
+// Add game modal  (search → config → or suggest)
+// --------------------------------------------------------------------------
+type AddStep = "search" | "config" | "suggest";
+
+function AddGameModal({
+  hostToken,
+  open,
+  onClose,
+  onAdded,
+}: {
+  hostToken: string;
+  open: boolean;
+  onClose: () => void;
+  onAdded: () => void;
+}) {
+  const [step, setStep] = useState<AddStep>("search");
+  const [selectedGame, setSelectedGame] = useState<CatalogGame | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleClose = () => { setStep("search"); setSelectedGame(null); onClose(); };
+
+  const handleAdd = async (v: { pricePerMinuteLzt: number; appPath: string; boundUrl: string; launchArgs: string }) => {
+    if (!selectedGame) return;
+    setSubmitting(true);
+    const r = await apiFetch(`/api/hosts/${hostToken}/library`, {
+      method: "POST",
+      body: JSON.stringify({ gameId: selectedGame.id, ...v }),
+    });
+    setSubmitting(false);
+    if (!r.ok) {
+      toast.error(r.error);
+      return;
+    }
+    toast.success(`«${selectedGame.title}» добавлена в библиотеку`);
+    handleClose();
+    onAdded();
+  };
+
+  const handleSubmitted = (game: CatalogGame) => {
+    setSelectedGame(game);
+    setStep("config");
+  };
+
+  const titleMap: Record<AddStep, string> = {
+    search: "Добавить игру в библиотеку",
+    config: "Настройка запуска",
+    suggest: "Предложить новую игру",
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
+      <DialogContent className="sm:max-w-lg" style={{ background: "#0d1520", border: "1px solid rgba(255,255,255,0.08)" }}>
+        <DialogHeader>
+          <DialogTitle className="text-white">{titleMap[step]}</DialogTitle>
+        </DialogHeader>
+        <div className="mt-2">
+          {step === "search" && (
+            <CatalogSearch
+              onSelect={(g) => { setSelectedGame(g); setStep("config"); }}
+              onSuggestNew={() => setStep("suggest")}
+            />
+          )}
+          {step === "config" && selectedGame && (
+            <LibraryConfigForm
+              game={selectedGame}
+              onSubmit={handleAdd}
+              onBack={() => { setSelectedGame(null); setStep("search"); }}
+              submitting={submitting}
+            />
+          )}
+          {step === "suggest" && (
+            <SubmitGameForm
+              hostToken={hostToken}
+              onBack={() => setStep("search")}
+              onSubmitted={handleSubmitted}
+            />
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// --------------------------------------------------------------------------
+// Main page
+// --------------------------------------------------------------------------
+export default function HostLibrary() {
+  const { hostToken } = useAuth();
+  const [entries, setEntries] = useState<LibraryEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [addOpen, setAddOpen] = useState(false);
+  const [editEntry, setEditEntry] = useState<LibraryEntry | null>(null);
+  const [deleteEntry, setDeleteEntry] = useState<LibraryEntry | null>(null);
+  const [toggling, setToggling] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const loadLibrary = useCallback(async () => {
+    if (!hostToken) return;
+    setLoading(true);
+    const r = await apiFetch<LibraryEntry[]>(`/api/hosts/${hostToken}/library`);
+    setLoading(false);
+    if (r.ok) {
+      const sorted = [...r.data].sort((a, b) => a.sortOrder - b.sortOrder);
+      setEntries(sorted);
+    }
+  }, [hostToken]);
+
+  useEffect(() => { loadLibrary(); }, [loadLibrary]);
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = entries.findIndex((e) => e.id === active.id);
+    const newIndex = entries.findIndex((e) => e.id === over.id);
+    const reordered = arrayMove(entries, oldIndex, newIndex);
+    setEntries(reordered);
+
+    // Persist new sortOrder values for each moved item
+    await Promise.all(
+      reordered.map((entry, idx) =>
+        apiFetch(`/api/hosts/${hostToken}/library/${entry.gameId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ sortOrder: idx }),
+        }),
+      ),
+    );
+  };
+
+  const handleToggle = async (entry: LibraryEntry) => {
+    setToggling(entry.id);
+    const r = await apiFetch(`/api/hosts/${hostToken}/library/${entry.gameId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ enabled: !entry.enabled }),
+    });
+    setToggling(null);
+    if (!r.ok) { toast.error(r.error); return; }
+    setEntries((prev) => prev.map((e) => e.id === entry.id ? { ...e, enabled: !e.enabled } : e));
+  };
+
+  const handleEdit = async (gameId: string, v: { pricePerMinuteLzt: number; appPath: string; boundUrl: string; launchArgs: string }) => {
+    const r = await apiFetch(`/api/hosts/${hostToken}/library/${gameId}`, {
+      method: "PATCH",
+      body: JSON.stringify(v),
+    });
+    if (!r.ok) { toast.error(r.error); return; }
+    toast.success("Сохранено");
+    setEditEntry(null);
+    loadLibrary();
+  };
+
+  const handleDelete = async () => {
+    if (!deleteEntry) return;
+    const r = await apiFetch(`/api/hosts/${hostToken}/library/${deleteEntry.gameId}`, {
+      method: "DELETE",
+    });
+    if (!r.ok) {
+      if (r.status === 409) toast.error("Нельзя удалить: идёт активная сессия");
+      else toast.error(r.error);
+      return;
+    }
+    toast.success(`«${deleteEntry.game.title}» удалена из библиотеки`);
+    setDeleteEntry(null);
+    setEntries((prev) => prev.filter((e) => e.id !== deleteEntry.id));
+  };
+
+  return (
+    <div className="space-y-6 text-slate-300">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-white">Моя библиотека</h1>
+          <p className="text-sm text-slate-500">Игры, которые ты хостишь. Первая в списке — дефолтная при коннекте игрока.</p>
+        </div>
+        <Button
+          onClick={() => setAddOpen(true)}
+          className="font-bold gap-2"
+          style={{ background: "#0ea5e9", color: "#fff" }}
+          data-testid="button-add-game"
+        >
+          <Plus className="h-4 w-4" />
+          Добавить игру
+        </Button>
+      </div>
+
+      <Card style={cardStyle}>
+        <CardHeader>
+          <CardTitle className="text-base text-white flex items-center gap-2">
+            <Gamepad2 className="h-4 w-4 text-sky-400" />
+            Библиотека
+            {!loading && entries.length > 0 && (
+              <Badge variant="outline" className="text-[10px] ml-auto border-white/10 text-slate-400">
+                {entries.length} игр
+              </Badge>
+            )}
+          </CardTitle>
+          <CardDescription className="text-slate-500">
+            Перетащи строки для изменения порядка отображения.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
+            </div>
+          ) : entries.length === 0 ? (
+            <div
+              className="flex flex-col items-center justify-center py-14 text-center rounded-lg"
+              style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.08)" }}
+            >
+              <Gamepad2 className="h-16 w-16 text-slate-700 mb-4" />
+              <p className="text-slate-300 font-semibold text-lg mb-1">Библиотека пуста</p>
+              <p className="text-sm text-slate-500 mb-6 max-w-xs">
+                Добавь первую игру из глобального каталога или предложи новую.
+              </p>
+              <Button
+                onClick={() => setAddOpen(true)}
+                className="font-bold gap-2"
+                style={{ background: "#0ea5e9", color: "#fff" }}
+              >
+                <Plus className="h-4 w-4" />
+                Добавить первую игру
+              </Button>
+            </div>
+          ) : (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={entries.map((e) => e.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-1">
+                  {entries.map((entry) => (
+                    <SortableRow
+                      key={entry.id}
+                      entry={entry}
+                      hasActiveSession={false}
+                      onToggle={handleToggle}
+                      onEdit={setEditEntry}
+                      onDelete={setDeleteEntry}
+                      toggling={toggling === entry.id}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Mobile hint */}
+      {entries.length > 0 && (
+        <p className="text-[11px] text-slate-600 text-center">
+          Первая игра в списке будет выбрана по умолчанию, когда игрок подключается без явного выбора.
+        </p>
+      )}
+
+      <AddGameModal
+        hostToken={hostToken ?? ""}
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onAdded={loadLibrary}
+      />
+      <EditModal
+        entry={editEntry}
+        open={!!editEntry}
+        onClose={() => setEditEntry(null)}
+        onSave={handleEdit}
+      />
+      <DeleteModal
+        entry={deleteEntry}
+        open={!!deleteEntry}
+        onClose={() => setDeleteEntry(null)}
+        onConfirm={handleDelete}
+      />
+    </div>
+  );
+}
