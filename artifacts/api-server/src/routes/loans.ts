@@ -126,6 +126,12 @@ router.post("/loans/requests/:id/fund", fundLimiter, async (req, res): Promise<v
   const userToken = String(req.body?.userToken ?? "");
   const fromSource = String(req.body?.source ?? "cash"); // "cash" | "balance"
   const payoutMode = String(req.body?.payoutMode ?? "cash_on_close");
+  // Optional partial-funding amount. Defaults to funding the entire remaining
+  // unfunded portion. Must be a positive integer when supplied.
+  const rawAmountLzt = req.body?.amountLzt;
+  const requestedAmountLzt =
+    rawAmountLzt !== undefined ? Math.floor(Number(rawAmountLzt)) : null;
+
   if (!userToken) {
     res.status(400).json({ error: "userToken required" });
     return;
@@ -141,6 +147,10 @@ router.post("/loans/requests/:id/fund", fundLimiter, async (req, res): Promise<v
     res.status(400).json({ error: "invalid payoutMode" });
     return;
   }
+  if (requestedAmountLzt !== null && (!Number.isFinite(requestedAmountLzt) || requestedAmountLzt <= 0)) {
+    res.status(400).json({ error: "amountLzt must be a positive integer" });
+    return;
+  }
   const lender = await resolveOwnerByToken(userToken);
   if (!lender) {
     res.status(404).json({ error: "User not found" });
@@ -149,31 +159,36 @@ router.post("/loans/requests/:id/fund", fundLimiter, async (req, res): Promise<v
 
   try {
     const result = await db.transaction(async (tx) => {
-      // Atomically claim the request: only one concurrent funder can flip it
-      // from 'open' → 'funding'. Losers see 0 rows and bail out before any
-      // money moves, preventing the double-funding race.
-      const claimed = await tx
-        .update(loanRequestsTable)
-        .set({ status: "funding", updatedAt: new Date() })
+      // FOR UPDATE locks the row for the duration of this transaction so that
+      // concurrent funders cannot both read stale fundedAmountLzt and
+      // double-fund. Using Drizzle's .for("update") keeps camelCase field names.
+      const [typedRequest] = await tx
+        .select()
+        .from(loanRequestsTable)
         .where(
           and(
             eq(loanRequestsTable.id, requestId),
             eq(loanRequestsTable.status, "open"),
           ),
         )
-        .returning();
-      const request = claimed[0];
-      if (!request) throw new Error("Request not open");
+        .for("update");
+      if (!typedRequest) throw new Error("Request not open");
       if (
-        request.borrowerType === lender.type &&
-        request.borrowerId === lender.id
+        typedRequest.borrowerType === lender.type &&
+        typedRequest.borrowerId === lender.id
       ) {
-        // Throw rolls back the whole tx — including the 'funding' flip — so
-        // the request returns to 'open' automatically.
         throw new Error("Cannot fund your own request");
       }
 
-      const principal = request.amountLzt;
+      // Determine how much this lender will fund (partial or full remaining).
+      const remaining = typedRequest.amountLzt - typedRequest.fundedAmountLzt;
+      if (remaining <= 0) throw new Error("Request not open");
+
+      const principal = requestedAmountLzt !== null
+        ? Math.min(requestedAmountLzt, remaining)
+        : remaining;
+      if (principal <= 0) throw new Error("amountLzt must be a positive integer");
+
       const lenderTbl = userTbl(lender.type);
       const debited = await adjustUserBucket(
         tx,
@@ -191,8 +206,8 @@ router.post("/loans/requests/:id/fund", fundLimiter, async (req, res): Promise<v
       // Credit borrower cash bucket with disbursed amount.
       await adjustUserBucket(
         tx,
-        request.borrowerType as OwnerType,
-        request.borrowerId,
+        typedRequest.borrowerType as OwnerType,
+        typedRequest.borrowerId,
         "cash",
         disbursed,
       );
@@ -200,12 +215,12 @@ router.post("/loans/requests/:id/fund", fundLimiter, async (req, res): Promise<v
       // the full amount) to their debt aggregate.
       await adjustUserBucket(
         tx,
-        request.borrowerType as OwnerType,
-        request.borrowerId,
+        typedRequest.borrowerType as OwnerType,
+        typedRequest.borrowerId,
         "debt",
         principal,
       );
-      // Lender's receivable aggregate grows by the full principal.
+      // Lender's receivable aggregate grows by the funded principal.
       await tx
         .update(lenderTbl)
         .set({
@@ -215,7 +230,7 @@ router.post("/loans/requests/:id/fund", fundLimiter, async (req, res): Promise<v
       if (fee > 0) await adjustSystem(tx, SYSTEM_PLATFORM_FEES, fee);
 
       const dueAt = new Date(
-        Date.now() + request.termDays * 24 * 3600 * 1000,
+        Date.now() + typedRequest.termDays * 24 * 3600 * 1000,
       );
       const [loan] = await tx
         .insert(loansTable)
@@ -223,15 +238,15 @@ router.post("/loans/requests/:id/fund", fundLimiter, async (req, res): Promise<v
           loanType: "p2p",
           lenderType: lender.type,
           lenderId: lender.id,
-          borrowerType: request.borrowerType,
-          borrowerId: request.borrowerId,
-          requestId: request.id,
+          borrowerType: typedRequest.borrowerType,
+          borrowerId: typedRequest.borrowerId,
+          requestId: typedRequest.id,
           principalLzt: principal,
           outstandingLzt: principal,
           repaidLzt: 0,
           escrowLzt: 0,
           platformFeeLzt: fee,
-          rateBps: request.rateBps,
+          rateBps: typedRequest.rateBps,
           lenderPayoutMode: payoutMode,
           status: "active",
           dueAt,
@@ -239,14 +254,19 @@ router.post("/loans/requests/:id/fund", fundLimiter, async (req, res): Promise<v
         .returning();
       if (!loan) throw new Error("Failed to create loan");
 
+      // Update request: track funded amount and flip status only when fully
+      // funded. We operate on the locked row's authoritative values.
+      const newFunded = typedRequest.fundedAmountLzt + principal;
+      const isFullyFunded = newFunded >= typedRequest.amountLzt;
       await tx
         .update(loanRequestsTable)
         .set({
-          status: "funded",
-          fundedLoanId: loan.id,
+          fundedAmountLzt: newFunded,
+          status: isFullyFunded ? "funded" : "open",
+          fundedLoanId: isFullyFunded ? loan.id : typedRequest.fundedLoanId,
           updatedAt: new Date(),
         })
-        .where(eq(loanRequestsTable.id, request.id));
+        .where(eq(loanRequestsTable.id, typedRequest.id));
 
       const groupId = randomUUID();
       await writeLedger(tx, [
@@ -263,8 +283,8 @@ router.post("/loans/requests/:id/fund", fundLimiter, async (req, res): Promise<v
         {
           groupId,
           kind: "loan_disburse_borrower",
-          ownerType: request.borrowerType as OwnerType,
-          ownerId: request.borrowerId,
+          ownerType: typedRequest.borrowerType as OwnerType,
+          ownerId: typedRequest.borrowerId,
           bucket: "cash",
           deltaLzt: disbursed,
           refType: "loan",
@@ -273,8 +293,8 @@ router.post("/loans/requests/:id/fund", fundLimiter, async (req, res): Promise<v
         {
           groupId,
           kind: "loan_disburse_borrower_debt",
-          ownerType: request.borrowerType as OwnerType,
-          ownerId: request.borrowerId,
+          ownerType: typedRequest.borrowerType as OwnerType,
+          ownerId: typedRequest.borrowerId,
           bucket: "debt",
           deltaLzt: principal,
           refType: "loan",
@@ -295,7 +315,7 @@ router.post("/loans/requests/:id/fund", fundLimiter, async (req, res): Promise<v
             ]
           : []),
       ]);
-      return { loan };
+      return { loan, fundedAmountLzt: newFunded, fullyFunded: isFullyFunded };
     });
     res.status(201).json(result);
   } catch (err) {

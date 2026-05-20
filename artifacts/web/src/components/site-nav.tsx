@@ -149,15 +149,21 @@ export function SiteNav({ activePath }: Props) {
               <Coins className="w-3.5 h-3.5" /> Квоты
             </span>
           </Link>
-          {/* Биржа — inactive, no "СКОРО" badge, pending /exchange implementation */}
-          <span
-            className="flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded-md select-none"
-            style={{ color: "#4b5563", cursor: "default" }}
-            data-testid="link-nav-exchange"
-            title="Скоро"
-          >
-            <ArrowLeftRight className="w-3.5 h-3.5" /> Биржа
-          </span>
+          <Link href="/exchange">
+            <span
+              className="flex items-center gap-1.5 text-[13px] font-medium transition-colors cursor-pointer px-3 py-1.5 rounded-md"
+              style={{
+                color: activePath === "/exchange" ? "#38bdf8" : "#94a3b8",
+                background:
+                  activePath === "/exchange"
+                    ? "rgba(14,165,233,0.08)"
+                    : "transparent",
+              }}
+              data-testid="link-nav-exchange"
+            >
+              <ArrowLeftRight className="w-3.5 h-3.5" /> Биржа
+            </span>
+          </Link>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -247,14 +253,15 @@ function MobileMenu({ activePath }: { activePath?: string }) {
           <Coins className="w-3 h-3" /> Квоты
         </span>
       </Link>
-      {/* Биржа — inactive, pending /exchange implementation */}
-      <span
-        className="flex items-center gap-1 text-[12px] font-medium px-3 py-1 rounded whitespace-nowrap select-none"
-        style={{ color: "#4b5563", cursor: "default" }}
-        data-testid="link-mobile-exchange"
-      >
-        <ArrowLeftRight className="w-3 h-3" /> Биржа
-      </span>
+      <Link href="/exchange">
+        <span
+          className="flex items-center gap-1 text-[12px] font-medium px-3 py-1 rounded whitespace-nowrap"
+          style={{ color: activePath === "/exchange" ? "#38bdf8" : "#94a3b8" }}
+          data-testid="link-mobile-exchange"
+        >
+          <ArrowLeftRight className="w-3 h-3" /> Биржа
+        </span>
+      </Link>
     </div>
   );
 }

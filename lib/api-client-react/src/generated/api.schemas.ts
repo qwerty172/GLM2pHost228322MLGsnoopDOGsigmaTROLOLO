@@ -618,6 +618,138 @@ export interface WalletTransaction {
   timestamp: string;
 }
 
+/**
+ * A P2P loan request posted by a borrower.
+ */
+export interface LoanRequest {
+  id: string;
+  /** host | player */
+  borrowerType: string;
+  borrowerId: string;
+  /** Principal requested, in LZT */
+  amountLzt: number;
+  /** Loan duration in days (minimum 60) */
+  termDays: number;
+  /** Annual interest rate in basis points (100 bps = 1%) */
+  rateBps: number;
+  /** open | funded | cancelled */
+  status: string;
+  /** How much LZT has been funded so far (0 = unfunded, amountLzt = fully funded) */
+  fundedAmountLzt: number;
+  /** @nullable */
+  fundedLoanId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateLoanRequestBody {
+  userToken: string;
+  /** Positive integer, must not exceed Pledger limit */
+  amountLzt: number;
+  /** Loan duration in days (minimum 60) */
+  termDays: number;
+  /** Annual interest rate in basis points (0–5000) */
+  rateBps?: number;
+}
+
+/**
+ * cash | balance — which bucket the lender pays from
+ */
+export type FundLoanRequestBodySource =
+  (typeof FundLoanRequestBodySource)[keyof typeof FundLoanRequestBodySource];
+
+export const FundLoanRequestBodySource = {
+  cash: "cash",
+  balance: "balance",
+} as const;
+
+/**
+ * cash_on_close | balance_streaming
+ */
+export type FundLoanRequestBodyPayoutMode =
+  (typeof FundLoanRequestBodyPayoutMode)[keyof typeof FundLoanRequestBodyPayoutMode];
+
+export const FundLoanRequestBodyPayoutMode = {
+  cash_on_close: "cash_on_close",
+  balance_streaming: "balance_streaming",
+} as const;
+
+export interface FundLoanRequestBody {
+  userToken: string;
+  /** Amount to fund in LZT. Omit to fund the entire remaining unfunded portion. */
+  amountLzt?: number;
+  /** cash | balance — which bucket the lender pays from */
+  source?: FundLoanRequestBodySource;
+  /** cash_on_close | balance_streaming */
+  payoutMode?: FundLoanRequestBodyPayoutMode;
+}
+
+/**
+ * An active or historical P2P loan.
+ */
+export interface Loan {
+  id: string;
+  loanType: string;
+  lenderType: string;
+  lenderId: string;
+  borrowerType: string;
+  borrowerId: string;
+  /** @nullable */
+  requestId: string | null;
+  principalLzt: number;
+  outstandingLzt: number;
+  repaidLzt: number;
+  escrowLzt: number;
+  platformFeeLzt: number;
+  rateBps: number;
+  lenderPayoutMode: string;
+  /** active | repaid | defaulted */
+  status: string;
+  /** @nullable */
+  dueAt: string | null;
+  startedAt: string;
+  /** @nullable */
+  closedAt: string | null;
+  /** @nullable */
+  defaultedAt: string | null;
+}
+
+export interface FundLoanResponse {
+  loan: Loan;
+  /** Total funded amount on the request after this operation */
+  fundedAmountLzt: number;
+  /** True when the request has reached its full target */
+  fullyFunded: boolean;
+}
+
+export interface MyLoans {
+  asBorrower: Loan[];
+  asLender: Loan[];
+}
+
+/**
+ * cash | balance
+ */
+export type RepayLoanBodySource =
+  (typeof RepayLoanBodySource)[keyof typeof RepayLoanBodySource];
+
+export const RepayLoanBodySource = {
+  cash: "cash",
+  balance: "balance",
+} as const;
+
+export interface RepayLoanBody {
+  userToken: string;
+  /** Amount to repay in LZT (positive integer) */
+  amountLzt: number;
+  /** cash | balance */
+  source?: RepayLoanBodySource;
+}
+
+export interface RepayLoanResponse {
+  repaidLzt: number;
+}
+
 export type ListGamesParams = {
   /**
    * Only return games tagged as supporting mods
@@ -689,4 +821,8 @@ export type ListApplicableQuotasParams = {
 
 export type GetQuotaParams = {
   ownerToken?: string;
+};
+
+export type ListMyLoansParams = {
+  userToken: string;
 };

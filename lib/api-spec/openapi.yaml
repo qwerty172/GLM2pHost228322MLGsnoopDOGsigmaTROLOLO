@@ -22,6 +22,8 @@ tags:
     description: Catalog of games available to stream
   - name: quotas
     description: Quota preset-contracts (royalty / sponsor) attachable to sessions
+  - name: loans
+    description: P2P loan marketplace (request, fund, repay)
 paths:
   /healthz:
     get:
@@ -956,6 +958,137 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /loans/requests:
+    get:
+      operationId: listLoanRequests
+      tags: [loans]
+      summary: List open P2P loan requests (newest first)
+      responses:
+        "200":
+          description: Open loan requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LoanRequest"
+    post:
+      operationId: createLoanRequest
+      tags: [loans]
+      summary: Create a new P2P loan request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLoanRequestBody"
+      responses:
+        "201":
+          description: Loan request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoanRequest"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Pledger limit is zero
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /loans/requests/{id}/fund:
+    post:
+      operationId: fundLoanRequest
+      tags: [loans]
+      summary: Fund an open loan request (lender side)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FundLoanRequestBody"
+      responses:
+        "201":
+          description: Loan funded and created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FundLoanResponse"
+        "400":
+          description: Insufficient balance or request not open
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /loans/mine:
+    get:
+      operationId: listMyLoans
+      tags: [loans]
+      summary: List caller's loans as borrower and as lender
+      parameters:
+        - in: query
+          name: userToken
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: My loans
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyLoans"
+        "400":
+          description: userToken required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /loans/{id}/repay:
+    post:
+      operationId: repayLoan
+      tags: [loans]
+      summary: Repay (partial or full) a loan as the borrower
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RepayLoanBody"
+      responses:
+        "200":
+          description: Repayment applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepayLoanResponse"
+        "400":
+          description: Insufficient balance or invalid loan
           content:
             application/json:
               schema:
@@ -1937,3 +2070,211 @@ components:
         - amountLzt
         - description
         - timestamp
+
+    LoanRequest:
+      type: object
+      description: A P2P loan request posted by a borrower.
+      properties:
+        id:
+          type: string
+        borrowerType:
+          type: string
+          description: "host | player"
+        borrowerId:
+          type: string
+        amountLzt:
+          type: integer
+          description: Principal requested, in LZT
+        termDays:
+          type: integer
+          description: Loan duration in days (minimum 60)
+        rateBps:
+          type: integer
+          description: Annual interest rate in basis points (100 bps = 1%)
+        status:
+          type: string
+          description: "open | funded | cancelled"
+        fundedAmountLzt:
+          type: integer
+          description: How much LZT has been funded so far (0 = unfunded, amountLzt = fully funded)
+        fundedLoanId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - borrowerType
+        - borrowerId
+        - amountLzt
+        - termDays
+        - rateBps
+        - status
+        - fundedAmountLzt
+        - fundedLoanId
+        - createdAt
+        - updatedAt
+
+    CreateLoanRequestBody:
+      type: object
+      properties:
+        userToken:
+          type: string
+        amountLzt:
+          type: integer
+          description: Positive integer, must not exceed Pledger limit
+        termDays:
+          type: integer
+          description: Loan duration in days (minimum 60)
+        rateBps:
+          type: integer
+          description: Annual interest rate in basis points (0–5000)
+      required:
+        - userToken
+        - amountLzt
+        - termDays
+
+    FundLoanRequestBody:
+      type: object
+      properties:
+        userToken:
+          type: string
+        amountLzt:
+          type: integer
+          description: Amount to fund in LZT. Omit to fund the entire remaining unfunded portion.
+        source:
+          type: string
+          description: "cash | balance — which bucket the lender pays from"
+          enum: [cash, balance]
+        payoutMode:
+          type: string
+          description: "cash_on_close | balance_streaming"
+          enum: [cash_on_close, balance_streaming]
+      required:
+        - userToken
+
+    Loan:
+      type: object
+      description: An active or historical P2P loan.
+      properties:
+        id:
+          type: string
+        loanType:
+          type: string
+        lenderType:
+          type: string
+        lenderId:
+          type: string
+        borrowerType:
+          type: string
+        borrowerId:
+          type: string
+        requestId:
+          type: ["string", "null"]
+        principalLzt:
+          type: integer
+        outstandingLzt:
+          type: integer
+        repaidLzt:
+          type: integer
+        escrowLzt:
+          type: integer
+        platformFeeLzt:
+          type: integer
+        rateBps:
+          type: integer
+        lenderPayoutMode:
+          type: string
+        status:
+          type: string
+          description: "active | repaid | defaulted"
+        dueAt:
+          type: ["string", "null"]
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+        closedAt:
+          type: ["string", "null"]
+          format: date-time
+        defaultedAt:
+          type: ["string", "null"]
+          format: date-time
+      required:
+        - id
+        - loanType
+        - lenderType
+        - lenderId
+        - borrowerType
+        - borrowerId
+        - requestId
+        - principalLzt
+        - outstandingLzt
+        - repaidLzt
+        - escrowLzt
+        - platformFeeLzt
+        - rateBps
+        - lenderPayoutMode
+        - status
+        - dueAt
+        - startedAt
+        - closedAt
+        - defaultedAt
+
+    FundLoanResponse:
+      type: object
+      properties:
+        loan:
+          $ref: "#/components/schemas/Loan"
+        fundedAmountLzt:
+          type: integer
+          description: Total funded amount on the request after this operation
+        fullyFunded:
+          type: boolean
+          description: True when the request has reached its full target
+      required:
+        - loan
+        - fundedAmountLzt
+        - fullyFunded
+
+    MyLoans:
+      type: object
+      properties:
+        asBorrower:
+          type: array
+          items:
+            $ref: "#/components/schemas/Loan"
+        asLender:
+          type: array
+          items:
+            $ref: "#/components/schemas/Loan"
+      required:
+        - asBorrower
+        - asLender
+
+    RepayLoanBody:
+      type: object
+      properties:
+        userToken:
+          type: string
+        amountLzt:
+          type: integer
+          description: Amount to repay in LZT (positive integer)
+        source:
+          type: string
+          description: "cash | balance"
+          enum: [cash, balance]
+      required:
+        - userToken
+        - amountLzt
+
+    RepayLoanResponse:
+      type: object
+      properties:
+        repaidLzt:
+          type: integer
+      required:
+        - repaidLzt

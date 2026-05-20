@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import {
   useGetWallet,
@@ -34,6 +35,7 @@ import {
   ChevronDown,
   ChevronUp,
   CheckCircle2,
+  ArrowLeftRight,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { QRCodeSVG } from "qrcode.react";
@@ -523,6 +525,52 @@ export default function WalletPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Debt & obligations block — always visible once wallet loads */}
+            {wallet && (
+              <Card
+                style={{
+                  background: "rgba(99,102,241,0.06)",
+                  border: "1px solid rgba(99,102,241,0.25)",
+                }}
+              >
+                <CardContent className="pt-5 pb-4">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-2">
+                      <ArrowLeftRight className="h-4 w-4 text-indigo-400" />
+                      <span className="text-sm font-semibold text-white">
+                        Долг и обязательства
+                      </span>
+                    </div>
+                    <Link href="/exchange">
+                      <span className="text-xs text-indigo-400 hover:text-indigo-300 cursor-pointer transition-colors">
+                        Перейти на биржу →
+                      </span>
+                    </Link>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div
+                      className="rounded-lg p-3"
+                      style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)" }}
+                    >
+                      <p className="text-[10px] text-slate-500 mb-1">Я должен</p>
+                      <p className="text-lg font-bold text-red-400 tabular-nums">
+                        {formatLzt(wallet.creditDebtLzt ?? 0)} LZT
+                      </p>
+                    </div>
+                    <div
+                      className="rounded-lg p-3"
+                      style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.15)" }}
+                    >
+                      <p className="text-[10px] text-slate-500 mb-1">Мне должны</p>
+                      <p className="text-lg font-bold text-emerald-400 tabular-nums">
+                        {formatLzt(wallet.creditReceivableLzt ?? 0)} LZT
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             <Card style={cardStyle}>
               <CardHeader className="pb-4">

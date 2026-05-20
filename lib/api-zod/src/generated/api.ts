@@ -1410,3 +1410,146 @@ export const RequestWithdrawalBody = zod.object({
     .number()
     .describe("Amount in LZT (must be a multiple of 200 — i.e. whole USDT)"),
 });
+
+/**
+ * @summary List open P2P loan requests (newest first)
+ */
+export const ListLoanRequestsResponseItem = zod
+  .object({
+    id: zod.string(),
+    borrowerType: zod.string().describe("host | player"),
+    borrowerId: zod.string(),
+    amountLzt: zod.number().describe("Principal requested, in LZT"),
+    termDays: zod.number().describe("Loan duration in days (minimum 60)"),
+    rateBps: zod
+      .number()
+      .describe("Annual interest rate in basis points (100 bps = 1%)"),
+    status: zod.string().describe("open | funded | cancelled"),
+    fundedAmountLzt: zod
+      .number()
+      .describe(
+        "How much LZT has been funded so far (0 = unfunded, amountLzt = fully funded)",
+      ),
+    fundedLoanId: zod.string().nullable(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .describe("A P2P loan request posted by a borrower.");
+export const ListLoanRequestsResponse = zod.array(ListLoanRequestsResponseItem);
+
+/**
+ * @summary Create a new P2P loan request
+ */
+export const CreateLoanRequestBody = zod.object({
+  userToken: zod.string(),
+  amountLzt: zod
+    .number()
+    .describe("Positive integer, must not exceed Pledger limit"),
+  termDays: zod.number().describe("Loan duration in days (minimum 60)"),
+  rateBps: zod
+    .number()
+    .optional()
+    .describe("Annual interest rate in basis points (0–5000)"),
+});
+
+/**
+ * @summary Fund an open loan request (lender side)
+ */
+export const FundLoanRequestParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const FundLoanRequestBody = zod.object({
+  userToken: zod.string(),
+  amountLzt: zod
+    .number()
+    .optional()
+    .describe(
+      "Amount to fund in LZT. Omit to fund the entire remaining unfunded portion.",
+    ),
+  source: zod
+    .enum(["cash", "balance"])
+    .optional()
+    .describe("cash | balance — which bucket the lender pays from"),
+  payoutMode: zod
+    .enum(["cash_on_close", "balance_streaming"])
+    .optional()
+    .describe("cash_on_close | balance_streaming"),
+});
+
+/**
+ * @summary List caller's loans as borrower and as lender
+ */
+export const ListMyLoansQueryParams = zod.object({
+  userToken: zod.coerce.string(),
+});
+
+export const ListMyLoansResponse = zod.object({
+  asBorrower: zod.array(
+    zod
+      .object({
+        id: zod.string(),
+        loanType: zod.string(),
+        lenderType: zod.string(),
+        lenderId: zod.string(),
+        borrowerType: zod.string(),
+        borrowerId: zod.string(),
+        requestId: zod.string().nullable(),
+        principalLzt: zod.number(),
+        outstandingLzt: zod.number(),
+        repaidLzt: zod.number(),
+        escrowLzt: zod.number(),
+        platformFeeLzt: zod.number(),
+        rateBps: zod.number(),
+        lenderPayoutMode: zod.string(),
+        status: zod.string().describe("active | repaid | defaulted"),
+        dueAt: zod.coerce.date().nullable(),
+        startedAt: zod.coerce.date(),
+        closedAt: zod.coerce.date().nullable(),
+        defaultedAt: zod.coerce.date().nullable(),
+      })
+      .describe("An active or historical P2P loan."),
+  ),
+  asLender: zod.array(
+    zod
+      .object({
+        id: zod.string(),
+        loanType: zod.string(),
+        lenderType: zod.string(),
+        lenderId: zod.string(),
+        borrowerType: zod.string(),
+        borrowerId: zod.string(),
+        requestId: zod.string().nullable(),
+        principalLzt: zod.number(),
+        outstandingLzt: zod.number(),
+        repaidLzt: zod.number(),
+        escrowLzt: zod.number(),
+        platformFeeLzt: zod.number(),
+        rateBps: zod.number(),
+        lenderPayoutMode: zod.string(),
+        status: zod.string().describe("active | repaid | defaulted"),
+        dueAt: zod.coerce.date().nullable(),
+        startedAt: zod.coerce.date(),
+        closedAt: zod.coerce.date().nullable(),
+        defaultedAt: zod.coerce.date().nullable(),
+      })
+      .describe("An active or historical P2P loan."),
+  ),
+});
+
+/**
+ * @summary Repay (partial or full) a loan as the borrower
+ */
+export const RepayLoanParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const RepayLoanBody = zod.object({
+  userToken: zod.string(),
+  amountLzt: zod.number().describe("Amount to repay in LZT (positive integer)"),
+  source: zod.enum(["cash", "balance"]).optional().describe("cash | balance"),
+});
+
+export const RepayLoanResponse = zod.object({
+  repaidLzt: zod.number(),
+});

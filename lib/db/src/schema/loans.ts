@@ -19,6 +19,7 @@ export const loanRequestsTable = pgTable(
     termDays: integer("term_days").notNull(),
     rateBps: integer("rate_bps").notNull().default(0),
     status: text("status").notNull().default("open"),
+    fundedAmountLzt: integer("funded_amount_lzt").notNull().default(0),
     fundedLoanId: uuid("funded_loan_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

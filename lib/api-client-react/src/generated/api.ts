@@ -21,10 +21,13 @@ import type {
   ClaimSessionBody,
   CreateBrowserHostSessionBody,
   CreateBrowserHostSessionResponse,
+  CreateLoanRequestBody,
   CreateQuotaBody,
   CreateSessionBody,
   EndSessionBody,
   ErrorResponse,
+  FundLoanRequestBody,
+  FundLoanResponse,
   GameDetail,
   GameListItem,
   GetGameBySlugParams,
@@ -36,8 +39,11 @@ import type {
   ListApplicableQuotasParams,
   ListAppliedQuotasParams,
   ListGamesParams,
+  ListMyLoansParams,
   ListMyQuotasParams,
   ListPublicQuotasParams,
+  LoanRequest,
+  MyLoans,
   Player,
   PublicHostListItem,
   PublicStats,
@@ -46,6 +52,8 @@ import type {
   QuotaOwnerBody,
   RegisterHostBody,
   RegisterPlayerBody,
+  RepayLoanBody,
+  RepayLoanResponse,
   RequestWithdrawalBody,
   Session,
   UpdateHostConfigBody,
@@ -3007,4 +3015,433 @@ export const useRequestWithdrawal = <
   TContext
 > => {
   return useMutation(getRequestWithdrawalMutationOptions(options));
+};
+
+/**
+ * @summary List open P2P loan requests (newest first)
+ */
+export const getListLoanRequestsUrl = () => {
+  return `/api/loans/requests`;
+};
+
+export const listLoanRequests = async (
+  options?: RequestInit,
+): Promise<LoanRequest[]> => {
+  return customFetch<LoanRequest[]>(getListLoanRequestsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListLoanRequestsQueryKey = () => {
+  return [`/api/loans/requests`] as const;
+};
+
+export const getListLoanRequestsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listLoanRequests>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listLoanRequests>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListLoanRequestsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listLoanRequests>>
+  > = ({ signal }) => listLoanRequests({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listLoanRequests>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListLoanRequestsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listLoanRequests>>
+>;
+export type ListLoanRequestsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List open P2P loan requests (newest first)
+ */
+
+export function useListLoanRequests<
+  TData = Awaited<ReturnType<typeof listLoanRequests>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listLoanRequests>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListLoanRequestsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new P2P loan request
+ */
+export const getCreateLoanRequestUrl = () => {
+  return `/api/loans/requests`;
+};
+
+export const createLoanRequest = async (
+  createLoanRequestBody: CreateLoanRequestBody,
+  options?: RequestInit,
+): Promise<LoanRequest> => {
+  return customFetch<LoanRequest>(getCreateLoanRequestUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createLoanRequestBody),
+  });
+};
+
+export const getCreateLoanRequestMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createLoanRequest>>,
+    TError,
+    { data: BodyType<CreateLoanRequestBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createLoanRequest>>,
+  TError,
+  { data: BodyType<CreateLoanRequestBody> },
+  TContext
+> => {
+  const mutationKey = ["createLoanRequest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createLoanRequest>>,
+    { data: BodyType<CreateLoanRequestBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createLoanRequest(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateLoanRequestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createLoanRequest>>
+>;
+export type CreateLoanRequestMutationBody = BodyType<CreateLoanRequestBody>;
+export type CreateLoanRequestMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a new P2P loan request
+ */
+export const useCreateLoanRequest = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createLoanRequest>>,
+    TError,
+    { data: BodyType<CreateLoanRequestBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createLoanRequest>>,
+  TError,
+  { data: BodyType<CreateLoanRequestBody> },
+  TContext
+> => {
+  return useMutation(getCreateLoanRequestMutationOptions(options));
+};
+
+/**
+ * @summary Fund an open loan request (lender side)
+ */
+export const getFundLoanRequestUrl = (id: string) => {
+  return `/api/loans/requests/${id}/fund`;
+};
+
+export const fundLoanRequest = async (
+  id: string,
+  fundLoanRequestBody: FundLoanRequestBody,
+  options?: RequestInit,
+): Promise<FundLoanResponse> => {
+  return customFetch<FundLoanResponse>(getFundLoanRequestUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(fundLoanRequestBody),
+  });
+};
+
+export const getFundLoanRequestMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof fundLoanRequest>>,
+    TError,
+    { id: string; data: BodyType<FundLoanRequestBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof fundLoanRequest>>,
+  TError,
+  { id: string; data: BodyType<FundLoanRequestBody> },
+  TContext
+> => {
+  const mutationKey = ["fundLoanRequest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof fundLoanRequest>>,
+    { id: string; data: BodyType<FundLoanRequestBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return fundLoanRequest(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type FundLoanRequestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof fundLoanRequest>>
+>;
+export type FundLoanRequestMutationBody = BodyType<FundLoanRequestBody>;
+export type FundLoanRequestMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Fund an open loan request (lender side)
+ */
+export const useFundLoanRequest = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof fundLoanRequest>>,
+    TError,
+    { id: string; data: BodyType<FundLoanRequestBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof fundLoanRequest>>,
+  TError,
+  { id: string; data: BodyType<FundLoanRequestBody> },
+  TContext
+> => {
+  return useMutation(getFundLoanRequestMutationOptions(options));
+};
+
+/**
+ * @summary List caller's loans as borrower and as lender
+ */
+export const getListMyLoansUrl = (params: ListMyLoansParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/loans/mine?${stringifiedParams}`
+    : `/api/loans/mine`;
+};
+
+export const listMyLoans = async (
+  params: ListMyLoansParams,
+  options?: RequestInit,
+): Promise<MyLoans> => {
+  return customFetch<MyLoans>(getListMyLoansUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyLoansQueryKey = (params?: ListMyLoansParams) => {
+  return [`/api/loans/mine`, ...(params ? [params] : [])] as const;
+};
+
+export const getListMyLoansQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyLoans>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: ListMyLoansParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMyLoans>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMyLoansQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyLoans>>> = ({
+    signal,
+  }) => listMyLoans(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyLoans>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyLoansQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyLoans>>
+>;
+export type ListMyLoansQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List caller's loans as borrower and as lender
+ */
+
+export function useListMyLoans<
+  TData = Awaited<ReturnType<typeof listMyLoans>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: ListMyLoansParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMyLoans>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyLoansQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Repay (partial or full) a loan as the borrower
+ */
+export const getRepayLoanUrl = (id: string) => {
+  return `/api/loans/${id}/repay`;
+};
+
+export const repayLoan = async (
+  id: string,
+  repayLoanBody: RepayLoanBody,
+  options?: RequestInit,
+): Promise<RepayLoanResponse> => {
+  return customFetch<RepayLoanResponse>(getRepayLoanUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(repayLoanBody),
+  });
+};
+
+export const getRepayLoanMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof repayLoan>>,
+    TError,
+    { id: string; data: BodyType<RepayLoanBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof repayLoan>>,
+  TError,
+  { id: string; data: BodyType<RepayLoanBody> },
+  TContext
+> => {
+  const mutationKey = ["repayLoan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof repayLoan>>,
+    { id: string; data: BodyType<RepayLoanBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return repayLoan(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RepayLoanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof repayLoan>>
+>;
+export type RepayLoanMutationBody = BodyType<RepayLoanBody>;
+export type RepayLoanMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Repay (partial or full) a loan as the borrower
+ */
+export const useRepayLoan = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof repayLoan>>,
+    TError,
+    { id: string; data: BodyType<RepayLoanBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof repayLoan>>,
+  TError,
+  { id: string; data: BodyType<RepayLoanBody> },
+  TContext
+> => {
+  return useMutation(getRepayLoanMutationOptions(options));
 };

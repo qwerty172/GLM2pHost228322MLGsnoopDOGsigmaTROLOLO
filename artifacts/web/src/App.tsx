@@ -23,6 +23,7 @@ import QuotaEditPage from "@/pages/quota-edit";
 import { HostLayout } from "@/components/layout";
 import { HostAuthGuard } from "@/components/host-auth-guard";
 import ProfilePage from "@/pages/profile";
+import ExchangePage from "@/pages/exchange";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,7 @@ function Router() {
       <Route path="/games/:slug" component={GameDetailPage} />
       <Route path="/admin/games" component={AdminGamesPage} />
       <Route path="/hosts" component={HostsPage} />
+      <Route path="/exchange" component={ExchangePage} />
       <Route path="/quotas" component={QuotasPage} />
       <Route path="/quotas/new">
         <HostAuthGuard>
