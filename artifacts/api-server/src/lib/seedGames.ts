@@ -7,6 +7,19 @@ import { logger } from "./logger";
 // have their cosmetic fields refreshed but are never deleted.
 const SEED: InsertGame[] = [
   {
+    slug: "rogue-fable-3",
+    title: "Rogue Fable III",
+    genre: "Browser Roguelike",
+    coverImageUrl: "/rf3-cover.svg",
+    description:
+      "Turn-based browser roguelike. Hostable directly from your browser tab — no desktop agent required.",
+    hasMods: true,
+    isMultiplayer: false,
+    hostSpectatesPlayer: true,
+    hasQuests: true,
+    browserHostUrl: "games/rf3/index.html",
+  },
+  {
     slug: "cyberpunk-2077",
     title: "Cyberpunk 2077",
     genre: "Action RPG",
@@ -121,6 +134,7 @@ export async function seedGames(): Promise<void> {
           isMultiplayer: g.isMultiplayer ?? false,
           hostSpectatesPlayer: g.hostSpectatesPlayer ?? false,
           hasQuests: g.hasQuests ?? false,
+          browserHostUrl: g.browserHostUrl ?? "",
         })
         .where(eq(gamesTable.id, existing.id));
     } else {

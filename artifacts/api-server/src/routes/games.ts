@@ -53,6 +53,7 @@ function shapeGame(g: GameRow, liveSessionCount: number) {
     isMultiplayer: g.isMultiplayer,
     hostSpectatesPlayer: g.hostSpectatesPlayer,
     hasQuests: g.hasQuests,
+    browserHostUrl: g.browserHostUrl,
     liveSessionCount,
   };
 }

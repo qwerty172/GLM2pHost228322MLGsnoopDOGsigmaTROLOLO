@@ -426,6 +426,11 @@ export const ListGamesResponseItem = zod.object({
     .describe(
       "Number of pending or active sessions matching this game right now",
     ),
+  browserHostUrl: zod
+    .string()
+    .describe(
+      "Same-origin URL of a vendored browser build that a player can host\ndirectly from their browser tab (no desktop agent). Empty when only\nnative-app hosting is supported.\n",
+    ),
 });
 export const ListGamesResponse = zod.array(ListGamesResponseItem);
 
@@ -470,6 +475,11 @@ export const GetGameBySlugResponse = zod
       .number()
       .describe(
         "Number of pending or active sessions matching this game right now",
+      ),
+    browserHostUrl: zod
+      .string()
+      .describe(
+        "Same-origin URL of a vendored browser build that a player can host\ndirectly from their browser tab (no desktop agent). Empty when only\nnative-app hosting is supported.\n",
       ),
   })
   .and(
@@ -547,6 +557,22 @@ export const CreateSessionBody = zod.object({
   ratePerMinute: zod.number().optional(),
   paymentSource: zod.enum(["blue", "green", "auto"]).optional(),
 });
+
+/**
+ * @summary Create a session whose host is the calling browser (no desktop agent).
+Returns both the session and the freshly minted hostToken — the caller
+is responsible for storing the hostToken locally and using it to
+connect to /signal as role=host and to end the session.
+
+ */
+export const CreateBrowserHostSessionBody = zod
+  .object({
+    playerWalletToken: zod.string(),
+    gameSlug: zod.string(),
+  })
+  .describe(
+    "The calling browser (identified by playerWalletToken) wants to host\nthe given game itself, by loading its vendored build into an iframe\nand capturing the canvas via WebRTC. The server mints a fresh host\nrow owned by this player and returns its hostToken.\n",
+  );
 
 /**
  * @summary Get a session by id (host-authenticated)

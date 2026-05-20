@@ -143,6 +143,11 @@ export interface GameListItem {
   hasQuests: boolean;
   /** Number of pending or active sessions matching this game right now */
   liveSessionCount: number;
+  /** Same-origin URL of a vendored browser build that a player can host
+directly from their browser tab (no desktop agent). Empty when only
+native-app hosting is supported.
+ */
+  browserHostUrl: string;
 }
 
 export type GameLiveSessionScheduleMode =
@@ -234,6 +239,26 @@ export interface ClaimSessionBody {
 зелёный (withdrawable) and falls back to синий (internal).
  */
   paymentSource?: ClaimSessionBodyPaymentSource;
+}
+
+/**
+ * The calling browser (identified by playerWalletToken) wants to host
+the given game itself, by loading its vendored build into an iframe
+and capturing the canvas via WebRTC. The server mints a fresh host
+row owned by this player and returns its hostToken.
+
+ */
+export interface CreateBrowserHostSessionBody {
+  playerWalletToken: string;
+  gameSlug: string;
+}
+
+export interface CreateBrowserHostSessionResponse {
+  session: Session;
+  /** Use to authenticate as the host on /signal and to end the session. */
+  hostToken: string;
+  /** Same-origin URL to load in the host page's iframe. */
+  browserHostUrl: string;
 }
 
 export type CreateSessionBodyPaymentSource =

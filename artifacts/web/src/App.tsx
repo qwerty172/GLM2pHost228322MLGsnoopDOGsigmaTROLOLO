@@ -10,6 +10,7 @@ import Dashboard from "@/pages/host/dashboard";
 import SetupSession from "@/pages/host/setup";
 import WalletPage from "@/pages/wallet";
 import Play from "@/pages/play";
+import BrowserPlay from "@/pages/host/browser-play";
 import GamesPage from "@/pages/games";
 import GameDetailPage from "@/pages/game-detail";
 import HostsPage from "@/pages/hosts";
@@ -41,6 +42,10 @@ function Router() {
       <Route path="/games/:slug" component={GameDetailPage} />
       <Route path="/hosts" component={HostsPage} />
       <Route path="/play/:playerToken" component={Play} />
+      {/* Browser-host page is a player-side feature (the human running it
+          authenticates via their own wallet, not a hostToken). Route it
+          before /host* so HostAuthGuard does not gate it. */}
+      <Route path="/host/play/:sessionId" component={BrowserPlay} />
       <Route path="/host*" component={HostRoutes} />
       <Route path="/wallet*" component={HostRoutes} />
       <Route component={NotFound} />

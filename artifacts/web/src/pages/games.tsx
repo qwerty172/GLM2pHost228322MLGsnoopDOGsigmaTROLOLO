@@ -1,10 +1,13 @@
-import { Link, useSearch } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { useEffect, useMemo, useState } from "react";
 import {
   useListGames,
   getListGamesQueryKey,
+  useCreateBrowserHostSession,
   type GameListItem,
 } from "@workspace/api-client-react";
+import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { toast } from "sonner";
 import {
   Activity,
   ArrowRight,
@@ -16,10 +19,17 @@ import {
   Eye,
   Trophy,
   X,
+  Rocket,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SiteNav } from "@/components/site-nav";
+
+const LZT_PER_USDT = 200;
+// Default per-minute price the API server uses for browser-host sessions.
+// Mirrored here so the library card can show price/min even before any
+// live session exists for the game.
+const DEFAULT_PRICE_PER_MIN_USD = 0.04;
 
 type FilterKey =
   | "hasMods"
@@ -247,7 +257,48 @@ export default function GamesPage() {
   );
 }
 
+const HOST_TOKEN_STORAGE_PREFIX = "streamline.browserHostToken:";
+const BROWSER_HOST_URL_STORAGE_PREFIX = "streamline.browserHostUrl:";
+
 function GameCard({ game }: { game: GameListItem }) {
+  const [, navigate] = useLocation();
+  const { playerWalletToken, isRegistering } = usePlayerWallet();
+  const createBrowserHost = useCreateBrowserHostSession();
+
+  const handleHost = async () => {
+    if (!playerWalletToken) {
+      toast.error("Создаём кошелёк, попробуй ещё раз через секунду");
+      return;
+    }
+    try {
+      const res = await createBrowserHost.mutateAsync({
+        data: {
+          playerWalletToken,
+          gameSlug: game.slug,
+        },
+      });
+      try {
+        localStorage.setItem(
+          HOST_TOKEN_STORAGE_PREFIX + res.session.id,
+          res.hostToken,
+        );
+        localStorage.setItem(
+          BROWSER_HOST_URL_STORAGE_PREFIX + res.session.id,
+          res.browserHostUrl,
+        );
+      } catch {
+        // ignore — page will surface "session not found" instead
+      }
+      navigate(`/host/play/${res.session.id}`);
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Не удалось создать сессию хоста",
+      );
+    }
+  };
+
   const cover = game.coverImageUrl
     ? game.coverImageUrl.startsWith("http")
       ? game.coverImageUrl
@@ -295,21 +346,56 @@ function GameCard({ game }: { game: GameListItem }) {
         {game.genre && (
           <p className="text-[11px] text-sky-400 font-mono mt-0.5">{game.genre}</p>
         )}
-        <Link href={`/games/${game.slug}`}>
-          <Button
-            size="sm"
-            className="mt-3 w-full h-8 text-xs font-semibold rounded-md"
-            style={{
-              background: isLive ? "#0ea5e9" : "rgba(14,165,233,0.12)",
-              color: isLive ? "#fff" : "#38bdf8",
-              border: isLive ? "none" : "1px solid rgba(14,165,233,0.2)",
-            }}
-            data-testid={`button-open-${game.slug}`}
-          >
-            {isLive ? "Найти хоста" : "Подробнее"}
-            <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-          </Button>
-        </Link>
+        <p
+          className="text-[11px] font-mono mt-1 text-slate-400"
+          data-testid={`text-price-${game.slug}`}
+        >
+          <span className="text-emerald-300 font-bold">
+            {Math.round(DEFAULT_PRICE_PER_MIN_USD * LZT_PER_USDT)} LZT/мин
+          </span>
+          <span className="text-slate-500">
+            {" "}· ≈ ${DEFAULT_PRICE_PER_MIN_USD.toFixed(2)}/мин
+          </span>
+        </p>
+        <div className="mt-3 flex flex-col gap-1.5">
+          <Link href={`/games/${game.slug}`}>
+            <Button
+              size="sm"
+              className="w-full h-8 text-xs font-semibold rounded-md"
+              style={{
+                background: isLive ? "#0ea5e9" : "rgba(14,165,233,0.12)",
+                color: isLive ? "#fff" : "#38bdf8",
+                border: isLive ? "none" : "1px solid rgba(14,165,233,0.2)",
+              }}
+              data-testid={`button-open-${game.slug}`}
+            >
+              {isLive ? "Найти хоста" : "Подробнее"}
+              <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+            </Button>
+          </Link>
+          {game.browserHostUrl && (
+            <Button
+              size="sm"
+              type="button"
+              onClick={handleHost}
+              disabled={
+                createBrowserHost.isPending || isRegistering || !playerWalletToken
+              }
+              className="w-full h-8 text-xs font-semibold rounded-md"
+              style={{
+                background: "rgba(16,185,129,0.16)",
+                color: "#34d399",
+                border: "1px solid rgba(16,185,129,0.35)",
+              }}
+              data-testid={`button-host-${game.slug}`}
+            >
+              <Rocket className="mr-1.5 h-3.5 w-3.5" />
+              {createBrowserHost.isPending
+                ? "Создаём…"
+                : "Хостить из браузера"}
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

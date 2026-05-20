@@ -381,6 +381,41 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /sessions/browser-host:
+    post:
+      operationId: createBrowserHostSession
+      tags: [sessions]
+      summary: |
+        Create a session whose host is the calling browser (no desktop agent).
+        Returns both the session and the freshly minted hostToken — the caller
+        is responsible for storing the hostToken locally and using it to
+        connect to /signal as role=host and to end the session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBrowserHostSessionBody"
+      responses:
+        "201":
+          description: Browser-host session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateBrowserHostSessionResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Game or player not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /sessions/{id}:
     get:
       operationId: getSession
@@ -839,6 +874,12 @@ components:
         liveSessionCount:
           type: integer
           description: Number of pending or active sessions matching this game right now
+        browserHostUrl:
+          type: string
+          description: |
+            Same-origin URL of a vendored browser build that a player can host
+            directly from their browser tab (no desktop agent). Empty when only
+            native-app hosting is supported.
       required:
         - id
         - slug
@@ -851,6 +892,7 @@ components:
         - hostSpectatesPlayer
         - hasQuests
         - liveSessionCount
+        - browserHostUrl
 
     GameLiveSession:
       type: object
@@ -996,6 +1038,38 @@ components:
             зелёный (withdrawable) and falls back to синий (internal).
       required:
         - playerWalletToken
+
+    CreateBrowserHostSessionBody:
+      type: object
+      description: |
+        The calling browser (identified by playerWalletToken) wants to host
+        the given game itself, by loading its vendored build into an iframe
+        and capturing the canvas via WebRTC. The server mints a fresh host
+        row owned by this player and returns its hostToken.
+      properties:
+        playerWalletToken:
+          type: string
+        gameSlug:
+          type: string
+      required:
+        - playerWalletToken
+        - gameSlug
+
+    CreateBrowserHostSessionResponse:
+      type: object
+      properties:
+        session:
+          $ref: "#/components/schemas/Session"
+        hostToken:
+          type: string
+          description: Use to authenticate as the host on /signal and to end the session.
+        browserHostUrl:
+          type: string
+          description: Same-origin URL to load in the host page's iframe.
+      required:
+        - session
+        - hostToken
+        - browserHostUrl
 
     CreateSessionBody:
       type: object

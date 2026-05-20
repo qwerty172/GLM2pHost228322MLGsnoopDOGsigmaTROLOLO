@@ -19,6 +19,8 @@ import type {
 import type {
   ActivityItem,
   ClaimSessionBody,
+  CreateBrowserHostSessionBody,
+  CreateBrowserHostSessionResponse,
   CreateSessionBody,
   EndSessionBody,
   ErrorResponse,
@@ -1250,6 +1252,104 @@ export const useCreateSession = <
   TContext
 > => {
   return useMutation(getCreateSessionMutationOptions(options));
+};
+
+/**
+ * @summary Create a session whose host is the calling browser (no desktop agent).
+Returns both the session and the freshly minted hostToken — the caller
+is responsible for storing the hostToken locally and using it to
+connect to /signal as role=host and to end the session.
+
+ */
+export const getCreateBrowserHostSessionUrl = () => {
+  return `/api/sessions/browser-host`;
+};
+
+export const createBrowserHostSession = async (
+  createBrowserHostSessionBody: CreateBrowserHostSessionBody,
+  options?: RequestInit,
+): Promise<CreateBrowserHostSessionResponse> => {
+  return customFetch<CreateBrowserHostSessionResponse>(
+    getCreateBrowserHostSessionUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createBrowserHostSessionBody),
+    },
+  );
+};
+
+export const getCreateBrowserHostSessionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBrowserHostSession>>,
+    TError,
+    { data: BodyType<CreateBrowserHostSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createBrowserHostSession>>,
+  TError,
+  { data: BodyType<CreateBrowserHostSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["createBrowserHostSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createBrowserHostSession>>,
+    { data: BodyType<CreateBrowserHostSessionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createBrowserHostSession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateBrowserHostSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createBrowserHostSession>>
+>;
+export type CreateBrowserHostSessionMutationBody =
+  BodyType<CreateBrowserHostSessionBody>;
+export type CreateBrowserHostSessionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a session whose host is the calling browser (no desktop agent).
+Returns both the session and the freshly minted hostToken — the caller
+is responsible for storing the hostToken locally and using it to
+connect to /signal as role=host and to end the session.
+
+ */
+export const useCreateBrowserHostSession = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBrowserHostSession>>,
+    TError,
+    { data: BodyType<CreateBrowserHostSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createBrowserHostSession>>,
+  TError,
+  { data: BodyType<CreateBrowserHostSessionBody> },
+  TContext
+> => {
+  return useMutation(getCreateBrowserHostSessionMutationOptions(options));
 };
 
 /**

@@ -204,11 +204,32 @@ export default function Play() {
   useEffect(() => {
     if (!isPlaying) return;
 
-    type KeyInput = { type: "input"; kind: "key"; action: "down" | "up"; key: string };
-    type MouseButtonInput = { type: "input"; kind: "mouse"; action: "down" | "up"; button: number };
-    type MouseMoveInput = { type: "input"; kind: "mouse"; action: "move"; movementX: number; movementY: number };
-    type WheelInput = { type: "input"; kind: "wheel"; deltaY: number };
-    type InputEvent = KeyInput | MouseButtonInput | MouseMoveInput | WheelInput;
+    // Shared wire format with the host's input replayer. x/y are normalized
+    // 0..1 relative to the host canvas, so the host can map them back to
+    // canvas-local pixel coordinates without knowing the guest's viewport.
+    type KeyInput = {
+      type: "input";
+      kind: "key";
+      action: "down" | "up";
+      key: string;
+      code: string;
+    };
+    type MouseInput = {
+      type: "input";
+      kind: "mouse";
+      action: "down" | "up" | "move";
+      button: number;
+      x: number;
+      y: number;
+    };
+    type WheelInput = {
+      type: "input";
+      kind: "wheel";
+      deltaY: number;
+      x: number;
+      y: number;
+    };
+    type InputEvent = KeyInput | MouseInput | WheelInput;
 
     const sendInput = (data: InputEvent) => {
       if (dcRef.current && dcRef.current.readyState === "open") {
@@ -216,41 +237,71 @@ export default function Play() {
       }
     };
 
+    const normalizedCoords = (e: MouseEvent | WheelEvent) => {
+      const v = videoRef.current;
+      if (!v) return { x: 0.5, y: 0.5 };
+      const rect = v.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return { x: 0.5, y: 0.5 };
+      const x = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+      const y = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+      return { x, y };
+    };
+
+    const isOverVideo = (e: MouseEvent | WheelEvent) => {
+      const v = videoRef.current;
+      if (!v) return false;
+      const r = v.getBoundingClientRect();
+      return (
+        e.clientX >= r.left &&
+        e.clientX <= r.right &&
+        e.clientY >= r.top &&
+        e.clientY <= r.bottom
+      );
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      sendInput({ type: "input", kind: "key", action: "down", key: e.code });
+      sendInput({
+        type: "input",
+        kind: "key",
+        action: "down",
+        key: e.key,
+        code: e.code,
+      });
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      sendInput({ type: "input", kind: "key", action: "up", key: e.code });
+      sendInput({
+        type: "input",
+        kind: "key",
+        action: "up",
+        key: e.key,
+        code: e.code,
+      });
     };
 
     const handleMouseDown = (e: MouseEvent) => {
-      sendInput({ type: "input", kind: "mouse", action: "down", button: e.button });
+      if (!isOverVideo(e)) return;
+      const { x, y } = normalizedCoords(e);
+      sendInput({ type: "input", kind: "mouse", action: "down", button: e.button, x, y });
     };
 
     const handleMouseUp = (e: MouseEvent) => {
-      sendInput({ type: "input", kind: "mouse", action: "up", button: e.button });
+      if (!isOverVideo(e)) return;
+      const { x, y } = normalizedCoords(e);
+      sendInput({ type: "input", kind: "mouse", action: "up", button: e.button, x, y });
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (document.pointerLockElement === videoRef.current) {
-        sendInput({
-          type: "input",
-          kind: "mouse",
-          action: "move",
-          movementX: e.movementX,
-          movementY: e.movementY,
-        });
-      }
+      if (!isOverVideo(e)) return;
+      const { x, y } = normalizedCoords(e);
+      sendInput({ type: "input", kind: "mouse", action: "move", button: 0, x, y });
     };
 
     const handleWheel = (e: WheelEvent) => {
-      // Only forward when the player has actually focused the stream (pointer
-      // locked); otherwise we'd hijack normal page scrolling.
-      if (document.pointerLockElement === videoRef.current) {
-        e.preventDefault();
-        sendInput({ type: "input", kind: "wheel", deltaY: e.deltaY });
-      }
+      if (!isOverVideo(e)) return;
+      e.preventDefault();
+      const { x, y } = normalizedCoords(e);
+      sendInput({ type: "input", kind: "wheel", deltaY: e.deltaY, x, y });
     };
 
     window.addEventListener("keydown", handleKeyDown);

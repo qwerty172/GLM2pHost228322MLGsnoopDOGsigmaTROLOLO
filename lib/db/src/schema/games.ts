@@ -25,6 +25,10 @@ export const gamesTable = pgTable("games", {
     .notNull()
     .default(false),
   hasQuests: boolean("has_quests").notNull().default(false),
+  // When set, this game can be hosted directly from the player's browser
+  // (no desktop host agent). The URL must be same-origin so the host page
+  // can inject input events into the iframe.
+  browserHostUrl: text("browser_host_url").notNull().default(""),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

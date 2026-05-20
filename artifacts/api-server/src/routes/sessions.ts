@@ -2,11 +2,13 @@ import { Router, type IRouter } from "express";
 import { eq, and, or, isNull } from "drizzle-orm";
 import {
   db,
+  gamesTable,
   hostsTable,
   playersTable,
   sessionsTable,
 } from "@workspace/db";
 import {
+  CreateBrowserHostSessionBody,
   CreateSessionBody,
   GetSessionResponse,
   GetSessionParams,
@@ -95,6 +97,92 @@ router.post("/sessions", async (req, res): Promise<void> => {
 
   req.log.info({ sessionId: session.id }, "Session created");
   res.status(201).json(GetSessionResponse.parse(serialize(session)));
+});
+
+// Create a session whose host is the calling browser. We mint a fresh host
+// row for this session (so existing per-host plumbing — billing, signaling,
+// activity, withdrawals — works unchanged) and return its hostToken to the
+// caller. The caller is responsible for storing the hostToken locally
+// (sessions are throwaway, so it never goes back to the server).
+router.post("/sessions/browser-host", async (req, res): Promise<void> => {
+  const parsed = CreateBrowserHostSessionBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const [player] = await db
+    .select()
+    .from(playersTable)
+    .where(eq(playersTable.playerToken, parsed.data.playerWalletToken));
+  if (!player) {
+    res.status(404).json({ error: "Player wallet not found" });
+    return;
+  }
+  const [game] = await db
+    .select()
+    .from(gamesTable)
+    .where(eq(gamesTable.slug, parsed.data.gameSlug));
+  if (!game) {
+    res.status(404).json({ error: "Game not found" });
+    return;
+  }
+  if (!game.browserHostUrl) {
+    res
+      .status(400)
+      .json({ error: "This game does not support browser-host mode" });
+    return;
+  }
+
+  const hostToken = generateToken();
+  const [host] = await db
+    .insert(hostsTable)
+    .values({
+      hostToken,
+      displayName: `${player.displayName} (browser host)`,
+      gameId: game.id,
+      boundUrl: game.browserHostUrl,
+      boundAppLabel: game.title,
+      description: `Browser-hosted session of ${game.title}.`,
+      // Browser-host sessions are always available while the tab is open.
+      scheduleMode: "always",
+      // Default per-minute price. The host page can surface its own pricing
+      // controls later; for the test we use the platform default.
+      minutePriceUsd: "0.04",
+      launchPriceUsd: "0",
+    })
+    .returning();
+  if (!host) {
+    res.status(500).json({ error: "Failed to create browser host" });
+    return;
+  }
+
+  const playerToken = generateToken();
+  const [session] = await db
+    .insert(sessionsTable)
+    .values({
+      hostId: host.id,
+      playerToken,
+      appName: game.title,
+      resolution: "1280x720",
+      bitrateKbps: 4000,
+      ratePerMinute: String(Number(host.minutePriceUsd)),
+      paymentSource: "auto",
+    })
+    .returning();
+  if (!session) {
+    res.status(500).json({ error: "Failed to create session" });
+    return;
+  }
+
+  req.log.info(
+    { sessionId: session.id, hostId: host.id, gameSlug: game.slug },
+    "Browser-host session created",
+  );
+  res.status(201).json({
+    session: serialize(session),
+    hostToken,
+    browserHostUrl: game.browserHostUrl,
+  });
 });
 
 router.get(
