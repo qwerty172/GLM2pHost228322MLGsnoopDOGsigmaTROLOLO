@@ -343,10 +343,11 @@ export async function loadScanState(): Promise<SteamScanState> {
     const parsed = JSON.parse(text) as Partial<SteamScanState>;
     return {
       addedAppIds: Array.isArray(parsed.addedAppIds) ? parsed.addedAppIds : [],
+      seenAppIds: Array.isArray(parsed.seenAppIds) ? parsed.seenAppIds : [],
       lastScanAt: parsed.lastScanAt ?? null,
     };
   } catch {
-    return { addedAppIds: [], lastScanAt: null };
+    return { addedAppIds: [], seenAppIds: [], lastScanAt: null };
   }
 }
 
