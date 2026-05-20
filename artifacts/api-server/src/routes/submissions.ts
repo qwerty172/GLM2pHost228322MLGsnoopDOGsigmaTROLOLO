@@ -179,6 +179,63 @@ router.post("/games/submit", async (req, res): Promise<void> => {
   res.status(201).json(sub);
 });
 
+// PATCH /games/submissions/:id/pending-config — save host launch config
+// before the game is approved, so the platform can auto-create the library
+// entry on approval.
+const PendingConfigBody = z.object({
+  hostToken: z.string().min(1),
+  pricePerMinuteLzt: z.number().min(0).max(200000),
+  appPath: z.string().max(1024).default(""),
+  boundUrl: z.string().max(2048).default(""),
+  launchArgs: z.string().max(1024).default(""),
+});
+
+router.patch(
+  "/games/submissions/:id/pending-config",
+  async (req, res): Promise<void> => {
+    const id = req.params["id"] as string;
+    const parsed = PendingConfigBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const { hostToken, ...config } = parsed.data;
+
+    const [host] = await db
+      .select({ id: hostsTable.id })
+      .from(hostsTable)
+      .where(eq(hostsTable.hostToken, hostToken));
+    if (!host) {
+      res.status(401).json({ error: "Unknown hostToken" });
+      return;
+    }
+
+    const [sub] = await db
+      .select({ id: gameSubmissionsTable.id, status: gameSubmissionsTable.status, hostId: gameSubmissionsTable.hostId })
+      .from(gameSubmissionsTable)
+      .where(eq(gameSubmissionsTable.id, id));
+    if (!sub) {
+      res.status(404).json({ error: "Submission not found" });
+      return;
+    }
+    if (sub.hostId !== host.id) {
+      res.status(403).json({ error: "Not your submission" });
+      return;
+    }
+    if (sub.status !== "pending") {
+      res.status(409).json({ error: `Submission is already ${sub.status}` });
+      return;
+    }
+
+    await db
+      .update(gameSubmissionsTable)
+      .set({ pendingHostConfig: config })
+      .where(eq(gameSubmissionsTable.id, id));
+
+    res.json({ saved: true });
+  },
+);
+
 // GET /games/submissions/my — list submissions by the authenticated host.
 router.get("/games/submissions/my", async (req, res): Promise<void> => {
   const token =

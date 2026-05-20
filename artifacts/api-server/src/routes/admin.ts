@@ -7,7 +7,9 @@ import {
   hostsTable,
   gamesTable,
   gameSubmissionsTable,
+  hostGamesTable,
 } from "@workspace/db";
+import { addToLibrary } from "../lib/hostLibrary";
 
 const router: IRouter = Router();
 
@@ -186,17 +188,32 @@ router.post(
       })
       .where(eq(gameSubmissionsTable.id, id));
 
+    // If the submitter pre-configured a library entry, auto-create it now.
+    let libraryAutoCreated = false;
+    if (sub.pendingHostConfig) {
+      const cfg = sub.pendingHostConfig;
+      const addResult = await addToLibrary(sub.hostId, game.id, {
+        pricePerMinuteLzt: cfg.pricePerMinuteLzt,
+        appPath: cfg.appPath || undefined,
+        boundUrl: cfg.boundUrl || undefined,
+        launchArgs: cfg.launchArgs || undefined,
+      });
+      libraryAutoCreated = addResult.ok;
+    }
+
     // Increment gamesContributed and set in-app notification on the submitter.
     await db
       .update(hostsTable)
       .set({
         gamesContributed: sql`${hostsTable.gamesContributed} + 1`,
         lastSubmissionStatus: "approved",
-        lastSubmissionNote: `Твоя заявка «${game.title}» одобрена и добавлена в каталог.`,
+        lastSubmissionNote: libraryAutoCreated
+          ? `Твоя заявка «${game.title}» одобрена и игра автоматически добавлена в твою библиотеку.`
+          : `Твоя заявка «${game.title}» одобрена и добавлена в каталог.`,
       })
       .where(eq(hostsTable.id, sub.hostId));
 
-    res.json({ approved: true, game });
+    res.json({ approved: true, game, libraryAutoCreated });
   },
 );
 

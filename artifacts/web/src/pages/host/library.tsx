@@ -435,11 +435,13 @@ function LibraryConfigForm({
   onSubmit,
   onBack,
   submitting,
+  isPending = false,
 }: {
   game: CatalogGame;
   onSubmit: (v: { pricePerMinuteLzt: number; appPath: string; boundUrl: string; launchArgs: string }) => void;
   onBack: () => void;
   submitting: boolean;
+  isPending?: boolean;
 }) {
   const isBrowser = !!(game.browserHostUrl);
   const [price, setPrice] = useState("8");
@@ -560,7 +562,7 @@ function LibraryConfigForm({
           style={{ background: "#0ea5e9", color: "#fff" }}
         >
           {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-          Добавить в библиотеку
+          {isPending ? "Сохранить настройки" : "Добавить в библиотеку"}
         </Button>
       </div>
     </form>
@@ -577,7 +579,7 @@ function SubmitGameForm({
 }: {
   hostToken: string;
   onBack: () => void;
-  onSubmitted: () => void;
+  onSubmitted: (submissionId: string, game: CatalogGame) => void;
 }) {
   const [title, setTitle] = useState("");
   const [coverUrl, setCoverUrl] = useState("");
@@ -585,7 +587,6 @@ function SubmitGameForm({
   const [description, setDescription] = useState("");
   const [steamId, setSteamId] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -608,31 +609,15 @@ function SubmitGameForm({
       toast.error(r.error);
       return;
     }
-    setDone(r.data.title);
+    const placeholder: CatalogGame = {
+      id: r.data.id,
+      slug: r.data.slug,
+      title: r.data.title,
+      coverImageUrl: coverUrl.trim() || null,
+      category: category.trim() || null,
+    };
+    onSubmitted(r.data.id, placeholder);
   };
-
-  if (done) {
-    return (
-      <div className="space-y-5 text-center py-4">
-        <CheckCircle2 className="h-12 w-12 text-teal-400 mx-auto" />
-        <div>
-          <h3 className="font-bold text-white text-lg">Заявка отправлена!</h3>
-          <p className="text-sm text-slate-400 mt-2 max-w-sm mx-auto">
-            Модераторы рассмотрят «{done}» и одобрят или отклонят заявку.
-            После одобрения игра появится в каталоге и ты сможешь добавить её в библиотеку.
-          </p>
-        </div>
-        <Button
-          type="button"
-          onClick={onSubmitted}
-          className="font-bold"
-          style={{ background: "#0ea5e9", color: "#fff" }}
-        >
-          Закрыть
-        </Button>
-      </div>
-    );
-  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -841,34 +826,54 @@ function AddGameModal({
 }) {
   const [step, setStep] = useState<AddStep>("search");
   const [selectedGame, setSelectedGame] = useState<CatalogGame | null>(null);
+  const [pendingSubmissionId, setPendingSubmissionId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const handleClose = () => { setStep("search"); setSelectedGame(null); onClose(); };
+  const handleClose = () => {
+    setStep("search");
+    setSelectedGame(null);
+    setPendingSubmissionId(null);
+    onClose();
+  };
 
   const handleAdd = async (v: { pricePerMinuteLzt: number; appPath: string; boundUrl: string; launchArgs: string }) => {
     if (!selectedGame) return;
     setSubmitting(true);
+
+    if (pendingSubmissionId) {
+      // Pending submission: save config so the game auto-appears in library on approval.
+      const r = await apiFetch(`/api/games/submissions/${pendingSubmissionId}/pending-config`, {
+        method: "PATCH",
+        body: JSON.stringify({ hostToken, ...v }),
+      });
+      setSubmitting(false);
+      if (!r.ok) { toast.error(r.error); return; }
+      toast.success(`Настройки сохранены. «${selectedGame.title}» появится в библиотеке после одобрения модератором.`);
+      handleClose();
+      return;
+    }
+
+    // Real catalog game: add to library immediately.
     const r = await apiFetch(`/api/hosts/${hostToken}/library`, {
       method: "POST",
       body: JSON.stringify({ gameId: selectedGame.id, ...v }),
     });
     setSubmitting(false);
-    if (!r.ok) {
-      toast.error(r.error);
-      return;
-    }
+    if (!r.ok) { toast.error(r.error); return; }
     toast.success(`«${selectedGame.title}» добавлена в библиотеку`);
     handleClose();
     onAdded();
   };
 
-  const handleSubmitted = () => {
-    handleClose();
+  const handleSubmitted = (submissionId: string, game: CatalogGame) => {
+    setPendingSubmissionId(submissionId);
+    setSelectedGame(game);
+    setStep("config");
   };
 
   const titleMap: Record<AddStep, string> = {
     search: "Добавить игру в библиотеку",
-    config: "Настройка запуска",
+    config: pendingSubmissionId ? "Настройка запуска (ожидает модерации)" : "Настройка запуска",
     suggest: "Предложить новую игру",
   };
 
@@ -877,6 +882,11 @@ function AddGameModal({
       <DialogContent className="sm:max-w-lg" style={{ background: "#0d1520", border: "1px solid rgba(255,255,255,0.08)" }}>
         <DialogHeader>
           <DialogTitle className="text-white">{titleMap[step]}</DialogTitle>
+          {step === "config" && pendingSubmissionId && (
+            <p className="text-xs text-amber-400/80 mt-1">
+              Заявка отправлена на модерацию. Прописанный путь и цена сохранятся — игра автоматически появится в библиотеке после одобрения.
+            </p>
+          )}
         </DialogHeader>
         <div className="mt-2">
           {step === "search" && (
@@ -889,8 +899,9 @@ function AddGameModal({
             <LibraryConfigForm
               game={selectedGame}
               onSubmit={handleAdd}
-              onBack={() => { setSelectedGame(null); setStep("search"); }}
+              onBack={() => { setSelectedGame(null); setPendingSubmissionId(null); setStep("search"); }}
               submitting={submitting}
+              isPending={!!pendingSubmissionId}
             />
           )}
           {step === "suggest" && (

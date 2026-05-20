@@ -46,6 +46,15 @@ export const gameSubmissionsTable = pgTable("game_submissions", {
     onDelete: "set null",
   }),
 
+  // Optional host config saved while the submission is pending.
+  // On approval the platform auto-creates a library entry from this.
+  pendingHostConfig: jsonb("pending_host_config").$type<{
+    pricePerMinuteLzt: number;
+    appPath: string;
+    boundUrl: string;
+    launchArgs: string;
+  }>(),
+
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
