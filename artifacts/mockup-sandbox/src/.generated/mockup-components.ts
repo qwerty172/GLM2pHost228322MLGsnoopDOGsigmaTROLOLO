@@ -2,5 +2,6 @@
 type ModuleMap = Record<string, () => Promise<Record<string, unknown>>>;
 export const modules: ModuleMap = {
   "./components/mockups/p2p-platform/DarkTerminal.tsx": () => import("../components/mockups/p2p-platform/DarkTerminal.tsx"),
-  "./components/mockups/p2p-platform/DecentralHub.tsx": () => import("../components/mockups/p2p-platform/DecentralHub.tsx")
+  "./components/mockups/p2p-platform/DecentralHub.tsx": () => import("../components/mockups/p2p-platform/DecentralHub.tsx"),
+  "./components/mockups/p2p-platform/NavIaV3.tsx": () => import("../components/mockups/p2p-platform/NavIaV3.tsx")
 };
