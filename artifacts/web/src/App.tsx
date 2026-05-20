@@ -20,6 +20,7 @@ import QuotasPage from "@/pages/quotas";
 import QuotaDetailPage from "@/pages/quota-detail";
 import QuotaNewPage from "@/pages/quota-new";
 import QuotaEditPage from "@/pages/quota-edit";
+import ExchangePage from "@/pages/exchange";
 import { HostLayout } from "@/components/layout";
 import { HostAuthGuard } from "@/components/host-auth-guard";
 import ProfilePage from "@/pages/profile";
@@ -67,6 +68,11 @@ function Router() {
         )}
       </Route>
       <Route path="/quotas/:id" component={QuotaDetailPage} />
+      <Route path="/exchange">
+        <HostAuthGuard>
+          <ExchangePage />
+        </HostAuthGuard>
+      </Route>
       <Route path="/play/:playerToken" component={Play} />
       {/* Browser-host page is a player-side feature (the human running it
           authenticates via their own wallet, not a hostToken). Route it

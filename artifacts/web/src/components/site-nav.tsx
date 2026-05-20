@@ -19,6 +19,7 @@ type NavKey =
   | "/quotas"
   | "/host"
   | "/wallet"
+  | "/exchange"
   | "/profile";
 
 interface Props {
