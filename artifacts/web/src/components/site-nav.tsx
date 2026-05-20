@@ -10,7 +10,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { useGetWallet } from "@workspace/api-client-react";
+import { useGetWallet, getGetWalletQueryKey } from "@workspace/api-client-react";
 
 type NavKey =
   | "/"
@@ -27,7 +27,7 @@ interface Props {
 
 function BalanceChip({ hostToken }: { hostToken: string }) {
   const { data: wallet } = useGetWallet(hostToken, {
-    query: { retry: false, staleTime: 30_000 },
+    query: { retry: false, staleTime: 30_000, queryKey: getGetWalletQueryKey(hostToken) },
   });
 
   const blueLzt = wallet?.internalBalanceLzt ?? null;
