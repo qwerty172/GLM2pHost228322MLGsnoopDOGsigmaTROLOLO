@@ -17,11 +17,13 @@ export const sessionsTable = pgTable("sessions", {
     .notNull()
     .references(() => hostsTable.id, { onDelete: "cascade" }),
   // Which game from the host's library this session is for.
-  // Nullable for backward compat with sessions created before host-library
-  // multi-game support landed. New sessions should always set this.
-  gameId: uuid("game_id").references(() => gamesTable.id, {
-    onDelete: "set null",
-  }),
+  // NOT NULL enforced at the application level and DB level.
+  // onDelete: "restrict" prevents accidental game deletion while sessions exist —
+  // correct for billing-audit integrity (active sessions reference a paid game).
+  // Legacy NULL rows were back-filled via the legacyBackfill startup migration.
+  gameId: uuid("game_id")
+    .notNull()
+    .references(() => gamesTable.id, { onDelete: "restrict" }),
   playerToken: text("player_token").notNull().unique(),
   claimedByPlayerId: uuid("claimed_by_player_id").references(
     () => playersTable.id,

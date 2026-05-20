@@ -35,7 +35,7 @@ export async function runLegacyBackfill(): Promise<void> {
     `);
 
     // 2. Back-fill sessions.game_id from host's legacy game binding.
-    const { rowCount: sRows } = await client.query(`
+    const { rowCount: sRows1 } = await client.query(`
       UPDATE sessions s
       SET    game_id = h.game_id
       FROM   hosts h
@@ -43,6 +43,18 @@ export async function runLegacyBackfill(): Promise<void> {
         AND  s.game_id   IS NULL
         AND  h.game_id   IS NOT NULL
     `);
+
+    // 3. Still-NULL sessions: try to resolve via case-insensitive appName match.
+    //    This catches sessions created before the game catalog existed or before
+    //    the host had a game binding set.
+    const { rowCount: sRows2 } = await client.query(`
+      UPDATE sessions s
+      SET    game_id = g.id
+      FROM   games g
+      WHERE  s.game_id IS NULL
+        AND  lower(s.app_name) = lower(g.title)
+    `);
+    const sRows = (sRows1 ?? 0) + (sRows2 ?? 0);
 
     await client.query("COMMIT");
 

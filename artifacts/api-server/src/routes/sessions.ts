@@ -95,15 +95,30 @@ router.post("/sessions", async (req, res): Promise<void> => {
         ),
       );
     if (!libEntry) {
-      res
-        .status(400)
-        .json({ error: "Requested game is not in host's library or is disabled" });
-      return;
+      // Only reject if host actually has a library. Legacy (single-profile)
+      // hosts without any library entries silently ignore requestedGameId and
+      // fall back to their host-level binding — this preserves backward compat
+      // for old host agents that don't know about multi-game libraries yet.
+      const [anyLibEntry] = await db
+        .select({ id: hostGamesTable.id })
+        .from(hostGamesTable)
+        .where(eq(hostGamesTable.hostId, host.id))
+        .limit(1);
+      if (anyLibEntry) {
+        res
+          .status(400)
+          .json({ error: "Requested game is not in host's library or is disabled" });
+        return;
+      }
+      // Legacy fallback: host has no library, ignore requestedGameId.
+      ratePerMinute = Number(host.minutePriceUsd);
+      resolvedGameId = host.gameId ?? null;
+    } else {
+      resolvedGameId = libEntry.gameId;
+      // Convert integer LZT price to USD for the ratePerMinute field that the
+      // billing worker currently uses. 200 LZT = 1 USDT = 1 USD (platform rate).
+      ratePerMinute = libEntry.pricePerMinuteLzt / 200;
     }
-    resolvedGameId = libEntry.gameId;
-    // Convert integer LZT price to USD for the ratePerMinute field that the
-    // billing worker currently uses. 200 LZT = 1 USDT = 1 USD (platform rate).
-    ratePerMinute = libEntry.pricePerMinuteLzt / 200;
   } else {
     // Legacy: use the host-level minutePriceUsd and bind to legacy gameId.
     ratePerMinute = Number(host.minutePriceUsd);
@@ -112,6 +127,16 @@ router.post("/sessions", async (req, res): Promise<void> => {
 
   if (!Number.isFinite(ratePerMinute) || Math.abs(ratePerMinute) > 1000) {
     res.status(400).json({ error: "Host's minute price is invalid" });
+    return;
+  }
+
+  // sessions.gameId is NOT NULL in the DB — reject creation if we couldn't
+  // resolve a game binding through any path (library, host.gameId, or appName).
+  if (!resolvedGameId) {
+    res.status(400).json({
+      error:
+        "Host has no game binding. Add at least one game to the host library or set a gameId on the host profile before creating a session.",
+    });
     return;
   }
 

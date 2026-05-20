@@ -252,9 +252,15 @@ router.get("/games/:slug", async (req, res): Promise<void> => {
       and(
         ne(sessionsTable.status, "ended"),
         or(
+          // Primary: session's own game binding (set by new library path or backfill).
           eq(sessionsTable.gameId, game.id),
-          ilike(sessionsTable.appName, game.title),
-          eq(hostsTable.gameId, game.id),
+          // Legacy fallback: sessions created before gameId was tracked, matched by
+          // appName. Only applies when sessions.gameId IS NULL to avoid false-positives
+          // from multi-game hosts where hosts.gameId differs from sessions.gameId.
+          and(
+            sql`${sessionsTable.gameId} IS NULL`,
+            ilike(sessionsTable.appName, game.title),
+          ),
         ),
       ),
     )
