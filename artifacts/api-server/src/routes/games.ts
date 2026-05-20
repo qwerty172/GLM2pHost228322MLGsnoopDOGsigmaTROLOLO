@@ -9,6 +9,20 @@ import {
 } from "@workspace/api-zod";
 import { isHostAvailableNow } from "../lib/schedule";
 
+// Resolve the admin host id from the X-Host-Token header, or return null.
+async function resolveAdminId(
+  req: import("express").Request,
+): Promise<string | null> {
+  const token = req.headers["x-host-token"];
+  if (!token) return null;
+  const t = Array.isArray(token) ? token[0] : token;
+  const [host] = await db
+    .select({ id: hostsTable.id, isAdmin: hostsTable.isAdmin })
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, t));
+  return host?.isAdmin ? host.id : null;
+}
+
 // Strict boolean coercion for URL query strings. The orval-generated
 // schema uses `zod.coerce.boolean()`, which treats any non-empty string
 // (including "false" and "0") as `true` — that would silently invert
@@ -27,6 +41,7 @@ const ListGamesQuery = z.object({
   search: z.string().optional(),
   tag: z.string().optional(),
   category: z.string().optional(),
+  includeHidden: strictBool,
 });
 
 const GetGameQuery = z.object({
@@ -149,7 +164,28 @@ router.get("/games", async (req, res): Promise<void> => {
   }
   const q = parsed.data;
 
+  // includeHidden=1 is only honoured for admins; everyone else always sees
+  // only visible games.
+  let showHidden = false;
+  if (q.includeHidden === true) {
+    const adminId = await resolveAdminId(req);
+    if (adminId) showHidden = true;
+  }
+
   const conds = [];
+  // Filter hidden games unless admin explicitly requests them.
+  // Non-admins also see only games that have a playable cover (non-empty
+  // cover_image_url or browser_host_url). This drops placeholder stubs
+  // that slipped past the is_hidden flag.
+  if (!showHidden) {
+    conds.push(eq(gamesTable.isHidden, false));
+    conds.push(
+      or(
+        sql`${gamesTable.browserHostUrl} != ''`,
+        sql`${gamesTable.coverImageUrl} != ''`,
+      )!,
+    );
+  }
   if (q.hasMods === true) conds.push(eq(gamesTable.hasMods, true));
   if (q.isMultiplayer === true)
     conds.push(eq(gamesTable.isMultiplayer, true));
@@ -240,6 +276,14 @@ router.get("/games/:slug", async (req, res): Promise<void> => {
   if (!game) {
     res.status(404).json({ error: "Game not found" });
     return;
+  }
+  // Hidden games are invisible to non-admins.
+  if (game.isHidden) {
+    const adminId = await resolveAdminId(req);
+    if (!adminId) {
+      res.status(404).json({ error: "Game not found" });
+      return;
+    }
   }
 
   // A "live" host listing for this game requires an open session row. The

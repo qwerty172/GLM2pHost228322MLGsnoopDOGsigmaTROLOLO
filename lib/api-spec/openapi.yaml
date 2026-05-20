@@ -319,6 +319,12 @@ paths:
           schema:
             type: string
           description: Only return games that have at least one currently-available host whose capability tags contain this value (case-insensitive).
+        - in: query
+          name: includeHidden
+          required: false
+          schema:
+            type: boolean
+          description: When true and the caller is an admin (X-Host-Token), hidden games are included in the results.
       responses:
         "200":
           description: Games catalog
@@ -963,6 +969,39 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /admin/games:
+    get:
+      operationId: adminListGames
+      tags: [games]
+      summary: Admin — list all games including hidden ones
+      parameters:
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: All games
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GameListItem"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /loans/requests:
     get:
       operationId: listLoanRequests
@@ -1094,8 +1133,146 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /admin/games/{id}:
+    patch:
+      operationId: adminPatchGame
+      tags: [games]
+      summary: Admin — edit game metadata and/or toggle is_hidden flag
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminPatchGameBody"
+      responses:
+        "200":
+          description: Updated game
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameListItem"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: adminDeleteGame
+      tags: [games]
+      summary: Admin — permanently delete a game with no session history
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+                  id:
+                    type: string
+                required: [deleted, id]
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Cannot delete — sessions exist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
+    AdminPatchGameBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        category:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+        coverImageUrl:
+          type: string
+        steamAppId:
+          type: ["string", "null"]
+        hasMods:
+          type: boolean
+        isMultiplayer:
+          type: boolean
+        hostSpectatesPlayer:
+          type: boolean
+        hasQuests:
+          type: boolean
+        browserHostUrl:
+          type: string
+        isHidden:
+          type: boolean
+          description: Set to true to hide from public catalog; false to restore visibility.
+
     HealthStatus:
       type: object
       properties:
@@ -1355,6 +1532,9 @@ components:
             Same-origin URL of a vendored browser build that a player can host
             directly from their browser tab (no desktop agent). Empty when only
             native-app hosting is supported.
+        isHidden:
+          type: boolean
+          description: When true the game is excluded from the public catalog (admin-only flag).
       required:
         - id
         - slug

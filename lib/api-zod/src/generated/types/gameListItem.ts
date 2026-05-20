@@ -24,4 +24,6 @@ directly from their browser tab (no desktop agent). Empty when only
 native-app hosting is supported.
  */
   browserHostUrl: string;
+  /** When true the game is excluded from the public catalog (admin-only flag). */
+  isHidden?: boolean;
 }

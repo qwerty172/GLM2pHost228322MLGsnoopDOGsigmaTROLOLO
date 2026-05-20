@@ -18,6 +18,8 @@ import type {
 
 import type {
   ActivityItem,
+  AdminDeleteGame200,
+  AdminPatchGameBody,
   ClaimSessionBody,
   CreateBrowserHostSessionBody,
   CreateBrowserHostSessionResponse,
@@ -3018,6 +3020,81 @@ export const useRequestWithdrawal = <
 };
 
 /**
+ * @summary Admin — list all games including hidden ones
+ */
+export const getAdminListGamesUrl = () => {
+  return `/api/admin/games`;
+};
+
+export const adminListGames = async (
+  options?: RequestInit,
+): Promise<GameListItem[]> => {
+  return customFetch<GameListItem[]>(getAdminListGamesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListGamesQueryKey = () => {
+  return [`/api/admin/games`] as const;
+};
+
+export const getAdminListGamesQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListGames>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListGames>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminListGamesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof adminListGames>>> = ({
+    signal,
+  }) => adminListGames({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListGames>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListGamesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListGames>>
+>;
+export type AdminListGamesQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Admin — list all games including hidden ones
+ */
+
+export function useAdminListGames<
+  TData = Awaited<ReturnType<typeof adminListGames>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListGames>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListGamesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary List open P2P loan requests (newest first)
  */
 export const getListLoanRequestsUrl = () => {
@@ -3444,4 +3521,175 @@ export const useRepayLoan = <
   TContext
 > => {
   return useMutation(getRepayLoanMutationOptions(options));
+};
+
+/**
+ * @summary Admin — edit game metadata and/or toggle is_hidden flag
+ */
+export const getAdminPatchGameUrl = (id: string) => {
+  return `/api/admin/games/${id}`;
+};
+
+export const adminPatchGame = async (
+  id: string,
+  adminPatchGameBody: AdminPatchGameBody,
+  options?: RequestInit,
+): Promise<GameListItem> => {
+  return customFetch<GameListItem>(getAdminPatchGameUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminPatchGameBody),
+  });
+};
+
+export const getAdminPatchGameMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchGame>>,
+    TError,
+    { id: string; data: BodyType<AdminPatchGameBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminPatchGame>>,
+  TError,
+  { id: string; data: BodyType<AdminPatchGameBody> },
+  TContext
+> => {
+  const mutationKey = ["adminPatchGame"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminPatchGame>>,
+    { id: string; data: BodyType<AdminPatchGameBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminPatchGame(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminPatchGameMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminPatchGame>>
+>;
+export type AdminPatchGameMutationBody = BodyType<AdminPatchGameBody>;
+export type AdminPatchGameMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Admin — edit game metadata and/or toggle is_hidden flag
+ */
+export const useAdminPatchGame = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchGame>>,
+    TError,
+    { id: string; data: BodyType<AdminPatchGameBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminPatchGame>>,
+  TError,
+  { id: string; data: BodyType<AdminPatchGameBody> },
+  TContext
+> => {
+  return useMutation(getAdminPatchGameMutationOptions(options));
+};
+
+/**
+ * @summary Admin — permanently delete a game with no session history
+ */
+export const getAdminDeleteGameUrl = (id: string) => {
+  return `/api/admin/games/${id}`;
+};
+
+export const adminDeleteGame = async (
+  id: string,
+  options?: RequestInit,
+): Promise<AdminDeleteGame200> => {
+  return customFetch<AdminDeleteGame200>(getAdminDeleteGameUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getAdminDeleteGameMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteGame>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteGame>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteGame"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteGame>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeleteGame(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteGameMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteGame>>
+>;
+
+export type AdminDeleteGameMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Admin — permanently delete a game with no session history
+ */
+export const useAdminDeleteGame = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteGame>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteGame>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getAdminDeleteGameMutationOptions(options));
 };

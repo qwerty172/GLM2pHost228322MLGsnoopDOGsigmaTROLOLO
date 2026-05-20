@@ -445,6 +445,12 @@ export const ListGamesQueryParams = zod.object({
     .describe(
       "Only return games that have at least one currently-available host whose capability tags contain this value (case-insensitive).",
     ),
+  includeHidden: zod.coerce
+    .boolean()
+    .optional()
+    .describe(
+      "When true and the caller is an admin (X-Host-Token), hidden games are included in the results.",
+    ),
 });
 
 export const ListGamesResponseItem = zod.object({
@@ -467,6 +473,12 @@ export const ListGamesResponseItem = zod.object({
     .string()
     .describe(
       "Same-origin URL of a vendored browser build that a player can host\ndirectly from their browser tab (no desktop agent). Empty when only\nnative-app hosting is supported.\n",
+    ),
+  isHidden: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When true the game is excluded from the public catalog (admin-only flag).",
     ),
 });
 export const ListGamesResponse = zod.array(ListGamesResponseItem);
@@ -517,6 +529,12 @@ export const GetGameBySlugResponse = zod
       .string()
       .describe(
         "Same-origin URL of a vendored browser build that a player can host\ndirectly from their browser tab (no desktop agent). Empty when only\nnative-app hosting is supported.\n",
+      ),
+    isHidden: zod
+      .boolean()
+      .optional()
+      .describe(
+        "When true the game is excluded from the public catalog (admin-only flag).",
       ),
   })
   .and(
@@ -1412,6 +1430,43 @@ export const RequestWithdrawalBody = zod.object({
 });
 
 /**
+ * @summary Admin — list all games including hidden ones
+ */
+export const AdminListGamesHeader = zod.object({
+  "X-Host-Token": zod.string(),
+});
+
+export const AdminListGamesResponseItem = zod.object({
+  id: zod.string(),
+  slug: zod.string(),
+  title: zod.string(),
+  coverImageUrl: zod.string(),
+  description: zod.string(),
+  genre: zod.string(),
+  hasMods: zod.boolean(),
+  isMultiplayer: zod.boolean(),
+  hostSpectatesPlayer: zod.boolean(),
+  hasQuests: zod.boolean(),
+  liveSessionCount: zod
+    .number()
+    .describe(
+      "Number of pending or active sessions matching this game right now",
+    ),
+  browserHostUrl: zod
+    .string()
+    .describe(
+      "Same-origin URL of a vendored browser build that a player can host\ndirectly from their browser tab (no desktop agent). Empty when only\nnative-app hosting is supported.\n",
+    ),
+  isHidden: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When true the game is excluded from the public catalog (admin-only flag).",
+    ),
+});
+export const AdminListGamesResponse = zod.array(AdminListGamesResponseItem);
+
+/**
  * @summary List open P2P loan requests (newest first)
  */
 export const ListLoanRequestsResponseItem = zod
@@ -1552,4 +1607,80 @@ export const RepayLoanBody = zod.object({
 
 export const RepayLoanResponse = zod.object({
   repaidLzt: zod.number(),
+});
+
+/**
+ * @summary Admin — edit game metadata and/or toggle is_hidden flag
+ */
+export const AdminPatchGameParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const AdminPatchGameHeader = zod.object({
+  "X-Host-Token": zod.string(),
+});
+
+export const AdminPatchGameBody = zod.object({
+  title: zod.string().min(1).optional(),
+  category: zod.string().optional(),
+  genres: zod.array(zod.string()).optional(),
+  description: zod.string().optional(),
+  coverImageUrl: zod.string().optional(),
+  steamAppId: zod.string().nullish(),
+  hasMods: zod.boolean().optional(),
+  isMultiplayer: zod.boolean().optional(),
+  hostSpectatesPlayer: zod.boolean().optional(),
+  hasQuests: zod.boolean().optional(),
+  browserHostUrl: zod.string().optional(),
+  isHidden: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Set to true to hide from public catalog; false to restore visibility.",
+    ),
+});
+
+export const AdminPatchGameResponse = zod.object({
+  id: zod.string(),
+  slug: zod.string(),
+  title: zod.string(),
+  coverImageUrl: zod.string(),
+  description: zod.string(),
+  genre: zod.string(),
+  hasMods: zod.boolean(),
+  isMultiplayer: zod.boolean(),
+  hostSpectatesPlayer: zod.boolean(),
+  hasQuests: zod.boolean(),
+  liveSessionCount: zod
+    .number()
+    .describe(
+      "Number of pending or active sessions matching this game right now",
+    ),
+  browserHostUrl: zod
+    .string()
+    .describe(
+      "Same-origin URL of a vendored browser build that a player can host\ndirectly from their browser tab (no desktop agent). Empty when only\nnative-app hosting is supported.\n",
+    ),
+  isHidden: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When true the game is excluded from the public catalog (admin-only flag).",
+    ),
+});
+
+/**
+ * @summary Admin — permanently delete a game with no session history
+ */
+export const AdminDeleteGameParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const AdminDeleteGameHeader = zod.object({
+  "X-Host-Token": zod.string(),
+});
+
+export const AdminDeleteGameResponse = zod.object({
+  deleted: zod.boolean(),
+  id: zod.string(),
 });

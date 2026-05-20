@@ -8,6 +8,7 @@ import {
   gamesTable,
   gameSubmissionsTable,
   hostGamesTable,
+  sessionsTable,
 } from "@workspace/db";
 import { addToLibrary } from "../lib/hostLibrary";
 
@@ -46,6 +47,22 @@ const requireAdmin: RequestHandler = async (req, res, next) => {
   (req as any).adminHostId = host.id;
   next();
 };
+
+// ---------------------------------------------------------------------------
+// GET /admin/games  — list all games including hidden ones
+// ---------------------------------------------------------------------------
+
+router.get(
+  "/admin/games",
+  requireAdmin,
+  async (_req, res): Promise<void> => {
+    const games = await db
+      .select()
+      .from(gamesTable)
+      .orderBy(gamesTable.title);
+    res.json(games);
+  },
+);
 
 // ---------------------------------------------------------------------------
 // GET /admin/games/submissions?status=pending
@@ -276,8 +293,49 @@ router.post(
   },
 );
 
+
 // ---------------------------------------------------------------------------
-// PATCH /admin/games/:slug  — edit approved game metadata
+// DELETE /admin/games/:id  — permanently remove a game from the catalog
+// ---------------------------------------------------------------------------
+
+router.delete(
+  "/admin/games/:id",
+  requireAdmin,
+  async (req, res): Promise<void> => {
+    const id = req.params["id"] as string;
+
+    const [game] = await db
+      .select()
+      .from(gamesTable)
+      .where(eq(gamesTable.id, id));
+    if (!game) {
+      res.status(404).json({ error: "Game not found" });
+      return;
+    }
+
+    // Refuse to delete if there are sessions referencing this game to avoid
+    // breaking billing audit trails (sessions.game_id has onDelete: restrict).
+    const sessionCheck = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(sessionsTable)
+      .where(eq(sessionsTable.gameId, id));
+    if ((sessionCheck[0]?.count ?? 0) > 0) {
+      res
+        .status(409)
+        .json({ error: "Cannot delete: active or historical sessions exist for this game. Hide it instead." });
+      return;
+    }
+
+    await db.delete(gamesTable).where(eq(gamesTable.id, id));
+    res.json({ deleted: true, id });
+  },
+);
+
+// ---------------------------------------------------------------------------
+// PATCH /admin/games/:id  — edit approved game metadata and/or toggle visibility.
+//
+// Accepts the game UUID as :id. Passing { isHidden: true/false } toggles
+// visibility; other fields update metadata. All fields are optional.
 // ---------------------------------------------------------------------------
 
 const PatchGameBody = z.object({
@@ -292,13 +350,14 @@ const PatchGameBody = z.object({
   hostSpectatesPlayer: z.boolean().optional(),
   hasQuests: z.boolean().optional(),
   browserHostUrl: z.string().optional(),
+  isHidden: z.boolean().optional(),
 });
 
 router.patch(
-  "/admin/games/:slug",
+  "/admin/games/:id",
   requireAdmin,
   async (req, res): Promise<void> => {
-    const slug = req.params["slug"] as string;
+    const id = req.params["id"] as string;
 
     const parsed = PatchGameBody.safeParse(req.body);
     if (!parsed.success) {
@@ -309,7 +368,7 @@ router.patch(
     const [game] = await db
       .select()
       .from(gamesTable)
-      .where(eq(gamesTable.slug, slug));
+      .where(eq(gamesTable.id, id));
     if (!game) {
       res.status(404).json({ error: "Game not found" });
       return;
@@ -329,6 +388,7 @@ router.patch(
       update.hostSpectatesPlayer = d.hostSpectatesPlayer;
     if (d.hasQuests !== undefined) update.hasQuests = d.hasQuests;
     if (d.browserHostUrl !== undefined) update.browserHostUrl = d.browserHostUrl;
+    if (d.isHidden !== undefined) update.isHidden = d.isHidden;
 
     if (Object.keys(update).length === 0) {
       res.json(game);

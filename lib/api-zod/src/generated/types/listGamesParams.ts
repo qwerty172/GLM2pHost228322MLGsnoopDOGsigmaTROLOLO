@@ -35,4 +35,8 @@ export type ListGamesParams = {
    * Only return games that have at least one currently-available host whose capability tags contain this value (case-insensitive).
    */
   tag?: string;
+  /**
+   * When true and the caller is an admin (X-Host-Token), hidden games are included in the results.
+   */
+  includeHidden?: boolean;
 };

@@ -5,6 +5,24 @@
  * P2P Cloud Gaming signaling, session, and wallet API
  * OpenAPI spec version: 0.1.0
  */
+export interface AdminPatchGameBody {
+  /** @minLength 1 */
+  title?: string;
+  category?: string;
+  genres?: string[];
+  description?: string;
+  coverImageUrl?: string;
+  /** @nullable */
+  steamAppId?: string | null;
+  hasMods?: boolean;
+  isMultiplayer?: boolean;
+  hostSpectatesPlayer?: boolean;
+  hasQuests?: boolean;
+  browserHostUrl?: string;
+  /** Set to true to hide from public catalog; false to restore visibility. */
+  isHidden?: boolean;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -168,6 +186,8 @@ directly from their browser tab (no desktop agent). Empty when only
 native-app hosting is supported.
  */
   browserHostUrl: string;
+  /** When true the game is excluded from the public catalog (admin-only flag). */
+  isHidden?: boolean;
 }
 
 export type GameLiveSessionScheduleMode =
@@ -779,6 +799,10 @@ export type ListGamesParams = {
    * Only return games that have at least one currently-available host whose capability tags contain this value (case-insensitive).
    */
   tag?: string;
+  /**
+   * When true and the caller is an admin (X-Host-Token), hidden games are included in the results.
+   */
+  includeHidden?: boolean;
 };
 
 export type GetGameBySlugParams = {
@@ -825,4 +849,9 @@ export type GetQuotaParams = {
 
 export type ListMyLoansParams = {
   userToken: string;
+};
+
+export type AdminDeleteGame200 = {
+  deleted: boolean;
+  id: string;
 };

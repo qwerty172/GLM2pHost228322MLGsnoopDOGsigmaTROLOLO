@@ -2,39 +2,26 @@ import { pgTable, text, uuid, timestamp, boolean, jsonb } from "drizzle-orm/pg-c
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-// Games catalog: titles the platform officially supports (cover art,
-// description, capability flags). Hosts stream a specific game from this
-// catalog; players browse and filter the catalog to find live sessions.
-//
-// Capability flags double as filter chips on the player-facing browse page.
-// `hasQuests` is reserved for a future quest/bounty mechanic where any user
-// can post paid tasks against a game (not just the hoster). For now it's
-// surfaced purely as a filter.
 export const gamesTable = pgTable("games", {
   id: uuid("id").primaryKey().defaultRandom(),
   slug: text("slug").notNull().unique(),
   title: text("title").notNull(),
   coverImageUrl: text("cover_image_url").notNull().default(""),
   description: text("description").notNull().default(""),
-  // Free-form genre/tag (e.g. "Shooter", "RPG") used only for display.
   genre: text("genre").notNull().default(""),
-  // Structured category for catalog filtering (e.g. "Action", "RPG", "Strategy").
   category: text("category").notNull().default(""),
-  // Multi-value genre tags for richer filtering (e.g. ["Shooter", "Battle Royale"]).
   genres: jsonb("genres").$type<string[]>().notNull().default([]),
-  // Steam App ID for future auto-scan / metadata integration.
   steamAppId: text("steam_app_id"),
-  // Capability flags / filter chips.
   hasMods: boolean("has_mods").notNull().default(false),
   isMultiplayer: boolean("is_multiplayer").notNull().default(false),
   hostSpectatesPlayer: boolean("host_spectates_player")
     .notNull()
     .default(false),
   hasQuests: boolean("has_quests").notNull().default(false),
-  // When set, this game can be hosted directly from the player's browser
-  // (no desktop host agent). The URL must be same-origin so the host page
-  // can inject input events into the iframe.
   browserHostUrl: text("browser_host_url").notNull().default(""),
+  // Admin-controlled visibility flag. Hidden games are excluded from the
+  // public catalog but stay in the DB so host_games / session FKs remain valid.
+  isHidden: boolean("is_hidden").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

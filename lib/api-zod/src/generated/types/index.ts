@@ -7,6 +7,8 @@
  */
 
 export * from "./activityItem";
+export * from "./adminDeleteGame200";
+export * from "./adminPatchGameBody";
 export * from "./claimSessionBody";
 export * from "./claimSessionBodyPaymentSource";
 export * from "./createBrowserHostSessionBody";

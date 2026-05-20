@@ -1,10 +1,36 @@
 import { db, gamesTable, type InsertGame } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, notInArray } from "drizzle-orm";
 import { logger } from "./logger";
+import { pool } from "@workspace/db";
 
-// Seed the games catalog with a starting set. Re-running is safe — we
-// upsert by slug. New entries can be added here over time; existing rows
-// have their cosmetic fields refreshed but are never deleted.
+// Slugs that should exist as real catalog entries. Everything else that was
+// seeded by the old SEED array (placeholder games with generic covers) will
+// be deleted from the DB on startup so they never reappear.
+const KEEP_SLUGS = [
+  "rogue-fable-3",
+];
+
+// Slugs of the old placeholder/dummy games seeded by the legacy SEED list.
+// We delete these rows from the DB on startup (if they still exist).
+const DUMMY_SLUGS = [
+  "cyberpunk-2077",
+  "elden-ring",
+  "helldivers-2",
+  "minecraft",
+  "skyrim-special-edition",
+  "counter-strike-2",
+  "dota-2",
+  "satisfactory",
+];
+
+// Title patterns that indicate leftover test/CI records. We mark them
+// is_hidden=true rather than deleting because they may have FK references.
+const TEST_TITLE_FRAGMENTS = [
+  "pipeline test",
+  "approve notif test",
+  "new unique game",
+];
+
 const SEED: InsertGame[] = [
   {
     slug: "rogue-fable-3",
@@ -19,104 +45,10 @@ const SEED: InsertGame[] = [
     hasQuests: true,
     browserHostUrl: "games/rf3/index.html",
   },
-  {
-    slug: "cyberpunk-2077",
-    title: "Cyberpunk 2077",
-    genre: "Action RPG",
-    coverImageUrl: "/game-1.png",
-    description:
-      "Open-world cyberpunk RPG. Heavy on graphics and a strong fit for high-end host rigs.",
-    hasMods: true,
-    isMultiplayer: false,
-    hostSpectatesPlayer: false,
-    hasQuests: true,
-  },
-  {
-    slug: "elden-ring",
-    title: "Elden Ring",
-    genre: "Soulslike",
-    coverImageUrl: "/game-2.png",
-    description:
-      "Open-world soulslike. Co-op summons supported via online play.",
-    hasMods: true,
-    isMultiplayer: true,
-    hostSpectatesPlayer: true,
-    hasQuests: true,
-  },
-  {
-    slug: "helldivers-2",
-    title: "Helldivers 2",
-    genre: "Co-op Shooter",
-    coverImageUrl: "/game-3.png",
-    description:
-      "4-player co-op third-person shooter. Bring three friends to dive in.",
-    hasMods: false,
-    isMultiplayer: true,
-    hostSpectatesPlayer: true,
-    hasQuests: false,
-  },
-  {
-    slug: "minecraft",
-    title: "Minecraft",
-    genre: "Sandbox",
-    coverImageUrl: "",
-    description:
-      "Block-building sandbox with massive mod ecosystem. Hosts often run shaders + Forge packs.",
-    hasMods: true,
-    isMultiplayer: true,
-    hostSpectatesPlayer: false,
-    hasQuests: true,
-  },
-  {
-    slug: "skyrim-special-edition",
-    title: "Skyrim Special Edition",
-    genre: "Open-world RPG",
-    coverImageUrl: "",
-    description:
-      "Classic open-world RPG. Almost every host runs a different mod list.",
-    hasMods: true,
-    isMultiplayer: false,
-    hostSpectatesPlayer: false,
-    hasQuests: true,
-  },
-  {
-    slug: "counter-strike-2",
-    title: "Counter-Strike 2",
-    genre: "Competitive FPS",
-    coverImageUrl: "",
-    description:
-      "Tactical 5v5 shooter. Low-latency hosts only — pings matter.",
-    hasMods: false,
-    isMultiplayer: true,
-    hostSpectatesPlayer: true,
-    hasQuests: false,
-  },
-  {
-    slug: "dota-2",
-    title: "Dota 2",
-    genre: "MOBA",
-    coverImageUrl: "",
-    description: "5v5 MOBA. Long matches — pick a host with stable uptime.",
-    hasMods: false,
-    isMultiplayer: true,
-    hostSpectatesPlayer: true,
-    hasQuests: false,
-  },
-  {
-    slug: "satisfactory",
-    title: "Satisfactory",
-    genre: "Factory Builder",
-    coverImageUrl: "",
-    description:
-      "First-person factory builder with co-op. Heavy late-game CPU load.",
-    hasMods: true,
-    isMultiplayer: true,
-    hostSpectatesPlayer: false,
-    hasQuests: true,
-  },
 ];
 
 export async function seedGames(): Promise<void> {
+  // 1. Upsert the canonical seed entries.
   for (const g of SEED) {
     const [existing] = await db
       .select()
@@ -135,6 +67,8 @@ export async function seedGames(): Promise<void> {
           hostSpectatesPlayer: g.hostSpectatesPlayer ?? false,
           hasQuests: g.hasQuests ?? false,
           browserHostUrl: g.browserHostUrl ?? "",
+          // Make sure canonical games are always visible.
+          isHidden: false,
         })
         .where(eq(gamesTable.id, existing.id));
     } else {
@@ -142,4 +76,58 @@ export async function seedGames(): Promise<void> {
     }
   }
   logger.info({ count: SEED.length }, "Games catalog seeded");
+
+  // 2. Delete the old placeholder dummy games (no sessions, just cover art stubs).
+  //    We use raw SQL with a safe guard: skip rows that have any FK references
+  //    from sessions or host_games so we don't break live data.
+  const client = await pool.connect();
+  try {
+    // Delete dummies that have no session or host_game FK references.
+    const { rowCount: deleted } = await client.query(`
+      DELETE FROM games
+      WHERE slug = ANY($1::text[])
+        AND id NOT IN (SELECT DISTINCT game_id FROM sessions WHERE game_id IS NOT NULL)
+        AND id NOT IN (SELECT DISTINCT game_id FROM host_games)
+    `, [DUMMY_SLUGS]);
+    if (deleted && deleted > 0) {
+      logger.info({ deleted }, "Removed placeholder dummy games from catalog");
+    }
+
+    // Any remaining dummy games (FK-blocked) get soft-hidden so they don't
+    // pollute the public catalog.
+    const { rowCount: hiddenDummies } = await client.query(`
+      UPDATE games SET is_hidden = true
+      WHERE slug = ANY($1::text[])
+        AND is_hidden = false
+    `, [DUMMY_SLUGS]);
+    if (hiddenDummies && hiddenDummies > 0) {
+      logger.info({ hiddenDummies }, "Hid FK-blocked dummy games from catalog");
+    }
+
+    // Test/CI records: try hard-delete first (safe when no FK refs),
+    // fall back to soft-hide for FK-blocked rows.
+    for (const fragment of TEST_TITLE_FRAGMENTS) {
+      const { rowCount: deleted } = await client.query(`
+        DELETE FROM games
+        WHERE lower(title) LIKE $1
+          AND id NOT IN (SELECT DISTINCT game_id FROM sessions WHERE game_id IS NOT NULL)
+          AND id NOT IN (SELECT DISTINCT game_id FROM host_games)
+      `, [`%${fragment}%`]);
+      if (deleted && deleted > 0) {
+        logger.info({ fragment, deleted }, "Deleted test game records");
+      }
+
+      // Any remaining test rows with FK refs get soft-hidden.
+      const { rowCount: hidden } = await client.query(`
+        UPDATE games SET is_hidden = true
+        WHERE lower(title) LIKE $1
+          AND is_hidden = false
+      `, [`%${fragment}%`]);
+      if (hidden && hidden > 0) {
+        logger.info({ fragment, hidden }, "Hid FK-blocked test game records");
+      }
+    }
+  } finally {
+    client.release();
+  }
 }
