@@ -27,6 +27,31 @@
         </div>
       </section>
 
+      <!-- My Library — populated from GET /api/hosts/:token/library -->
+      <section class="card" id="library-card" hidden>
+        <h2>My Library</h2>
+        <p class="muted" id="library-status">Loading…</p>
+        <ul id="library-list" class="library-list"></ul>
+        <div class="actions" style="margin-top:8px">
+          <button type="button" id="refresh-library">Refresh library</button>
+        </div>
+      </section>
+
+      <!-- Game picker — shown when going online with a multi-game library -->
+      <section class="card" id="game-picker-card" hidden>
+        <h2>Select game to stream</h2>
+        <p class="muted">
+          Pick which game from your library you want to host this session.
+        </p>
+        <div class="row share" style="flex-wrap:wrap;gap:8px">
+          <select id="selected-game-id" style="flex:1;min-width:180px">
+            <option value="">— choose a game —</option>
+          </select>
+          <button type="button" id="confirm-game">Go online with this game</button>
+          <button type="button" id="cancel-game-picker">Cancel</button>
+        </div>
+      </section>
+
       <section class="card">
         <h2>Settings</h2>
         <form id="settings-form">
@@ -56,35 +81,42 @@
               placeholder="wss://your-host.example.com/api/signal"
             />
           </label>
-          <label>
-            <span>Executable path on this PC</span>
-            <div class="row share">
+
+          <details id="legacy-settings">
+            <summary style="cursor:pointer;margin-bottom:8px;color:#888">
+              Legacy single-game settings (use library above for multi-game)
+            </summary>
+            <label>
+              <span>Executable path on this PC</span>
+              <div class="row share">
+                <input
+                  id="appPath"
+                  type="text"
+                  placeholder="Choose a file…"
+                  readonly
+                  style="flex:1;cursor:default;"
+                />
+                <button type="button" id="browse-exe">Browse…</button>
+              </div>
+            </label>
+            <label>
+              <span>Browser URL (for browser games — overrides app path)</span>
               <input
-                id="appPath"
-                type="text"
-                placeholder="Choose a file…"
-                readonly
-                style="flex:1;cursor:default;"
+                id="boundUrl"
+                type="url"
+                placeholder="https://shellshock.io"
               />
-              <button type="button" id="browse-exe">Browse…</button>
-            </div>
-          </label>
-          <label>
-            <span>Browser URL (for browser games — overrides app path)</span>
-            <input
-              id="boundUrl"
-              type="url"
-              placeholder="https://shellshock.io"
-            />
-          </label>
-          <label>
-            <span>Launch args (optional, .exe only)</span>
-            <input id="appArgs" type="text" placeholder="-windowed -nosplash" />
-          </label>
-          <label>
-            <span>App name shown to players</span>
-            <input id="appName" type="text" placeholder="My Game" />
-          </label>
+            </label>
+            <label>
+              <span>Launch args (optional, .exe only)</span>
+              <input id="appArgs" type="text" placeholder="-windowed -nosplash" />
+            </label>
+            <label>
+              <span>App name shown to players</span>
+              <input id="appName" type="text" placeholder="My Game" />
+            </label>
+          </details>
+
           <label>
             <span>Capture target</span>
             <div class="row share">

@@ -45,12 +45,49 @@ export type InputEvent =
   | { kind: "keydown"; code: string; key: string }
   | { kind: "keyup"; code: string; key: string };
 
+// A single entry from the host's multi-game library as returned by
+// GET /api/hosts/:hostToken/library. Mirrors the server-side LibraryEntry type.
+export interface LibraryEntry {
+  id: string;
+  hostId: string;
+  gameId: string;
+  pricePerMinuteLzt: number;
+  appPath: string;
+  boundUrl: string;
+  launchArgs: string;
+  enabled: boolean;
+  sortOrder: number;
+  localAvailable: boolean;
+  lastError: string;
+  addedAt: string;
+  hasActiveSession: boolean;
+  game: {
+    id: string;
+    slug: string;
+    title: string;
+    coverImageUrl: string;
+    genre: string;
+    browserHostUrl: string;
+    hasMods: boolean;
+    isMultiplayer: boolean;
+  };
+}
+
+// Payload for launching a specific game entry (library-based launch).
+export interface GameEntryLaunch {
+  appPath: string;
+  boundUrl: string;
+  launchArgs: string;
+}
+
 export interface IpcChannels {
   "config:get": () => HostConfig | null;
   "config:set": (config: HostConfig) => HostConfig;
   "status:set": (status: AgentStatus, message?: string) => void;
   "input:inject": (event: InputEvent) => void;
   "app:launch": () => { ok: boolean; pid?: number; error?: string };
+  "app:launch-entry": (entry: GameEntryLaunch) => { ok: boolean; pid?: number; error?: string };
   "app:kill": () => void;
+  "library:open-explorer": (filePath: string) => void;
   "log": (level: "info" | "warn" | "error", message: string) => void;
 }

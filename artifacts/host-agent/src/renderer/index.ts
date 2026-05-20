@@ -1,4 +1,4 @@
-import type { AgentStatus, HostConfig, InputEvent } from "../shared/messages";
+import type { AgentStatus, HostConfig, InputEvent, LibraryEntry } from "../shared/messages";
 
 // The preload script (src/preload/index.ts) exposes this API on `window.agent`
 // via contextBridge. Re-declare the surface here so the renderer typechecks
@@ -10,14 +10,28 @@ declare global {
       setConfig: (next: HostConfig) => Promise<HostConfig>;
       setStatus: (status: AgentStatus, message?: string) => void;
       injectInput: (event: InputEvent) => void;
-      launchApp: () => Promise<{
-        ok: boolean;
-        pid?: number;
-        error?: string;
-      }>;
+      launchApp: () => Promise<{ ok: boolean; pid?: number; error?: string }>;
+      launchEntry: (entry: {
+        appPath: string;
+        boundUrl: string;
+        launchArgs: string;
+      }) => Promise<{ ok: boolean; pid?: number; error?: string }>;
+      onGameExited: (cb: () => void) => void;
       getCaptureSources: () => Promise<{ id: string; name: string }[]>;
       killApp: () => void;
       openFileDialog: () => Promise<string | null>;
+      fetchLibrary: (
+        hostToken: string,
+        apiBaseUrl: string,
+      ) => Promise<LibraryEntry[]>;
+      patchLibraryAvailability: (
+        hostToken: string,
+        apiBaseUrl: string,
+        gameId: string,
+        localAvailable: boolean,
+        lastError?: string,
+      ) => Promise<void>;
+      openExplorer: (filePath: string) => void;
       log: (level: "info" | "warn" | "error", message: string) => void;
     };
   }
@@ -38,6 +52,14 @@ const disconnectBtn = $("disconnect") as HTMLButtonElement;
 const shareCard = $("share-card") as HTMLElement;
 const playerLinkInput = $("player-link") as HTMLInputElement;
 const copyLinkBtn = $("copy-link") as HTMLButtonElement;
+const libraryCard = $("library-card") as HTMLElement;
+const libraryStatus = $("library-status") as HTMLParagraphElement;
+const libraryList = $("library-list") as HTMLUListElement;
+const refreshLibraryBtn = $("refresh-library") as HTMLButtonElement;
+const gamePickerCard = $("game-picker-card") as HTMLElement;
+const selectedGameSelect = $("selected-game-id") as HTMLSelectElement;
+const confirmGameBtn = $("confirm-game") as HTMLButtonElement;
+const cancelGamePickerBtn = $("cancel-game-picker") as HTMLButtonElement;
 
 let pc: RTCPeerConnection | null = null;
 let ws: WebSocket | null = null;
@@ -45,6 +67,14 @@ let captureStream: MediaStream | null = null;
 let dataChannel: RTCDataChannel | null = null;
 let currentSessionId: string | null = null;
 let currentConfig: HostConfig | null = null;
+// gameId of the session currently being streamed (from library or legacy).
+let currentGameId: string | null = null;
+// Guard: prevents accepting a second peer-joined while already streaming.
+let isStreaming = false;
+
+// Library state
+let libraryEntries: LibraryEntry[] = [];
+let libraryRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
 // Full path stored here; #appPath input shows only the basename.
 let resolvedAppPath = "";
@@ -97,16 +127,12 @@ async function loadFormFromConfig(): Promise<HostConfig> {
   ($("appName") as HTMLInputElement).value = cfg.appName ?? "";
   await refreshCaptureSources(cfg.captureSourceName ?? "");
   ($("ratePerMinute") as HTMLInputElement).value = String(cfg.ratePerMinute);
-  ($("commissionSplit") as HTMLInputElement).value = String(
-    cfg.commissionSplit,
-  );
+  ($("commissionSplit") as HTMLInputElement).value = String(cfg.commissionSplit);
   ($("width") as HTMLInputElement).value = String(cfg.resolution.width);
   ($("height") as HTMLInputElement).value = String(cfg.resolution.height);
   ($("bitrateKbps") as HTMLInputElement).value = String(cfg.bitrateKbps);
-  ($("killAppOnDisconnect") as HTMLInputElement).checked =
-    cfg.killAppOnDisconnect;
-  ($("autoLaunchAtStartup") as HTMLInputElement).checked =
-    cfg.autoLaunchAtStartup;
+  ($("killAppOnDisconnect") as HTMLInputElement).checked = cfg.killAppOnDisconnect;
+  ($("autoLaunchAtStartup") as HTMLInputElement).checked = cfg.autoLaunchAtStartup;
   return cfg;
 }
 
@@ -120,25 +146,18 @@ function readForm(): HostConfig {
     appArgs: ($("appArgs") as HTMLInputElement).value.trim(),
     appName: ($("appName") as HTMLInputElement).value.trim(),
     captureSourceName: ($("captureSourceName") as HTMLSelectElement).value,
-    ratePerMinute:
-      Number(($("ratePerMinute") as HTMLInputElement).value) || 0,
+    ratePerMinute: Number(($("ratePerMinute") as HTMLInputElement).value) || 0,
     commissionSplit: Math.max(
       0,
-      Math.min(
-        1,
-        Number(($("commissionSplit") as HTMLInputElement).value) || 0.7,
-      ),
+      Math.min(1, Number(($("commissionSplit") as HTMLInputElement).value) || 0.7),
     ),
     resolution: {
       width: Number(($("width") as HTMLInputElement).value) || 1920,
       height: Number(($("height") as HTMLInputElement).value) || 1080,
     },
-    bitrateKbps:
-      Number(($("bitrateKbps") as HTMLInputElement).value) || 6000,
-    killAppOnDisconnect: ($("killAppOnDisconnect") as HTMLInputElement)
-      .checked,
-    autoLaunchAtStartup: ($("autoLaunchAtStartup") as HTMLInputElement)
-      .checked,
+    bitrateKbps: Number(($("bitrateKbps") as HTMLInputElement).value) || 6000,
+    killAppOnDisconnect: ($("killAppOnDisconnect") as HTMLInputElement).checked,
+    autoLaunchAtStartup: ($("autoLaunchAtStartup") as HTMLInputElement).checked,
   };
 }
 
@@ -149,18 +168,182 @@ function deriveSignalingUrl(cfg: HostConfig): string {
   return `${wsProto}//${base.host}${base.pathname.replace(/\/$/, "")}/api/signal`;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Library management
+// ─────────────────────────────────────────────────────────────────────────────
+
+function renderLibraryEntry(entry: LibraryEntry): HTMLLIElement {
+  const li = document.createElement("li");
+  li.className = "library-entry";
+  li.dataset["gameId"] = entry.gameId;
+
+  const isBrowser = !!entry.boundUrl;
+  const isAvailable = !entry.appPath || entry.localAvailable; // browser games always "available"
+  const statusIcon = !entry.enabled
+    ? "⏸️"
+    : isAvailable
+      ? "✅"
+      : "❌";
+  const statusLabel = !entry.enabled
+    ? "disabled"
+    : isAvailable
+      ? "ready"
+      : `not found (${entry.lastError || "file_not_found"})`;
+
+  const priceLabel = `🔵 ${entry.pricePerMinuteLzt} LZT/min`;
+
+  li.innerHTML = `
+    <div class="library-entry-header">
+      <span class="library-entry-icon">${statusIcon}</span>
+      <span class="library-entry-title">${escHtml(entry.game.title)}</span>
+      <span class="library-entry-price">${priceLabel}</span>
+      <span class="library-entry-status muted">${statusLabel}</span>
+    </div>
+    <div class="library-entry-path muted">
+      ${isBrowser ? `🌐 ${escHtml(entry.boundUrl)}` : escHtml(entry.appPath || "(no path set)")}
+    </div>
+    <div class="library-entry-actions"></div>
+  `;
+
+  const actionsDiv = li.querySelector<HTMLDivElement>(".library-entry-actions")!;
+
+  if (!isBrowser && entry.appPath) {
+    const openBtn = document.createElement("button");
+    openBtn.type = "button";
+    openBtn.textContent = "Open in Explorer";
+    openBtn.addEventListener("click", () => {
+      window.agent.openExplorer(entry.appPath);
+    });
+    actionsDiv.appendChild(openBtn);
+  }
+
+  if (!isBrowser) {
+    const changeBtn = document.createElement("button");
+    changeBtn.type = "button";
+    changeBtn.textContent = "Change path…";
+    changeBtn.addEventListener("click", async () => {
+      const picked = await window.agent.openFileDialog();
+      if (!picked) return;
+      const cfg = readForm();
+      if (!cfg.hostToken || !cfg.apiBaseUrl) {
+        log("Set host token and platform URL before changing game path.");
+        return;
+      }
+      changeBtn.disabled = true;
+      try {
+        const resp = await fetch(
+          `${cfg.apiBaseUrl.replace(/\/$/, "")}/api/hosts/${encodeURIComponent(cfg.hostToken)}/library/${encodeURIComponent(entry.gameId)}`,
+          {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ appPath: picked }),
+          },
+        );
+        if (!resp.ok) {
+          log(`Failed to update path (${resp.status}).`);
+          return;
+        }
+        log(`Updated ${entry.game.title} path → ${pathBasename(picked)}`);
+        await window.agent.patchLibraryAvailability(
+          cfg.hostToken,
+          cfg.apiBaseUrl,
+          entry.gameId,
+          true,
+          "",
+        );
+        await loadLibrary(cfg);
+      } catch (err) {
+        log(`Change path error: ${String(err)}`);
+      } finally {
+        changeBtn.disabled = false;
+      }
+    });
+    actionsDiv.appendChild(changeBtn);
+  }
+
+  return li;
+}
+
+function renderLibrary(entries: LibraryEntry[]): void {
+  libraryList.innerHTML = "";
+  if (entries.length === 0) {
+    libraryStatus.textContent =
+      "No games in library. Add games from the web dashboard.";
+    return;
+  }
+  const enabled = entries.filter((e) => e.enabled);
+  const disabled = entries.filter((e) => !e.enabled);
+  libraryStatus.textContent = `${enabled.length} enabled game${enabled.length !== 1 ? "s" : ""} · ${disabled.length} disabled`;
+
+  for (const entry of entries) {
+    libraryList.appendChild(renderLibraryEntry(entry));
+  }
+
+  // Populate game picker dropdown
+  selectedGameSelect.innerHTML = '<option value="">— choose a game —</option>';
+  for (const entry of enabled) {
+    const isBrowser = !!entry.boundUrl;
+    const isAvail = isBrowser || entry.localAvailable;
+    const opt = document.createElement("option");
+    opt.value = entry.gameId;
+    opt.textContent = `${entry.game.title} · 🔵${entry.pricePerMinuteLzt} LZT/min${isAvail ? "" : " ⚠️ not found"}`;
+    opt.disabled = !isAvail;
+    selectedGameSelect.appendChild(opt);
+  }
+}
+
+async function loadLibrary(cfg: HostConfig): Promise<void> {
+  if (!cfg.hostToken || !cfg.apiBaseUrl) return;
+  libraryCard.hidden = false;
+  libraryStatus.textContent = "Loading…";
+  try {
+    const entries = await window.agent.fetchLibrary(cfg.hostToken, cfg.apiBaseUrl);
+    libraryEntries = entries;
+    renderLibrary(entries);
+    log(`Library loaded: ${entries.length} game(s).`);
+  } catch (err) {
+    libraryStatus.textContent = "Failed to load library.";
+    log(`Library load error: ${String(err)}`);
+  }
+}
+
+function startLibraryPolling(cfg: HostConfig): void {
+  stopLibraryPolling();
+  libraryRefreshTimer = setInterval(() => {
+    void loadLibrary(cfg);
+  }, 5 * 60 * 1000); // every 5 min
+}
+
+function stopLibraryPolling(): void {
+  if (libraryRefreshTimer) {
+    clearInterval(libraryRefreshTimer);
+    libraryRefreshTimer = null;
+  }
+}
+
+function escHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Settings form
+// ─────────────────────────────────────────────────────────────────────────────
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const cfg = readForm();
   await window.agent.setConfig(cfg);
   log("Settings saved.");
+  await loadLibrary(cfg);
+  startLibraryPolling(cfg);
 });
 
 const pullBtn = $("pull-from-server") as HTMLButtonElement;
 pullBtn.addEventListener("click", async () => {
-  // Fetch the host's "offer" (game binding / .exe / pricing / schedule) that
-  // the operator configured in the web dashboard, then prefill the agent's
-  // local form so we know which file to launch when a player connects.
   const cfg = readForm();
   if (!cfg.hostToken || !cfg.apiBaseUrl) {
     log("Set host token and platform URL before pulling from the server.");
@@ -194,9 +377,7 @@ pullBtn.addEventListener("click", async () => {
       touched++;
     }
     if (typeof data.minutePriceUsd === "number") {
-      ($("ratePerMinute") as HTMLInputElement).value = String(
-        data.minutePriceUsd,
-      );
+      ($("ratePerMinute") as HTMLInputElement).value = String(data.minutePriceUsd);
       touched++;
     }
     log(`Pulled offer from server (${touched} field(s) updated). Click Save to persist.`);
@@ -214,9 +395,14 @@ copyLinkBtn.addEventListener("click", () => {
 
 const refreshSourcesBtn = $("refresh-sources") as HTMLButtonElement;
 refreshSourcesBtn.addEventListener("click", () => {
-  void refreshCaptureSources(
-    ($("captureSourceName") as HTMLSelectElement).value,
-  );
+  void refreshCaptureSources(($("captureSourceName") as HTMLSelectElement).value);
+});
+
+refreshLibraryBtn.addEventListener("click", async () => {
+  const cfg = readForm();
+  refreshLibraryBtn.disabled = true;
+  await loadLibrary(cfg);
+  refreshLibraryBtn.disabled = false;
 });
 
 async function refreshCaptureSources(selected: string): Promise<void> {
@@ -227,12 +413,10 @@ async function refreshCaptureSources(selected: string): Promise<void> {
   } catch (err) {
     log(`Could not enumerate capture sources: ${String(err)}`);
   }
-  // Reset options
   sel.innerHTML = "";
   const auto = document.createElement("option");
   auto.value = "";
-  auto.textContent =
-    "(auto — match launched app, else primary screen)";
+  auto.textContent = "(auto — match launched app, else primary screen)";
   sel.appendChild(auto);
   for (const s of sources) {
     const opt = document.createElement("option");
@@ -243,44 +427,115 @@ async function refreshCaptureSources(selected: string): Promise<void> {
   sel.value = selected;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// "Go online" flow with game picker
+// ─────────────────────────────────────────────────────────────────────────────
+
 connectBtn.addEventListener("click", async () => {
+  // One-session-at-a-time guard.
+  if (currentSessionId) {
+    log("Already online — disconnect first before starting a new session.");
+    return;
+  }
+
   const cfg = await window.agent.setConfig(readForm());
   if (!cfg.hostToken || !cfg.apiBaseUrl) {
     setStatus("error", "Host token and platform URL are required");
     return;
   }
-  await connect(cfg);
+
+  const enabledLibGames = libraryEntries.filter(
+    (e) => e.enabled && (e.boundUrl || e.localAvailable),
+  );
+
+  if (enabledLibGames.length === 0) {
+    // No library (or all games unavailable) — use legacy single-game path.
+    currentGameId = null;
+    await connect(cfg, null);
+    return;
+  }
+
+  if (enabledLibGames.length === 1) {
+    // Auto-select the only available game.
+    const only = enabledLibGames[0]!;
+    log(`Auto-selected game: ${only.game.title}`);
+    currentGameId = only.gameId;
+    await connect(cfg, only.gameId);
+    return;
+  }
+
+  // Multiple games: show picker.
+  gamePickerCard.hidden = false;
+  connectBtn.disabled = true;
+});
+
+confirmGameBtn.addEventListener("click", async () => {
+  const gameId = selectedGameSelect.value;
+  if (!gameId) {
+    log("Please choose a game from the list.");
+    return;
+  }
+  gamePickerCard.hidden = true;
+  connectBtn.disabled = false;
+  const cfg = await window.agent.setConfig(readForm());
+  currentGameId = gameId;
+  await connect(cfg, gameId);
+});
+
+cancelGamePickerBtn.addEventListener("click", () => {
+  gamePickerCard.hidden = true;
+  connectBtn.disabled = false;
 });
 
 disconnectBtn.addEventListener("click", () => {
   teardown("Disconnected by host");
 });
 
-async function createSession(cfg: HostConfig): Promise<{
-  sessionId: string;
-  playerToken: string;
-}> {
+// ─────────────────────────────────────────────────────────────────────────────
+// Session creation
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function createSession(
+  cfg: HostConfig,
+  requestedGameId: string | null,
+): Promise<{ sessionId: string; playerToken: string; gameId?: string }> {
   const url = `${cfg.apiBaseUrl.replace(/\/$/, "")}/api/sessions`;
+
+  // Find game name for the session appName field.
+  let appName = cfg.appName || "Streamed App";
+  if (requestedGameId) {
+    const entry = libraryEntries.find((e) => e.gameId === requestedGameId);
+    if (entry) appName = entry.game.title;
+  }
+
+  const body: Record<string, unknown> = {
+    hostToken: cfg.hostToken,
+    appName,
+    ratePerMinute: cfg.ratePerMinute,
+  };
+  if (requestedGameId) {
+    body["requestedGameId"] = requestedGameId;
+  }
+
   const resp = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      hostToken: cfg.hostToken,
-      appName: cfg.appName || "Streamed App",
-      // Effective rate to bill the player. The host's commission split is
-      // applied locally to the configured per-minute price (the platform's
-      // own commission is taken at deposit-time, not per-minute).
-      ratePerMinute: cfg.ratePerMinute,
-    }),
+    body: JSON.stringify(body),
   });
   if (!resp.ok) {
-    throw new Error(`Session create failed (${resp.status})`);
+    const err = (await resp.json().catch(() => ({}))) as { error?: string };
+    throw new Error(err.error ?? `Session create failed (${resp.status})`);
   }
   const data = (await resp.json()) as {
     id: string;
     playerToken: string;
+    gameId?: string;
   };
-  return { sessionId: data.id, playerToken: data.playerToken };
+  return {
+    sessionId: data.id,
+    playerToken: data.playerToken,
+    gameId: data.gameId ?? requestedGameId ?? undefined,
+  };
 }
 
 function showPlayerLink(cfg: HostConfig, playerToken: string): void {
@@ -289,17 +544,21 @@ function showPlayerLink(cfg: HostConfig, playerToken: string): void {
   shareCard.hidden = false;
 }
 
-async function connect(cfg: HostConfig): Promise<void> {
-  // Operator clicked Go online again — cancel any pending grace teardown so
-  // we don't accidentally PATCH /sessions/:id/end on the new session.
+// ─────────────────────────────────────────────────────────────────────────────
+// Connect
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function connect(cfg: HostConfig, gameId: string | null): Promise<void> {
   cancelDeferredTeardown();
   currentConfig = cfg;
+  currentGameId = gameId;
   setStatus("connecting", "Creating session…");
   connectBtn.disabled = true;
-  let session: { sessionId: string; playerToken: string };
+  let session: { sessionId: string; playerToken: string; gameId?: string };
   try {
-    session = await createSession(cfg);
+    session = await createSession(cfg, gameId);
     currentSessionId = session.sessionId;
+    if (session.gameId) currentGameId = session.gameId;
     showPlayerLink(cfg, session.playerToken);
     log(`Session created: ${session.sessionId}`);
   } catch (err) {
@@ -341,8 +600,6 @@ async function connect(cfg: HostConfig): Promise<void> {
     } else if (msg.type === "peer-joined" && msg["role"] === "player") {
       await onPlayerJoined(cfg);
     } else if (msg.type === "answer" && pc) {
-      // Web player serializes the full RTCSessionDescriptionInit object on
-      // `sdp`, so pass it through verbatim.
       const sdp = msg["sdp"] as RTCSessionDescriptionInit | string;
       const desc: RTCSessionDescriptionInit =
         typeof sdp === "string" ? { type: "answer", sdp } : sdp;
@@ -351,16 +608,11 @@ async function connect(cfg: HostConfig): Promise<void> {
         .catch((err) => log(`setRemoteDescription failed: ${String(err)}`));
     } else if (msg.type === "ice-candidate" && pc) {
       try {
-        await pc.addIceCandidate(
-          msg["candidate"] as RTCIceCandidateInit,
-        );
+        await pc.addIceCandidate(msg["candidate"] as RTCIceCandidateInit);
       } catch (err) {
         log(`ICE add failed: ${String(err)}`);
       }
     } else if (msg.type === "input") {
-      // Fallback path: input arrived via signaling, not data channel. The
-      // payload may either follow the agent's native InputEvent shape (under
-      // msg.event) or the web player's wire format (msg.kind/action/...).
       try {
         const fallback = msg["event"] as InputEvent | undefined;
         const event = fallback ?? mapPlayerInput(msg);
@@ -382,23 +634,71 @@ async function connect(cfg: HostConfig): Promise<void> {
 
   ws.onclose = () => {
     log("Signaling closed.");
-    // Don't kill the active session row immediately on a transient WS close —
-    // mobile/laptop networks routinely drop the socket for a few seconds.
-    // Schedule the end-session PATCH after a short grace window; if anything
-    // (a manual reconnect, the player rejoining, etc) calls teardown() with
-    // an explicit reason or clears currentSessionId in the meantime, we skip
-    // it.
     teardownDeferred("Signaling closed", 8000);
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Player joined — launch game and start stream
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function onPlayerJoined(cfg: HostConfig): Promise<void> {
+  // One-active-session guard: ignore a second peer-joined while streaming.
+  if (isStreaming) {
+    log("Already streaming — ignoring second peer-joined (host_busy).");
+    return;
+  }
+  isStreaming = true;
+
   setStatus("connecting", "Player joined — preparing stream…");
-  const launchResult = await window.agent.launchApp();
-  if (!launchResult.ok) {
-    log(`Failed to launch app: ${launchResult.error}`);
+
+  // Register exit callback BEFORE launching. When the game process exits,
+  // main sends "app:game-exited" → we auto-end the session.
+  window.agent.onGameExited(() => {
+    log("Game process exited — ending session automatically.");
+    teardown("Game exited");
+  });
+
+  // Library-based launch
+  if (currentGameId && libraryEntries.length > 0) {
+    const entry = libraryEntries.find(
+      (e) => e.gameId === currentGameId && e.enabled,
+    );
+    if (!entry) {
+      log(`[game_unavailable] Game ${currentGameId} not in library or disabled.`);
+      setStatus("error", "Game unavailable");
+      isStreaming = false;
+      teardown("game_unavailable");
+      return;
+    }
+    const isBrowser = !!entry.boundUrl;
+    if (!isBrowser && !entry.localAvailable) {
+      log(
+        `[game_unavailable] ${entry.game.title}: ${entry.lastError || "file not found"}`,
+      );
+      setStatus("error", `Game file not found: ${entry.game.title}`);
+      isStreaming = false;
+      teardown("game_unavailable");
+      return;
+    }
+    const launchResult = await window.agent.launchEntry({
+      appPath: entry.appPath,
+      boundUrl: entry.boundUrl,
+      launchArgs: entry.launchArgs,
+    });
+    if (!launchResult.ok) {
+      log(`Failed to launch ${entry.game.title}: ${launchResult.error}`);
+    } else {
+      log(`Launched ${entry.game.title} (pid=${launchResult.pid ?? "browser"}).`);
+    }
   } else {
-    log(`App launched (pid=${launchResult.pid}).`);
+    // Legacy path: launch from HostConfig.appPath / boundUrl
+    const launchResult = await window.agent.launchApp();
+    if (!launchResult.ok) {
+      log(`Failed to launch app: ${launchResult.error}`);
+    } else {
+      log(`App launched (pid=${launchResult.pid}).`);
+    }
   }
 
   captureStream = await captureScreen(cfg);
@@ -434,8 +734,6 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     dataChannel.onmessage = (m) => {
       try {
         const raw = JSON.parse(m.data) as Record<string, unknown>;
-        // Accept either the native agent InputEvent (already in the right
-        // shape) or the web player's wire format and translate it.
         const event =
           typeof raw["kind"] === "string" &&
           (raw["kind"] === "mousemove" ||
@@ -467,8 +765,6 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
 
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
-  // Send the full RTCSessionDescriptionInit so the web player can hand it to
-  // `new RTCSessionDescription(msg.sdp)` directly.
   ws?.send(
     JSON.stringify({
       type: "offer",
@@ -477,11 +773,10 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
   );
 }
 
-// Translate the web player's input wire format into the agent's native
-// InputEvent. The player streams pointer-lock relative movement (movementX/Y
-// in CSS pixels per event), so we forward those as relative SendInput moves
-// instead of accumulating into ever-growing absolute coordinates that would
-// clamp at the screen edge.
+// ─────────────────────────────────────────────────────────────────────────────
+// Input mapping
+// ─────────────────────────────────────────────────────────────────────────────
+
 function mapPlayerInput(raw: Record<string, unknown>): InputEvent | null {
   if (raw["type"] !== "input") return null;
   const kind = raw["kind"];
@@ -516,41 +811,45 @@ function mapPlayerInput(raw: Record<string, unknown>): InputEvent | null {
   return null;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Screen capture
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
-  // Source enumeration happens in the main process via Electron's
-  // desktopCapturer (exposed through the preload bridge). We pick the source
-  // whose name matches the configured app's basename, falling back to the
-  // primary screen.
   const sources = await window.agent.getCaptureSources();
   if (sources.length === 0) {
     throw new Error("No screen/window capture sources available");
   }
-  // Selection order:
-  //   1. Explicit captureSourceName from config (host picked from dropdown).
-  //   2. First source whose window title contains the launched .exe basename
-  //      (best-effort heuristic — Electron's desktopCapturer does not expose
-  //      PIDs, so true PID-based matching is not available here).
-  //   3. First "screen" source (whole monitor) so we never silently capture
-  //      an unrelated window.
   let chosen: { id: string; name: string } | undefined;
   if (cfg.captureSourceName) {
     chosen = sources.find((s) => s.name === cfg.captureSourceName);
   }
   if (!chosen) {
-    const targetName = cfg.appPath
-      .split(/[\\/]/)
-      .pop()
-      ?.replace(/\.exe$/i, "")
-      .toLowerCase();
+    // Try to match by currently-selected library game's exe name.
+    let targetName: string | undefined;
+    if (currentGameId) {
+      const entry = libraryEntries.find((e) => e.gameId === currentGameId);
+      if (entry?.appPath) {
+        targetName = entry.appPath
+          .split(/[\\/]/)
+          .pop()
+          ?.replace(/\.exe$/i, "")
+          .toLowerCase();
+      }
+    }
+    // Fall back to HostConfig appPath basename.
+    if (!targetName && cfg.appPath) {
+      targetName = cfg.appPath
+        .split(/[\\/]/)
+        .pop()
+        ?.replace(/\.exe$/i, "")
+        .toLowerCase();
+    }
     if (targetName) {
-      chosen = sources.find((s) =>
-        s.name.toLowerCase().includes(targetName),
-      );
+      chosen = sources.find((s) => s.name.toLowerCase().includes(targetName!));
     }
   }
   if (!chosen) {
-    // Only fall back to a full screen capture — never to an arbitrary
-    // window, since that could silently expose unrelated content.
     chosen = sources.find((s) => s.id.startsWith("screen:"));
   }
   if (!chosen) {
@@ -577,18 +876,15 @@ async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
   return navigator.mediaDevices.getUserMedia(constraints);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Teardown
+// ─────────────────────────────────────────────────────────────────────────────
+
 function teardownPeer(cfg: HostConfig): void {
-  try {
-    dataChannel?.close();
-  } catch {
-    /* */
-  }
+  isStreaming = false;
+  try { dataChannel?.close(); } catch { /* */ }
   dataChannel = null;
-  try {
-    pc?.close();
-  } catch {
-    /* */
-  }
+  try { pc?.close(); } catch { /* */ }
   pc = null;
   captureStream?.getTracks().forEach((t) => t.stop());
   captureStream = null;
@@ -612,8 +908,6 @@ function teardownDeferred(reason: string, graceMs: number): void {
   const sidAtSchedule = currentSessionId;
   pendingTeardown = setTimeout(() => {
     pendingTeardown = null;
-    // Only proceed if the same session is still considered active. If the
-    // user reconnected, currentSessionId would have been cleared/replaced.
     if (currentSessionId && currentSessionId === sidAtSchedule) {
       teardown(reason);
     }
@@ -622,10 +916,8 @@ function teardownDeferred(reason: string, graceMs: number): void {
 
 function teardown(reason: string): void {
   cancelDeferredTeardown();
+  isStreaming = false;
   log(reason);
-  // Tell the server to mark the session as ended so the host doesn't leave
-  // a stale "active" row behind (which would block billing reconciliation
-  // and prevent the host from listing as available again).
   if (currentSessionId && currentConfig?.hostToken && currentConfig.apiBaseUrl) {
     const sid = currentSessionId;
     const base = currentConfig.apiBaseUrl.replace(/\/$/, "");
@@ -635,17 +927,9 @@ function teardown(reason: string): void {
       body: JSON.stringify({ hostToken: currentConfig.hostToken }),
     }).catch((err) => log(`Failed to end session on server: ${String(err)}`));
   }
-  try {
-    ws?.close();
-  } catch {
-    /* */
-  }
+  try { ws?.close(); } catch { /* */ }
   ws = null;
-  try {
-    pc?.close();
-  } catch {
-    /* */
-  }
+  try { pc?.close(); } catch { /* */ }
   pc = null;
   captureStream?.getTracks().forEach((t) => t.stop());
   captureStream = null;
@@ -653,15 +937,23 @@ function teardown(reason: string): void {
     window.agent.killApp();
   }
   currentSessionId = null;
+  currentGameId = null;
+  shareCard.hidden = true;
   setStatus("idle", reason);
   connectBtn.disabled = false;
   disconnectBtn.disabled = true;
 }
 
-void loadFormFromConfig().then((cfg) => {
+// ─────────────────────────────────────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────────────────────────────────────
+
+void loadFormFromConfig().then(async (cfg) => {
   log("Agent UI loaded.");
   if (cfg.hostToken && cfg.apiBaseUrl) {
-    log("Stored credentials detected. Click Go online to create a session.");
+    log("Stored credentials detected. Loading library…");
+    await loadLibrary(cfg);
+    startLibraryPolling(cfg);
   } else {
     log("First launch — paste your host token from the web dashboard.");
   }

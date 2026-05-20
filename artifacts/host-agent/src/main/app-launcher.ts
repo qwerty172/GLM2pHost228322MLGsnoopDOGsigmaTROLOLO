@@ -1,7 +1,7 @@
 import { spawn, ChildProcess } from "node:child_process";
 import path from "node:path";
 import { shell } from "electron";
-import type { HostConfig } from "../shared/messages";
+import type { HostConfig, GameEntryLaunch } from "../shared/messages";
 import { log } from "./logger";
 
 let current: ChildProcess | null = null;
@@ -10,16 +10,91 @@ let current: ChildProcess | null = null;
 // tab, but we use this flag to skip the kill attempt cleanly.
 let lastWasUrl = false;
 
+// Optional one-shot callback invoked when the native process exits.
+// Cleared after first call. The main process uses this to push an
+// "app:game-exited" event to the renderer so the session auto-ends.
+let exitCallback: (() => void) | null = null;
+
+export function setExitCallback(cb: () => void): void {
+  exitCallback = cb;
+}
+
+export function clearExitCallback(): void {
+  exitCallback = null;
+}
+
+function fireExit(): void {
+  if (exitCallback) {
+    const cb = exitCallback;
+    exitCallback = null;
+    cb();
+  }
+}
+
 export function isRunning(): boolean {
   return current !== null && current.exitCode === null;
 }
 
+// Library-based launch: takes a GameEntryLaunch (from hostGamesTable).
+// Browser games open in the default browser; native games spawn the exe.
+export function launchEntry(
+  entry: GameEntryLaunch,
+): { ok: boolean; pid?: number; error?: string } {
+  const url = (entry.boundUrl ?? "").trim();
+  if (url.length > 0) {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        return { ok: false, error: "boundUrl must be http(s)" };
+      }
+      void shell.openExternal(parsed.toString());
+      lastWasUrl = true;
+      log("info", `[library] Opened browser URL ${parsed.toString()}`);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: `Invalid boundUrl: ${String(err)}` };
+    }
+  }
+
+  if (!entry.appPath) {
+    return { ok: false, error: "Library entry has no appPath or boundUrl" };
+  }
+  if (isRunning()) {
+    return { ok: true, pid: current!.pid };
+  }
+  try {
+    const args = parseArgs(entry.launchArgs ?? "");
+    const cwd = path.dirname(entry.appPath);
+    const child = spawn(entry.appPath, args, {
+      cwd,
+      detached: false,
+      stdio: "ignore",
+      windowsHide: false,
+    });
+    child.on("exit", (code, signal) => {
+      log("info", `[library] Game exited code=${code} signal=${signal}`);
+      current = null;
+      fireExit();
+    });
+    child.on("error", (err) => {
+      log("error", `[library] Game error: ${String(err)}`);
+      current = null;
+      fireExit();
+    });
+    current = child;
+    lastWasUrl = false;
+    log("info", `[library] Launched ${entry.appPath} pid=${child.pid}`);
+    return { ok: true, pid: child.pid };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+}
+
+// Legacy single-game launch using the host's HostConfig (boundUrl / appPath / appArgs).
+// Preserved for backward compat with hosts that have no multi-game library.
 export function launchApp(
   config: HostConfig,
 ): { ok: boolean; pid?: number; error?: string } {
-  // Browser game takes precedence: open the URL in the host's default
-  // browser. We don't keep a handle to the spawned browser, so this also
-  // makes killApp a no-op for URL bindings.
   const url = (config.boundUrl ?? "").trim();
   if (url.length > 0) {
     try {
@@ -54,10 +129,12 @@ export function launchApp(
     child.on("exit", (code, signal) => {
       log("info", `Target app exited code=${code} signal=${signal}`);
       current = null;
+      fireExit();
     });
     child.on("error", (err) => {
       log("error", `Target app error: ${String(err)}`);
       current = null;
+      fireExit();
     });
     current = child;
     lastWasUrl = false;
@@ -96,6 +173,7 @@ export function parseArgs(input: string): string[] {
 }
 
 export function killApp(): void {
+  clearExitCallback();
   // We can't close a browser tab we opened via shell.openExternal; the user
   // (or their OS) handles it. Just log and bail.
   if (lastWasUrl && !current) {
