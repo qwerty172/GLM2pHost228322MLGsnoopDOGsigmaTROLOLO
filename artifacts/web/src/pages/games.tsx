@@ -164,7 +164,7 @@ export default function GamesPage() {
       });
     }
     return list;
-  }, [games, sort, maxLzt]);
+  }, [games, sort, maxLzt, selectedGenres]);
 
   const toggleBool = (key: FilterKey) =>
     setBoolFilters((s) => ({ ...s, [key]: !s[key] }));

@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { ChevronDown, ChevronUp, Cpu, Gamepad2, X } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   useListPublicHosts,
   getListPublicHostsQueryKey,
@@ -112,20 +113,35 @@ function GameChips({ games }: { games: LibraryGame[] }) {
   );
 }
 
-// Resolve session playerToken for a specific host+game combo via public API.
-// Returns null if the host has no active session for this game (not online).
-async function resolvePlayerToken(
+type SessionResult =
+  | { ok: true; playerToken: string }
+  | { ok: false; reason: "game_unavailable" | "host_offline" | "error" };
+
+// POST /api/public/sessions { hostId, gameId? }
+// Returns the playerToken for the host's active session for the requested game,
+// or an error reason so callers can handle host_busy / host_offline gracefully.
+async function requestSession(
   hostId: string,
-  gameSlug: string,
-): Promise<string | null> {
+  gameId?: string,
+): Promise<SessionResult> {
   const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
-  const resp = await fetch(
-    `${base}/api/public/games/${encodeURIComponent(gameSlug)}/hosts`,
-  );
-  if (!resp.ok) return null;
-  const list: Array<{ hostId: string; playerToken: string | null }> =
-    await resp.json();
-  return list.find((h) => h.hostId === hostId)?.playerToken ?? null;
+  try {
+    const resp = await fetch(`${base}/api/public/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hostId, ...(gameId ? { gameId } : {}) }),
+    });
+    if (resp.ok) {
+      const data = (await resp.json()) as { playerToken: string };
+      return { ok: true, playerToken: data.playerToken };
+    }
+    if (resp.status === 409) {
+      return { ok: false, reason: "game_unavailable" };
+    }
+    return { ok: false, reason: "host_offline" };
+  } catch {
+    return { ok: false, reason: "error" };
+  }
 }
 
 function GamePickerDialog({
@@ -235,23 +251,29 @@ function PlayButton({
   const [loading, setLoading] = useState(false);
   const [, navigate] = useLocation();
 
-  // Connect to the host for a specific game.
-  // Tries to resolve an active session playerToken from the public API;
-  // if found, goes directly to /play/:playerToken.
-  // If not, falls back to the game detail page so the player can try again.
+  // Connect to the host for a specific game via POST /api/public/sessions.
+  // - On success → navigate to /play/:playerToken (game-specific session).
+  // - On game_unavailable → toast + fall back to generic fallbackPlayerToken
+  //   so the player still connects (host is online, just not for that game).
+  // - On host_offline / error → fall back to fallbackPlayerToken so a live
+  //   host's existing session is never blocked by a lookup failure.
   const connectToGame = async (game: LibraryGame) => {
     setLoading(true);
     try {
-      const playerToken = await resolvePlayerToken(hostId, game.slug);
-      if (playerToken) {
-        navigate(`/play/${playerToken}`);
+      const result = await requestSession(hostId, game.gameId);
+      if (result.ok) {
+        navigate(`/play/${result.playerToken}`);
+        return;
+      }
+      if (result.reason === "game_unavailable") {
+        toast.warning(`Игра «${game.title}» сейчас недоступна у этого хоста`);
+      }
+      // Fall back to the host's known session token (backward compat).
+      if (fallbackPlayerToken) {
+        navigate(`/play/${fallbackPlayerToken}`);
       } else {
-        // Host has no active session for this game — send to game page
-        // so the user can wait or pick another host.
         navigate(`/games/${game.slug}`);
       }
-    } catch {
-      navigate(`/games/${game.slug}`);
     } finally {
       setLoading(false);
     }
@@ -259,6 +281,7 @@ function PlayButton({
 
   const handlePlay = async () => {
     if (games.length === 0) {
+      // No library — connect directly via the session token we already have.
       navigate(`/play/${fallbackPlayerToken}`);
     } else if (games.length === 1) {
       await connectToGame(games[0]);

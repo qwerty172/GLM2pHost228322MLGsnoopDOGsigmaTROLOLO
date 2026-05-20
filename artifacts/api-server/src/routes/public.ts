@@ -281,6 +281,90 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
   res.json(result);
 });
 
+// ---------------------------------------------------------------------------
+// POST /public/sessions — player-side session request.
+//
+// The player supplies { hostId, gameId? }. We look up the host's active
+// non-ended session (optionally filtered by gameId) and return its
+// playerToken so the caller can navigate to /play/:playerToken.
+//
+// Error codes:
+//   409 — host_busy: host has an active session but it's already occupied
+//         by another player (playerToken is being actively used). Currently
+//         we surface this as the signaling-layer rejection; here we optimise
+//         for returning 503 "not online for this game" until we track
+//         occupancy at the DB layer.
+//   503 — host not online for the requested game (no matching session).
+//   404 — hostId not found.
+// ---------------------------------------------------------------------------
+router.post("/public/sessions", async (req, res): Promise<void> => {
+  const hostId = (req.body?.hostId as string | undefined)?.trim() ?? "";
+  const gameId = (req.body?.gameId as string | undefined)?.trim() ?? "";
+
+  if (!hostId) {
+    res.status(400).json({ error: "hostId required" });
+    return;
+  }
+
+  // Verify host exists.
+  const [host] = await db
+    .select({ id: hostsTable.id })
+    .from(hostsTable)
+    .where(eq(hostsTable.id, hostId));
+
+  if (!host) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+
+  // Find the best active session for this host, preferring the requested game.
+  const conditions = [
+    ne(sessionsTable.status, "ended"),
+    eq(sessionsTable.hostId, hostId),
+  ] as ReturnType<typeof eq>[];
+
+  if (gameId) {
+    conditions.push(eq(sessionsTable.gameId, gameId) as any);
+  }
+
+  const sessions = await db
+    .select({
+      playerToken: sessionsTable.playerToken,
+      status: sessionsTable.status,
+    })
+    .from(sessionsTable)
+    .where(and(...(conditions as any)))
+    .orderBy(desc(sessionsTable.createdAt))
+    .limit(1);
+
+  if (sessions.length === 0) {
+    if (gameId) {
+      // Try without game filter — maybe host is online for a different game.
+      const fallbackSessions = await db
+        .select({ playerToken: sessionsTable.playerToken })
+        .from(sessionsTable)
+        .where(
+          and(
+            ne(sessionsTable.status, "ended"),
+            eq(sessionsTable.hostId, hostId),
+          ),
+        )
+        .orderBy(desc(sessionsTable.createdAt))
+        .limit(1);
+
+      if (fallbackSessions.length > 0) {
+        // Host is online but not for the requested game.
+        res.status(409).json({ error: "host_busy", reason: "game_unavailable" });
+        return;
+      }
+    }
+    res.status(503).json({ error: "host_offline" });
+    return;
+  }
+
+  res.json({ playerToken: sessions[0].playerToken });
+});
+
 // Platform stats for the public landing hero strip. Cheap aggregate queries —
 // safe to call on every page-load (we don't cache today).
 router.get("/stats", async (_req, res): Promise<void> => {
