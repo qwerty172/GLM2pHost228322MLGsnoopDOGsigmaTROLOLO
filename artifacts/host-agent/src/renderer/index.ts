@@ -630,25 +630,68 @@ async function connect(cfg: HostConfig, gameId: string | null): Promise<void> {
   };
 }
 
+// Send a structured control message to the player via the signaling relay.
+// The signaling server forwards any "control" typed message from host → player.
+// Used to explicitly communicate host_busy / game_unavailable before the host
+// closes its WS or tears down the session.
+function sendControlReject(reason: "host_busy" | "game_unavailable"): void {
+  if (ws?.readyState === WebSocket.OPEN) {
+    ws.send(
+      JSON.stringify({ type: "control", action: "reject", reason }),
+    );
+  }
+}
+
+// Fetch the authoritative session.gameId from the server at join time.
+// Returns null if the session cannot be retrieved or has no gameId.
+async function fetchSessionGameId(
+  cfg: HostConfig,
+  sessionId: string,
+): Promise<string | null> {
+  try {
+    const url =
+      `${cfg.apiBaseUrl.replace(/\/$/, "")}/api/sessions/${encodeURIComponent(sessionId)}` +
+      `?hostToken=${encodeURIComponent(cfg.hostToken)}`;
+    const resp = await fetch(url);
+    if (!resp.ok) return null;
+    const data = (await resp.json()) as { gameId?: string | null };
+    return data.gameId ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Player joined — launch game and start stream
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function onPlayerJoined(cfg: HostConfig): Promise<void> {
   // One-active-session guard. If already streaming, the host machine is busy.
-  // Teardown the incoming signaling path so the player gets no stream and the
-  // session stays in a clean state. The server-side host_busy guard in
-  // POST /api/sessions prevents a second session from being created while one
-  // is active; this renderer guard covers edge cases where signaling fires
-  // a duplicate peer-joined on the same session.
+  // Send a structured rejection code so the player receives an explicit error.
+  // IMPORTANT: Do NOT close ws here — that would destroy the active stream.
   if (isStreaming) {
-    log("host_busy — already streaming. Closing signaling for duplicate peer.");
-    try { ws?.close(); } catch { /* */ }
+    log("host_busy — already streaming. Sending rejection to duplicate peer.");
+    sendControlReject("host_busy");
     return;
   }
   isStreaming = true;
 
   setStatus("connecting", "Player joined — preparing stream…");
+
+  // Fetch authoritative session.gameId from the server before launching.
+  // This is the source of truth — avoids relying on stale renderer state in
+  // edge cases (e.g. game changed between session creation and player join).
+  let resolvedGameId = currentGameId;
+  if (currentSessionId) {
+    const serverGameId = await fetchSessionGameId(cfg, currentSessionId);
+    if (serverGameId) {
+      resolvedGameId = serverGameId;
+      if (resolvedGameId !== currentGameId) {
+        log(`gameId corrected by server: ${currentGameId} → ${resolvedGameId}`);
+        currentGameId = resolvedGameId;
+      }
+    }
+  }
 
   // Register exit callback BEFORE launching. When the game process exits,
   // main sends "app:game-exited" → we auto-end the session.
@@ -658,13 +701,14 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
   });
 
   // Library-based launch
-  if (currentGameId && libraryEntries.length > 0) {
+  if (resolvedGameId && libraryEntries.length > 0) {
     const entry = libraryEntries.find(
-      (e) => e.gameId === currentGameId && e.enabled,
+      (e) => e.gameId === resolvedGameId && e.enabled,
     );
     if (!entry) {
-      log(`[game_unavailable] Game ${currentGameId} not in library or disabled.`);
+      log(`[game_unavailable] Game ${resolvedGameId} not in library or disabled.`);
       setStatus("error", "Game unavailable");
+      sendControlReject("game_unavailable");
       isStreaming = false;
       teardown("game_unavailable");
       return;
@@ -675,6 +719,7 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
         `[game_unavailable] ${entry.game.title}: ${entry.lastError || "file not found"}`,
       );
       setStatus("error", `Game file not found: ${entry.game.title}`);
+      sendControlReject("game_unavailable");
       isStreaming = false;
       teardown("game_unavailable");
       return;
@@ -688,6 +733,7 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
       // Hard-fail: do not start WebRTC capture when the game couldn't launch.
       log(`[game_unavailable] Launch failed for ${entry.game.title}: ${launchResult.error}`);
       setStatus("error", `Launch failed: ${launchResult.error}`);
+      sendControlReject("game_unavailable");
       isStreaming = false;
       teardown("game_unavailable");
       return;
@@ -700,6 +746,7 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
       // Hard-fail: do not capture if legacy app couldn't launch.
       log(`[game_unavailable] Legacy launch failed: ${launchResult.error}`);
       setStatus("error", `Launch failed: ${launchResult.error}`);
+      sendControlReject("game_unavailable");
       isStreaming = false;
       teardown("game_unavailable");
       return;
