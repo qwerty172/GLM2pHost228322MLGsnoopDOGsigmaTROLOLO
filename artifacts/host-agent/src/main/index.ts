@@ -1,6 +1,7 @@
 import { app, BrowserWindow, desktopCapturer, dialog, ipcMain, shell } from "electron";
 import path from "node:path";
 import { promises as fs } from "node:fs";
+import http from "node:http";
 import { loadConfig, saveConfig } from "./config";
 import { createTray, setStatus } from "./tray";
 import { initInputInjector, injectInput } from "./input-injection";
@@ -304,6 +305,25 @@ void app.whenReady().then(async () => {
       log(level, `[renderer] ${message}`);
     },
   );
+
+  // ── Local HTTP ping server ────────────────────────────────────────────────
+  // The web dashboard pings http://localhost:18080/ping to detect whether the
+  // agent is running. This tiny server is intentionally minimal — it only
+  // needs to confirm presence and return a version string.
+  const PING_PORT = 18080;
+  const pingServer = http.createServer((_req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Content-Type", "application/json");
+    res.writeHead(200);
+    res.end(JSON.stringify({ status: "ok", version: "0.1.0" }));
+  });
+  pingServer.listen(PING_PORT, "127.0.0.1", () => {
+    log("info", `Ping server listening on http://127.0.0.1:${PING_PORT}`);
+  });
+  pingServer.on("error", (err: NodeJS.ErrnoException) => {
+    // EADDRINUSE: another agent instance already running — harmless.
+    log("warn", `Ping server error: ${err.message}`);
+  });
 
   setStatus("idle");
   log("info", "Host agent ready.");

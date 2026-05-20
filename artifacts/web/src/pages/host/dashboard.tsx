@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import {
   useGetHostStats,
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Activity,
   Copy,
@@ -30,18 +32,421 @@ import {
   Gamepad2,
   Wallet,
   Banknote,
+  Wifi,
+  WifiOff,
+  ExternalLink,
+  Plus,
+  Pencil,
+  Trash2,
+  Globe,
+  Monitor,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
+import { Link } from "wouter";
 
 const cardStyle = {
   background: "#0a1018",
   border: "1px solid rgba(255,255,255,0.06)",
 };
 
+// ── Agent ping check ──────────────────────────────────────────────────────
+
+type AgentState =
+  | { status: "checking" }
+  | { status: "online"; version: string }
+  | { status: "offline" };
+
+async function pingAgent(): Promise<AgentState> {
+  try {
+    const res = await fetch("http://localhost:18080/ping", {
+      signal: AbortSignal.timeout(1500),
+    });
+    if (res.ok) {
+      const data = (await res.json()) as { version?: string };
+      return { status: "online", version: data.version ?? "?" };
+    }
+    return { status: "offline" };
+  } catch {
+    return { status: "offline" };
+  }
+}
+
+function AgentStatusCard({ agent }: { agent: AgentState }) {
+  if (agent.status === "checking") {
+    return (
+      <Card style={cardStyle}>
+        <CardContent className="py-4 flex items-center gap-3">
+          <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
+          <span className="text-sm text-slate-500">Проверяем агент…</span>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (agent.status === "online") {
+    return (
+      <Card
+        style={{
+          background: "rgba(16,185,129,0.06)",
+          border: "1px solid rgba(16,185,129,0.25)",
+        }}
+      >
+        <CardContent className="py-4 flex flex-wrap items-center gap-3">
+          <span className="flex items-center gap-1.5">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
+            </span>
+            <span className="text-sm font-semibold text-emerald-300">
+              Агент онлайн
+            </span>
+            <span className="text-xs text-slate-500 font-mono">
+              v{agent.version}
+            </span>
+          </span>
+          <div className="flex gap-2 ml-auto">
+            <a href="decenthub://open" target="_blank" rel="noreferrer">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 h-8 text-xs border-emerald-500/30 text-emerald-300 hover:text-white hover:border-emerald-400"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Открыть агент
+              </Button>
+            </a>
+            <a
+              href="http://localhost:18080"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Button
+                size="sm"
+                variant="ghost"
+                className="gap-1.5 h-8 text-xs text-slate-400 hover:text-white"
+              >
+                <Wifi className="h-3 w-3" />
+                localhost:18080
+              </Button>
+            </a>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card
+      style={{
+        background: "rgba(14,165,233,0.05)",
+        border: "1px solid rgba(14,165,233,0.2)",
+      }}
+    >
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base text-white">
+          <WifiOff className="h-4 w-4 text-sky-400" />
+          Установить агент хоста
+        </CardTitle>
+        <CardDescription className="text-slate-400">
+          Агент запускается на Windows-ПК и стримит окно игры по WebRTC.
+          Скачай ZIP, распакуй и запусти{" "}
+          <span className="font-mono text-xs text-sky-400">start.bat</span>.
+          Нужен Node.js 20+ (см.{" "}
+          <span className="font-mono text-xs text-sky-400">INSTALL.txt</span>{" "}
+          внутри архива).
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="pt-0 flex flex-wrap items-center gap-3">
+        <div className="flex gap-2 flex-wrap">
+          {[
+            "Стриминг окна игры по WebRTC",
+            "Авто-запуск игр",
+            "95% выплата хосту",
+          ].map((f) => (
+            <span
+              key={f}
+              className="text-[11px] px-2 py-0.5 rounded-full text-sky-300"
+              style={{ background: "rgba(14,165,233,0.1)", border: "1px solid rgba(14,165,233,0.2)" }}
+            >
+              {f}
+            </span>
+          ))}
+        </div>
+        <a
+          href="/api/downloads/host-agent.zip"
+          download="cloud-gaming-host-agent.zip"
+          data-testid="link-download-host-agent"
+          className="ml-auto"
+        >
+          <Button
+            className="gap-2 h-9 font-semibold"
+            style={{ background: "#0ea5e9", color: "#fff" }}
+          >
+            <Download className="h-4 w-4" />
+            Скачать агент (.zip)
+          </Button>
+        </a>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Host library templates ────────────────────────────────────────────────
+
+interface LibraryTemplate {
+  id: string;
+  gameId: string;
+  pricePerMinuteLzt: number;
+  enabled: boolean;
+  hasActiveSession: boolean;
+  game: {
+    id: string;
+    title: string;
+    coverImageUrl: string | null;
+    browserHostUrl: string | null;
+  };
+}
+
+async function apiFetch<T>(
+  url: string,
+  opts?: RequestInit,
+): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(url, {
+      headers: { "Content-Type": "application/json" },
+      ...opts,
+    });
+    if (res.status === 204) return { ok: true, data: undefined as T };
+    const json = await res.json();
+    if (!res.ok) return { ok: false, error: json?.error ?? "Ошибка сервера" };
+    return { ok: true, data: json };
+  } catch {
+    return { ok: false, error: "Нет соединения" };
+  }
+}
+
+function HostTemplates({ hostToken }: { hostToken: string }) {
+  const [entries, setEntries] = useState<LibraryTemplate[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [removing, setRemoving] = useState<string | null>(null);
+
+  const fetchEntries = async () => {
+    setLoading(true);
+    const r = await apiFetch<LibraryTemplate[]>(
+      `/api/hosts/${hostToken}/library`,
+    );
+    setLoading(false);
+    if (r.ok) setEntries(r.data);
+  };
+
+  useEffect(() => {
+    fetchEntries();
+  }, [hostToken]);
+
+  const handleDelete = async (entry: LibraryTemplate) => {
+    if (entry.hasActiveSession) return;
+    setRemoving(entry.gameId);
+    const r = await apiFetch(
+      `/api/hosts/${hostToken}/library/${entry.gameId}`,
+      { method: "DELETE" },
+    );
+    setRemoving(null);
+    if (r.ok) {
+      toast.success(`«${entry.game.title}» удалена из шаблонов`);
+      setEntries((prev) => prev?.filter((e) => e.gameId !== entry.gameId) ?? []);
+    } else {
+      toast.error("Не удалось удалить шаблон");
+    }
+  };
+
+  return (
+    <Card style={cardStyle}>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+        <div>
+          <CardTitle className="flex items-center gap-2 text-white">
+            <Gamepad2 className="h-5 w-5 text-sky-400" />
+            Мои шаблоны хостинга
+          </CardTitle>
+          <CardDescription className="text-slate-500 mt-0.5">
+            Настроенные игры и цены — готовы к запуску.
+          </CardDescription>
+        </div>
+        <Link href="/host/library">
+          <Button
+            size="sm"
+            className="gap-1.5 h-8 text-xs font-semibold"
+            style={{ background: "#0ea5e9", color: "#fff" }}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Новый шаблон
+          </Button>
+        </Link>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-14 w-full" />
+            ))}
+          </div>
+        ) : !entries || entries.length === 0 ? (
+          <div
+            className="flex flex-col items-center justify-center py-8 text-center rounded-lg"
+            style={{
+              background: "rgba(255,255,255,0.02)",
+              border: "1px dashed rgba(255,255,255,0.08)",
+            }}
+          >
+            <Gamepad2 className="h-10 w-10 text-slate-700 mb-3" />
+            <p className="text-slate-400 font-medium mb-1">Шаблонов пока нет</p>
+            <p className="text-sm text-slate-500 mb-4 max-w-xs">
+              Добавь игру из каталога, укажи путь к .exe и цену — получишь
+              готовый шаблон для запуска.
+            </p>
+            <Link href="/host/library">
+              <Button
+                size="sm"
+                className="gap-1.5"
+                style={{ background: "#0ea5e9", color: "#fff" }}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Добавить первый шаблон
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {entries.map((entry) => {
+              const isBrowser = !!(entry.game.browserHostUrl);
+              return (
+                <div
+                  key={entry.id}
+                  className="flex items-center gap-3 px-3 py-3 rounded-lg"
+                  style={{
+                    background: "rgba(255,255,255,0.02)",
+                    border: "1px solid rgba(255,255,255,0.05)",
+                  }}
+                >
+                  <div
+                    className="w-9 h-9 rounded flex-shrink-0 flex items-center justify-center overflow-hidden"
+                    style={{ background: "rgba(255,255,255,0.04)" }}
+                  >
+                    {entry.game.coverImageUrl ? (
+                      <img
+                        src={entry.game.coverImageUrl}
+                        alt=""
+                        className="w-full h-full object-cover rounded"
+                      />
+                    ) : (
+                      <Gamepad2 className="h-4 w-4 text-slate-600" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-white text-sm truncate">
+                        {entry.game.title}
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] h-4 px-1.5 flex-shrink-0"
+                        style={{
+                          background: isBrowser
+                            ? "rgba(16,185,129,0.12)"
+                            : "rgba(14,165,233,0.12)",
+                          color: isBrowser ? "#34d399" : "#38bdf8",
+                          border: isBrowser
+                            ? "1px solid rgba(16,185,129,0.3)"
+                            : "1px solid rgba(14,165,233,0.3)",
+                        }}
+                      >
+                        {isBrowser ? (
+                          <Globe className="h-2.5 w-2.5 mr-0.5" />
+                        ) : (
+                          <Monitor className="h-2.5 w-2.5 mr-0.5" />
+                        )}
+                        {isBrowser ? "browser" : "native"}
+                      </Badge>
+                      {!entry.enabled && (
+                        <span className="text-[10px] text-slate-600 italic">
+                          выключена
+                        </span>
+                      )}
+                      {entry.hasActiveSession && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] h-4 px-1.5"
+                          style={{
+                            background: "rgba(20,184,166,0.12)",
+                            color: "#2dd4bf",
+                            border: "1px solid rgba(20,184,166,0.3)",
+                          }}
+                        >
+                          АКТИВНА
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5 font-mono">
+                      {entry.pricePerMinuteLzt.toLocaleString("ru-RU")} LZT/мин
+                      <span className="ml-1 text-slate-600">
+                        ≈${(entry.pricePerMinuteLzt / 200).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <Link href="/host/library">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0 text-slate-400 hover:text-white"
+                        title="Редактировать в библиотеке"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </Link>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0 text-slate-500 hover:text-red-400"
+                      disabled={entry.hasActiveSession || removing === entry.gameId}
+                      title={
+                        entry.hasActiveSession
+                          ? "Нельзя удалить: идёт сессия"
+                          : "Удалить шаблон"
+                      }
+                      onClick={() => handleDelete(entry)}
+                    >
+                      {removing === entry.gameId ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────
+
 export default function Dashboard() {
   const { hostToken } = useAuth();
+  const [agent, setAgent] = useState<AgentState>({ status: "checking" });
+
+  useEffect(() => {
+    let cancelled = false;
+    pingAgent().then((state) => {
+      if (!cancelled) setAgent(state);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const { data: stats, isLoading: statsLoading } = useGetHostStats(
     hostToken || "",
@@ -107,40 +512,14 @@ export default function Dashboard() {
             Управляй своим узлом и активными сессиями.
           </p>
         </div>
-        <a
-          href="/api/downloads/host-agent.zip"
-          download="cloud-gaming-host-agent.zip"
-          data-testid="link-download-host-agent"
-        >
-          <Button
-            variant="outline"
-            className="gap-2 h-9 rounded-md border-white/10 text-slate-300 hover:text-white"
-          >
-            <Download className="h-4 w-4" />
-            Скачать агент хоста
-          </Button>
-        </a>
       </div>
 
-      <Card style={cardStyle}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base text-white">
-            <Download className="h-4 w-4 text-sky-400" />
-            Получить агент
-          </CardTitle>
-          <CardDescription className="text-slate-500">
-            Агент запускается на Windows-ПК и стримит окно игры по WebRTC.
-            Скачай ZIP, распакуй и запусти{" "}
-            <span className="font-mono text-xs text-sky-400">start.bat</span>.
-            Нужен Node.js 20+ (см.{" "}
-            <span className="font-mono text-xs text-sky-400">INSTALL.txt</span>{" "}
-            внутри архива).
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      {/* Agent status */}
+      <AgentStatusCard agent={agent} />
 
       {hostToken && <BindingForm hostToken={hostToken} />}
 
+      {/* Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {[
           {
@@ -229,6 +608,10 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      {/* Host templates list */}
+      {hostToken && <HostTemplates hostToken={hostToken} />}
+
+      {/* Sessions + Activity feed */}
       <div className="grid gap-6 md:grid-cols-7">
         <Card className="md:col-span-4" style={cardStyle}>
           <CardHeader>
