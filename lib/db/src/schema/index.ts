@@ -8,3 +8,4 @@ export * from "./depositAddresses";
 export * from "./deposits";
 export * from "./billingEvents";
 export * from "./quotas";
+export * from "./gameSubmissions";

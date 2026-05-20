@@ -8,6 +8,9 @@ import publicRouter from "./public";
 import sessionsRouter from "./sessions";
 import walletRouter from "./wallet";
 import quotasRouter from "./quotas";
+import adminRouter from "./admin";
+import submissionsRouter from "./submissions";
+import storageRouter from "./storage";
 
 const router: IRouter = Router();
 
@@ -22,5 +25,8 @@ router.use(playersRouter);
 router.use(sessionsRouter);
 router.use(walletRouter);
 router.use(quotasRouter);
+router.use(adminRouter);
+router.use(submissionsRouter);
+router.use(storageRouter);
 
 export default router;

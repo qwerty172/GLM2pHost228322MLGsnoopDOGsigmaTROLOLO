@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -18,6 +18,12 @@ export const gamesTable = pgTable("games", {
   description: text("description").notNull().default(""),
   // Free-form genre/tag (e.g. "Shooter", "RPG") used only for display.
   genre: text("genre").notNull().default(""),
+  // Structured category for catalog filtering (e.g. "Action", "RPG", "Strategy").
+  category: text("category").notNull().default(""),
+  // Multi-value genre tags for richer filtering (e.g. ["Shooter", "Battle Royale"]).
+  genres: jsonb("genres").$type<string[]>().notNull().default([]),
+  // Steam App ID for future auto-scan / metadata integration.
+  steamAppId: text("steam_app_id"),
   // Capability flags / filter chips.
   hasMods: boolean("has_mods").notNull().default(false),
   isMultiplayer: boolean("is_multiplayer").notNull().default(false),

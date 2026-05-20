@@ -82,6 +82,13 @@ export const hostsTable = pgTable("hosts", {
   streamUrl: text("stream_url").notNull().default(""),
   streamKey: text("stream_key").notNull().default(""),
 
+  // How many games this host has contributed to the catalog via approved submissions.
+  // Incremented on submission approval. Reserved for future reward mechanics.
+  gamesContributed: integer("games_contributed").notNull().default(0),
+  // Platform administrator flag. When true, this host can approve/reject
+  // game submissions and edit catalog metadata.
+  isAdmin: integer("is_admin").notNull().default(0),
+
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

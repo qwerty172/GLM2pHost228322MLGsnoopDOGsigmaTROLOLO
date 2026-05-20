@@ -26,6 +26,7 @@ const ListGamesQuery = z.object({
   liveOnly: strictBool,
   search: z.string().optional(),
   tag: z.string().optional(),
+  category: z.string().optional(),
 });
 
 const GetGameQuery = z.object({
@@ -155,6 +156,9 @@ router.get("/games", async (req, res): Promise<void> => {
   if (q.hasQuests === true) conds.push(eq(gamesTable.hasQuests, true));
   if (q.search && q.search.trim().length > 0) {
     conds.push(ilike(gamesTable.title, `%${q.search.trim()}%`));
+  }
+  if (q.category && q.category.trim().length > 0) {
+    conds.push(eq(gamesTable.category, q.category.trim()));
   }
 
   const games = await db

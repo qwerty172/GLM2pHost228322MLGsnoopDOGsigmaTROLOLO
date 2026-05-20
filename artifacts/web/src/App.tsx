@@ -13,6 +13,7 @@ import Play from "@/pages/play";
 import BrowserPlay from "@/pages/host/browser-play";
 import GamesPage from "@/pages/games";
 import GameDetailPage from "@/pages/game-detail";
+import AdminGamesPage from "@/pages/admin/games";
 import HostsPage from "@/pages/hosts";
 import QuotasPage from "@/pages/quotas";
 import QuotaDetailPage from "@/pages/quota-detail";
@@ -44,6 +45,7 @@ function Router() {
       <Route path="/" component={Landing} />
       <Route path="/games" component={GamesPage} />
       <Route path="/games/:slug" component={GameDetailPage} />
+      <Route path="/admin/games" component={AdminGamesPage} />
       <Route path="/hosts" component={HostsPage} />
       <Route path="/quotas" component={QuotasPage} />
       <Route path="/quotas/new">
