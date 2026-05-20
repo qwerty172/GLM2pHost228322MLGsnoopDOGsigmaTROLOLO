@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray, ne } from "drizzle-orm";
 import { db, gamesTable, hostGamesTable, sessionsTable } from "@workspace/db";
 
 export type LibraryEntry = {
@@ -14,6 +14,7 @@ export type LibraryEntry = {
   localAvailable: boolean;
   lastError: string;
   addedAt: Date;
+  hasActiveSession: boolean;
   game: {
     id: string;
     slug: string;
@@ -34,6 +35,21 @@ export async function listLibrary(hostId: string): Promise<LibraryEntry[]> {
     .where(eq(hostGamesTable.hostId, hostId))
     .orderBy(asc(hostGamesTable.sortOrder), asc(hostGamesTable.addedAt));
 
+  if (rows.length === 0) return [];
+
+  const gameIds = rows.map((r) => r.host_games.gameId);
+  const activeSessions = await db
+    .select({ gameId: sessionsTable.gameId })
+    .from(sessionsTable)
+    .where(
+      and(
+        eq(sessionsTable.hostId, hostId),
+        inArray(sessionsTable.gameId, gameIds),
+        ne(sessionsTable.status, "ended"),
+      ),
+    );
+  const activeGameIds = new Set(activeSessions.map((s) => s.gameId));
+
   return rows.map((r) => ({
     id: r.host_games.id,
     hostId: r.host_games.hostId,
@@ -47,6 +63,7 @@ export async function listLibrary(hostId: string): Promise<LibraryEntry[]> {
     localAvailable: r.host_games.localAvailable,
     lastError: r.host_games.lastError,
     addedAt: r.host_games.addedAt,
+    hasActiveSession: activeGameIds.has(r.host_games.gameId),
     game: {
       id: r.games.id,
       slug: r.games.slug,

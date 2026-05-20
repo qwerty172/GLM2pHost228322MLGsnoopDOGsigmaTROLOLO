@@ -100,6 +100,7 @@ interface LibraryEntry {
   localAvailable: boolean;
   lastError: string;
   addedAt: string;
+  hasActiveSession: boolean;
   game: {
     id: string;
     slug: string;
@@ -129,11 +130,16 @@ function LztBadge({ lzt, className = "" }: { lzt: number; className?: string }) 
   return (
     <span className={`inline-flex items-center gap-1 font-mono ${className}`}>
       <span
-        title="Внутренний (синий)"
+        title="Зелёный (выводимый) — доход хоста"
         className="inline-block w-2 h-2 rounded-full"
+        style={{ background: "#34d399" }}
+      />
+      <span
+        title="Синий (внутренний)"
+        className="inline-block w-2 h-2 rounded-full -ml-0.5"
         style={{ background: "#38bdf8" }}
       />
-      <span className="text-sky-300 font-bold">{lzt.toLocaleString("ru-RU")}</span>
+      <span className="text-emerald-300 font-bold">{lzt.toLocaleString("ru-RU")}</span>
       <span className="text-slate-500 text-xs">LZT</span>
       <span className="text-slate-600 text-xs">≈${lztToUsd(lzt)}</span>
     </span>
@@ -571,7 +577,7 @@ function SubmitGameForm({
 }: {
   hostToken: string;
   onBack: () => void;
-  onSubmitted: (game: CatalogGame) => void;
+  onSubmitted: () => void;
 }) {
   const [title, setTitle] = useState("");
   const [coverUrl, setCoverUrl] = useState("");
@@ -579,7 +585,7 @@ function SubmitGameForm({
   const [description, setDescription] = useState("");
   const [steamId, setSteamId] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState<CatalogGame | null>(null);
+  const [done, setDone] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -602,14 +608,7 @@ function SubmitGameForm({
       toast.error(r.error);
       return;
     }
-    const placeholder: CatalogGame = {
-      id: r.data.id,
-      slug: r.data.slug,
-      title: r.data.title,
-      coverImageUrl: coverUrl.trim() || null,
-      category: category.trim() || null,
-    };
-    setDone(placeholder);
+    setDone(r.data.title);
   };
 
   if (done) {
@@ -619,16 +618,17 @@ function SubmitGameForm({
         <div>
           <h3 className="font-bold text-white text-lg">Заявка отправлена!</h3>
           <p className="text-sm text-slate-400 mt-2 max-w-sm mx-auto">
-            Модераторы рассмотрят «{done.title}» и одобрят или отклонят заявку. Пока можешь прописать путь — игра появится в библиотеке как только заявку одобрят.
+            Модераторы рассмотрят «{done}» и одобрят или отклонят заявку.
+            После одобрения игра появится в каталоге и ты сможешь добавить её в библиотеку.
           </p>
         </div>
         <Button
           type="button"
-          onClick={() => onSubmitted(done)}
+          onClick={onSubmitted}
           className="font-bold"
           style={{ background: "#0ea5e9", color: "#fff" }}
         >
-          Прописать путь сейчас
+          Закрыть
         </Button>
       </div>
     );
@@ -862,9 +862,8 @@ function AddGameModal({
     onAdded();
   };
 
-  const handleSubmitted = (game: CatalogGame) => {
-    setSelectedGame(game);
-    setStep("config");
+  const handleSubmitted = () => {
+    handleClose();
   };
 
   const titleMap: Record<AddStep, string> = {
@@ -1059,7 +1058,7 @@ export default function HostLibrary() {
                     <SortableRow
                       key={entry.id}
                       entry={entry}
-                      hasActiveSession={false}
+                      hasActiveSession={entry.hasActiveSession}
                       onToggle={handleToggle}
                       onEdit={setEditEntry}
                       onDelete={setDeleteEntry}
