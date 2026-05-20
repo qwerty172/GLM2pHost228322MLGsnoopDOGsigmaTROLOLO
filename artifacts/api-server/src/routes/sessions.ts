@@ -4,6 +4,7 @@ import {
   db,
   gamesTable,
   hostsTable,
+  hostGamesTable,
   playersTable,
   sessionsTable,
   quotasTable,
@@ -71,12 +72,45 @@ router.post("/sessions", async (req, res): Promise<void> => {
   }
 
   const playerToken = generateToken();
-  // Host's configured per-minute price wins over any client-supplied value.
-  // Negative rates are allowed (host-pays-player promo) and validated at the
-  // host config endpoint, so we just clamp the per-tick amount used by the
-  // billing worker against the configured cap.
-  const ratePerMinute = Number(host.minutePriceUsd);
-  if (!Number.isFinite(ratePerMinute) || Math.abs(ratePerMinute) > 100) {
+
+  // Optional: caller may specify which game from the host's multi-game
+  // library this session is for. When provided we use that entry's
+  // pricePerMinuteLzt; otherwise we fall back to the host's legacy
+  // minutePriceUsd field.
+  const requestedGameId =
+    (req.body as { requestedGameId?: string } | undefined)?.requestedGameId ??
+    null;
+  let resolvedGameId: string | null = null;
+  let ratePerMinute: number;
+
+  if (requestedGameId) {
+    const [libEntry] = await db
+      .select()
+      .from(hostGamesTable)
+      .where(
+        and(
+          eq(hostGamesTable.hostId, host.id),
+          eq(hostGamesTable.gameId, requestedGameId),
+          eq(hostGamesTable.enabled, true),
+        ),
+      );
+    if (!libEntry) {
+      res
+        .status(400)
+        .json({ error: "Requested game is not in host's library or is disabled" });
+      return;
+    }
+    resolvedGameId = libEntry.gameId;
+    // Convert integer LZT price to USD for the ratePerMinute field that the
+    // billing worker currently uses. 200 LZT = 1 USDT = 1 USD (platform rate).
+    ratePerMinute = libEntry.pricePerMinuteLzt / 200;
+  } else {
+    // Legacy: use the host-level minutePriceUsd and bind to legacy gameId.
+    ratePerMinute = Number(host.minutePriceUsd);
+    resolvedGameId = host.gameId ?? null;
+  }
+
+  if (!Number.isFinite(ratePerMinute) || Math.abs(ratePerMinute) > 1000) {
     res.status(400).json({ error: "Host's minute price is invalid" });
     return;
   }
@@ -111,7 +145,7 @@ router.post("/sessions", async (req, res): Promise<void> => {
     // Game binding is enforced for every attachment, including the owner's
     // own quotas: if a quota declares a game, the host MUST be bound to that
     // exact game.
-    if (quota.gameId && quota.gameId !== host.gameId) {
+    if (quota.gameId && quota.gameId !== (resolvedGameId ?? host.gameId)) {
       res
         .status(400)
         .json({ error: "Quota is bound to a different game" });
@@ -124,6 +158,7 @@ router.post("/sessions", async (req, res): Promise<void> => {
     .insert(sessionsTable)
     .values({
       hostId: host.id,
+      gameId: resolvedGameId,
       playerToken,
       appName: parsed.data.appName,
       resolution: parsed.data.resolution ?? "1920x1080",
@@ -214,6 +249,7 @@ router.post("/sessions/browser-host", async (req, res): Promise<void> => {
     .insert(sessionsTable)
     .values({
       hostId: host.id,
+      gameId: game.id,
       playerToken,
       appName: game.title,
       resolution: "1280x720",

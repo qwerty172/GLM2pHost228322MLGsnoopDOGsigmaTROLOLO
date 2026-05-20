@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { and, eq, ilike, ne, sql, or } from "drizzle-orm";
 import { z } from "zod/v4";
-import { db, gamesTable, hostsTable, sessionsTable } from "@workspace/db";
+import { db, gamesTable, hostGamesTable, hostsTable, sessionsTable } from "@workspace/db";
 import {
   GetGameBySlugParams,
   GetGameBySlugResponse,

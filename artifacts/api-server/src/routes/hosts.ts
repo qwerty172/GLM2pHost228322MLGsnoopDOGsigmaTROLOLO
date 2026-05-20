@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and } from "drizzle-orm";
+import { z } from "zod/v4";
 import {
   db,
   hostsTable,
@@ -23,6 +24,12 @@ import {
 import { generateToken } from "../lib/tokens";
 import { ensureDepositAddressesForOwner } from "../lib/walletOwner";
 import { encryptSecret } from "../lib/encryption";
+import {
+  listLibrary,
+  addToLibrary,
+  updateEntry,
+  removeFromLibrary,
+} from "../lib/hostLibrary";
 
 const router: IRouter = Router();
 
@@ -506,6 +513,157 @@ router.get(
           }),
         ),
     );
+  },
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Host game library endpoints
+// ─────────────────────────────────────────────────────────────────────────────
+
+const AddLibraryEntryBody = z.object({
+  gameId: z.string().uuid("gameId must be a UUID"),
+  pricePerMinuteLzt: z.number().int().min(0).max(200_000),
+  appPath: z.string().max(1024).optional(),
+  boundUrl: z.string().max(2048).optional(),
+  launchArgs: z.string().max(512).optional(),
+});
+
+const UpdateLibraryEntryBody = z.object({
+  pricePerMinuteLzt: z.number().int().min(0).max(200_000).optional(),
+  appPath: z.string().max(1024).optional(),
+  boundUrl: z.string().max(2048).optional(),
+  launchArgs: z.string().max(512).optional(),
+  enabled: z.boolean().optional(),
+  sortOrder: z.number().int().min(0).optional(),
+  localAvailable: z.boolean().optional(),
+  lastError: z.string().max(512).optional(),
+});
+
+const LibraryGameIdParam = z.object({
+  hostToken: z.string(),
+  gameId: z.string().uuid(),
+});
+
+router.get(
+  "/hosts/:hostToken/library",
+  async (req, res): Promise<void> => {
+    const params = GetHostParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const [host] = await db
+      .select({ id: hostsTable.id })
+      .from(hostsTable)
+      .where(eq(hostsTable.hostToken, params.data.hostToken));
+    if (!host) {
+      res.status(404).json({ error: "Host not found" });
+      return;
+    }
+    const entries = await listLibrary(host.id);
+    res.json(entries);
+  },
+);
+
+router.post(
+  "/hosts/:hostToken/library",
+  async (req, res): Promise<void> => {
+    const params = GetHostParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const body = AddLibraryEntryBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: body.error.message });
+      return;
+    }
+    const [host] = await db
+      .select({ id: hostsTable.id })
+      .from(hostsTable)
+      .where(eq(hostsTable.hostToken, params.data.hostToken));
+    if (!host) {
+      res.status(404).json({ error: "Host not found" });
+      return;
+    }
+    const result = await addToLibrary(host.id, body.data.gameId, {
+      pricePerMinuteLzt: body.data.pricePerMinuteLzt,
+      appPath: body.data.appPath,
+      boundUrl: body.data.boundUrl,
+      launchArgs: body.data.launchArgs,
+    });
+    if (!result.ok) {
+      res.status(result.status).json({ error: result.reason });
+      return;
+    }
+    req.log.info(
+      { hostId: host.id, gameId: body.data.gameId },
+      "Game added to host library",
+    );
+    res.status(201).json(result.entry);
+  },
+);
+
+router.patch(
+  "/hosts/:hostToken/library/:gameId",
+  async (req, res): Promise<void> => {
+    const params = LibraryGameIdParam.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const body = UpdateLibraryEntryBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: body.error.message });
+      return;
+    }
+    const [host] = await db
+      .select({ id: hostsTable.id })
+      .from(hostsTable)
+      .where(eq(hostsTable.hostToken, params.data.hostToken));
+    if (!host) {
+      res.status(404).json({ error: "Host not found" });
+      return;
+    }
+    const result = await updateEntry(host.id, params.data.gameId, body.data);
+    if (!result.ok) {
+      res.status(result.status).json({ error: result.reason });
+      return;
+    }
+    req.log.info(
+      { hostId: host.id, gameId: params.data.gameId },
+      "Host library entry updated",
+    );
+    res.json(result.entry);
+  },
+);
+
+router.delete(
+  "/hosts/:hostToken/library/:gameId",
+  async (req, res): Promise<void> => {
+    const params = LibraryGameIdParam.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const [host] = await db
+      .select({ id: hostsTable.id })
+      .from(hostsTable)
+      .where(eq(hostsTable.hostToken, params.data.hostToken));
+    if (!host) {
+      res.status(404).json({ error: "Host not found" });
+      return;
+    }
+    const result = await removeFromLibrary(host.id, params.data.gameId);
+    if (!result.ok) {
+      res.status(result.status).json({ error: result.reason });
+      return;
+    }
+    req.log.info(
+      { hostId: host.id, gameId: params.data.gameId },
+      "Game removed from host library",
+    );
+    res.status(204).send();
   },
 );
 

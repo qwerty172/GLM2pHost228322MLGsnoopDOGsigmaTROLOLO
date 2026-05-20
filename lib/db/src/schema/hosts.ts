@@ -40,19 +40,17 @@ export const hostsTable = pgTable("hosts", {
   // by the agent to decide which .exe to launch when a player joins.
   // -----------------------------------------------------------------
 
-  // Game catalog binding (nullable until the host configures their offer).
+  // DEPRECATED — use hostGamesTable instead (multi-game library per host).
+  // Kept for backward compat with host agents < v2 that still read these
+  // fields directly. New code must read from host_games table.
   gameId: uuid("game_id").references(() => gamesTable.id, {
     onDelete: "set null",
   }),
-  // Absolute Windows path to the executable the agent should launch
-  // when a player connects (e.g. "C:/Games/Cyberpunk 2077/bin/x64/Cyberpunk2077.exe").
-  // Empty when the host streams a browser game instead — see boundUrl.
+  // DEPRECATED — use host_games.app_path
   boundAppPath: text("bound_app_path").notNull().default(""),
-  // URL of a browser game the agent should open in the system browser
-  // when a player connects (e.g. "https://shellshock.io"). When set, the
-  // agent ignores boundAppPath. Empty when the host streams a native .exe.
+  // DEPRECATED — use host_games.bound_url
   boundUrl: text("bound_url").notNull().default(""),
-  // Friendly label shown in the library (defaults to the file name).
+  // DEPRECATED — use games.title joined via host_games
   boundAppLabel: text("bound_app_label").notNull().default(""),
   // Free-form host description (rules, hardware, vibe).
   description: text("description").notNull().default(""),

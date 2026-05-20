@@ -9,12 +9,19 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { hostsTable } from "./hosts";
 import { playersTable } from "./players";
+import { gamesTable } from "./games";
 
 export const sessionsTable = pgTable("sessions", {
   id: uuid("id").primaryKey().defaultRandom(),
   hostId: uuid("host_id")
     .notNull()
     .references(() => hostsTable.id, { onDelete: "cascade" }),
+  // Which game from the host's library this session is for.
+  // Nullable for backward compat with sessions created before host-library
+  // multi-game support landed. New sessions should always set this.
+  gameId: uuid("game_id").references(() => gamesTable.id, {
+    onDelete: "set null",
+  }),
   playerToken: text("player_token").notNull().unique(),
   claimedByPlayerId: uuid("claimed_by_player_id").references(
     () => playersTable.id,
