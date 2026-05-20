@@ -17,6 +17,8 @@ import { useState } from "react";
 import {
   useGetPublicStats,
   getGetPublicStatsQueryKey,
+  useListGames,
+  getListGamesQueryKey,
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 
@@ -29,6 +31,12 @@ function formatUsd(cents: number): string {
   return `$${formatInt(dollars)}`;
 }
 
+function coverSrc(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith("http")) return url;
+  return `${import.meta.env.BASE_URL}${url.replace(/^\//, "")}`;
+}
+
 export default function Landing() {
   const [shareLink, setShareLink] = useState("");
   const { data: stats } = useGetPublicStats({
@@ -38,6 +46,15 @@ export default function Landing() {
       staleTime: 30_000,
     },
   });
+  const { data: catalogGames } = useListGames(
+    { sort: "mostOnline" } as Record<string, boolean | string>,
+    {
+      query: {
+        queryKey: getListGamesQueryKey({ sort: "mostOnline" } as Record<string, boolean | string>),
+        staleTime: 60_000,
+      },
+    },
+  );
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,39 +205,89 @@ export default function Landing() {
           </Link>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[
-            { img: "game-1.png", title: "Cyberpunk 2077", req: "RTX 4090 · 1440p", live: true },
-            { img: "game-2.png", title: "Elden Ring", req: "RTX 3080 · 1080p", live: false },
-            { img: "game-3.png", title: "Helldivers 2", req: "RX 7900 · 1440p", live: true },
-          ].map((g) => (
-            <Link key={g.title} href="/games">
-              <div className="game-card cursor-pointer">
-                <div className="aspect-[3/4] relative">
-                  <img
-                    src={`${import.meta.env.BASE_URL}${g.img}`}
-                    alt={g.title}
-                    className="w-full h-full object-cover"
-                  />
-                  {g.live && (
-                    <div className="absolute top-2 right-2">
-                      <span
-                        className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded"
-                        style={{ background: "rgba(20,184,166,0.85)", color: "#fff" }}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-white opacity-80" />
-                        Live
-                      </span>
+          {catalogGames && catalogGames.length > 0
+            ? catalogGames.slice(0, 3).map((g) => {
+                const src = coverSrc((g as any).coverImageUrl);
+                const isLive = ((g as any).liveHostsCount ?? 0) > 0;
+                const genre = (g as any).genre ?? (g as any).genres?.[0] ?? "";
+                return (
+                  <Link key={g.id} href={`/games/${g.slug}`}>
+                    <div className="game-card cursor-pointer">
+                      <div className="aspect-[3/4] relative">
+                        {src ? (
+                          <img
+                            src={src}
+                            alt={g.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).style.display = "none";
+                            }}
+                          />
+                        ) : (
+                          <div
+                            className="w-full h-full flex items-center justify-center"
+                            style={{ background: "rgba(14,165,233,0.05)" }}
+                          >
+                            <Gamepad2 className="w-10 h-10 text-slate-700" />
+                          </div>
+                        )}
+                        {isLive && (
+                          <div className="absolute top-2 right-2">
+                            <span
+                              className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded"
+                              style={{ background: "rgba(20,184,166,0.85)", color: "#fff" }}
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-white opacity-80" />
+                              Live
+                            </span>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#06090e]/90 via-transparent to-transparent" />
+                        <div className="absolute bottom-0 left-0 right-0 p-3">
+                          <div className="text-sm font-bold text-white leading-tight">{g.title}</div>
+                          {genre && (
+                            <div className="text-[10px] text-sky-400 font-mono mt-0.5">{genre}</div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#06090e]/90 via-transparent to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-3">
-                    <div className="text-sm font-bold text-white leading-tight">{g.title}</div>
-                    <div className="text-[10px] text-sky-400 font-mono mt-0.5">{g.req}</div>
+                  </Link>
+                );
+              })
+            : [
+                { title: "Cyberpunk 2077", genre: "RPG · Open World", live: true },
+                { title: "Elden Ring", genre: "Action RPG · Souls-like", live: false },
+                { title: "Helldivers 2", genre: "Co-op · Shooter", live: true },
+              ].map((g) => (
+                <Link key={g.title} href="/games">
+                  <div className="game-card cursor-pointer">
+                    <div className="aspect-[3/4] relative flex items-end"
+                      style={{ background: "linear-gradient(160deg,#0d1a26,#06090e)" }}>
+                      <div
+                        className="absolute inset-0 flex items-center justify-center"
+                        style={{ opacity: 0.06 }}
+                      >
+                        <Gamepad2 className="w-16 h-16 text-sky-400" />
+                      </div>
+                      {g.live && (
+                        <div className="absolute top-2 right-2">
+                          <span
+                            className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded"
+                            style={{ background: "rgba(20,184,166,0.85)", color: "#fff" }}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-white opacity-80" />
+                            Live
+                          </span>
+                        </div>
+                      )}
+                      <div className="relative p-3 w-full">
+                        <div className="text-sm font-bold text-white leading-tight">{g.title}</div>
+                        <div className="text-[10px] text-sky-400 font-mono mt-0.5">{g.genre}</div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </Link>
-          ))}
+                </Link>
+              ))}
         </div>
       </section>
 

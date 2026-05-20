@@ -63,7 +63,7 @@ function useDebounce<T>(value: T, delay: number): T {
 export default function GamesPage() {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
-  const [liveOnly, setLiveOnly] = useState(true);
+  const [liveOnly, setLiveOnly] = useState(false);
   const [category, setCategory] = useState("");
   const [sort, setSort] = useState<SortKey>("mostOnline");
   const [boolFilters, setBoolFilters] = useState<Record<FilterKey, boolean>>({
@@ -71,7 +71,7 @@ export default function GamesPage() {
     isMultiplayer: false,
     hostSpectatesPlayer: false,
     hasQuests: false,
-    liveOnly: true,
+    liveOnly: false,
   });
   const [maxLzt, setMaxLzt] = useState<number>(9999);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
