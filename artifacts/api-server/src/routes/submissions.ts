@@ -94,26 +94,32 @@ router.post("/games/submit", async (req, res): Promise<void> => {
   const normalizedTitle = body.title.trim();
   const normalizedSlug = body.slug ? slugify(body.slug) : "";
 
-  // Deduplication: check if a game already exists with this title or slug.
+  // Deduplication: check if a game already exists with this title, slug, or steamAppId.
   const titleLower = normalizedTitle.toLowerCase();
+  const steamId = body.steamAppId?.trim() || null;
+
+  const gameDeupConds = [ilike(gamesTable.title, titleLower)];
+  if (normalizedSlug) gameDeupConds.push(eq(gamesTable.slug, normalizedSlug));
+  if (steamId) gameDeupConds.push(eq(gamesTable.steamAppId, steamId));
+
   const existingGames = await db
     .select({ id: gamesTable.id, slug: gamesTable.slug, title: gamesTable.title })
     .from(gamesTable)
-    .where(
-      normalizedSlug
-        ? or(ilike(gamesTable.title, titleLower), eq(gamesTable.slug, normalizedSlug))
-        : ilike(gamesTable.title, titleLower),
-    );
+    .where(or(...gameDeupConds));
   if (existingGames.length > 0) {
     const match = existingGames[0]!;
     res.status(409).json({
-      error: "A game with this title already exists in the catalog. Add it to your host library instead.",
+      error: "A game matching this title, slug, or Steam App ID already exists. Add it to your host library instead.",
       existingGame: { id: match.id, slug: match.slug, title: match.title },
     });
     return;
   }
 
-  // Deduplication: check for an existing pending submission with same title or slug.
+  // Deduplication: check for an existing pending submission with same title, slug, or steamAppId.
+  const subDeupConds = [ilike(gameSubmissionsTable.title, titleLower)];
+  if (normalizedSlug) subDeupConds.push(eq(gameSubmissionsTable.slug, normalizedSlug));
+  if (steamId) subDeupConds.push(eq(gameSubmissionsTable.steamAppId, steamId));
+
   const pendingSubs = await db
     .select({
       id: gameSubmissionsTable.id,
@@ -124,18 +130,13 @@ router.post("/games/submit", async (req, res): Promise<void> => {
     .where(
       and(
         eq(gameSubmissionsTable.status, "pending"),
-        normalizedSlug
-          ? or(
-              ilike(gameSubmissionsTable.title, titleLower),
-              eq(gameSubmissionsTable.slug, normalizedSlug),
-            )
-          : ilike(gameSubmissionsTable.title, titleLower),
+        or(...subDeupConds),
       ),
     );
   if (pendingSubs.length > 0) {
     const match = pendingSubs[0]!;
     res.status(409).json({
-      error: "A pending submission with this title already exists. Check its status or wait for admin review.",
+      error: "A pending submission matching this title, slug, or Steam App ID already exists.",
       existingSubmission: { id: match.id, title: match.title },
     });
     return;

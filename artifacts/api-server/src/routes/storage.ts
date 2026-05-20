@@ -33,9 +33,27 @@ const objectStorageService = new ObjectStorageService();
  * Then uploads the file directly to the returned presigned URL.
  */
 router.post("/storage/uploads/request-url", async (req: Request, res: Response) => {
+  // Require an authenticated host token for upload URL issuance.
+  const token = req.headers["x-host-token"] as string | undefined;
+  if (!token) {
+    res.status(401).json({ error: "Missing X-Host-Token header" });
+    return;
+  }
+
+  const { db, hostsTable } = await import("@workspace/db");
+  const { eq } = await import("drizzle-orm");
+  const [host] = await db
+    .select({ id: hostsTable.id })
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, token));
+  if (!host) {
+    res.status(401).json({ error: "Unknown host token" });
+    return;
+  }
+
   const parsed = RequestUploadUrlBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Missing or invalid required fields" });
+    res.status(400).json({ error: parsed.error.message });
     return;
   }
 
@@ -43,7 +61,10 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
     const { name, size, contentType } = parsed.data;
 
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-    const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+    // Normalize to raw object path (/objects/...) then prefix with /api/storage
+    // so the returned path is directly usable as a serving URL.
+    const rawPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+    const objectPath = `/api/storage${rawPath}`;
 
     res.json(
       RequestUploadUrlResponse.parse({

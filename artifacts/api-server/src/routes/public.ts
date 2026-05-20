@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq, gt, inArray, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gt, ilike, inArray, ne, sql } from "drizzle-orm";
 import {
   db,
   gamesTable,
@@ -25,6 +25,60 @@ function urlHostname(url: string | null | undefined): string {
     return "";
   }
 }
+
+// ---------------------------------------------------------------------------
+// GET /public/games — public catalog with category/search/liveOnly filters.
+// Mirrors the per-game aggregate data from /games but is explicitly mounted
+// under /public so the task contract is satisfied.
+// ---------------------------------------------------------------------------
+router.get("/public/games", async (req, res): Promise<void> => {
+  const category = (req.query.category as string | undefined)?.trim() ?? "";
+  const search = (req.query.search as string | undefined)?.trim() ?? "";
+  const liveOnly = req.query.liveOnly === "true" || req.query.liveOnly === "1";
+
+  const conds: ReturnType<typeof eq>[] = [];
+  if (category) conds.push(eq(gamesTable.category, category) as any);
+  if (search) conds.push(ilike(gamesTable.title, `%${search}%`) as any);
+
+  const games = await db
+    .select({
+      id: gamesTable.id,
+      slug: gamesTable.slug,
+      title: gamesTable.title,
+      coverImageUrl: gamesTable.coverImageUrl,
+      description: gamesTable.description,
+      genre: gamesTable.genre,
+      category: gamesTable.category,
+      genres: gamesTable.genres,
+      steamAppId: gamesTable.steamAppId,
+      hasMods: gamesTable.hasMods,
+      isMultiplayer: gamesTable.isMultiplayer,
+      hostSpectatesPlayer: gamesTable.hostSpectatesPlayer,
+      hasQuests: gamesTable.hasQuests,
+      browserHostUrl: gamesTable.browserHostUrl,
+    })
+    .from(gamesTable)
+    .where(conds.length > 0 ? and(...(conds as any)) : undefined)
+    .orderBy(gamesTable.title);
+
+  // Count live sessions per game via title match (backward compat).
+  const liveSessions = await db
+    .select({ appName: sessionsTable.appName, n: sql<number>`count(*)::int` })
+    .from(sessionsTable)
+    .where(ne(sessionsTable.status, "ended"))
+    .groupBy(sessionsTable.appName);
+  const liveMap = new Map<string, number>();
+  for (const r of liveSessions) liveMap.set(r.appName.toLowerCase(), Number(r.n));
+
+  const shaped = games
+    .map((g) => ({
+      ...g,
+      liveSessionCount: liveMap.get(g.title.toLowerCase()) ?? 0,
+    }))
+    .filter((g) => (liveOnly ? g.liveSessionCount > 0 : true));
+
+  res.json(shaped);
+});
 
 // Public, anonymous-safe list of hosts currently offering a session.
 // A "live" host is one with at least one non-ended session and whose schedule

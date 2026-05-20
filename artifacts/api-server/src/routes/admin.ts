@@ -186,10 +186,14 @@ router.post(
       })
       .where(eq(gameSubmissionsTable.id, id));
 
-    // Increment gamesContributed on the submitter.
+    // Increment gamesContributed and set in-app notification on the submitter.
     await db
       .update(hostsTable)
-      .set({ gamesContributed: sql`${hostsTable.gamesContributed} + 1` })
+      .set({
+        gamesContributed: sql`${hostsTable.gamesContributed} + 1`,
+        lastSubmissionStatus: "approved",
+        lastSubmissionNote: `Твоя заявка «${game.title}» одобрена и добавлена в каталог.`,
+      })
       .where(eq(hostsTable.id, sub.hostId));
 
     res.json({ approved: true, game });
@@ -241,6 +245,15 @@ router.post(
         rejectionReason: parsed.data.reason,
       })
       .where(eq(gameSubmissionsTable.id, id));
+
+    // Set in-app notification on the submitter.
+    await db
+      .update(hostsTable)
+      .set({
+        lastSubmissionStatus: "rejected",
+        lastSubmissionNote: `Твоя заявка «${sub.title}» отклонена. Причина: ${parsed.data.reason}`,
+      })
+      .where(eq(hostsTable.id, sub.hostId));
 
     res.json({ rejected: true });
   },

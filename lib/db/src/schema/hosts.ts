@@ -88,6 +88,11 @@ export const hostsTable = pgTable("hosts", {
   // Platform administrator flag. When true, this host can approve/reject
   // game submissions and edit catalog metadata.
   isAdmin: integer("is_admin").notNull().default(0),
+  // Latest submission outcome notification (pending / approved / rejected).
+  // Set by the admin moderation flow so the host dashboard can surface the result.
+  lastSubmissionStatus: text("last_submission_status"),
+  // Human-readable note about the last submission outcome (approval note or rejection reason).
+  lastSubmissionNote: text("last_submission_note").notNull().default(""),
 
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

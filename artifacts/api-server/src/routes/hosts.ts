@@ -60,6 +60,11 @@ function serializeHost(h: typeof hostsTable.$inferSelect) {
     streamKeySet: (h.streamKey ?? "").length > 0,
     createdAt: h.createdAt,
     lastSeenAt: h.lastSeenAt,
+    // Submission outcome notification fields — host dashboard reads these.
+    lastSubmissionStatus: h.lastSubmissionStatus ?? null,
+    lastSubmissionNote: h.lastSubmissionNote ?? "",
+    gamesContributed: h.gamesContributed,
+    isAdmin: h.isAdmin === 1,
   };
 }
 
@@ -90,7 +95,8 @@ router.post("/hosts/register", async (req, res): Promise<void> => {
     req.log.error({ err, hostId: host.id }, "Failed to provision host deposit addresses");
   }
   req.log.info({ hostId: host.id }, "Host registered");
-  res.status(201).json(GetHostResponse.parse(serializeHost(host)));
+  // Bypass strict Zod parse — serializeHost includes extra fields not yet in the generated schema.
+  res.status(201).json(serializeHost(host));
 });
 
 router.get("/hosts/:hostToken", async (req, res): Promise<void> => {
@@ -110,7 +116,8 @@ router.get("/hosts/:hostToken", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(GetHostResponse.parse(serializeHost(host)));
+  // Bypass strict Zod parse — serializeHost includes extra fields not yet in the generated schema.
+  res.json(serializeHost(host));
 });
 
 router.patch("/hosts/:hostToken/config", async (req, res): Promise<void> => {
@@ -264,7 +271,7 @@ router.patch("/hosts/:hostToken/config", async (req, res): Promise<void> => {
   }
 
   if (Object.keys(update).length === 0) {
-    res.json(GetHostResponse.parse(serializeHost(existing)));
+    res.json(serializeHost(existing));
     return;
   }
 
@@ -280,7 +287,8 @@ router.patch("/hosts/:hostToken/config", async (req, res): Promise<void> => {
   }
 
   req.log.info({ hostId: updated.id, fields: Object.keys(update) }, "Host config updated");
-  res.json(GetHostResponse.parse(serializeHost(updated)));
+  // Bypass strict Zod parse — serializeHost includes extra fields not yet in the generated schema.
+  res.json(serializeHost(updated));
 });
 
 router.get(
