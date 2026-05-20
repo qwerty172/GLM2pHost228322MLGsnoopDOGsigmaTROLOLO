@@ -41,7 +41,10 @@ import {
   Loader2,
   CheckCircle2,
   Info,
+  CreditCard,
+  Bitcoin,
 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -61,6 +64,154 @@ const LZT_PER_USDT = 200;
 const formatLzt = (lzt: number) =>
   new Intl.NumberFormat("ru-RU").format(Math.trunc(lzt)) + " LZT";
 const lztToUsdt = (lzt: number) => lzt / LZT_PER_USDT;
+
+const TRANSAK_API_KEY = import.meta.env.VITE_TRANSAK_API_KEY as
+  | string
+  | undefined;
+const TRANSAK_HOST = TRANSAK_API_KEY
+  ? "https://global.transak.com"
+  : "https://global-stg.transak.com";
+
+function buildTransakUrl(opts: {
+  walletAddress: string;
+  defaultFiatAmount?: number;
+  email?: string;
+}) {
+  const params = new URLSearchParams({
+    apiKey: TRANSAK_API_KEY || "4fcd6904-706b-4aff-bd9d-77422813bbb7",
+    walletAddress: opts.walletAddress,
+    cryptoCurrencyCode: "USDT",
+    network: "tron",
+    fiatCurrency: "USD",
+    defaultFiatAmount: String(opts.defaultFiatAmount ?? 50),
+    themeColor: "0ea5e9",
+    hideMenu: "true",
+    disableWalletAddressForm: "true",
+    productsAvailed: "BUY",
+  });
+  if (opts.email) params.set("email", opts.email);
+  return `${TRANSAK_HOST}/?${params.toString()}`;
+}
+
+function CardTopUp({
+  usdtAddress,
+  isLoading,
+}: {
+  usdtAddress: string | undefined;
+  isLoading: boolean;
+}) {
+  const [opened, setOpened] = useState(false);
+
+  if (isLoading) {
+    return <Skeleton className="h-64 w-full" />;
+  }
+  if (!usdtAddress) {
+    return (
+      <div className="text-center py-6 text-slate-500 text-sm">
+        Адрес USDT-TRC20 ещё не готов. Попробуй через минуту.
+      </div>
+    );
+  }
+
+  const widgetUrl = buildTransakUrl({ walletAddress: usdtAddress });
+  const isStaging = !TRANSAK_API_KEY;
+
+  if (!opened) {
+    return (
+      <div
+        className="rounded-lg p-5 space-y-4"
+        style={{
+          background: "rgba(255,255,255,0.02)",
+          border: "1px solid rgba(255,255,255,0.06)",
+        }}
+      >
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded bg-sky-500/10 border border-sky-500/30">
+            <CreditCard className="h-5 w-5 text-sky-400" />
+          </div>
+          <div className="flex-1 space-y-1">
+            <div className="font-bold text-white text-sm">
+              Оплата картой через Transak
+            </div>
+            <div className="text-xs text-slate-400 leading-relaxed">
+              Купишь USDT картой Visa / Mastercard / Apple Pay / Google Pay —
+              они автоматически прилетят на твой адрес и зачислятся в LZT.
+              Комиссия Transak ≈ 1–5%, обработка 5–15 мин.
+            </div>
+          </div>
+        </div>
+
+        <ul className="text-xs text-slate-500 space-y-1.5 pl-1">
+          <li>· Адрес кошелька подставлен автоматически</li>
+          <li>· Сеть: USDT-TRC20 (Tron) — самые низкие комиссии</li>
+          <li>· Минимальная покупка обычно $30</li>
+          {isStaging && (
+            <li className="text-amber-400">
+              · Сейчас включён тестовый режим (staging). Реальные платежи не
+              пройдут — добавь VITE_TRANSAK_API_KEY для прод-режима.
+            </li>
+          )}
+        </ul>
+
+        <Button
+          type="button"
+          onClick={() => setOpened(true)}
+          className="w-full font-bold"
+          style={{ background: "#0ea5e9", color: "#fff" }}
+        >
+          <CreditCard className="h-4 w-4 mr-2" />
+          Открыть форму оплаты
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between text-xs text-slate-500">
+        <span>
+          Адрес зачисления:{" "}
+          <span className="font-mono text-slate-300">
+            {usdtAddress.substring(0, 8)}…
+            {usdtAddress.substring(usdtAddress.length - 6)}
+          </span>{" "}
+          (USDT-TRC20)
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs text-slate-400 hover:text-white"
+          onClick={() => setOpened(false)}
+        >
+          Свернуть
+        </Button>
+      </div>
+      <div
+        className="rounded-lg overflow-hidden"
+        style={{ border: "1px solid rgba(255,255,255,0.08)" }}
+      >
+        <iframe
+          src={widgetUrl}
+          allow="camera;microphone;payment;clipboard-read;clipboard-write"
+          title="Transak: пополнение картой"
+          style={{
+            width: "100%",
+            height: 600,
+            border: 0,
+            display: "block",
+            background: "#0a1018",
+          }}
+        />
+      </div>
+      {isStaging && (
+        <p className="text-[11px] text-amber-400 text-center">
+          Тестовый режим Transak — используй карты-заглушки из их доков.
+        </p>
+      )}
+    </div>
+  );
+}
 
 export default function WalletPage() {
   const { hostToken } = useAuth();
@@ -231,15 +382,40 @@ export default function WalletPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-white">
                 <ArrowDownLeft className="h-5 w-5 text-sky-400" />
-                Адреса для пополнения
+                Пополнить кошелёк
               </CardTitle>
               <CardDescription className="text-slate-500">
-                Депозиты в крипте зачисляются на{" "}
+                Любое пополнение зачисляется на{" "}
                 <span className="text-emerald-400">зелёный</span> баланс по
-                курсу {LZT_PER_USDT}:1.
+                курсу {LZT_PER_USDT} LZT за 1 USDT.
               </CardDescription>
             </CardHeader>
             <CardContent>
+              <Tabs defaultValue="crypto" className="w-full">
+                <TabsList
+                  className="grid w-full grid-cols-2 mb-4"
+                  style={{
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                  }}
+                >
+                  <TabsTrigger
+                    value="crypto"
+                    className="data-[state=active]:bg-sky-500/15 data-[state=active]:text-sky-300 text-slate-400"
+                  >
+                    <Bitcoin className="h-4 w-4 mr-2" />
+                    Криптой
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="card"
+                    className="data-[state=active]:bg-sky-500/15 data-[state=active]:text-sky-300 text-slate-400"
+                  >
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Картой
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="crypto" className="mt-0">
               {isLoading ? (
                 <div className="space-y-4">
                   {[1, 2, 3].map((i) => (
@@ -295,6 +471,19 @@ export default function WalletPage() {
                   ))}
                 </div>
               )}
+                </TabsContent>
+
+                <TabsContent value="card" className="mt-0">
+                  <CardTopUp
+                    usdtAddress={
+                      wallet?.depositAddresses.find(
+                        (a) => a.currency === "USDT_TRC20",
+                      )?.address
+                    }
+                    isLoading={isLoading}
+                  />
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
 
