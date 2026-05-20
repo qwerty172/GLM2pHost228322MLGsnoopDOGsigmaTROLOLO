@@ -93,6 +93,9 @@ export interface SteamScanGame {
   catalogGame: { id: string; title: string; slug: string; coverImageUrl: string } | null;
   // True when the host already has this game in their library.
   alreadyInLibrary: boolean;
+  // True when this game was NOT seen in any previous scan (first discovery).
+  // False on re-scans for games the host already had installed before.
+  isNewDiscovery: boolean;
 }
 
 export interface SteamScanResult {

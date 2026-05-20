@@ -251,11 +251,15 @@ void app.whenReady().then(async () => {
       const scanState = await loadScanState();
       const addedAppIds = new Set(scanState.addedAppIds);
 
+      const prevSeenAppIds = new Set(scanState.seenAppIds ?? []);
+
       const enriched = steamGames.map((sg) => {
         const catalogGame = catalogByAppId.get(sg.appId) ?? null;
         const alreadyInLibrary =
           addedAppIds.has(sg.appId) ||
           (catalogGame !== null && libraryGameIds.has(catalogGame.id));
+        // isNewDiscovery = true on the very first time we see this appId.
+        const isNewDiscovery = !prevSeenAppIds.has(sg.appId);
         return {
           appId: sg.appId,
           name: sg.name,
@@ -264,14 +268,21 @@ void app.whenReady().then(async () => {
           bestExePath: sg.bestExePath,
           catalogGame,
           alreadyInLibrary,
+          isNewDiscovery,
         };
       });
 
-      // Persist last-scan timestamp.
+      // Persist: update seenAppIds with every appId from this scan so subsequent
+      // scans can show only newly installed games (delta mode).
+      const mergedSeenAppIds = Array.from(
+        new Set([...(scanState.seenAppIds ?? []), ...steamGames.map((g) => g.appId)]),
+      );
       await saveScanState({
         addedAppIds: scanState.addedAppIds,
+        seenAppIds: mergedSeenAppIds,
         lastScanAt: new Date().toISOString(),
       });
+      log("info", `[steam-scan] seenAppIds updated: ${mergedSeenAppIds.length} total`);
 
       return { steamRoot, games: enriched, error };
     },

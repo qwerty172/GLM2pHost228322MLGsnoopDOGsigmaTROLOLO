@@ -22,7 +22,11 @@ export interface SteamLibraryGame {
 }
 
 export interface SteamScanState {
+  // AppIds successfully added to the host's library.
   addedAppIds: string[];
+  // All appIds ever discovered during any previous scan.
+  // Used to compute the delta on repeat scans (new = not yet in seenAppIds).
+  seenAppIds: string[];
   lastScanAt: string | null;
 }
 

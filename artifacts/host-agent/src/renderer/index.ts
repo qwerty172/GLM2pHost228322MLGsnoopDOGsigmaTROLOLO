@@ -1016,6 +1016,7 @@ const steamGameList = $("steam-game-list") as HTMLDivElement;
 const steamAddLibraryBtn = $("steam-add-library") as HTMLButtonElement;
 const steamSubmitReviewBtn = $("steam-submit-review") as HTMLButtonElement;
 const steamSelectAll = $("steam-select-all") as HTMLInputElement;
+const steamDeltaMode = $("steam-delta-mode") as HTMLInputElement;
 const badgeCatalog = $("badge-catalog") as HTMLSpanElement;
 const badgeNew = $("badge-new") as HTMLSpanElement;
 const badgeAdded = $("badge-added") as HTMLSpanElement;
@@ -1027,14 +1028,22 @@ if (window.agent.platform === "win32") {
 
 type SteamTab = "catalog" | "new" | "added";
 let currentSteamTab: SteamTab = "catalog";
+// Whether this is the first ever scan (seenAppIds was empty before this scan).
+let steamIsFirstScan = true;
 let steamGames: SteamScanGame[] = [];
 // Map from appId → checkbox element (for visible items).
 const steamCheckboxMap = new Map<string, HTMLInputElement>();
 
+// When delta mode is on, only show games that are newly discovered this scan.
+function isDeltaActive(): boolean {
+  return !steamIsFirstScan && steamDeltaMode.checked;
+}
+
 function steamGamesForTab(tab: SteamTab): SteamScanGame[] {
-  if (tab === "added") return steamGames.filter((g) => g.alreadyInLibrary);
-  if (tab === "catalog") return steamGames.filter((g) => !g.alreadyInLibrary && g.catalogGame !== null);
-  return steamGames.filter((g) => !g.alreadyInLibrary && g.catalogGame === null);
+  const delta = isDeltaActive();
+  if (tab === "added") return steamGames.filter((g) => g.alreadyInLibrary && (!delta || g.isNewDiscovery));
+  if (tab === "catalog") return steamGames.filter((g) => !g.alreadyInLibrary && g.catalogGame !== null && (!delta || g.isNewDiscovery));
+  return steamGames.filter((g) => !g.alreadyInLibrary && g.catalogGame === null && (!delta || g.isNewDiscovery));
 }
 
 function renderSteamTab(tab: SteamTab): void {
@@ -1153,6 +1162,19 @@ steamSelectAll.addEventListener("change", () => {
   updateSteamActionButtons();
 });
 
+// Re-render current tab when delta mode is toggled.
+steamDeltaMode.addEventListener("change", () => {
+  renderSteamTab(currentSteamTab);
+  // Update badge counts to reflect the active filter.
+  const delta = isDeltaActive();
+  const inCatalog = steamGames.filter((g) => !g.alreadyInLibrary && g.catalogGame !== null && (!delta || g.isNewDiscovery)).length;
+  const isNew = steamGames.filter((g) => !g.alreadyInLibrary && g.catalogGame === null && (!delta || g.isNewDiscovery)).length;
+  const added = steamGames.filter((g) => g.alreadyInLibrary && (!delta || g.isNewDiscovery)).length;
+  badgeCatalog.textContent = String(inCatalog);
+  badgeNew.textContent = String(isNew);
+  badgeAdded.textContent = String(added);
+});
+
 // Tab switching.
 document.querySelectorAll<HTMLButtonElement>(".steam-tab").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -1196,6 +1218,18 @@ scanSteamBtn.addEventListener("click", async () => {
     }
 
     steamGames = result.games;
+
+    // Determine if this was the first scan: if all games are new discoveries,
+    // the seenAppIds set was empty before (first run).
+    steamIsFirstScan = steamGames.every((g) => g.isNewDiscovery);
+    // On re-scans default to delta mode (show new only).
+    if (!steamIsFirstScan) {
+      steamDeltaMode.checked = true;
+    } else {
+      steamDeltaMode.checked = false;
+    }
+
+    const newCount = steamGames.filter((g) => g.isNewDiscovery).length;
     const inCatalog = steamGames.filter((g) => !g.alreadyInLibrary && g.catalogGame !== null).length;
     const isNew = steamGames.filter((g) => !g.alreadyInLibrary && g.catalogGame === null).length;
     const added = steamGames.filter((g) => g.alreadyInLibrary).length;
@@ -1204,9 +1238,12 @@ scanSteamBtn.addEventListener("click", async () => {
     badgeNew.textContent = String(isNew);
     badgeAdded.textContent = String(added);
 
-    steamScanSummary.textContent =
-      `Found ${steamGames.length} installed Steam game${steamGames.length !== 1 ? "s" : ""}.` +
-      (result.error ? `  ⚠️ ${result.error}` : "");
+    const isReScan = !steamIsFirstScan;
+    steamScanSummary.textContent = isReScan
+      ? `Re-scan: ${newCount} new game${newCount !== 1 ? "s" : ""} since last scan (${steamGames.length} total installed).` +
+        (result.error ? `  ⚠️ ${result.error}` : "")
+      : `Found ${steamGames.length} installed Steam game${steamGames.length !== 1 ? "s" : ""}.` +
+        (result.error ? `  ⚠️ ${result.error}` : "");
 
     steamScanResults.hidden = false;
 
@@ -1315,6 +1352,8 @@ steamSubmitReviewBtn.addEventListener("click", async () => {
           title: game.name,
           steamAppId: game.appId,
           kind: "native",
+          // Prefill description with install dir context for the reviewer.
+          description: `Steam App ID: ${game.appId} | Install dir: ${game.installDir}`,
         }),
       });
       if (resp.ok) {
