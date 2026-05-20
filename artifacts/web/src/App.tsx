@@ -12,6 +12,7 @@ import WalletPage from "@/pages/wallet";
 import Play from "@/pages/play";
 import GamesPage from "@/pages/games";
 import GameDetailPage from "@/pages/game-detail";
+import HostsPage from "@/pages/hosts";
 import { HostLayout } from "@/components/layout";
 import { HostAuthGuard } from "@/components/host-auth-guard";
 
@@ -38,6 +39,7 @@ function Router() {
       <Route path="/" component={Landing} />
       <Route path="/games" component={GamesPage} />
       <Route path="/games/:slug" component={GameDetailPage} />
+      <Route path="/hosts" component={HostsPage} />
       <Route path="/play/:playerToken" component={Play} />
       <Route path="/host*" component={HostRoutes} />
       <Route path="/wallet*" component={HostRoutes} />

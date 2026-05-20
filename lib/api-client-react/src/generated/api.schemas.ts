@@ -272,6 +272,33 @@ export interface Wallet {
   recentWithdrawals: Withdrawal[];
 }
 
+/**
+ * Anonymous-safe view of a live host
+ */
+export interface PublicHostListItem {
+  id: string;
+  displayName: string;
+  boundAppLabel: string;
+  /** Hostname of the boundUrl (e.g. "shellshock.io"), empty for native-app hosts. */
+  boundUrlHost: string;
+  tags: string[];
+  /** minutePriceUsd * 60 */
+  pricePerHourUsd: number;
+  launchPriceUsd: number;
+  minutePriceUsd: number;
+  /** online | offline | scheduled */
+  status: string;
+  /** Share token so anonymous visitors can join the open session. */
+  playerToken: string;
+}
+
+export interface PublicStats {
+  hostsOnline: number;
+  activeSessions: number;
+  /** Sum of completed host withdrawals in USD cents. */
+  totalPaidOutCents: number;
+}
+
 export interface WalletTransaction {
   id: string;
   /** deposit | withdrawal | session_billing */

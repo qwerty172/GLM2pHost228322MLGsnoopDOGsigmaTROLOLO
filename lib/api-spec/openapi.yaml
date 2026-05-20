@@ -194,6 +194,35 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /hosts:
+    get:
+      operationId: listPublicHosts
+      tags: [hosts]
+      summary: Public list of currently-available hosts
+      description: Returns hosts that have an open session and are within their availability schedule. Safe for anonymous visitors — never exposes hostToken or wallet/balance.
+      responses:
+        "200":
+          description: Live hosts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PublicHostListItem"
+
+  /stats:
+    get:
+      operationId: getPublicStats
+      tags: [health]
+      summary: Public platform stats for the landing page
+      responses:
+        "200":
+          description: Platform stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicStats"
+
   /players/register:
     post:
       operationId: registerPlayer
@@ -1112,6 +1141,63 @@ components:
         - pendingWithdrawals
         - depositAddresses
         - recentWithdrawals
+
+    PublicHostListItem:
+      type: object
+      description: Anonymous-safe view of a live host
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        boundAppLabel:
+          type: string
+        boundUrlHost:
+          type: string
+          description: Hostname of the boundUrl (e.g. "shellshock.io"), empty for native-app hosts.
+        tags:
+          type: array
+          items:
+            type: string
+        pricePerHourUsd:
+          type: number
+          description: minutePriceUsd * 60
+        launchPriceUsd:
+          type: number
+        minutePriceUsd:
+          type: number
+        status:
+          type: string
+          description: "online | offline | scheduled"
+        playerToken:
+          type: string
+          description: Share token so anonymous visitors can join the open session.
+      required:
+        - id
+        - displayName
+        - boundAppLabel
+        - boundUrlHost
+        - tags
+        - pricePerHourUsd
+        - launchPriceUsd
+        - minutePriceUsd
+        - status
+        - playerToken
+
+    PublicStats:
+      type: object
+      properties:
+        hostsOnline:
+          type: integer
+        activeSessions:
+          type: integer
+        totalPaidOutCents:
+          type: integer
+          description: Sum of completed host withdrawals in USD cents.
+      required:
+        - hostsOnline
+        - activeSessions
+        - totalPaidOutCents
 
     WalletTransaction:
       type: object

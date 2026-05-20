@@ -85,7 +85,7 @@ export default function Play() {
       setConnectionState(pc.connectionState);
       if (pc.connectionState === "failed" || pc.connectionState === "disconnected" || pc.connectionState === "closed") {
         cleanupConnection();
-        toast.error("Connection lost");
+        toast.error("Соединение потеряно");
       }
     };
 
@@ -127,7 +127,7 @@ export default function Play() {
     };
 
     ws.onerror = () => {
-      toast.error("Signaling server connection error");
+      toast.error("Ошибка сигнального сервера");
       cleanupConnection();
     };
   }, [playerToken, playerWalletToken, cleanupConnection]);
@@ -272,20 +272,34 @@ export default function Play() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "#06090e" }}
+      >
+        <Loader2 className="h-8 w-8 animate-spin text-sky-400" />
       </div>
     );
   }
 
   if (isError || !session) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md border-destructive/50 bg-destructive/10">
+      <div
+        className="min-h-screen flex items-center justify-center p-4"
+        style={{ background: "#06090e" }}
+      >
+        <Card
+          className="w-full max-w-md"
+          style={{
+            background: "rgba(239,68,68,0.05)",
+            border: "1px solid rgba(239,68,68,0.3)",
+          }}
+        >
           <CardHeader className="text-center">
-            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-            <CardTitle>Session Not Found</CardTitle>
-            <CardDescription>This share link is invalid or has expired.</CardDescription>
+            <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
+            <CardTitle className="text-white">Сессия не найдена</CardTitle>
+            <CardDescription className="text-slate-500">
+              Ссылка некорректна или больше не действует.
+            </CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -298,59 +312,137 @@ export default function Play() {
     const minutesAffordable =
       ratePerMin > 0 ? Math.floor(balance / ratePerMin) : 0;
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
-        <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_center,rgba(0,255,170,0.1),transparent_50%)]" />
-        <Card className="w-full max-w-md relative z-10 bg-card/80 backdrop-blur border-primary/20">
+      <div
+        className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
+        style={{ background: "#06090e" }}
+      >
+        <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_center,rgba(14,165,233,0.1),transparent_50%)]" />
+        <Card
+          className="w-full max-w-md relative z-10"
+          style={{
+            background: "#0a1018",
+            border: "1px solid rgba(14,165,233,0.2)",
+          }}
+        >
           <CardHeader className="text-center pb-6">
-            <Gamepad2 className="h-16 w-16 text-primary mx-auto mb-6" />
-            <CardTitle className="text-3xl font-bold tracking-tight mb-2">{session.appName}</CardTitle>
-            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground font-mono">
-              <Badge variant="outline">{session.resolution}</Badge>
-              <Badge variant="outline">{session.bitrateKbps} kbps</Badge>
-              <Badge variant="outline">${ratePerMin.toFixed(2)}/min</Badge>
+            <Gamepad2 className="h-16 w-16 text-sky-400 mx-auto mb-6" />
+            <CardTitle className="text-3xl font-bold tracking-tight mb-2 text-white">
+              {session.appName}
+            </CardTitle>
+            <div className="flex items-center justify-center gap-2 text-xs text-slate-500 font-mono flex-wrap">
+              <Badge
+                variant="outline"
+                className="border-white/10 text-slate-400"
+              >
+                {session.resolution}
+              </Badge>
+              <Badge
+                variant="outline"
+                className="border-white/10 text-slate-400"
+              >
+                {session.bitrateKbps} kbps
+              </Badge>
+              <Badge
+                variant="outline"
+                className="border-white/10 text-slate-400"
+              >
+                ${ratePerMin.toFixed(2)}/мин
+              </Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-4 rounded-lg bg-background/50 border border-border/50">
-              <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Wallet className="h-4 w-4" /> Wallet Balance
+            <div
+              className="flex items-center justify-between p-4 rounded-lg"
+              style={{
+                background: "rgba(255,255,255,0.02)",
+                border: "1px solid rgba(255,255,255,0.06)",
+              }}
+            >
+              <div className="text-sm font-medium text-slate-400 flex items-center gap-2">
+                <Wallet className="h-4 w-4" /> Баланс
               </div>
               <div className="text-right">
-                <div className="font-bold font-mono">${balance.toFixed(2)}</div>
-                <div className="text-[10px] text-muted-foreground">
-                  ~{minutesAffordable} min playtime
+                <div className="font-bold font-mono text-white">
+                  ${balance.toFixed(2)}
+                </div>
+                <div className="text-[10px] text-slate-500">
+                  ~{minutesAffordable} мин игры
                 </div>
               </div>
             </div>
-            <div className="flex items-center justify-between p-4 rounded-lg bg-background/50 border border-border/50">
-              <div className="text-sm font-medium text-muted-foreground">Host Status</div>
-              <Badge variant={session.status === 'active' ? 'default' : 'secondary'}>
-                {session.status.toUpperCase()}
+            <div
+              className="flex items-center justify-between p-4 rounded-lg"
+              style={{
+                background: "rgba(255,255,255,0.02)",
+                border: "1px solid rgba(255,255,255,0.06)",
+              }}
+            >
+              <div className="text-sm font-medium text-slate-400">
+                Статус хоста
+              </div>
+              <Badge
+                variant="outline"
+                style={{
+                  background:
+                    session.status === "active"
+                      ? "rgba(20,184,166,0.15)"
+                      : "rgba(255,255,255,0.04)",
+                  color: session.status === "active" ? "#2dd4bf" : "#94a3b8",
+                  border:
+                    session.status === "active"
+                      ? "1px solid rgba(20,184,166,0.3)"
+                      : "1px solid rgba(255,255,255,0.08)",
+                }}
+              >
+                {session.status === "active"
+                  ? "АКТИВЕН"
+                  : session.status === "pending"
+                    ? "ОЖИДАНИЕ"
+                    : "ЗАВЕРШЁН"}
               </Badge>
             </div>
             {claimError && (
-              <div className="p-3 rounded-md bg-destructive/10 border border-destructive/40 text-sm text-destructive">
+              <div
+                className="p-3 rounded-md text-sm"
+                style={{
+                  background: "rgba(239,68,68,0.1)",
+                  border: "1px solid rgba(239,68,68,0.3)",
+                  color: "#fca5a5",
+                }}
+              >
                 {claimError}
               </div>
             )}
             {!playerWalletToken || claimSession.isPending ? (
-              <Button className="w-full h-14 text-lg font-bold tracking-wider" disabled>
+              <Button
+                className="w-full h-14 text-base font-bold"
+                disabled
+                style={{ background: "rgba(14,165,233,0.2)", color: "#fff" }}
+              >
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                {playerWalletToken ? "Claiming session…" : "Setting up wallet…"}
+                {playerWalletToken
+                  ? "Подключаемся к сессии…"
+                  : "Создаём кошелёк…"}
               </Button>
             ) : balance < ratePerMin && !hasClaimed ? (
               <Link href="/wallet" className="block">
-                <Button className="w-full h-14 text-lg font-bold tracking-wider">
-                  Top Up Wallet
+                <Button
+                  className="w-full h-14 text-base font-bold"
+                  style={{ background: "#0ea5e9", color: "#fff" }}
+                >
+                  Пополнить кошелёк
                 </Button>
               </Link>
             ) : (
               <Button
-                className="w-full h-14 text-lg font-bold tracking-wider"
+                className="w-full h-14 text-base font-bold"
+                style={{ background: "#0ea5e9", color: "#fff" }}
                 onClick={() => void startConnection()}
-                disabled={session.status === 'ended'}
+                disabled={session.status === "ended"}
               >
-                {session.status === 'ended' ? 'Session Ended' : 'CONNECT & PLAY'}
+                {session.status === "ended"
+                  ? "Сессия завершена"
+                  : "Подключиться и играть"}
               </Button>
             )}
           </CardContent>
@@ -363,23 +455,49 @@ export default function Play() {
     <div className="min-h-screen bg-black flex flex-col relative overflow-hidden select-none">
       <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between z-50 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
         <div className="flex items-center gap-4">
-          <div className="font-bold text-primary tracking-tight drop-shadow-md">STREAMLINE</div>
-          <Badge variant="outline" className={`bg-black/50 backdrop-blur font-mono border-${connectionState === 'connected' ? 'primary' : 'destructive'} text-${connectionState === 'connected' ? 'primary' : 'destructive'}`}>
-            {connectionState === 'connected' ? <Wifi className="w-3 h-3 mr-2 inline" /> : <WifiOff className="w-3 h-3 mr-2 inline" />}
-            {connectionState.toUpperCase()}
+          <div className="font-bold text-sky-400 tracking-tight drop-shadow-md">
+            DecentralHub
+          </div>
+          <Badge
+            variant="outline"
+            className="bg-black/50 backdrop-blur font-mono"
+            style={{
+              borderColor:
+                connectionState === "connected" ? "#0ea5e9" : "#ef4444",
+              color: connectionState === "connected" ? "#38bdf8" : "#f87171",
+            }}
+          >
+            {connectionState === "connected" ? (
+              <Wifi className="w-3 h-3 mr-2 inline" />
+            ) : (
+              <WifiOff className="w-3 h-3 mr-2 inline" />
+            )}
+            {connectionState === "connected"
+              ? "ПОДКЛЮЧЕНО"
+              : connectionState === "connecting"
+                ? "СОЕДИНЕНИЕ"
+                : connectionState.toUpperCase()}
           </Badge>
         </div>
-        <Button variant="destructive" size="sm" onClick={cleanupConnection} className="pointer-events-auto shadow-md">
-          Disconnect
+        <Button
+          size="sm"
+          onClick={cleanupConnection}
+          className="pointer-events-auto shadow-md"
+          style={{
+            background: "rgba(239,68,68,0.85)",
+            color: "#fff",
+          }}
+        >
+          Отключиться
         </Button>
       </div>
 
       <div className="flex-1 relative flex items-center justify-center bg-black cursor-crosshair">
-        {connectionState !== 'connected' && (
+        {connectionState !== "connected" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-40 backdrop-blur-sm">
-            <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-            <div className="font-mono text-primary font-bold tracking-widest uppercase">
-              Establishing WebRTC Connection
+            <Loader2 className="h-12 w-12 animate-spin text-sky-400 mb-4" />
+            <div className="font-mono text-sky-400 font-bold tracking-widest uppercase">
+              Устанавливаем WebRTC-соединение
             </div>
           </div>
         )}
@@ -395,9 +513,14 @@ export default function Play() {
 
         {showAudioPrompt && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-30 pointer-events-auto">
-            <Button size="lg" onClick={handleEnableAudio} className="font-bold gap-2 shadow-xl hover:scale-105 transition-transform">
+            <Button
+              size="lg"
+              onClick={handleEnableAudio}
+              className="font-bold gap-2 shadow-xl hover:scale-105 transition-transform"
+              style={{ background: "#0ea5e9", color: "#fff" }}
+            >
               <VolumeX className="h-5 w-5" />
-              Click to Enable Audio
+              Включить звук
             </Button>
           </div>
         )}

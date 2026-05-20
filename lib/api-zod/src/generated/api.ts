@@ -300,6 +300,43 @@ export const GetHostActivityResponseItem = zod.object({
 export const GetHostActivityResponse = zod.array(GetHostActivityResponseItem);
 
 /**
+ * Returns hosts that have an open session and are within their availability schedule. Safe for anonymous visitors — never exposes hostToken or wallet/balance.
+ * @summary Public list of currently-available hosts
+ */
+export const ListPublicHostsResponseItem = zod
+  .object({
+    id: zod.string(),
+    displayName: zod.string(),
+    boundAppLabel: zod.string(),
+    boundUrlHost: zod
+      .string()
+      .describe(
+        'Hostname of the boundUrl (e.g. \"shellshock.io\"), empty for native-app hosts.',
+      ),
+    tags: zod.array(zod.string()),
+    pricePerHourUsd: zod.number().describe("minutePriceUsd \* 60"),
+    launchPriceUsd: zod.number(),
+    minutePriceUsd: zod.number(),
+    status: zod.string().describe("online | offline | scheduled"),
+    playerToken: zod
+      .string()
+      .describe("Share token so anonymous visitors can join the open session."),
+  })
+  .describe("Anonymous-safe view of a live host");
+export const ListPublicHostsResponse = zod.array(ListPublicHostsResponseItem);
+
+/**
+ * @summary Public platform stats for the landing page
+ */
+export const GetPublicStatsResponse = zod.object({
+  hostsOnline: zod.number(),
+  activeSessions: zod.number(),
+  totalPaidOutCents: zod
+    .number()
+    .describe("Sum of completed host withdrawals in USD cents."),
+});
+
+/**
  * @summary Register a new player wallet identity
  */
 export const RegisterPlayerBody = zod.object({

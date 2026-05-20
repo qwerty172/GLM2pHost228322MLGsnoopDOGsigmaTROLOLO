@@ -24,6 +24,8 @@ export * from "./hostScheduleMode";
 export * from "./hostStats";
 export * from "./listGamesParams";
 export * from "./player";
+export * from "./publicHostListItem";
+export * from "./publicStats";
 export * from "./registerHostBody";
 export * from "./registerPlayerBody";
 export * from "./requestWithdrawalBody";

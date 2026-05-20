@@ -1,55 +1,63 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { Button } from "@/components/ui/button";
-import { Activity, Gamepad2, LayoutDashboard, LogOut, Wallet } from "lucide-react";
+import { LayoutDashboard, Gamepad2, Wallet, LogOut } from "lucide-react";
+import { SiteNav } from "@/components/site-nav";
 
 export function HostLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { logout } = useAuth();
 
   const navItems = [
-    { href: "/host", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/host/setup", label: "New Session", icon: Gamepad2 },
-    { href: "/wallet", label: "Wallet", icon: Wallet },
+    { href: "/host", label: "Дашборд", icon: LayoutDashboard },
+    { href: "/host/setup", label: "Новая сессия", icon: Gamepad2 },
+    { href: "/wallet", label: "Кошелёк", icon: Wallet },
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto flex h-14 items-center px-4">
-          <Link href="/host" className="flex items-center gap-2 mr-6 font-bold tracking-tight text-primary">
-            <Activity className="h-5 w-5" />
-            STREAMLINE
-          </Link>
-          <nav className="flex items-center gap-6 text-sm font-medium">
-            {navItems.map((item) => {
-              const isActive = location === item.href;
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-2 transition-colors hover:text-foreground/80 ${
-                    isActive ? "text-foreground" : "text-foreground/60"
-                  }`}
+    <div
+      className="min-h-screen flex flex-col text-slate-300"
+      style={{ background: "#06090e" }}
+    >
+      <SiteNav activePath={location.startsWith("/wallet") ? "/wallet" : "/host"} />
+      <div
+        className="border-b"
+        style={{
+          background: "rgba(10,16,24,0.6)",
+          borderColor: "rgba(255,255,255,0.05)",
+        }}
+      >
+        <div className="max-w-6xl mx-auto px-6 h-11 flex items-center gap-6">
+          {navItems.map((item) => {
+            const isActive = location === item.href;
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                data-testid={`link-host-${item.href.replace(/\//g, "-")}`}
+              >
+                <span
+                  className="flex items-center gap-1.5 text-[12.5px] font-medium cursor-pointer transition-colors"
+                  style={{ color: isActive ? "#38bdf8" : "#94a3b8" }}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-3.5 w-3.5" />
                   {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-          <div className="ml-auto flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={logout} className="gap-2 text-muted-foreground hover:text-destructive">
-              <LogOut className="h-4 w-4" />
-              Sign out
-            </Button>
-          </div>
+                </span>
+              </Link>
+            );
+          })}
+          <button
+            type="button"
+            onClick={logout}
+            className="ml-auto flex items-center gap-1.5 text-[12.5px] text-slate-500 hover:text-red-400 transition-colors"
+            data-testid="button-logout"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            Выйти
+          </button>
         </div>
-      </header>
-      <main className="flex-1 container mx-auto p-4 md:p-8">
-        {children}
-      </main>
+      </div>
+      <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-8">{children}</main>
     </div>
   );
 }

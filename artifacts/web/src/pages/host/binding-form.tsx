@@ -29,7 +29,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Plus, Save, Trash2, Calendar } from "lucide-react";
 
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAYS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
 
 function minutesToHHMM(min: number): string {
   const h = Math.floor(min / 60).toString().padStart(2, "0");
@@ -126,24 +126,22 @@ export default function BindingForm({ hostToken }: Props) {
     const lp = Number(launchPriceUsd);
     const mp = Number(minutePriceUsd);
     if (!Number.isFinite(lp) || Math.abs(lp) > 100) {
-      toast.error("Launch price must be a number with |value| ≤ 100");
+      toast.error("Цена запуска: число, |значение| ≤ 100");
       return;
     }
     if (!Number.isFinite(mp) || Math.abs(mp) > 100) {
-      toast.error("Per-minute price must be a number with |value| ≤ 100");
+      toast.error("Цена за минуту: число, |значение| ≤ 100");
       return;
     }
     if (scheduleMode === "scheduled") {
       for (const slot of scheduleJson) {
-        // A slot must cover non-zero time. endMin < startMin means wrap-around
-        // (until next day), which IS allowed. endMin === startMin is empty.
         if (slot.startMin === slot.endMin) {
-          toast.error("Schedule slot has zero length");
+          toast.error("Пустой слот расписания");
           return;
         }
         if (slot.startMin < 0 || slot.startMin > 1439 ||
             slot.endMin < 0 || slot.endMin > 1439) {
-          toast.error("Schedule slot times must be 00:00–23:59");
+          toast.error("Время слота должно быть в диапазоне 00:00–23:59");
           return;
         }
       }
@@ -155,14 +153,14 @@ export default function BindingForm({ hostToken }: Props) {
     const sendUrl = isBrowser ? boundUrl.trim() : "";
     if (isBrowser) {
       if (!sendUrl) {
-        toast.error("Browser games need a URL");
+        toast.error("Для браузерной игры нужен URL");
         return;
       }
       try {
         const u = new URL(sendUrl);
         if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error("");
       } catch {
-        toast.error("URL must start with http:// or https://");
+        toast.error("URL должен начинаться с http:// или https://");
         return;
       }
     }
@@ -207,14 +205,14 @@ export default function BindingForm({ hostToken }: Props) {
       { hostToken, data: body },
       {
         onSuccess: () => {
-          toast.success("Host offer saved");
+          toast.success("Настройки хоста сохранены");
           setStreamKey(""); // don't keep the secret in memory
           setClearStreamKey(false);
           setTagsInput("");
           qc.invalidateQueries({ queryKey: getGetHostQueryKey(hostToken) });
         },
         onError: (err) => {
-          const msg = (err as Error)?.message ?? "Failed to save";
+          const msg = (err as Error)?.message ?? "Не удалось сохранить";
           toast.error(msg);
         },
       },
@@ -223,39 +221,41 @@ export default function BindingForm({ hostToken }: Props) {
 
   return (
     <Card
-      className="bg-card/50 backdrop-blur border-primary/20"
+      style={{
+        background: "#0a1018",
+        border: "1px solid rgba(255,255,255,0.06)",
+      }}
       data-testid="card-binding-form"
     >
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-primary" />
-          Game binding & pricing
+        <CardTitle className="flex items-center gap-2 text-white">
+          <Calendar className="h-5 w-5 text-sky-400" />
+          Привязка игры и цены
         </CardTitle>
-        <CardDescription>
-          Bind this host to a specific game and the .exe the agent should
-          launch when a player connects. Prices may be negative ("loss-leader"
-          promos). Stream key is optional — set it to also restream the game
-          window.
+        <CardDescription className="text-slate-500">
+          Привяжи хост к конкретной игре и укажи .exe или URL, который агент
+          запустит при подключении игрока. Цены могут быть отрицательными
+          (акции). Stream key — опционально, для рестрима окна игры.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {isLoading ? (
-          <div className="text-sm text-muted-foreground">Loading…</div>
+          <div className="text-sm text-slate-500">Загрузка…</div>
         ) : (
           <>
             {/* Game + executable */}
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="game">Game from catalog</Label>
+                <Label htmlFor="game" className="text-slate-300">Игра из каталога</Label>
                 <Select
                   value={gameId ?? "__none__"}
                   onValueChange={(v) => setGameId(v === "__none__" ? null : v)}
                 >
                   <SelectTrigger id="game" data-testid="select-game">
-                    <SelectValue placeholder="Pick a game" />
+                    <SelectValue placeholder="Выбери игру" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">— Not bound —</SelectItem>
+                    <SelectItem value="__none__">— Без привязки —</SelectItem>
                     {gameOptions.map((g) => (
                       <SelectItem key={g.value} value={g.value}>
                         {g.label}
@@ -265,17 +265,17 @@ export default function BindingForm({ hostToken }: Props) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="appLabel">Display label</Label>
+                <Label htmlFor="appLabel" className="text-slate-300">Отображаемое имя</Label>
                 <Input
                   id="appLabel"
                   data-testid="input-app-label"
                   value={boundAppLabel}
                   onChange={(e) => setBoundAppLabel(e.target.value)}
-                  placeholder="e.g. Cyberpunk2077.exe"
+                  placeholder="например, Cyberpunk2077.exe"
                 />
               </div>
               <div className="space-y-2 md:col-span-2">
-                <Label>What does the agent launch?</Label>
+                <Label className="text-slate-300">Что запускает агент?</Label>
                 <div className="flex gap-2">
                   <Button
                     type="button"
@@ -283,8 +283,13 @@ export default function BindingForm({ hostToken }: Props) {
                     size="sm"
                     onClick={() => setBindingKind("app")}
                     data-testid="button-binding-kind-app"
+                    style={
+                      bindingKind === "app"
+                        ? { background: "#0ea5e9", color: "#fff" }
+                        : undefined
+                    }
                   >
-                    Native .exe
+                    Нативный .exe
                   </Button>
                   <Button
                     type="button"
@@ -292,14 +297,19 @@ export default function BindingForm({ hostToken }: Props) {
                     size="sm"
                     onClick={() => setBindingKind("browser")}
                     data-testid="button-binding-kind-browser"
+                    style={
+                      bindingKind === "browser"
+                        ? { background: "#0ea5e9", color: "#fff" }
+                        : undefined
+                    }
                   >
-                    Browser game (URL)
+                    Браузерная игра (URL)
                   </Button>
                 </div>
               </div>
               {bindingKind === "app" ? (
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="appPath">Executable path on this PC</Label>
+                  <Label htmlFor="appPath" className="text-slate-300">Путь к .exe на этом ПК</Label>
                   <Input
                     id="appPath"
                     data-testid="input-app-path"
@@ -308,13 +318,13 @@ export default function BindingForm({ hostToken }: Props) {
                     placeholder="C:/Games/Cyberpunk 2077/bin/x64/Cyberpunk2077.exe"
                     className="font-mono text-sm"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    The agent will run this file when a player joins.
+                  <p className="text-xs text-slate-500">
+                    Агент запустит этот файл, когда игрок подключится.
                   </p>
                 </div>
               ) : (
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="boundUrl">Browser game URL</Label>
+                  <Label htmlFor="boundUrl" className="text-slate-300">URL браузерной игры</Label>
                   <Input
                     id="boundUrl"
                     data-testid="input-bound-url"
@@ -324,14 +334,14 @@ export default function BindingForm({ hostToken }: Props) {
                     placeholder="https://shellshock.io"
                     className="font-mono text-sm"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    The agent opens this URL in your default browser when a
-                    player connects.
+                  <p className="text-xs text-slate-500">
+                    Агент откроет этот URL в твоём браузере, когда игрок
+                    подключится.
                   </p>
                 </div>
               )}
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="hostTags">Capability tags</Label>
+                <Label htmlFor="hostTags" className="text-slate-300">Теги возможностей</Label>
                 <div className="flex flex-wrap gap-1.5">
                   {tags.map((t) => (
                     <Badge
@@ -400,22 +410,21 @@ export default function BindingForm({ hostToken }: Props) {
                       setTags((prev) => prev.slice(0, -1));
                     }
                   }}
-                  placeholder="Type and press Enter (e.g. Leveled-up account, Adobe license)"
+                  placeholder="Введи и нажми Enter (например, прокачанный аккаунт, лицензия Adobe)"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Up to 20 tags, ≤40 chars each. Players can filter the library
-                  by these tags.
+                <p className="text-xs text-slate-500">
+                  До 20 тегов, ≤40 символов в каждом. Игроки фильтруют каталог по тегам.
                 </p>
               </div>
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="desc">Description</Label>
+                <Label htmlFor="desc" className="text-slate-300">Описание</Label>
                 <Textarea
                   id="desc"
                   data-testid="input-description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={3}
-                  placeholder="Hardware, mods, rules, vibe…"
+                  placeholder="Железо, моды, правила, атмосфера…"
                   maxLength={4000}
                 />
               </div>
@@ -424,8 +433,8 @@ export default function BindingForm({ hostToken }: Props) {
             {/* Pricing */}
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="launchPrice">
-                  Launch fee (USD, can be negative)
+                <Label htmlFor="launchPrice" className="text-slate-300">
+                  Цена запуска (USD, можно отрицательную)
                 </Label>
                 <Input
                   id="launchPrice"
@@ -437,8 +446,8 @@ export default function BindingForm({ hostToken }: Props) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="minutePrice">
-                  Per-minute price (USD, can be negative)
+                <Label htmlFor="minutePrice" className="text-slate-300">
+                  Цена за минуту (USD, можно отрицательную)
                 </Label>
                 <Input
                   id="minutePrice"
@@ -454,9 +463,9 @@ export default function BindingForm({ hostToken }: Props) {
             {/* Schedule */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label htmlFor="schedMode">Availability schedule</Label>
+                <Label htmlFor="schedMode" className="text-slate-300">Расписание доступности</Label>
                 <Badge variant={scheduleMode === "always" ? "default" : "secondary"}>
-                  {scheduleMode}
+                  {scheduleMode === "always" ? "всегда" : "по расписанию"}
                 </Badge>
               </div>
               <Select
@@ -470,18 +479,18 @@ export default function BindingForm({ hostToken }: Props) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="always">
-                    Always available while agent is running
+                    Всегда доступен, пока агент запущен
                   </SelectItem>
                   <SelectItem value="scheduled">
-                    Only inside the slots below
+                    Только в указанных ниже слотах
                   </SelectItem>
                 </SelectContent>
               </Select>
               {scheduleMode === "scheduled" && (
-                <div className="space-y-2 rounded border border-border/50 p-3 bg-background/40">
+                <div className="space-y-2 rounded border border-white/10 p-3 bg-white/[0.02]">
                   {scheduleJson.length === 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      No slots — host will appear offline. Add at least one.
+                    <p className="text-xs text-slate-500">
+                      Слотов нет — хост будет оффлайн. Добавь хотя бы один.
                     </p>
                   )}
                   {scheduleJson.map((slot, i) => (
@@ -491,7 +500,7 @@ export default function BindingForm({ hostToken }: Props) {
                       data-testid={`schedule-slot-${i}`}
                     >
                       <div className="space-y-1">
-                        <Label className="text-xs">Day (UTC)</Label>
+                        <Label className="text-xs text-slate-400">День (UTC)</Label>
                         <Select
                           value={String(slot.day)}
                           onValueChange={(v) =>
@@ -511,7 +520,7 @@ export default function BindingForm({ hostToken }: Props) {
                         </Select>
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">From</Label>
+                        <Label className="text-xs text-slate-400">С</Label>
                         <Input
                           type="time"
                           value={minutesToHHMM(slot.startMin)}
@@ -524,7 +533,7 @@ export default function BindingForm({ hostToken }: Props) {
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">To</Label>
+                        <Label className="text-xs text-slate-400">До</Label>
                         <Input
                           type="time"
                           value={minutesToHHMM(slot.endMin)}
@@ -541,7 +550,7 @@ export default function BindingForm({ hostToken }: Props) {
                         variant="ghost"
                         onClick={() => removeSlot(i)}
                         data-testid={`button-remove-slot-${i}`}
-                        aria-label="Remove slot"
+                        aria-label="Удалить слот"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -554,7 +563,7 @@ export default function BindingForm({ hostToken }: Props) {
                     data-testid="button-add-slot"
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Add slot
+                    Добавить слот
                   </Button>
                 </div>
               )}
@@ -562,18 +571,18 @@ export default function BindingForm({ hostToken }: Props) {
 
             {/* Restream */}
             <div className="space-y-3">
-              <Label className="text-base">
-                Restream (optional)
+              <Label className="text-base text-slate-300">
+                Рестрим (опционально)
                 {host?.streamKeySet && (
                   <Badge variant="outline" className="ml-2">
-                    key set
+                    ключ задан
                   </Badge>
                 )}
               </Label>
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="space-y-1">
-                  <Label htmlFor="sp" className="text-xs">
-                    Platform
+                  <Label htmlFor="sp" className="text-xs text-slate-400">
+                    Платформа
                   </Label>
                   <Input
                     id="sp"
@@ -584,7 +593,7 @@ export default function BindingForm({ hostToken }: Props) {
                   />
                 </div>
                 <div className="space-y-1 md:col-span-2">
-                  <Label htmlFor="su" className="text-xs">
+                  <Label htmlFor="su" className="text-xs text-slate-400">
                     Ingest URL
                   </Label>
                   <Input
@@ -597,8 +606,8 @@ export default function BindingForm({ hostToken }: Props) {
                   />
                 </div>
                 <div className="space-y-1 md:col-span-3">
-                  <Label htmlFor="sk" className="text-xs">
-                    Stream key (leave empty to keep existing)
+                  <Label htmlFor="sk" className="text-xs text-slate-400">
+                    Stream key (оставь пустым, чтобы сохранить текущий)
                   </Label>
                   <Input
                     id="sk"
@@ -613,7 +622,7 @@ export default function BindingForm({ hostToken }: Props) {
                     disabled={clearStreamKey}
                   />
                   {host?.streamKeySet && (
-                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <label className="flex items-center gap-2 text-xs text-slate-500">
                       <input
                         type="checkbox"
                         data-testid="checkbox-clear-stream-key"
@@ -623,7 +632,7 @@ export default function BindingForm({ hostToken }: Props) {
                           if (e.target.checked) setStreamKey("");
                         }}
                       />
-                      Clear the saved stream key on next save
+                      Очистить сохранённый stream key при следующем сохранении
                     </label>
                   )}
                 </div>
@@ -635,9 +644,10 @@ export default function BindingForm({ hostToken }: Props) {
                 onClick={onSave}
                 disabled={update.isPending}
                 data-testid="button-save-binding"
+                style={{ background: "#0ea5e9", color: "#fff" }}
               >
                 <Save className="h-4 w-4 mr-2" />
-                {update.isPending ? "Saving…" : "Save offer"}
+                {update.isPending ? "Сохраняем…" : "Сохранить"}
               </Button>
             </div>
           </>

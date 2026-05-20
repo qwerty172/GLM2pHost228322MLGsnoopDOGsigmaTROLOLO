@@ -1,27 +1,81 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useGetHostStats, useGetHostActivity, useListHostSessions, useEndSession, getGetHostStatsQueryKey, getGetHostActivityQueryKey, getListHostSessionsQueryKey } from "@workspace/api-client-react";
+import {
+  useGetHostStats,
+  useGetHostActivity,
+  useListHostSessions,
+  useEndSession,
+  getGetHostStatsQueryKey,
+  getGetHostActivityQueryKey,
+  getListHostSessionsQueryKey,
+} from "@workspace/api-client-react";
 import BindingForm from "./binding-form";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Copy, MonitorPlay, PowerOff, Clock, DollarSign, Download, HardDrive, Gamepad2, ArrowRight } from "lucide-react";
+import {
+  Activity,
+  Copy,
+  MonitorPlay,
+  PowerOff,
+  Clock,
+  DollarSign,
+  Download,
+  HardDrive,
+  Gamepad2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
 
+const cardStyle = {
+  background: "#0a1018",
+  border: "1px solid rgba(255,255,255,0.06)",
+};
+
 export default function Dashboard() {
   const { hostToken } = useAuth();
-  
-  const { data: stats, isLoading: statsLoading } = useGetHostStats(hostToken || "", { query: { enabled: !!hostToken, queryKey: getGetHostStatsQueryKey(hostToken || "") } });
-  const { data: activity, isLoading: activityLoading } = useGetHostActivity(hostToken || "", { query: { enabled: !!hostToken, queryKey: getGetHostActivityQueryKey(hostToken || "") } });
-  const { data: sessions, isLoading: sessionsLoading, refetch: refetchSessions } = useListHostSessions(hostToken || "", { query: { enabled: !!hostToken, queryKey: getListHostSessionsQueryKey(hostToken || "") } });
-  
+
+  const { data: stats, isLoading: statsLoading } = useGetHostStats(
+    hostToken || "",
+    {
+      query: {
+        enabled: !!hostToken,
+        queryKey: getGetHostStatsQueryKey(hostToken || ""),
+      },
+    },
+  );
+  const { data: activity, isLoading: activityLoading } = useGetHostActivity(
+    hostToken || "",
+    {
+      query: {
+        enabled: !!hostToken,
+        queryKey: getGetHostActivityQueryKey(hostToken || ""),
+      },
+    },
+  );
+  const {
+    data: sessions,
+    isLoading: sessionsLoading,
+    refetch: refetchSessions,
+  } = useListHostSessions(hostToken || "", {
+    query: {
+      enabled: !!hostToken,
+      queryKey: getListHostSessionsQueryKey(hostToken || ""),
+    },
+  });
+
   const endSession = useEndSession();
 
   const handleCopyLink = (playerToken: string) => {
     const link = `${window.location.origin}${import.meta.env.BASE_URL}play/${playerToken}`;
     navigator.clipboard.writeText(link);
-    toast.success("Share link copied to clipboard");
+    toast.success("Ссылка скопирована");
   };
 
   const handleEndSession = (id: string) => {
@@ -30,46 +84,55 @@ export default function Dashboard() {
       { id, data: { hostToken } },
       {
         onSuccess: () => {
-          toast.success("Session ended successfully");
+          toast.success("Сессия завершена");
           refetchSessions();
         },
         onError: () => {
-          toast.error("Failed to end session");
-        }
-      }
+          toast.error("Не удалось завершить сессию");
+        },
+      },
     );
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-slate-300">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Host Dashboard</h1>
-          <p className="text-muted-foreground">Manage your hardware node and active sessions.</p>
+          <h1 className="text-3xl font-extrabold tracking-tight text-white">
+            Дашборд хоста
+          </h1>
+          <p className="text-sm text-slate-500">
+            Управляй своим узлом и активными сессиями.
+          </p>
         </div>
         <a
           href="/api/downloads/host-agent.zip"
           download="cloud-gaming-host-agent.zip"
           data-testid="link-download-host-agent"
         >
-          <Button variant="outline" className="gap-2">
+          <Button
+            variant="outline"
+            className="gap-2 h-9 rounded-md border-white/10 text-slate-300 hover:text-white"
+          >
             <Download className="h-4 w-4" />
-            Download Host Agent
+            Скачать агент хоста
           </Button>
         </a>
       </div>
 
-      <Card className="bg-card/50 backdrop-blur border-primary/30">
+      <Card style={cardStyle}>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Download className="h-4 w-4 text-primary" />
-            Get the host agent
+          <CardTitle className="flex items-center gap-2 text-base text-white">
+            <Download className="h-4 w-4 text-sky-400" />
+            Получить агент
           </CardTitle>
-          <CardDescription>
-            The agent runs on your Windows PC and streams your game window to
-            players over WebRTC. Download the portable bundle, extract it, and
-            double-click <span className="font-mono text-xs">start.bat</span>.
-            Node.js 20+ is required (see <span className="font-mono text-xs">INSTALL.txt</span> inside the ZIP).
+          <CardDescription className="text-slate-500">
+            Агент запускается на Windows-ПК и стримит окно игры по WebRTC.
+            Скачай ZIP, распакуй и запусти{" "}
+            <span className="font-mono text-xs text-sky-400">start.bat</span>.
+            Нужен Node.js 20+ (см.{" "}
+            <span className="font-mono text-xs text-sky-400">INSTALL.txt</span>{" "}
+            внутри архива).
           </CardDescription>
         </CardHeader>
       </Card>
@@ -77,108 +140,161 @@ export default function Dashboard() {
       {hostToken && <BindingForm hostToken={hostToken} />}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-card/50 backdrop-blur">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Sessions</CardTitle>
-            <MonitorPlay className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {statsLoading ? <Skeleton className="h-8 w-16" /> : stats?.activeSessions || 0}
-            </div>
-            <p className="text-xs text-muted-foreground">Currently streaming</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50 backdrop-blur">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Streamed</CardTitle>
-            <Clock className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {statsLoading ? <Skeleton className="h-8 w-16" /> : `${stats?.totalMinutesStreamed || 0}m`}
-            </div>
-            <p className="text-xs text-muted-foreground">Lifetime minutes</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50 backdrop-blur">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">7d Earnings</CardTitle>
-            <Activity className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {statsLoading ? <Skeleton className="h-8 w-16" /> : `$${(stats?.earnings7d || 0).toFixed(2)}`}
-            </div>
-            <p className="text-xs text-muted-foreground">Past 7 days</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50 backdrop-blur">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Balance</CardTitle>
-            <DollarSign className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary">
-              {statsLoading ? <Skeleton className="h-8 w-16" /> : `$${(stats?.creditBalance || 0).toFixed(2)}`}
-            </div>
-            <p className="text-xs text-muted-foreground">Available to withdraw</p>
-          </CardContent>
-        </Card>
+        {[
+          {
+            label: "Активные сессии",
+            value: stats?.activeSessions ?? 0,
+            hint: "сейчас стримятся",
+            icon: <MonitorPlay className="h-4 w-4 text-sky-400" />,
+          },
+          {
+            label: "Всего минут",
+            value: `${stats?.totalMinutesStreamed ?? 0}м`,
+            hint: "за всё время",
+            icon: <Clock className="h-4 w-4 text-sky-400" />,
+          },
+          {
+            label: "Заработано (7 дн.)",
+            value: `$${(stats?.earnings7d ?? 0).toFixed(2)}`,
+            hint: "за последние 7 дней",
+            icon: <Activity className="h-4 w-4 text-sky-400" />,
+          },
+          {
+            label: "Баланс",
+            value: `$${(stats?.creditBalance ?? 0).toFixed(2)}`,
+            hint: "доступно к выводу",
+            icon: <DollarSign className="h-4 w-4 text-teal-400" />,
+            accent: true,
+          },
+        ].map((s) => (
+          <Card key={s.label} style={cardStyle}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs font-medium text-slate-400">
+                {s.label}
+              </CardTitle>
+              {s.icon}
+            </CardHeader>
+            <CardContent>
+              <div
+                className={`text-2xl font-bold ${s.accent ? "text-teal-400" : "text-white"}`}
+              >
+                {statsLoading ? <Skeleton className="h-8 w-16" /> : s.value}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">{s.hint}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       <div className="grid gap-6 md:grid-cols-7">
-        <Card className="md:col-span-4 bg-card/50 backdrop-blur border-primary/20">
+        <Card className="md:col-span-4" style={cardStyle}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <HardDrive className="h-5 w-5 text-primary" />
-              Node Sessions
+            <CardTitle className="flex items-center gap-2 text-white">
+              <HardDrive className="h-5 w-5 text-sky-400" />
+              Сессии узла
             </CardTitle>
-            <CardDescription>Your current and recent gaming sessions.</CardDescription>
+            <CardDescription className="text-slate-500">
+              Текущие и недавние игровые сессии.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {sessionsLoading ? (
               <div className="space-y-4">
-                {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full" />)}
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-24 w-full" />
+                ))}
               </div>
             ) : sessions?.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center border border-dashed border-border/50 rounded-lg bg-background/30">
-                <Gamepad2 className="h-10 w-10 text-muted-foreground mb-4 opacity-20" />
-                <p className="text-muted-foreground font-medium mb-2">No sessions found</p>
-                <p className="text-sm text-muted-foreground/60 mb-4 max-w-sm">Create a session to generate a share link and start hosting.</p>
+              <div
+                className="flex flex-col items-center justify-center py-8 text-center rounded-lg"
+                style={{
+                  background: "rgba(255,255,255,0.02)",
+                  border: "1px dashed rgba(255,255,255,0.08)",
+                }}
+              >
+                <Gamepad2 className="h-10 w-10 text-slate-700 mb-4" />
+                <p className="text-slate-400 font-medium mb-2">
+                  Сессий пока нет
+                </p>
+                <p className="text-sm text-slate-500 mb-4 max-w-sm">
+                  Создай сессию, чтобы получить ссылку для игрока и начать
+                  стриминг.
+                </p>
               </div>
             ) : (
               <div className="space-y-4">
                 {sessions?.map((session) => (
-                  <div key={session.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-lg border border-border/50 bg-background/50 gap-4">
+                  <div
+                    key={session.id}
+                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-lg gap-4"
+                    style={{
+                      background: "rgba(255,255,255,0.02)",
+                      border: "1px solid rgba(255,255,255,0.06)",
+                    }}
+                  >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold">{session.appName}</span>
-                        <Badge variant={
-                          session.status === 'active' ? 'default' : 
-                          session.status === 'pending' ? 'secondary' : 'outline'
-                        } className={session.status === 'active' ? 'animate-pulse bg-primary/20 text-primary hover:bg-primary/20' : ''}>
-                          {session.status.toUpperCase()}
+                        <span className="font-bold text-white">
+                          {session.appName}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className="text-[10px]"
+                          style={{
+                            background:
+                              session.status === "active"
+                                ? "rgba(20,184,166,0.15)"
+                                : "rgba(255,255,255,0.04)",
+                            color:
+                              session.status === "active" ? "#2dd4bf" : "#94a3b8",
+                            border:
+                              session.status === "active"
+                                ? "1px solid rgba(20,184,166,0.3)"
+                                : "1px solid rgba(255,255,255,0.08)",
+                          }}
+                        >
+                          {session.status === "active"
+                            ? "АКТИВНА"
+                            : session.status === "pending"
+                              ? "ОЖИДАНИЕ"
+                              : "ЗАВЕРШЕНА"}
                         </Badge>
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono">
+                      <div className="flex items-center gap-3 text-xs text-slate-500 font-mono">
                         <span>{session.resolution}</span>
                         <span>•</span>
                         <span>{session.bitrateKbps} kbps</span>
                         <span>•</span>
-                        <span>{formatDistanceToNow(new Date(session.createdAt))} ago</span>
+                        <span>
+                          {formatDistanceToNow(new Date(session.createdAt))} назад
+                        </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 w-full sm:w-auto">
-                      {session.status !== 'ended' && (
+                      {session.status !== "ended" && (
                         <>
-                          <Button variant="secondary" size="sm" className="flex-1 sm:flex-none" onClick={() => handleCopyLink(session.playerToken)}>
-                            <Copy className="h-4 w-4 mr-2" />
-                            Link
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 sm:flex-none h-8 text-xs border-white/10 text-slate-300 hover:text-white"
+                            onClick={() => handleCopyLink(session.playerToken)}
+                          >
+                            <Copy className="h-3 w-3 mr-1.5" />
+                            Ссылка
                           </Button>
-                          <Button variant="destructive" size="sm" className="flex-1 sm:flex-none" onClick={() => handleEndSession(session.id)} disabled={endSession.isPending}>
-                            <PowerOff className="h-4 w-4 mr-2" />
-                            End
+                          <Button
+                            size="sm"
+                            className="flex-1 sm:flex-none h-8 text-xs"
+                            style={{
+                              background: "rgba(239,68,68,0.15)",
+                              color: "#f87171",
+                              border: "1px solid rgba(239,68,68,0.3)",
+                            }}
+                            onClick={() => handleEndSession(session.id)}
+                            disabled={endSession.isPending}
+                          >
+                            <PowerOff className="h-3 w-3 mr-1.5" />
+                            Завершить
                           </Button>
                         </>
                       )}
@@ -190,41 +306,59 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="md:col-span-3 bg-card/50 backdrop-blur">
+        <Card className="md:col-span-3" style={cardStyle}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-primary" />
-              Activity Feed
+            <CardTitle className="flex items-center gap-2 text-white">
+              <Activity className="h-5 w-5 text-sky-400" />
+              Лента событий
             </CardTitle>
-            <CardDescription>Recent events on your node.</CardDescription>
+            <CardDescription className="text-slate-500">
+              Недавние события на твоём узле.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {activityLoading ? (
               <div className="space-y-4">
-                {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+                {[1, 2, 3, 4].map((i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
               </div>
             ) : activity?.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">No activity yet.</div>
+              <div className="text-center py-8 text-slate-500 text-sm">
+                Событий пока нет.
+              </div>
             ) : (
-              <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
+              <div className="space-y-3">
                 {activity?.map((item) => (
-                  <div key={item.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-background bg-card shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
-                      {item.kind.includes('session') ? <MonitorPlay className="h-4 w-4 text-primary" /> : <DollarSign className="h-4 w-4 text-secondary" />}
-                    </div>
-                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded border border-border/50 bg-background/50">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="font-bold text-sm text-foreground">{item.title}</div>
-                        <time className="text-xs font-mono text-muted-foreground">{formatDistanceToNow(new Date(item.timestamp))} ago</time>
-                      </div>
-                      <div className="text-xs text-muted-foreground flex justify-between items-center">
-                        <span>{item.subtitle}</span>
-                        {item.amount && item.currency && (
-                          <span className="font-mono text-primary font-bold">
-                            {item.amount > 0 ? '+' : ''}{item.amount} {item.currency}
-                          </span>
+                  <div
+                    key={item.id}
+                    className="p-3 rounded-lg"
+                    style={{
+                      background: "rgba(255,255,255,0.02)",
+                      border: "1px solid rgba(255,255,255,0.06)",
+                    }}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="font-bold text-sm text-white flex items-center gap-1.5">
+                        {item.kind.includes("session") ? (
+                          <MonitorPlay className="h-3.5 w-3.5 text-sky-400" />
+                        ) : (
+                          <DollarSign className="h-3.5 w-3.5 text-teal-400" />
                         )}
+                        {item.title}
                       </div>
+                      <time className="text-[10px] font-mono text-slate-500">
+                        {formatDistanceToNow(new Date(item.timestamp))} назад
+                      </time>
+                    </div>
+                    <div className="text-xs text-slate-500 flex justify-between items-center">
+                      <span>{item.subtitle}</span>
+                      {item.amount && item.currency && (
+                        <span className="font-mono text-teal-400 font-bold">
+                          {item.amount > 0 ? "+" : ""}
+                          {item.amount} {item.currency}
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}

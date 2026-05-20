@@ -31,6 +31,8 @@ import type {
   HostStats,
   ListGamesParams,
   Player,
+  PublicHostListItem,
+  PublicStats,
   RegisterHostBody,
   RegisterPlayerBody,
   RequestWithdrawalBody,
@@ -631,6 +633,157 @@ export function useGetHostActivity<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetHostActivityQueryOptions(hostToken, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns hosts that have an open session and are within their availability schedule. Safe for anonymous visitors — never exposes hostToken or wallet/balance.
+ * @summary Public list of currently-available hosts
+ */
+export const getListPublicHostsUrl = () => {
+  return `/api/hosts`;
+};
+
+export const listPublicHosts = async (
+  options?: RequestInit,
+): Promise<PublicHostListItem[]> => {
+  return customFetch<PublicHostListItem[]>(getListPublicHostsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPublicHostsQueryKey = () => {
+  return [`/api/hosts`] as const;
+};
+
+export const getListPublicHostsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPublicHosts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPublicHosts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListPublicHostsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listPublicHosts>>> = ({
+    signal,
+  }) => listPublicHosts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPublicHosts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPublicHostsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPublicHosts>>
+>;
+export type ListPublicHostsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Public list of currently-available hosts
+ */
+
+export function useListPublicHosts<
+  TData = Awaited<ReturnType<typeof listPublicHosts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPublicHosts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPublicHostsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Public platform stats for the landing page
+ */
+export const getGetPublicStatsUrl = () => {
+  return `/api/stats`;
+};
+
+export const getPublicStats = async (
+  options?: RequestInit,
+): Promise<PublicStats> => {
+  return customFetch<PublicStats>(getGetPublicStatsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPublicStatsQueryKey = () => {
+  return [`/api/stats`] as const;
+};
+
+export const getGetPublicStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPublicStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPublicStatsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicStats>>> = ({
+    signal,
+  }) => getPublicStats({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPublicStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPublicStats>>
+>;
+export type GetPublicStatsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Public platform stats for the landing page
+ */
+
+export function useGetPublicStats<
+  TData = Awaited<ReturnType<typeof getPublicStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPublicStatsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -1,13 +1,28 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useCreateSession } from "@workspace/api-client-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Slider } from "@/components/ui/slider";
-import { Gamepad2, Monitor, Zap, Loader2, Copy, CheckCircle2, ArrowRight } from "lucide-react";
+import {
+  Gamepad2,
+  Monitor,
+  Zap,
+  Loader2,
+  Copy,
+  CheckCircle2,
+  ArrowRight,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "wouter";
 
@@ -16,8 +31,13 @@ const PRESET_GAMES = [
   "Witcher 3",
   "Elden Ring",
   "Helldivers 2",
-  "Microsoft Flight Simulator"
+  "Microsoft Flight Simulator",
 ];
+
+const cardStyle = {
+  background: "#0a1018",
+  border: "1px solid rgba(255,255,255,0.06)",
+};
 
 export default function SetupSession() {
   const { hostToken } = useAuth();
@@ -52,7 +72,7 @@ export default function SetupSession() {
           });
         },
         onError: () => {
-          toast.error("Failed to create session");
+          toast.error("Не удалось создать сессию");
         },
       },
     );
@@ -62,55 +82,69 @@ export default function SetupSession() {
     const shareLink = `${window.location.origin}${import.meta.env.BASE_URL}play/${createdSession.playerToken}`;
     const handleCopy = async () => {
       await navigator.clipboard.writeText(shareLink);
-      toast.success("Share link copied");
+      toast.success("Ссылка скопирована");
     };
     return (
       <div className="max-w-2xl mx-auto space-y-6">
-        <Card className="bg-card/50 backdrop-blur border-primary/30">
+        <Card style={cardStyle}>
           <CardHeader className="text-center pb-4">
-            <CheckCircle2 className="h-12 w-12 text-primary mx-auto mb-3" />
-            <CardTitle className="text-2xl">Session ready</CardTitle>
-            <CardDescription>
-              Your stream for{" "}
-              <span className="text-foreground font-semibold">
+            <CheckCircle2 className="h-12 w-12 text-teal-400 mx-auto mb-3" />
+            <CardTitle className="text-2xl text-white">Сессия готова</CardTitle>
+            <CardDescription className="text-slate-500">
+              Стрим для{" "}
+              <span className="text-white font-semibold">
                 {createdSession.appName}
               </span>{" "}
-              is queued. Send the share link to your player to start streaming.
+              поставлен в очередь. Отправь игроку ссылку, чтобы начать стрим.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground uppercase tracking-wider">
-                Player share link
+              <Label className="text-xs text-slate-500 uppercase tracking-wider">
+                Ссылка для игрока
               </Label>
               <div className="flex gap-2">
                 <Input
                   readOnly
                   value={shareLink}
-                  className="font-mono text-sm bg-background/60"
+                  className="font-mono text-sm"
+                  style={{
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    color: "#e2e8f0",
+                  }}
                   onFocus={(e) => e.currentTarget.select()}
                 />
-                <Button type="button" onClick={handleCopy} className="gap-2">
+                <Button
+                  type="button"
+                  onClick={handleCopy}
+                  className="gap-2 h-9"
+                  style={{ background: "#0ea5e9", color: "#fff" }}
+                >
                   <Copy className="h-4 w-4" />
-                  Copy
+                  Копировать
                 </Button>
               </div>
             </div>
           </CardContent>
-          <CardFooter className="bg-muted/20 flex justify-between py-4">
+          <CardFooter className="flex justify-between py-4 border-t border-white/5">
             <Button
               type="button"
               variant="outline"
+              className="border-white/10 text-slate-300 hover:text-white"
               onClick={() => {
                 setCreatedSession(null);
                 setAppName("");
               }}
             >
-              Start another
+              Создать ещё
             </Button>
             <Link href="/host">
-              <Button className="gap-2 font-bold uppercase tracking-wider">
-                Open dashboard
+              <Button
+                className="gap-2 font-bold"
+                style={{ background: "#0ea5e9", color: "#fff" }}
+              >
+                В дашборд
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
@@ -123,75 +157,122 @@ export default function SetupSession() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">New Session</h1>
-        <p className="text-muted-foreground">Configure a new game to stream from your hardware.</p>
+        <h1 className="text-3xl font-extrabold tracking-tight text-white">
+          Новая сессия
+        </h1>
+        <p className="text-sm text-slate-500">
+          Настрой игру, которую будешь стримить с этого ПК.
+        </p>
       </div>
 
       <form onSubmit={handleCreate}>
-        <Card className="bg-card/50 backdrop-blur border-primary/20">
+        <Card style={cardStyle}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Gamepad2 className="h-5 w-5 text-primary" />
-              Game Selection
+            <CardTitle className="flex items-center gap-2 text-white">
+              <Gamepad2 className="h-5 w-5 text-sky-400" />
+              Выбор игры
             </CardTitle>
-            <CardDescription>What game will you be hosting?</CardDescription>
+            <CardDescription className="text-slate-500">
+              Какую игру будешь хостить?
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="appName">Game Name</Label>
+              <Label htmlFor="appName" className="text-slate-300">
+                Название игры
+              </Label>
               <Input
                 id="appName"
-                placeholder="e.g. Grand Theft Auto V"
+                placeholder="например, Grand Theft Auto V"
                 value={appName}
                 onChange={(e) => setAppName(e.target.value)}
-                className="bg-background/50 font-medium"
+                style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  color: "#e2e8f0",
+                }}
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground uppercase tracking-wider">Quick Presets</Label>
+              <Label className="text-xs text-slate-500 uppercase tracking-wider">
+                Быстрые пресеты
+              </Label>
               <div className="flex flex-wrap gap-2">
-                {PRESET_GAMES.map(game => (
-                  <Button
+                {PRESET_GAMES.map((game) => (
+                  <button
                     key={game}
                     type="button"
-                    variant="outline"
-                    size="sm"
-                    className={`rounded-full ${appName === game ? 'border-primary text-primary bg-primary/10' : ''}`}
+                    className="h-7 px-3 rounded-full text-xs transition-colors"
+                    style={{
+                      background:
+                        appName === game
+                          ? "rgba(14,165,233,0.15)"
+                          : "rgba(255,255,255,0.03)",
+                      color: appName === game ? "#38bdf8" : "#94a3b8",
+                      border:
+                        appName === game
+                          ? "1px solid rgba(14,165,233,0.3)"
+                          : "1px solid rgba(255,255,255,0.08)",
+                    }}
                     onClick={() => setAppName(game)}
                   >
                     {game}
-                  </Button>
+                  </button>
                 ))}
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="mt-6 bg-card/50 backdrop-blur border-primary/20">
+        <Card className="mt-6" style={cardStyle}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Monitor className="h-5 w-5 text-primary" />
-              Stream Quality
+            <CardTitle className="flex items-center gap-2 text-white">
+              <Monitor className="h-5 w-5 text-sky-400" />
+              Качество стрима
             </CardTitle>
-            <CardDescription>Configure the video encoding parameters.</CardDescription>
+            <CardDescription className="text-slate-500">
+              Параметры видео-кодирования.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-8">
             <div className="space-y-3">
-              <Label>Target Resolution</Label>
-              <RadioGroup value={resolution} onValueChange={setResolution} className="grid grid-cols-3 gap-4">
+              <Label className="text-slate-300">Разрешение</Label>
+              <RadioGroup
+                value={resolution}
+                onValueChange={setResolution}
+                className="grid grid-cols-3 gap-4"
+              >
                 {[
-                  { id: "720p", label: "720p", desc: "60 FPS • Standard" },
-                  { id: "1080p", label: "1080p", desc: "60 FPS • High" },
-                  { id: "1440p", label: "1440p", desc: "60 FPS • Ultra" },
+                  { id: "720p", label: "720p", desc: "60 FPS · стандарт" },
+                  { id: "1080p", label: "1080p", desc: "60 FPS · высокое" },
+                  { id: "1440p", label: "1440p", desc: "60 FPS · ультра" },
                 ].map((res) => (
                   <div key={res.id}>
-                    <RadioGroupItem value={res.id} id={res.id} className="peer sr-only" />
+                    <RadioGroupItem
+                      value={res.id}
+                      id={res.id}
+                      className="peer sr-only"
+                    />
                     <Label
                       htmlFor={res.id}
-                      className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer transition-all"
+                      className="flex flex-col items-center justify-between rounded-md p-4 cursor-pointer transition-all"
+                      style={{
+                        background:
+                          resolution === res.id
+                            ? "rgba(14,165,233,0.1)"
+                            : "rgba(255,255,255,0.02)",
+                        border:
+                          resolution === res.id
+                            ? "2px solid #0ea5e9"
+                            : "2px solid rgba(255,255,255,0.06)",
+                      }}
                     >
-                      <span className="text-xl font-bold font-mono">{res.label}</span>
-                      <span className="text-xs text-muted-foreground mt-1">{res.desc}</span>
+                      <span className="text-xl font-bold font-mono text-white">
+                        {res.label}
+                      </span>
+                      <span className="text-[11px] text-slate-500 mt-1">
+                        {res.desc}
+                      </span>
                     </Label>
                   </div>
                 ))}
@@ -200,8 +281,10 @@ export default function SetupSession() {
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label>Video Bitrate</Label>
-                <span className="font-mono font-bold text-primary">{bitrateKbps[0]} kbps</span>
+                <Label className="text-slate-300">Битрейт видео</Label>
+                <span className="font-mono font-bold text-sky-400">
+                  {bitrateKbps[0]} kbps
+                </span>
               </div>
               <Slider
                 value={bitrateKbps}
@@ -211,21 +294,26 @@ export default function SetupSession() {
                 step={500}
                 className="py-4"
               />
-              <div className="flex justify-between text-xs text-muted-foreground font-mono">
-                <span>3000 (Low)</span>
-                <span>15000 (Max)</span>
+              <div className="flex justify-between text-xs text-slate-500 font-mono">
+                <span>3000 (низкий)</span>
+                <span>15000 (макс.)</span>
               </div>
             </div>
           </CardContent>
-          <CardFooter className="bg-muted/20 flex justify-end py-4">
-            <Button 
-              type="submit" 
-              size="lg" 
+          <CardFooter className="flex justify-end py-4 border-t border-white/5">
+            <Button
+              type="submit"
+              size="lg"
               disabled={createSession.isPending || !appName.trim()}
-              className="font-bold uppercase tracking-wider"
+              className="font-bold"
+              style={{ background: "#0ea5e9", color: "#fff" }}
             >
-              {createSession.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
-              Initialize Stream
+              {createSession.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Zap className="mr-2 h-4 w-4" />
+              )}
+              Запустить стрим
             </Button>
           </CardFooter>
         </Card>
