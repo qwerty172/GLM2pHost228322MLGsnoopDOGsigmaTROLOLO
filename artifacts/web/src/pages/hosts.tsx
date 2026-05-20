@@ -1,14 +1,107 @@
 import { Link } from "wouter";
-import { Cpu, ExternalLink, FileCode, Globe } from "lucide-react";
+import { ChevronDown, ChevronUp, Cpu, Gamepad2 } from "lucide-react";
+import { useState } from "react";
 import {
   useListPublicHosts,
   getListPublicHostsQueryKey,
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 
+type LibraryGame = {
+  gameId: string;
+  slug: string;
+  title: string;
+  coverImageUrl: string;
+  genre: string;
+  pricePerMinuteLzt: number;
+};
+
 function formatPrice(usd: number): string {
   const sign = usd < 0 ? "−" : "";
   return `${sign}$${Math.abs(usd).toFixed(2)}`;
+}
+
+function GameChips({ games, playerToken }: { games: LibraryGame[]; playerToken: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const SHOW = 3;
+  const visible = expanded ? games : games.slice(0, SHOW);
+  const extra = games.length - SHOW;
+
+  return (
+    <div className="mt-3">
+      <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-1.5 font-mono">
+        Игры в библиотеке
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {visible.map((g) => {
+          const cover = g.coverImageUrl
+            ? g.coverImageUrl.startsWith("http")
+              ? g.coverImageUrl
+              : `${import.meta.env.BASE_URL}${g.coverImageUrl.replace(/^\//, "")}`
+            : null;
+          return (
+            <Link key={g.gameId} href={`/games/${g.slug}`}>
+              <span
+                className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md cursor-pointer transition-colors"
+                style={{
+                  background: "rgba(14,165,233,0.06)",
+                  border: "1px solid rgba(14,165,233,0.12)",
+                  color: "#7dd3fc",
+                }}
+                title={`${g.title} · 🔵 ${g.pricePerMinuteLzt} LZT/мин`}
+                data-testid={`game-chip-${g.slug}`}
+              >
+                {cover ? (
+                  <img
+                    src={cover}
+                    alt=""
+                    className="w-4 h-4 rounded object-cover flex-shrink-0"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                  />
+                ) : (
+                  <Gamepad2 className="h-3 w-3 flex-shrink-0 text-slate-600" />
+                )}
+                <span className="max-w-[120px] truncate">{g.title}</span>
+                <span className="text-blue-500 flex-shrink-0">🔵{g.pricePerMinuteLzt}</span>
+              </span>
+            </Link>
+          );
+        })}
+
+        {!expanded && extra > 0 && (
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md transition-colors"
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              color: "#64748b",
+            }}
+          >
+            +{extra} ещё
+            <ChevronDown className="h-3 w-3" />
+          </button>
+        )}
+
+        {expanded && games.length > SHOW && (
+          <button
+            type="button"
+            onClick={() => setExpanded(false)}
+            className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md"
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              color: "#64748b",
+            }}
+          >
+            Свернуть
+            <ChevronUp className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function HostsPage() {
@@ -31,13 +124,13 @@ export default function HostsPage() {
           border: 1px solid rgba(255,255,255,0.06);
           border-radius: 10px;
         }
-        .row {
+        .host-row {
           background: #0a1018;
           border: 1px solid rgba(255,255,255,0.06);
           border-radius: 10px;
           transition: border-color .15s;
         }
-        .row:hover { border-color: rgba(14,165,233,0.3); }
+        .host-row:hover { border-color: rgba(14,165,233,0.25); }
         .tag-chip {
           font-size: 10px;
           padding: 2px 6px;
@@ -58,7 +151,6 @@ export default function HostsPage() {
             </h1>
             <p className="text-sm text-slate-500 mt-1">
               Живой список ПК, готовых к подключению прямо сейчас.
-              Цены указаны в долларах, оплата криптой.
             </p>
           </div>
           <div className="text-xs text-slate-500">
@@ -72,10 +164,7 @@ export default function HostsPage() {
         {isLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-24 rounded-lg surface-card animate-pulse"
-              />
+              <div key={i} className="h-28 rounded-lg surface-card animate-pulse" />
             ))}
           </div>
         ) : !hosts || hosts.length === 0 ? (
@@ -90,86 +179,92 @@ export default function HostsPage() {
           </div>
         ) : (
           <div className="space-y-3" data-testid="list-public-hosts">
-            {hosts.map((h) => (
-              <div
-                key={h.id}
-                className="row p-4 flex flex-col md:flex-row md:items-center justify-between gap-3"
-                data-testid={`host-row-${h.id}`}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span
-                      className="w-2 h-2 rounded-full"
-                      style={{
-                        background:
-                          h.status === "online" ? "#2dd4bf" : "#64748b",
-                        boxShadow:
-                          h.status === "online"
-                            ? "0 0 6px rgba(45,212,191,0.7)"
-                            : "none",
-                      }}
-                    />
-                    <span className="font-semibold text-white truncate">
-                      {h.displayName}
-                    </span>
-                    <span className="text-[10px] uppercase tracking-wider text-slate-500 font-mono">
-                      {h.status === "online" ? "онлайн" : "по расписанию"}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 font-mono">
-                    {h.boundUrlHost ? (
-                      <span className="flex items-center gap-1 text-sky-400">
-                        <Globe className="w-3 h-3" />
-                        {h.boundAppLabel || h.boundUrlHost}
-                        <ExternalLink className="w-3 h-3 opacity-50" />
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1">
-                        <FileCode className="w-3 h-3" />
-                        {h.boundAppLabel || "без привязки"}
-                      </span>
-                    )}
-                  </div>
-                  {h.tags && h.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {h.tags.map((t) => (
-                        <span key={t} className="tag-chip">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
+            {hosts.map((h) => {
+              const games = ((h as any).games ?? []) as LibraryGame[];
+              const isOnline = h.status === "online";
 
-                <div className="flex items-center gap-6 shrink-0">
-                  <div className="text-right">
-                    <div className="text-[11px] text-slate-500">
-                      цена / час
+              return (
+                <div
+                  key={h.id}
+                  className="host-row p-4"
+                  data-testid={`host-row-${h.id}`}
+                >
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{
+                            background: isOnline ? "#2dd4bf" : "#64748b",
+                            boxShadow: isOnline ? "0 0 6px rgba(45,212,191,0.7)" : "none",
+                          }}
+                        />
+                        <span className="font-semibold text-white truncate">
+                          {h.displayName}
+                        </span>
+                        <span className="text-[10px] uppercase tracking-wider text-slate-500 font-mono">
+                          {isOnline ? "онлайн" : "по расписанию"}
+                        </span>
+                      </div>
+
+                      {h.tags && h.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {h.tags.map((t) => (
+                            <span key={t} className="tag-chip">{t}</span>
+                          ))}
+                        </div>
+                      )}
+
+                      {games.length > 0 && (
+                        <GameChips games={games} playerToken={h.playerToken} />
+                      )}
                     </div>
-                    <div
-                      className="text-lg font-bold tracking-tight"
-                      style={{
-                        color: h.minutePriceUsd < 0 ? "#34d399" : "#f8fafc",
-                      }}
-                    >
-                      {formatPrice(h.pricePerHourUsd)}
-                    </div>
-                    <div className="text-[10px] text-slate-600 font-mono">
-                      {formatPrice(h.minutePriceUsd)}/мин
+
+                    <div className="flex items-center gap-5 shrink-0 md:pt-1">
+                      <div className="text-right">
+                        <div className="text-[11px] text-slate-500">цена / час</div>
+                        <div
+                          className="text-lg font-bold tracking-tight"
+                          style={{ color: h.minutePriceUsd < 0 ? "#34d399" : "#f8fafc" }}
+                        >
+                          {formatPrice(h.pricePerHourUsd)}
+                        </div>
+                        <div className="text-[10px] text-slate-600 font-mono">
+                          {formatPrice(h.minutePriceUsd)}/мин
+                        </div>
+                        {games.length > 0 && (
+                          <div className="text-[10px] text-blue-500 font-mono mt-0.5">
+                            🔵 {Math.min(...games.map((g) => g.pricePerMinuteLzt))}+ LZT/мин
+                          </div>
+                        )}
+                      </div>
+
+                      {games.length === 0 ? (
+                        <Link href={`/play/${h.playerToken}`}>
+                          <button
+                            className="h-9 px-4 text-xs font-semibold rounded-md transition-colors"
+                            style={{ background: "#0ea5e9", color: "#fff" }}
+                            data-testid={`button-join-${h.id}`}
+                          >
+                            Подключиться
+                          </button>
+                        </Link>
+                      ) : (
+                        <Link href={`/play/${h.playerToken}`}>
+                          <button
+                            className="h-9 px-4 text-xs font-semibold rounded-md transition-colors"
+                            style={{ background: "#0ea5e9", color: "#fff" }}
+                            data-testid={`button-join-${h.id}`}
+                          >
+                            Играть
+                          </button>
+                        </Link>
+                      )}
                     </div>
                   </div>
-                  <Link href={`/play/${h.playerToken}`}>
-                    <button
-                      className="h-9 px-4 text-xs font-semibold rounded-md transition-colors"
-                      style={{ background: "#0ea5e9", color: "#fff" }}
-                      data-testid={`button-join-${h.id}`}
-                    >
-                      Подключиться
-                    </button>
-                  </Link>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>

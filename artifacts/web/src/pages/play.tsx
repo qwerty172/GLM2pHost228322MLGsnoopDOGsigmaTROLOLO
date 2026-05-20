@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Gamepad2, AlertCircle, Loader2, Wifi, WifiOff, VolumeX, Wallet, Banknote, Coins } from "lucide-react";
+import { Gamepad2, AlertCircle, ArrowLeft, Loader2, Wifi, WifiOff, VolumeX, Wallet, Banknote, Coins } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 
@@ -396,9 +396,34 @@ export default function Play() {
           }}
         >
           <CardHeader className="text-center pb-6">
-            <Gamepad2 className="h-16 w-16 text-sky-400 mx-auto mb-6" />
+            {(() => {
+              const s = session as typeof session & { gameSlug?: string | null; gameCoverImageUrl?: string | null; gameTitle?: string | null };
+              const cover = s.gameCoverImageUrl
+                ? s.gameCoverImageUrl.startsWith("http")
+                  ? s.gameCoverImageUrl
+                  : `${import.meta.env.BASE_URL}${s.gameCoverImageUrl.replace(/^\//, "")}`
+                : null;
+              return cover ? (
+                <div className="w-28 h-36 mx-auto mb-4 rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <img src={cover} alt={s.appName} className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <Gamepad2 className="h-16 w-16 text-sky-400 mx-auto mb-6" />
+              );
+            })()}
+            {(() => {
+              const s = session as typeof session & { gameSlug?: string | null };
+              return s.gameSlug ? (
+                <Link href={`/games/${s.gameSlug}`}>
+                  <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-sky-400 transition-colors cursor-pointer mb-2">
+                    <ArrowLeft className="h-3 w-3" />
+                    К игре
+                  </span>
+                </Link>
+              ) : null;
+            })()}
             <CardTitle className="text-3xl font-bold tracking-tight mb-2 text-white">
-              {session.appName}
+              {(session as any).gameTitle || session.appName}
             </CardTitle>
             <div className="flex items-center justify-center gap-2 text-xs text-slate-500 font-mono flex-wrap">
               <Badge
@@ -415,15 +440,15 @@ export default function Play() {
               </Badge>
               <Badge
                 variant="outline"
-                className="border-white/10 text-slate-400"
+                className="border-sky-400/30 text-sky-300"
               >
-                {ratePerMinLzt} LZT/мин
+                🔵 {ratePerMinLzt} LZT/мин
               </Badge>
               <Badge
                 variant="outline"
                 className="border-white/10 text-slate-500 text-[10px]"
               >
-                ≈ ${ratePerMinUsd.toFixed(2)}/мин
+                ≈ ${ratePerMinUsd.toFixed(4)}/мин
               </Badge>
             </div>
           </CardHeader>

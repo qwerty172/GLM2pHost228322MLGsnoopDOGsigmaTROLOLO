@@ -308,17 +308,33 @@ router.get(
       return;
     }
 
-    const [session] = await db
-      .select()
+    const rows = await db
+      .select({
+        session: sessionsTable,
+        game: {
+          slug: gamesTable.slug,
+          coverImageUrl: gamesTable.coverImageUrl,
+          title: gamesTable.title,
+        },
+      })
       .from(sessionsTable)
+      .leftJoin(gamesTable, eq(sessionsTable.gameId, gamesTable.id))
       .where(eq(sessionsTable.playerToken, params.data.playerToken));
 
-    if (!session) {
+    if (rows.length === 0) {
       res.status(404).json({ error: "Session not found" });
       return;
     }
 
-    res.json(GetSessionByPlayerTokenResponse.parse(serialize(session)));
+    const { session, game } = rows[0];
+
+    // Return strict-schema fields plus extra game info for the player UI.
+    res.json({
+      ...GetSessionByPlayerTokenResponse.parse(serialize(session)),
+      gameSlug: game?.slug ?? null,
+      gameCoverImageUrl: game?.coverImageUrl ?? null,
+      gameTitle: game?.title ?? null,
+    });
   },
 );
 

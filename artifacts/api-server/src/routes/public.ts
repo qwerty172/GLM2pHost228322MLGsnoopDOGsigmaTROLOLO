@@ -191,6 +191,96 @@ router.get("/hosts", async (_req, res): Promise<void> => {
   res.json(items);
 });
 
+// ---------------------------------------------------------------------------
+// GET /public/games/:slug/hosts — hosts that have this game enabled in their
+// library, with pricing from host_games and live-session status.
+// Sorted: online first (have an active session for this game), then by price.
+// ---------------------------------------------------------------------------
+router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
+  const slug = (req.params.slug ?? "").trim();
+  if (!slug) { res.status(400).json({ error: "slug required" }); return; }
+
+  const [game] = await db
+    .select({ id: gamesTable.id, title: gamesTable.title })
+    .from(gamesTable)
+    .where(eq(gamesTable.slug, slug));
+
+  if (!game) { res.status(404).json({ error: "Game not found" }); return; }
+
+  // All enabled library entries for this game.
+  const libraryRows = await db
+    .select({
+      hg: hostGamesTable,
+      host: hostsTable,
+    })
+    .from(hostGamesTable)
+    .innerJoin(hostsTable, eq(hostGamesTable.hostId, hostsTable.id))
+    .where(
+      and(
+        eq(hostGamesTable.gameId, game.id),
+        eq(hostGamesTable.enabled, true),
+      ),
+    )
+    .orderBy(hostGamesTable.pricePerMinuteLzt);
+
+  if (libraryRows.length === 0) { res.json([]); return; }
+
+  const hostIds = libraryRows.map((r) => r.host.id);
+
+  // Active sessions for these hosts tied to this specific game.
+  const sessionRows = await db
+    .select({
+      hostId: sessionsTable.hostId,
+      playerToken: sessionsTable.playerToken,
+      status: sessionsTable.status,
+    })
+    .from(sessionsTable)
+    .where(
+      and(
+        ne(sessionsTable.status, "ended"),
+        eq(sessionsTable.gameId, game.id),
+        inArray(sessionsTable.hostId, hostIds),
+      ),
+    );
+
+  const sessionByHost = new Map<string, string>();
+  for (const s of sessionRows) {
+    if (!sessionByHost.has(s.hostId)) sessionByHost.set(s.hostId, s.playerToken);
+  }
+
+  const now = new Date();
+  const result = libraryRows.map(({ hg, host: h }) => {
+    const playerToken = sessionByHost.get(h.id) ?? null;
+    const available = isHostAvailableNow(
+      h.scheduleMode,
+      h.scheduleJson ?? [],
+      now,
+    );
+    return {
+      hostId: h.id,
+      displayName: h.displayName,
+      tags: h.tags ?? [],
+      description: h.description,
+      pricePerMinuteLzt: hg.pricePerMinuteLzt,
+      pricePerMinuteUsd: hg.pricePerMinuteLzt / 200,
+      status: playerToken ? "online" : (available ? "available" : "scheduled"),
+      playerToken,
+      scheduleMode: h.scheduleMode,
+    };
+  });
+
+  // Sort: online > available > scheduled, then by price asc.
+  const statusOrder = { online: 0, available: 1, scheduled: 2 };
+  result.sort(
+    (a, b) =>
+      (statusOrder[a.status as keyof typeof statusOrder] ?? 2) -
+      (statusOrder[b.status as keyof typeof statusOrder] ?? 2) ||
+      a.pricePerMinuteLzt - b.pricePerMinuteLzt,
+  );
+
+  res.json(result);
+});
+
 // Platform stats for the public landing hero strip. Cheap aggregate queries —
 // safe to call on every page-load (we don't cache today).
 router.get("/stats", async (_req, res): Promise<void> => {
