@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry } from "../shared/messages";
+import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry, SteamScanResult } from "../shared/messages";
 
 const api = {
   getConfig: (): Promise<HostConfig> => ipcRenderer.invoke("config:get"),
@@ -59,6 +59,15 @@ const api = {
   openExplorer: (filePath: string): void => {
     ipcRenderer.send("library:open-explorer", filePath);
   },
+  // Scan the local Steam installation and match against the platform catalog.
+  // Windows-only — returns an empty game list with an error message on other OSes.
+  scanSteam: (hostToken: string, apiBaseUrl: string): Promise<SteamScanResult> =>
+    ipcRenderer.invoke("steam:scan", hostToken, apiBaseUrl),
+  // Persist the set of steamAppIds that were successfully added during this session.
+  markSteamGamesAdded: (appIds: string[]): Promise<void> =>
+    ipcRenderer.invoke("steam:mark-added", appIds),
+  // Returns "win32" | "darwin" | "linux" so the renderer can hide Windows-only UI.
+  platform: process.platform,
   log: (level: "info" | "warn" | "error", message: string): void => {
     ipcRenderer.send("log", level, message);
   },

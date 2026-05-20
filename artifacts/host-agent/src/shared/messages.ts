@@ -80,6 +80,27 @@ export interface GameEntryLaunch {
   launchArgs: string;
 }
 
+// ─── Steam scan types ─────────────────────────────────────────────────────────
+
+// A single game discovered during the Steam library scan.
+export interface SteamScanGame {
+  appId: string;
+  name: string;
+  installDir: string;
+  fullInstallPath: string;
+  bestExePath: string | null;
+  // Matched catalog entry (null when game is not yet in the platform catalog).
+  catalogGame: { id: string; title: string; slug: string; coverImageUrl: string } | null;
+  // True when the host already has this game in their library.
+  alreadyInLibrary: boolean;
+}
+
+export interface SteamScanResult {
+  steamRoot: string | null;
+  games: SteamScanGame[];
+  error?: string;
+}
+
 export interface IpcChannels {
   "config:get": () => HostConfig | null;
   "config:set": (config: HostConfig) => HostConfig;

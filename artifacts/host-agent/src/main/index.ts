@@ -6,8 +6,9 @@ import { createTray, setStatus } from "./tray";
 import { initInputInjector, injectInput } from "./input-injection";
 import { launchApp, launchEntry, killApp, setExitCallback } from "./app-launcher";
 import { fetchLibrary, patchLocalAvailability } from "./api-client";
+import { scanSteam, loadScanState, saveScanState } from "./steam-scanner";
 import { log } from "./logger";
-import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry } from "../shared/messages";
+import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry, SteamScanResult } from "../shared/messages";
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -195,6 +196,91 @@ void app.whenReady().then(async () => {
   ipcMain.on("library:open-explorer", (_e, filePath: string) => {
     void shell.showItemInFolder(filePath);
   });
+
+  // ── Steam library scan ────────────────────────────────────────────────────
+  // Scans the local Steam installation, matches against the platform catalog
+  // (fetched from apiBaseUrl), and annotates each result with:
+  //   - catalogGame: matched platform game (by steamAppId) or null
+  //   - alreadyInLibrary: true when the host already has this game
+  // Also updates scan state on disk to enable delta re-scans.
+  ipcMain.handle(
+    "steam:scan",
+    async (_e, hostToken: string, apiBaseUrl: string): Promise<SteamScanResult> => {
+      const { games: steamGames, steamRoot, error } = await scanSteam();
+      if (error && steamGames.length === 0) {
+        return { steamRoot, games: [], error };
+      }
+
+      // Fetch catalog games to match by steamAppId.
+      let catalogGames: Array<{
+        id: string;
+        title: string;
+        slug: string;
+        steamAppId: string | null;
+        coverImageUrl: string;
+      }> = [];
+      try {
+        const base = apiBaseUrl.replace(/\/$/, "");
+        const resp = await fetch(`${base}/api/games`);
+        if (resp.ok) {
+          catalogGames = (await resp.json()) as typeof catalogGames;
+        }
+      } catch (err) {
+        log("warn", `[steam-scan] Could not fetch catalog: ${String(err)}`);
+      }
+
+      // Build lookup map by steamAppId.
+      const catalogByAppId = new Map<
+        string,
+        { id: string; title: string; slug: string; coverImageUrl: string }
+      >();
+      for (const g of catalogGames) {
+        if (g.steamAppId) catalogByAppId.set(g.steamAppId, g);
+      }
+
+      // Fetch current library to mark already-added games.
+      const libraryEntries = (await fetchLibrary(hostToken, apiBaseUrl)) ?? [];
+      const libraryGameIds = new Set(libraryEntries.map((e) => e.gameId));
+
+      // Load persisted scan state.
+      const scanState = await loadScanState();
+      const addedAppIds = new Set(scanState.addedAppIds);
+
+      const enriched = steamGames.map((sg) => {
+        const catalogGame = catalogByAppId.get(sg.appId) ?? null;
+        const alreadyInLibrary =
+          addedAppIds.has(sg.appId) ||
+          (catalogGame !== null && libraryGameIds.has(catalogGame.id));
+        return {
+          appId: sg.appId,
+          name: sg.name,
+          installDir: sg.installDir,
+          fullInstallPath: sg.fullInstallPath,
+          bestExePath: sg.bestExePath,
+          catalogGame,
+          alreadyInLibrary,
+        };
+      });
+
+      // Persist last-scan timestamp.
+      await saveScanState({
+        addedAppIds: scanState.addedAppIds,
+        lastScanAt: new Date().toISOString(),
+      });
+
+      return { steamRoot, games: enriched, error };
+    },
+  );
+
+  // Mark a set of steamAppIds as added (called after bulk-add succeeds).
+  ipcMain.handle(
+    "steam:mark-added",
+    async (_e, appIds: string[]): Promise<void> => {
+      const state = await loadScanState();
+      const merged = Array.from(new Set([...state.addedAppIds, ...appIds]));
+      await saveScanState({ ...state, addedAppIds: merged });
+    },
+  );
 
   ipcMain.on(
     "log",

@@ -1,4 +1,4 @@
-import type { AgentStatus, HostConfig, InputEvent, LibraryEntry } from "../shared/messages";
+import type { AgentStatus, HostConfig, InputEvent, LibraryEntry, SteamScanGame, SteamScanResult } from "../shared/messages";
 
 // The preload script (src/preload/index.ts) exposes this API on `window.agent`
 // via contextBridge. Re-declare the surface here so the renderer typechecks
@@ -32,6 +32,9 @@ declare global {
         lastError?: string,
       ) => Promise<void>;
       openExplorer: (filePath: string) => void;
+      scanSteam: (hostToken: string, apiBaseUrl: string) => Promise<SteamScanResult>;
+      markSteamGamesAdded: (appIds: string[]) => Promise<void>;
+      platform: string;
       log: (level: "info" | "warn" | "error", message: string) => void;
     };
   }
@@ -996,6 +999,344 @@ function teardown(reason: string): void {
   connectBtn.disabled = false;
   disconnectBtn.disabled = true;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Steam library scanner
+// ─────────────────────────────────────────────────────────────────────────────
+
+const scanSteamBtn = $("scan-steam") as HTMLButtonElement;
+const steamModal = $("steam-modal") as HTMLDivElement;
+const steamModalClose = $("steam-modal-close") as HTMLButtonElement;
+const steamScanProgress = $("steam-scan-progress") as HTMLDivElement;
+const steamScanError = $("steam-scan-error") as HTMLDivElement;
+const steamScanErrorText = $("steam-scan-error-text") as HTMLParagraphElement;
+const steamScanResults = $("steam-scan-results") as HTMLDivElement;
+const steamScanSummary = $("steam-scan-summary") as HTMLParagraphElement;
+const steamGameList = $("steam-game-list") as HTMLDivElement;
+const steamAddLibraryBtn = $("steam-add-library") as HTMLButtonElement;
+const steamSubmitReviewBtn = $("steam-submit-review") as HTMLButtonElement;
+const steamSelectAll = $("steam-select-all") as HTMLInputElement;
+const badgeCatalog = $("badge-catalog") as HTMLSpanElement;
+const badgeNew = $("badge-new") as HTMLSpanElement;
+const badgeAdded = $("badge-added") as HTMLSpanElement;
+
+// Show scan button on Windows only.
+if (window.agent.platform === "win32") {
+  scanSteamBtn.hidden = false;
+}
+
+type SteamTab = "catalog" | "new" | "added";
+let currentSteamTab: SteamTab = "catalog";
+let steamGames: SteamScanGame[] = [];
+// Map from appId → checkbox element (for visible items).
+const steamCheckboxMap = new Map<string, HTMLInputElement>();
+
+function steamGamesForTab(tab: SteamTab): SteamScanGame[] {
+  if (tab === "added") return steamGames.filter((g) => g.alreadyInLibrary);
+  if (tab === "catalog") return steamGames.filter((g) => !g.alreadyInLibrary && g.catalogGame !== null);
+  return steamGames.filter((g) => !g.alreadyInLibrary && g.catalogGame === null);
+}
+
+function renderSteamTab(tab: SteamTab): void {
+  currentSteamTab = tab;
+  steamCheckboxMap.clear();
+  steamSelectAll.checked = false;
+
+  // Update tab active states.
+  document.querySelectorAll<HTMLButtonElement>(".steam-tab").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset["tab"] === tab);
+  });
+
+  const games = steamGamesForTab(tab);
+  steamGameList.innerHTML = "";
+
+  if (games.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.style.padding = "16px 0";
+    empty.textContent =
+      tab === "catalog"
+        ? "No installed Steam games found in the platform catalog."
+        : tab === "new"
+          ? "No installed games outside the catalog. All are already listed!"
+          : "No games added yet.";
+    steamGameList.appendChild(empty);
+    updateSteamActionButtons();
+    return;
+  }
+
+  for (const game of games) {
+    const item = document.createElement("div");
+    item.className = "steam-game-item" + (game.alreadyInLibrary ? " added" : "");
+
+    // Checkbox (hidden for already-added tab).
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.disabled = game.alreadyInLibrary;
+    cb.style.flexShrink = "0";
+    cb.addEventListener("change", updateSteamActionButtons);
+    steamCheckboxMap.set(game.appId, cb);
+    item.appendChild(cb);
+
+    // Cover image or placeholder.
+    if (game.catalogGame?.coverImageUrl) {
+      const img = document.createElement("img");
+      img.src = game.catalogGame.coverImageUrl;
+      img.alt = "";
+      img.onerror = () => { img.style.display = "none"; };
+      item.appendChild(img);
+    } else {
+      const ph = document.createElement("div");
+      ph.className = "game-img-placeholder";
+      ph.textContent = "🎮";
+      item.appendChild(ph);
+    }
+
+    // Title + meta.
+    const info = document.createElement("div");
+    info.className = "steam-game-info";
+
+    const title = document.createElement("div");
+    title.className = "steam-game-title";
+    title.textContent = game.name;
+    info.appendChild(title);
+
+    const meta = document.createElement("div");
+    meta.className = "steam-game-meta";
+    meta.title = game.bestExePath ?? game.fullInstallPath;
+    meta.textContent = game.bestExePath
+      ? game.bestExePath.split(/[\\/]/).pop() ?? game.bestExePath
+      : game.installDir;
+    info.appendChild(meta);
+
+    item.appendChild(info);
+
+    // Status badge.
+    const badge = document.createElement("span");
+    badge.className = "steam-badge";
+    if (game.alreadyInLibrary) {
+      badge.classList.add("already-added");
+      badge.textContent = "✔ Added";
+    } else if (game.catalogGame) {
+      badge.classList.add("in-catalog");
+      badge.textContent = "In catalog";
+    } else {
+      badge.classList.add("not-in-catalog");
+      badge.textContent = "Not listed";
+    }
+    item.appendChild(badge);
+
+    steamGameList.appendChild(item);
+  }
+
+  updateSteamActionButtons();
+}
+
+function selectedSteamGames(): SteamScanGame[] {
+  const games = steamGamesForTab(currentSteamTab);
+  return games.filter((g) => steamCheckboxMap.get(g.appId)?.checked === true);
+}
+
+function updateSteamActionButtons(): void {
+  const selected = selectedSteamGames();
+  const canAdd = selected.some((g) => g.catalogGame !== null);
+  const canSubmit = selected.some((g) => g.catalogGame === null);
+  steamAddLibraryBtn.disabled = !canAdd;
+  steamSubmitReviewBtn.disabled = !canSubmit;
+}
+
+steamSelectAll.addEventListener("change", () => {
+  const checked = steamSelectAll.checked;
+  for (const cb of steamCheckboxMap.values()) {
+    if (!cb.disabled) cb.checked = checked;
+  }
+  updateSteamActionButtons();
+});
+
+// Tab switching.
+document.querySelectorAll<HTMLButtonElement>(".steam-tab").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const tab = btn.dataset["tab"] as SteamTab;
+    if (tab) renderSteamTab(tab);
+  });
+});
+
+function showSteamModal(): void {
+  steamModal.hidden = false;
+  steamScanProgress.hidden = false;
+  steamScanError.hidden = true;
+  steamScanResults.hidden = true;
+}
+
+function closeSteamModal(): void {
+  steamModal.hidden = true;
+}
+
+steamModalClose.addEventListener("click", closeSteamModal);
+steamModal.addEventListener("click", (e) => {
+  if (e.target === steamModal) closeSteamModal();
+});
+
+scanSteamBtn.addEventListener("click", async () => {
+  const cfg = readForm();
+  if (!cfg.hostToken || !cfg.apiBaseUrl) {
+    log("Set host token and platform URL before scanning Steam library.");
+    return;
+  }
+  showSteamModal();
+  scanSteamBtn.disabled = true;
+  try {
+    const result = await window.agent.scanSteam(cfg.hostToken, cfg.apiBaseUrl);
+    steamScanProgress.hidden = true;
+
+    if (result.error && result.games.length === 0) {
+      steamScanError.hidden = false;
+      steamScanErrorText.textContent = result.error;
+      return;
+    }
+
+    steamGames = result.games;
+    const inCatalog = steamGames.filter((g) => !g.alreadyInLibrary && g.catalogGame !== null).length;
+    const isNew = steamGames.filter((g) => !g.alreadyInLibrary && g.catalogGame === null).length;
+    const added = steamGames.filter((g) => g.alreadyInLibrary).length;
+
+    badgeCatalog.textContent = String(inCatalog);
+    badgeNew.textContent = String(isNew);
+    badgeAdded.textContent = String(added);
+
+    steamScanSummary.textContent =
+      `Found ${steamGames.length} installed Steam game${steamGames.length !== 1 ? "s" : ""}.` +
+      (result.error ? `  ⚠️ ${result.error}` : "");
+
+    steamScanResults.hidden = false;
+
+    // Auto-pick best starting tab.
+    const startTab: SteamTab = inCatalog > 0 ? "catalog" : isNew > 0 ? "new" : "added";
+    renderSteamTab(startTab);
+    log(`Steam scan: ${steamGames.length} game(s) found.`);
+  } catch (err) {
+    steamScanProgress.hidden = true;
+    steamScanError.hidden = false;
+    steamScanErrorText.textContent = `Scan failed: ${String(err)}`;
+    log(`Steam scan error: ${String(err)}`);
+  } finally {
+    scanSteamBtn.disabled = false;
+  }
+});
+
+// ── Add selected games to library ────────────────────────────────────────────
+
+steamAddLibraryBtn.addEventListener("click", async () => {
+  const cfg = readForm();
+  const selected = selectedSteamGames().filter((g) => g.catalogGame !== null);
+  if (selected.length === 0 || !cfg.hostToken || !cfg.apiBaseUrl) return;
+
+  steamAddLibraryBtn.disabled = true;
+  const base = cfg.apiBaseUrl.replace(/\/$/, "");
+  const addedAppIds: string[] = [];
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const game of selected) {
+    if (!game.catalogGame) continue;
+    try {
+      const resp = await fetch(
+        `${base}/api/hosts/${encodeURIComponent(cfg.hostToken)}/library`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            gameId: game.catalogGame.id,
+            pricePerMinuteLzt: 1,
+            appPath: game.bestExePath ?? "",
+          }),
+        },
+      );
+      if (resp.ok || resp.status === 409) {
+        // 409 = already in library — treat as success.
+        addedAppIds.push(game.appId);
+        successCount++;
+        // Mark game as added in UI immediately.
+        const g = steamGames.find((g) => g.appId === game.appId);
+        if (g) g.alreadyInLibrary = true;
+      } else {
+        failCount++;
+        log(`Failed to add ${game.name} (${resp.status}).`);
+      }
+    } catch (err) {
+      failCount++;
+      log(`Add error for ${game.name}: ${String(err)}`);
+    }
+  }
+
+  // Persist added state so re-scans don't show them again.
+  if (addedAppIds.length > 0) {
+    await window.agent.markSteamGamesAdded(addedAppIds);
+  }
+
+  const msg = successCount > 0
+    ? `Added ${successCount} game${successCount !== 1 ? "s" : ""} to library${failCount > 0 ? `, ${failCount} failed` : ""}. Refreshing…`
+    : `All ${failCount} add${failCount !== 1 ? "s" : ""} failed.`;
+  log(msg);
+
+  // Refresh badge counts and re-render tab.
+  const inCatalog = steamGames.filter((g) => !g.alreadyInLibrary && g.catalogGame !== null).length;
+  const isNew = steamGames.filter((g) => !g.alreadyInLibrary && g.catalogGame === null).length;
+  const added = steamGames.filter((g) => g.alreadyInLibrary).length;
+  badgeCatalog.textContent = String(inCatalog);
+  badgeNew.textContent = String(isNew);
+  badgeAdded.textContent = String(added);
+  renderSteamTab(currentSteamTab);
+
+  // Refresh the main library list in the background.
+  await loadLibrary(cfg);
+});
+
+// ── Submit unlisted games for platform review ─────────────────────────────────
+
+steamSubmitReviewBtn.addEventListener("click", async () => {
+  const cfg = readForm();
+  const selected = selectedSteamGames().filter((g) => g.catalogGame === null);
+  if (selected.length === 0 || !cfg.hostToken || !cfg.apiBaseUrl) return;
+
+  steamSubmitReviewBtn.disabled = true;
+  const base = cfg.apiBaseUrl.replace(/\/$/, "");
+  let submitted = 0;
+  let skipped = 0;
+
+  for (const game of selected) {
+    try {
+      const resp = await fetch(`${base}/api/games/submit`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          hostToken: cfg.hostToken,
+          title: game.name,
+          steamAppId: game.appId,
+          kind: "native",
+        }),
+      });
+      if (resp.ok) {
+        submitted++;
+      } else if (resp.status === 409) {
+        skipped++; // Already submitted / already in catalog.
+      } else {
+        log(`Submit failed for ${game.name} (${resp.status}).`);
+      }
+    } catch (err) {
+      log(`Submit error for ${game.name}: ${String(err)}`);
+    }
+  }
+
+  log(
+    submitted > 0
+      ? `Submitted ${submitted} game${submitted !== 1 ? "s" : ""} for review${skipped > 0 ? ` (${skipped} already pending)` : ""}.`
+      : skipped > 0
+        ? `${skipped} game${skipped !== 1 ? "s" : ""} already submitted.`
+        : "No games were submitted.",
+  );
+  steamSubmitReviewBtn.disabled = false;
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Init
