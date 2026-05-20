@@ -1240,6 +1240,7 @@ steamAddLibraryBtn.addEventListener("click", async () => {
   for (const game of selected) {
     if (!game.catalogGame) continue;
     try {
+      // Default price: 5 LZT/min (platform placeholder — host can adjust later).
       const resp = await fetch(
         `${base}/api/hosts/${encodeURIComponent(cfg.hostToken)}/library`,
         {
@@ -1247,7 +1248,7 @@ steamAddLibraryBtn.addEventListener("click", async () => {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             gameId: game.catalogGame.id,
-            pricePerMinuteLzt: 1,
+            pricePerMinuteLzt: 5,
             appPath: game.bestExePath ?? "",
           }),
         },
@@ -1318,6 +1319,24 @@ steamSubmitReviewBtn.addEventListener("click", async () => {
       });
       if (resp.ok) {
         submitted++;
+        // Save host launch config on the submission so the platform can
+        // auto-create the library entry when the submission is approved.
+        const subData = (await resp.json()) as { id?: string };
+        if (subData.id) {
+          fetch(`${base}/api/games/submissions/${encodeURIComponent(subData.id)}/pending-config`, {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              hostToken: cfg.hostToken,
+              pricePerMinuteLzt: 5,
+              appPath: game.bestExePath ?? "",
+              boundUrl: "",
+              launchArgs: "",
+            }),
+          }).catch((err) => {
+            log(`pending-config save failed for ${game.name}: ${String(err)}`);
+          });
+        }
       } else if (resp.status === 409) {
         skipped++; // Already submitted / already in catalog.
       } else {

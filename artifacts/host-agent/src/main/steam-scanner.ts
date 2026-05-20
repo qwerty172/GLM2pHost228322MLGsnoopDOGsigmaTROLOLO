@@ -145,6 +145,41 @@ async function findLibraryFolders(steamRoot: string): Promise<string[]> {
 
 // ─── ACF manifest parsing ─────────────────────────────────────────────────────
 
+// Try to extract a preferred exe path from ACF UserConfig / MountedConfig blocks.
+// Steam sometimes writes the resolved launch executable or user overrides here.
+// Prefer this over heuristic search when the path resolves to an actual file.
+function exeFromAcfConfig(
+  parsed: Record<string, unknown>,
+  installBase: string,
+): string | null {
+  for (const blockKey of ["UserConfig", "MountedConfig"]) {
+    const block = parsed[blockKey];
+    if (typeof block !== "object" || block === null) continue;
+    const obj = block as Record<string, unknown>;
+
+    // Direct "exe" key in the config block.
+    const directExe = obj["exe"];
+    if (typeof directExe === "string" && directExe.trim()) {
+      return path.join(installBase, directExe.trim().replace(/\//g, path.sep));
+    }
+
+    // Numbered launch entries (e.g. "0" { "exe" "bin\\game.exe" "type" "default" }).
+    for (const entryVal of Object.values(obj)) {
+      if (typeof entryVal !== "object" || entryVal === null) continue;
+      const entry = entryVal as Record<string, unknown>;
+      const entryExe = entry["exe"];
+      const entryType = String(entry["type"] ?? "");
+      if (typeof entryExe === "string" && entryExe.trim()) {
+        // Accept "default", "none", or no type — skip server/dedicated entries.
+        if (!entryType || entryType === "default" || entryType === "none") {
+          return path.join(installBase, entryExe.trim().replace(/\//g, path.sep));
+        }
+      }
+    }
+  }
+  return null;
+}
+
 async function scanLibraryFolder(libraryPath: string): Promise<SteamLibraryGame[]> {
   const steamappsDir = path.join(libraryPath, "steamapps");
   const games: SteamLibraryGame[] = [];
@@ -167,7 +202,23 @@ async function scanLibraryFolder(libraryPath: string): Promise<SteamLibraryGame[
       if (!appId || !name || !installDir) continue;
 
       const fullInstallPath = path.join(steamappsDir, "common", installDir);
-      const bestExePath = await findBestExe(fullInstallPath, name);
+
+      // Prefer an exe declared in the manifest over the heuristic search.
+      let bestExePath: string | null = null;
+      const manifestExe = exeFromAcfConfig(parsed, fullInstallPath);
+      if (manifestExe) {
+        try {
+          await fs.access(manifestExe);
+          bestExePath = manifestExe;
+          log("info", `[steam-scanner] Manifest exe for ${name}: ${manifestExe}`);
+        } catch {
+          // Declared path doesn't exist on disk — fall through to heuristic.
+        }
+      }
+      if (!bestExePath) {
+        bestExePath = await findBestExe(fullInstallPath, name);
+      }
+
       games.push({ appId, name, installDir, fullInstallPath, bestExePath });
     } catch { /* skip bad manifest */ }
   }
