@@ -212,6 +212,8 @@ void app.whenReady().then(async () => {
       }
 
       // Fetch catalog games to match by steamAppId.
+      // Use /api/public/games — it includes the steamAppId field in its response
+      // unlike /api/games which omits it from the select list.
       let catalogGames: Array<{
         id: string;
         title: string;
@@ -221,9 +223,12 @@ void app.whenReady().then(async () => {
       }> = [];
       try {
         const base = apiBaseUrl.replace(/\/$/, "");
-        const resp = await fetch(`${base}/api/games`);
+        const resp = await fetch(`${base}/api/public/games`);
         if (resp.ok) {
           catalogGames = (await resp.json()) as typeof catalogGames;
+          log("info", `[steam-scan] Catalog: ${catalogGames.length} games, ${catalogGames.filter(g => g.steamAppId).length} with steamAppId`);
+        } else {
+          log("warn", `[steam-scan] Catalog fetch returned ${resp.status}`);
         }
       } catch (err) {
         log("warn", `[steam-scan] Could not fetch catalog: ${String(err)}`);
