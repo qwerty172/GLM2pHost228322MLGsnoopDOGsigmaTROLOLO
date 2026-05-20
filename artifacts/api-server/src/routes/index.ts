@@ -7,6 +7,7 @@ import playersRouter from "./players";
 import publicRouter from "./public";
 import sessionsRouter from "./sessions";
 import walletRouter from "./wallet";
+import quotasRouter from "./quotas";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(hostsRouter);
 router.use(playersRouter);
 router.use(sessionsRouter);
 router.use(walletRouter);
+router.use(quotasRouter);
 
 export default router;

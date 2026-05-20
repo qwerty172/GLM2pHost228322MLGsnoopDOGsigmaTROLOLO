@@ -1,0 +1,298 @@
+import { useEffect, useState } from "react";
+import { useParams, useLocation, Link } from "wouter";
+import { toast } from "sonner";
+import {
+  useGetQuota,
+  useUpdateQuota,
+  useListGames,
+} from "@workspace/api-client-react";
+import { SiteNav } from "@/components/site-nav";
+import { useAuth } from "@/hooks/use-auth";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2 } from "lucide-react";
+
+const cardStyle = {
+  background: "#0a1018",
+  border: "1px solid rgba(255,255,255,0.06)",
+} as const;
+const inputStyle = {
+  background: "rgba(255,255,255,0.03)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  color: "#e2e8f0",
+};
+
+export default function QuotaEditPage() {
+  const { id } = useParams<{ id: string }>();
+  const { hostToken } = useAuth();
+  const [, navigate] = useLocation();
+  const params = hostToken ? { ownerToken: hostToken } : {};
+  const { data: quota, isLoading } = useGetQuota(id!, params);
+  const update = useUpdateQuota();
+
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [budgetLzt, setBudgetLzt] = useState<number>(0);
+  const [sponsorHostPerMinute, setSponsorHostPerMinute] = useState<number>(0);
+  const [sponsorPlayerPerMinute, setSponsorPlayerPerMinute] = useState<number>(0);
+  const [royaltyValue, setRoyaltyValue] = useState<number>(0);
+  const [gameId, setGameId] = useState<string>("");
+  const [minSessionMinutes, setMinSessionMinutes] = useState<string>("");
+  const [maxSessionMinutes, setMaxSessionMinutes] = useState<string>("");
+  const [endAt, setEndAt] = useState<string>("");
+
+  const { data: games } = useListGames({});
+
+  useEffect(() => {
+    if (!quota) return;
+    setTitle(quota.title);
+    setDescription(quota.description);
+    setBudgetLzt(quota.budgetLzt ?? 0);
+    setSponsorHostPerMinute(quota.sponsorHostPerMinuteLzt ?? 0);
+    setSponsorPlayerPerMinute(quota.sponsorPlayerPerMinuteLzt ?? 0);
+    setRoyaltyValue(quota.royaltyValue ?? 0);
+    setGameId(quota.gameId ?? "");
+    setMinSessionMinutes(
+      quota.minSessionMinutes != null ? String(quota.minSessionMinutes) : "",
+    );
+    setMaxSessionMinutes(
+      quota.maxSessionMinutes != null ? String(quota.maxSessionMinutes) : "",
+    );
+    setEndAt(quota.endAt ? quota.endAt.slice(0, 16) : "");
+  }, [quota]);
+
+  if (isLoading || !quota) {
+    return (
+      <div className="min-h-screen" style={{ background: "#06090e" }}>
+        <SiteNav activePath="/quotas" />
+        <main className="max-w-2xl mx-auto px-6 pt-10 text-slate-500">
+          Загрузка…
+        </main>
+      </div>
+    );
+  }
+  if (!hostToken || quota.isOwner !== true) {
+    return (
+      <div className="min-h-screen" style={{ background: "#06090e" }}>
+        <SiteNav activePath="/quotas" />
+        <main className="max-w-2xl mx-auto px-6 pt-10 text-slate-500">
+          Только автор может редактировать.
+        </main>
+      </div>
+    );
+  }
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!hostToken) return;
+    try {
+      await update.mutateAsync({
+        id: quota.id,
+        data: {
+          ownerToken: hostToken,
+          title,
+          description,
+          gameId: gameId || null,
+          minSessionMinutes: minSessionMinutes
+            ? Math.max(1, Math.floor(Number(minSessionMinutes)))
+            : null,
+          maxSessionMinutes: maxSessionMinutes
+            ? Math.max(1, Math.floor(Number(maxSessionMinutes)))
+            : null,
+          endAt: endAt ? new Date(endAt).toISOString() : null,
+          budgetLzt: quota.kind === "sponsor" ? Math.floor(budgetLzt) : null,
+          sponsorHostPerMinuteLzt:
+            quota.kind === "sponsor" ? Math.floor(sponsorHostPerMinute) : null,
+          sponsorPlayerPerMinuteLzt:
+            quota.kind === "sponsor"
+              ? Math.floor(sponsorPlayerPerMinute)
+              : null,
+          royaltyValue:
+            quota.kind === "royalty" ? Math.floor(royaltyValue) : null,
+        },
+      });
+      toast.success("Изменения сохранены");
+      navigate(`/quotas/${quota.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Ошибка");
+    }
+  };
+
+  return (
+    <div className="min-h-screen text-slate-300" style={{ background: "#06090e" }}>
+      <SiteNav activePath="/quotas" />
+      <main className="max-w-2xl mx-auto px-6 pt-10 pb-16 space-y-6">
+        <Link href={`/quotas/${quota.id}`}>
+          <span className="text-xs text-slate-500 hover:text-sky-400 cursor-pointer">
+            ← К квоте
+          </span>
+        </Link>
+        <h1 className="text-3xl font-extrabold tracking-tight text-white">
+          Редактировать квоту
+        </h1>
+        {quota.status !== "draft" && (
+          <p className="text-xs text-amber-400/80">
+            Квота уже опубликована — большинство полей будет редактируемо только
+            пока нет ни одного движения.
+          </p>
+        )}
+        <form onSubmit={submit} className="space-y-6">
+          <Card style={cardStyle}>
+            <CardHeader>
+              <CardTitle className="text-white">Основное</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label className="text-slate-300">Название</Label>
+                <Input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  style={inputStyle}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-slate-300">Описание</Label>
+                <Textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  style={inputStyle}
+                  className="mt-1"
+                  rows={3}
+                />
+              </div>
+              <div>
+                <Label className="text-slate-300">Привязка к игре</Label>
+                <select
+                  value={gameId}
+                  onChange={(e) => setGameId(e.target.value)}
+                  className="mt-1 w-full h-10 rounded-md px-3 text-sm"
+                  style={inputStyle}
+                  data-testid="select-game"
+                >
+                  <option value="">Любая игра</option>
+                  {(games ?? []).map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-slate-300">Мин. минут</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={minSessionMinutes}
+                    onChange={(e) => setMinSessionMinutes(e.target.value)}
+                    placeholder="без ограничения"
+                    style={inputStyle}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-300">Макс. минут</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={maxSessionMinutes}
+                    onChange={(e) => setMaxSessionMinutes(e.target.value)}
+                    placeholder="без ограничения"
+                    style={inputStyle}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-slate-300">Конец действия</Label>
+                <Input
+                  type="datetime-local"
+                  value={endAt}
+                  onChange={(e) => setEndAt(e.target.value)}
+                  style={inputStyle}
+                  className="mt-1"
+                />
+              </div>
+              {quota.kind === "royalty" ? (
+                <div>
+                  <Label className="text-slate-300">
+                    {quota.royaltyBasis === "percent"
+                      ? "Процент"
+                      : "LZT в минуту"}
+                  </Label>
+                  <Input
+                    type="number"
+                    value={royaltyValue}
+                    onChange={(e) => setRoyaltyValue(Number(e.target.value))}
+                    style={inputStyle}
+                    className="mt-1"
+                  />
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <Label className="text-slate-300">Бюджет, LZT</Label>
+                    <Input
+                      type="number"
+                      value={budgetLzt}
+                      onChange={(e) => setBudgetLzt(Number(e.target.value))}
+                      style={inputStyle}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-slate-300">Хосту LZT/мин</Label>
+                      <Input
+                        type="number"
+                        value={sponsorHostPerMinute}
+                        onChange={(e) =>
+                          setSponsorHostPerMinute(Number(e.target.value))
+                        }
+                        style={inputStyle}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">Игроку LZT/мин</Label>
+                      <Input
+                        type="number"
+                        value={sponsorPlayerPerMinute}
+                        onChange={(e) =>
+                          setSponsorPlayerPerMinute(Number(e.target.value))
+                        }
+                        style={inputStyle}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+          <Button
+            type="submit"
+            disabled={update.isPending}
+            className="font-bold"
+            style={{ background: "#0ea5e9", color: "#fff" }}
+            data-testid="button-save-quota"
+          >
+            {update.isPending && (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            )}
+            Сохранить
+          </Button>
+        </form>
+      </main>
+    </div>
+  );
+}

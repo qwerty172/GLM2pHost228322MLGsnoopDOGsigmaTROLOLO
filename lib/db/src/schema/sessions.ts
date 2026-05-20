@@ -30,6 +30,9 @@ export const sessionsTable = pgTable("sessions", {
   //   "blue"  → only синий (internal)
   //   "auto"  → prefer green, fall back to blue
   paymentSource: text("payment_source").notNull().default("auto"),
+  // Optional quota preset-contract attached to this session. The billing
+  // worker reads it on every tick to apply royalty/sponsor adjustments.
+  quotaId: uuid("quota_id"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

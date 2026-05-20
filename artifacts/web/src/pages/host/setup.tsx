@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useCreateSession } from "@workspace/api-client-react";
+import {
+  useCreateSession,
+  useListApplicableQuotas,
+  getListApplicableQuotasQueryKey,
+  type Quota,
+} from "@workspace/api-client-react";
+import { Coins, Sparkles } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -48,8 +54,23 @@ export default function SetupSession() {
     appName: string;
     playerToken: string;
   } | null>(null);
+  const [selectedQuotaId, setSelectedQuotaId] = useState<string | null>(null);
+  const [accessCode, setAccessCode] = useState<string>("");
 
   const createSession = useCreateSession();
+  const applicableParams = {
+    hostToken: hostToken ?? "",
+    ...(accessCode ? { accessCode } : {}),
+  };
+  const { data: applicableQuotas } = useListApplicableQuotas(
+    applicableParams,
+    {
+      query: {
+        enabled: !!hostToken,
+        queryKey: getListApplicableQuotasQueryKey(applicableParams),
+      },
+    },
+  );
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +83,8 @@ export default function SetupSession() {
           appName,
           resolution,
           bitrateKbps: bitrateKbps[0],
+          quotaId: selectedQuotaId,
+          quotaAccessCode: accessCode || undefined,
         },
       },
       {
@@ -227,6 +250,42 @@ export default function SetupSession() {
         <Card className="mt-6" style={cardStyle}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-white">
+              <Coins className="h-5 w-5 text-amber-400" />
+              Квота (опционально)
+            </CardTitle>
+            <CardDescription className="text-slate-500">
+              Прикрепи пресет-контракт: роялти автору или спонсорский эскроу.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <QuotaPicker
+              quotas={applicableQuotas ?? []}
+              selectedId={selectedQuotaId}
+              onSelect={setSelectedQuotaId}
+            />
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-500 uppercase tracking-wider">
+                Приватный код квоты
+              </Label>
+              <Input
+                placeholder="например, A3F9KMP2"
+                value={accessCode}
+                onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+                className="font-mono"
+                style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  color: "#e2e8f0",
+                }}
+                data-testid="input-quota-code"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="mt-6" style={cardStyle}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-white">
               <Monitor className="h-5 w-5 text-sky-400" />
               Качество стрима
             </CardTitle>
@@ -318,6 +377,89 @@ export default function SetupSession() {
           </CardFooter>
         </Card>
       </form>
+    </div>
+  );
+}
+
+function QuotaPicker({
+  quotas,
+  selectedId,
+  onSelect,
+}: {
+  quotas: Quota[];
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+}) {
+  if (quotas.length === 0) {
+    return (
+      <p className="text-xs text-slate-500">
+        Подходящих квот пока нет. Создай свою на странице{" "}
+        <Link href="/quotas/new">
+          <span className="text-sky-400 underline cursor-pointer">
+            «Новая квота»
+          </span>
+        </Link>{" "}
+        или введи код приватной квоты.
+      </p>
+    );
+  }
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+      <button
+        type="button"
+        onClick={() => onSelect(null)}
+        className="text-left p-3 rounded-md transition-colors"
+        style={{
+          background: selectedId === null ? "rgba(14,165,233,0.15)" : "rgba(255,255,255,0.02)",
+          border:
+            selectedId === null
+              ? "1px solid #0ea5e9"
+              : "1px solid rgba(255,255,255,0.06)",
+        }}
+        data-testid="quota-picker-none"
+      >
+        <div className="text-sm font-semibold text-white">Без квоты</div>
+        <div className="text-[11px] text-slate-500">
+          Стандартный сплит хост/игрок.
+        </div>
+      </button>
+      {quotas.map((q) => (
+        <button
+          key={q.id}
+          type="button"
+          onClick={() => onSelect(q.id)}
+          className="text-left p-3 rounded-md transition-colors"
+          style={{
+            background:
+              selectedId === q.id
+                ? "rgba(14,165,233,0.15)"
+                : "rgba(255,255,255,0.02)",
+            border:
+              selectedId === q.id
+                ? "1px solid #0ea5e9"
+                : "1px solid rgba(255,255,255,0.06)",
+          }}
+          data-testid={`quota-picker-${q.id}`}
+        >
+          <div className="flex items-center gap-1.5 mb-1">
+            {q.kind === "royalty" ? (
+              <Coins className="h-3 w-3 text-amber-400" />
+            ) : (
+              <Sparkles className="h-3 w-3 text-sky-400" />
+            )}
+            <span className="text-sm font-semibold text-white truncate">
+              {q.title}
+            </span>
+          </div>
+          <div className="text-[11px] text-slate-500 font-mono">
+            {q.kind === "royalty"
+              ? q.royaltyBasis === "percent"
+                ? `${q.royaltyValue}% / мин`
+                : `${q.royaltyValue} LZT/мин`
+              : `Хост +${q.sponsorHostPerMinuteLzt ?? 0} · Игрок +${q.sponsorPlayerPerMinuteLzt ?? 0} LZT/мин`}
+          </div>
+        </button>
+      ))}
     </div>
   );
 }

@@ -207,6 +207,8 @@ export interface Session {
   /** Player credits charged per minute (host receives net of commission) */
   ratePerMinute: number;
   paymentSource?: SessionPaymentSource;
+  /** @nullable */
+  quotaId?: string | null;
   createdAt: string;
   /** @nullable */
   startedAt?: string | null;
@@ -277,6 +279,13 @@ export interface CreateSessionBody {
   bitrateKbps?: number;
   ratePerMinute?: number;
   paymentSource?: CreateSessionBodyPaymentSource;
+  /**
+   * Optional quota preset-contract to attach to this session.
+   * @nullable
+   */
+  quotaId?: string | null;
+  /** Required when attaching a private quota the host does not own. */
+  quotaAccessCode?: string;
 }
 
 export interface HostStats {
@@ -373,6 +382,186 @@ export interface PublicStats {
   totalPaidOutCents: number;
 }
 
+export type QuotaOwnerType =
+  (typeof QuotaOwnerType)[keyof typeof QuotaOwnerType];
+
+export const QuotaOwnerType = {
+  host: "host",
+  player: "player",
+} as const;
+
+export type QuotaKind = (typeof QuotaKind)[keyof typeof QuotaKind];
+
+export const QuotaKind = {
+  royalty: "royalty",
+  sponsor: "sponsor",
+} as const;
+
+export type QuotaStatus = (typeof QuotaStatus)[keyof typeof QuotaStatus];
+
+export const QuotaStatus = {
+  draft: "draft",
+  active: "active",
+  paused: "paused",
+  exhausted: "exhausted",
+  expired: "expired",
+  closed: "closed",
+} as const;
+
+export type QuotaVisibility =
+  (typeof QuotaVisibility)[keyof typeof QuotaVisibility];
+
+export const QuotaVisibility = {
+  public: "public",
+  private: "private",
+} as const;
+
+export interface Quota {
+  id: string;
+  ownerType: QuotaOwnerType;
+  ownerId: string;
+  ownerDisplayName: string;
+  kind: QuotaKind;
+  status: QuotaStatus;
+  title: string;
+  description: string;
+  /** @nullable */
+  gameId: string | null;
+  /** @nullable */
+  gameTitle: string | null;
+  visibility: QuotaVisibility;
+  /**
+   * Only returned to the quota owner.
+   * @nullable
+   */
+  accessCode: string | null;
+  /** @nullable */
+  minSessionMinutes: number | null;
+  /** @nullable */
+  maxSessionMinutes: number | null;
+  startAt: string;
+  /** @nullable */
+  endAt: string | null;
+  /** @nullable */
+  budgetLzt: number | null;
+  /** @nullable */
+  escrowRemainingLzt: number | null;
+  /** @nullable */
+  sponsorHostPerMinuteLzt: number | null;
+  /** @nullable */
+  sponsorPlayerPerMinuteLzt: number | null;
+  /** @nullable */
+  royaltyBasis: string | null;
+  /** @nullable */
+  royaltyValue: number | null;
+  /** @nullable */
+  royaltySource: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuotaMovement {
+  id: string;
+  sessionId: string;
+  kind: string;
+  amountLzt: number;
+  billedAt: string;
+}
+
+export type QuotaDetail = Quota & {
+  activeSessionCount: number;
+  closedSessionCount: number;
+  totalPaidOutLzt: number;
+  recentMovements: QuotaMovement[];
+  /** True when ownerToken matches the quota owner. */
+  isOwner: boolean;
+};
+
+export type CreateQuotaBodyKind =
+  (typeof CreateQuotaBodyKind)[keyof typeof CreateQuotaBodyKind];
+
+export const CreateQuotaBodyKind = {
+  royalty: "royalty",
+  sponsor: "sponsor",
+} as const;
+
+export type CreateQuotaBodyVisibility =
+  (typeof CreateQuotaBodyVisibility)[keyof typeof CreateQuotaBodyVisibility];
+
+export const CreateQuotaBodyVisibility = {
+  public: "public",
+  private: "private",
+} as const;
+
+export interface CreateQuotaBody {
+  ownerToken: string;
+  kind: CreateQuotaBodyKind;
+  title: string;
+  description?: string;
+  /** @nullable */
+  gameId?: string | null;
+  visibility: CreateQuotaBodyVisibility;
+  /** @nullable */
+  minSessionMinutes?: number | null;
+  /** @nullable */
+  maxSessionMinutes?: number | null;
+  /** @nullable */
+  startAt?: string | null;
+  /** @nullable */
+  endAt?: string | null;
+  /** @nullable */
+  budgetLzt?: number | null;
+  /** @nullable */
+  sponsorHostPerMinuteLzt?: number | null;
+  /** @nullable */
+  sponsorPlayerPerMinuteLzt?: number | null;
+  /** @nullable */
+  royaltyBasis?: string | null;
+  /** @nullable */
+  royaltyValue?: number | null;
+  /** @nullable */
+  royaltySource?: string | null;
+}
+
+export type UpdateQuotaBodyVisibility =
+  (typeof UpdateQuotaBodyVisibility)[keyof typeof UpdateQuotaBodyVisibility];
+
+export const UpdateQuotaBodyVisibility = {
+  public: "public",
+  private: "private",
+} as const;
+
+export interface UpdateQuotaBody {
+  ownerToken: string;
+  title?: string;
+  description?: string;
+  /** @nullable */
+  gameId?: string | null;
+  visibility?: UpdateQuotaBodyVisibility;
+  /** @nullable */
+  minSessionMinutes?: number | null;
+  /** @nullable */
+  maxSessionMinutes?: number | null;
+  /** @nullable */
+  endAt?: string | null;
+  /** @nullable */
+  budgetLzt?: number | null;
+  /** @nullable */
+  sponsorHostPerMinuteLzt?: number | null;
+  /** @nullable */
+  sponsorPlayerPerMinuteLzt?: number | null;
+  /** @nullable */
+  royaltyBasis?: string | null;
+  /** @nullable */
+  royaltyValue?: number | null;
+  /** @nullable */
+  royaltySource?: string | null;
+}
+
+export interface QuotaOwnerBody {
+  ownerToken: string;
+}
+
 export interface WalletTransaction {
   id: string;
   /** deposit | withdrawal | session_billing */
@@ -427,4 +616,35 @@ export type GetGameBySlugParams = {
 
 export type GetSessionParams = {
   hostToken: string;
+};
+
+export type ListPublicQuotasParams = {
+  kind?: ListPublicQuotasKind;
+  gameId?: string;
+};
+
+export type ListPublicQuotasKind =
+  (typeof ListPublicQuotasKind)[keyof typeof ListPublicQuotasKind];
+
+export const ListPublicQuotasKind = {
+  royalty: "royalty",
+  sponsor: "sponsor",
+} as const;
+
+export type ListMyQuotasParams = {
+  ownerToken: string;
+};
+
+export type ListAppliedQuotasParams = {
+  ownerToken: string;
+};
+
+export type ListApplicableQuotasParams = {
+  hostToken: string;
+  gameId?: string;
+  accessCode?: string;
+};
+
+export type GetQuotaParams = {
+  ownerToken?: string;
 };

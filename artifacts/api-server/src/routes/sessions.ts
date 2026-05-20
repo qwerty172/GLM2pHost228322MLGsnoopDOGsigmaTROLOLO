@@ -6,7 +6,10 @@ import {
   hostsTable,
   playersTable,
   sessionsTable,
+  quotasTable,
+  quotaSessionsTable,
 } from "@workspace/db";
+import { isQuotaActiveNow } from "../lib/quotaEngine";
 import {
   CreateBrowserHostSessionBody,
   CreateSessionBody,
@@ -77,6 +80,46 @@ router.post("/sessions", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Host's minute price is invalid" });
     return;
   }
+
+  // Optional quota attachment. The host can pre-pick a quota in /host/setup
+  // or by passing an access code; we validate it before creating the session.
+  let resolvedQuotaId: string | null = null;
+  const requestedQuotaId =
+    (req.body as { quotaId?: string | null } | undefined)?.quotaId ?? null;
+  const accessCode =
+    (req.body as { quotaAccessCode?: string } | undefined)
+      ?.quotaAccessCode ?? "";
+  if (requestedQuotaId) {
+    const [quota] = await db
+      .select()
+      .from(quotasTable)
+      .where(eq(quotasTable.id, requestedQuotaId));
+    if (!quota || !isQuotaActiveNow(quota)) {
+      res.status(400).json({ error: "Quota is not active" });
+      return;
+    }
+    const ownsIt =
+      quota.ownerType === "host" && quota.ownerId === host.id;
+    if (!ownsIt && quota.visibility === "private") {
+      if (!accessCode || accessCode !== quota.accessCode) {
+        res
+          .status(400)
+          .json({ error: "Invalid access code for private quota" });
+        return;
+      }
+    }
+    // Game binding is enforced for every attachment, including the owner's
+    // own quotas: if a quota declares a game, the host MUST be bound to that
+    // exact game.
+    if (quota.gameId && quota.gameId !== host.gameId) {
+      res
+        .status(400)
+        .json({ error: "Quota is bound to a different game" });
+      return;
+    }
+    resolvedQuotaId = quota.id;
+  }
+
   const [session] = await db
     .insert(sessionsTable)
     .values({
@@ -87,6 +130,7 @@ router.post("/sessions", async (req, res): Promise<void> => {
       bitrateKbps: parsed.data.bitrateKbps ?? 6000,
       ratePerMinute: String(ratePerMinute),
       paymentSource: parsed.data.paymentSource ?? "auto",
+      quotaId: resolvedQuotaId,
     })
     .returning();
 
@@ -95,7 +139,16 @@ router.post("/sessions", async (req, res): Promise<void> => {
     return;
   }
 
-  req.log.info({ sessionId: session.id }, "Session created");
+  if (resolvedQuotaId) {
+    await db
+      .insert(quotaSessionsTable)
+      .values({ quotaId: resolvedQuotaId, sessionId: session.id });
+  }
+
+  req.log.info(
+    { sessionId: session.id, quotaId: resolvedQuotaId },
+    "Session created",
+  );
   res.status(201).json(GetSessionResponse.parse(serialize(session)));
 });
 

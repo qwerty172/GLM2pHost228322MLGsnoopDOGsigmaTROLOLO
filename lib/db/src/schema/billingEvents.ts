@@ -17,6 +17,16 @@ export const billingEventsTable = pgTable("billing_events", {
   bucket: text("bucket").notNull().default("green"),
   playerDebitLzt: integer("player_debit_lzt").notNull().default(0),
   hostCreditLzt: integer("host_credit_lzt").notNull().default(0),
+  // Event type. Default `session_tick` keeps existing rows / inserts unchanged.
+  // Quota-aware values:
+  //   quota_royalty        — royalty cut moved to the quota owner
+  //   quota_sponsor_host   — sponsor escrow → host
+  //   quota_sponsor_player — sponsor escrow → player
+  //   quota_escrow_lock    — owner published a sponsor quota (escrow funded)
+  //   quota_escrow_refund  — leftover escrow returned to the owner
+  kind: text("kind").notNull().default("session_tick"),
+  // Set on every quota-related row. NULL for plain session ticks/launch fees.
+  quotaId: uuid("quota_id"),
   billedAt: timestamp("billed_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

@@ -1,8 +1,14 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Cpu, Gamepad2, MonitorPlay, UserCircle2 } from "lucide-react";
+import { Coins, Cpu, Gamepad2, MonitorPlay, UserCircle2 } from "lucide-react";
 
-type NavKey = "/" | "/games" | "/hosts" | "/host" | "/wallet";
+type NavKey =
+  | "/"
+  | "/games"
+  | "/hosts"
+  | "/quotas"
+  | "/host"
+  | "/wallet";
 
 interface Props {
   activePath?: NavKey | string;
@@ -54,6 +60,17 @@ export function SiteNav({ activePath }: Props) {
               data-testid="link-nav-hosts"
             >
               <Cpu className="w-3.5 h-3.5" /> Хосты
+            </span>
+          </Link>
+          <Link href="/quotas">
+            <span
+              className="flex items-center gap-1.5 text-[13px] font-medium transition-colors cursor-pointer"
+              style={{
+                color: activePath === "/quotas" ? "#38bdf8" : "#94a3b8",
+              }}
+              data-testid="link-nav-quotas"
+            >
+              <Coins className="w-3.5 h-3.5" /> Квоты
             </span>
           </Link>
           {(["Биржа", "Форум", "Кредиты"] as const).map((label) => (

@@ -14,4 +14,11 @@ export interface CreateSessionBody {
   bitrateKbps?: number;
   ratePerMinute?: number;
   paymentSource?: CreateSessionBodyPaymentSource;
+  /**
+   * Optional quota preset-contract to attach to this session.
+   * @nullable
+   */
+  quotaId?: string | null;
+  /** Required when attaching a private quota the host does not own. */
+  quotaAccessCode?: string;
 }

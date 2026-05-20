@@ -266,6 +266,7 @@ export const ListHostSessionsResponseItem = zod.object({
       "Player credits charged per minute (host receives net of commission)",
     ),
   paymentSource: zod.enum(["blue", "green", "auto"]).optional(),
+  quotaId: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   startedAt: zod.coerce.date().nullish(),
   endedAt: zod.coerce.date().nullish(),
@@ -556,6 +557,14 @@ export const CreateSessionBody = zod.object({
   bitrateKbps: zod.number().optional(),
   ratePerMinute: zod.number().optional(),
   paymentSource: zod.enum(["blue", "green", "auto"]).optional(),
+  quotaId: zod
+    .string()
+    .nullish()
+    .describe("Optional quota preset-contract to attach to this session."),
+  quotaAccessCode: zod
+    .string()
+    .optional()
+    .describe("Required when attaching a private quota the host does not own."),
 });
 
 /**
@@ -600,6 +609,7 @@ export const GetSessionResponse = zod.object({
       "Player credits charged per minute (host receives net of commission)",
     ),
   paymentSource: zod.enum(["blue", "green", "auto"]).optional(),
+  quotaId: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   startedAt: zod.coerce.date().nullish(),
   endedAt: zod.coerce.date().nullish(),
@@ -627,6 +637,7 @@ export const GetSessionByPlayerTokenResponse = zod.object({
       "Player credits charged per minute (host receives net of commission)",
     ),
   paymentSource: zod.enum(["blue", "green", "auto"]).optional(),
+  quotaId: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   startedAt: zod.coerce.date().nullish(),
   endedAt: zod.coerce.date().nullish(),
@@ -666,6 +677,7 @@ export const ClaimSessionResponse = zod.object({
       "Player credits charged per minute (host receives net of commission)",
     ),
   paymentSource: zod.enum(["blue", "green", "auto"]).optional(),
+  quotaId: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   startedAt: zod.coerce.date().nullish(),
   endedAt: zod.coerce.date().nullish(),
@@ -697,9 +709,550 @@ export const EndSessionResponse = zod.object({
       "Player credits charged per minute (host receives net of commission)",
     ),
   paymentSource: zod.enum(["blue", "green", "auto"]).optional(),
+  quotaId: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   startedAt: zod.coerce.date().nullish(),
   endedAt: zod.coerce.date().nullish(),
+});
+
+/**
+ * @summary List public quotas, with optional filters
+ */
+export const ListPublicQuotasQueryParams = zod.object({
+  kind: zod.enum(["royalty", "sponsor"]).optional(),
+  gameId: zod.coerce.string().optional(),
+});
+
+export const ListPublicQuotasResponseItem = zod.object({
+  id: zod.string(),
+  ownerType: zod.enum(["host", "player"]),
+  ownerId: zod.string(),
+  ownerDisplayName: zod.string(),
+  kind: zod.enum(["royalty", "sponsor"]),
+  status: zod.enum([
+    "draft",
+    "active",
+    "paused",
+    "exhausted",
+    "expired",
+    "closed",
+  ]),
+  title: zod.string(),
+  description: zod.string(),
+  gameId: zod.string().nullable(),
+  gameTitle: zod.string().nullable(),
+  visibility: zod.enum(["public", "private"]),
+  accessCode: zod
+    .string()
+    .nullable()
+    .describe("Only returned to the quota owner."),
+  minSessionMinutes: zod.number().nullable(),
+  maxSessionMinutes: zod.number().nullable(),
+  startAt: zod.coerce.date(),
+  endAt: zod.coerce.date().nullable(),
+  budgetLzt: zod.number().nullable(),
+  escrowRemainingLzt: zod.number().nullable(),
+  sponsorHostPerMinuteLzt: zod.number().nullable(),
+  sponsorPlayerPerMinuteLzt: zod.number().nullable(),
+  royaltyBasis: zod.string().nullable(),
+  royaltyValue: zod.number().nullable(),
+  royaltySource: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListPublicQuotasResponse = zod.array(ListPublicQuotasResponseItem);
+
+/**
+ * @summary Create a draft quota
+ */
+export const CreateQuotaBody = zod.object({
+  ownerToken: zod.string(),
+  kind: zod.enum(["royalty", "sponsor"]),
+  title: zod.string(),
+  description: zod.string().optional(),
+  gameId: zod.string().nullish(),
+  visibility: zod.enum(["public", "private"]),
+  minSessionMinutes: zod.number().nullish(),
+  maxSessionMinutes: zod.number().nullish(),
+  startAt: zod.coerce.date().nullish(),
+  endAt: zod.coerce.date().nullish(),
+  budgetLzt: zod.number().nullish(),
+  sponsorHostPerMinuteLzt: zod.number().nullish(),
+  sponsorPlayerPerMinuteLzt: zod.number().nullish(),
+  royaltyBasis: zod.string().nullish(),
+  royaltyValue: zod.number().nullish(),
+  royaltySource: zod.string().nullish(),
+});
+
+/**
+ * @summary List quotas owned by the calling user
+ */
+export const ListMyQuotasQueryParams = zod.object({
+  ownerToken: zod.coerce.string(),
+});
+
+export const ListMyQuotasResponseItem = zod.object({
+  id: zod.string(),
+  ownerType: zod.enum(["host", "player"]),
+  ownerId: zod.string(),
+  ownerDisplayName: zod.string(),
+  kind: zod.enum(["royalty", "sponsor"]),
+  status: zod.enum([
+    "draft",
+    "active",
+    "paused",
+    "exhausted",
+    "expired",
+    "closed",
+  ]),
+  title: zod.string(),
+  description: zod.string(),
+  gameId: zod.string().nullable(),
+  gameTitle: zod.string().nullable(),
+  visibility: zod.enum(["public", "private"]),
+  accessCode: zod
+    .string()
+    .nullable()
+    .describe("Only returned to the quota owner."),
+  minSessionMinutes: zod.number().nullable(),
+  maxSessionMinutes: zod.number().nullable(),
+  startAt: zod.coerce.date(),
+  endAt: zod.coerce.date().nullable(),
+  budgetLzt: zod.number().nullable(),
+  escrowRemainingLzt: zod.number().nullable(),
+  sponsorHostPerMinuteLzt: zod.number().nullable(),
+  sponsorPlayerPerMinuteLzt: zod.number().nullable(),
+  royaltyBasis: zod.string().nullable(),
+  royaltyValue: zod.number().nullable(),
+  royaltySource: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListMyQuotasResponse = zod.array(ListMyQuotasResponseItem);
+
+/**
+ * @summary Quotas that have been applied to sessions where the caller is host or player
+ */
+export const ListAppliedQuotasQueryParams = zod.object({
+  ownerToken: zod.coerce.string(),
+});
+
+export const ListAppliedQuotasResponseItem = zod.object({
+  id: zod.string(),
+  ownerType: zod.enum(["host", "player"]),
+  ownerId: zod.string(),
+  ownerDisplayName: zod.string(),
+  kind: zod.enum(["royalty", "sponsor"]),
+  status: zod.enum([
+    "draft",
+    "active",
+    "paused",
+    "exhausted",
+    "expired",
+    "closed",
+  ]),
+  title: zod.string(),
+  description: zod.string(),
+  gameId: zod.string().nullable(),
+  gameTitle: zod.string().nullable(),
+  visibility: zod.enum(["public", "private"]),
+  accessCode: zod
+    .string()
+    .nullable()
+    .describe("Only returned to the quota owner."),
+  minSessionMinutes: zod.number().nullable(),
+  maxSessionMinutes: zod.number().nullable(),
+  startAt: zod.coerce.date(),
+  endAt: zod.coerce.date().nullable(),
+  budgetLzt: zod.number().nullable(),
+  escrowRemainingLzt: zod.number().nullable(),
+  sponsorHostPerMinuteLzt: zod.number().nullable(),
+  sponsorPlayerPerMinuteLzt: zod.number().nullable(),
+  royaltyBasis: zod.string().nullable(),
+  royaltyValue: zod.number().nullable(),
+  royaltySource: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListAppliedQuotasResponse = zod.array(
+  ListAppliedQuotasResponseItem,
+);
+
+/**
+ * @summary Quotas a host can attach to a new session (own + public-for-game + optional private code)
+ */
+export const ListApplicableQuotasQueryParams = zod.object({
+  hostToken: zod.coerce.string(),
+  gameId: zod.coerce.string().optional(),
+  accessCode: zod.coerce.string().optional(),
+});
+
+export const ListApplicableQuotasResponseItem = zod.object({
+  id: zod.string(),
+  ownerType: zod.enum(["host", "player"]),
+  ownerId: zod.string(),
+  ownerDisplayName: zod.string(),
+  kind: zod.enum(["royalty", "sponsor"]),
+  status: zod.enum([
+    "draft",
+    "active",
+    "paused",
+    "exhausted",
+    "expired",
+    "closed",
+  ]),
+  title: zod.string(),
+  description: zod.string(),
+  gameId: zod.string().nullable(),
+  gameTitle: zod.string().nullable(),
+  visibility: zod.enum(["public", "private"]),
+  accessCode: zod
+    .string()
+    .nullable()
+    .describe("Only returned to the quota owner."),
+  minSessionMinutes: zod.number().nullable(),
+  maxSessionMinutes: zod.number().nullable(),
+  startAt: zod.coerce.date(),
+  endAt: zod.coerce.date().nullable(),
+  budgetLzt: zod.number().nullable(),
+  escrowRemainingLzt: zod.number().nullable(),
+  sponsorHostPerMinuteLzt: zod.number().nullable(),
+  sponsorPlayerPerMinuteLzt: zod.number().nullable(),
+  royaltyBasis: zod.string().nullable(),
+  royaltyValue: zod.number().nullable(),
+  royaltySource: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListApplicableQuotasResponse = zod.array(
+  ListApplicableQuotasResponseItem,
+);
+
+/**
+ * @summary Quota detail + owner-only summary
+ */
+export const GetQuotaParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const GetQuotaQueryParams = zod.object({
+  ownerToken: zod.coerce.string().optional(),
+});
+
+export const GetQuotaResponse = zod
+  .object({
+    id: zod.string(),
+    ownerType: zod.enum(["host", "player"]),
+    ownerId: zod.string(),
+    ownerDisplayName: zod.string(),
+    kind: zod.enum(["royalty", "sponsor"]),
+    status: zod.enum([
+      "draft",
+      "active",
+      "paused",
+      "exhausted",
+      "expired",
+      "closed",
+    ]),
+    title: zod.string(),
+    description: zod.string(),
+    gameId: zod.string().nullable(),
+    gameTitle: zod.string().nullable(),
+    visibility: zod.enum(["public", "private"]),
+    accessCode: zod
+      .string()
+      .nullable()
+      .describe("Only returned to the quota owner."),
+    minSessionMinutes: zod.number().nullable(),
+    maxSessionMinutes: zod.number().nullable(),
+    startAt: zod.coerce.date(),
+    endAt: zod.coerce.date().nullable(),
+    budgetLzt: zod.number().nullable(),
+    escrowRemainingLzt: zod.number().nullable(),
+    sponsorHostPerMinuteLzt: zod.number().nullable(),
+    sponsorPlayerPerMinuteLzt: zod.number().nullable(),
+    royaltyBasis: zod.string().nullable(),
+    royaltyValue: zod.number().nullable(),
+    royaltySource: zod.string().nullable(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      activeSessionCount: zod.number(),
+      closedSessionCount: zod.number(),
+      totalPaidOutLzt: zod.number(),
+      recentMovements: zod.array(
+        zod.object({
+          id: zod.string(),
+          sessionId: zod.string(),
+          kind: zod.string(),
+          amountLzt: zod.number(),
+          billedAt: zod.coerce.date(),
+        }),
+      ),
+      isOwner: zod
+        .boolean()
+        .describe("True when ownerToken matches the quota owner."),
+    }),
+  );
+
+/**
+ * @summary Edit a quota (only allowed before publish and before any movement)
+ */
+export const UpdateQuotaParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const UpdateQuotaBody = zod.object({
+  ownerToken: zod.string(),
+  title: zod.string().optional(),
+  description: zod.string().optional(),
+  gameId: zod.string().nullish(),
+  visibility: zod.enum(["public", "private"]).optional(),
+  minSessionMinutes: zod.number().nullish(),
+  maxSessionMinutes: zod.number().nullish(),
+  endAt: zod.coerce.date().nullish(),
+  budgetLzt: zod.number().nullish(),
+  sponsorHostPerMinuteLzt: zod.number().nullish(),
+  sponsorPlayerPerMinuteLzt: zod.number().nullish(),
+  royaltyBasis: zod.string().nullish(),
+  royaltyValue: zod.number().nullish(),
+  royaltySource: zod.string().nullish(),
+});
+
+export const UpdateQuotaResponse = zod.object({
+  id: zod.string(),
+  ownerType: zod.enum(["host", "player"]),
+  ownerId: zod.string(),
+  ownerDisplayName: zod.string(),
+  kind: zod.enum(["royalty", "sponsor"]),
+  status: zod.enum([
+    "draft",
+    "active",
+    "paused",
+    "exhausted",
+    "expired",
+    "closed",
+  ]),
+  title: zod.string(),
+  description: zod.string(),
+  gameId: zod.string().nullable(),
+  gameTitle: zod.string().nullable(),
+  visibility: zod.enum(["public", "private"]),
+  accessCode: zod
+    .string()
+    .nullable()
+    .describe("Only returned to the quota owner."),
+  minSessionMinutes: zod.number().nullable(),
+  maxSessionMinutes: zod.number().nullable(),
+  startAt: zod.coerce.date(),
+  endAt: zod.coerce.date().nullable(),
+  budgetLzt: zod.number().nullable(),
+  escrowRemainingLzt: zod.number().nullable(),
+  sponsorHostPerMinuteLzt: zod.number().nullable(),
+  sponsorPlayerPerMinuteLzt: zod.number().nullable(),
+  royaltyBasis: zod.string().nullable(),
+  royaltyValue: zod.number().nullable(),
+  royaltySource: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Move draft → active (locks sponsor escrow)
+ */
+export const PublishQuotaParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const PublishQuotaBody = zod.object({
+  ownerToken: zod.string(),
+});
+
+export const PublishQuotaResponse = zod.object({
+  id: zod.string(),
+  ownerType: zod.enum(["host", "player"]),
+  ownerId: zod.string(),
+  ownerDisplayName: zod.string(),
+  kind: zod.enum(["royalty", "sponsor"]),
+  status: zod.enum([
+    "draft",
+    "active",
+    "paused",
+    "exhausted",
+    "expired",
+    "closed",
+  ]),
+  title: zod.string(),
+  description: zod.string(),
+  gameId: zod.string().nullable(),
+  gameTitle: zod.string().nullable(),
+  visibility: zod.enum(["public", "private"]),
+  accessCode: zod
+    .string()
+    .nullable()
+    .describe("Only returned to the quota owner."),
+  minSessionMinutes: zod.number().nullable(),
+  maxSessionMinutes: zod.number().nullable(),
+  startAt: zod.coerce.date(),
+  endAt: zod.coerce.date().nullable(),
+  budgetLzt: zod.number().nullable(),
+  escrowRemainingLzt: zod.number().nullable(),
+  sponsorHostPerMinuteLzt: zod.number().nullable(),
+  sponsorPlayerPerMinuteLzt: zod.number().nullable(),
+  royaltyBasis: zod.string().nullable(),
+  royaltyValue: zod.number().nullable(),
+  royaltySource: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Pause an active quota
+ */
+export const PauseQuotaParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const PauseQuotaBody = zod.object({
+  ownerToken: zod.string(),
+});
+
+export const PauseQuotaResponse = zod.object({
+  id: zod.string(),
+  ownerType: zod.enum(["host", "player"]),
+  ownerId: zod.string(),
+  ownerDisplayName: zod.string(),
+  kind: zod.enum(["royalty", "sponsor"]),
+  status: zod.enum([
+    "draft",
+    "active",
+    "paused",
+    "exhausted",
+    "expired",
+    "closed",
+  ]),
+  title: zod.string(),
+  description: zod.string(),
+  gameId: zod.string().nullable(),
+  gameTitle: zod.string().nullable(),
+  visibility: zod.enum(["public", "private"]),
+  accessCode: zod
+    .string()
+    .nullable()
+    .describe("Only returned to the quota owner."),
+  minSessionMinutes: zod.number().nullable(),
+  maxSessionMinutes: zod.number().nullable(),
+  startAt: zod.coerce.date(),
+  endAt: zod.coerce.date().nullable(),
+  budgetLzt: zod.number().nullable(),
+  escrowRemainingLzt: zod.number().nullable(),
+  sponsorHostPerMinuteLzt: zod.number().nullable(),
+  sponsorPlayerPerMinuteLzt: zod.number().nullable(),
+  royaltyBasis: zod.string().nullable(),
+  royaltyValue: zod.number().nullable(),
+  royaltySource: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Close a quota and refund any remaining escrow
+ */
+export const CloseQuotaParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const CloseQuotaBody = zod.object({
+  ownerToken: zod.string(),
+});
+
+export const CloseQuotaResponse = zod.object({
+  id: zod.string(),
+  ownerType: zod.enum(["host", "player"]),
+  ownerId: zod.string(),
+  ownerDisplayName: zod.string(),
+  kind: zod.enum(["royalty", "sponsor"]),
+  status: zod.enum([
+    "draft",
+    "active",
+    "paused",
+    "exhausted",
+    "expired",
+    "closed",
+  ]),
+  title: zod.string(),
+  description: zod.string(),
+  gameId: zod.string().nullable(),
+  gameTitle: zod.string().nullable(),
+  visibility: zod.enum(["public", "private"]),
+  accessCode: zod
+    .string()
+    .nullable()
+    .describe("Only returned to the quota owner."),
+  minSessionMinutes: zod.number().nullable(),
+  maxSessionMinutes: zod.number().nullable(),
+  startAt: zod.coerce.date(),
+  endAt: zod.coerce.date().nullable(),
+  budgetLzt: zod.number().nullable(),
+  escrowRemainingLzt: zod.number().nullable(),
+  sponsorHostPerMinuteLzt: zod.number().nullable(),
+  sponsorPlayerPerMinuteLzt: zod.number().nullable(),
+  royaltyBasis: zod.string().nullable(),
+  royaltyValue: zod.number().nullable(),
+  royaltySource: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Mint a new access code for a private quota
+ */
+export const RegenerateQuotaCodeParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const RegenerateQuotaCodeBody = zod.object({
+  ownerToken: zod.string(),
+});
+
+export const RegenerateQuotaCodeResponse = zod.object({
+  id: zod.string(),
+  ownerType: zod.enum(["host", "player"]),
+  ownerId: zod.string(),
+  ownerDisplayName: zod.string(),
+  kind: zod.enum(["royalty", "sponsor"]),
+  status: zod.enum([
+    "draft",
+    "active",
+    "paused",
+    "exhausted",
+    "expired",
+    "closed",
+  ]),
+  title: zod.string(),
+  description: zod.string(),
+  gameId: zod.string().nullable(),
+  gameTitle: zod.string().nullable(),
+  visibility: zod.enum(["public", "private"]),
+  accessCode: zod
+    .string()
+    .nullable()
+    .describe("Only returned to the quota owner."),
+  minSessionMinutes: zod.number().nullable(),
+  maxSessionMinutes: zod.number().nullable(),
+  startAt: zod.coerce.date(),
+  endAt: zod.coerce.date().nullable(),
+  budgetLzt: zod.number().nullable(),
+  escrowRemainingLzt: zod.number().nullable(),
+  sponsorHostPerMinuteLzt: zod.number().nullable(),
+  sponsorPlayerPerMinuteLzt: zod.number().nullable(),
+  royaltyBasis: zod.string().nullable(),
+  royaltyValue: zod.number().nullable(),
+  royaltySource: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
 });
 
 /**

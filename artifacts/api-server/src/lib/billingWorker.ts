@@ -5,9 +5,19 @@ import {
   playersTable,
   sessionsTable,
   billingEventsTable,
+  quotasTable,
+  quotaSessionsTable,
 } from "@workspace/db";
 import { logger } from "./logger";
 import { usdtToLztRound, pickPlayerBucket } from "./lzt";
+import {
+  computeQuotaEffect,
+  creditOwnerGreen,
+  decrementEscrow,
+  recordQuotaMovement,
+  bumpQuotaSessionTotals,
+  isQuotaActiveNow,
+} from "./quotaEngine";
 
 const BILLING_INTERVAL_MS = 60_000;
 let interval: NodeJS.Timeout | null = null;
@@ -36,15 +46,54 @@ async function billOnce(): Promise<void> {
     const costLzt = usdtToLztRound(rateUsd);
     if (costLzt <= 0) continue;
 
-    // Host receives the full per-minute cost in LZT, split 50/50 between
-    // their зелёный (withdrawable) and синий (internal) buckets. If costLzt
-    // is odd, the leftover LZT goes to зелёный (the bucket the player can
-    // actually cash out).
-    const hostGreenLzt = Math.ceil(costLzt / 2);
-    const hostBlueLzt = Math.floor(costLzt / 2);
-
     try {
       const ended = await db.transaction(async (tx) => {
+        // Pre-load quota (if any), inside the same tx so the row is consistent
+        // with the rest of the tick.
+        const quota = session.quotaId
+          ? (
+              await tx
+                .select()
+                .from(quotasTable)
+                .where(eq(quotasTable.id, session.quotaId))
+            )[0] ?? null
+          : null;
+
+        // Minutes-into-session: simple count = how many session_tick rows
+        // we've already recorded.
+        const ticksRow = await tx
+          .select({ n: sql<number>`count(*)::int` })
+          .from(billingEventsTable)
+          .where(
+            and(
+              eq(billingEventsTable.sessionId, session.id),
+              eq(billingEventsTable.kind, "session_tick"),
+              eq(billingEventsTable.bucket, "green"),
+            ),
+          );
+        // ticks already recorded count is the number of past minutes; current
+        // tick is therefore the next one.
+        const minutesInto = Number(ticksRow[0]?.n ?? 0) + 1;
+
+        const quotaActive = quota && isQuotaActiveNow(quota, now);
+        const effect = quotaActive
+          ? computeQuotaEffect(quota!, costLzt, minutesInto)
+          : { royaltyLzt: 0, sponsorHostLzt: 0, sponsorPlayerLzt: 0 };
+
+        // Player debit math. royaltySource=player → debit goes up by royalty;
+        // host_share → host's payout shrinks instead.
+        const royaltyFromPlayer =
+          quotaActive && quota!.royaltySource === "player"
+            ? effect.royaltyLzt
+            : 0;
+        const royaltyFromHost =
+          quotaActive && quota!.royaltySource === "host_share"
+            ? effect.royaltyLzt
+            : 0;
+
+        const playerDebitLzt = costLzt + royaltyFromPlayer;
+        const hostNetLzt = Math.max(0, costLzt - royaltyFromHost);
+
         const [player] = await tx
           .select({
             green: playersTable.withdrawableBalanceLzt,
@@ -55,7 +104,7 @@ async function billOnce(): Promise<void> {
 
         const bucket = pickPlayerBucket(
           session.paymentSource,
-          costLzt,
+          playerDebitLzt,
           player?.green ?? 0,
           player?.blue ?? 0,
         );
@@ -77,16 +126,16 @@ async function billOnce(): Promise<void> {
           .set(
             bucket === "green"
               ? {
-                  withdrawableBalanceLzt: sql`${playersTable.withdrawableBalanceLzt} - ${costLzt}`,
+                  withdrawableBalanceLzt: sql`${playersTable.withdrawableBalanceLzt} - ${playerDebitLzt}`,
                 }
               : {
-                  internalBalanceLzt: sql`${playersTable.internalBalanceLzt} - ${costLzt}`,
+                  internalBalanceLzt: sql`${playersTable.internalBalanceLzt} - ${playerDebitLzt}`,
                 },
           )
           .where(
             and(
               eq(playersTable.id, session.claimedByPlayerId!),
-              sql`${playerCol} >= ${costLzt}`,
+              sql`${playerCol} >= ${playerDebitLzt}`,
             ),
           )
           .returning({ id: playersTable.id });
@@ -99,6 +148,8 @@ async function billOnce(): Promise<void> {
           return true;
         }
 
+        const hostGreenLzt = Math.ceil(hostNetLzt / 2);
+        const hostBlueLzt = Math.floor(hostNetLzt / 2);
         if (hostGreenLzt > 0) {
           await tx
             .update(hostsTable)
@@ -116,9 +167,6 @@ async function billOnce(): Promise<void> {
             .where(eq(hostsTable.id, session.hostId));
         }
 
-        // One billing_events row per bucket the host got credited in. The
-        // player's debit is attributed to the row matching the bucket they
-        // actually paid from (so debits never double-count).
         await tx.insert(billingEventsTable).values([
           {
             sessionId: session.id,
@@ -126,8 +174,9 @@ async function billOnce(): Promise<void> {
             playerId: session.claimedByPlayerId!,
             minutes: 1,
             bucket: "green",
-            playerDebitLzt: bucket === "green" ? costLzt : 0,
+            playerDebitLzt: bucket === "green" ? playerDebitLzt : 0,
             hostCreditLzt: hostGreenLzt,
+            kind: "session_tick",
           },
           {
             sessionId: session.id,
@@ -135,14 +184,119 @@ async function billOnce(): Promise<void> {
             playerId: session.claimedByPlayerId!,
             minutes: 1,
             bucket: "blue",
-            playerDebitLzt: bucket === "blue" ? costLzt : 0,
+            playerDebitLzt: bucket === "blue" ? playerDebitLzt : 0,
             hostCreditLzt: hostBlueLzt,
+            kind: "session_tick",
           },
         ]);
 
+        // ---------- Quota movements ----------
+        if (quotaActive && quota) {
+          // Royalty: credit owner's green from whichever side paid (the money
+          // is already in the player→host pipeline; we just shift it).
+          if (effect.royaltyLzt > 0) {
+            await creditOwnerGreen(
+              tx,
+              quota.ownerType,
+              quota.ownerId,
+              effect.royaltyLzt,
+            );
+            await recordQuotaMovement(tx, {
+              sessionId: session.id,
+              hostId: session.hostId,
+              playerId: session.claimedByPlayerId!,
+              quotaId: quota.id,
+              kind: "quota_royalty",
+              amountLzt: effect.royaltyLzt,
+            });
+          }
+          // Sponsor: pull from escrow, credit recipient green.
+          const sponsorTotal = effect.sponsorHostLzt + effect.sponsorPlayerLzt;
+          let sponsorPaidHost = 0;
+          let sponsorPaidPlayer = 0;
+          if (sponsorTotal > 0) {
+            const ok = await decrementEscrow(tx, quota.id, sponsorTotal);
+            if (ok) {
+              sponsorPaidHost = effect.sponsorHostLzt;
+              sponsorPaidPlayer = effect.sponsorPlayerLzt;
+              if (effect.sponsorHostLzt > 0) {
+                await tx
+                  .update(hostsTable)
+                  .set({
+                    withdrawableBalanceLzt: sql`${hostsTable.withdrawableBalanceLzt} + ${effect.sponsorHostLzt}`,
+                  })
+                  .where(eq(hostsTable.id, session.hostId));
+                await tx.insert(billingEventsTable).values({
+                  sessionId: session.id,
+                  hostId: session.hostId,
+                  playerId: session.claimedByPlayerId!,
+                  minutes: 0,
+                  bucket: "green",
+                  playerDebitLzt: 0,
+                  hostCreditLzt: effect.sponsorHostLzt,
+                  kind: "quota_sponsor_host",
+                  quotaId: quota.id,
+                });
+              }
+              if (effect.sponsorPlayerLzt > 0) {
+                await tx
+                  .update(playersTable)
+                  .set({
+                    withdrawableBalanceLzt: sql`${playersTable.withdrawableBalanceLzt} + ${effect.sponsorPlayerLzt}`,
+                  })
+                  .where(eq(playersTable.id, session.claimedByPlayerId!));
+                await tx.insert(billingEventsTable).values({
+                  sessionId: session.id,
+                  hostId: session.hostId,
+                  playerId: session.claimedByPlayerId!,
+                  minutes: 0,
+                  bucket: "green",
+                  playerDebitLzt: 0,
+                  hostCreditLzt: effect.sponsorPlayerLzt,
+                  kind: "quota_sponsor_player",
+                  quotaId: quota.id,
+                });
+              }
+            }
+          }
+
+          // Only count what actually moved: royalty always pays (it's part of
+          // the player→host pipeline), sponsor amounts only when escrow
+          // decrement succeeded.
+          await bumpQuotaSessionTotals(tx, {
+            quotaId: quota.id,
+            sessionId: session.id,
+            royaltyLzt: effect.royaltyLzt,
+            sponsorHostLzt: sponsorPaidHost,
+            sponsorPlayerLzt: sponsorPaidPlayer,
+          });
+
+          // If the sponsor escrow just ran out, flip the status so future
+          // ticks (and the picker) skip it. Sessions keep running.
+          const [post] = await tx
+            .select({
+              remaining: quotasTable.escrowRemainingLzt,
+              kind: quotasTable.kind,
+              status: quotasTable.status,
+            })
+            .from(quotasTable)
+            .where(eq(quotasTable.id, quota.id));
+          if (
+            post &&
+            post.kind === "sponsor" &&
+            post.status === "active" &&
+            (post.remaining ?? 0) <= 0
+          ) {
+            await tx
+              .update(quotasTable)
+              .set({ status: "exhausted", updatedAt: now })
+              .where(eq(quotasTable.id, quota.id));
+          }
+        }
+
         // After the debit, can the player still afford another minute on
         // any allowed bucket? If not, end the session in the same tx.
-        const [post] = await tx
+        const [postPlayer] = await tx
           .select({
             green: playersTable.withdrawableBalanceLzt,
             blue: playersTable.internalBalanceLzt,
@@ -152,8 +306,8 @@ async function billOnce(): Promise<void> {
         const nextBucket = pickPlayerBucket(
           session.paymentSource,
           costLzt,
-          post?.green ?? 0,
-          post?.blue ?? 0,
+          postPlayer?.green ?? 0,
+          postPlayer?.blue ?? 0,
         );
         if (nextBucket === null) {
           await tx
@@ -180,6 +334,18 @@ async function billOnce(): Promise<void> {
       logger.error({ err, sessionId: session.id }, "Billing tick failed");
     }
   }
+
+  // Best-effort cleanup: detach quota_sessions rows whose session is no
+  // longer attached or has ended.
+  await db
+    .update(quotaSessionsTable)
+    .set({ detachedAt: now })
+    .where(
+      and(
+        isNull(quotaSessionsTable.detachedAt),
+        sql`exists (select 1 from ${sessionsTable} s where s.id = ${quotaSessionsTable.sessionId} and (s.status = 'ended' or s.quota_id is null or s.quota_id <> ${quotaSessionsTable.quotaId}))`,
+      ),
+    );
 }
 
 export function startBillingWorker(): void {

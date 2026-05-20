@@ -21,25 +21,35 @@ import type {
   ClaimSessionBody,
   CreateBrowserHostSessionBody,
   CreateBrowserHostSessionResponse,
+  CreateQuotaBody,
   CreateSessionBody,
   EndSessionBody,
   ErrorResponse,
   GameDetail,
   GameListItem,
   GetGameBySlugParams,
+  GetQuotaParams,
   GetSessionParams,
   HealthStatus,
   Host,
   HostStats,
+  ListApplicableQuotasParams,
+  ListAppliedQuotasParams,
   ListGamesParams,
+  ListMyQuotasParams,
+  ListPublicQuotasParams,
   Player,
   PublicHostListItem,
   PublicStats,
+  Quota,
+  QuotaDetail,
+  QuotaOwnerBody,
   RegisterHostBody,
   RegisterPlayerBody,
   RequestWithdrawalBody,
   Session,
   UpdateHostConfigBody,
+  UpdateQuotaBody,
   Wallet,
   WalletTransaction,
   Withdrawal,
@@ -1721,6 +1731,1015 @@ export const useEndSession = <
   TContext
 > => {
   return useMutation(getEndSessionMutationOptions(options));
+};
+
+/**
+ * @summary List public quotas, with optional filters
+ */
+export const getListPublicQuotasUrl = (params?: ListPublicQuotasParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/quotas?${stringifiedParams}`
+    : `/api/quotas`;
+};
+
+export const listPublicQuotas = async (
+  params?: ListPublicQuotasParams,
+  options?: RequestInit,
+): Promise<Quota[]> => {
+  return customFetch<Quota[]>(getListPublicQuotasUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPublicQuotasQueryKey = (
+  params?: ListPublicQuotasParams,
+) => {
+  return [`/api/quotas`, ...(params ? [params] : [])] as const;
+};
+
+export const getListPublicQuotasQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPublicQuotas>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListPublicQuotasParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPublicQuotas>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListPublicQuotasQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPublicQuotas>>
+  > = ({ signal }) => listPublicQuotas(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPublicQuotas>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPublicQuotasQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPublicQuotas>>
+>;
+export type ListPublicQuotasQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List public quotas, with optional filters
+ */
+
+export function useListPublicQuotas<
+  TData = Awaited<ReturnType<typeof listPublicQuotas>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListPublicQuotasParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPublicQuotas>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPublicQuotasQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a draft quota
+ */
+export const getCreateQuotaUrl = () => {
+  return `/api/quotas`;
+};
+
+export const createQuota = async (
+  createQuotaBody: CreateQuotaBody,
+  options?: RequestInit,
+): Promise<Quota> => {
+  return customFetch<Quota>(getCreateQuotaUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createQuotaBody),
+  });
+};
+
+export const getCreateQuotaMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createQuota>>,
+    TError,
+    { data: BodyType<CreateQuotaBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createQuota>>,
+  TError,
+  { data: BodyType<CreateQuotaBody> },
+  TContext
+> => {
+  const mutationKey = ["createQuota"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createQuota>>,
+    { data: BodyType<CreateQuotaBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createQuota(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateQuotaMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createQuota>>
+>;
+export type CreateQuotaMutationBody = BodyType<CreateQuotaBody>;
+export type CreateQuotaMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a draft quota
+ */
+export const useCreateQuota = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createQuota>>,
+    TError,
+    { data: BodyType<CreateQuotaBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createQuota>>,
+  TError,
+  { data: BodyType<CreateQuotaBody> },
+  TContext
+> => {
+  return useMutation(getCreateQuotaMutationOptions(options));
+};
+
+/**
+ * @summary List quotas owned by the calling user
+ */
+export const getListMyQuotasUrl = (params: ListMyQuotasParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/quotas/mine?${stringifiedParams}`
+    : `/api/quotas/mine`;
+};
+
+export const listMyQuotas = async (
+  params: ListMyQuotasParams,
+  options?: RequestInit,
+): Promise<Quota[]> => {
+  return customFetch<Quota[]>(getListMyQuotasUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyQuotasQueryKey = (params?: ListMyQuotasParams) => {
+  return [`/api/quotas/mine`, ...(params ? [params] : [])] as const;
+};
+
+export const getListMyQuotasQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyQuotas>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: ListMyQuotasParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMyQuotas>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMyQuotasQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyQuotas>>> = ({
+    signal,
+  }) => listMyQuotas(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyQuotas>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyQuotasQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyQuotas>>
+>;
+export type ListMyQuotasQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List quotas owned by the calling user
+ */
+
+export function useListMyQuotas<
+  TData = Awaited<ReturnType<typeof listMyQuotas>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: ListMyQuotasParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMyQuotas>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyQuotasQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Quotas that have been applied to sessions where the caller is host or player
+ */
+export const getListAppliedQuotasUrl = (params: ListAppliedQuotasParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/quotas/applied?${stringifiedParams}`
+    : `/api/quotas/applied`;
+};
+
+export const listAppliedQuotas = async (
+  params: ListAppliedQuotasParams,
+  options?: RequestInit,
+): Promise<Quota[]> => {
+  return customFetch<Quota[]>(getListAppliedQuotasUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAppliedQuotasQueryKey = (
+  params?: ListAppliedQuotasParams,
+) => {
+  return [`/api/quotas/applied`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAppliedQuotasQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAppliedQuotas>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: ListAppliedQuotasParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAppliedQuotas>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAppliedQuotasQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAppliedQuotas>>
+  > = ({ signal }) => listAppliedQuotas(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAppliedQuotas>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAppliedQuotasQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAppliedQuotas>>
+>;
+export type ListAppliedQuotasQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Quotas that have been applied to sessions where the caller is host or player
+ */
+
+export function useListAppliedQuotas<
+  TData = Awaited<ReturnType<typeof listAppliedQuotas>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: ListAppliedQuotasParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAppliedQuotas>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAppliedQuotasQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Quotas a host can attach to a new session (own + public-for-game + optional private code)
+ */
+export const getListApplicableQuotasUrl = (
+  params: ListApplicableQuotasParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/quotas/applicable?${stringifiedParams}`
+    : `/api/quotas/applicable`;
+};
+
+export const listApplicableQuotas = async (
+  params: ListApplicableQuotasParams,
+  options?: RequestInit,
+): Promise<Quota[]> => {
+  return customFetch<Quota[]>(getListApplicableQuotasUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListApplicableQuotasQueryKey = (
+  params?: ListApplicableQuotasParams,
+) => {
+  return [`/api/quotas/applicable`, ...(params ? [params] : [])] as const;
+};
+
+export const getListApplicableQuotasQueryOptions = <
+  TData = Awaited<ReturnType<typeof listApplicableQuotas>>,
+  TError = ErrorType<unknown>,
+>(
+  params: ListApplicableQuotasParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listApplicableQuotas>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListApplicableQuotasQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listApplicableQuotas>>
+  > = ({ signal }) =>
+    listApplicableQuotas(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listApplicableQuotas>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListApplicableQuotasQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listApplicableQuotas>>
+>;
+export type ListApplicableQuotasQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Quotas a host can attach to a new session (own + public-for-game + optional private code)
+ */
+
+export function useListApplicableQuotas<
+  TData = Awaited<ReturnType<typeof listApplicableQuotas>>,
+  TError = ErrorType<unknown>,
+>(
+  params: ListApplicableQuotasParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listApplicableQuotas>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListApplicableQuotasQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Quota detail + owner-only summary
+ */
+export const getGetQuotaUrl = (id: string, params?: GetQuotaParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/quotas/${id}?${stringifiedParams}`
+    : `/api/quotas/${id}`;
+};
+
+export const getQuota = async (
+  id: string,
+  params?: GetQuotaParams,
+  options?: RequestInit,
+): Promise<QuotaDetail> => {
+  return customFetch<QuotaDetail>(getGetQuotaUrl(id, params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetQuotaQueryKey = (id: string, params?: GetQuotaParams) => {
+  return [`/api/quotas/${id}`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetQuotaQueryOptions = <
+  TData = Awaited<ReturnType<typeof getQuota>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: string,
+  params?: GetQuotaParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getQuota>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetQuotaQueryKey(id, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getQuota>>> = ({
+    signal,
+  }) => getQuota(id, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof getQuota>>, TError, TData> & {
+    queryKey: QueryKey;
+  };
+};
+
+export type GetQuotaQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getQuota>>
+>;
+export type GetQuotaQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Quota detail + owner-only summary
+ */
+
+export function useGetQuota<
+  TData = Awaited<ReturnType<typeof getQuota>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: string,
+  params?: GetQuotaParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getQuota>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetQuotaQueryOptions(id, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Edit a quota (only allowed before publish and before any movement)
+ */
+export const getUpdateQuotaUrl = (id: string) => {
+  return `/api/quotas/${id}`;
+};
+
+export const updateQuota = async (
+  id: string,
+  updateQuotaBody: UpdateQuotaBody,
+  options?: RequestInit,
+): Promise<Quota> => {
+  return customFetch<Quota>(getUpdateQuotaUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateQuotaBody),
+  });
+};
+
+export const getUpdateQuotaMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateQuota>>,
+    TError,
+    { id: string; data: BodyType<UpdateQuotaBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateQuota>>,
+  TError,
+  { id: string; data: BodyType<UpdateQuotaBody> },
+  TContext
+> => {
+  const mutationKey = ["updateQuota"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateQuota>>,
+    { id: string; data: BodyType<UpdateQuotaBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateQuota(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateQuotaMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateQuota>>
+>;
+export type UpdateQuotaMutationBody = BodyType<UpdateQuotaBody>;
+export type UpdateQuotaMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Edit a quota (only allowed before publish and before any movement)
+ */
+export const useUpdateQuota = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateQuota>>,
+    TError,
+    { id: string; data: BodyType<UpdateQuotaBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateQuota>>,
+  TError,
+  { id: string; data: BodyType<UpdateQuotaBody> },
+  TContext
+> => {
+  return useMutation(getUpdateQuotaMutationOptions(options));
+};
+
+/**
+ * @summary Move draft → active (locks sponsor escrow)
+ */
+export const getPublishQuotaUrl = (id: string) => {
+  return `/api/quotas/${id}/publish`;
+};
+
+export const publishQuota = async (
+  id: string,
+  quotaOwnerBody: QuotaOwnerBody,
+  options?: RequestInit,
+): Promise<Quota> => {
+  return customFetch<Quota>(getPublishQuotaUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(quotaOwnerBody),
+  });
+};
+
+export const getPublishQuotaMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof publishQuota>>,
+    TError,
+    { id: string; data: BodyType<QuotaOwnerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof publishQuota>>,
+  TError,
+  { id: string; data: BodyType<QuotaOwnerBody> },
+  TContext
+> => {
+  const mutationKey = ["publishQuota"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof publishQuota>>,
+    { id: string; data: BodyType<QuotaOwnerBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return publishQuota(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PublishQuotaMutationResult = NonNullable<
+  Awaited<ReturnType<typeof publishQuota>>
+>;
+export type PublishQuotaMutationBody = BodyType<QuotaOwnerBody>;
+export type PublishQuotaMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Move draft → active (locks sponsor escrow)
+ */
+export const usePublishQuota = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof publishQuota>>,
+    TError,
+    { id: string; data: BodyType<QuotaOwnerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof publishQuota>>,
+  TError,
+  { id: string; data: BodyType<QuotaOwnerBody> },
+  TContext
+> => {
+  return useMutation(getPublishQuotaMutationOptions(options));
+};
+
+/**
+ * @summary Pause an active quota
+ */
+export const getPauseQuotaUrl = (id: string) => {
+  return `/api/quotas/${id}/pause`;
+};
+
+export const pauseQuota = async (
+  id: string,
+  quotaOwnerBody: QuotaOwnerBody,
+  options?: RequestInit,
+): Promise<Quota> => {
+  return customFetch<Quota>(getPauseQuotaUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(quotaOwnerBody),
+  });
+};
+
+export const getPauseQuotaMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof pauseQuota>>,
+    TError,
+    { id: string; data: BodyType<QuotaOwnerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof pauseQuota>>,
+  TError,
+  { id: string; data: BodyType<QuotaOwnerBody> },
+  TContext
+> => {
+  const mutationKey = ["pauseQuota"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof pauseQuota>>,
+    { id: string; data: BodyType<QuotaOwnerBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return pauseQuota(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PauseQuotaMutationResult = NonNullable<
+  Awaited<ReturnType<typeof pauseQuota>>
+>;
+export type PauseQuotaMutationBody = BodyType<QuotaOwnerBody>;
+export type PauseQuotaMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Pause an active quota
+ */
+export const usePauseQuota = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof pauseQuota>>,
+    TError,
+    { id: string; data: BodyType<QuotaOwnerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof pauseQuota>>,
+  TError,
+  { id: string; data: BodyType<QuotaOwnerBody> },
+  TContext
+> => {
+  return useMutation(getPauseQuotaMutationOptions(options));
+};
+
+/**
+ * @summary Close a quota and refund any remaining escrow
+ */
+export const getCloseQuotaUrl = (id: string) => {
+  return `/api/quotas/${id}/close`;
+};
+
+export const closeQuota = async (
+  id: string,
+  quotaOwnerBody: QuotaOwnerBody,
+  options?: RequestInit,
+): Promise<Quota> => {
+  return customFetch<Quota>(getCloseQuotaUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(quotaOwnerBody),
+  });
+};
+
+export const getCloseQuotaMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof closeQuota>>,
+    TError,
+    { id: string; data: BodyType<QuotaOwnerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof closeQuota>>,
+  TError,
+  { id: string; data: BodyType<QuotaOwnerBody> },
+  TContext
+> => {
+  const mutationKey = ["closeQuota"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof closeQuota>>,
+    { id: string; data: BodyType<QuotaOwnerBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return closeQuota(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CloseQuotaMutationResult = NonNullable<
+  Awaited<ReturnType<typeof closeQuota>>
+>;
+export type CloseQuotaMutationBody = BodyType<QuotaOwnerBody>;
+export type CloseQuotaMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Close a quota and refund any remaining escrow
+ */
+export const useCloseQuota = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof closeQuota>>,
+    TError,
+    { id: string; data: BodyType<QuotaOwnerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof closeQuota>>,
+  TError,
+  { id: string; data: BodyType<QuotaOwnerBody> },
+  TContext
+> => {
+  return useMutation(getCloseQuotaMutationOptions(options));
+};
+
+/**
+ * @summary Mint a new access code for a private quota
+ */
+export const getRegenerateQuotaCodeUrl = (id: string) => {
+  return `/api/quotas/${id}/regenerate-code`;
+};
+
+export const regenerateQuotaCode = async (
+  id: string,
+  quotaOwnerBody: QuotaOwnerBody,
+  options?: RequestInit,
+): Promise<Quota> => {
+  return customFetch<Quota>(getRegenerateQuotaCodeUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(quotaOwnerBody),
+  });
+};
+
+export const getRegenerateQuotaCodeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof regenerateQuotaCode>>,
+    TError,
+    { id: string; data: BodyType<QuotaOwnerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof regenerateQuotaCode>>,
+  TError,
+  { id: string; data: BodyType<QuotaOwnerBody> },
+  TContext
+> => {
+  const mutationKey = ["regenerateQuotaCode"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof regenerateQuotaCode>>,
+    { id: string; data: BodyType<QuotaOwnerBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return regenerateQuotaCode(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegenerateQuotaCodeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof regenerateQuotaCode>>
+>;
+export type RegenerateQuotaCodeMutationBody = BodyType<QuotaOwnerBody>;
+export type RegenerateQuotaCodeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Mint a new access code for a private quota
+ */
+export const useRegenerateQuotaCode = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof regenerateQuotaCode>>,
+    TError,
+    { id: string; data: BodyType<QuotaOwnerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof regenerateQuotaCode>>,
+  TError,
+  { id: string; data: BodyType<QuotaOwnerBody> },
+  TContext
+> => {
+  return useMutation(getRegenerateQuotaCodeMutationOptions(options));
 };
 
 /**

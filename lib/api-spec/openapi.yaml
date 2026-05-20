@@ -20,6 +20,8 @@ tags:
     description: Crypto wallet, balances, deposits, withdrawals
   - name: games
     description: Catalog of games available to stream
+  - name: quotas
+    description: Quota preset-contracts (royalty / sponsor) attachable to sessions
 paths:
   /healthz:
     get:
@@ -551,6 +553,324 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /quotas:
+    get:
+      operationId: listPublicQuotas
+      tags: [quotas]
+      summary: List public quotas, with optional filters
+      parameters:
+        - in: query
+          name: kind
+          required: false
+          schema:
+            type: string
+            enum: [royalty, sponsor]
+        - in: query
+          name: gameId
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Public quotas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Quota"
+    post:
+      operationId: createQuota
+      tags: [quotas]
+      summary: Create a draft quota
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuotaBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quota"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Owner not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /quotas/mine:
+    get:
+      operationId: listMyQuotas
+      tags: [quotas]
+      summary: List quotas owned by the calling user
+      parameters:
+        - in: query
+          name: ownerToken
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: My quotas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Quota"
+        "404":
+          description: Owner not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /quotas/applied:
+    get:
+      operationId: listAppliedQuotas
+      tags: [quotas]
+      summary: Quotas that have been applied to sessions where the caller is host or player
+      parameters:
+        - in: query
+          name: ownerToken
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Applied quotas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Quota"
+        "404":
+          description: Owner not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /quotas/applicable:
+    get:
+      operationId: listApplicableQuotas
+      tags: [quotas]
+      summary: Quotas a host can attach to a new session (own + public-for-game + optional private code)
+      parameters:
+        - in: query
+          name: hostToken
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: gameId
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: accessCode
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Applicable quotas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Quota"
+
+  /quotas/{id}:
+    get:
+      operationId: getQuota
+      tags: [quotas]
+      summary: Quota detail + owner-only summary
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: ownerToken
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuotaDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateQuota
+      tags: [quotas]
+      summary: Edit a quota (only allowed before publish and before any movement)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateQuotaBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quota"
+        "400":
+          description: Cannot edit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /quotas/{id}/publish:
+    post:
+      operationId: publishQuota
+      tags: [quotas]
+      summary: Move draft → active (locks sponsor escrow)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuotaOwnerBody"
+      responses:
+        "200":
+          description: Published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quota"
+        "400":
+          description: Insufficient escrow / invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /quotas/{id}/pause:
+    post:
+      operationId: pauseQuota
+      tags: [quotas]
+      summary: Pause an active quota
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuotaOwnerBody"
+      responses:
+        "200":
+          description: Paused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quota"
+
+  /quotas/{id}/close:
+    post:
+      operationId: closeQuota
+      tags: [quotas]
+      summary: Close a quota and refund any remaining escrow
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuotaOwnerBody"
+      responses:
+        "200":
+          description: Closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quota"
+
+  /quotas/{id}/regenerate-code:
+    post:
+      operationId: regenerateQuotaCode
+      tags: [quotas]
+      summary: Mint a new access code for a private quota
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuotaOwnerBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quota"
+
   /wallet/{userToken}:
     get:
       operationId: getWallet
@@ -996,6 +1316,8 @@ components:
         paymentSource:
           type: string
           enum: [blue, green, auto]
+        quotaId:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -1087,6 +1409,12 @@ components:
         paymentSource:
           type: string
           enum: [blue, green, auto]
+        quotaId:
+          type: ["string", "null"]
+          description: Optional quota preset-contract to attach to this session.
+        quotaAccessCode:
+          type: string
+          description: Required when attaching a private quota the host does not own.
       required:
         - hostToken
         - appName
@@ -1307,6 +1635,230 @@ components:
         - hostsOnline
         - activeSessions
         - totalPaidOutCents
+
+    Quota:
+      type: object
+      properties:
+        id:
+          type: string
+        ownerType:
+          type: string
+          enum: [host, player]
+        ownerId:
+          type: string
+        ownerDisplayName:
+          type: string
+        kind:
+          type: string
+          enum: [royalty, sponsor]
+        status:
+          type: string
+          enum: [draft, active, paused, exhausted, expired, closed]
+        title:
+          type: string
+        description:
+          type: string
+        gameId:
+          type: ["string", "null"]
+        gameTitle:
+          type: ["string", "null"]
+        visibility:
+          type: string
+          enum: [public, private]
+        accessCode:
+          type: ["string", "null"]
+          description: Only returned to the quota owner.
+        minSessionMinutes:
+          type: ["integer", "null"]
+        maxSessionMinutes:
+          type: ["integer", "null"]
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: ["string", "null"]
+          format: date-time
+        budgetLzt:
+          type: ["integer", "null"]
+        escrowRemainingLzt:
+          type: ["integer", "null"]
+        sponsorHostPerMinuteLzt:
+          type: ["integer", "null"]
+        sponsorPlayerPerMinuteLzt:
+          type: ["integer", "null"]
+        royaltyBasis:
+          type: ["string", "null"]
+        royaltyValue:
+          type: ["integer", "null"]
+        royaltySource:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - ownerType
+        - ownerId
+        - ownerDisplayName
+        - kind
+        - status
+        - title
+        - description
+        - gameId
+        - gameTitle
+        - visibility
+        - accessCode
+        - minSessionMinutes
+        - maxSessionMinutes
+        - startAt
+        - endAt
+        - budgetLzt
+        - escrowRemainingLzt
+        - sponsorHostPerMinuteLzt
+        - sponsorPlayerPerMinuteLzt
+        - royaltyBasis
+        - royaltyValue
+        - royaltySource
+        - createdAt
+        - updatedAt
+
+    QuotaMovement:
+      type: object
+      properties:
+        id:
+          type: string
+        sessionId:
+          type: string
+        kind:
+          type: string
+        amountLzt:
+          type: integer
+        billedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - sessionId
+        - kind
+        - amountLzt
+        - billedAt
+
+    QuotaDetail:
+      allOf:
+        - $ref: "#/components/schemas/Quota"
+        - type: object
+          properties:
+            activeSessionCount:
+              type: integer
+            closedSessionCount:
+              type: integer
+            totalPaidOutLzt:
+              type: integer
+            recentMovements:
+              type: array
+              items:
+                $ref: "#/components/schemas/QuotaMovement"
+            isOwner:
+              type: boolean
+              description: True when ownerToken matches the quota owner.
+          required:
+            - activeSessionCount
+            - closedSessionCount
+            - totalPaidOutLzt
+            - recentMovements
+            - isOwner
+
+    CreateQuotaBody:
+      type: object
+      properties:
+        ownerToken:
+          type: string
+        kind:
+          type: string
+          enum: [royalty, sponsor]
+        title:
+          type: string
+        description:
+          type: string
+        gameId:
+          type: ["string", "null"]
+        visibility:
+          type: string
+          enum: [public, private]
+        minSessionMinutes:
+          type: ["integer", "null"]
+        maxSessionMinutes:
+          type: ["integer", "null"]
+        startAt:
+          type: ["string", "null"]
+          format: date-time
+        endAt:
+          type: ["string", "null"]
+          format: date-time
+        budgetLzt:
+          type: ["integer", "null"]
+        sponsorHostPerMinuteLzt:
+          type: ["integer", "null"]
+        sponsorPlayerPerMinuteLzt:
+          type: ["integer", "null"]
+        royaltyBasis:
+          type: ["string", "null"]
+        royaltyValue:
+          type: ["integer", "null"]
+        royaltySource:
+          type: ["string", "null"]
+      required:
+        - ownerToken
+        - kind
+        - title
+        - visibility
+
+    UpdateQuotaBody:
+      type: object
+      properties:
+        ownerToken:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        gameId:
+          type: ["string", "null"]
+        visibility:
+          type: string
+          enum: [public, private]
+        minSessionMinutes:
+          type: ["integer", "null"]
+        maxSessionMinutes:
+          type: ["integer", "null"]
+        endAt:
+          type: ["string", "null"]
+          format: date-time
+        budgetLzt:
+          type: ["integer", "null"]
+        sponsorHostPerMinuteLzt:
+          type: ["integer", "null"]
+        sponsorPlayerPerMinuteLzt:
+          type: ["integer", "null"]
+        royaltyBasis:
+          type: ["string", "null"]
+        royaltyValue:
+          type: ["integer", "null"]
+        royaltySource:
+          type: ["string", "null"]
+      required:
+        - ownerToken
+
+    QuotaOwnerBody:
+      type: object
+      properties:
+        ownerToken:
+          type: string
+      required:
+        - ownerToken
 
     WalletTransaction:
       type: object

@@ -21,6 +21,8 @@ export interface Session {
   /** Player credits charged per minute (host receives net of commission) */
   ratePerMinute: number;
   paymentSource?: SessionPaymentSource;
+  /** @nullable */
+  quotaId?: string | null;
   createdAt: Date;
   /** @nullable */
   startedAt?: Date | null;

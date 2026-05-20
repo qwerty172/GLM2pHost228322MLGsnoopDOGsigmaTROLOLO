@@ -3,8 +3,11 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   useGetWallet,
   useRequestWithdrawal,
+  useListMyQuotas,
   getGetWalletQueryKey,
 } from "@workspace/api-client-react";
+import { Link } from "wouter";
+import { Coins, Sparkles, Plus } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -231,6 +234,13 @@ export default function WalletPage() {
   const [withdrawAmountLzt, setWithdrawAmountLzt] = useState("");
 
   const requestWithdrawal = useRequestWithdrawal();
+  const myQuotasParams = { ownerToken: hostToken ?? "" };
+  const { data: myQuotas } = useListMyQuotas(myQuotasParams, {
+    query: {
+      enabled: !!hostToken,
+      queryKey: ["listMyQuotas", myQuotasParams] as const,
+    },
+  });
 
   const greenLzt = wallet?.withdrawableBalanceLzt ?? 0;
   const blueLzt = wallet?.internalBalanceLzt ?? 0;
@@ -725,6 +735,80 @@ export default function WalletPage() {
                   </TableBody>
                 </Table>
               </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card style={cardStyle}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <div>
+              <CardTitle className="text-base text-white flex items-center gap-2">
+                <Coins className="h-4 w-4 text-amber-400" />
+                Мои квоты
+              </CardTitle>
+              <CardDescription className="text-slate-500">
+                Пресет-контракты (роялти и спонсорские) от твоего лица.
+              </CardDescription>
+            </div>
+            <Link href="/quotas/new">
+              <Button
+                size="sm"
+                className="font-semibold"
+                style={{ background: "#0ea5e9", color: "#fff" }}
+                data-testid="button-wallet-new-quota"
+              >
+                <Plus className="h-3.5 w-3.5 mr-1.5" /> Новая
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {!myQuotas || myQuotas.length === 0 ? (
+              <p className="text-xs text-slate-500" data-testid="wallet-quotas-empty">
+                У тебя пока нет квот.{" "}
+                <Link href="/quotas">
+                  <span className="text-sky-400 underline cursor-pointer">
+                    Посмотреть все
+                  </span>
+                </Link>
+                .
+              </p>
+            ) : (
+              <ul className="divide-y divide-white/5">
+                {myQuotas.slice(0, 6).map((q) => (
+                  <li key={q.id} className="py-3">
+                    <Link href={`/quotas/${q.id}`}>
+                      <div
+                        className="flex items-center justify-between gap-3 cursor-pointer"
+                        data-testid={`wallet-quota-${q.id}`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {q.kind === "royalty" ? (
+                            <Coins className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                          ) : (
+                            <Sparkles className="h-3.5 w-3.5 text-sky-400 shrink-0" />
+                          )}
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-white truncate">
+                              {q.title}
+                            </div>
+                            <div className="text-[11px] text-slate-500 font-mono">
+                              {q.status} ·{" "}
+                              {q.kind === "royalty"
+                                ? q.royaltyBasis === "percent"
+                                  ? `${q.royaltyValue ?? 0}% / мин`
+                                  : `${q.royaltyValue ?? 0} LZT/мин`
+                                : `Эскроу: ${(q.escrowRemainingLzt ?? 0).toLocaleString("ru-RU")} LZT`}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-[11px] text-slate-500 shrink-0">
+                          {q.gameTitle ?? ""}
+                        </div>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             )}
           </CardContent>
         </Card>

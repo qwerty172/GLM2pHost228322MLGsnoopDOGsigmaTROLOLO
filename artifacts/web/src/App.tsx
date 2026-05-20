@@ -14,6 +14,10 @@ import BrowserPlay from "@/pages/host/browser-play";
 import GamesPage from "@/pages/games";
 import GameDetailPage from "@/pages/game-detail";
 import HostsPage from "@/pages/hosts";
+import QuotasPage from "@/pages/quotas";
+import QuotaDetailPage from "@/pages/quota-detail";
+import QuotaNewPage from "@/pages/quota-new";
+import QuotaEditPage from "@/pages/quota-edit";
 import { HostLayout } from "@/components/layout";
 import { HostAuthGuard } from "@/components/host-auth-guard";
 
@@ -41,6 +45,20 @@ function Router() {
       <Route path="/games" component={GamesPage} />
       <Route path="/games/:slug" component={GameDetailPage} />
       <Route path="/hosts" component={HostsPage} />
+      <Route path="/quotas" component={QuotasPage} />
+      <Route path="/quotas/new">
+        <HostAuthGuard>
+          <QuotaNewPage />
+        </HostAuthGuard>
+      </Route>
+      <Route path="/quotas/:id/edit">
+        {(params) => (
+          <HostAuthGuard>
+            <QuotaEditPage key={params.id} />
+          </HostAuthGuard>
+        )}
+      </Route>
+      <Route path="/quotas/:id" component={QuotaDetailPage} />
       <Route path="/play/:playerToken" component={Play} />
       {/* Browser-host page is a player-side feature (the human running it
           authenticates via their own wallet, not a hostToken). Route it
