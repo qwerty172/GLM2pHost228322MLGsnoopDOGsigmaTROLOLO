@@ -58,6 +58,8 @@ function serializeHost(h: typeof hostsTable.$inferSelect) {
     streamUrl: h.streamUrl,
     // Never echo the encrypted key back; surface only whether one is set.
     streamKeySet: (h.streamKey ?? "").length > 0,
+    creditMinutesPerNewPlayer: h.creditMinutesPerNewPlayer,
+    creditMaxLztPerPlayer: h.creditMaxLztPerPlayer,
     createdAt: h.createdAt,
     lastSeenAt: h.lastSeenAt,
     // Submission outcome notification fields — host dashboard reads these.
@@ -268,6 +270,27 @@ router.patch("/hosts/:hostToken/config", async (req, res): Promise<void> => {
   if (body.streamUrl !== undefined) update.streamUrl = body.streamUrl;
   if (body.streamKey !== undefined) {
     update.streamKey = body.streamKey === "" ? "" : encryptSecret(body.streamKey);
+  }
+  // Host service credit policy.
+  if (body.creditMinutesPerNewPlayer !== undefined) {
+    const v = Math.floor(body.creditMinutesPerNewPlayer);
+    if (!Number.isFinite(v) || v < 0 || v > 1440) {
+      res.status(400).json({
+        error: "creditMinutesPerNewPlayer must be an integer in [0, 1440]",
+      });
+      return;
+    }
+    update.creditMinutesPerNewPlayer = v;
+  }
+  if (body.creditMaxLztPerPlayer !== undefined) {
+    const v = Math.floor(body.creditMaxLztPerPlayer);
+    if (!Number.isFinite(v) || v < 0) {
+      res
+        .status(400)
+        .json({ error: "creditMaxLztPerPlayer must be a non-negative integer" });
+      return;
+    }
+    update.creditMaxLztPerPlayer = v;
   }
 
   if (Object.keys(update).length === 0) {

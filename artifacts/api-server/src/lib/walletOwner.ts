@@ -16,6 +16,10 @@ export interface OwnerRecord {
   displayName: string;
   internalBalanceLzt: number;
   withdrawableBalanceLzt: number;
+  creditDebtLzt: number;
+  creditReceivableLzt: number;
+  lifetimeDepositUsdtCents: number;
+  premiumUntil: Date | null;
   token: string;
   createdAt: Date;
 }
@@ -34,6 +38,10 @@ export async function resolveOwnerByToken(
       displayName: host.displayName,
       internalBalanceLzt: host.internalBalanceLzt,
       withdrawableBalanceLzt: host.withdrawableBalanceLzt,
+      creditDebtLzt: host.creditDebtLzt,
+      creditReceivableLzt: host.creditReceivableLzt,
+      lifetimeDepositUsdtCents: host.lifetimeDepositUsdtCents,
+      premiumUntil: host.premiumUntil ?? null,
       token: host.hostToken,
       createdAt: host.createdAt,
     };
@@ -49,6 +57,10 @@ export async function resolveOwnerByToken(
       displayName: player.displayName,
       internalBalanceLzt: player.internalBalanceLzt,
       withdrawableBalanceLzt: player.withdrawableBalanceLzt,
+      creditDebtLzt: player.creditDebtLzt,
+      creditReceivableLzt: player.creditReceivableLzt,
+      lifetimeDepositUsdtCents: player.lifetimeDepositUsdtCents,
+      premiumUntil: player.premiumUntil ?? null,
       token: player.playerToken,
       createdAt: player.createdAt,
     };

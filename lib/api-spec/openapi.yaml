@@ -1056,6 +1056,12 @@ components:
         streamKeySet:
           type: boolean
           description: True if a stream key is stored. The key itself is never returned.
+        creditMinutesPerNewPlayer:
+          type: integer
+          description: Host service credit policy — minutes of play extended on credit to new players who run out mid-session. 0 disables auto-credit.
+        creditMaxLztPerPlayer:
+          type: integer
+          description: Per-borrower cap on host service credit, in LZT.
         createdAt:
           type: string
           format: date-time
@@ -1081,6 +1087,8 @@ components:
         - streamPlatform
         - streamUrl
         - streamKeySet
+        - creditMinutesPerNewPlayer
+        - creditMaxLztPerPlayer
         - createdAt
         - lastSeenAt
 
@@ -1121,6 +1129,20 @@ components:
         streamKey:
           type: string
           description: Pass empty string to clear the stored key.
+        creditMinutesPerNewPlayer:
+          type: integer
+          minimum: 0
+          maximum: 1440
+          description: |
+            Host service credit policy. When > 0, this host extends short-term
+            in-game credit to new players who run out of LZT mid-session, up to
+            this many minutes of play. Set to 0 to disable.
+        creditMaxLztPerPlayer:
+          type: integer
+          minimum: 0
+          description: |
+            Maximum LZT this host will credit to any single borrower. Acts as a
+            per-borrower cap on host service credit.
 
     Player:
       type: object
@@ -1554,8 +1576,29 @@ components:
           type: string
         internalBalanceLzt:
           type: integer
+          description: Legacy alias of balanceLzt (синий, internal LZT).
         withdrawableBalanceLzt:
           type: integer
+          description: Legacy alias of cashLzt (зелёный, withdrawable LZT).
+        balanceLzt:
+          type: integer
+          description: Синий — internal LZT, earns weekly interest, pays internal services & premium.
+        cashLzt:
+          type: integer
+          description: Зелёный — convertible to crypto at 200:1 and withdrawable.
+        creditDebtLzt:
+          type: integer
+          description: Aggregate outstanding principal across all loans where the user is the borrower.
+        creditReceivableLzt:
+          type: integer
+          description: Aggregate outstanding principal owed *to* the user as a lender.
+        premiumUntil:
+          type: ["string", "null"]
+          format: date-time
+          description: Premium subscription end (ISO 8601). null when no premium.
+        lifetimeDepositUsdtCents:
+          type: integer
+          description: Lifetime deposit volume in USDT cents — drives the tariff tier.
         pendingWithdrawalsLzt:
           type: integer
         lztPerUsdt:
@@ -1574,6 +1617,11 @@ components:
         - displayName
         - internalBalanceLzt
         - withdrawableBalanceLzt
+        - balanceLzt
+        - cashLzt
+        - creditDebtLzt
+        - creditReceivableLzt
+        - lifetimeDepositUsdtCents
         - pendingWithdrawalsLzt
         - lztPerUsdt
         - depositAddresses
@@ -1867,12 +1915,15 @@ components:
           type: string
         kind:
           type: string
-          description: "deposit | withdrawal | session_billing"
+          description: "ledger kind (deposit_credit, deposit_fee, session_tick, loan_disburse_*, loan_repay_*, interest_payout, premium_purchase, withdrawal, …)"
         currency:
           type: ["string", "null"]
         amountLzt:
           type: integer
           description: Signed LZT (negative for debits, positive for credits)
+        bucket:
+          type: ["string", "null"]
+          description: "cash | balance | debt | reserve | escrow"
         status:
           type: ["string", "null"]
         description:

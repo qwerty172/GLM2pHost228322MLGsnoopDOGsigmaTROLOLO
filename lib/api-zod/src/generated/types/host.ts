@@ -41,6 +41,10 @@ export interface Host {
   streamUrl: string;
   /** True if a stream key is stored. The key itself is never returned. */
   streamKeySet: boolean;
+  /** Host service credit policy — minutes of play extended on credit to new players who run out mid-session. 0 disables auto-credit. */
+  creditMinutesPerNewPlayer: number;
+  /** Per-borrower cap on host service credit, in LZT. */
+  creditMaxLztPerPlayer: number;
   createdAt: Date;
   lastSeenAt: Date;
 }

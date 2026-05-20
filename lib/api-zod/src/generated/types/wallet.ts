@@ -13,8 +13,25 @@ export interface Wallet {
   ownerType: string;
   ownerId: string;
   displayName: string;
+  /** Legacy alias of balanceLzt (синий, internal LZT). */
   internalBalanceLzt: number;
+  /** Legacy alias of cashLzt (зелёный, withdrawable LZT). */
   withdrawableBalanceLzt: number;
+  /** Синий — internal LZT, earns weekly interest, pays internal services & premium. */
+  balanceLzt: number;
+  /** Зелёный — convertible to crypto at 200:1 and withdrawable. */
+  cashLzt: number;
+  /** Aggregate outstanding principal across all loans where the user is the borrower. */
+  creditDebtLzt: number;
+  /** Aggregate outstanding principal owed *to* the user as a lender. */
+  creditReceivableLzt: number;
+  /**
+   * Premium subscription end (ISO 8601). null when no premium.
+   * @nullable
+   */
+  premiumUntil?: Date | null;
+  /** Lifetime deposit volume in USDT cents — drives the tariff tier. */
+  lifetimeDepositUsdtCents: number;
   pendingWithdrawalsLzt: number;
   lztPerUsdt: number;
   depositAddresses: DepositAddress[];

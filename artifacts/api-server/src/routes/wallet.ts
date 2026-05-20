@@ -7,6 +7,7 @@ import {
   withdrawalsTable,
   depositsTable,
   billingEventsTable,
+  ledgerTable,
 } from "@workspace/db";
 import {
   GetWalletParams,
@@ -21,6 +22,7 @@ import {
   type OwnerType,
 } from "../lib/walletOwner";
 import { LZT_PER_USDT, lztToUsdt, usdtToLzt } from "../lib/lzt";
+import { recordWithdrawalDebit } from "../lib/economy";
 
 const router: IRouter = Router();
 
@@ -55,8 +57,6 @@ router.get("/wallet/:userToken", async (req, res): Promise<void> => {
     .orderBy(desc(withdrawalsTable.requestedAt))
     .limit(10);
 
-  // `withdrawals.amount` is stored in crypto-USDT units; total pending in LZT
-  // for the wallet headline.
   const pendingTotalRows = await db
     .select({
       total: sql<string>`COALESCE(SUM(${withdrawalsTable.amount}), 0)`,
@@ -77,8 +77,17 @@ router.get("/wallet/:userToken", async (req, res): Promise<void> => {
       ownerType: owner.type,
       ownerId: owner.id,
       displayName: owner.displayName,
+      // Legacy field names (kept for clients), plus new economy v1 aliases.
       internalBalanceLzt: owner.internalBalanceLzt,
       withdrawableBalanceLzt: owner.withdrawableBalanceLzt,
+      balanceLzt: owner.internalBalanceLzt,
+      cashLzt: owner.withdrawableBalanceLzt,
+      creditDebtLzt: owner.creditDebtLzt,
+      creditReceivableLzt: owner.creditReceivableLzt,
+      premiumUntil: owner.premiumUntil
+        ? new Date(owner.premiumUntil).toISOString()
+        : null,
+      lifetimeDepositUsdtCents: owner.lifetimeDepositUsdtCents,
       pendingWithdrawalsLzt,
       lztPerUsdt: LZT_PER_USDT,
       depositAddresses: addresses.map((a) => ({
@@ -121,100 +130,155 @@ router.get(
       return;
     }
 
-    const deposits = await db
+    // Ledger is the post-cutover source of truth. To preserve any pre-v1
+    // history we ALSO include legacy deposit/withdrawal/billing rows that
+    // were written BEFORE this owner's first ledger entry — anything newer
+    // is guaranteed to be mirrored in the ledger already, so showing it
+    // again would double-count.
+    const ledgerRows = await db
       .select()
-      .from(depositsTable)
+      .from(ledgerTable)
       .where(
         and(
-          eq(depositsTable.ownerType, owner.type),
-          eq(depositsTable.ownerId, owner.id),
+          eq(ledgerTable.ownerType, owner.type),
+          eq(ledgerTable.ownerId, owner.id),
         ),
       )
-      .orderBy(desc(depositsTable.detectedAt))
-      .limit(50);
+      .orderBy(desc(ledgerTable.createdAt))
+      .limit(100);
 
-    const withdrawals = await db
-      .select()
-      .from(withdrawalsTable)
+    const firstLedgerAtRow = await db
+      .select({ first: sql<Date | null>`MIN(${ledgerTable.createdAt})` })
+      .from(ledgerTable)
       .where(
         and(
-          eq(withdrawalsTable.ownerType, owner.type),
-          eq(withdrawalsTable.ownerId, owner.id),
+          eq(ledgerTable.ownerType, owner.type),
+          eq(ledgerTable.ownerId, owner.id),
         ),
-      )
-      .orderBy(desc(withdrawalsTable.requestedAt))
-      .limit(50);
-
-    const billingFilter =
-      owner.type === "host"
-        ? eq(billingEventsTable.hostId, owner.id)
-        : eq(billingEventsTable.playerId, owner.id);
-
-    const billing = await db
-      .select()
-      .from(billingEventsTable)
-      .where(billingFilter)
-      .orderBy(desc(billingEventsTable.billedAt))
-      .limit(50);
+      );
+    const cutoff: Date | null = firstLedgerAtRow[0]?.first
+      ? new Date(firstLedgerAtRow[0].first)
+      : null;
 
     type Tx = {
       id: string;
       kind: string;
       currency: string | null;
       amountLzt: number;
+      bucket: string | null;
       status: string | null;
       description: string;
       timestamp: string;
     };
     const txs: Tx[] = [];
 
-    for (const d of deposits) {
-      const netUsdt = Number(d.netAmount);
+    for (const l of ledgerRows) {
       txs.push({
-        id: `dep-${d.id}`,
-        kind: "deposit",
-        currency: d.currency,
-        amountLzt: usdtToLzt(netUsdt),
-        status: d.status,
-        description: `${d.currency} deposit (net ≈ ${netUsdt} USDT)`,
-        timestamp: new Date(d.detectedAt).toISOString(),
-      });
-    }
-    for (const w of withdrawals) {
-      const wUsdt = Number(w.amount);
-      txs.push({
-        id: `wd-${w.id}`,
-        kind: "withdrawal",
-        currency: w.currency,
-        amountLzt: -usdtToLzt(wUsdt),
-        status: w.status,
-        description: `Withdraw to ${w.address.slice(0, 14)}…`,
-        timestamp: new Date(w.requestedAt).toISOString(),
-      });
-    }
-    for (const b of billing) {
-      const amountLzt =
-        owner.type === "host" ? b.hostCreditLzt : -b.playerDebitLzt;
-      if (amountLzt === 0) continue;
-      txs.push({
-        id: `bill-${b.id}`,
-        kind: "session_billing",
-        currency: `LZT/${b.bucket}`,
-        amountLzt,
+        id: `led-${l.id}`,
+        kind: l.kind,
+        currency: l.bucket,
+        amountLzt: l.deltaLzt,
+        bucket: l.bucket,
         status: null,
-        description:
-          owner.type === "host"
-            ? `Earned from session — ${b.bucket} (${b.minutes} min)`
-            : `Played session (${b.minutes} min) — ${b.bucket}`,
-        timestamp: new Date(b.billedAt).toISOString(),
+        description: l.note ?? l.kind,
+        timestamp: new Date(l.createdAt).toISOString(),
       });
+    }
+
+    // Only fetch legacy rows when there is pre-cutover history to surface.
+    if (!cutoff || cutoff > new Date(0)) {
+      const deposits = await db
+        .select()
+        .from(depositsTable)
+        .where(
+          and(
+            eq(depositsTable.ownerType, owner.type),
+            eq(depositsTable.ownerId, owner.id),
+          ),
+        )
+        .orderBy(desc(depositsTable.detectedAt))
+        .limit(50);
+      const withdrawals = await db
+        .select()
+        .from(withdrawalsTable)
+        .where(
+          and(
+            eq(withdrawalsTable.ownerType, owner.type),
+            eq(withdrawalsTable.ownerId, owner.id),
+          ),
+        )
+        .orderBy(desc(withdrawalsTable.requestedAt))
+        .limit(50);
+      const billingFilter =
+        owner.type === "host"
+          ? eq(billingEventsTable.hostId, owner.id)
+          : eq(billingEventsTable.playerId, owner.id);
+      const billing = await db
+        .select()
+        .from(billingEventsTable)
+        .where(billingFilter)
+        .orderBy(desc(billingEventsTable.billedAt))
+        .limit(50);
+
+      const isPreCutoff = (t: Date | string): boolean => {
+        if (!cutoff) return true;
+        return new Date(t).getTime() < cutoff.getTime();
+      };
+
+      for (const d of deposits) {
+        if (!isPreCutoff(d.detectedAt)) continue;
+        const netUsdt = Number(d.netAmount);
+        txs.push({
+          id: `dep-${d.id}`,
+          kind: "deposit",
+          currency: d.currency,
+          amountLzt: usdtToLzt(netUsdt),
+          bucket: null,
+          status: d.status,
+          description: `${d.currency} deposit (net ≈ ${netUsdt} USDT)`,
+          timestamp: new Date(d.detectedAt).toISOString(),
+        });
+      }
+      for (const w of withdrawals) {
+        if (!isPreCutoff(w.requestedAt)) continue;
+        const wUsdt = Number(w.amount);
+        txs.push({
+          id: `wd-${w.id}`,
+          kind: "withdrawal",
+          currency: w.currency,
+          amountLzt: -usdtToLzt(wUsdt),
+          bucket: null,
+          status: w.status,
+          description: `Withdraw to ${w.address.slice(0, 14)}…`,
+          timestamp: new Date(w.requestedAt).toISOString(),
+        });
+      }
+      for (const b of billing) {
+        if (!isPreCutoff(b.billedAt)) continue;
+        const amountLzt =
+          owner.type === "host" ? b.hostCreditLzt : -b.playerDebitLzt;
+        if (amountLzt === 0) continue;
+        txs.push({
+          id: `bill-${b.id}`,
+          kind: "session_billing",
+          currency: `LZT/${b.bucket}`,
+          amountLzt,
+          bucket: b.bucket,
+          status: null,
+          description:
+            owner.type === "host"
+              ? `Earned from session — ${b.bucket} (${b.minutes} min)`
+              : `Played session (${b.minutes} min) — ${b.bucket}`,
+          timestamp: new Date(b.billedAt).toISOString(),
+        });
+      }
     }
 
     txs.sort(
       (a, b) =>
         new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
     );
-    res.json(txs.slice(0, 50));
+    res.json(txs.slice(0, 100));
   },
 );
 
@@ -243,81 +307,70 @@ router.post(
       return;
     }
 
-    const balanceTable = ownerBalanceTable(owner.type);
     const amountUsdt = lztToUsdt(amountLzt);
     const amountUsdtStr = amountUsdt.toFixed(6);
+    const amountUsdtCents = Math.floor(amountUsdt * 100);
 
-    // Withdrawals only consume the зелёный (withdrawable) bucket.
-    const debited = await db
-      .update(balanceTable)
-      .set({
-        withdrawableBalanceLzt: sql`${balanceTable.withdrawableBalanceLzt} - ${amountLzt}`,
-      })
-      .where(
-        and(
-          eq(balanceTable.id, owner.id),
-          sql`${balanceTable.withdrawableBalanceLzt} >= ${amountLzt}`,
-        ),
-      )
-      .returning({ id: balanceTable.id });
-
-    if (debited.length === 0) {
-      res.status(400).json({
-        error: "Insufficient зелёный (withdrawable) balance",
+    try {
+      const created = await db.transaction(async (tx) => {
+        const ok = await recordWithdrawalDebit(tx, {
+          ownerType: owner.type,
+          ownerId: owner.id,
+          amountLzt,
+          amountUsdtCents,
+        });
+        if (!ok) throw new Error("Insufficient зелёный (cash) balance");
+        const [w] = await tx
+          .insert(withdrawalsTable)
+          .values({
+            ownerType: owner.type,
+            ownerId: owner.id,
+            currency: body.data.currency,
+            address: body.data.address,
+            amount: amountUsdtStr,
+            status: "pending",
+          })
+          .returning();
+        if (!w) throw new Error("Failed to create withdrawal");
+        return w;
       });
-      return;
-    }
 
-    const [w] = await db
-      .insert(withdrawalsTable)
-      .values({
-        ownerType: owner.type,
-        ownerId: owner.id,
-        currency: body.data.currency,
-        address: body.data.address,
-        amount: amountUsdtStr,
-        status: "pending",
-      })
-      .returning();
+      req.log.info(
+        {
+          ownerType: owner.type,
+          ownerId: owner.id,
+          withdrawalId: created.id,
+          currency: created.currency,
+          amountLzt,
+          amountUsdt,
+        },
+        "Withdrawal requested",
+      );
 
-    if (!w) {
-      await db
-        .update(balanceTable)
-        .set({
-          withdrawableBalanceLzt: sql`${balanceTable.withdrawableBalanceLzt} + ${amountLzt}`,
-        })
-        .where(eq(balanceTable.id, owner.id));
-      res.status(500).json({ error: "Failed to create withdrawal" });
-      return;
-    }
-
-    req.log.info(
-      {
-        ownerType: owner.type,
-        ownerId: owner.id,
-        withdrawalId: w.id,
-        currency: w.currency,
-        amountLzt,
+      res.status(201).json({
+        id: created.id,
+        ownerType: created.ownerType,
+        ownerId: created.ownerId,
+        currency: created.currency,
+        address: created.address,
         amountUsdt,
-      },
-      "Withdrawal requested",
-    );
-
-    res.status(201).json({
-      id: w.id,
-      ownerType: w.ownerType,
-      ownerId: w.ownerId,
-      currency: w.currency,
-      address: w.address,
-      amountUsdt,
-      amountLzt,
-      status: w.status,
-      requestedAt: new Date(w.requestedAt).toISOString(),
-      completedAt: w.completedAt
-        ? new Date(w.completedAt).toISOString()
-        : null,
-    });
+        amountLzt,
+        status: created.status,
+        requestedAt: new Date(created.requestedAt).toISOString(),
+        completedAt: created.completedAt
+          ? new Date(created.completedAt).toISOString()
+          : null,
+      });
+    } catch (err) {
+      res.status(400).json({
+        error: err instanceof Error ? err.message : "Withdrawal failed",
+      });
+    }
   },
 );
+
+// Ensure unused import is referenced (sql is used in older blocks but we
+// removed direct sql update; re-export-style tag).
+void ownerBalanceTable;
 
 export default router;

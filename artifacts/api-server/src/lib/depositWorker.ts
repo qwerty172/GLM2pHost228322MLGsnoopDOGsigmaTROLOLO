@@ -1,19 +1,15 @@
-import { eq, and, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   db,
-  hostsTable,
-  playersTable,
   depositAddressesTable,
   depositsTable,
 } from "@workspace/db";
 import { logger } from "./logger";
-import { usdtToLzt } from "./lzt";
+import { applyDepositCents } from "./economy";
 
 const POLL_INTERVAL_MS = Number(
   process.env["WALLET_DEPOSIT_POLL_MS"] ?? 60_000,
 );
-// Platform commission on incoming deposits, applied before conversion to LZT.
-const COMMISSION_RATE = Number(process.env["WALLET_COMMISSION_RATE"] ?? "0.3");
 let interval: NodeJS.Timeout | null = null;
 
 interface DetectedDeposit {
@@ -112,6 +108,12 @@ async function pollTronUsdt(address: string): Promise<DetectedDeposit[]> {
   }
 }
 
+// Convert a 6-decimal USDT-equivalent number to integer cents (1¢ = 0.01 USDT).
+function toUsdtCents(n: number): number {
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.floor(n * 100);
+}
+
 async function creditDeposit(
   ownerType: "host" | "player",
   ownerId: string,
@@ -120,12 +122,8 @@ async function creditDeposit(
   network: string,
   detected: DetectedDeposit,
 ): Promise<void> {
-  const gross = detected.amount;
-  const commission = gross * COMMISSION_RATE;
-  const net = gross - commission;
-  const grossStr = gross.toFixed(6);
-  const commissionStr = commission.toFixed(6);
-  const netStr = net.toFixed(6);
+  const grossCents = toUsdtCents(detected.amount);
+  if (grossCents <= 0) return;
 
   try {
     const credited = await db.transaction(async (tx) => {
@@ -138,9 +136,12 @@ async function creditDeposit(
           network,
           address,
           txHash: detected.txHash,
-          grossAmount: grossStr,
-          commissionAmount: commissionStr,
-          netAmount: netStr,
+          // Deposit row stores marketing-style breakdown (in USDT). The tariff
+          // is recomputed inside applyDepositCents — we mirror those numbers
+          // here for reporting only.
+          grossAmount: detected.amount.toFixed(6),
+          commissionAmount: "0",
+          netAmount: detected.amount.toFixed(6),
           status: "credited",
           creditedAt: new Date(),
         })
@@ -149,27 +150,41 @@ async function creditDeposit(
         })
         .returning({ id: depositsTable.id });
 
-      if (inserted.length === 0) return false;
+      if (inserted.length === 0) return null;
 
-      // Convert net USDT-equivalent → LZT at 200:1 (floor) and credit to the
-      // owner's зелёный (withdrawable) bucket. Crypto deposits are always
-      // withdrawable; only on-platform earnings touch the синий side.
-      const lzt = usdtToLzt(net);
-      if (lzt <= 0) return true;
-      const balanceTable = ownerType === "host" ? hostsTable : playersTable;
+      const result = await applyDepositCents(tx, {
+        ownerType,
+        ownerId,
+        grossUsdtCents: grossCents,
+        refType: "deposit",
+        refId: inserted[0]!.id,
+      });
+      // Mirror the actual tariff-applied commission back onto the deposit row.
+      const feeUsdt = result.feeLzt / 200;
+      const netUsdt = detected.amount - feeUsdt;
       await tx
-        .update(balanceTable)
+        .update(depositsTable)
         .set({
-          withdrawableBalanceLzt: sql`${balanceTable.withdrawableBalanceLzt} + ${lzt}`,
+          commissionAmount: feeUsdt.toFixed(6),
+          netAmount: Math.max(0, netUsdt).toFixed(6),
         })
-        .where(eq(balanceTable.id, ownerId));
-      return true;
+        .where(eq(depositsTable.id, inserted[0]!.id));
+      return result;
     });
 
     if (credited) {
       logger.info(
-        { ownerType, ownerId, currency, txHash: detected.txHash, net },
-        "Deposit credited",
+        {
+          ownerType,
+          ownerId,
+          currency,
+          txHash: detected.txHash,
+          feeLzt: credited.feeLzt,
+          cashLzt: credited.cashLzt,
+          balanceLzt: credited.balanceLzt,
+          grantedFreePremium: credited.grantedFreePremium,
+        },
+        "Deposit credited (economy v1)",
       );
     }
   } catch (err) {

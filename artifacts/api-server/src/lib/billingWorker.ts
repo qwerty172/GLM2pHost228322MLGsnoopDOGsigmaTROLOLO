@@ -7,6 +7,7 @@ import {
   billingEventsTable,
   quotasTable,
   quotaSessionsTable,
+  loansTable,
 } from "@workspace/db";
 import { logger } from "./logger";
 import { usdtToLztRound, pickPlayerBucket } from "./lzt";
@@ -18,9 +19,38 @@ import {
   bumpQuotaSessionTotals,
   isQuotaActiveNow,
 } from "./quotaEngine";
+import {
+  adjustUserBucket,
+  creditPayoutToUser,
+  writeLedger,
+} from "./economy";
+import { randomUUID } from "node:crypto";
 
 const BILLING_INTERVAL_MS = 60_000;
 let interval: NodeJS.Timeout | null = null;
+
+// Returns the total LZT this player already owes this host on `host_service`
+// loans (active or otherwise unpaid).
+async function outstandingHostServiceLzt(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  hostId: string,
+  playerId: string,
+): Promise<number> {
+  const rows = await tx
+    .select({ s: sql<number>`COALESCE(SUM(${loansTable.outstandingLzt}), 0)::int` })
+    .from(loansTable)
+    .where(
+      and(
+        eq(loansTable.loanType, "host_service"),
+        eq(loansTable.lenderType, "host"),
+        eq(loansTable.lenderId, hostId),
+        eq(loansTable.borrowerType, "player"),
+        eq(loansTable.borrowerId, playerId),
+        eq(loansTable.status, "active"),
+      ),
+    );
+  return Number(rows[0]?.s ?? 0);
+}
 
 async function billOnce(): Promise<void> {
   const now = new Date();
@@ -48,8 +78,6 @@ async function billOnce(): Promise<void> {
 
     try {
       const ended = await db.transaction(async (tx) => {
-        // Pre-load quota (if any), inside the same tx so the row is consistent
-        // with the rest of the tick.
         const quota = session.quotaId
           ? (
               await tx
@@ -59,8 +87,6 @@ async function billOnce(): Promise<void> {
             )[0] ?? null
           : null;
 
-        // Minutes-into-session: simple count = how many session_tick rows
-        // we've already recorded.
         const ticksRow = await tx
           .select({ n: sql<number>`count(*)::int` })
           .from(billingEventsTable)
@@ -71,8 +97,6 @@ async function billOnce(): Promise<void> {
               eq(billingEventsTable.bucket, "green"),
             ),
           );
-        // ticks already recorded count is the number of past minutes; current
-        // tick is therefore the next one.
         const minutesInto = Number(ticksRow[0]?.n ?? 0) + 1;
 
         const quotaActive = quota && isQuotaActiveNow(quota, now);
@@ -80,8 +104,6 @@ async function billOnce(): Promise<void> {
           ? computeQuotaEffect(quota!, costLzt, minutesInto)
           : { royaltyLzt: 0, sponsorHostLzt: 0, sponsorPlayerLzt: 0 };
 
-        // Player debit math. royaltySource=player → debit goes up by royalty;
-        // host_share → host's payout shrinks instead.
         const royaltyFromPlayer =
           quotaActive && quota!.royaltySource === "player"
             ? effect.royaltyLzt
@@ -108,7 +130,139 @@ async function billOnce(): Promise<void> {
           player?.green ?? 0,
           player?.blue ?? 0,
         );
+
+        // ---------- Host-service credit fallback ----------
+        // If the player can't pay this tick AND the host has the
+        // "play-on-credit" policy enabled AND we're under the per-player cap,
+        // continue the session: open/extend a `host_service` loan instead of
+        // ending the session. The host gets nothing this minute; it will trickle
+        // back via the 40/40/20 split as the player earns later.
         if (bucket === null) {
+          const [host] = await tx
+            .select({
+              creditMin: hostsTable.creditMinutesPerNewPlayer,
+              creditMax: hostsTable.creditMaxLztPerPlayer,
+            })
+            .from(hostsTable)
+            .where(eq(hostsTable.id, session.hostId));
+          const minutesAllowed = host?.creditMin ?? 0;
+          const maxLzt = host?.creditMax ?? 0;
+          // Host service credit is intentionally scoped to *newcomers* only —
+          // players with zero pledger history (no deposit, no withdrawal).
+          // Established players have other credit avenues (P2P) and don't
+          // need the platform-subsidised play-in-debt path.
+          const [borrowerHistory] = await tx
+            .select({
+              maxDep: playersTable.maxDepositUsdtCents,
+              maxWd: playersTable.maxWithdrawalUsdtCents,
+            })
+            .from(playersTable)
+            .where(eq(playersTable.id, session.claimedByPlayerId!));
+          const isNewcomer =
+            (borrowerHistory?.maxDep ?? 0) === 0 &&
+            (borrowerHistory?.maxWd ?? 0) === 0;
+          if (minutesAllowed > 0 && maxLzt > 0 && isNewcomer) {
+            const outstanding = await outstandingHostServiceLzt(
+              tx,
+              session.hostId,
+              session.claimedByPlayerId!,
+            );
+            // Cap by both per-minute and per-LZT limits.
+            const minutesUsed = Math.ceil(outstanding / Math.max(1, costLzt));
+            if (
+              minutesUsed < minutesAllowed &&
+              outstanding + playerDebitLzt <= maxLzt
+            ) {
+              // Open a new host_service loan if none open yet; else extend.
+              const existing = await tx
+                .select()
+                .from(loansTable)
+                .where(
+                  and(
+                    eq(loansTable.loanType, "host_service"),
+                    eq(loansTable.lenderType, "host"),
+                    eq(loansTable.lenderId, session.hostId),
+                    eq(loansTable.borrowerType, "player"),
+                    eq(loansTable.borrowerId, session.claimedByPlayerId!),
+                    eq(loansTable.status, "active"),
+                  ),
+                );
+              let loanId: string;
+              if (existing.length > 0 && existing[0]) {
+                await tx
+                  .update(loansTable)
+                  .set({
+                    principalLzt: existing[0].principalLzt + playerDebitLzt,
+                    outstandingLzt: existing[0].outstandingLzt + playerDebitLzt,
+                  })
+                  .where(eq(loansTable.id, existing[0].id));
+                loanId = existing[0].id;
+              } else {
+                const [created] = await tx
+                  .insert(loansTable)
+                  .values({
+                    loanType: "host_service",
+                    lenderType: "host",
+                    lenderId: session.hostId,
+                    borrowerType: "player",
+                    borrowerId: session.claimedByPlayerId!,
+                    principalLzt: playerDebitLzt,
+                    outstandingLzt: playerDebitLzt,
+                    repaidLzt: 0,
+                    platformFeeLzt: 0,
+                    lenderPayoutMode: "cash_on_close",
+                    status: "active",
+                    dueAt: new Date(
+                      Date.now() + 60 * 24 * 3600 * 1000,
+                    ),
+                  })
+                  .returning();
+                loanId = created!.id;
+              }
+              await adjustUserBucket(
+                tx,
+                "player",
+                session.claimedByPlayerId!,
+                "debt",
+                playerDebitLzt,
+              );
+              await tx
+                .update(hostsTable)
+                .set({
+                  creditReceivableLzt: sql`${hostsTable.creditReceivableLzt} + ${playerDebitLzt}`,
+                })
+                .where(eq(hostsTable.id, session.hostId));
+              const groupId = randomUUID();
+              await writeLedger(tx, [
+                {
+                  groupId,
+                  kind: "host_service_credit",
+                  ownerType: "player",
+                  ownerId: session.claimedByPlayerId!,
+                  bucket: "debt",
+                  deltaLzt: playerDebitLzt,
+                  refType: "loan",
+                  refId: loanId,
+                },
+              ]);
+              await tx.insert(billingEventsTable).values({
+                sessionId: session.id,
+                hostId: session.hostId,
+                playerId: session.claimedByPlayerId!,
+                minutes: 1,
+                bucket: "green",
+                playerDebitLzt: 0,
+                hostCreditLzt: 0,
+                kind: "session_tick_credit",
+              });
+              await tx
+                .update(sessionsTable)
+                .set({ lastBilledAt: now })
+                .where(eq(sessionsTable.id, session.id));
+              return false;
+            }
+          }
+          // No credit available — end the session.
           await tx
             .update(sessionsTable)
             .set({ status: "ended", endedAt: now })
@@ -148,24 +302,15 @@ async function billOnce(): Promise<void> {
           return true;
         }
 
-        const hostGreenLzt = Math.ceil(hostNetLzt / 2);
-        const hostBlueLzt = Math.floor(hostNetLzt / 2);
-        if (hostGreenLzt > 0) {
-          await tx
-            .update(hostsTable)
-            .set({
-              withdrawableBalanceLzt: sql`${hostsTable.withdrawableBalanceLzt} + ${hostGreenLzt}`,
-            })
-            .where(eq(hostsTable.id, session.hostId));
-        }
-        if (hostBlueLzt > 0) {
-          await tx
-            .update(hostsTable)
-            .set({
-              internalBalanceLzt: sql`${hostsTable.internalBalanceLzt} + ${hostBlueLzt}`,
-            })
-            .where(eq(hostsTable.id, session.hostId));
-        }
+        // ---------- Host payout via economy split (handles debt) ----------
+        const payoutSplit = await creditPayoutToUser(tx, {
+          ownerType: "host",
+          ownerId: session.hostId,
+          amountLzt: hostNetLzt,
+          kind: "session_tick",
+          refType: "session",
+          refId: session.id,
+        });
 
         await tx.insert(billingEventsTable).values([
           {
@@ -175,7 +320,7 @@ async function billOnce(): Promise<void> {
             minutes: 1,
             bucket: "green",
             playerDebitLzt: bucket === "green" ? playerDebitLzt : 0,
-            hostCreditLzt: hostGreenLzt,
+            hostCreditLzt: payoutSplit.cash,
             kind: "session_tick",
           },
           {
@@ -185,22 +330,38 @@ async function billOnce(): Promise<void> {
             minutes: 1,
             bucket: "blue",
             playerDebitLzt: bucket === "blue" ? playerDebitLzt : 0,
-            hostCreditLzt: hostBlueLzt,
+            hostCreditLzt: payoutSplit.balance,
             kind: "session_tick",
           },
         ]);
 
-        // ---------- Quota movements ----------
+        // Also record the player-side debit in the ledger.
+        await writeLedger(tx, [
+          {
+            groupId: randomUUID(),
+            kind: "session_tick",
+            ownerType: "player",
+            ownerId: session.claimedByPlayerId!,
+            bucket: bucket === "green" ? "cash" : "balance",
+            deltaLzt: -playerDebitLzt,
+            refType: "session",
+            refId: session.id,
+          },
+        ]);
+
+        // ---------- Quota movements (unchanged from prior logic) ----------
         if (quotaActive && quota) {
-          // Royalty: credit owner's green from whichever side paid (the money
-          // is already in the player→host pipeline; we just shift it).
           if (effect.royaltyLzt > 0) {
-            await creditOwnerGreen(
-              tx,
-              quota.ownerType,
-              quota.ownerId,
-              effect.royaltyLzt,
-            );
+            // Route through creditPayoutToUser so the 40/40/20 split applies
+            // automatically when the royalty recipient currently has debt.
+            await creditPayoutToUser(tx, {
+              ownerType: quota.ownerType as "host" | "player",
+              ownerId: quota.ownerId,
+              amountLzt: effect.royaltyLzt,
+              kind: "quota_royalty",
+              refType: "quota",
+              refId: quota.id,
+            });
             await recordQuotaMovement(tx, {
               sessionId: session.id,
               hostId: session.hostId,
@@ -210,7 +371,6 @@ async function billOnce(): Promise<void> {
               amountLzt: effect.royaltyLzt,
             });
           }
-          // Sponsor: pull from escrow, credit recipient green.
           const sponsorTotal = effect.sponsorHostLzt + effect.sponsorPlayerLzt;
           let sponsorPaidHost = 0;
           let sponsorPaidPlayer = 0;
@@ -220,12 +380,17 @@ async function billOnce(): Promise<void> {
               sponsorPaidHost = effect.sponsorHostLzt;
               sponsorPaidPlayer = effect.sponsorPlayerLzt;
               if (effect.sponsorHostLzt > 0) {
-                await tx
-                  .update(hostsTable)
-                  .set({
-                    withdrawableBalanceLzt: sql`${hostsTable.withdrawableBalanceLzt} + ${effect.sponsorHostLzt}`,
-                  })
-                  .where(eq(hostsTable.id, session.hostId));
+                // Use creditPayoutToUser to apply the 40/40/20 debt split if
+                // the host currently owes money — otherwise it behaves like a
+                // 50/50 deposit (cash + balance), matching the v1 spec.
+                await creditPayoutToUser(tx, {
+                  ownerType: "host",
+                  ownerId: session.hostId,
+                  amountLzt: effect.sponsorHostLzt,
+                  kind: "quota_sponsor_host",
+                  refType: "quota",
+                  refId: quota.id,
+                });
                 await tx.insert(billingEventsTable).values({
                   sessionId: session.id,
                   hostId: session.hostId,
@@ -239,12 +404,14 @@ async function billOnce(): Promise<void> {
                 });
               }
               if (effect.sponsorPlayerLzt > 0) {
-                await tx
-                  .update(playersTable)
-                  .set({
-                    withdrawableBalanceLzt: sql`${playersTable.withdrawableBalanceLzt} + ${effect.sponsorPlayerLzt}`,
-                  })
-                  .where(eq(playersTable.id, session.claimedByPlayerId!));
+                await creditPayoutToUser(tx, {
+                  ownerType: "player",
+                  ownerId: session.claimedByPlayerId!,
+                  amountLzt: effect.sponsorPlayerLzt,
+                  kind: "quota_sponsor_player",
+                  refType: "quota",
+                  refId: quota.id,
+                });
                 await tx.insert(billingEventsTable).values({
                   sessionId: session.id,
                   hostId: session.hostId,
@@ -259,10 +426,6 @@ async function billOnce(): Promise<void> {
               }
             }
           }
-
-          // Only count what actually moved: royalty always pays (it's part of
-          // the player→host pipeline), sponsor amounts only when escrow
-          // decrement succeeded.
           await bumpQuotaSessionTotals(tx, {
             quotaId: quota.id,
             sessionId: session.id,
@@ -270,9 +433,6 @@ async function billOnce(): Promise<void> {
             sponsorHostLzt: sponsorPaidHost,
             sponsorPlayerLzt: sponsorPaidPlayer,
           });
-
-          // If the sponsor escrow just ran out, flip the status so future
-          // ticks (and the picker) skip it. Sessions keep running.
           const [post] = await tx
             .select({
               remaining: quotasTable.escrowRemainingLzt,
@@ -294,29 +454,6 @@ async function billOnce(): Promise<void> {
           }
         }
 
-        // After the debit, can the player still afford another minute on
-        // any allowed bucket? If not, end the session in the same tx.
-        const [postPlayer] = await tx
-          .select({
-            green: playersTable.withdrawableBalanceLzt,
-            blue: playersTable.internalBalanceLzt,
-          })
-          .from(playersTable)
-          .where(eq(playersTable.id, session.claimedByPlayerId!));
-        const nextBucket = pickPlayerBucket(
-          session.paymentSource,
-          costLzt,
-          postPlayer?.green ?? 0,
-          postPlayer?.blue ?? 0,
-        );
-        if (nextBucket === null) {
-          await tx
-            .update(sessionsTable)
-            .set({ status: "ended", endedAt: now, lastBilledAt: now })
-            .where(eq(sessionsTable.id, session.id));
-          return true;
-        }
-
         await tx
           .update(sessionsTable)
           .set({ lastBilledAt: now })
@@ -327,7 +464,7 @@ async function billOnce(): Promise<void> {
       if (ended) {
         logger.info(
           { sessionId: session.id },
-          "Session ended — player out of LZT in allowed bucket(s)",
+          "Session ended — player out of LZT and no host-service credit available",
         );
       }
     } catch (err) {
@@ -335,8 +472,6 @@ async function billOnce(): Promise<void> {
     }
   }
 
-  // Best-effort cleanup: detach quota_sessions rows whose session is no
-  // longer attached or has ended.
   await db
     .update(quotaSessionsTable)
     .set({ detachedAt: now })

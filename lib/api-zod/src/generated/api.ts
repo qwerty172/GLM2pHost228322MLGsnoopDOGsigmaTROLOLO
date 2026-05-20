@@ -101,6 +101,14 @@ export const GetHostResponse = zod.object({
     .describe(
       "True if a stream key is stored. The key itself is never returned.",
     ),
+  creditMinutesPerNewPlayer: zod
+    .number()
+    .describe(
+      "Host service credit policy — minutes of play extended on credit to new players who run out mid-session. 0 disables auto-credit.",
+    ),
+  creditMaxLztPerPlayer: zod
+    .number()
+    .describe("Per-borrower cap on host service credit, in LZT."),
   createdAt: zod.coerce.date(),
   lastSeenAt: zod.coerce.date(),
 });
@@ -120,6 +128,11 @@ export const updateHostConfigBodyScheduleJsonItemStartMinMax = 1440;
 
 export const updateHostConfigBodyScheduleJsonItemEndMinMin = 0;
 export const updateHostConfigBodyScheduleJsonItemEndMinMax = 1440;
+
+export const updateHostConfigBodyCreditMinutesPerNewPlayerMin = 0;
+export const updateHostConfigBodyCreditMinutesPerNewPlayerMax = 1440;
+
+export const updateHostConfigBodyCreditMaxLztPerPlayerMin = 0;
 
 export const UpdateHostConfigBody = zod
   .object({
@@ -164,6 +177,21 @@ export const UpdateHostConfigBody = zod
       .string()
       .optional()
       .describe("Pass empty string to clear the stored key."),
+    creditMinutesPerNewPlayer: zod
+      .number()
+      .min(updateHostConfigBodyCreditMinutesPerNewPlayerMin)
+      .max(updateHostConfigBodyCreditMinutesPerNewPlayerMax)
+      .optional()
+      .describe(
+        "Host service credit policy. When > 0, this host extends short-term\nin-game credit to new players who run out of LZT mid-session, up to\nthis many minutes of play. Set to 0 to disable.\n",
+      ),
+    creditMaxLztPerPlayer: zod
+      .number()
+      .min(updateHostConfigBodyCreditMaxLztPerPlayerMin)
+      .optional()
+      .describe(
+        "Maximum LZT this host will credit to any single borrower. Acts as a\nper-borrower cap on host service credit.\n",
+      ),
   })
   .describe("Partial update — omit a field to leave it unchanged.");
 
@@ -240,6 +268,14 @@ export const UpdateHostConfigResponse = zod.object({
     .describe(
       "True if a stream key is stored. The key itself is never returned.",
     ),
+  creditMinutesPerNewPlayer: zod
+    .number()
+    .describe(
+      "Host service credit policy — minutes of play extended on credit to new players who run out mid-session. 0 disables auto-credit.",
+    ),
+  creditMaxLztPerPlayer: zod
+    .number()
+    .describe("Per-borrower cap on host service credit, in LZT."),
   createdAt: zod.coerce.date(),
   lastSeenAt: zod.coerce.date(),
 });
@@ -1268,8 +1304,39 @@ export const GetWalletResponse = zod.object({
   ownerType: zod.string().describe("host | player"),
   ownerId: zod.string(),
   displayName: zod.string(),
-  internalBalanceLzt: zod.number(),
-  withdrawableBalanceLzt: zod.number(),
+  internalBalanceLzt: zod
+    .number()
+    .describe("Legacy alias of balanceLzt (синий, internal LZT)."),
+  withdrawableBalanceLzt: zod
+    .number()
+    .describe("Legacy alias of cashLzt (зелёный, withdrawable LZT)."),
+  balanceLzt: zod
+    .number()
+    .describe(
+      "Синий — internal LZT, earns weekly interest, pays internal services & premium.",
+    ),
+  cashLzt: zod
+    .number()
+    .describe("Зелёный — convertible to crypto at 200:1 and withdrawable."),
+  creditDebtLzt: zod
+    .number()
+    .describe(
+      "Aggregate outstanding principal across all loans where the user is the borrower.",
+    ),
+  creditReceivableLzt: zod
+    .number()
+    .describe(
+      "Aggregate outstanding principal owed \*to\* the user as a lender.",
+    ),
+  premiumUntil: zod.coerce
+    .date()
+    .nullish()
+    .describe("Premium subscription end (ISO 8601). null when no premium."),
+  lifetimeDepositUsdtCents: zod
+    .number()
+    .describe(
+      "Lifetime deposit volume in USDT cents — drives the tariff tier.",
+    ),
   pendingWithdrawalsLzt: zod.number(),
   lztPerUsdt: zod.number(),
   depositAddresses: zod.array(
@@ -1308,11 +1375,19 @@ export const ListWalletTransactionsParams = zod.object({
 
 export const ListWalletTransactionsResponseItem = zod.object({
   id: zod.string(),
-  kind: zod.string().describe("deposit | withdrawal | session_billing"),
+  kind: zod
+    .string()
+    .describe(
+      "ledger kind (deposit_credit, deposit_fee, session_tick, loan_disburse_\*, loan_repay_\*, interest_payout, premium_purchase, withdrawal, …)",
+    ),
   currency: zod.string().nullish(),
   amountLzt: zod
     .number()
     .describe("Signed LZT (negative for debits, positive for credits)"),
+  bucket: zod
+    .string()
+    .nullish()
+    .describe("cash | balance | debt | reserve | escrow"),
   status: zod.string().nullish(),
   description: zod.string(),
   timestamp: zod.coerce.date(),

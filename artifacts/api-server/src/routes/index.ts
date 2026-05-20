@@ -11,6 +11,8 @@ import quotasRouter from "./quotas";
 import adminRouter from "./admin";
 import submissionsRouter from "./submissions";
 import storageRouter from "./storage";
+import loansRouter from "./loans";
+import premiumRouter from "./premium";
 
 const router: IRouter = Router();
 
@@ -28,5 +30,7 @@ router.use(quotasRouter);
 router.use(adminRouter);
 router.use(submissionsRouter);
 router.use(storageRouter);
+router.use(loansRouter);
+router.use(premiumRouter);
 
 export default router;

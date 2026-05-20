@@ -5,6 +5,7 @@ import {
   timestamp,
   numeric,
   integer,
+  boolean,
   jsonb,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -28,16 +29,45 @@ export const hostsTable = pgTable("hosts", {
   hostToken: text("host_token").notNull().unique(),
   displayName: text("display_name").notNull(),
   // Two LZT buckets (integer LZT, 1 USDT = 200 LZT). See players schema for
-  // a fuller description of the blue (internal) / green (withdrawable) split.
+  // a fuller description of the blue (internal=balance) / green
+  // (withdrawable=cash) split.
   internalBalanceLzt: integer("internal_balance_lzt").notNull().default(0),
   withdrawableBalanceLzt: integer("withdrawable_balance_lzt")
     .notNull()
     .default(0),
+  // Economy v1 — credit aggregates, tariff drivers, interest accumulator.
+  creditDebtLzt: integer("credit_debt_lzt").notNull().default(0),
+  creditReceivableLzt: integer("credit_receivable_lzt")
+    .notNull()
+    .default(0),
+  pendingInterestFractionLzt: integer("pending_interest_fraction_lzt")
+    .notNull()
+    .default(0),
+  // Same role as players.interestSampleLzt — snapshot of internalBalanceLzt
+  // at the end of the previous interest tick. avg ≈ (sample + current)/2.
+  interestSampleLzt: integer("interest_sample_lzt").notNull().default(0),
+  lifetimeDepositUsdtCents: integer("lifetime_deposit_usdt_cents")
+    .notNull()
+    .default(0),
+  maxDepositUsdtCents: integer("max_deposit_usdt_cents").notNull().default(0),
+  maxWithdrawalUsdtCents: integer("max_withdrawal_usdt_cents")
+    .notNull()
+    .default(0),
+  premiumUntil: timestamp("premium_until", { withTimezone: true }),
+  kycVerified: boolean("kyc_verified").notNull().default(false),
+  hasDefault: boolean("has_default").notNull().default(false),
+  // Host service credit policy — when > 0, hosts give new players up to this
+  // many minutes on credit when the player can't afford a tick (capped by
+  // creditMaxLztPerPlayer per individual borrower).
+  creditMinutesPerNewPlayer: integer("credit_minutes_per_new_player")
+    .notNull()
+    .default(10),
+  creditMaxLztPerPlayer: integer("credit_max_lzt_per_player")
+    .notNull()
+    .default(12_000), // ~$60 @ 200 LZT/USDT
 
   // -----------------------------------------------------------------
   // Host "offer" config — what this host streams and on what terms.
-  // Set in the Host Dashboard, surfaced in the Games Library, and used
-  // by the agent to decide which .exe to launch when a player joins.
   // -----------------------------------------------------------------
 
   // DEPRECATED — use hostGamesTable instead (multi-game library per host).
@@ -52,14 +82,9 @@ export const hostsTable = pgTable("hosts", {
   boundUrl: text("bound_url").notNull().default(""),
   // DEPRECATED — use games.title joined via host_games
   boundAppLabel: text("bound_app_label").notNull().default(""),
-  // Free-form host description (rules, hardware, vibe).
   description: text("description").notNull().default(""),
-  // Capability tags shown in the library and used as filter facets,
-  // e.g. ["Leveled-up account", "Adobe Premiere license"].
   tags: jsonb("tags").$type<string[]>().notNull().default([]),
 
-  // Pricing (USD). Both rates may be negative, which inverts the cash flow
-  // (the host pays the player — used for promos / "loss leaders").
   launchPriceUsd: numeric("launch_price_usd", { precision: 18, scale: 6 })
     .notNull()
     .default("0"),
@@ -67,17 +92,12 @@ export const hostsTable = pgTable("hosts", {
     .notNull()
     .default("0.04"),
 
-  // Availability schedule.
-  //   "always"    → host is open whenever the agent is connected
-  //   "scheduled" → only inside the slots in `scheduleJson`
   scheduleMode: text("schedule_mode").notNull().default("always"),
   scheduleJson: jsonb("schedule_json")
     .$type<ScheduleSlot[]>()
     .notNull()
     .default([]),
 
-  // Optional restream config — when the agent runs it can also forward the
-  // capture to an RTMP endpoint (Twitch / YouTube / custom).
   streamPlatform: text("stream_platform").notNull().default(""),
   streamUrl: text("stream_url").notNull().default(""),
   streamKey: text("stream_key").notNull().default(""),

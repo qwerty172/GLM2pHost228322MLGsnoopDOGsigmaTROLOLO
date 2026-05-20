@@ -76,6 +76,10 @@ export interface Host {
   streamUrl: string;
   /** True if a stream key is stored. The key itself is never returned. */
   streamKeySet: boolean;
+  /** Host service credit policy — minutes of play extended on credit to new players who run out mid-session. 0 disables auto-credit. */
+  creditMinutesPerNewPlayer: number;
+  /** Per-borrower cap on host service credit, in LZT. */
+  creditMaxLztPerPlayer: number;
   createdAt: string;
   lastSeenAt: string;
 }
@@ -108,6 +112,22 @@ export interface UpdateHostConfigBody {
   streamUrl?: string;
   /** Pass empty string to clear the stored key. */
   streamKey?: string;
+  /**
+   * Host service credit policy. When > 0, this host extends short-term
+in-game credit to new players who run out of LZT mid-session, up to
+this many minutes of play. Set to 0 to disable.
+
+   * @minimum 0
+   * @maximum 1440
+   */
+  creditMinutesPerNewPlayer?: number;
+  /**
+   * Maximum LZT this host will credit to any single borrower. Acts as a
+per-borrower cap on host service credit.
+
+   * @minimum 0
+   */
+  creditMaxLztPerPlayer?: number;
 }
 
 export interface Player {
@@ -347,8 +367,25 @@ export interface Wallet {
   ownerType: string;
   ownerId: string;
   displayName: string;
+  /** Legacy alias of balanceLzt (синий, internal LZT). */
   internalBalanceLzt: number;
+  /** Legacy alias of cashLzt (зелёный, withdrawable LZT). */
   withdrawableBalanceLzt: number;
+  /** Синий — internal LZT, earns weekly interest, pays internal services & premium. */
+  balanceLzt: number;
+  /** Зелёный — convertible to crypto at 200:1 and withdrawable. */
+  cashLzt: number;
+  /** Aggregate outstanding principal across all loans where the user is the borrower. */
+  creditDebtLzt: number;
+  /** Aggregate outstanding principal owed *to* the user as a lender. */
+  creditReceivableLzt: number;
+  /**
+   * Premium subscription end (ISO 8601). null when no premium.
+   * @nullable
+   */
+  premiumUntil?: string | null;
+  /** Lifetime deposit volume in USDT cents — drives the tariff tier. */
+  lifetimeDepositUsdtCents: number;
   pendingWithdrawalsLzt: number;
   lztPerUsdt: number;
   depositAddresses: DepositAddress[];
@@ -564,12 +601,17 @@ export interface QuotaOwnerBody {
 
 export interface WalletTransaction {
   id: string;
-  /** deposit | withdrawal | session_billing */
+  /** ledger kind (deposit_credit, deposit_fee, session_tick, loan_disburse_*, loan_repay_*, interest_payout, premium_purchase, withdrawal, …) */
   kind: string;
   /** @nullable */
   currency?: string | null;
   /** Signed LZT (negative for debits, positive for credits) */
   amountLzt: number;
+  /**
+   * cash | balance | debt | reserve | escrow
+   * @nullable
+   */
+  bucket?: string | null;
   /** @nullable */
   status?: string | null;
   description: string;

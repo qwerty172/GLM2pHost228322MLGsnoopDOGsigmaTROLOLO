@@ -8,12 +8,17 @@
 
 export interface WalletTransaction {
   id: string;
-  /** deposit | withdrawal | session_billing */
+  /** ledger kind (deposit_credit, deposit_fee, session_tick, loan_disburse_*, loan_repay_*, interest_payout, premium_purchase, withdrawal, …) */
   kind: string;
   /** @nullable */
   currency?: string | null;
   /** Signed LZT (negative for debits, positive for credits) */
   amountLzt: number;
+  /**
+   * cash | balance | debt | reserve | escrow
+   * @nullable
+   */
+  bucket?: string | null;
   /** @nullable */
   status?: string | null;
   description: string;
