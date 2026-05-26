@@ -16,6 +16,7 @@ export interface OwnerRecord {
   displayName: string;
   internalBalanceLzt: number;
   withdrawableBalanceLzt: number;
+  creditLimitLzt: number;
   creditDebtLzt: number;
   creditReceivableLzt: number;
   lifetimeDepositUsdtCents: number;
@@ -38,6 +39,7 @@ export async function resolveOwnerByToken(
       displayName: host.displayName,
       internalBalanceLzt: host.internalBalanceLzt,
       withdrawableBalanceLzt: host.withdrawableBalanceLzt,
+      creditLimitLzt: 0,
       creditDebtLzt: host.creditDebtLzt,
       creditReceivableLzt: host.creditReceivableLzt,
       lifetimeDepositUsdtCents: host.lifetimeDepositUsdtCents,
@@ -57,6 +59,7 @@ export async function resolveOwnerByToken(
       displayName: player.displayName,
       internalBalanceLzt: player.internalBalanceLzt,
       withdrawableBalanceLzt: player.withdrawableBalanceLzt,
+      creditLimitLzt: player.creditLimitLzt,
       creditDebtLzt: player.creditDebtLzt,
       creditReceivableLzt: player.creditReceivableLzt,
       lifetimeDepositUsdtCents: player.lifetimeDepositUsdtCents,

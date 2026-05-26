@@ -1927,6 +1927,9 @@ components:
         cashLzt:
           type: integer
           description: Зелёный — convertible to crypto at 200:1 and withdrawable.
+        creditLimitLzt:
+          type: integer
+          description: Gaming credit line in LZT (default 3000 = $15). Player can play past zero balance up to this limit.
         creditDebtLzt:
           type: integer
           description: Aggregate outstanding principal across all loans where the user is the borrower.
@@ -1960,6 +1963,7 @@ components:
         - withdrawableBalanceLzt
         - balanceLzt
         - cashLzt
+        - creditLimitLzt
         - creditDebtLzt
         - creditReceivableLzt
         - lifetimeDepositUsdtCents

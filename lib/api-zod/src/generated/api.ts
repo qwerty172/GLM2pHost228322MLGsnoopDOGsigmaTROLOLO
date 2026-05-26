@@ -1553,6 +1553,11 @@ export const GetWalletResponse = zod.object({
   cashLzt: zod
     .number()
     .describe("Зелёный — convertible to crypto at 200:1 and withdrawable."),
+  creditLimitLzt: zod
+    .number()
+    .describe(
+      "Gaming credit line in LZT (default 3000 = $15). Player can play past zero balance up to this limit.",
+    ),
   creditDebtLzt: zod
     .number()
     .describe(

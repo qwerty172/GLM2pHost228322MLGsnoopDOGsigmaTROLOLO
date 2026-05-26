@@ -82,6 +82,7 @@ router.get("/wallet/:userToken", async (req, res): Promise<void> => {
       withdrawableBalanceLzt: owner.withdrawableBalanceLzt,
       balanceLzt: owner.internalBalanceLzt,
       cashLzt: owner.withdrawableBalanceLzt,
+      creditLimitLzt: owner.creditLimitLzt,
       creditDebtLzt: owner.creditDebtLzt,
       creditReceivableLzt: owner.creditReceivableLzt,
       premiumUntil: owner.premiumUntil

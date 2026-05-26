@@ -21,6 +21,8 @@ export interface Wallet {
   balanceLzt: number;
   /** Зелёный — convertible to crypto at 200:1 and withdrawable. */
   cashLzt: number;
+  /** Gaming credit line in LZT (default 3000 = $15). Player can play past zero balance up to this limit. */
+  creditLimitLzt: number;
   /** Aggregate outstanding principal across all loans where the user is the borrower. */
   creditDebtLzt: number;
   /** Aggregate outstanding principal owed *to* the user as a lender. */

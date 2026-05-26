@@ -48,6 +48,9 @@ export const playersTable = pgTable("players", {
   maxWithdrawalUsdtCents: integer("max_withdrawal_usdt_cents")
     .notNull()
     .default(0),
+  // Default gaming credit line (LZT). Allows playing even when balance = 0,
+  // up to this limit. Debt is tracked via creditDebtLzt.
+  creditLimitLzt: integer("credit_limit_lzt").notNull().default(3000),
   premiumUntil: timestamp("premium_until", { withTimezone: true }),
   kycVerified: boolean("kyc_verified").notNull().default(false),
   hasDefault: boolean("has_default").notNull().default(false),
