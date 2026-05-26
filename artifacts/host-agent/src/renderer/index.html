@@ -27,6 +27,19 @@
         </div>
       </section>
 
+      <!-- Auto-quota matching -->
+      <section class="card" id="auto-quota-card" hidden>
+        <h2>Автоподбор квот</h2>
+        <label class="checkbox" style="margin-bottom:10px">
+          <input id="autoQuotaEnabled" type="checkbox" />
+          <span>Включить автоподбор (агент сам находит подходящие квоты)</span>
+        </label>
+        <div id="auto-quota-status" class="muted" style="font-size:13px;margin-top:6px"></div>
+        <div id="auto-quota-actions" style="margin-top:8px;display:none">
+          <button type="button" id="detach-quota-btn">Отвязать и взять другую</button>
+        </div>
+      </section>
+
       <!-- Agent key & PC binding -->
       <section class="card" id="agent-key-card">
         <h2>Agent Key &amp; PC Binding</h2>

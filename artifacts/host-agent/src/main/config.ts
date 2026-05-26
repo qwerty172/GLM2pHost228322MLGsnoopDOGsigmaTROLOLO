@@ -17,6 +17,7 @@ const DEFAULTS: HostConfig = {
   bitrateKbps: 6000,
   killAppOnDisconnect: false,
   autoLaunchAtStartup: true,
+  autoQuotaEnabled: false,
 };
 
 let cached: HostConfig | null = null;

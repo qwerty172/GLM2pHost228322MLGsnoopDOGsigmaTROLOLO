@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql, isNull as drizzleIsNull } from "drizzle-orm";
 import { z } from "zod/v4";
 import {
   db,
@@ -8,6 +8,8 @@ import {
   withdrawalsTable,
   gamesTable,
   scheduleSchema,
+  quotasTable,
+  quotaSessionsTable,
 } from "@workspace/db";
 import {
   RegisterHostBody,
@@ -701,6 +703,212 @@ router.delete(
     res.status(204).send();
   },
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Quota attach / detach — agent-driven auto-quota management
+// ─────────────────────────────────────────────────────────────────────────────
+
+const AttachQuotaBody = z.object({
+  hostToken: z.string(),
+  quotaId: z.string().uuid(),
+});
+
+const DetachQuotaBody = z.object({
+  hostToken: z.string(),
+});
+
+// GET /api/hosts/me/current-quota — returns the quota attached to the
+// host's current active/pending session, or null.
+router.get("/hosts/me/current-quota", async (req, res): Promise<void> => {
+  const hostToken = String(req.query.hostToken ?? "");
+  if (!hostToken) {
+    res.status(400).json({ error: "hostToken required" });
+    return;
+  }
+  const [host] = await db
+    .select({ id: hostsTable.id })
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, hostToken));
+  if (!host) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+
+  const [session] = await db
+    .select({ id: sessionsTable.id, quotaId: sessionsTable.quotaId })
+    .from(sessionsTable)
+    .where(
+      and(
+        eq(sessionsTable.hostId, host.id),
+        sql`${sessionsTable.status} in ('pending','active')`,
+      ),
+    )
+    .orderBy(desc(sessionsTable.createdAt))
+    .limit(1);
+
+  if (!session || !session.quotaId) {
+    res.json({ quota: null });
+    return;
+  }
+
+  const [quota] = await db
+    .select()
+    .from(quotasTable)
+    .where(eq(quotasTable.id, session.quotaId));
+
+  res.json({ quota: quota ?? null, sessionId: session.id });
+});
+
+// POST /api/hosts/me/attach-quota — attach a quota to the host's current
+// active session. Returns 409 when the session already has a different quota.
+router.post("/hosts/me/attach-quota", async (req, res): Promise<void> => {
+  const parsed = AttachQuotaBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { hostToken, quotaId } = parsed.data;
+
+  const [host] = await db
+    .select({ id: hostsTable.id })
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, hostToken));
+  if (!host) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+
+  const [quota] = await db
+    .select()
+    .from(quotasTable)
+    .where(eq(quotasTable.id, quotaId));
+  if (!quota) {
+    res.status(404).json({ error: "Quota not found" });
+    return;
+  }
+  if (quota.status !== "active") {
+    res.status(400).json({ error: `Quota is not active (status: ${quota.status})` });
+    return;
+  }
+
+  // Find the host's most-recent non-ended session.
+  const [session] = await db
+    .select()
+    .from(sessionsTable)
+    .where(
+      and(
+        eq(sessionsTable.hostId, host.id),
+        // status IN ('pending','active') — use sql expression
+        sql`${sessionsTable.status} in ('pending','active')`,
+      ),
+    )
+    .orderBy(desc(sessionsTable.createdAt))
+    .limit(1);
+
+  if (!session) {
+    res.status(404).json({ error: "No active session found for this host" });
+    return;
+  }
+
+  if (session.quotaId && session.quotaId !== quotaId) {
+    res.status(409).json({ error: "Session already has a different quota attached" });
+    return;
+  }
+
+  if (session.quotaId === quotaId) {
+    res.json({ ok: true, sessionId: session.id, quotaId });
+    return;
+  }
+
+  // Transactional attach: update session + upsert quota_sessions atomically
+  // to prevent races where two agents try to attach the same quota to
+  // different sessions simultaneously.
+  await db.transaction(async (tx) => {
+    await tx
+      .update(sessionsTable)
+      .set({ quotaId })
+      .where(eq(sessionsTable.id, session.id));
+
+    // Create quota_sessions tracking row if it doesn't exist.
+    const [existing] = await tx
+      .select({ id: quotaSessionsTable.id })
+      .from(quotaSessionsTable)
+      .where(
+        and(
+          eq(quotaSessionsTable.quotaId, quotaId),
+          eq(quotaSessionsTable.sessionId, session.id),
+        ),
+      );
+    if (!existing) {
+      await tx.insert(quotaSessionsTable).values({
+        quotaId,
+        sessionId: session.id,
+      });
+    }
+  });
+
+  req.log.info({ hostId: host.id, sessionId: session.id, quotaId }, "Quota attached to session");
+  res.json({ ok: true, sessionId: session.id, quotaId });
+});
+
+// POST /api/hosts/me/detach-quota — detach the current quota from the
+// host's active session.
+router.post("/hosts/me/detach-quota", async (req, res): Promise<void> => {
+  const parsed = DetachQuotaBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { hostToken } = parsed.data;
+
+  const [host] = await db
+    .select({ id: hostsTable.id })
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, hostToken));
+  if (!host) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+
+  const [session] = await db
+    .select()
+    .from(sessionsTable)
+    .where(
+      and(
+        eq(sessionsTable.hostId, host.id),
+        sql`${sessionsTable.status} in ('pending','active')`,
+      ),
+    )
+    .orderBy(desc(sessionsTable.createdAt))
+    .limit(1);
+
+  if (!session || !session.quotaId) {
+    res.json({ ok: true, message: "No quota was attached" });
+    return;
+  }
+
+  const detachedQuotaId = session.quotaId;
+
+  await db
+    .update(sessionsTable)
+    .set({ quotaId: null })
+    .where(eq(sessionsTable.id, session.id));
+
+  // Mark quota_sessions row as detached.
+  await db
+    .update(quotaSessionsTable)
+    .set({ detachedAt: new Date() })
+    .where(
+      and(
+        eq(quotaSessionsTable.quotaId, detachedQuotaId),
+        eq(quotaSessionsTable.sessionId, session.id),
+        drizzleIsNull(quotaSessionsTable.detachedAt),
+      ),
+    );
+
+  req.log.info({ hostId: host.id, sessionId: session.id, detachedQuotaId }, "Quota detached from session");
+  res.json({ ok: true, sessionId: session.id });
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PC-specs endpoint — agent reports hardware details

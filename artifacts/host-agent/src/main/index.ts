@@ -12,7 +12,7 @@ import { fetchLibrary, patchLocalAvailability, sendHeartbeat } from "./api-clien
 import { scanSteam, loadScanState, saveScanState } from "./steam-scanner";
 import { loadOrGenerateKeyPair, signChallenge } from "./crypto-key";
 import { log } from "./logger";
-import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry, SteamScanResult } from "../shared/messages";
+import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry, SteamScanResult, QuotaStatusEvent } from "../shared/messages";
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -494,6 +494,197 @@ void app.whenReady().then(async () => {
       }
     });
   }, HEARTBEAT_INTERVAL_MS);
+
+  // ── Auto-quota scheduler ──────────────────────────────────────────────────
+  // Runs in the main process (survives renderer reloads) so the 60s polling
+  // tick is never affected by renderer lifecycle events. The main process
+  // tracks the currently-attached quota and pushes status updates to the
+  // renderer via "quota:status" events.
+
+  let mqCurrentId: string | null = null;
+  let mqCurrentTitle: string | null = null;
+
+  function sendQuotaStatus(ev: QuotaStatusEvent): void {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("quota:status", ev);
+    }
+  }
+
+  async function runAutoQuotaCycle(): Promise<void> {
+    const cfg = await loadConfig();
+    if (!cfg.autoQuotaEnabled || !cfg.hostToken || !cfg.apiBaseUrl) return;
+
+    const base = cfg.apiBaseUrl.replace(/\/$/, "");
+    const ht = encodeURIComponent(cfg.hostToken);
+
+    try {
+      // ── Step 1: verify the currently-attached quota is still valid ─────────
+      // If it has become exhausted / expired / closed, clear our local state
+      // so the next step picks a fresh one.
+      if (mqCurrentId) {
+        const curResp = await fetch(`${base}/api/hosts/me/current-quota?hostToken=${ht}`);
+        if (curResp.ok) {
+          const cur = (await curResp.json()) as {
+            quota: { id: string; status?: string } | null;
+          };
+          // If the server reports no quota or a different / non-active quota,
+          // clear state so we re-match below.
+          if (
+            !cur.quota ||
+            cur.quota.id !== mqCurrentId ||
+            (cur.quota.status && cur.quota.status !== "active")
+          ) {
+            log("info", `[auto-quota] Attached quota ${mqCurrentId} is no longer valid — re-matching.`);
+            mqCurrentId = null;
+            mqCurrentTitle = null;
+          } else {
+            // Still attached and active — nothing to do this cycle.
+            sendQuotaStatus({
+              statusText: `Сейчас работаю по квоте: ${mqCurrentTitle ?? cur.quota.id}`,
+              attachedQuotaId: mqCurrentId,
+              attachedQuotaTitle: mqCurrentTitle,
+              hasAttached: true,
+            });
+            return;
+          }
+        }
+      }
+
+      // ── Step 2: fetch matching quotas ──────────────────────────────────────
+      sendQuotaStatus({
+        statusText: "Ищу подходящие квоты…",
+        attachedQuotaId: null,
+        attachedQuotaTitle: null,
+        hasAttached: false,
+      });
+
+      const matchResp = await fetch(`${base}/api/quotas/match-my-host?hostToken=${ht}`);
+      if (!matchResp.ok) {
+        sendQuotaStatus({
+          statusText: "Ошибка при запросе квот.",
+          attachedQuotaId: null,
+          attachedQuotaTitle: null,
+          hasAttached: false,
+        });
+        return;
+      }
+
+      const quotas = (await matchResp.json()) as Array<{
+        id: string;
+        title: string;
+        kind: string;
+        escrowRemainingLzt?: number;
+      }>;
+
+      if (quotas.length === 0) {
+        sendQuotaStatus({
+          statusText: "Нет подходящих задач, попробую через минуту.",
+          attachedQuotaId: null,
+          attachedQuotaTitle: null,
+          hasAttached: false,
+        });
+        return;
+      }
+
+      // ── Step 3: try to attach in profitability order ───────────────────────
+      for (const quota of quotas) {
+        const attachResp = await fetch(`${base}/api/hosts/me/attach-quota`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ hostToken: cfg.hostToken, quotaId: quota.id }),
+        });
+
+        if (attachResp.status === 409) {
+          // Session already has a different quota — skip and try the next.
+          log("info", `[auto-quota] Quota «${quota.title}» already taken (409) — trying next.`);
+          continue;
+        }
+
+        if (attachResp.ok) {
+          mqCurrentId = quota.id;
+          mqCurrentTitle = quota.title;
+          log("info", `[auto-quota] Attached quota «${quota.title}»`);
+          sendQuotaStatus({
+            statusText: `Сейчас работаю по квоте: ${quota.title}`,
+            attachedQuotaId: quota.id,
+            attachedQuotaTitle: quota.title,
+            hasAttached: true,
+          });
+          return;
+        }
+
+        log("warn", `[auto-quota] Attach «${quota.title}» failed (${attachResp.status}) — skipping.`);
+      }
+
+      sendQuotaStatus({
+        statusText: "Нет подходящих задач, попробую через минуту.",
+        attachedQuotaId: null,
+        attachedQuotaTitle: null,
+        hasAttached: false,
+      });
+    } catch (err) {
+      log("warn", `[auto-quota] Cycle error: ${String(err)}`);
+      sendQuotaStatus({
+        statusText: "Ошибка сети при подборе квоты.",
+        attachedQuotaId: null,
+        attachedQuotaTitle: null,
+        hasAttached: false,
+      });
+    }
+  }
+
+  // IPC: renderer requests an immediate quota match cycle (e.g. after toggle ON).
+  ipcMain.on("quota:run-cycle", () => {
+    void runAutoQuotaCycle();
+  });
+
+  // IPC: renderer requests detach — main process calls the API and resets state.
+  ipcMain.handle("quota:detach", async (): Promise<{ ok: boolean }> => {
+    const cfg = await loadConfig();
+    if (!cfg.hostToken || !cfg.apiBaseUrl) return { ok: false };
+    const base = cfg.apiBaseUrl.replace(/\/$/, "");
+    try {
+      const resp = await fetch(`${base}/api/hosts/me/detach-quota`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ hostToken: cfg.hostToken }),
+      });
+      if (resp.ok) {
+        mqCurrentId = null;
+        mqCurrentTitle = null;
+        log("info", "[auto-quota] Quota detached by user. Searching for next…");
+        // Immediately try to find a new quota after detach.
+        void runAutoQuotaCycle();
+      }
+      return { ok: resp.ok };
+    } catch {
+      return { ok: false };
+    }
+  });
+
+  // IPC: renderer asks for the current quota state (e.g. on window re-open).
+  ipcMain.handle("quota:get-state", (): QuotaStatusEvent => {
+    if (mqCurrentId) {
+      return {
+        statusText: `Сейчас работаю по квоте: ${mqCurrentTitle ?? mqCurrentId}`,
+        attachedQuotaId: mqCurrentId,
+        attachedQuotaTitle: mqCurrentTitle,
+        hasAttached: true,
+      };
+    }
+    return {
+      statusText: "Автоподбор активен. Жду подходящей квоты…",
+      attachedQuotaId: null,
+      attachedQuotaTitle: null,
+      hasAttached: false,
+    };
+  });
+
+  // 60-second polling loop — same pattern as the heartbeat.
+  const AUTO_QUOTA_INTERVAL_MS = 60_000;
+  setInterval(() => {
+    void runAutoQuotaCycle();
+  }, AUTO_QUOTA_INTERVAL_MS);
 
   setStatus("idle");
   log("info", "Host agent ready.");

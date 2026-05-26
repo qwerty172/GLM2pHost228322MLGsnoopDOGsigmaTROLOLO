@@ -43,6 +43,8 @@ import {
   Loader2,
   Cpu,
   MemoryStick,
+  Tag,
+  Unlink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -436,6 +438,108 @@ function HostTemplates({ hostToken }: { hostToken: string }) {
   );
 }
 
+// ── Current quota card ────────────────────────────────────────────────────
+
+interface CurrentQuotaInfo {
+  quota: {
+    id: string;
+    title: string;
+    kind: string;
+    escrowRemainingLzt: number | null;
+    budgetLzt: number | null;
+  } | null;
+  sessionId?: string;
+}
+
+function CurrentQuotaCard({ hostToken }: { hostToken: string }) {
+  const [info, setInfo] = useState<CurrentQuotaInfo | null>(null);
+  const [detaching, setDetaching] = useState(false);
+
+  const fetchCurrent = async () => {
+    const r = await apiFetch<CurrentQuotaInfo>(
+      `/api/hosts/me/current-quota?hostToken=${encodeURIComponent(hostToken)}`,
+    );
+    if (r.ok) setInfo(r.data);
+  };
+
+  useEffect(() => {
+    fetchCurrent();
+    const t = setInterval(fetchCurrent, 15_000);
+    return () => clearInterval(t);
+  }, [hostToken]);
+
+  const handleDetach = async () => {
+    setDetaching(true);
+    const r = await apiFetch(`/api/hosts/me/detach-quota`, {
+      method: "POST",
+      body: JSON.stringify({ hostToken }),
+    });
+    setDetaching(false);
+    if (r.ok) {
+      toast.success("Квота отвязана");
+      fetchCurrent();
+    } else {
+      toast.error("Не удалось отвязать квоту");
+    }
+  };
+
+  if (!info) return null;
+
+  return (
+    <Card
+      style={
+        info.quota
+          ? { background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.25)" }
+          : cardStyle
+      }
+    >
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-white text-base">
+          <Tag className="h-4 w-4 text-emerald-400" />
+          Текущая квота
+        </CardTitle>
+        <CardDescription className="text-slate-500">
+          Квота, прикреплённая к активной сессии.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {info.quota ? (
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <div className="font-semibold text-emerald-300 text-sm">
+                {info.quota.title}
+              </div>
+              <div className="text-xs text-slate-500 mt-0.5 font-mono">
+                {info.quota.kind === "sponsor"
+                  ? `Sponsor · ${(info.quota.escrowRemainingLzt ?? 0).toLocaleString("ru-RU")} LZT осталось`
+                  : `Royalty`}
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 h-8 text-xs border-red-500/30 text-red-400 hover:text-white hover:border-red-400"
+              onClick={handleDetach}
+              disabled={detaching}
+            >
+              {detaching ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Unlink className="h-3 w-3" />
+              )}
+              Отвязать и взять другую
+            </Button>
+          </div>
+        ) : (
+          <p className="text-slate-500 text-sm">
+            Квота не подключена. Включи автоподбор в агенте — он сам найдёт подходящие задачи.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── Dashboard ─────────────────────────────────────────────────────────────
 
 interface PcSpecs {
@@ -678,6 +782,9 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Current quota status */}
+      {hostToken && <CurrentQuotaCard hostToken={hostToken} />}
 
       {/* Host templates list */}
       {hostToken && <HostTemplates hostToken={hostToken} />}

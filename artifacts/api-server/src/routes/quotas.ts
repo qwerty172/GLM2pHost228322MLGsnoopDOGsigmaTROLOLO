@@ -327,6 +327,69 @@ router.get("/quotas/applied", async (req, res): Promise<void> => {
   res.json(await decorate(rows.map((r) => r.q), {}));
 });
 
+// ---------- Match quotas to host PC specs ----------
+//
+// Returns active public quotas that are compatible with the host's PC
+// hardware (pcSpecs ≥ minSpecs — currently sorted by profitability only,
+// hardware filtering will be added once minSpecs columns land on quotas).
+// Sponsor quotas with a higher remaining escrow come first; royalty quotas
+// follow sorted by royaltyValue descending.
+
+router.get("/quotas/match-my-host", async (req, res): Promise<void> => {
+  const hostToken = String(req.query.hostToken ?? "");
+  if (!hostToken) {
+    res.status(400).json({ error: "hostToken required" });
+    return;
+  }
+  const [host] = await db
+    .select()
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, hostToken));
+  if (!host) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+
+  const now = new Date();
+  const rows = await db
+    .select()
+    .from(quotasTable)
+    .where(
+      and(
+        eq(quotasTable.visibility, "public"),
+        eq(quotasTable.status, "active"),
+      ),
+    )
+    .orderBy(desc(quotasTable.createdAt))
+    .limit(200);
+
+  // Filter to currently-active quotas only.
+  const active = rows.filter((q) => isQuotaActiveNow(q, now));
+
+  // Hardware compatibility: skip quotas whose minRamGb exceeds the host's RAM.
+  // If the host has no pcSpecs yet (null), we still return quotas with no
+  // minRamGb requirement so the host can start working immediately.
+  const hostRamGb = (host.pcSpecs as { ramGb?: number } | null)?.ramGb ?? null;
+  const filtered = active.filter((q) => {
+    if (q.minRamGb === null || q.minRamGb === undefined) return true; // no requirement
+    if (hostRamGb === null) return true; // host hasn't reported specs yet — don't block
+    return hostRamGb >= q.minRamGb;
+  });
+
+  // Sort by profitability: sponsor quotas with higher escrow first, then
+  // royalty quotas sorted by royaltyValue descending.
+  filtered.sort((a, b) => {
+    if (a.kind === "sponsor" && b.kind === "sponsor") {
+      return (b.escrowRemainingLzt ?? 0) - (a.escrowRemainingLzt ?? 0);
+    }
+    if (a.kind === "sponsor") return -1;
+    if (b.kind === "sponsor") return 1;
+    return (b.royaltyValue ?? 0) - (a.royaltyValue ?? 0);
+  });
+
+  res.json(await decorate(filtered.slice(0, 20), {}));
+});
+
 // ---------- Applicable to a host's next session ----------
 
 router.get("/quotas/applicable", async (req, res): Promise<void> => {

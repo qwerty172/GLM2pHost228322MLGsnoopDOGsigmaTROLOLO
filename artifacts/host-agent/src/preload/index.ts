@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry, SteamScanResult } from "../shared/messages";
+import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry, SteamScanResult, QuotaStatusEvent } from "../shared/messages";
 
 const api = {
   getConfig: (): Promise<HostConfig> => ipcRenderer.invoke("config:get"),
@@ -96,6 +96,26 @@ const api = {
   // Returns local PC specs without uploading them.
   getPcSpecs: (): Promise<{ gpu: string; cpu: string; ramGb: number }> =>
     ipcRenderer.invoke("agent:get-pc-specs"),
+
+  // ── Auto-quota (main-process scheduler) ──────────────────────────────────
+  // Register a listener that fires every time the main process emits a
+  // quota status update (after each 60s cycle, or immediately after detach).
+  // Returns a cleanup function that removes the listener.
+  onQuotaStatus: (cb: (ev: QuotaStatusEvent) => void): (() => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, ev: QuotaStatusEvent) => cb(ev);
+    ipcRenderer.on("quota:status", handler);
+    return () => ipcRenderer.off("quota:status", handler);
+  },
+  // Ask the main process to run an immediate match cycle.
+  quotaRunCycle: (): void => {
+    ipcRenderer.send("quota:run-cycle");
+  },
+  // Detach the current quota (main process calls the API and resets state).
+  quotaDetach: (): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke("quota:detach"),
+  // Get the current quota state snapshot (for renderer re-init on window open).
+  quotaGetState: (): Promise<QuotaStatusEvent> =>
+    ipcRenderer.invoke("quota:get-state"),
 };
 
 contextBridge.exposeInMainWorld("agent", api);

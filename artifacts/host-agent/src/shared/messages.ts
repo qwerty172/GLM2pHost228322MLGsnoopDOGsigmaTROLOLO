@@ -26,6 +26,7 @@ export interface HostConfig {
   bitrateKbps: number;
   killAppOnDisconnect: boolean;
   autoLaunchAtStartup: boolean;
+  autoQuotaEnabled?: boolean;
 }
 
 export type InputEvent =
@@ -102,6 +103,19 @@ export interface SteamScanResult {
   steamRoot: string | null;
   games: SteamScanGame[];
   error?: string;
+}
+
+// Push event sent from the main process to the renderer to report the
+// current auto-quota matching state.
+export interface QuotaStatusEvent {
+  // Human-readable status line shown in the UI.
+  statusText: string;
+  // ID of the quota that is currently attached (null when none).
+  attachedQuotaId: string | null;
+  // Title of the attached quota (null when none).
+  attachedQuotaTitle: string | null;
+  // Whether to show the "detach" button.
+  hasAttached: boolean;
 }
 
 export interface IpcChannels {

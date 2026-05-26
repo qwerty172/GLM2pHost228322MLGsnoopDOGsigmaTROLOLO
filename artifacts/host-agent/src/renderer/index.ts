@@ -41,6 +41,11 @@ declare global {
       agentLogin: (apiBaseUrl: string) => Promise<{ ok: boolean; error?: string }>;
       updatePcSpecs: (hostToken: string, apiBaseUrl: string) => Promise<{ ok: boolean; error?: string; pcSpecs?: { gpu: string; cpu: string; ramGb: number } }>;
       getPcSpecs: () => Promise<{ gpu: string; cpu: string; ramGb: number }>;
+      // Auto-quota IPC (main-process scheduler)
+      onQuotaStatus: (cb: (ev: { statusText: string; attachedQuotaId: string | null; attachedQuotaTitle: string | null; hasAttached: boolean }) => void) => () => void;
+      quotaRunCycle: () => void;
+      quotaDetach: () => Promise<{ ok: boolean }>;
+      quotaGetState: () => Promise<{ statusText: string; attachedQuotaId: string | null; attachedQuotaTitle: string | null; hasAttached: boolean }>;
     };
   }
 }
@@ -343,11 +348,19 @@ function escHtml(s: string): string {
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const cfg = readForm();
+  const existing = await window.agent.getConfig();
+  const cfg = { ...readForm(), autoQuotaEnabled: existing.autoQuotaEnabled };
   await window.agent.setConfig(cfg);
   log("Settings saved.");
   await loadLibrary(cfg);
   startLibraryPolling(cfg);
+  if (cfg.hostToken && cfg.apiBaseUrl) {
+    showAutoQuotaCard();
+    autoQuotaCheckbox.checked = !!cfg.autoQuotaEnabled;
+    if (!cfg.autoQuotaEnabled) {
+      applyQuotaStatus({ statusText: "Автоподбор выключен.", hasAttached: false });
+    }
+  }
 });
 
 const pullBtn = $("pull-from-server") as HTMLButtonElement;
@@ -1402,6 +1415,64 @@ steamSubmitReviewBtn.addEventListener("click", async () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Auto-quota matching
+// The 60s polling scheduler runs in the main process (survives renderer reloads).
+// The renderer just subscribes to "quota:status" push events via IPC and
+// updates the UI accordingly.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const autoQuotaCard = document.getElementById("auto-quota-card") as HTMLElement;
+const autoQuotaCheckbox = document.getElementById("autoQuotaEnabled") as HTMLInputElement;
+const autoQuotaStatusEl = document.getElementById("auto-quota-status") as HTMLDivElement;
+const autoQuotaActionsEl = document.getElementById("auto-quota-actions") as HTMLDivElement;
+const detachQuotaBtn = document.getElementById("detach-quota-btn") as HTMLButtonElement;
+
+function showAutoQuotaCard(): void {
+  autoQuotaCard.hidden = false;
+}
+
+function applyQuotaStatus(ev: { statusText: string; hasAttached: boolean }): void {
+  autoQuotaStatusEl.textContent = ev.statusText;
+  autoQuotaActionsEl.style.display = ev.hasAttached ? "block" : "none";
+}
+
+// Subscribe to push events from the main-process scheduler.
+window.agent.onQuotaStatus((ev) => {
+  applyQuotaStatus(ev);
+});
+
+autoQuotaCheckbox.addEventListener("change", async () => {
+  const cfg = currentConfig ?? (await window.agent.getConfig());
+  const enabled = autoQuotaCheckbox.checked;
+  const saved = await window.agent.setConfig({ ...cfg, autoQuotaEnabled: enabled });
+  currentConfig = saved;
+  if (enabled) {
+    log("Автоподбор квот включён.");
+    applyQuotaStatus({ statusText: "Ищу подходящие квоты…", hasAttached: false });
+    // Ask main process to run a match cycle immediately (instead of waiting 60s).
+    window.agent.quotaRunCycle();
+  } else {
+    log("Автоподбор квот выключен.");
+    applyQuotaStatus({ statusText: "Автоподбор выключен.", hasAttached: false });
+  }
+});
+
+detachQuotaBtn.addEventListener("click", async () => {
+  detachQuotaBtn.disabled = true;
+  try {
+    const result = await window.agent.quotaDetach();
+    if (result.ok) {
+      log("Квота отвязана. Ищу следующую…");
+      applyQuotaStatus({ statusText: "Квота отвязана. Ищу следующую…", hasAttached: false });
+    } else {
+      log("Не удалось отвязать квоту.");
+    }
+  } finally {
+    detachQuotaBtn.disabled = false;
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Agent key & PC binding UI
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1502,6 +1573,19 @@ void loadFormFromConfig().then(async (cfg) => {
     log("Stored credentials detected. Loading library…");
     await loadLibrary(cfg);
     startLibraryPolling(cfg);
+    showAutoQuotaCard();
+    autoQuotaCheckbox.checked = !!cfg.autoQuotaEnabled;
+    // Get the current quota state from the main process (persists across
+    // renderer reloads since the scheduler lives in the main process).
+    window.agent.quotaGetState().then((ev) => {
+      if (cfg.autoQuotaEnabled) {
+        applyQuotaStatus(ev);
+      } else {
+        applyQuotaStatus({ statusText: "Автоподбор выключен.", hasAttached: false });
+      }
+    }).catch(() => {
+      applyQuotaStatus({ statusText: cfg.autoQuotaEnabled ? "Ищу подходящие квоты…" : "Автоподбор выключен.", hasAttached: false });
+    });
   } else {
     log("First launch — paste your host token from the web dashboard.");
   }
