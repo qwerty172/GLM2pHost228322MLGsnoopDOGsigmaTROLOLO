@@ -265,7 +265,7 @@ async function billOnce(): Promise<void> {
           // No credit available — end the session.
           await tx
             .update(sessionsTable)
-            .set({ status: "ended", endedAt: now })
+            .set({ status: "ended", endedAt: now, endReason: "balance_exhausted" })
             .where(eq(sessionsTable.id, session.id));
           return true;
         }
@@ -297,7 +297,7 @@ async function billOnce(): Promise<void> {
         if (debited.length === 0) {
           await tx
             .update(sessionsTable)
-            .set({ status: "ended", endedAt: now })
+            .set({ status: "ended", endedAt: now, endReason: "balance_exhausted" })
             .where(eq(sessionsTable.id, session.id));
           return true;
         }

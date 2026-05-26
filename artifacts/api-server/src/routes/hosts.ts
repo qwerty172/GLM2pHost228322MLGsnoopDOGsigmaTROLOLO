@@ -759,4 +759,27 @@ router.post("/hosts/me/pc-specs", async (req, res): Promise<void> => {
   res.json({ ok: true, pcSpecs });
 });
 
+router.post("/hosts/heartbeat", async (req, res): Promise<void> => {
+  const hostToken =
+    (req.headers["x-host-token"] as string | undefined) ||
+    (req.body as { hostToken?: string }).hostToken;
+  if (!hostToken) {
+    res.status(401).json({ error: "hostToken required" });
+    return;
+  }
+  const [host] = await db
+    .select({ id: hostsTable.id })
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, hostToken));
+  if (!host) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+  await db
+    .update(hostsTable)
+    .set({ lastSeenAt: new Date() })
+    .where(eq(hostsTable.id, host.id));
+  res.json({ ok: true });
+});
+
 export default router;

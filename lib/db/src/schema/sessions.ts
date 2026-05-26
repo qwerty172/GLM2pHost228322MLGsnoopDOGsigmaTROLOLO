@@ -48,6 +48,7 @@ export const sessionsTable = pgTable("sessions", {
   startedAt: timestamp("started_at", { withTimezone: true }),
   endedAt: timestamp("ended_at", { withTimezone: true }),
   lastBilledAt: timestamp("last_billed_at", { withTimezone: true }),
+  endReason: text("end_reason"),
 });
 
 export const insertSessionSchema = createInsertSchema(sessionsTable).omit({

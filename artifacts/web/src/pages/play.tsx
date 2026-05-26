@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Gamepad2, AlertCircle, ArrowLeft, Loader2, Wifi, WifiOff, VolumeX, Wallet, Banknote, Coins } from "lucide-react";
+import { Gamepad2, AlertCircle, ArrowLeft, Loader2, Wifi, WifiOff, VolumeX, Wallet, Banknote, Coins, Clock, TrendingDown } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 
@@ -24,7 +24,11 @@ export default function Play() {
   const playerToken = params?.playerToken || "";
 
   const { data: session, isLoading, isError } = useGetSessionByPlayerToken(playerToken, {
-    query: { enabled: !!playerToken, queryKey: getGetSessionByPlayerTokenQueryKey(playerToken) }
+    query: {
+      enabled: !!playerToken,
+      queryKey: getGetSessionByPlayerTokenQueryKey(playerToken),
+      refetchInterval: 8000,
+    }
   });
 
   const { playerWalletToken } = usePlayerWallet();
@@ -44,11 +48,54 @@ export default function Play() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showAudioPrompt, setShowAudioPrompt] = useState(false);
 
+  // Live HUD: client-side ticking balance estimate between API syncs
+  const [estimatedBalanceLzt, setEstimatedBalanceLzt] = useState<number | null>(null);
+  const ratePerSecLztRef = useRef<number>(0);
+  const sessionEndReasonRef = useRef<string | null>(null);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const dcRef = useRef<RTCDataChannel | null>(null);
   const startedRef = useRef(false);
+
+  // Sync estimated balance from actual wallet data (30s API sync)
+  useEffect(() => {
+    if (!wallet || !session) return;
+    const greenLzt = wallet.withdrawableBalanceLzt ?? 0;
+    const blueLzt = wallet.internalBalanceLzt ?? 0;
+    const src = (session as typeof session & { paymentSource?: string }).paymentSource ?? "auto";
+    const bal = src === "blue" ? blueLzt : src === "green" ? greenLzt : greenLzt + blueLzt;
+    setEstimatedBalanceLzt(bal);
+    const rateLztPerMin = Math.round(Number(session.ratePerMinute) * LZT_PER_USDT);
+    ratePerSecLztRef.current = rateLztPerMin / 60;
+  }, [wallet, session]);
+
+  // Tick every second to drain the estimated balance
+  useEffect(() => {
+    if (!isPlaying) return;
+    const id = setInterval(() => {
+      setEstimatedBalanceLzt((prev) => {
+        if (prev === null) return prev;
+        return Math.max(0, prev - ratePerSecLztRef.current);
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [isPlaying]);
+
+  // Detect host_offline and balance_exhausted end reasons
+  useEffect(() => {
+    if (!session) return;
+    const reason = (session as typeof session & { endReason?: string | null }).endReason ?? null;
+    sessionEndReasonRef.current = reason;
+    if (session.status === "ended" && isPlaying) {
+      if (reason === "host_offline") {
+        toast.error("Хост отключился. Списания остановлены.");
+      } else if (reason === "balance_exhausted") {
+        toast.error("Баланс исчерпан. Сессия завершена.");
+      }
+    }
+  }, [session?.status, (session as typeof session & { endReason?: string | null })?.endReason, isPlaying]);
 
   const cleanupConnection = useCallback(() => {
     if (dcRef.current) {
@@ -624,6 +671,55 @@ export default function Play() {
 
   return (
     <div className="min-h-screen bg-black flex flex-col relative overflow-hidden select-none">
+      {/* Host offline modal */}
+      {session?.status === "ended" && (session as typeof session & { endReason?: string | null }).endReason === "host_offline" && (
+        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <Card className="w-full max-w-sm mx-4" style={{ background: "#0a1018", border: "1px solid rgba(239,68,68,0.4)" }}>
+            <CardHeader className="text-center pb-2">
+              <WifiOff className="h-10 w-10 text-red-400 mx-auto mb-3" />
+              <CardTitle className="text-white">Хост отключился</CardTitle>
+              <CardDescription className="text-slate-400">
+                Сессия завершена автоматически. Деньги не списывались с момента пропажи связи.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/games">
+                <Button className="w-full" style={{ background: "#0ea5e9", color: "#fff" }}>
+                  <ArrowLeft className="h-4 w-4 mr-2" /> Назад в каталог
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Balance exhausted modal */}
+      {session?.status === "ended" && (session as typeof session & { endReason?: string | null }).endReason === "balance_exhausted" && (
+        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <Card className="w-full max-w-sm mx-4" style={{ background: "#0a1018", border: "1px solid rgba(234,179,8,0.4)" }}>
+            <CardHeader className="text-center pb-2">
+              <Coins className="h-10 w-10 text-yellow-400 mx-auto mb-3" />
+              <CardTitle className="text-white">Баланс исчерпан</CardTitle>
+              <CardDescription className="text-slate-400">
+                Сессия завершена — на балансе не хватило LZT для следующей минуты.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              <Link href="/wallet">
+                <Button className="w-full" style={{ background: "#0ea5e9", color: "#fff" }}>
+                  Пополнить кошелёк
+                </Button>
+              </Link>
+              <Link href="/games">
+                <Button variant="outline" className="w-full border-white/10 text-slate-300">
+                  <ArrowLeft className="h-4 w-4 mr-2" /> В каталог
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between z-50 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
         <div className="flex items-center gap-4">
           <div className="font-bold text-sky-400 tracking-tight drop-shadow-md">
@@ -650,6 +746,35 @@ export default function Play() {
                 : connectionState.toUpperCase()}
           </Badge>
         </div>
+
+        {/* Live balance HUD */}
+        {estimatedBalanceLzt !== null && session && (() => {
+          const rateLztPerMin = Math.round(Number(session.ratePerMinute) * LZT_PER_USDT);
+          const minsLeft = rateLztPerMin > 0 ? Math.floor(estimatedBalanceLzt / rateLztPerMin) : 999;
+          const isWarning = minsLeft < 5 && minsLeft >= 2;
+          const isDanger = minsLeft < 2;
+          const hudColor = isDanger ? "#ef4444" : isWarning ? "#eab308" : "#38bdf8";
+          const hudBg = isDanger ? "rgba(239,68,68,0.15)" : isWarning ? "rgba(234,179,8,0.12)" : "rgba(14,165,233,0.1)";
+          const hudBorder = isDanger ? "rgba(239,68,68,0.4)" : isWarning ? "rgba(234,179,8,0.35)" : "rgba(14,165,233,0.25)";
+          return (
+            <div
+              className="flex items-center gap-3 rounded-lg px-3 py-1.5 pointer-events-none"
+              style={{ background: hudBg, border: `1px solid ${hudBorder}` }}
+            >
+              {isDanger && <TrendingDown className="w-3.5 h-3.5 animate-pulse" style={{ color: hudColor }} />}
+              <div className="text-right">
+                <div className="font-mono font-bold text-sm leading-none" style={{ color: hudColor }}>
+                  {estimatedBalanceLzt.toLocaleString("ru-RU", { maximumFractionDigits: 0 })} LZT
+                </div>
+                <div className="font-mono text-[10px] mt-0.5" style={{ color: hudColor, opacity: 0.75 }}>
+                  <Clock className="w-2.5 h-2.5 inline mr-0.5" />
+                  {minsLeft >= 999 ? "∞" : `~${minsLeft} мин`}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         <Button
           size="sm"
           onClick={cleanupConnection}

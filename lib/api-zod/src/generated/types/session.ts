@@ -28,4 +28,9 @@ export interface Session {
   startedAt?: Date | null;
   /** @nullable */
   endedAt?: Date | null;
+  /**
+   * Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline.
+   * @nullable
+   */
+  endReason?: string | null;
 }

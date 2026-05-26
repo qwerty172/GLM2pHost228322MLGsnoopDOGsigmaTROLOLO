@@ -8,7 +8,7 @@ import { loadConfig, saveConfig } from "./config";
 import { createTray, setStatus } from "./tray";
 import { initInputInjector, injectInput } from "./input-injection";
 import { launchApp, launchEntry, killApp, setExitCallback } from "./app-launcher";
-import { fetchLibrary, patchLocalAvailability } from "./api-client";
+import { fetchLibrary, patchLocalAvailability, sendHeartbeat } from "./api-client";
 import { scanSteam, loadScanState, saveScanState } from "./steam-scanner";
 import { loadOrGenerateKeyPair, signChallenge } from "./crypto-key";
 import { log } from "./logger";
@@ -481,6 +481,19 @@ void app.whenReady().then(async () => {
   ipcMain.handle("agent:get-pc-specs", (): { gpu: string; cpu: string; ramGb: number } => {
     return collectPcSpecs();
   });
+
+  // ── Heartbeat ─────────────────────────────────────────────────────────────
+  // Keep hosts.lastSeenAt fresh so the server can detect crashes/disconnects
+  // and auto-terminate ghost sessions. Fire every 15s; silently skipped
+  // when config lacks hostToken or apiBaseUrl.
+  const HEARTBEAT_INTERVAL_MS = 15_000;
+  setInterval(() => {
+    void loadConfig().then((cfg) => {
+      if (cfg.hostToken && cfg.apiBaseUrl) {
+        void sendHeartbeat(cfg.hostToken, cfg.apiBaseUrl);
+      }
+    });
+  }, HEARTBEAT_INTERVAL_MS);
 
   setStatus("idle");
   log("info", "Host agent ready.");

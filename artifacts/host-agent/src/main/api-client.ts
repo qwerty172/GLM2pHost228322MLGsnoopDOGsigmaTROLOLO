@@ -32,6 +32,27 @@ export async function fetchLibrary(
   }
 }
 
+// Send a heartbeat to keep lastSeenAt fresh. Fire-and-forget — caller
+// should call this on an interval and ignore failures.
+export async function sendHeartbeat(
+  hostToken: string,
+  apiBaseUrl: string,
+): Promise<void> {
+  try {
+    const url = `${base(apiBaseUrl)}/api/hosts/heartbeat`;
+    await fetch(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-host-token": hostToken,
+      },
+      body: JSON.stringify({ hostToken }),
+    });
+  } catch {
+    // Intentionally silent — network blips should not log noise.
+  }
+}
+
 // Report local availability of a single library entry to the server.
 // Called after we check whether the .exe file exists on disk.
 export async function patchLocalAvailability(

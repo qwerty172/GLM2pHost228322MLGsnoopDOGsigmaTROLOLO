@@ -254,6 +254,11 @@ export interface Session {
   startedAt?: string | null;
   /** @nullable */
   endedAt?: string | null;
+  /**
+   * Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline.
+   * @nullable
+   */
+  endReason?: string | null;
 }
 
 export interface EndSessionBody {

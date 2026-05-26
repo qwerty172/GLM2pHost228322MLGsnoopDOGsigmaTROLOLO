@@ -306,6 +306,12 @@ export const ListHostSessionsResponseItem = zod.object({
   createdAt: zod.coerce.date(),
   startedAt: zod.coerce.date().nullish(),
   endedAt: zod.coerce.date().nullish(),
+  endReason: zod
+    .string()
+    .nullish()
+    .describe(
+      "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline.",
+    ),
 });
 export const ListHostSessionsResponse = zod.array(ListHostSessionsResponseItem);
 
@@ -667,6 +673,12 @@ export const GetSessionResponse = zod.object({
   createdAt: zod.coerce.date(),
   startedAt: zod.coerce.date().nullish(),
   endedAt: zod.coerce.date().nullish(),
+  endReason: zod
+    .string()
+    .nullish()
+    .describe(
+      "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline.",
+    ),
 });
 
 /**
@@ -695,6 +707,12 @@ export const GetSessionByPlayerTokenResponse = zod.object({
   createdAt: zod.coerce.date(),
   startedAt: zod.coerce.date().nullish(),
   endedAt: zod.coerce.date().nullish(),
+  endReason: zod
+    .string()
+    .nullish()
+    .describe(
+      "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline.",
+    ),
 });
 
 /**
@@ -735,6 +753,12 @@ export const ClaimSessionResponse = zod.object({
   createdAt: zod.coerce.date(),
   startedAt: zod.coerce.date().nullish(),
   endedAt: zod.coerce.date().nullish(),
+  endReason: zod
+    .string()
+    .nullish()
+    .describe(
+      "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline.",
+    ),
 });
 
 /**
@@ -767,6 +791,12 @@ export const EndSessionResponse = zod.object({
   createdAt: zod.coerce.date(),
   startedAt: zod.coerce.date().nullish(),
   endedAt: zod.coerce.date().nullish(),
+  endReason: zod
+    .string()
+    .nullish()
+    .describe(
+      "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline.",
+    ),
 });
 
 /**
