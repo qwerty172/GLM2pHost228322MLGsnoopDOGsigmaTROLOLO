@@ -20,6 +20,8 @@ import type {
   ActivityItem,
   AdminDeleteGame200,
   AdminPatchGameBody,
+  AiSuggestQuotaSpecsBody,
+  AiSuggestQuotaSpecsResponse,
   ClaimSessionBody,
   CreateBrowserHostSessionBody,
   CreateBrowserHostSessionResponse,
@@ -2663,6 +2665,92 @@ export const useCloseQuota = <
   TContext
 > => {
   return useMutation(getCloseQuotaMutationOptions(options));
+};
+
+/**
+ * @summary Use AI to suggest minimum PC specs for a game
+ */
+export const getAiSuggestQuotaSpecsUrl = () => {
+  return `/api/quotas/ai-suggest-specs`;
+};
+
+export const aiSuggestQuotaSpecs = async (
+  aiSuggestQuotaSpecsBody: AiSuggestQuotaSpecsBody,
+  options?: RequestInit,
+): Promise<AiSuggestQuotaSpecsResponse> => {
+  return customFetch<AiSuggestQuotaSpecsResponse>(getAiSuggestQuotaSpecsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(aiSuggestQuotaSpecsBody),
+  });
+};
+
+export const getAiSuggestQuotaSpecsMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiSuggestQuotaSpecs>>,
+    TError,
+    { data: BodyType<AiSuggestQuotaSpecsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof aiSuggestQuotaSpecs>>,
+  TError,
+  { data: BodyType<AiSuggestQuotaSpecsBody> },
+  TContext
+> => {
+  const mutationKey = ["aiSuggestQuotaSpecs"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof aiSuggestQuotaSpecs>>,
+    { data: BodyType<AiSuggestQuotaSpecsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return aiSuggestQuotaSpecs(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AiSuggestQuotaSpecsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof aiSuggestQuotaSpecs>>
+>;
+export type AiSuggestQuotaSpecsMutationBody = BodyType<AiSuggestQuotaSpecsBody>;
+export type AiSuggestQuotaSpecsMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Use AI to suggest minimum PC specs for a game
+ */
+export const useAiSuggestQuotaSpecs = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiSuggestQuotaSpecs>>,
+    TError,
+    { data: BodyType<AiSuggestQuotaSpecsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof aiSuggestQuotaSpecs>>,
+  TError,
+  { data: BodyType<AiSuggestQuotaSpecsBody> },
+  TContext
+> => {
+  return useMutation(getAiSuggestQuotaSpecsMutationOptions(options));
 };
 
 /**

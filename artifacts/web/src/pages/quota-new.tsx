@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Coins, Sparkles, Loader2, Server, ChevronDown, ChevronRight, CheckCircle2, XCircle } from "lucide-react";
+import { Coins, Sparkles, Loader2, Server, ChevronDown, ChevronRight, CheckCircle2, XCircle, Cpu, Wand2 } from "lucide-react";
 
 const cardStyle = {
   background: "#0a1018",
@@ -69,6 +69,13 @@ export default function QuotaNewPage() {
   const [vdsTestResult, setVdsTestResult] = useState<null | { ok: boolean; error?: string }>(null);
   const [vdsTesting, setVdsTesting] = useState(false);
   const [vdsSaving, setVdsSaving] = useState(false);
+
+  // PC specs
+  const [minGpuVram, setMinGpuVram] = useState<string>("");
+  const [minCpuCores, setMinCpuCores] = useState<string>("");
+  const [minRamGb, setMinRamGb] = useState<string>("");
+  const [minDownloadMbps, setMinDownloadMbps] = useState<string>("");
+  const [aiLoading, setAiLoading] = useState(false);
 
   const createQuota = useCreateQuota();
   const publishQuota = usePublishQuota();
@@ -136,6 +143,46 @@ export default function QuotaNewPage() {
     }
   };
 
+  const selectedGame = games?.find((g) => g.id === gameId);
+
+  const handleAiSuggest = async () => {
+    setAiLoading(true);
+    try {
+      const body: { gameTitle?: string; genre?: string } = {};
+      if (selectedGame) {
+        body.gameTitle = selectedGame.title;
+      }
+      const resp = await fetch(
+        `${import.meta.env.BASE_URL}api/quotas/ai-suggest-specs`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      );
+      if (!resp.ok) {
+        const err = (await resp.json()) as { error?: string };
+        toast.error(err.error ?? "AI вернул ошибку");
+        return;
+      }
+      const data = (await resp.json()) as {
+        minGpuVram: number;
+        minCpuCores: number;
+        minRamGb: number;
+        minDownloadMbps: number;
+      };
+      setMinGpuVram(String(data.minGpuVram));
+      setMinCpuCores(String(data.minCpuCores));
+      setMinRamGb(String(data.minRamGb));
+      setMinDownloadMbps(String(data.minDownloadMbps));
+      toast.success("ИИ подобрал минимальные требования");
+    } catch {
+      toast.error("Не удалось подключиться к ИИ");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!hostToken) {
@@ -171,6 +218,10 @@ export default function QuotaNewPage() {
             kind === "sponsor" ? Math.floor(sponsorHostPerMinute) : null,
           sponsorPlayerPerMinuteLzt:
             kind === "sponsor" ? Math.floor(sponsorPlayerPerMinute) : null,
+          minGpuVram: minGpuVram ? Math.floor(Number(minGpuVram)) : null,
+          minCpuCores: minCpuCores ? Math.floor(Number(minCpuCores)) : null,
+          minRamGb: minRamGb ? Math.floor(Number(minRamGb)) : null,
+          minDownloadMbps: minDownloadMbps ? Math.floor(Number(minDownloadMbps)) : null,
         },
       });
       toast.success("Черновик создан");
@@ -724,6 +775,103 @@ export default function QuotaNewPage() {
                 </div>
               </CardContent>
             )}
+          </Card>
+
+          <Card style={cardStyle}>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Cpu className="h-5 w-5 text-violet-400" />
+                  <CardTitle className="text-white">Минимальная мощность ПК</CardTitle>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleAiSuggest}
+                  disabled={aiLoading}
+                  data-testid="button-ai-suggest"
+                  style={{
+                    background: "rgba(139,92,246,0.1)",
+                    border: "1px solid rgba(139,92,246,0.4)",
+                    color: "#a78bfa",
+                  }}
+                >
+                  {aiLoading ? (
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  ) : (
+                    <Wand2 className="h-4 w-4 mr-1.5" />
+                  )}
+                  Подобрать через ИИ
+                </Button>
+              </div>
+              <CardDescription className="text-slate-500">
+                Если задано, квоту нельзя прикрепить к хосту, чей ПК слабее порога.
+                {gameId ? (
+                  <span className="text-violet-400"> ИИ подберёт требования для выбранной игры.</span>
+                ) : (
+                  <span className="text-slate-600"> Выбери игру выше, чтобы ИИ учёл её требования.</span>
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-slate-300">VRAM GPU, ГБ</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={minGpuVram}
+                    onChange={(e) => setMinGpuVram(e.target.value)}
+                    placeholder="без ограничения"
+                    style={inputStyle}
+                    className="mt-1"
+                    data-testid="input-min-gpu-vram"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-300">Ядра CPU</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={minCpuCores}
+                    onChange={(e) => setMinCpuCores(e.target.value)}
+                    placeholder="без ограничения"
+                    style={inputStyle}
+                    className="mt-1"
+                    data-testid="input-min-cpu-cores"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-slate-300">RAM, ГБ</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={minRamGb}
+                    onChange={(e) => setMinRamGb(e.target.value)}
+                    placeholder="без ограничения"
+                    style={inputStyle}
+                    className="mt-1"
+                    data-testid="input-min-ram-gb"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-300">Интернет, Мбит/с</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={minDownloadMbps}
+                    onChange={(e) => setMinDownloadMbps(e.target.value)}
+                    placeholder="без ограничения"
+                    style={inputStyle}
+                    className="mt-1"
+                    data-testid="input-min-download-mbps"
+                  />
+                </div>
+              </div>
+            </CardContent>
           </Card>
 
           <Card style={cardStyle}>

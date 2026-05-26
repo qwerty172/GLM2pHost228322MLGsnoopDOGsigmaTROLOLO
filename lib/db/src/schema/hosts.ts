@@ -124,11 +124,13 @@ export const hostsTable = pgTable("hosts", {
   isVds: integer("is_vds").notNull().default(0),
 
   // PC hardware specifications reported by the host agent.
-  // Shape: { gpu: string; cpu: string; ramGb: number }
+  // Shape: { gpu: string; cpu: string; ramGb: number; cpuCores?: number; downloadMbps?: number }
   pcSpecs: jsonb("pc_specs").$type<{
     gpu: string;
     cpu: string;
     ramGb: number;
+    cpuCores?: number;
+    downloadMbps?: number;
   } | null>(),
 
   createdAt: timestamp("created_at", { withTimezone: true })

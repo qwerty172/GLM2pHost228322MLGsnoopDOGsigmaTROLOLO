@@ -194,6 +194,38 @@ router.post("/sessions", async (req, res): Promise<void> => {
         .json({ error: "Quota is bound to a different game" });
       return;
     }
+    // PC specs check: enforce all four quota thresholds against the host's
+    // reported pcSpecs. Fields that the host hasn't reported (cpuCores,
+    // downloadMbps) are skipped so existing hosts are not broken; RAM is
+    // always present; VRAM is parsed best-effort from the GPU name string.
+    const specs = host.pcSpecs;
+    if (specs) {
+      // Build human-readable host/quota descriptions for error messages.
+      const vramMatch = specs.gpu.match(/(\d+)\s*GB/i);
+      const hostVram = vramMatch ? parseInt(vramMatch[1], 10) : null;
+
+      const violations: string[] = [];
+
+      if (quota.minGpuVram != null && hostVram != null && hostVram < quota.minGpuVram) {
+        violations.push(`GPU VRAM: хост ${hostVram} GB, минимум ${quota.minGpuVram} GB`);
+      }
+      if (quota.minCpuCores != null && specs.cpuCores != null && specs.cpuCores < quota.minCpuCores) {
+        violations.push(`CPU ядра: хост ${specs.cpuCores}, минимум ${quota.minCpuCores}`);
+      }
+      if (quota.minRamGb != null && specs.ramGb < quota.minRamGb) {
+        violations.push(`RAM: хост ${specs.ramGb} GB, минимум ${quota.minRamGb} GB`);
+      }
+      if (quota.minDownloadMbps != null && specs.downloadMbps != null && specs.downloadMbps < quota.minDownloadMbps) {
+        violations.push(`Интернет: хост ${specs.downloadMbps} Мбит/с, минимум ${quota.minDownloadMbps} Мбит/с`);
+      }
+
+      if (violations.length > 0) {
+        res.status(400).json({
+          error: `ПК хоста (${specs.gpu}, ${specs.ramGb} GB RAM) ниже минимальных требований квоты: ${violations.join("; ")}`,
+        });
+        return;
+      }
+    }
     resolvedQuotaId = quota.id;
   }
 

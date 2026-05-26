@@ -50,6 +50,26 @@ export interface Quota {
   royaltyValue: number | null;
   /** @nullable */
   royaltySource: string | null;
+  /**
+   * Minimum GPU VRAM in GB (null = no requirement)
+   * @nullable
+   */
+  minGpuVram: number | null;
+  /**
+   * Minimum CPU core count (null = no requirement)
+   * @nullable
+   */
+  minCpuCores: number | null;
+  /**
+   * Minimum RAM in GB (null = no requirement)
+   * @nullable
+   */
+  minRamGb: number | null;
+  /**
+   * Minimum download bandwidth in Mbps (null = no requirement)
+   * @nullable
+   */
+  minDownloadMbps: number | null;
   createdAt: Date;
   updatedAt: Date;
 }

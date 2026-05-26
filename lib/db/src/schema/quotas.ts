@@ -56,6 +56,14 @@ export const quotasTable = pgTable(
     minSessionMinutes: integer("min_session_minutes"),
     maxSessionMinutes: integer("max_session_minutes"),
 
+    // ---- Minimum PC specs required on the host's machine ----
+    // All optional (NULL = no requirement). Used to prevent a quota for a
+    // demanding game (e.g. Cyberpunk) from attaching to an underpowered host.
+    minGpuVram: integer("min_gpu_vram"),     // GB VRAM
+    minCpuCores: integer("min_cpu_cores"),   // logical cores
+    minRamGb: integer("min_ram_gb"),         // GB RAM
+    minDownloadMbps: integer("min_download_mbps"), // Mbps
+
     startAt: timestamp("start_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

@@ -12,7 +12,8 @@ import {
   sessionsTable,
   type Quota,
 } from "@workspace/db";
-import { CreateQuotaBody, UpdateQuotaBody } from "@workspace/api-zod";
+import { CreateQuotaBody, UpdateQuotaBody, AiSuggestQuotaSpecsBody } from "@workspace/api-zod";
+import { anthropic } from "@workspace/integrations-anthropic-ai";
 
 // Orval splits each endpoint's body into a unique generated symbol; we use a
 // single local schema for the simple owner-only POST bodies.
@@ -60,6 +61,10 @@ function shapeQuota(
     royaltyBasis: q.royaltyBasis,
     royaltyValue: q.royaltyValue,
     royaltySource: q.royaltySource,
+    minGpuVram: q.minGpuVram,
+    minCpuCores: q.minCpuCores,
+    minRamGb: q.minRamGb,
+    minDownloadMbps: q.minDownloadMbps,
     createdAt: q.createdAt.toISOString(),
     updatedAt: q.updatedAt.toISOString(),
   };
@@ -164,6 +169,68 @@ function validateSponsorConfig(q: {
   }
   return null;
 }
+
+// ---------- AI suggest PC specs ----------
+
+router.post("/quotas/ai-suggest-specs", async (req, res): Promise<void> => {
+  const parsed = AiSuggestQuotaSpecsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { gameId } = parsed.data;
+  let resolvedTitle = parsed.data.gameTitle ?? null;
+  let resolvedGenre = parsed.data.genre ?? null;
+
+  // Resolve game title and genre from gameId when provided
+  if (gameId) {
+    const [game] = await db
+      .select({ title: gamesTable.title, genre: gamesTable.genre })
+      .from(gamesTable)
+      .where(eq(gamesTable.id, gameId));
+    if (game) {
+      if (!resolvedTitle) resolvedTitle = game.title;
+      if (!resolvedGenre && game.genre) resolvedGenre = game.genre;
+    }
+  }
+
+  let prompt: string;
+  if (resolvedTitle) {
+    prompt = `Какие минимальные требования к ПК для комфортного стриминга игры ${resolvedTitle}${resolvedGenre ? ` (жанр: ${resolvedGenre})` : ""} в 1080p60? Ответь ТОЛЬКО JSON объектом без комментариев и markdown, вот пример формата: {"minGpuVram": 6, "minCpuCores": 6, "minRamGb": 16, "minDownloadMbps": 50}. minGpuVram — минимум видеопамяти GPU в ГБ, minCpuCores — количество ядер CPU, minRamGb — ОЗУ в ГБ, minDownloadMbps — скорость интернета в Мбит/с.`;
+  } else {
+    prompt = `Верни универсальные минимальные требования к ПК для стриминга игр в 1080p60. Ответь ТОЛЬКО JSON объектом без комментариев и markdown, вот пример формата: {"minGpuVram": 6, "minCpuCores": 4, "minRamGb": 16, "minDownloadMbps": 50}.`;
+  }
+
+  try {
+    const message = await anthropic.messages.create({
+      model: "claude-haiku-4-5",
+      max_tokens: 256,
+      messages: [{ role: "user", content: prompt }],
+    });
+    const text = message.content.find((b) => b.type === "text")?.text ?? "";
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      res.status(500).json({ error: "AI returned unexpected format" });
+      return;
+    }
+    const data = JSON.parse(jsonMatch[0]) as {
+      minGpuVram?: unknown;
+      minCpuCores?: unknown;
+      minRamGb?: unknown;
+      minDownloadMbps?: unknown;
+    };
+    res.json({
+      minGpuVram: typeof data.minGpuVram === "number" ? Math.round(data.minGpuVram) : 6,
+      minCpuCores: typeof data.minCpuCores === "number" ? Math.round(data.minCpuCores) : 4,
+      minRamGb: typeof data.minRamGb === "number" ? Math.round(data.minRamGb) : 16,
+      minDownloadMbps: typeof data.minDownloadMbps === "number" ? Math.round(data.minDownloadMbps) : 50,
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "AI request failed",
+    });
+  }
+});
 
 // ---------- Public list ----------
 
@@ -497,6 +564,10 @@ router.post("/quotas", async (req, res): Promise<void> => {
       royaltyValue: body.kind === "royalty" ? body.royaltyValue ?? null : null,
       royaltySource:
         body.kind === "royalty" ? body.royaltySource ?? null : null,
+      minGpuVram: body.minGpuVram ?? null,
+      minCpuCores: body.minCpuCores ?? null,
+      minRamGb: body.minRamGb ?? null,
+      minDownloadMbps: body.minDownloadMbps ?? null,
     })
     .returning();
   if (!created) {
@@ -581,6 +652,10 @@ router.patch("/quotas/:id", async (req, res): Promise<void> => {
   if (b.royaltyBasis !== undefined) updates.royaltyBasis = b.royaltyBasis;
   if (b.royaltyValue !== undefined) updates.royaltyValue = b.royaltyValue;
   if (b.royaltySource !== undefined) updates.royaltySource = b.royaltySource;
+  if (b.minGpuVram !== undefined) updates.minGpuVram = b.minGpuVram;
+  if (b.minCpuCores !== undefined) updates.minCpuCores = b.minCpuCores;
+  if (b.minRamGb !== undefined) updates.minRamGb = b.minRamGb;
+  if (b.minDownloadMbps !== undefined) updates.minDownloadMbps = b.minDownloadMbps;
   // private→public clears the access code; public→private mints a new one.
   if (b.visibility === "public") updates.accessCode = null;
   if (b.visibility === "private" && !quota.accessCode)

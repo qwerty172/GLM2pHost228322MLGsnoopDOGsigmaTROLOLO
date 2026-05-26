@@ -518,6 +518,26 @@ export interface Quota {
   royaltyValue: number | null;
   /** @nullable */
   royaltySource: string | null;
+  /**
+   * Minimum GPU VRAM in GB (null = no requirement)
+   * @nullable
+   */
+  minGpuVram: number | null;
+  /**
+   * Minimum CPU core count (null = no requirement)
+   * @nullable
+   */
+  minCpuCores: number | null;
+  /**
+   * Minimum RAM in GB (null = no requirement)
+   * @nullable
+   */
+  minRamGb: number | null;
+  /**
+   * Minimum download bandwidth in Mbps (null = no requirement)
+   * @nullable
+   */
+  minDownloadMbps: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -583,6 +603,14 @@ export interface CreateQuotaBody {
   royaltyValue?: number | null;
   /** @nullable */
   royaltySource?: string | null;
+  /** @nullable */
+  minGpuVram?: number | null;
+  /** @nullable */
+  minCpuCores?: number | null;
+  /** @nullable */
+  minRamGb?: number | null;
+  /** @nullable */
+  minDownloadMbps?: number | null;
 }
 
 export type UpdateQuotaBodyVisibility =
@@ -618,6 +646,33 @@ export interface UpdateQuotaBody {
   royaltyValue?: number | null;
   /** @nullable */
   royaltySource?: string | null;
+  /** @nullable */
+  minGpuVram?: number | null;
+  /** @nullable */
+  minCpuCores?: number | null;
+  /** @nullable */
+  minRamGb?: number | null;
+  /** @nullable */
+  minDownloadMbps?: number | null;
+}
+
+export interface AiSuggestQuotaSpecsBody {
+  /**
+   * Optional game ID — the server will resolve its title and genre
+   * @nullable
+   */
+  gameId?: string | null;
+  /** @nullable */
+  gameTitle?: string | null;
+  /** @nullable */
+  genre?: string | null;
+}
+
+export interface AiSuggestQuotaSpecsResponse {
+  minGpuVram: number;
+  minCpuCores: number;
+  minRamGb: number;
+  minDownloadMbps: number;
 }
 
 export interface QuotaOwnerBody {

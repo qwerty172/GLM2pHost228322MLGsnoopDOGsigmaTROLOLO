@@ -24,7 +24,6 @@ import ExchangePage from "@/pages/exchange";
 import { HostLayout } from "@/components/layout";
 import { HostAuthGuard } from "@/components/host-auth-guard";
 import ProfilePage from "@/pages/profile";
-import ExchangePage from "@/pages/exchange";
 
 const queryClient = new QueryClient();
 

@@ -854,6 +854,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/Quota"
 
+  /quotas/ai-suggest-specs:
+    post:
+      operationId: aiSuggestQuotaSpecs
+      tags: [quotas]
+      summary: Use AI to suggest minimum PC specs for a game
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiSuggestQuotaSpecsBody"
+      responses:
+        "200":
+          description: Suggested specs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiSuggestQuotaSpecsResponse"
+        "500":
+          description: AI error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /quotas/{id}/regenerate-code:
     post:
       operationId: regenerateQuotaCode
@@ -2056,6 +2081,18 @@ components:
           type: ["integer", "null"]
         royaltySource:
           type: ["string", "null"]
+        minGpuVram:
+          type: ["integer", "null"]
+          description: Minimum GPU VRAM in GB (null = no requirement)
+        minCpuCores:
+          type: ["integer", "null"]
+          description: Minimum CPU core count (null = no requirement)
+        minRamGb:
+          type: ["integer", "null"]
+          description: Minimum RAM in GB (null = no requirement)
+        minDownloadMbps:
+          type: ["integer", "null"]
+          description: Minimum download bandwidth in Mbps (null = no requirement)
         createdAt:
           type: string
           format: date-time
@@ -2086,6 +2123,10 @@ components:
         - royaltyBasis
         - royaltyValue
         - royaltySource
+        - minGpuVram
+        - minCpuCores
+        - minRamGb
+        - minDownloadMbps
         - createdAt
         - updatedAt
 
@@ -2174,6 +2215,14 @@ components:
           type: ["integer", "null"]
         royaltySource:
           type: ["string", "null"]
+        minGpuVram:
+          type: ["integer", "null"]
+        minCpuCores:
+          type: ["integer", "null"]
+        minRamGb:
+          type: ["integer", "null"]
+        minDownloadMbps:
+          type: ["integer", "null"]
       required:
         - ownerToken
         - kind
@@ -2213,8 +2262,45 @@ components:
           type: ["integer", "null"]
         royaltySource:
           type: ["string", "null"]
+        minGpuVram:
+          type: ["integer", "null"]
+        minCpuCores:
+          type: ["integer", "null"]
+        minRamGb:
+          type: ["integer", "null"]
+        minDownloadMbps:
+          type: ["integer", "null"]
       required:
         - ownerToken
+
+    AiSuggestQuotaSpecsBody:
+      type: object
+      properties:
+        gameId:
+          type: ["string", "null"]
+          description: Optional game ID — the server will resolve its title and genre
+        gameTitle:
+          type: ["string", "null"]
+        genre:
+          type: ["string", "null"]
+      required: []
+
+    AiSuggestQuotaSpecsResponse:
+      type: object
+      properties:
+        minGpuVram:
+          type: integer
+        minCpuCores:
+          type: integer
+        minRamGb:
+          type: integer
+        minDownloadMbps:
+          type: integer
+      required:
+        - minGpuVram
+        - minCpuCores
+        - minRamGb
+        - minDownloadMbps
 
     QuotaOwnerBody:
       type: object

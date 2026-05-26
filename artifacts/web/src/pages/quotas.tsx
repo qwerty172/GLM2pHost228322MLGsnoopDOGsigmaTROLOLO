@@ -103,6 +103,23 @@ function QuotaCard({ q }: { q: Quota }) {
           {q.gameTitle && (
             <div className="text-slate-600">Игра: {q.gameTitle}</div>
           )}
+          {(q.minGpuVram != null || q.minRamGb != null) && (
+            <div className="mt-2 pt-2 border-t border-white/5">
+              <span
+                className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded"
+                style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}
+              >
+                {[
+                  q.minGpuVram != null && `${q.minGpuVram}GB VRAM+`,
+                  q.minRamGb != null && `${q.minRamGb}GB RAM+`,
+                  q.minCpuCores != null && `${q.minCpuCores} ядер+`,
+                  q.minDownloadMbps != null && `${q.minDownloadMbps}Mbps+`,
+                ]
+                  .filter(Boolean)
+                  .join(" / ")}
+              </span>
+            </div>
+          )}
           <div className="text-slate-600">Автор: {q.ownerDisplayName}</div>
         </div>
       </div>

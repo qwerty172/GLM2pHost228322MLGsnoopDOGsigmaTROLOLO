@@ -36,4 +36,12 @@ export interface CreateQuotaBody {
   royaltyValue?: number | null;
   /** @nullable */
   royaltySource?: string | null;
+  /** @nullable */
+  minGpuVram?: number | null;
+  /** @nullable */
+  minCpuCores?: number | null;
+  /** @nullable */
+  minRamGb?: number | null;
+  /** @nullable */
+  minDownloadMbps?: number | null;
 }

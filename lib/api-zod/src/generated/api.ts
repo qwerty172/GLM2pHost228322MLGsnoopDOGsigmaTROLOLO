@@ -841,6 +841,22 @@ export const ListPublicQuotasResponseItem = zod.object({
   royaltyBasis: zod.string().nullable(),
   royaltyValue: zod.number().nullable(),
   royaltySource: zod.string().nullable(),
+  minGpuVram: zod
+    .number()
+    .nullable()
+    .describe("Minimum GPU VRAM in GB (null = no requirement)"),
+  minCpuCores: zod
+    .number()
+    .nullable()
+    .describe("Minimum CPU core count (null = no requirement)"),
+  minRamGb: zod
+    .number()
+    .nullable()
+    .describe("Minimum RAM in GB (null = no requirement)"),
+  minDownloadMbps: zod
+    .number()
+    .nullable()
+    .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -866,6 +882,10 @@ export const CreateQuotaBody = zod.object({
   royaltyBasis: zod.string().nullish(),
   royaltyValue: zod.number().nullish(),
   royaltySource: zod.string().nullish(),
+  minGpuVram: zod.number().nullish(),
+  minCpuCores: zod.number().nullish(),
+  minRamGb: zod.number().nullish(),
+  minDownloadMbps: zod.number().nullish(),
 });
 
 /**
@@ -909,6 +929,22 @@ export const ListMyQuotasResponseItem = zod.object({
   royaltyBasis: zod.string().nullable(),
   royaltyValue: zod.number().nullable(),
   royaltySource: zod.string().nullable(),
+  minGpuVram: zod
+    .number()
+    .nullable()
+    .describe("Minimum GPU VRAM in GB (null = no requirement)"),
+  minCpuCores: zod
+    .number()
+    .nullable()
+    .describe("Minimum CPU core count (null = no requirement)"),
+  minRamGb: zod
+    .number()
+    .nullable()
+    .describe("Minimum RAM in GB (null = no requirement)"),
+  minDownloadMbps: zod
+    .number()
+    .nullable()
+    .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -955,6 +991,22 @@ export const ListAppliedQuotasResponseItem = zod.object({
   royaltyBasis: zod.string().nullable(),
   royaltyValue: zod.number().nullable(),
   royaltySource: zod.string().nullable(),
+  minGpuVram: zod
+    .number()
+    .nullable()
+    .describe("Minimum GPU VRAM in GB (null = no requirement)"),
+  minCpuCores: zod
+    .number()
+    .nullable()
+    .describe("Minimum CPU core count (null = no requirement)"),
+  minRamGb: zod
+    .number()
+    .nullable()
+    .describe("Minimum RAM in GB (null = no requirement)"),
+  minDownloadMbps: zod
+    .number()
+    .nullable()
+    .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1005,6 +1057,22 @@ export const ListApplicableQuotasResponseItem = zod.object({
   royaltyBasis: zod.string().nullable(),
   royaltyValue: zod.number().nullable(),
   royaltySource: zod.string().nullable(),
+  minGpuVram: zod
+    .number()
+    .nullable()
+    .describe("Minimum GPU VRAM in GB (null = no requirement)"),
+  minCpuCores: zod
+    .number()
+    .nullable()
+    .describe("Minimum CPU core count (null = no requirement)"),
+  minRamGb: zod
+    .number()
+    .nullable()
+    .describe("Minimum RAM in GB (null = no requirement)"),
+  minDownloadMbps: zod
+    .number()
+    .nullable()
+    .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1058,6 +1126,22 @@ export const GetQuotaResponse = zod
     royaltyBasis: zod.string().nullable(),
     royaltyValue: zod.number().nullable(),
     royaltySource: zod.string().nullable(),
+    minGpuVram: zod
+      .number()
+      .nullable()
+      .describe("Minimum GPU VRAM in GB (null = no requirement)"),
+    minCpuCores: zod
+      .number()
+      .nullable()
+      .describe("Minimum CPU core count (null = no requirement)"),
+    minRamGb: zod
+      .number()
+      .nullable()
+      .describe("Minimum RAM in GB (null = no requirement)"),
+    minDownloadMbps: zod
+      .number()
+      .nullable()
+      .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
     createdAt: zod.coerce.date(),
     updatedAt: zod.coerce.date(),
   })
@@ -1103,6 +1187,10 @@ export const UpdateQuotaBody = zod.object({
   royaltyBasis: zod.string().nullish(),
   royaltyValue: zod.number().nullish(),
   royaltySource: zod.string().nullish(),
+  minGpuVram: zod.number().nullish(),
+  minCpuCores: zod.number().nullish(),
+  minRamGb: zod.number().nullish(),
+  minDownloadMbps: zod.number().nullish(),
 });
 
 export const UpdateQuotaResponse = zod.object({
@@ -1139,6 +1227,22 @@ export const UpdateQuotaResponse = zod.object({
   royaltyBasis: zod.string().nullable(),
   royaltyValue: zod.number().nullable(),
   royaltySource: zod.string().nullable(),
+  minGpuVram: zod
+    .number()
+    .nullable()
+    .describe("Minimum GPU VRAM in GB (null = no requirement)"),
+  minCpuCores: zod
+    .number()
+    .nullable()
+    .describe("Minimum CPU core count (null = no requirement)"),
+  minRamGb: zod
+    .number()
+    .nullable()
+    .describe("Minimum RAM in GB (null = no requirement)"),
+  minDownloadMbps: zod
+    .number()
+    .nullable()
+    .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1188,6 +1292,22 @@ export const PublishQuotaResponse = zod.object({
   royaltyBasis: zod.string().nullable(),
   royaltyValue: zod.number().nullable(),
   royaltySource: zod.string().nullable(),
+  minGpuVram: zod
+    .number()
+    .nullable()
+    .describe("Minimum GPU VRAM in GB (null = no requirement)"),
+  minCpuCores: zod
+    .number()
+    .nullable()
+    .describe("Minimum CPU core count (null = no requirement)"),
+  minRamGb: zod
+    .number()
+    .nullable()
+    .describe("Minimum RAM in GB (null = no requirement)"),
+  minDownloadMbps: zod
+    .number()
+    .nullable()
+    .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1237,6 +1357,22 @@ export const PauseQuotaResponse = zod.object({
   royaltyBasis: zod.string().nullable(),
   royaltyValue: zod.number().nullable(),
   royaltySource: zod.string().nullable(),
+  minGpuVram: zod
+    .number()
+    .nullable()
+    .describe("Minimum GPU VRAM in GB (null = no requirement)"),
+  minCpuCores: zod
+    .number()
+    .nullable()
+    .describe("Minimum CPU core count (null = no requirement)"),
+  minRamGb: zod
+    .number()
+    .nullable()
+    .describe("Minimum RAM in GB (null = no requirement)"),
+  minDownloadMbps: zod
+    .number()
+    .nullable()
+    .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1286,8 +1422,43 @@ export const CloseQuotaResponse = zod.object({
   royaltyBasis: zod.string().nullable(),
   royaltyValue: zod.number().nullable(),
   royaltySource: zod.string().nullable(),
+  minGpuVram: zod
+    .number()
+    .nullable()
+    .describe("Minimum GPU VRAM in GB (null = no requirement)"),
+  minCpuCores: zod
+    .number()
+    .nullable()
+    .describe("Minimum CPU core count (null = no requirement)"),
+  minRamGb: zod
+    .number()
+    .nullable()
+    .describe("Minimum RAM in GB (null = no requirement)"),
+  minDownloadMbps: zod
+    .number()
+    .nullable()
+    .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Use AI to suggest minimum PC specs for a game
+ */
+export const AiSuggestQuotaSpecsBody = zod.object({
+  gameId: zod
+    .string()
+    .nullish()
+    .describe("Optional game ID — the server will resolve its title and genre"),
+  gameTitle: zod.string().nullish(),
+  genre: zod.string().nullish(),
+});
+
+export const AiSuggestQuotaSpecsResponse = zod.object({
+  minGpuVram: zod.number(),
+  minCpuCores: zod.number(),
+  minRamGb: zod.number(),
+  minDownloadMbps: zod.number(),
 });
 
 /**
@@ -1335,6 +1506,22 @@ export const RegenerateQuotaCodeResponse = zod.object({
   royaltyBasis: zod.string().nullable(),
   royaltyValue: zod.number().nullable(),
   royaltySource: zod.string().nullable(),
+  minGpuVram: zod
+    .number()
+    .nullable()
+    .describe("Minimum GPU VRAM in GB (null = no requirement)"),
+  minCpuCores: zod
+    .number()
+    .nullable()
+    .describe("Minimum CPU core count (null = no requirement)"),
+  minRamGb: zod
+    .number()
+    .nullable()
+    .describe("Minimum RAM in GB (null = no requirement)"),
+  minDownloadMbps: zod
+    .number()
+    .nullable()
+    .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
