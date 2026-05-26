@@ -14,6 +14,7 @@ import storageRouter from "./storage";
 import loansRouter from "./loans";
 import premiumRouter from "./premium";
 import agentAuthRouter from "./agentAuth";
+import vdsRouter from "./vds";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(submissionsRouter);
 router.use(storageRouter);
 router.use(loansRouter);
 router.use(premiumRouter);
+router.use(vdsRouter);
 
 export default router;

@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Coins, Sparkles, Loader2 } from "lucide-react";
+import { Coins, Sparkles, Loader2, Server, ChevronDown, ChevronRight, CheckCircle2, XCircle } from "lucide-react";
 
 const cardStyle = {
   background: "#0a1018",
@@ -60,9 +60,81 @@ export default function QuotaNewPage() {
   const [endAt, setEndAt] = useState<string>("");
   const [publishNow, setPublishNow] = useState<boolean>(true);
 
+  const [vdsOpen, setVdsOpen] = useState(false);
+  const [vdsProvider] = useState("ssh");
+  const [vdsSshHost, setVdsSshHost] = useState("");
+  const [vdsSshPort, setVdsSshPort] = useState("22");
+  const [vdsSshUser, setVdsSshUser] = useState("root");
+  const [vdsSshKey, setVdsSshKey] = useState("");
+  const [vdsTestResult, setVdsTestResult] = useState<null | { ok: boolean; error?: string }>(null);
+  const [vdsTesting, setVdsTesting] = useState(false);
+  const [vdsSaving, setVdsSaving] = useState(false);
+
   const createQuota = useCreateQuota();
   const publishQuota = usePublishQuota();
   const { data: games } = useListGames({});
+
+  const testVdsConnection = async () => {
+    if (!vdsSshHost.trim() || !vdsSshUser.trim() || !vdsSshKey.trim()) {
+      toast.error("Укажи SSH host, user и ключ");
+      return;
+    }
+    setVdsTesting(true);
+    setVdsTestResult(null);
+    try {
+      const res = await fetch(
+        `${import.meta.env.BASE_URL}api/quotas/vds/test-connection`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sshHost: vdsSshHost.trim(),
+            sshPort: Number(vdsSshPort) || 22,
+            sshUser: vdsSshUser.trim(),
+            sshKey: vdsSshKey,
+          }),
+        },
+      );
+      const data = (await res.json()) as { ok: boolean; error?: string };
+      setVdsTestResult(data);
+    } catch {
+      setVdsTestResult({ ok: false, error: "Ошибка сети" });
+    } finally {
+      setVdsTesting(false);
+    }
+  };
+
+  const saveVdsConfig = async (quotaId: string) => {
+    if (!hostToken || !vdsSshHost.trim() || !vdsSshKey.trim()) return;
+    setVdsSaving(true);
+    try {
+      const res = await fetch(
+        `${import.meta.env.BASE_URL}api/quotas/${quotaId}/vds`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ownerToken: hostToken,
+            provider: vdsProvider,
+            sshHost: vdsSshHost.trim(),
+            sshPort: Number(vdsSshPort) || 22,
+            sshUser: vdsSshUser.trim(),
+            sshKey: vdsSshKey,
+          }),
+        },
+      );
+      if (!res.ok) {
+        const d = (await res.json()) as { error?: string };
+        toast.error(d.error ?? "Не удалось сохранить VDS-конфиг");
+      } else {
+        toast.success("VDS-конфиг сохранён, провижининг запущен");
+      }
+    } catch {
+      toast.error("Ошибка сети при сохранении VDS");
+    } finally {
+      setVdsSaving(false);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,6 +174,11 @@ export default function QuotaNewPage() {
         },
       });
       toast.success("Черновик создан");
+
+      if (vdsOpen && vdsSshHost.trim() && vdsSshKey.trim()) {
+        await saveVdsConfig(created.id);
+      }
+
       if (publishNow) {
         try {
           await publishQuota.mutateAsync({
@@ -506,6 +583,148 @@ export default function QuotaNewPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* VDS Hosting section */}
+          <Card style={cardStyle}>
+            <CardHeader className="pb-2">
+              <button
+                type="button"
+                className="flex items-center gap-2 w-full text-left"
+                onClick={() => setVdsOpen((v) => !v)}
+                data-testid="vds-toggle"
+              >
+                {vdsOpen ? (
+                  <ChevronDown className="w-4 h-4 text-sky-400 shrink-0" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-slate-500 shrink-0" />
+                )}
+                <Server className="w-4 h-4 text-sky-400 shrink-0" />
+                <CardTitle className="text-white text-sm font-semibold">
+                  Хостинг через VDS{" "}
+                  <span
+                    className="text-xs font-normal ml-1 px-1.5 py-0.5 rounded"
+                    style={{ background: "rgba(14,165,233,0.15)", color: "#38bdf8" }}
+                  >
+                    премиум
+                  </span>
+                </CardTitle>
+              </button>
+              {!vdsOpen && (
+                <p className="text-xs text-slate-500 mt-1 ml-8">
+                  Подключи свой VDS — платформа сама развернёт агент и будет хостить за тебя.
+                </p>
+              )}
+            </CardHeader>
+
+            {vdsOpen && (
+              <CardContent className="space-y-4 pt-0">
+                <div>
+                  <Label className="text-slate-300">Провайдер</Label>
+                  <select
+                    className="mt-1 w-full h-10 rounded-md px-3 text-sm"
+                    style={inputStyle}
+                    value="ssh"
+                    readOnly
+                  >
+                    <option value="ssh">Свой SSH</option>
+                  </select>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Поддерживается Linux-сервер с Wine/Proton для запуска Windows-игр.
+                  </p>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2">
+                    <Label className="text-slate-300">SSH Host</Label>
+                    <Input
+                      value={vdsSshHost}
+                      onChange={(e) => setVdsSshHost(e.target.value)}
+                      placeholder="1.2.3.4 или example.com"
+                      style={inputStyle}
+                      className="mt-1"
+                      data-testid="vds-ssh-host"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-slate-300">Порт</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={65535}
+                      value={vdsSshPort}
+                      onChange={(e) => setVdsSshPort(e.target.value)}
+                      style={inputStyle}
+                      className="mt-1"
+                      data-testid="vds-ssh-port"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-slate-300">SSH User</Label>
+                  <Input
+                    value={vdsSshUser}
+                    onChange={(e) => setVdsSshUser(e.target.value)}
+                    placeholder="root"
+                    style={inputStyle}
+                    className="mt-1"
+                    data-testid="vds-ssh-user"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-300">
+                    Приватный SSH-ключ (PEM / OpenSSH)
+                  </Label>
+                  <Textarea
+                    value={vdsSshKey}
+                    onChange={(e) => setVdsSshKey(e.target.value)}
+                    placeholder={"-----BEGIN OPENSSH PRIVATE KEY-----\n..."}
+                    style={{ ...inputStyle, fontFamily: "monospace", fontSize: "11px" }}
+                    className="mt-1"
+                    rows={5}
+                    data-testid="vds-ssh-key"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Ключ шифруется и хранится зашифрованно на сервере. Публичная часть не сохраняется.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={testVdsConnection}
+                    disabled={vdsTesting}
+                    style={{
+                      borderColor: "rgba(255,255,255,0.12)",
+                      color: "#94a3b8",
+                      background: "transparent",
+                    }}
+                    data-testid="vds-test-connection"
+                  >
+                    {vdsTesting ? (
+                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    ) : null}
+                    Проверить подключение
+                  </Button>
+                  {vdsTestResult !== null && (
+                    <span
+                      className="flex items-center gap-1 text-xs font-medium"
+                      style={{ color: vdsTestResult.ok ? "#22c55e" : "#f87171" }}
+                    >
+                      {vdsTestResult.ok ? (
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                      ) : (
+                        <XCircle className="w-3.5 h-3.5" />
+                      )}
+                      {vdsTestResult.ok
+                        ? "Подключение успешно"
+                        : vdsTestResult.error ?? "Ошибка подключения"}
+                    </span>
+                  )}
+                </div>
+              </CardContent>
+            )}
+          </Card>
 
           <Card style={cardStyle}>
             <CardContent className="py-4 flex items-center justify-between gap-3">

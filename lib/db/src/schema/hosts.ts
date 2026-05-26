@@ -119,6 +119,10 @@ export const hostsTable = pgTable("hosts", {
   // Null until the host binds their agent via POST /api/auth/bind-agent-key.
   agentPubkey: text("agent_pubkey"),
 
+  // Set to true when this host was auto-provisioned by the platform on a VDS
+  // owned by a quota owner. VDS hosts are separated from live hosts in the catalog.
+  isVds: integer("is_vds").notNull().default(0),
+
   // PC hardware specifications reported by the host agent.
   // Shape: { gpu: string; cpu: string; ramGb: number }
   pcSpecs: jsonb("pc_specs").$type<{

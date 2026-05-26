@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import {
   useGetHost,
@@ -33,6 +33,10 @@ import {
   ChevronLeft,
   ChevronRight,
   WifiOff,
+  Server,
+  Wifi,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 
 const cardStyle = {
@@ -396,6 +400,224 @@ function HistoryTab({ hostToken }: { hostToken: string | null }) {
   );
 }
 
+type VdsEntry = {
+  id: string;
+  quotaId: string;
+  quotaTitle: string | null;
+  sshHost: string;
+  sshPort: number;
+  sshUser: string;
+  status: string;
+  provisionLog: string;
+  lastHealthAt: string | null;
+  hostId: string | null;
+  earnedLzt: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+function VdsStatusBadge({ status }: { status: string }) {
+  const map: Record<string, { label: string; color: string; bg: string }> = {
+    online: { label: "Online", color: "#22c55e", bg: "rgba(34,197,94,0.1)" },
+    offline: { label: "Offline", color: "#f87171", bg: "rgba(248,113,113,0.1)" },
+    pending: { label: "Ожидание", color: "#fbbf24", bg: "rgba(251,191,36,0.1)" },
+    provisioning: { label: "Провижининг…", color: "#38bdf8", bg: "rgba(56,189,248,0.1)" },
+    error: { label: "Ошибка", color: "#f43f5e", bg: "rgba(244,63,94,0.1)" },
+  };
+  const s = map[status] ?? { label: status, color: "#94a3b8", bg: "rgba(148,163,184,0.1)" };
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full"
+      style={{ background: s.bg, color: s.color }}
+    >
+      {status === "online" && <Wifi className="w-3 h-3" />}
+      {status === "offline" && <WifiOff className="w-3 h-3" />}
+      {status === "error" && <AlertCircle className="w-3 h-3" />}
+      {(status === "pending" || status === "provisioning") && (
+        <RefreshCw className="w-3 h-3 animate-spin" />
+      )}
+      {s.label}
+    </span>
+  );
+}
+
+function MyVdsTab({ hostToken }: { hostToken: string | null }) {
+  const [entries, setEntries] = useState<VdsEntry[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    if (!hostToken) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `${import.meta.env.BASE_URL}api/vds/mine?ownerToken=${encodeURIComponent(hostToken)}`,
+      );
+      if (!res.ok) {
+        const d = (await res.json()) as { error?: string };
+        setError(d.error ?? "Ошибка загрузки");
+      } else {
+        const data = (await res.json()) as VdsEntry[];
+        setEntries(data);
+      }
+    } catch {
+      setError("Ошибка сети");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, [hostToken]);
+
+  if (!hostToken) {
+    return (
+      <div className="mt-10 flex flex-col items-center gap-2 text-slate-500">
+        <Server className="w-8 h-8 opacity-40" />
+        <p className="text-sm">Войдите как хост, чтобы управлять VDS.</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="mt-4 space-y-3">
+        {[...Array(2)].map((_, i) => (
+          <Skeleton key={i} className="h-28 w-full rounded-xl" style={{ background: "rgba(255,255,255,0.04)" }} />
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="mt-6 text-center text-red-400 text-sm">{error}</div>
+    );
+  }
+
+  if (!entries || entries.length === 0) {
+    return (
+      <div className="mt-10 flex flex-col items-center gap-3 text-slate-500">
+        <Server className="w-10 h-10 opacity-30" />
+        <p className="text-sm">У тебя нет подключённых VDS-серверов.</p>
+        <p className="text-xs text-slate-600">
+          При создании квоты открой секцию «Хостинг через VDS» и добавь свой сервер.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 space-y-3">
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={load}
+          disabled={loading}
+          style={{ borderColor: "rgba(255,255,255,0.08)", color: "#94a3b8", background: "transparent" }}
+        >
+          <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+          Обновить
+        </Button>
+      </div>
+      {entries.map((vds) => (
+        <Card key={vds.id} style={{ background: "#0a1018", border: "1px solid rgba(255,255,255,0.06)" }}>
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: "rgba(14,165,233,0.1)" }}
+                >
+                  <Server className="w-5 h-5 text-sky-400" />
+                </div>
+                <div>
+                  <p className="text-white font-semibold text-sm">
+                    {vds.sshUser}@{vds.sshHost}:{vds.sshPort}
+                  </p>
+                  {vds.quotaTitle && (
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Квота: {vds.quotaTitle}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <VdsStatusBadge status={vds.status} />
+                <Badge
+                  variant="outline"
+                  className="border-0 text-xs"
+                  style={{ background: "rgba(255,255,255,0.04)", color: "#94a3b8" }}
+                >
+                  VDS
+                </Badge>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div
+                className="rounded-lg p-3"
+                style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}
+              >
+                <p className="text-xs text-slate-500 mb-1">Заработано</p>
+                <p className="text-sm font-bold text-emerald-300">
+                  {new Intl.NumberFormat("ru-RU").format(vds.earnedLzt)} LZT
+                </p>
+              </div>
+              <div
+                className="rounded-lg p-3"
+                style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}
+              >
+                <p className="text-xs text-slate-500 mb-1">Последний пинг</p>
+                <p className="text-sm text-slate-300">
+                  {vds.lastHealthAt
+                    ? new Date(vds.lastHealthAt).toLocaleString("ru-RU", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "—"}
+                </p>
+              </div>
+              <div
+                className="rounded-lg p-3"
+                style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}
+              >
+                <p className="text-xs text-slate-500 mb-1">Добавлен</p>
+                <p className="text-sm text-slate-300">
+                  {new Date(vds.createdAt).toLocaleDateString("ru-RU", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "2-digit",
+                  })}
+                </p>
+              </div>
+            </div>
+
+            {vds.provisionLog && (
+              <details className="mt-3">
+                <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-400">
+                  Лог провижининга
+                </summary>
+                <pre
+                  className="mt-2 text-xs text-slate-400 rounded-md p-3 overflow-auto max-h-40"
+                  style={{ background: "rgba(0,0,0,0.3)", fontFamily: "monospace" }}
+                >
+                  {vds.provisionLog}
+                </pre>
+              </details>
+            )}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 function AccountTab({ hostToken }: { hostToken: string | null }) {
   const { data: host, isLoading } = useGetHost(hostToken ?? "", {
     query: {
@@ -602,6 +824,16 @@ export default function ProfilePage() {
               <UserCircle2 className="w-3.5 h-3.5 mr-1.5" />
               Аккаунт
             </TabsTrigger>
+            {isHost && (
+              <TabsTrigger
+                value="vds"
+                className="text-xs"
+                data-testid="tab-vds"
+              >
+                <Server className="w-3.5 h-3.5 mr-1.5" />
+                Мои VDS
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {isHost && (
@@ -617,6 +849,12 @@ export default function ProfilePage() {
           <TabsContent value="account">
             <AccountTab hostToken={hostToken} />
           </TabsContent>
+
+          {isHost && (
+            <TabsContent value="vds">
+              <MyVdsTab hostToken={hostToken} />
+            </TabsContent>
+          )}
         </Tabs>
       </main>
     </div>

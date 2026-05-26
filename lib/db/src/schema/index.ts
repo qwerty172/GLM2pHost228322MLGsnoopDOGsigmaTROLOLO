@@ -12,3 +12,4 @@ export * from "./gameSubmissions";
 export * from "./ledger";
 export * from "./loans";
 export * from "./systemAccounts";
+export * from "./quotaVds";
