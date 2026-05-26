@@ -166,6 +166,9 @@ importers:
 
   artifacts/api-server:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.78.0
+        version: 0.78.0(zod@3.25.76)
       '@google-cloud/storage':
         specifier: ^7.19.0
         version: 7.19.0(encoding@0.1.13)
@@ -5022,6 +5025,12 @@ snapshots:
   7zip-bin@5.2.0: {}
 
   '@adraffy/ens-normalize@1.10.1': {}
+
+  '@anthropic-ai/sdk@0.78.0(zod@3.25.76)':
+    dependencies:
+      json-schema-to-ts: 3.1.1
+    optionalDependencies:
+      zod: 3.25.76
 
   '@anthropic-ai/sdk@0.78.0(zod@4.3.6)':
     dependencies:

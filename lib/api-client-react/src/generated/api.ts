@@ -52,6 +52,8 @@ import type {
   PublicHostListItem,
   PublicStats,
   Quota,
+  QuotaAiChatBody,
+  QuotaAiChatResponse,
   QuotaDetail,
   QuotaOwnerBody,
   RegisterHostBody,
@@ -2838,6 +2840,92 @@ export const useRegenerateQuotaCode = <
   TContext
 > => {
   return useMutation(getRegenerateQuotaCodeMutationOptions(options));
+};
+
+/**
+ * @summary AI assistant chat for filling / editing a quota form
+ */
+export const getQuotaAiChatUrl = () => {
+  return `/api/quotas/ai-chat`;
+};
+
+export const quotaAiChat = async (
+  quotaAiChatBody: QuotaAiChatBody,
+  options?: RequestInit,
+): Promise<QuotaAiChatResponse> => {
+  return customFetch<QuotaAiChatResponse>(getQuotaAiChatUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(quotaAiChatBody),
+  });
+};
+
+export const getQuotaAiChatMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof quotaAiChat>>,
+    TError,
+    { data: BodyType<QuotaAiChatBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof quotaAiChat>>,
+  TError,
+  { data: BodyType<QuotaAiChatBody> },
+  TContext
+> => {
+  const mutationKey = ["quotaAiChat"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof quotaAiChat>>,
+    { data: BodyType<QuotaAiChatBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return quotaAiChat(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type QuotaAiChatMutationResult = NonNullable<
+  Awaited<ReturnType<typeof quotaAiChat>>
+>;
+export type QuotaAiChatMutationBody = BodyType<QuotaAiChatBody>;
+export type QuotaAiChatMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary AI assistant chat for filling / editing a quota form
+ */
+export const useQuotaAiChat = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof quotaAiChat>>,
+    TError,
+    { data: BodyType<QuotaAiChatBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof quotaAiChat>>,
+  TError,
+  { data: BodyType<QuotaAiChatBody> },
+  TContext
+> => {
+  return useMutation(getQuotaAiChatMutationOptions(options));
 };
 
 /**

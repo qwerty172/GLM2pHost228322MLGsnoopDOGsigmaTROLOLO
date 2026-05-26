@@ -15,6 +15,7 @@ import loansRouter from "./loans";
 import premiumRouter from "./premium";
 import agentAuthRouter from "./agentAuth";
 import vdsRouter from "./vds";
+import quotaAiChatRouter from "./quotaAiChat";
 
 const router: IRouter = Router();
 
@@ -36,5 +37,6 @@ router.use(storageRouter);
 router.use(loansRouter);
 router.use(premiumRouter);
 router.use(vdsRouter);
+router.use(quotaAiChatRouter);
 
 export default router;

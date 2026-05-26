@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Coins, Sparkles, Loader2, Server, ChevronDown, ChevronRight, CheckCircle2, XCircle, Cpu, Wand2 } from "lucide-react";
+import { QuotaAiChat, type QuotaFormPatch } from "@/components/quota-ai-chat";
 
 const cardStyle = {
   background: "#0a1018",
@@ -249,13 +250,49 @@ export default function QuotaNewPage() {
     }
   };
 
+  const handleAiPatch = (patch: QuotaFormPatch) => {
+    if (patch.kind && (patch.kind === "royalty" || patch.kind === "sponsor")) setKind(patch.kind);
+    if (patch.title !== undefined) setTitle(patch.title);
+    if (patch.description !== undefined) setDescription(patch.description);
+    if (patch.visibility && (patch.visibility === "public" || patch.visibility === "private")) setVisibility(patch.visibility);
+    if (patch.royaltyBasis && (patch.royaltyBasis === "percent" || patch.royaltyBasis === "fixed_per_minute")) setRoyaltyBasis(patch.royaltyBasis);
+    if (patch.royaltyValue !== undefined) setRoyaltyValue(patch.royaltyValue);
+    if (patch.royaltySource && (patch.royaltySource === "player" || patch.royaltySource === "host_share")) setRoyaltySource(patch.royaltySource);
+    if (patch.budgetLzt !== undefined) setBudgetLzt(patch.budgetLzt);
+    if (patch.sponsorHostPerMinute !== undefined) setSponsorHostPerMinute(patch.sponsorHostPerMinute);
+    if (patch.sponsorPlayerPerMinute !== undefined) setSponsorPlayerPerMinute(patch.sponsorPlayerPerMinute);
+    if (patch.gameId !== undefined) setGameId(patch.gameId);
+    if (patch.minSessionMinutes !== undefined) setMinSessionMinutes(patch.minSessionMinutes);
+    if (patch.maxSessionMinutes !== undefined) setMaxSessionMinutes(patch.maxSessionMinutes);
+    if (patch.startAt !== undefined) setStartAt(patch.startAt);
+    if (patch.endAt !== undefined) setEndAt(patch.endAt);
+  };
+
+  const currentFormState = {
+    kind,
+    title,
+    description,
+    visibility,
+    royaltyBasis,
+    royaltyValue,
+    royaltySource,
+    budgetLzt,
+    sponsorHostPerMinute,
+    sponsorPlayerPerMinute,
+    gameId,
+    minSessionMinutes,
+    maxSessionMinutes,
+    startAt,
+    endAt,
+  };
+
   const isSponsor = kind === "sponsor";
 
   return (
     <div className="min-h-screen text-slate-300" style={{ background: "#06090e" }}>
       <SiteNav activePath="/quotas" />
-      <main className="max-w-2xl mx-auto px-6 pt-10 pb-16 space-y-6">
-        <div>
+      <main className="max-w-7xl mx-auto px-6 pt-10 pb-16">
+        <div className="mb-6">
           <h1 className="text-3xl font-extrabold tracking-tight text-white">
             Новая квота
           </h1>
@@ -264,648 +301,663 @@ export default function QuotaNewPage() {
           </p>
         </div>
 
-        <form onSubmit={submit} className="space-y-6">
-          <Card style={cardStyle}>
-            <CardHeader>
-              <CardTitle className="text-white">Тип квоты</CardTitle>
-              <CardDescription className="text-slate-500">
-                Роялти забирает кусок с каждой минуты в пользу автора. Спонсор
-                заранее замораживает бюджет и доплачивает хосту/игроку.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <RadioGroup
-                value={kind}
-                onValueChange={(v) => setKind(v as "royalty" | "sponsor")}
-                className="grid grid-cols-2 gap-4"
-              >
-                {[
-                  { v: "royalty", label: "Роялти", Icon: Coins, color: "#fbbf24" },
-                  { v: "sponsor", label: "Спонсор", Icon: Sparkles, color: "#38bdf8" },
-                ].map(({ v, label, Icon, color }) => (
-                  <div key={v}>
-                    <RadioGroupItem value={v} id={v} className="peer sr-only" />
-                    <Label
-                      htmlFor={v}
-                      className="flex items-center gap-3 rounded-md p-4 cursor-pointer transition-all"
+        <div className="flex gap-6 items-start">
+          <div className="flex-1 min-w-0">
+            <form onSubmit={submit} className="space-y-6">
+              <Card style={cardStyle}>
+                <CardHeader>
+                  <CardTitle className="text-white">Тип квоты</CardTitle>
+                  <CardDescription className="text-slate-500">
+                    Роялти забирает кусок с каждой минуты в пользу автора. Спонсор
+                    заранее замораживает бюджет и доплачивает хосту/игроку.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <RadioGroup
+                    value={kind}
+                    onValueChange={(v) => setKind(v as "royalty" | "sponsor")}
+                    className="grid grid-cols-2 gap-4"
+                  >
+                    {[
+                      { v: "royalty", label: "Роялти", Icon: Coins, color: "#fbbf24" },
+                      { v: "sponsor", label: "Спонсор", Icon: Sparkles, color: "#38bdf8" },
+                    ].map(({ v, label, Icon, color }) => (
+                      <div key={v}>
+                        <RadioGroupItem value={v} id={v} className="peer sr-only" />
+                        <Label
+                          htmlFor={v}
+                          className="flex items-center gap-3 rounded-md p-4 cursor-pointer transition-all"
+                          style={{
+                            background:
+                              kind === v
+                                ? "rgba(14,165,233,0.1)"
+                                : "rgba(255,255,255,0.02)",
+                            border:
+                              kind === v
+                                ? "2px solid #0ea5e9"
+                                : "2px solid rgba(255,255,255,0.06)",
+                          }}
+                        >
+                          <Icon className="h-5 w-5" style={{ color }} />
+                          <span className="text-white font-semibold">{label}</span>
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                </CardContent>
+              </Card>
+
+              <Card style={cardStyle}>
+                <CardHeader>
+                  <CardTitle className="text-white">Описание</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label className="text-slate-300">Название</Label>
+                    <Input
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="например, Мод-пак Skyrim Realism"
+                      style={inputStyle}
+                      className="mt-1"
+                      data-testid="input-title"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-slate-300">Описание</Label>
+                    <Textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Кратко расскажи, что входит в контракт"
+                      style={inputStyle}
+                      className="mt-1"
+                      rows={3}
+                      data-testid="input-description"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-slate-300">Видимость</Label>
+                    <RadioGroup
+                      value={visibility}
+                      onValueChange={(v) => setVisibility(v as "public" | "private")}
+                      className="grid grid-cols-2 gap-3 mt-2"
+                    >
+                      {[
+                        { v: "public", label: "Публичная" },
+                        { v: "private", label: "По коду" },
+                      ].map((opt) => (
+                        <div key={opt.v}>
+                          <RadioGroupItem
+                            value={opt.v}
+                            id={`vis-${opt.v}`}
+                            className="peer sr-only"
+                          />
+                          <Label
+                            htmlFor={`vis-${opt.v}`}
+                            className="flex justify-center rounded-md py-2 text-sm cursor-pointer"
+                            style={{
+                              background:
+                                visibility === opt.v
+                                  ? "rgba(14,165,233,0.1)"
+                                  : "rgba(255,255,255,0.02)",
+                              border:
+                                visibility === opt.v
+                                  ? "2px solid #0ea5e9"
+                                  : "2px solid rgba(255,255,255,0.06)",
+                              color: visibility === opt.v ? "#fff" : "#94a3b8",
+                            }}
+                          >
+                            {opt.label}
+                          </Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  </div>
+                  <div>
+                    <Label className="text-slate-300">
+                      Привязка к игре (опционально)
+                    </Label>
+                    <select
+                      value={gameId}
+                      onChange={(e) => setGameId(e.target.value)}
+                      className="mt-1 w-full h-10 rounded-md px-3 text-sm"
+                      style={inputStyle}
+                      data-testid="select-game"
+                    >
+                      <option value="">Любая игра</option>
+                      {(games ?? []).map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.title}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Если выбрано, квоту можно прикрепить только к сессиям хоста,
+                      привязанного к этой же игре.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-slate-300">
+                        Мин. длина сессии, мин
+                      </Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={minSessionMinutes}
+                        onChange={(e) => setMinSessionMinutes(e.target.value)}
+                        placeholder="без ограничения"
+                        style={inputStyle}
+                        className="mt-1"
+                        data-testid="input-min-session-min"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">
+                        Макс. длина сессии, мин
+                      </Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={maxSessionMinutes}
+                        onChange={(e) => setMaxSessionMinutes(e.target.value)}
+                        placeholder="без ограничения"
+                        style={inputStyle}
+                        className="mt-1"
+                        data-testid="input-max-session-min"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-slate-300">
+                        Начало действия (опционально)
+                      </Label>
+                      <Input
+                        type="datetime-local"
+                        value={startAt}
+                        onChange={(e) => setStartAt(e.target.value)}
+                        style={inputStyle}
+                        className="mt-1"
+                        data-testid="input-start-at"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">
+                        Конец действия (опционально)
+                      </Label>
+                      <Input
+                        type="datetime-local"
+                        value={endAt}
+                        onChange={(e) => setEndAt(e.target.value)}
+                        style={inputStyle}
+                        className="mt-1"
+                        data-testid="input-end-at"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {kind === "royalty" ? (
+                <Card style={cardStyle}>
+                  <CardHeader>
+                    <CardTitle className="text-white">Параметры роялти</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label className="text-slate-300">База расчёта</Label>
+                      <RadioGroup
+                        value={royaltyBasis}
+                        onValueChange={(v) =>
+                          setRoyaltyBasis(v as "percent" | "fixed_per_minute")
+                        }
+                        className="grid grid-cols-2 gap-3 mt-2"
+                      >
+                        {[
+                          { v: "percent", label: "% от минуты" },
+                          { v: "fixed_per_minute", label: "Фикс LZT/мин" },
+                        ].map((opt) => (
+                          <div key={opt.v}>
+                            <RadioGroupItem
+                              value={opt.v}
+                              id={`rb-${opt.v}`}
+                              className="peer sr-only"
+                            />
+                            <Label
+                              htmlFor={`rb-${opt.v}`}
+                              className="flex justify-center rounded-md py-2 text-sm cursor-pointer"
+                              style={{
+                                background:
+                                  royaltyBasis === opt.v
+                                    ? "rgba(251,191,36,0.12)"
+                                    : "rgba(255,255,255,0.02)",
+                                border:
+                                  royaltyBasis === opt.v
+                                    ? "2px solid #fbbf24"
+                                    : "2px solid rgba(255,255,255,0.06)",
+                                color: royaltyBasis === opt.v ? "#fff" : "#94a3b8",
+                              }}
+                            >
+                              {opt.label}
+                            </Label>
+                          </div>
+                        ))}
+                      </RadioGroup>
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">
+                        {royaltyBasis === "percent" ? "Процент (0–100)" : "LZT в минуту"}
+                      </Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={royaltyBasis === "percent" ? 100 : 10000}
+                        value={royaltyValue}
+                        onChange={(e) => setRoyaltyValue(Number(e.target.value))}
+                        style={inputStyle}
+                        className="mt-1"
+                        data-testid="input-royalty-value"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">Откуда брать</Label>
+                      <RadioGroup
+                        value={royaltySource}
+                        onValueChange={(v) =>
+                          setRoyaltySource(v as "player" | "host_share")
+                        }
+                        className="grid grid-cols-2 gap-3 mt-2"
+                      >
+                        {[
+                          { v: "host_share", label: "Из доли хоста" },
+                          { v: "player", label: "Сверху с игрока" },
+                        ].map((opt) => (
+                          <div key={opt.v}>
+                            <RadioGroupItem
+                              value={opt.v}
+                              id={`rs-${opt.v}`}
+                              className="peer sr-only"
+                            />
+                            <Label
+                              htmlFor={`rs-${opt.v}`}
+                              className="flex justify-center rounded-md py-2 text-sm cursor-pointer"
+                              style={{
+                                background:
+                                  royaltySource === opt.v
+                                    ? "rgba(251,191,36,0.12)"
+                                    : "rgba(255,255,255,0.02)",
+                                border:
+                                  royaltySource === opt.v
+                                    ? "2px solid #fbbf24"
+                                    : "2px solid rgba(255,255,255,0.06)",
+                                color: royaltySource === opt.v ? "#fff" : "#94a3b8",
+                              }}
+                            >
+                              {opt.label}
+                            </Label>
+                          </div>
+                        ))}
+                      </RadioGroup>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card style={cardStyle}>
+                  <CardHeader>
+                    <CardTitle className="text-white">Спонсорский эскроу</CardTitle>
+                    <CardDescription className="text-slate-500">
+                      Бюджет заморозится с твоего зелёного баланса при публикации.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label className="text-slate-300">Бюджет эскроу, LZT</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={budgetLzt}
+                        onChange={(e) => setBudgetLzt(Number(e.target.value))}
+                        style={inputStyle}
+                        className="mt-1"
+                        data-testid="input-budget"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-slate-300">Хосту LZT/мин</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={sponsorHostPerMinute}
+                          onChange={(e) =>
+                            setSponsorHostPerMinute(Number(e.target.value))
+                          }
+                          style={inputStyle}
+                          className="mt-1"
+                          data-testid="input-host-per-min"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-slate-300">Игроку LZT/мин</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={sponsorPlayerPerMinute}
+                          onChange={(e) =>
+                            setSponsorPlayerPerMinute(Number(e.target.value))
+                          }
+                          style={inputStyle}
+                          className="mt-1"
+                          data-testid="input-player-per-min"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      При публикации с твоего зелёного баланса спишется{" "}
+                      <span className="text-emerald-300 font-mono">
+                        {budgetLzt.toLocaleString("ru-RU")} LZT
+                      </span>
+                      . Хватит примерно на{" "}
+                      <span className="text-white font-mono">
+                        {Math.floor(
+                          budgetLzt /
+                            Math.max(
+                              1,
+                              sponsorHostPerMinute + sponsorPlayerPerMinute,
+                            ),
+                        )}
+                      </span>{" "}
+                      минут.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Minimal PC Power */}
+              <Card style={cardStyle}>
+                <CardHeader>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <Cpu className="h-5 w-5 text-violet-400" />
+                      <CardTitle className="text-white">Минимальная мощность ПК</CardTitle>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={handleAiSuggest}
+                      disabled={aiLoading}
+                      data-testid="button-ai-suggest"
                       style={{
-                        background:
-                          kind === v
-                            ? "rgba(14,165,233,0.1)"
-                            : "rgba(255,255,255,0.02)",
-                        border:
-                          kind === v
-                            ? "2px solid #0ea5e9"
-                            : "2px solid rgba(255,255,255,0.06)",
+                        background: "rgba(139,92,246,0.1)",
+                        border: "1px solid rgba(139,92,246,0.4)",
+                        color: "#a78bfa",
                       }}
                     >
-                      <Icon className="h-5 w-5" style={{ color }} />
-                      <span className="text-white font-semibold">{label}</span>
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
-            </CardContent>
-          </Card>
-
-          <Card style={cardStyle}>
-            <CardHeader>
-              <CardTitle className="text-white">Описание</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label className="text-slate-300">Название</Label>
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="например, Мод-пак Skyrim Realism"
-                  style={inputStyle}
-                  className="mt-1"
-                  data-testid="input-title"
-                />
-              </div>
-              <div>
-                <Label className="text-slate-300">Описание</Label>
-                <Textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Кратко расскажи, что входит в контракт"
-                  style={inputStyle}
-                  className="mt-1"
-                  rows={3}
-                  data-testid="input-description"
-                />
-              </div>
-              <div>
-                <Label className="text-slate-300">Видимость</Label>
-                <RadioGroup
-                  value={visibility}
-                  onValueChange={(v) => setVisibility(v as "public" | "private")}
-                  className="grid grid-cols-2 gap-3 mt-2"
-                >
-                  {[
-                    { v: "public", label: "Публичная" },
-                    { v: "private", label: "По коду" },
-                  ].map((opt) => (
-                    <div key={opt.v}>
-                      <RadioGroupItem
-                        value={opt.v}
-                        id={`vis-${opt.v}`}
-                        className="peer sr-only"
-                      />
-                      <Label
-                        htmlFor={`vis-${opt.v}`}
-                        className="flex justify-center rounded-md py-2 text-sm cursor-pointer"
-                        style={{
-                          background:
-                            visibility === opt.v
-                              ? "rgba(14,165,233,0.1)"
-                              : "rgba(255,255,255,0.02)",
-                          border:
-                            visibility === opt.v
-                              ? "2px solid #0ea5e9"
-                              : "2px solid rgba(255,255,255,0.06)",
-                          color: visibility === opt.v ? "#fff" : "#94a3b8",
-                        }}
-                      >
-                        {opt.label}
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-              </div>
-              <div>
-                <Label className="text-slate-300">
-                  Привязка к игре (опционально)
-                </Label>
-                <select
-                  value={gameId}
-                  onChange={(e) => setGameId(e.target.value)}
-                  className="mt-1 w-full h-10 rounded-md px-3 text-sm"
-                  style={inputStyle}
-                  data-testid="select-game"
-                >
-                  <option value="">Любая игра</option>
-                  {(games ?? []).map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.title}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-slate-500 mt-1">
-                  Если выбрано, квоту можно прикрепить только к сессиям хоста,
-                  привязанного к этой же игре.
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-slate-300">
-                    Мин. длина сессии, мин
-                  </Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={minSessionMinutes}
-                    onChange={(e) => setMinSessionMinutes(e.target.value)}
-                    placeholder="без ограничения"
-                    style={inputStyle}
-                    className="mt-1"
-                    data-testid="input-min-session-min"
-                  />
-                </div>
-                <div>
-                  <Label className="text-slate-300">
-                    Макс. длина сессии, мин
-                  </Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={maxSessionMinutes}
-                    onChange={(e) => setMaxSessionMinutes(e.target.value)}
-                    placeholder="без ограничения"
-                    style={inputStyle}
-                    className="mt-1"
-                    data-testid="input-max-session-min"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-slate-300">
-                    Начало действия (опционально)
-                  </Label>
-                  <Input
-                    type="datetime-local"
-                    value={startAt}
-                    onChange={(e) => setStartAt(e.target.value)}
-                    style={inputStyle}
-                    className="mt-1"
-                    data-testid="input-start-at"
-                  />
-                </div>
-                <div>
-                  <Label className="text-slate-300">
-                    Конец действия (опционально)
-                  </Label>
-                  <Input
-                    type="datetime-local"
-                    value={endAt}
-                    onChange={(e) => setEndAt(e.target.value)}
-                    style={inputStyle}
-                    className="mt-1"
-                    data-testid="input-end-at"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {kind === "royalty" ? (
-            <Card style={cardStyle}>
-              <CardHeader>
-                <CardTitle className="text-white">Параметры роялти</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label className="text-slate-300">База расчёта</Label>
-                  <RadioGroup
-                    value={royaltyBasis}
-                    onValueChange={(v) =>
-                      setRoyaltyBasis(v as "percent" | "fixed_per_minute")
-                    }
-                    className="grid grid-cols-2 gap-3 mt-2"
-                  >
-                    {[
-                      { v: "percent", label: "% от минуты" },
-                      { v: "fixed_per_minute", label: "Фикс LZT/мин" },
-                    ].map((opt) => (
-                      <div key={opt.v}>
-                        <RadioGroupItem
-                          value={opt.v}
-                          id={`rb-${opt.v}`}
-                          className="peer sr-only"
-                        />
-                        <Label
-                          htmlFor={`rb-${opt.v}`}
-                          className="flex justify-center rounded-md py-2 text-sm cursor-pointer"
-                          style={{
-                            background:
-                              royaltyBasis === opt.v
-                                ? "rgba(251,191,36,0.12)"
-                                : "rgba(255,255,255,0.02)",
-                            border:
-                              royaltyBasis === opt.v
-                                ? "2px solid #fbbf24"
-                                : "2px solid rgba(255,255,255,0.06)",
-                            color: royaltyBasis === opt.v ? "#fff" : "#94a3b8",
-                          }}
-                        >
-                          {opt.label}
-                        </Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
-                </div>
-                <div>
-                  <Label className="text-slate-300">
-                    {royaltyBasis === "percent" ? "Процент (0–100)" : "LZT в минуту"}
-                  </Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={royaltyBasis === "percent" ? 100 : 10000}
-                    value={royaltyValue}
-                    onChange={(e) => setRoyaltyValue(Number(e.target.value))}
-                    style={inputStyle}
-                    className="mt-1"
-                    data-testid="input-royalty-value"
-                  />
-                </div>
-                <div>
-                  <Label className="text-slate-300">Откуда брать</Label>
-                  <RadioGroup
-                    value={royaltySource}
-                    onValueChange={(v) =>
-                      setRoyaltySource(v as "player" | "host_share")
-                    }
-                    className="grid grid-cols-2 gap-3 mt-2"
-                  >
-                    {[
-                      { v: "host_share", label: "Из доли хоста" },
-                      { v: "player", label: "Сверху с игрока" },
-                    ].map((opt) => (
-                      <div key={opt.v}>
-                        <RadioGroupItem
-                          value={opt.v}
-                          id={`rs-${opt.v}`}
-                          className="peer sr-only"
-                        />
-                        <Label
-                          htmlFor={`rs-${opt.v}`}
-                          className="flex justify-center rounded-md py-2 text-sm cursor-pointer"
-                          style={{
-                            background:
-                              royaltySource === opt.v
-                                ? "rgba(251,191,36,0.12)"
-                                : "rgba(255,255,255,0.02)",
-                            border:
-                              royaltySource === opt.v
-                                ? "2px solid #fbbf24"
-                                : "2px solid rgba(255,255,255,0.06)",
-                            color: royaltySource === opt.v ? "#fff" : "#94a3b8",
-                          }}
-                        >
-                          {opt.label}
-                        </Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card style={cardStyle}>
-              <CardHeader>
-                <CardTitle className="text-white">Спонсорский эскроу</CardTitle>
-                <CardDescription className="text-slate-500">
-                  Бюджет заморозится с твоего зелёного баланса при публикации.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label className="text-slate-300">Бюджет эскроу, LZT</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={budgetLzt}
-                    onChange={(e) => setBudgetLzt(Number(e.target.value))}
-                    style={inputStyle}
-                    className="mt-1"
-                    data-testid="input-budget"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-slate-300">Хосту LZT/мин</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={sponsorHostPerMinute}
-                      onChange={(e) =>
-                        setSponsorHostPerMinute(Number(e.target.value))
-                      }
-                      style={inputStyle}
-                      className="mt-1"
-                      data-testid="input-host-per-min"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-slate-300">Игроку LZT/мин</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={sponsorPlayerPerMinute}
-                      onChange={(e) =>
-                        setSponsorPlayerPerMinute(Number(e.target.value))
-                      }
-                      style={inputStyle}
-                      className="mt-1"
-                      data-testid="input-player-per-min"
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-slate-500">
-                  При публикации с твоего зелёного баланса спишется{" "}
-                  <span className="text-emerald-300 font-mono">
-                    {budgetLzt.toLocaleString("ru-RU")} LZT
-                  </span>
-                  . Хватит примерно на{" "}
-                  <span className="text-white font-mono">
-                    {Math.floor(
-                      budgetLzt /
-                        Math.max(
-                          1,
-                          sponsorHostPerMinute + sponsorPlayerPerMinute,
-                        ),
-                    )}
-                  </span>{" "}
-                  минут.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* VDS Hosting section */}
-          <Card style={cardStyle}>
-            <CardHeader className="pb-2">
-              <button
-                type="button"
-                className="flex items-center gap-2 w-full text-left"
-                onClick={() => setVdsOpen((v) => !v)}
-                data-testid="vds-toggle"
-              >
-                {vdsOpen ? (
-                  <ChevronDown className="w-4 h-4 text-sky-400 shrink-0" />
-                ) : (
-                  <ChevronRight className="w-4 h-4 text-slate-500 shrink-0" />
-                )}
-                <Server className="w-4 h-4 text-sky-400 shrink-0" />
-                <CardTitle className="text-white text-sm font-semibold">
-                  Хостинг через VDS{" "}
-                  <span
-                    className="text-xs font-normal ml-1 px-1.5 py-0.5 rounded"
-                    style={{ background: "rgba(14,165,233,0.15)", color: "#38bdf8" }}
-                  >
-                    премиум
-                  </span>
-                </CardTitle>
-              </button>
-              {!vdsOpen && (
-                <p className="text-xs text-slate-500 mt-1 ml-8">
-                  Подключи свой VDS — платформа сама развернёт агент и будет хостить за тебя.
-                </p>
-              )}
-            </CardHeader>
-
-            {vdsOpen && (
-              <CardContent className="space-y-4 pt-0">
-                <div>
-                  <Label className="text-slate-300">Провайдер</Label>
-                  <select
-                    className="mt-1 w-full h-10 rounded-md px-3 text-sm"
-                    style={inputStyle}
-                    value="ssh"
-                    readOnly
-                  >
-                    <option value="ssh">Свой SSH</option>
-                  </select>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Поддерживается Linux-сервер с Wine/Proton для запуска Windows-игр.
-                  </p>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2">
-                    <Label className="text-slate-300">SSH Host</Label>
-                    <Input
-                      value={vdsSshHost}
-                      onChange={(e) => setVdsSshHost(e.target.value)}
-                      placeholder="1.2.3.4 или example.com"
-                      style={inputStyle}
-                      className="mt-1"
-                      data-testid="vds-ssh-host"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-slate-300">Порт</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={65535}
-                      value={vdsSshPort}
-                      onChange={(e) => setVdsSshPort(e.target.value)}
-                      style={inputStyle}
-                      className="mt-1"
-                      data-testid="vds-ssh-port"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-slate-300">SSH User</Label>
-                  <Input
-                    value={vdsSshUser}
-                    onChange={(e) => setVdsSshUser(e.target.value)}
-                    placeholder="root"
-                    style={inputStyle}
-                    className="mt-1"
-                    data-testid="vds-ssh-user"
-                  />
-                </div>
-                <div>
-                  <Label className="text-slate-300">
-                    Приватный SSH-ключ (PEM / OpenSSH)
-                  </Label>
-                  <Textarea
-                    value={vdsSshKey}
-                    onChange={(e) => setVdsSshKey(e.target.value)}
-                    placeholder={"-----BEGIN OPENSSH PRIVATE KEY-----\n..."}
-                    style={{ ...inputStyle, fontFamily: "monospace", fontSize: "11px" }}
-                    className="mt-1"
-                    rows={5}
-                    data-testid="vds-ssh-key"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">
-                    Ключ шифруется и хранится зашифрованно на сервере. Публичная часть не сохраняется.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={testVdsConnection}
-                    disabled={vdsTesting}
-                    style={{
-                      borderColor: "rgba(255,255,255,0.12)",
-                      color: "#94a3b8",
-                      background: "transparent",
-                    }}
-                    data-testid="vds-test-connection"
-                  >
-                    {vdsTesting ? (
-                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                    ) : null}
-                    Проверить подключение
-                  </Button>
-                  {vdsTestResult !== null && (
-                    <span
-                      className="flex items-center gap-1 text-xs font-medium"
-                      style={{ color: vdsTestResult.ok ? "#22c55e" : "#f87171" }}
-                    >
-                      {vdsTestResult.ok ? (
-                        <CheckCircle2 className="w-3.5 h-3.5" />
+                      {aiLoading ? (
+                        <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
                       ) : (
-                        <XCircle className="w-3.5 h-3.5" />
+                        <Wand2 className="h-4 w-4 mr-1.5" />
                       )}
-                      {vdsTestResult.ok
-                        ? "Подключение успешно"
-                        : vdsTestResult.error ?? "Ошибка подключения"}
-                    </span>
-                  )}
-                </div>
-              </CardContent>
-            )}
-          </Card>
+                      Подобрать через ИИ
+                    </Button>
+                  </div>
+                  <CardDescription className="text-slate-500">
+                    Если задано, квоту нельзя прикрепить к хосту, чей ПК слабее порога.
+                    {gameId ? (
+                      <span className="text-violet-400"> ИИ подберёт требования для выбранной игры.</span>
+                    ) : (
+                      <span className="text-slate-600"> Выбери игру выше, чтобы ИИ учёл её требования.</span>
+                    )}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-slate-300">VRAM GPU, ГБ</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={minGpuVram}
+                        onChange={(e) => setMinGpuVram(e.target.value)}
+                        placeholder="без ограничения"
+                        style={inputStyle}
+                        className="mt-1"
+                        data-testid="input-min-gpu-vram"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">Ядра CPU</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={minCpuCores}
+                        onChange={(e) => setMinCpuCores(e.target.value)}
+                        placeholder="без ограничения"
+                        style={inputStyle}
+                        className="mt-1"
+                        data-testid="input-min-cpu-cores"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-slate-300">RAM, ГБ</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={minRamGb}
+                        onChange={(e) => setMinRamGb(e.target.value)}
+                        placeholder="без ограничения"
+                        style={inputStyle}
+                        className="mt-1"
+                        data-testid="input-min-ram-gb"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">Интернет, Мбит/с</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={minDownloadMbps}
+                        onChange={(e) => setMinDownloadMbps(e.target.value)}
+                        placeholder="без ограничения"
+                        style={inputStyle}
+                        className="mt-1"
+                        data-testid="input-min-download-mbps"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-          <Card style={cardStyle}>
-            <CardHeader>
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Cpu className="h-5 w-5 text-violet-400" />
-                  <CardTitle className="text-white">Минимальная мощность ПК</CardTitle>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={handleAiSuggest}
-                  disabled={aiLoading}
-                  data-testid="button-ai-suggest"
-                  style={{
-                    background: "rgba(139,92,246,0.1)",
-                    border: "1px solid rgba(139,92,246,0.4)",
-                    color: "#a78bfa",
-                  }}
-                >
-                  {aiLoading ? (
-                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                  ) : (
-                    <Wand2 className="h-4 w-4 mr-1.5" />
+              {/* VDS Hosting section */}
+              <Card style={cardStyle}>
+                <CardHeader className="pb-2">
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 w-full text-left"
+                    onClick={() => setVdsOpen((v) => !v)}
+                    data-testid="vds-toggle"
+                  >
+                    {vdsOpen ? (
+                      <ChevronDown className="w-4 h-4 text-sky-400 shrink-0" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-slate-500 shrink-0" />
+                    )}
+                    <Server className="w-4 h-4 text-sky-400 shrink-0" />
+                    <CardTitle className="text-white text-sm font-semibold">
+                      Хостинг через VDS{" "}
+                      <span
+                        className="text-xs font-normal ml-1 px-1.5 py-0.5 rounded"
+                        style={{ background: "rgba(14,165,233,0.15)", color: "#38bdf8" }}
+                      >
+                        премиум
+                      </span>
+                    </CardTitle>
+                  </button>
+                  {!vdsOpen && (
+                    <p className="text-xs text-slate-500 mt-1 ml-8">
+                      Подключи свой VDS — платформа сама развернёт агент и будет хостить за тебя.
+                    </p>
                   )}
-                  Подобрать через ИИ
-                </Button>
-              </div>
-              <CardDescription className="text-slate-500">
-                Если задано, квоту нельзя прикрепить к хосту, чей ПК слабее порога.
-                {gameId ? (
-                  <span className="text-violet-400"> ИИ подберёт требования для выбранной игры.</span>
-                ) : (
-                  <span className="text-slate-600"> Выбери игру выше, чтобы ИИ учёл её требования.</span>
-                )}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-slate-300">VRAM GPU, ГБ</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={minGpuVram}
-                    onChange={(e) => setMinGpuVram(e.target.value)}
-                    placeholder="без ограничения"
-                    style={inputStyle}
-                    className="mt-1"
-                    data-testid="input-min-gpu-vram"
-                  />
-                </div>
-                <div>
-                  <Label className="text-slate-300">Ядра CPU</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={minCpuCores}
-                    onChange={(e) => setMinCpuCores(e.target.value)}
-                    placeholder="без ограничения"
-                    style={inputStyle}
-                    className="mt-1"
-                    data-testid="input-min-cpu-cores"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-slate-300">RAM, ГБ</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={minRamGb}
-                    onChange={(e) => setMinRamGb(e.target.value)}
-                    placeholder="без ограничения"
-                    style={inputStyle}
-                    className="mt-1"
-                    data-testid="input-min-ram-gb"
-                  />
-                </div>
-                <div>
-                  <Label className="text-slate-300">Интернет, Мбит/с</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={minDownloadMbps}
-                    onChange={(e) => setMinDownloadMbps(e.target.value)}
-                    placeholder="без ограничения"
-                    style={inputStyle}
-                    className="mt-1"
-                    data-testid="input-min-download-mbps"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                </CardHeader>
 
-          <Card style={cardStyle}>
-            <CardContent className="py-4 flex items-center justify-between gap-3">
-              <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={publishNow}
-                  onChange={(e) => setPublishNow(e.target.checked)}
-                  data-testid="checkbox-publish-now"
-                />
-                Опубликовать сразу
-                {isSponsor && (
-                  <span className="text-xs text-amber-400/80">
-                    (заморозит {budgetLzt.toLocaleString("ru-RU")} LZT эскроу)
-                  </span>
+                {vdsOpen && (
+                  <CardContent className="space-y-4 pt-0">
+                    <div>
+                      <Label className="text-slate-300">Провайдер</Label>
+                      <select
+                        className="mt-1 w-full h-10 rounded-md px-3 text-sm"
+                        style={inputStyle}
+                        value="ssh"
+                        readOnly
+                      >
+                        <option value="ssh">Свой SSH</option>
+                      </select>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Поддерживается Linux-сервер с Wine/Proton для запуска Windows-игр.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="col-span-2">
+                        <Label className="text-slate-300">SSH Host</Label>
+                        <Input
+                          value={vdsSshHost}
+                          onChange={(e) => setVdsSshHost(e.target.value)}
+                          placeholder="1.2.3.4 или example.com"
+                          style={inputStyle}
+                          className="mt-1"
+                          data-testid="vds-ssh-host"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-slate-300">Порт</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={65535}
+                          value={vdsSshPort}
+                          onChange={(e) => setVdsSshPort(e.target.value)}
+                          style={inputStyle}
+                          className="mt-1"
+                          data-testid="vds-ssh-port"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">SSH User</Label>
+                      <Input
+                        value={vdsSshUser}
+                        onChange={(e) => setVdsSshUser(e.target.value)}
+                        placeholder="root"
+                        style={inputStyle}
+                        className="mt-1"
+                        data-testid="vds-ssh-user"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">
+                        Приватный SSH-ключ (PEM / OpenSSH)
+                      </Label>
+                      <Textarea
+                        value={vdsSshKey}
+                        onChange={(e) => setVdsSshKey(e.target.value)}
+                        placeholder={"-----BEGIN OPENSSH PRIVATE KEY-----\n..."}
+                        style={{ ...inputStyle, fontFamily: "monospace", fontSize: "11px" }}
+                        className="mt-1"
+                        rows={5}
+                        data-testid="vds-ssh-key"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">
+                        Ключ шифруется и хранится зашифрованно на сервере. Публичная часть не сохраняется.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={testVdsConnection}
+                        disabled={vdsTesting}
+                        style={{
+                          borderColor: "rgba(255,255,255,0.12)",
+                          color: "#94a3b8",
+                          background: "transparent",
+                        }}
+                        data-testid="vds-test-connection"
+                      >
+                        {vdsTesting ? (
+                          <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                        ) : null}
+                        Проверить подключение
+                      </Button>
+                      {vdsTestResult !== null && (
+                        <span
+                          className="flex items-center gap-1 text-xs font-medium"
+                          style={{ color: vdsTestResult.ok ? "#22c55e" : "#f87171" }}
+                        >
+                          {vdsTestResult.ok ? (
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          ) : (
+                            <XCircle className="w-3.5 h-3.5" />
+                          )}
+                          {vdsTestResult.ok
+                            ? "Подключение успешно"
+                            : vdsTestResult.error ?? "Ошибка подключения"}
+                        </span>
+                      )}
+                    </div>
+                  </CardContent>
                 )}
-              </label>
-              <Button
-                type="submit"
-                size="lg"
-                disabled={createQuota.isPending || publishQuota.isPending}
-                className="font-bold"
-                style={{ background: "#0ea5e9", color: "#fff" }}
-                data-testid="button-create-quota"
-              >
-                {(createQuota.isPending || publishQuota.isPending) && (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                )}
-                Создать
-              </Button>
-            </CardContent>
-          </Card>
-        </form>
+              </Card>
+
+              <Card style={cardStyle}>
+                <CardContent className="py-4 flex items-center justify-between gap-3">
+                  <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={publishNow}
+                      onChange={(e) => setPublishNow(e.target.checked)}
+                      data-testid="checkbox-publish-now"
+                    />
+                    Опубликовать сразу
+                    {isSponsor && (
+                      <span className="text-xs text-amber-400/80">
+                        (заморозит {budgetLzt.toLocaleString("ru-RU")} LZT эскроу)
+                      </span>
+                    )}
+                  </label>
+                  <Button
+                    type="submit"
+                    size="lg"
+                    disabled={createQuota.isPending || publishQuota.isPending}
+                    className="font-bold"
+                    style={{ background: "#0ea5e9", color: "#fff" }}
+                    data-testid="button-create-quota"
+                  >
+                    {(createQuota.isPending || publishQuota.isPending) && (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    )}
+                    Создать
+                  </Button>
+                </CardContent>
+              </Card>
+            </form>
+          </div>
+
+          <div className="w-96 shrink-0 sticky top-6">
+            <QuotaAiChat
+              ownerToken={hostToken ?? ""}
+              currentFormState={currentFormState}
+              availableGames={(games ?? []).map((g) => ({ id: g.id, title: g.title }))}
+              onFormPatch={handleAiPatch}
+              ownerToken={hostToken ?? ""}
+            />
+          </div>
+        </div>
       </main>
     </div>
   );

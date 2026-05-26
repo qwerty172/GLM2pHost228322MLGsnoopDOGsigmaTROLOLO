@@ -681,6 +681,72 @@ export interface QuotaOwnerBody {
   ownerToken: string;
 }
 
+export type QuotaAiChatMessageRole =
+  (typeof QuotaAiChatMessageRole)[keyof typeof QuotaAiChatMessageRole];
+
+export const QuotaAiChatMessageRole = {
+  user: "user",
+  assistant: "assistant",
+} as const;
+
+export interface QuotaAiChatMessage {
+  role: QuotaAiChatMessageRole;
+  content: string;
+}
+
+export interface QuotaFormState {
+  kind?: string;
+  title?: string;
+  description?: string;
+  visibility?: string;
+  royaltyBasis?: string;
+  royaltyValue?: number;
+  royaltySource?: string;
+  budgetLzt?: number;
+  sponsorHostPerMinute?: number;
+  sponsorPlayerPerMinute?: number;
+  gameId?: string;
+  minSessionMinutes?: string;
+  maxSessionMinutes?: string;
+  startAt?: string;
+  endAt?: string;
+}
+
+export type QuotaAiChatBodyAvailableGamesItem = {
+  id: string;
+  title: string;
+};
+
+export interface QuotaAiChatBody {
+  ownerToken: string;
+  messages: QuotaAiChatMessage[];
+  currentFormState: QuotaFormState;
+  availableGames?: QuotaAiChatBodyAvailableGamesItem[];
+}
+
+export interface QuotaFormPatch {
+  kind?: string;
+  title?: string;
+  description?: string;
+  visibility?: string;
+  royaltyBasis?: string;
+  royaltyValue?: number;
+  royaltySource?: string;
+  budgetLzt?: number;
+  sponsorHostPerMinute?: number;
+  sponsorPlayerPerMinute?: number;
+  gameId?: string;
+  minSessionMinutes?: string;
+  maxSessionMinutes?: string;
+  startAt?: string;
+  endAt?: string;
+}
+
+export interface QuotaAiChatResponse {
+  reply: string;
+  formPatch?: QuotaFormPatch;
+}
+
 export interface WalletTransaction {
   id: string;
   /** ledger kind (deposit_credit, deposit_fee, session_tick, loan_disburse_*, loan_repay_*, interest_payout, premium_purchase, withdrawal, …) */

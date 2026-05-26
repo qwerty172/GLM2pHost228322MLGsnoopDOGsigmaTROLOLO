@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
+import { QuotaAiChat, type QuotaFormPatch } from "@/components/quota-ai-chat";
 
 const cardStyle = {
   background: "#0a1018",
@@ -126,172 +127,217 @@ export default function QuotaEditPage() {
     }
   };
 
+  const handleAiPatch = (patch: QuotaFormPatch) => {
+    if (patch.title !== undefined) setTitle(patch.title);
+    if (patch.description !== undefined) setDescription(patch.description);
+    if (patch.budgetLzt !== undefined) setBudgetLzt(patch.budgetLzt);
+    if (patch.sponsorHostPerMinute !== undefined) setSponsorHostPerMinute(patch.sponsorHostPerMinute);
+    if (patch.sponsorPlayerPerMinute !== undefined) setSponsorPlayerPerMinute(patch.sponsorPlayerPerMinute);
+    if (patch.royaltyValue !== undefined) setRoyaltyValue(patch.royaltyValue);
+    if (patch.gameId !== undefined) setGameId(patch.gameId);
+    if (patch.minSessionMinutes !== undefined) setMinSessionMinutes(patch.minSessionMinutes);
+    if (patch.maxSessionMinutes !== undefined) setMaxSessionMinutes(patch.maxSessionMinutes);
+    if (patch.endAt !== undefined) setEndAt(patch.endAt);
+  };
+
+  const currentFormState = {
+    kind: quota.kind,
+    title,
+    description,
+    visibility: quota.visibility,
+    royaltyBasis: quota.royaltyBasis ?? "",
+    royaltyValue,
+    royaltySource: quota.royaltySource ?? "",
+    budgetLzt,
+    sponsorHostPerMinute,
+    sponsorPlayerPerMinute,
+    gameId,
+    minSessionMinutes,
+    maxSessionMinutes,
+    startAt: "",
+    endAt,
+  };
+
   return (
     <div className="min-h-screen text-slate-300" style={{ background: "#06090e" }}>
       <SiteNav activePath="/quotas" />
-      <main className="max-w-2xl mx-auto px-6 pt-10 pb-16 space-y-6">
+      <main className="max-w-7xl mx-auto px-6 pt-10 pb-16">
         <Link href={`/quotas/${quota.id}`}>
           <span className="text-xs text-slate-500 hover:text-sky-400 cursor-pointer">
             ← К квоте
           </span>
         </Link>
-        <h1 className="text-3xl font-extrabold tracking-tight text-white">
+        <h1 className="text-3xl font-extrabold tracking-tight text-white mt-3 mb-6">
           Редактировать квоту
         </h1>
         {quota.status !== "draft" && (
-          <p className="text-xs text-amber-400/80">
+          <p className="text-xs text-amber-400/80 mb-4">
             Квота уже опубликована — большинство полей будет редактируемо только
             пока нет ни одного движения.
           </p>
         )}
-        <form onSubmit={submit} className="space-y-6">
-          <Card style={cardStyle}>
-            <CardHeader>
-              <CardTitle className="text-white">Основное</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label className="text-slate-300">Название</Label>
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  style={inputStyle}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-slate-300">Описание</Label>
-                <Textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  style={inputStyle}
-                  className="mt-1"
-                  rows={3}
-                />
-              </div>
-              <div>
-                <Label className="text-slate-300">Привязка к игре</Label>
-                <select
-                  value={gameId}
-                  onChange={(e) => setGameId(e.target.value)}
-                  className="mt-1 w-full h-10 rounded-md px-3 text-sm"
-                  style={inputStyle}
-                  data-testid="select-game"
-                >
-                  <option value="">Любая игра</option>
-                  {(games ?? []).map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-slate-300">Мин. минут</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={minSessionMinutes}
-                    onChange={(e) => setMinSessionMinutes(e.target.value)}
-                    placeholder="без ограничения"
-                    style={inputStyle}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label className="text-slate-300">Макс. минут</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={maxSessionMinutes}
-                    onChange={(e) => setMaxSessionMinutes(e.target.value)}
-                    placeholder="без ограничения"
-                    style={inputStyle}
-                    className="mt-1"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label className="text-slate-300">Конец действия</Label>
-                <Input
-                  type="datetime-local"
-                  value={endAt}
-                  onChange={(e) => setEndAt(e.target.value)}
-                  style={inputStyle}
-                  className="mt-1"
-                />
-              </div>
-              {quota.kind === "royalty" ? (
-                <div>
-                  <Label className="text-slate-300">
-                    {quota.royaltyBasis === "percent"
-                      ? "Процент"
-                      : "LZT в минуту"}
-                  </Label>
-                  <Input
-                    type="number"
-                    value={royaltyValue}
-                    onChange={(e) => setRoyaltyValue(Number(e.target.value))}
-                    style={inputStyle}
-                    className="mt-1"
-                  />
-                </div>
-              ) : (
-                <>
+
+        <div className="flex gap-6 items-start">
+          <div className="flex-1 min-w-0">
+            <form onSubmit={submit} className="space-y-6">
+              <Card style={cardStyle}>
+                <CardHeader>
+                  <CardTitle className="text-white">Основное</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <div>
-                    <Label className="text-slate-300">Бюджет, LZT</Label>
+                    <Label className="text-slate-300">Название</Label>
                     <Input
-                      type="number"
-                      value={budgetLzt}
-                      onChange={(e) => setBudgetLzt(Number(e.target.value))}
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
                       style={inputStyle}
                       className="mt-1"
                     />
                   </div>
+                  <div>
+                    <Label className="text-slate-300">Описание</Label>
+                    <Textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      style={inputStyle}
+                      className="mt-1"
+                      rows={3}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-slate-300">Привязка к игре</Label>
+                    <select
+                      value={gameId}
+                      onChange={(e) => setGameId(e.target.value)}
+                      className="mt-1 w-full h-10 rounded-md px-3 text-sm"
+                      style={inputStyle}
+                      data-testid="select-game"
+                    >
+                      <option value="">Любая игра</option>
+                      {(games ?? []).map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-slate-300">Хосту LZT/мин</Label>
+                      <Label className="text-slate-300">Мин. минут</Label>
                       <Input
                         type="number"
-                        value={sponsorHostPerMinute}
-                        onChange={(e) =>
-                          setSponsorHostPerMinute(Number(e.target.value))
-                        }
+                        min={1}
+                        value={minSessionMinutes}
+                        onChange={(e) => setMinSessionMinutes(e.target.value)}
+                        placeholder="без ограничения"
                         style={inputStyle}
                         className="mt-1"
                       />
                     </div>
                     <div>
-                      <Label className="text-slate-300">Игроку LZT/мин</Label>
+                      <Label className="text-slate-300">Макс. минут</Label>
                       <Input
                         type="number"
-                        value={sponsorPlayerPerMinute}
-                        onChange={(e) =>
-                          setSponsorPlayerPerMinute(Number(e.target.value))
-                        }
+                        min={1}
+                        value={maxSessionMinutes}
+                        onChange={(e) => setMaxSessionMinutes(e.target.value)}
+                        placeholder="без ограничения"
                         style={inputStyle}
                         className="mt-1"
                       />
                     </div>
                   </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-          <Button
-            type="submit"
-            disabled={update.isPending}
-            className="font-bold"
-            style={{ background: "#0ea5e9", color: "#fff" }}
-            data-testid="button-save-quota"
-          >
-            {update.isPending && (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            )}
-            Сохранить
-          </Button>
-        </form>
+                  <div>
+                    <Label className="text-slate-300">Конец действия</Label>
+                    <Input
+                      type="datetime-local"
+                      value={endAt}
+                      onChange={(e) => setEndAt(e.target.value)}
+                      style={inputStyle}
+                      className="mt-1"
+                    />
+                  </div>
+                  {quota.kind === "royalty" ? (
+                    <div>
+                      <Label className="text-slate-300">
+                        {quota.royaltyBasis === "percent"
+                          ? "Процент"
+                          : "LZT в минуту"}
+                      </Label>
+                      <Input
+                        type="number"
+                        value={royaltyValue}
+                        onChange={(e) => setRoyaltyValue(Number(e.target.value))}
+                        style={inputStyle}
+                        className="mt-1"
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <Label className="text-slate-300">Бюджет, LZT</Label>
+                        <Input
+                          type="number"
+                          value={budgetLzt}
+                          onChange={(e) => setBudgetLzt(Number(e.target.value))}
+                          style={inputStyle}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-slate-300">Хосту LZT/мин</Label>
+                          <Input
+                            type="number"
+                            value={sponsorHostPerMinute}
+                            onChange={(e) =>
+                              setSponsorHostPerMinute(Number(e.target.value))
+                            }
+                            style={inputStyle}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-slate-300">Игроку LZT/мин</Label>
+                          <Input
+                            type="number"
+                            value={sponsorPlayerPerMinute}
+                            onChange={(e) =>
+                              setSponsorPlayerPerMinute(Number(e.target.value))
+                            }
+                            style={inputStyle}
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+              <Button
+                type="submit"
+                disabled={update.isPending}
+                className="font-bold"
+                style={{ background: "#0ea5e9", color: "#fff" }}
+                data-testid="button-save-quota"
+              >
+                {update.isPending && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
+                Сохранить
+              </Button>
+            </form>
+          </div>
+
+          <div className="w-96 shrink-0 sticky top-6">
+            <QuotaAiChat
+              ownerToken={hostToken ?? ""}
+              currentFormState={currentFormState}
+              availableGames={(games ?? []).map((g) => ({ id: g.id, title: g.title }))}
+              onFormPatch={handleAiPatch}
+            />
+          </div>
+        </div>
       </main>
     </div>
   );

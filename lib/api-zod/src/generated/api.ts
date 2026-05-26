@@ -1527,6 +1527,67 @@ export const RegenerateQuotaCodeResponse = zod.object({
 });
 
 /**
+ * @summary AI assistant chat for filling / editing a quota form
+ */
+export const QuotaAiChatBody = zod.object({
+  ownerToken: zod.string(),
+  messages: zod.array(
+    zod.object({
+      role: zod.enum(["user", "assistant"]),
+      content: zod.string(),
+    }),
+  ),
+  currentFormState: zod.object({
+    kind: zod.string().optional(),
+    title: zod.string().optional(),
+    description: zod.string().optional(),
+    visibility: zod.string().optional(),
+    royaltyBasis: zod.string().optional(),
+    royaltyValue: zod.number().optional(),
+    royaltySource: zod.string().optional(),
+    budgetLzt: zod.number().optional(),
+    sponsorHostPerMinute: zod.number().optional(),
+    sponsorPlayerPerMinute: zod.number().optional(),
+    gameId: zod.string().optional(),
+    minSessionMinutes: zod.string().optional(),
+    maxSessionMinutes: zod.string().optional(),
+    startAt: zod.string().optional(),
+    endAt: zod.string().optional(),
+  }),
+  availableGames: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        title: zod.string(),
+      }),
+    )
+    .optional(),
+});
+
+export const QuotaAiChatResponse = zod.object({
+  reply: zod.string(),
+  formPatch: zod
+    .object({
+      kind: zod.string().optional(),
+      title: zod.string().optional(),
+      description: zod.string().optional(),
+      visibility: zod.string().optional(),
+      royaltyBasis: zod.string().optional(),
+      royaltyValue: zod.number().optional(),
+      royaltySource: zod.string().optional(),
+      budgetLzt: zod.number().optional(),
+      sponsorHostPerMinute: zod.number().optional(),
+      sponsorPlayerPerMinute: zod.number().optional(),
+      gameId: zod.string().optional(),
+      minSessionMinutes: zod.string().optional(),
+      maxSessionMinutes: zod.string().optional(),
+      startAt: zod.string().optional(),
+      endAt: zod.string().optional(),
+    })
+    .optional(),
+});
+
+/**
  * @summary Wallet overview — balance, deposit addresses, withdrawal history
  */
 export const GetWalletParams = zod.object({

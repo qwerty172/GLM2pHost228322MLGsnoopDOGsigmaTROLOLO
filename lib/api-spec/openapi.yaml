@@ -1049,6 +1049,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/Quota"
 
+  /quotas/ai-chat:
+    post:
+      operationId: quotaAiChat
+      tags: [quotas]
+      summary: AI assistant chat for filling / editing a quota form
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuotaAiChatBody"
+      responses:
+        "200":
+          description: AI reply and optional form patch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuotaAiChatResponse"
+        "500":
+          description: AI error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /wallet/{userToken}:
     get:
       operationId: getWallet
@@ -2458,6 +2483,124 @@ components:
           type: string
       required:
         - ownerToken
+
+    QuotaAiChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+      required:
+        - role
+        - content
+
+    QuotaFormState:
+      type: object
+      properties:
+        kind:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        visibility:
+          type: string
+        royaltyBasis:
+          type: string
+        royaltyValue:
+          type: number
+        royaltySource:
+          type: string
+        budgetLzt:
+          type: number
+        sponsorHostPerMinute:
+          type: number
+        sponsorPlayerPerMinute:
+          type: number
+        gameId:
+          type: string
+        minSessionMinutes:
+          type: string
+        maxSessionMinutes:
+          type: string
+        startAt:
+          type: string
+        endAt:
+          type: string
+
+    QuotaAiChatBody:
+      type: object
+      properties:
+        ownerToken:
+          type: string
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuotaAiChatMessage"
+        currentFormState:
+          $ref: "#/components/schemas/QuotaFormState"
+        availableGames:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              title:
+                type: string
+            required:
+              - id
+              - title
+      required:
+        - ownerToken
+        - messages
+        - currentFormState
+
+    QuotaFormPatch:
+      type: object
+      properties:
+        kind:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        visibility:
+          type: string
+        royaltyBasis:
+          type: string
+        royaltyValue:
+          type: number
+        royaltySource:
+          type: string
+        budgetLzt:
+          type: number
+        sponsorHostPerMinute:
+          type: number
+        sponsorPlayerPerMinute:
+          type: number
+        gameId:
+          type: string
+        minSessionMinutes:
+          type: string
+        maxSessionMinutes:
+          type: string
+        startAt:
+          type: string
+        endAt:
+          type: string
+
+    QuotaAiChatResponse:
+      type: object
+      properties:
+        reply:
+          type: string
+        formPatch:
+          $ref: "#/components/schemas/QuotaFormPatch"
+      required:
+        - reply
 
     WalletTransaction:
       type: object
