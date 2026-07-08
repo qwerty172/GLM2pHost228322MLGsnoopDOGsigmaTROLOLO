@@ -2,9 +2,19 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import { z } from "zod/v4";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import multer from "multer";
 
 const ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_COVER_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB
+const MAX_CLIP_SIZE_BYTES = 200 * 1024 * 1024; // 200 MB
+
+const clipUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_CLIP_SIZE_BYTES },
+  fileFilter: (_req, file, cb) => {
+    cb(null, file.mimetype === "video/webm" || file.mimetype.startsWith("video/"));
+  },
+});
 
 const RequestUploadUrlBody = z.object({
   name: z.string().min(1),
@@ -163,5 +173,65 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to serve object" });
   }
 });
+
+/**
+ * POST /storage/clip-upload
+ *
+ * Authenticated players can upload WebM clip files.
+ * Accepts multipart/form-data with a single "file" field.
+ * Requires X-Player-Wallet-Token header matching a known wallet.
+ */
+router.post(
+  "/storage/clip-upload",
+  clipUpload.single("file"),
+  async (req: Request, res: Response) => {
+    const playerWalletToken = req.headers["x-player-wallet-token"] as string | undefined;
+    if (!playerWalletToken) {
+      res.status(401).json({ error: "Missing X-Player-Wallet-Token header" });
+      return;
+    }
+
+    // Verify the player wallet token exists
+    const { db, playersTable } = await import("@workspace/db");
+    const { eq } = await import("drizzle-orm");
+    const [player] = await db
+      .select({ id: playersTable.id })
+      .from(playersTable)
+      .where(eq(playersTable.playerToken, playerWalletToken));
+    if (!player) {
+      res.status(401).json({ error: "Unknown player wallet token" });
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({ error: "No file uploaded" });
+      return;
+    }
+
+    try {
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      const rawPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+
+      // Upload the clip buffer to object storage
+      const uploadRes = await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": req.file.mimetype },
+        body: req.file.buffer,
+      });
+
+      if (!uploadRes.ok) {
+        req.log.error({ status: uploadRes.status }, "Object storage PUT failed");
+        res.status(502).json({ error: "Failed to store clip" });
+        return;
+      }
+
+      const objectPath = `/api/storage${rawPath}`;
+      res.json({ objectPath, size: req.file.size });
+    } catch (error) {
+      req.log.error({ err: error }, "Error uploading clip");
+      res.status(500).json({ error: "Failed to upload clip" });
+    }
+  },
+);
 
 export default router;

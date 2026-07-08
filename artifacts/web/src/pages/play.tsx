@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Gamepad2, AlertCircle, ArrowLeft, Loader2, Wifi, WifiOff, VolumeX, Wallet, Banknote, Coins, Clock, TrendingDown, Activity, RefreshCw } from "lucide-react";
+import { Gamepad2, AlertCircle, ArrowLeft, Loader2, Wifi, WifiOff, VolumeX, Wallet, Banknote, Coins, Clock, TrendingDown, Activity, RefreshCw, Clapperboard, Settings2, X } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 
@@ -51,6 +51,9 @@ export default function Play() {
   const [reconnecting, setReconnecting] = useState(false);
   const [longDisconnect, setLongDisconnect] = useState(false);
   const [e2eRtt, setE2eRtt] = useState<number | null>(null);
+  const [dataChannelOpen, setDataChannelOpen] = useState(false);
+  const [isSavingClip, setIsSavingClip] = useState(false);
+  const [showClipSettings, setShowClipSettings] = useState(false);
 
   // Live HUD: client-side ticking balance estimate between API syncs
   const [estimatedBalanceLzt, setEstimatedBalanceLzt] = useState<number | null>(null);
@@ -71,6 +74,12 @@ export default function Play() {
   const wsReconnectDelayRef = useRef<number>(1000);
   const wsReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wsUrlRef = useRef<string>("");
+
+  // Clip recording ring-buffer
+  const clipChunksRef = useRef<Blob[]>([]);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const clipRafRef = useRef<number>(0);
+  const clipCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Sync estimated balance from actual wallet data (30s API sync)
   useEffect(() => {
@@ -127,6 +136,14 @@ export default function Play() {
       pcRef.current.close();
       pcRef.current = null;
     }
+    // Stop clip recording
+    if (clipRafRef.current) { cancelAnimationFrame(clipRafRef.current); clipRafRef.current = 0; }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try { mediaRecorderRef.current.stop(); } catch { /* ignore */ }
+    }
+    mediaRecorderRef.current = null;
+    clipChunksRef.current = [];
+    clipCanvasRef.current = null;
     startedRef.current = false;
     rttSamplesRef.current = [];
     setIsPlaying(false);
@@ -134,6 +151,7 @@ export default function Play() {
     setReconnecting(false);
     setLongDisconnect(false);
     setE2eRtt(null);
+    setDataChannelOpen(false);
   }, []);
 
   // Set up the DataChannel with ping/pong E2E RTT measurement.
@@ -141,6 +159,7 @@ export default function Play() {
     dcRef.current = dc;
 
     dc.onopen = () => {
+      setDataChannelOpen(true);
       if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
       pingIntervalRef.current = setInterval(() => {
         if (dc.readyState === "open") {
@@ -167,8 +186,150 @@ export default function Play() {
     dc.onclose = () => {
       if (pingIntervalRef.current) { clearInterval(pingIntervalRef.current); pingIntervalRef.current = null; }
       setE2eRtt(null);
+      setDataChannelOpen(false);
     };
   }, []);
+
+  // Initialize the canvas-compositing clip recorder once we have a remote video stream.
+  // We draw each frame onto an offscreen canvas with a watermark, then record the canvas
+  // stream so the watermark is baked into the downloaded WebM.
+  const initClipRecorder = useCallback(() => {
+    if (clipRafRef.current) { cancelAnimationFrame(clipRafRef.current); clipRafRef.current = 0; }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try { mediaRecorderRef.current.stop(); } catch { /* ignore */ }
+    }
+    clipChunksRef.current = [];
+
+    const videoEl = videoRef.current;
+    if (!videoEl) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 1280;
+    canvas.height = 720;
+    clipCanvasRef.current = canvas;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const drawFrame = () => {
+      if (!videoRef.current) return;
+      const vw = videoRef.current.videoWidth;
+      const vh = videoRef.current.videoHeight;
+      if (vw > 0 && vh > 0 && (canvas.width !== vw || canvas.height !== vh)) {
+        canvas.width = vw;
+        canvas.height = vh;
+      }
+      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      // Watermark: platform name bottom-right
+      const wmText = "DecentralHub";
+      const fontSize = Math.max(14, Math.round(canvas.width * 0.016));
+      ctx.font = `bold ${fontSize}px Inter, system-ui, sans-serif`;
+      ctx.textAlign = "right";
+      ctx.textBaseline = "bottom";
+      ctx.shadowColor = "rgba(0,0,0,0.9)";
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = "rgba(255,255,255,0.72)";
+      ctx.fillText(wmText, canvas.width - 14, canvas.height - 12);
+      ctx.shadowBlur = 0;
+      clipRafRef.current = requestAnimationFrame(drawFrame);
+    };
+    drawFrame();
+
+    const captureStream = canvas.captureStream(30);
+    const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+      ? "video/webm;codecs=vp9"
+      : "video/webm";
+
+    try {
+      const recorder = new MediaRecorder(captureStream, { mimeType });
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          clipChunksRef.current.push(e.data);
+          // Ring buffer: keep last 32 chunks ≈ 30 s
+          if (clipChunksRef.current.length > 32) clipChunksRef.current.shift();
+        }
+      };
+      recorder.start(1000);
+      mediaRecorderRef.current = recorder;
+      console.log("[clip] Recorder started, mimeType:", mimeType);
+    } catch (err) {
+      console.warn("[clip] MediaRecorder init failed:", err);
+    }
+  }, []);
+
+  // Upload clip blob to the platform's built-in storage or a custom S3 endpoint.
+  const uploadClipToCloud = useCallback(async (blob: Blob, filename: string) => {
+    // Platform storage (requires player auth)
+    if (playerWalletToken) {
+      try {
+        const formData = new FormData();
+        formData.append("file", blob, filename);
+        const res = await fetch(`${import.meta.env.BASE_URL}api/storage/clip-upload`, {
+          method: "POST",
+          headers: { "x-player-wallet-token": playerWalletToken },
+          body: formData,
+        });
+        if (res.ok) {
+          console.log("[clip] Uploaded to platform storage");
+          return;
+        }
+      } catch {
+        // Platform storage unavailable, fall through to custom S3
+      }
+    }
+
+    // Custom S3: user supplies a PUT URL template in localStorage.
+    // The template may include {filename} which is replaced with the actual filename.
+    const s3Endpoint = localStorage.getItem("clipS3Endpoint");
+    if (!s3Endpoint) return;
+
+    try {
+      const uploadUrl = s3Endpoint.replace("{filename}", encodeURIComponent(filename));
+      const headers: Record<string, string> = { "Content-Type": "video/webm" };
+      const s3Key = localStorage.getItem("clipS3Key");
+      if (s3Key) headers["x-api-key"] = s3Key;
+      await fetch(uploadUrl, { method: "PUT", headers, body: blob });
+      console.log("[clip] Uploaded to custom S3:", uploadUrl);
+    } catch (err) {
+      console.warn("[clip] Custom S3 upload failed:", err);
+    }
+  }, [playerWalletToken]);
+
+  // Save the last ≤30 s of recorded video as a WebM file, with watermark baked in.
+  const saveClip = useCallback(async () => {
+    const chunks = [...clipChunksRef.current];
+    if (chunks.length === 0) {
+      toast.error("Буфер клипа пуст — дождись начала игры");
+      return;
+    }
+    setIsSavingClip(true);
+    try {
+      const blob = new Blob(chunks, { type: "video/webm" });
+      const gameTitle = (session as typeof session & { gameTitle?: string | null })?.gameTitle || session?.appName || "game";
+      const safeGame = gameTitle.replace(/[^a-z0-9]/gi, "-").toLowerCase().slice(0, 40);
+      const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      const filename = `clip-${safeGame}-${ts}.webm`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      // Fire-and-forget cloud upload (silently ignored on failure)
+      void uploadClipToCloud(blob, filename);
+
+      toast.success(`Клип сохранён (${Math.round(blob.size / 1024)} KB)`);
+    } catch (err) {
+      console.error("[clip] Save failed:", err);
+      toast.error("Не удалось сохранить клип");
+    } finally {
+      setIsSavingClip(false);
+    }
+  }, [session, uploadClipToCloud]);
 
   // Trigger ICE restart: send a new offer with iceRestart flag through the signaling WS.
   const triggerIceRestart = useCallback(async (pc: RTCPeerConnection) => {
@@ -377,11 +538,14 @@ export default function Play() {
         videoRef.current.play().catch(() => {
           setShowAudioPrompt(true);
         });
+        // Start clip ring-buffer recorder with canvas watermarking
+        // Small delay so the video element has time to attach the stream
+        setTimeout(() => initClipRecorder(), 500);
       }
     };
 
     connectWs(wsUrl, pc);
-  }, [playerToken, playerWalletToken, cleanupConnection, connectWs, triggerIceRestart]);
+  }, [playerToken, playerWalletToken, cleanupConnection, connectWs, triggerIceRestart, initClipRecorder]);
 
   useEffect(() => {
     if (
@@ -1021,6 +1185,42 @@ export default function Play() {
           );
         })()}
 
+        {/* Clip button — only when DC is open */}
+        <div className="flex items-center gap-1 pointer-events-auto">
+          <Button
+            size="sm"
+            onClick={() => void saveClip()}
+            disabled={!dataChannelOpen || isSavingClip}
+            title={dataChannelOpen ? "Сохранить последние ~30 сек" : "Доступно после подключения"}
+            className="shadow-md gap-1.5"
+            style={{
+              background: dataChannelOpen ? "rgba(139,92,246,0.85)" : "rgba(100,100,100,0.4)",
+              color: "#fff",
+              opacity: dataChannelOpen ? 1 : 0.5,
+            }}
+          >
+            {isSavingClip ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Clapperboard className="h-3.5 w-3.5" />
+            )}
+            Клип
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setShowClipSettings((v) => !v)}
+            title="Настройки облачного сохранения"
+            className="shadow-md px-2"
+            style={{
+              background: showClipSettings ? "rgba(139,92,246,0.6)" : "rgba(255,255,255,0.07)",
+              color: "#fff",
+              border: "1px solid rgba(255,255,255,0.12)",
+            }}
+          >
+            <Settings2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+
         <Button
           size="sm"
           onClick={cleanupConnection}
@@ -1033,6 +1233,54 @@ export default function Play() {
           Отключиться
         </Button>
       </div>
+
+      {/* Clip cloud-upload settings panel */}
+      {showClipSettings && (
+        <div
+          className="absolute top-16 right-4 z-50 w-72 rounded-xl p-4 pointer-events-auto"
+          style={{ background: "#0a1018", border: "1px solid rgba(139,92,246,0.35)" }}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-semibold text-white">Облачное сохранение клипов</span>
+            <button onClick={() => setShowClipSettings(false)} className="text-slate-500 hover:text-white">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
+            Если авторизован — клипы загружаются на платформу автоматически.
+            Ниже — кастомный S3-совместимый endpoint (PUT).
+            Используй <code className="text-violet-400">{"{filename}"}</code> в URL как плейсхолдер.
+          </p>
+          <div className="space-y-2">
+            <div>
+              <label className="text-[10px] uppercase text-slate-400 tracking-wider">PUT URL</label>
+              <input
+                className="w-full mt-0.5 px-2 py-1.5 rounded-md text-xs font-mono text-white bg-black/40 border border-white/10 outline-none focus:border-violet-400"
+                placeholder="https://bucket.s3.region.amazonaws.com/{filename}?..."
+                defaultValue={localStorage.getItem("clipS3Endpoint") ?? ""}
+                onChange={(e) => {
+                  if (e.target.value) localStorage.setItem("clipS3Endpoint", e.target.value);
+                  else localStorage.removeItem("clipS3Endpoint");
+                }}
+              />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase text-slate-400 tracking-wider">API Key (необязательно)</label>
+              <input
+                className="w-full mt-0.5 px-2 py-1.5 rounded-md text-xs font-mono text-white bg-black/40 border border-white/10 outline-none focus:border-violet-400"
+                placeholder="ключ доступа"
+                type="password"
+                defaultValue={localStorage.getItem("clipS3Key") ?? ""}
+                onChange={(e) => {
+                  if (e.target.value) localStorage.setItem("clipS3Key", e.target.value);
+                  else localStorage.removeItem("clipS3Key");
+                }}
+              />
+            </div>
+          </div>
+          <p className="text-[10px] text-slate-600 mt-3">Настройки хранятся локально в браузере.</p>
+        </div>
+      )}
 
       <div className="flex-1 relative flex items-center justify-center bg-black cursor-crosshair">
         {connectionState !== "connected" && !reconnecting && (
