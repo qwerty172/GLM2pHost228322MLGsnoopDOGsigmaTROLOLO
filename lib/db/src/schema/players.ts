@@ -54,6 +54,7 @@ export const playersTable = pgTable("players", {
   premiumUntil: timestamp("premium_until", { withTimezone: true }),
   kycVerified: boolean("kyc_verified").notNull().default(false),
   hasDefault: boolean("has_default").notNull().default(false),
+  isGuest: boolean("is_guest").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,8 +12,11 @@ import {
   Lock,
   Users,
   ChevronRight,
+  Play,
+  Server,
 } from "lucide-react";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   useGetPublicStats,
   getGetPublicStatsQueryKey,
@@ -21,6 +24,7 @@ import {
   getListGamesQueryKey,
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
+import { usePlayerWallet } from "@/hooks/use-player-wallet";
 
 function formatInt(n: number): string {
   // 1248 → "1 248" (Russian thin-space grouping).
@@ -37,8 +41,37 @@ function coverSrc(url: string | null | undefined): string | null {
   return `${import.meta.env.BASE_URL}${url.replace(/^\//, "")}`;
 }
 
+type LiveHost = {
+  id: string;
+  displayName: string;
+  boundAppLabel: string;
+  pricePerHourUsd: number;
+  minutePriceUsd: number;
+  status: string;
+  playerToken: string | null;
+  tags: string[];
+  games: Array<{ slug: string; title: string; coverImageUrl: string; genre: string; pricePerMinuteLzt: number }>;
+};
+
+function useLiveHosts() {
+  const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
+  return useQuery<LiveHost[]>({
+    queryKey: ["live-hosts-landing"],
+    queryFn: async () => {
+      const res = await fetch(`${base}/api/hosts`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  });
+}
+
 export default function Landing() {
   const [shareLink, setShareLink] = useState("");
+  const [, navigate] = useLocation();
+  const { playerWalletToken, registerGuest } = usePlayerWallet();
+  const { data: liveHosts } = useLiveHosts();
   const { data: stats } = useGetPublicStats({
     query: {
       queryKey: getGetPublicStatsQueryKey(),
@@ -65,6 +98,19 @@ export default function Landing() {
       }
     }
   };
+
+  const handlePlayNow = async (host: LiveHost) => {
+    if (!host.playerToken) return;
+    let token = playerWalletToken;
+    if (!token) {
+      token = await registerGuest();
+    }
+    navigate(`/play/${host.playerToken}`);
+  };
+
+  const playableHosts = (liveHosts ?? [])
+    .filter((h) => h.status === "online" && h.playerToken)
+    .slice(0, 6);
 
   const statItems: { num: string; label: string; icon: React.ReactNode; testid: string }[] = [
     {
@@ -192,6 +238,84 @@ export default function Landing() {
           ))}
         </div>
       </section>
+
+      {playableHosts.length > 0 && (
+        <section className="max-w-6xl mx-auto px-6 pb-10">
+          <div className="flex items-center gap-2 mb-3">
+            <span
+              className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider"
+              style={{ color: "#2dd4bf" }}
+            >
+              <span className="w-2 h-2 rounded-full bg-teal-400 inline-block" style={{ boxShadow: "0 0 6px rgba(45,212,191,0.7)" }} />
+              Играй прямо сейчас
+            </span>
+            <span className="text-xs text-slate-600">· {playableHosts.length} хост{playableHosts.length === 1 ? "" : "а"} онлайн</span>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
+            {playableHosts.map((host) => {
+              const firstGame = host.games?.[0];
+              const cover = firstGame?.coverImageUrl
+                ? coverSrc(firstGame.coverImageUrl)
+                : null;
+              const gameTitle = firstGame?.title ?? host.boundAppLabel ?? "Игра";
+              const lztPerMin = firstGame?.pricePerMinuteLzt
+                ?? Math.round(host.minutePriceUsd * 200);
+              return (
+                <div
+                  key={host.id}
+                  className="shrink-0 rounded-xl overflow-hidden flex flex-col"
+                  style={{
+                    width: 160,
+                    background: "#0a1018",
+                    border: "1px solid rgba(45,212,191,0.2)",
+                  }}
+                >
+                  <div className="relative" style={{ height: 100 }}>
+                    {cover ? (
+                      <img
+                        src={cover}
+                        alt={gameTitle}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      <div
+                        className="w-full h-full flex items-center justify-center"
+                        style={{ background: "rgba(14,165,233,0.05)" }}
+                      >
+                        <Server className="w-8 h-8 text-slate-700" />
+                      </div>
+                    )}
+                    <div
+                      className="absolute inset-0"
+                      style={{ background: "linear-gradient(to top, rgba(10,16,24,0.9) 0%, transparent 60%)" }}
+                    />
+                    <div className="absolute bottom-1.5 left-2 right-2">
+                      <p className="text-[11px] font-bold text-white leading-tight truncate">{gameTitle}</p>
+                    </div>
+                  </div>
+                  <div className="px-2.5 pt-2 pb-2.5 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-slate-500 truncate">{host.displayName}</span>
+                      <span className="text-[10px] font-mono text-sky-400">{lztPerMin} LZT/мин</span>
+                    </div>
+                    <button
+                      className="w-full h-7 rounded-md text-[11px] font-semibold flex items-center justify-center gap-1 transition-opacity hover:opacity-90"
+                      style={{ background: "#0ea5e9", color: "#fff" }}
+                      onClick={() => handlePlayNow(host)}
+                      data-testid={`button-play-now-${host.id}`}
+                    >
+                      <Play className="w-3 h-3" /> Играть
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <section className="max-w-6xl mx-auto px-6 pb-12">
         <div className="flex items-center justify-between mb-4">

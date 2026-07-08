@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useGetWallet, getGetWalletQueryKey } from "@workspace/api-client-react";
+import { usePlayerWallet } from "@/hooks/use-player-wallet";
 
 type NavKey =
   | "/"
@@ -53,6 +54,7 @@ function BalanceChip({ hostToken }: { hostToken: string }) {
 
 export function SiteNav({ activePath }: Props) {
   const { hostToken } = useAuth();
+  const { playerWalletToken, isGuest } = usePlayerWallet();
 
   return (
     <nav
@@ -197,6 +199,23 @@ export function SiteNav({ activePath }: Props) {
       </div>
 
       <MobileMenu activePath={activePath} />
+
+      {playerWalletToken && isGuest && (
+        <div
+          className="px-6 py-1.5 flex items-center justify-center gap-2 text-[11px]"
+          style={{
+            background: "rgba(245,158,11,0.08)",
+            borderBottom: "1px solid rgba(245,158,11,0.15)",
+            color: "#fbbf24",
+          }}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block shrink-0" />
+          Гостевой аккаунт — зарегистрируйся, чтобы пополнить баланс и сохранить историю.
+          <Link href="/host">
+            <span className="underline cursor-pointer hover:text-amber-300 transition-colors">Войти / создать аккаунт</span>
+          </Link>
+        </div>
+      )}
     </nav>
   );
 }

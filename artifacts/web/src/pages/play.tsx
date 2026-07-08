@@ -32,7 +32,16 @@ export default function Play() {
     }
   });
 
-  const { playerWalletToken } = usePlayerWallet();
+  const { playerWalletToken, registerGuest } = usePlayerWallet();
+
+  // Auto-register a guest account when a user lands directly on /play/:playerToken
+  // without having gone through the landing page or game-detail "Play" button.
+  useEffect(() => {
+    if (!playerWalletToken) {
+      void registerGuest();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const { data: wallet } = useGetWallet(playerWalletToken || "", {
     query: {
       enabled: !!playerWalletToken,

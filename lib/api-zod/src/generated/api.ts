@@ -411,6 +411,7 @@ export const GetPlayerResponse = zod.object({
   withdrawableBalanceLzt: zod
     .number()
     .describe("Зелёный — LZT convertible back to crypto at 200:1"),
+  isGuest: zod.boolean().optional().default(false),
   createdAt: zod.coerce.date(),
   lastSeenAt: zod.coerce.date(),
 });

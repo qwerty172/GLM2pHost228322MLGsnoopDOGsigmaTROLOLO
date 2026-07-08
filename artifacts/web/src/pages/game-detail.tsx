@@ -159,6 +159,16 @@ export default function GameDetailPage() {
 
   const { data: libraryHosts, isLoading: hostsLoading } = useLibraryHosts(slug);
   const browserRtt = useBrowserPingMs();
+  const { playerWalletToken, registerGuest } = usePlayerWallet();
+
+  async function handlePlay(host: LibraryHost) {
+    if (!host.playerToken) return;
+    let token = playerWalletToken;
+    if (!token) {
+      token = await registerGuest();
+    }
+    setPreSessionHost(host);
+  }
 
   function clearTag() {
     setTag("");
@@ -365,7 +375,7 @@ export default function GameDetailPage() {
                       key={h.hostId}
                       host={h}
                       browserRtt={browserRtt}
-                      onPlay={() => setPreSessionHost(h)}
+                      onPlay={() => handlePlay(h)}
                     />
                   ))}
                 </ul>
