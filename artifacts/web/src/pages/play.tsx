@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Gamepad2, AlertCircle, ArrowLeft, Loader2, Wifi, WifiOff, VolumeX, Wallet, Banknote, Coins, Clock, TrendingDown } from "lucide-react";
+import { Gamepad2, AlertCircle, ArrowLeft, Loader2, Wifi, WifiOff, VolumeX, Wallet, Banknote, Coins, Clock, TrendingDown, Activity, RefreshCw } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 
@@ -48,6 +48,9 @@ export default function Play() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showAudioPrompt, setShowAudioPrompt] = useState(false);
   const [iceType, setIceType] = useState<"relay" | "srflx" | "host" | null>(null);
+  const [reconnecting, setReconnecting] = useState(false);
+  const [longDisconnect, setLongDisconnect] = useState(false);
+  const [e2eRtt, setE2eRtt] = useState<number | null>(null);
 
   // Live HUD: client-side ticking balance estimate between API syncs
   const [estimatedBalanceLzt, setEstimatedBalanceLzt] = useState<number | null>(null);
@@ -59,6 +62,15 @@ export default function Play() {
   const wsRef = useRef<WebSocket | null>(null);
   const dcRef = useRef<RTCDataChannel | null>(null);
   const startedRef = useRef(false);
+
+  // Reconnect state
+  const iceRestartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longDisconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const rttSamplesRef = useRef<number[]>([]);
+  const wsReconnectDelayRef = useRef<number>(1000);
+  const wsReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wsUrlRef = useRef<string>("");
 
   // Sync estimated balance from actual wallet data (30s API sync)
   useEffect(() => {
@@ -99,6 +111,10 @@ export default function Play() {
   }, [session?.status, (session as typeof session & { endReason?: string | null })?.endReason, isPlaying]);
 
   const cleanupConnection = useCallback(() => {
+    if (iceRestartTimerRef.current) { clearTimeout(iceRestartTimerRef.current); iceRestartTimerRef.current = null; }
+    if (longDisconnectTimerRef.current) { clearTimeout(longDisconnectTimerRef.current); longDisconnectTimerRef.current = null; }
+    if (pingIntervalRef.current) { clearInterval(pingIntervalRef.current); pingIntervalRef.current = null; }
+    if (wsReconnectTimerRef.current) { clearTimeout(wsReconnectTimerRef.current); wsReconnectTimerRef.current = null; }
     if (dcRef.current) {
       dcRef.current.close();
       dcRef.current = null;
@@ -112,9 +128,147 @@ export default function Play() {
       pcRef.current = null;
     }
     startedRef.current = false;
+    rttSamplesRef.current = [];
     setIsPlaying(false);
     setConnectionState("closed");
+    setReconnecting(false);
+    setLongDisconnect(false);
+    setE2eRtt(null);
   }, []);
+
+  // Set up the DataChannel with ping/pong E2E RTT measurement.
+  const setupDataChannel = useCallback((dc: RTCDataChannel) => {
+    dcRef.current = dc;
+
+    dc.onopen = () => {
+      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = setInterval(() => {
+        if (dc.readyState === "open") {
+          dc.send(JSON.stringify({ type: "dc-ping", t: Date.now() }));
+        }
+      }, 2000);
+    };
+
+    dc.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data as string) as Record<string, unknown>;
+        if (msg["type"] === "dc-pong" && typeof msg["t"] === "number") {
+          const rtt = Date.now() - (msg["t"] as number);
+          const samples = [...rttSamplesRef.current.slice(-4), rtt];
+          rttSamplesRef.current = samples;
+          const avg = Math.round(samples.reduce((a, b) => a + b, 0) / samples.length);
+          setE2eRtt(avg);
+        }
+      } catch {
+        // ignore parse errors — also handles regular input echo or other DC messages
+      }
+    };
+
+    dc.onclose = () => {
+      if (pingIntervalRef.current) { clearInterval(pingIntervalRef.current); pingIntervalRef.current = null; }
+      setE2eRtt(null);
+    };
+  }, []);
+
+  // Trigger ICE restart: send a new offer with iceRestart flag through the signaling WS.
+  const triggerIceRestart = useCallback(async (pc: RTCPeerConnection) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    try {
+      pc.restartIce();
+      const offer = await pc.createOffer({ iceRestart: true });
+      await pc.setLocalDescription(offer);
+      ws.send(JSON.stringify({ type: "offer", sdp: { type: offer.type, sdp: offer.sdp } }));
+      console.log("[ice-restart] Sent re-offer to host");
+    } catch (err) {
+      console.warn("[ice-restart] Failed to create re-offer:", err);
+    }
+  }, []);
+
+  // Build and connect a WebSocket with exponential-backoff reconnect.
+  // Also handles all signaling messages for offer/answer/ICE for the lifetime of `pc`.
+  const connectWs = useCallback((url: string, pc: RTCPeerConnection) => {
+    if (!startedRef.current) return;
+    const ws = new WebSocket(url);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      wsReconnectDelayRef.current = 1000;
+      // Create the DataChannel only on the first open (it lives on the PC, not the WS).
+      if (!dcRef.current || dcRef.current.readyState === "closed") {
+        setupDataChannel(pc.createDataChannel("input"));
+      }
+      // If ICE was suspended during a WS drop, trigger restart now.
+      const ice = pc.iceConnectionState;
+      if (ice === "disconnected" || ice === "failed") {
+        void triggerIceRestart(pc);
+      }
+    };
+
+    ws.onmessage = async (event) => {
+      try {
+        const msg = JSON.parse(event.data as string) as Record<string, unknown>;
+        const type = msg["type"] as string;
+
+        if (type === "offer") {
+          // Offer from host (initial or ICE-restart re-offer).
+          await pc.setRemoteDescription(new RTCSessionDescription(msg["sdp"] as RTCSessionDescriptionInit));
+
+          // Force H.264 on the answer.
+          const transceivers = pc.getTransceivers();
+          for (const transceiver of transceivers) {
+            if (transceiver.receiver.track.kind === "video") {
+              const capabilities = RTCRtpReceiver.getCapabilities("video");
+              if (capabilities) {
+                const h264 = capabilities.codecs.filter(
+                  (c) => c.mimeType.toLowerCase() === "video/h264",
+                );
+                if (h264.length > 0) {
+                  try { transceiver.setCodecPreferences(h264); } catch { /* unsupported */ }
+                }
+              }
+            }
+          }
+
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          ws.send(JSON.stringify({ type: "answer", sdp: answer }));
+        } else if (type === "answer") {
+          // Answer from host in response to our ICE-restart re-offer.
+          await pc.setRemoteDescription(new RTCSessionDescription(msg["sdp"] as RTCSessionDescriptionInit));
+        } else if (type === "ice-candidate") {
+          await pc.addIceCandidate(new RTCIceCandidate(msg["candidate"] as RTCIceCandidateInit));
+        } else if (type === "control" && msg["action"] === "reject") {
+          const reason: string = (msg["reason"] as string) ?? "unknown";
+          const msgText =
+            reason === "host_busy"
+              ? "Хост сейчас занят с другим игроком. Попробуй позже."
+              : reason === "game_unavailable"
+                ? "Игра временно недоступна на этом хосте."
+                : `Хост отклонил соединение (${reason}).`;
+          toast.error(msgText);
+          cleanupConnection();
+        }
+      } catch (err) {
+        console.error("Error handling WS message", err);
+      }
+    };
+
+    ws.onerror = () => {
+      // close event will follow; handled there.
+    };
+
+    ws.onclose = () => {
+      if (!startedRef.current) return;
+      // Exponential backoff: 1s → 2s → 4s → 8s (cap).
+      const delay = wsReconnectDelayRef.current;
+      wsReconnectDelayRef.current = Math.min(delay * 2, 8000);
+      console.log(`[ws] Disconnected — reconnecting in ${delay}ms`);
+      wsReconnectTimerRef.current = setTimeout(() => {
+        connectWs(url, pc);
+      }, delay);
+    };
+  }, [cleanupConnection, setupDataChannel, triggerIceRestart]);
 
   const startConnection = useCallback(async () => {
     if (!playerToken || startedRef.current) return;
@@ -126,9 +280,7 @@ export default function Play() {
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     if (!playerWalletToken) return;
     const wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&playerToken=${playerToken}&playerWalletToken=${playerWalletToken}`;
-    
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+    wsUrlRef.current = wsUrl;
 
     // Fetch ICE server config (STUN + optional TURN) from the API.
     let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
@@ -150,7 +302,11 @@ export default function Play() {
     pc.onconnectionstatechange = () => {
       setConnectionState(pc.connectionState);
       if (pc.connectionState === "connected") {
-        // Log the ICE candidate type (relay / srflx / host) for diagnostics.
+        // Cleared reconnecting state on successful reconnect.
+        setReconnecting(false);
+        if (longDisconnectTimerRef.current) { clearTimeout(longDisconnectTimerRef.current); longDisconnectTimerRef.current = null; }
+        setLongDisconnect(false);
+        // Log the ICE candidate type for diagnostics.
         void pc.getStats().then((stats) => {
           stats.forEach((report) => {
             if (report.type === "candidate-pair" && report.state === "succeeded") {
@@ -158,8 +314,7 @@ export default function Play() {
               stats.forEach((r) => {
                 if (r.id === localId && r.type === "local-candidate") {
                   const t = r.candidateType as string;
-                  const mapped =
-                    t === "relay" ? "relay" : t === "srflx" ? "srflx" : "host";
+                  const mapped = t === "relay" ? "relay" : t === "srflx" ? "srflx" : "host";
                   console.log(`[ice] connection type: ${mapped}`);
                   setIceType(mapped as "relay" | "srflx" | "host");
                 }
@@ -167,15 +322,52 @@ export default function Play() {
             }
           });
         });
-      } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected" || pc.connectionState === "closed") {
+      } else if (pc.connectionState === "closed") {
         cleanupConnection();
-        toast.error("Соединение потеряно");
+      }
+    };
+
+    // ICE-level disconnect handling: wait 3s then attempt restart.
+    pc.oniceconnectionstatechange = () => {
+      const state = pc.iceConnectionState;
+      console.log(`[ice] iceConnectionState: ${state}`);
+
+      if (state === "disconnected") {
+        setReconnecting(true);
+        if (iceRestartTimerRef.current) clearTimeout(iceRestartTimerRef.current);
+        iceRestartTimerRef.current = setTimeout(() => {
+          if (pcRef.current?.iceConnectionState === "disconnected") {
+            void triggerIceRestart(pcRef.current);
+          }
+        }, 3000);
+
+        // Show "Переподключиться" modal after 30 seconds of no recovery.
+        if (longDisconnectTimerRef.current) clearTimeout(longDisconnectTimerRef.current);
+        longDisconnectTimerRef.current = setTimeout(() => {
+          setLongDisconnect(true);
+        }, 30000);
+      } else if (state === "failed") {
+        // Immediate restart attempt on failed (more severe than disconnected).
+        setReconnecting(true);
+        if (iceRestartTimerRef.current) clearTimeout(iceRestartTimerRef.current);
+        void triggerIceRestart(pc);
+
+        if (longDisconnectTimerRef.current) clearTimeout(longDisconnectTimerRef.current);
+        longDisconnectTimerRef.current = setTimeout(() => {
+          setLongDisconnect(true);
+        }, 30000);
+      } else if (state === "connected" || state === "completed") {
+        // Clear reconnect state on recovery.
+        if (iceRestartTimerRef.current) { clearTimeout(iceRestartTimerRef.current); iceRestartTimerRef.current = null; }
+        if (longDisconnectTimerRef.current) { clearTimeout(longDisconnectTimerRef.current); longDisconnectTimerRef.current = null; }
+        setReconnecting(false);
+        setLongDisconnect(false);
       }
     };
 
     pc.onicecandidate = (event) => {
-      if (event.candidate && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "ice-candidate", candidate: event.candidate }));
+      if (event.candidate && wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: "ice-candidate", candidate: event.candidate }));
       }
     };
 
@@ -188,66 +380,8 @@ export default function Play() {
       }
     };
 
-    ws.onmessage = async (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === "offer") {
-          await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
-
-          // Force H.264 on the answer: keep only H.264 codecs so the browser
-          // negotiates hardware-accelerated NVENC on the host side.
-          const transceivers = pc.getTransceivers();
-          for (const transceiver of transceivers) {
-            if (transceiver.receiver.track.kind === "video") {
-              const capabilities = RTCRtpReceiver.getCapabilities("video");
-              if (capabilities) {
-                const h264 = capabilities.codecs.filter(
-                  (c) => c.mimeType.toLowerCase() === "video/h264",
-                );
-                if (h264.length > 0) {
-                  try {
-                    transceiver.setCodecPreferences(h264);
-                  } catch {
-                    console.warn("[h264] setCodecPreferences not supported, falling back to SDP negotiation");
-                  }
-                }
-              }
-            }
-          }
-
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          ws.send(JSON.stringify({ type: "answer", sdp: answer }));
-        } else if (msg.type === "ice-candidate") {
-          await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
-        } else if (msg.type === "control" && msg.action === "reject") {
-          // Host explicitly rejected this player: host_busy or game_unavailable.
-          const reason: string = msg.reason ?? "unknown";
-          const msgText =
-            reason === "host_busy"
-              ? "Хост сейчас занят с другим игроком. Попробуй позже."
-              : reason === "game_unavailable"
-                ? "Игра временно недоступна на этом хосте."
-                : `Хост отклонил соединение (${reason}).`;
-          toast.error(msgText);
-          cleanupConnection();
-        }
-      } catch (err) {
-        console.error("Error handling WS message", err);
-      }
-    };
-
-    ws.onopen = () => {
-      // Create data channel for inputs
-      const dc = pc.createDataChannel("input");
-      dcRef.current = dc;
-    };
-
-    ws.onerror = () => {
-      toast.error("Ошибка сигнального сервера");
-      cleanupConnection();
-    };
-  }, [playerToken, playerWalletToken, cleanupConnection]);
+    connectWs(wsUrl, pc);
+  }, [playerToken, playerWalletToken, cleanupConnection, connectWs, triggerIceRestart]);
 
   useEffect(() => {
     if (
@@ -773,6 +907,36 @@ export default function Play() {
         </div>
       )}
 
+      {/* Long disconnect modal — shown after >30s of failed reconnect */}
+      {longDisconnect && (
+        <div className="absolute inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <Card className="w-full max-w-sm mx-4" style={{ background: "#0a1018", border: "1px solid rgba(234,179,8,0.4)" }}>
+            <CardHeader className="text-center pb-2">
+              <WifiOff className="h-10 w-10 text-yellow-400 mx-auto mb-3" />
+              <CardTitle className="text-white">Соединение потеряно</CardTitle>
+              <CardDescription className="text-slate-400">
+                Не удаётся восстановить связь с хостом. Попробуй переподключиться.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              <Button
+                className="w-full"
+                style={{ background: "#0ea5e9", color: "#fff" }}
+                onClick={() => {
+                  setLongDisconnect(false);
+                  if (pcRef.current) void triggerIceRestart(pcRef.current);
+                }}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" /> Переподключиться
+              </Button>
+              <Button variant="outline" className="w-full border-white/10 text-slate-300" onClick={cleanupConnection}>
+                <ArrowLeft className="h-4 w-4 mr-2" /> Завершить сессию
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between z-50 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
         <div className="flex items-center gap-4">
           <div className="font-bold text-sky-400 tracking-tight drop-shadow-md">
@@ -782,23 +946,26 @@ export default function Play() {
             variant="outline"
             className="bg-black/50 backdrop-blur font-mono"
             style={{
-              borderColor:
-                connectionState === "connected" ? "#0ea5e9" : "#ef4444",
-              color: connectionState === "connected" ? "#38bdf8" : "#f87171",
+              borderColor: reconnecting ? "#eab308" : connectionState === "connected" ? "#0ea5e9" : "#ef4444",
+              color: reconnecting ? "#fde047" : connectionState === "connected" ? "#38bdf8" : "#f87171",
             }}
           >
-            {connectionState === "connected" ? (
+            {reconnecting ? (
+              <RefreshCw className="w-3 h-3 mr-2 inline animate-spin" />
+            ) : connectionState === "connected" ? (
               <Wifi className="w-3 h-3 mr-2 inline" />
             ) : (
               <WifiOff className="w-3 h-3 mr-2 inline" />
             )}
-            {connectionState === "connected"
-              ? "ПОДКЛЮЧЕНО"
-              : connectionState === "connecting"
-                ? "СОЕДИНЕНИЕ"
-                : connectionState.toUpperCase()}
+            {reconnecting
+              ? "ПЕРЕПОДКЛЮЧЕНИЕ..."
+              : connectionState === "connected"
+                ? "ПОДКЛЮЧЕНО"
+                : connectionState === "connecting"
+                  ? "СОЕДИНЕНИЕ"
+                  : connectionState.toUpperCase()}
           </Badge>
-          {iceType && (
+          {iceType && !reconnecting && (
             <Badge
               variant="outline"
               className="bg-black/50 backdrop-blur font-mono text-[10px]"
@@ -808,6 +975,20 @@ export default function Play() {
               }}
             >
               {iceType === "relay" ? "TURN" : iceType === "srflx" ? "STUN" : "P2P"}
+            </Badge>
+          )}
+          {/* E2E RTT indicator */}
+          {e2eRtt !== null && !reconnecting && (
+            <Badge
+              variant="outline"
+              className="bg-black/50 backdrop-blur font-mono text-[10px]"
+              style={{
+                borderColor: e2eRtt < 60 ? "#22c55e" : e2eRtt < 120 ? "#eab308" : "#ef4444",
+                color: e2eRtt < 60 ? "#86efac" : e2eRtt < 120 ? "#fde047" : "#fca5a5",
+              }}
+            >
+              <Activity className="w-2.5 h-2.5 inline mr-1" />
+              {e2eRtt} мс
             </Badge>
           )}
         </div>
@@ -854,11 +1035,22 @@ export default function Play() {
       </div>
 
       <div className="flex-1 relative flex items-center justify-center bg-black cursor-crosshair">
-        {connectionState !== "connected" && (
+        {connectionState !== "connected" && !reconnecting && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-40 backdrop-blur-sm">
             <Loader2 className="h-12 w-12 animate-spin text-sky-400 mb-4" />
             <div className="font-mono text-sky-400 font-bold tracking-widest uppercase">
               Устанавливаем WebRTC-соединение
+            </div>
+          </div>
+        )}
+        {reconnecting && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-40 backdrop-blur-sm">
+            <RefreshCw className="h-12 w-12 animate-spin text-yellow-400 mb-4" />
+            <div className="font-mono text-yellow-400 font-bold tracking-widest uppercase">
+              Переподключение...
+            </div>
+            <div className="font-mono text-slate-500 text-xs mt-2">
+              Восстанавливаем ICE-соединение
             </div>
           </div>
         )}

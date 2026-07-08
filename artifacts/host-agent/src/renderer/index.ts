@@ -613,7 +613,32 @@ async function connect(cfg: HostConfig, gameId: string | null): Promise<void> {
     if (msg.type === "welcome") {
       // Acknowledged by signaling.
     } else if (msg.type === "peer-joined" && msg["role"] === "player") {
-      await onPlayerJoined(cfg);
+      if (isStreaming) {
+        // Same session player reconnecting after a brief WS drop.
+        // The PC is still alive; cancel any deferred teardown and wait for
+        // the player to send an ICE restart re-offer.
+        log("[reconnect] Player re-joined signaling — cancelling deferred teardown");
+        cancelDeferredTeardown();
+      } else {
+        await onPlayerJoined(cfg);
+      }
+    } else if (msg.type === "offer" && pc) {
+      // ICE-restart re-offer from the player. Accept it and answer.
+      log("[ice-restart] Received re-offer from player — renegotiating ICE");
+      try {
+        const sdp = msg["sdp"] as RTCSessionDescriptionInit | string;
+        const desc: RTCSessionDescriptionInit =
+          typeof sdp === "string" ? { type: "offer", sdp } : sdp;
+        await pc.setRemoteDescription(desc);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        ws.send(
+          JSON.stringify({ type: "answer", sdp: { type: answer.type, sdp: answer.sdp } }),
+        );
+        log("[ice-restart] Sent answer — awaiting ICE recovery");
+      } catch (err) {
+        log(`[ice-restart] Re-offer handling failed: ${String(err)}`);
+      }
     } else if (msg.type === "answer" && pc) {
       const sdp = msg["sdp"] as RTCSessionDescriptionInit | string;
       const desc: RTCSessionDescriptionInit =
@@ -636,8 +661,10 @@ async function connect(cfg: HostConfig, gameId: string | null): Promise<void> {
         /* ignore */
       }
     } else if (msg.type === "peer-left" && msg["role"] === "player") {
-      log("Player disconnected.");
-      teardownPeer(cfg);
+      // Player WS dropped — might be a transient reconnect; give 20s grace
+      // before tearing down, in case the player's WS reconnects.
+      log("[reconnect] Player left signaling — deferred teardown in 20s");
+      teardownDeferred("Player left — no reconnect", 20_000);
     } else if (msg.type === "error") {
       log(`Signaling error: ${String(msg["error"])}`);
     }
@@ -647,9 +674,115 @@ async function connect(cfg: HostConfig, gameId: string | null): Promise<void> {
     setStatus("error", "Signaling connection error");
   };
 
+  // Reconnect the WS with exponential backoff when streaming.
+  // Without reconnect, a transient network blip kills the session even if ICE
+  // would otherwise recover — the host needs WS alive to exchange re-offers.
+  let wsReconnectDelay = 1000;
   ws.onclose = () => {
     log("Signaling closed.");
-    teardownDeferred("Signaling closed", 8000);
+    if (!isStreaming) {
+      teardownDeferred("Signaling closed", 8000);
+      return;
+    }
+    const delay = wsReconnectDelay;
+    wsReconnectDelay = Math.min(wsReconnectDelay * 2, 8000);
+    log(`[ws] Reconnecting signaling in ${delay}ms…`);
+    const closedUrl = ws.url;
+    setTimeout(() => {
+      if (!isStreaming) return;
+      const newWs = new WebSocket(closedUrl);
+      ws = newWs;
+      attachWsHandlers(newWs, cfg, wsReconnectDelay);
+    }, delay);
+  };
+}
+
+// Re-attach ws event handlers after a reconnect.
+// Mirrors the ws.onmessage / onerror / onclose block inside connect() but
+// references the module-level `ws` variable so ICE candidate sending always
+// uses the live socket.
+// `initialDelay` is the backoff delay already accumulated so far — passed in
+// so the reconnect ladder (1→2→4→8s) continues across successive reconnects
+// rather than resetting to 1s on every call.
+function attachWsHandlers(newWs: WebSocket, cfg: HostConfig, initialDelay = 1000): void {
+  let wsReconnectDelay = initialDelay;
+
+  newWs.onopen = () => {
+    ws = newWs;
+    wsReconnectDelay = 1000; // reset backoff on successful open
+    log("[ws] Signaling reconnected");
+    // Cancel any deferred teardown scheduled during the WS outage.
+    cancelDeferredTeardown();
+    // The player's own reconnect loop will re-send an ICE restart offer;
+    // we just need the WS to be alive to relay it.
+  };
+
+  newWs.onmessage = async (ev) => {
+    let msg: { type: string; [k: string]: unknown };
+    try {
+      msg = JSON.parse(typeof ev.data === "string" ? ev.data : "");
+    } catch {
+      return;
+    }
+    if (msg.type === "offer" && pc) {
+      log("[ice-restart] Received re-offer (reconnected WS) — renegotiating ICE");
+      try {
+        const sdp = msg["sdp"] as RTCSessionDescriptionInit | string;
+        const desc: RTCSessionDescriptionInit =
+          typeof sdp === "string" ? { type: "offer", sdp } : sdp;
+        await pc.setRemoteDescription(desc);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        newWs.send(
+          JSON.stringify({ type: "answer", sdp: { type: answer.type, sdp: answer.sdp } }),
+        );
+      } catch (err) {
+        log(`[ice-restart] Re-offer (reconnected) failed: ${String(err)}`);
+      }
+    } else if (msg.type === "answer" && pc) {
+      const sdp = msg["sdp"] as RTCSessionDescriptionInit | string;
+      const desc: RTCSessionDescriptionInit =
+        typeof sdp === "string" ? { type: "answer", sdp } : sdp;
+      await pc.setRemoteDescription(desc).catch((err) => log(`setRemoteDescription failed: ${String(err)}`));
+    } else if (msg.type === "ice-candidate" && pc) {
+      try {
+        await pc.addIceCandidate(msg["candidate"] as RTCIceCandidateInit);
+      } catch (err) {
+        log(`ICE add failed: ${String(err)}`);
+      }
+    } else if (msg.type === "peer-left" && msg["role"] === "player") {
+      // Grace period: player may be reconnecting their WS.
+      log("[reconnect] Player left signaling (reconnected WS) — deferred teardown in 20s");
+      teardownDeferred("Player left — no reconnect", 20_000);
+    } else if (msg.type === "peer-joined" && msg["role"] === "player") {
+      if (isStreaming) {
+        // Same-session player reconnect — cancel deferred teardown, wait for re-offer.
+        log("[reconnect] Player re-joined (reconnected WS) — cancelling deferred teardown");
+        cancelDeferredTeardown();
+      } else {
+        await onPlayerJoined(cfg);
+      }
+    }
+  };
+
+  newWs.onerror = () => {
+    log("[ws] Reconnected signaling error");
+  };
+
+  newWs.onclose = () => {
+    if (!isStreaming) {
+      teardownDeferred("Signaling closed", 8000);
+      return;
+    }
+    const delay = wsReconnectDelay;
+    wsReconnectDelay = Math.min(wsReconnectDelay * 2, 8000);
+    log(`[ws] Reconnecting signaling in ${delay}ms…`);
+    const closedUrl = newWs.url;
+    setTimeout(() => {
+      if (!isStreaming) return;
+      const nextWs = new WebSocket(closedUrl);
+      attachWsHandlers(nextWs, cfg, wsReconnectDelay);
+    }, delay);
   };
 }
 
@@ -823,12 +956,18 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
           }
         });
       });
-    } else if (
-      pc?.connectionState === "failed" ||
-      pc?.connectionState === "disconnected" ||
-      pc?.connectionState === "closed"
-    ) {
+    } else if (pc?.connectionState === "closed") {
+      // Terminal state — clean up immediately.
       teardownPeer(cfg);
+    } else if (pc?.connectionState === "failed") {
+      // ICE negotiation failed; give 30s for ICE restart to recover before
+      // tearing down.  The player side triggers restartIce() automatically.
+      log("[ice] connectionState failed — deferred teardown in 30s");
+      teardownDeferred("ICE failed — no recovery", 30_000);
+    } else if (pc?.connectionState === "disconnected") {
+      // Transient loss (e.g. Wi-Fi handover).  Give 30s for ICE restart.
+      log("[ice] connectionState disconnected — deferred teardown in 30s");
+      teardownDeferred("ICE disconnected — no recovery", 30_000);
     }
   };
 
@@ -837,6 +976,13 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     dataChannel.onmessage = (m) => {
       try {
         const raw = JSON.parse(m.data) as Record<string, unknown>;
+        // E2E latency ping — reflect timestamp back to player immediately.
+        if (raw["type"] === "dc-ping") {
+          if (dataChannel?.readyState === "open") {
+            dataChannel.send(JSON.stringify({ type: "dc-pong", t: raw["t"] }));
+          }
+          return;
+        }
         const event =
           typeof raw["kind"] === "string" &&
           (raw["kind"] === "mousemove" ||
