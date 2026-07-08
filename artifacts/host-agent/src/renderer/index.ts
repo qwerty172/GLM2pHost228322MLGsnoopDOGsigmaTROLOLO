@@ -84,6 +84,8 @@ let currentConfig: HostConfig | null = null;
 let currentGameId: string | null = null;
 // Guard: prevents accepting a second peer-joined while already streaming.
 let isStreaming = false;
+// One-time warning flag for gamepad input when ViGEm is not connected.
+let gamepadWarnedOnce = false;
 
 // Library state
 let libraryEntries: LibraryEntry[] = [];
@@ -980,6 +982,27 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
         if (raw["type"] === "dc-ping") {
           if (dataChannel?.readyState === "open") {
             dataChannel.send(JSON.stringify({ type: "dc-pong", t: raw["t"] }));
+          }
+          return;
+        }
+        // Gamepad input from the virtual touch overlay on mobile.
+        if (raw["type"] === "gamepad") {
+          // Validate payload shape and clamp to expected ranges.
+          const rawAxes = Array.isArray(raw["axes"]) ? (raw["axes"] as unknown[]) : null;
+          const rawBtns = Array.isArray(raw["buttons"]) ? (raw["buttons"] as unknown[]) : null;
+          if (!rawAxes || !rawBtns) return; // malformed — discard
+          // Clamp axes to [-1, 1]; buttons to {0, 1}.
+          const axes = rawAxes.map((v) =>
+            Math.max(-1, Math.min(1, typeof v === "number" ? v : 0)),
+          );
+          const buttons = rawBtns.map((v) => (v ? 1 : 0));
+          // Forward to ViGEm/XInput injection layer when the IPC method is
+          // available (added in a future task). Until then, warn once and skip.
+          if (typeof (window.agent as Record<string, unknown>)["injectGamepad"] === "function") {
+            (window.agent as unknown as { injectGamepad: (s: { axes: number[]; buttons: number[] }) => void }).injectGamepad({ axes, buttons });
+          } else if (!gamepadWarnedOnce) {
+            gamepadWarnedOnce = true;
+            log("[gamepad] ViGEm/XInput backend not connected — overlay input received but not injected.");
           }
           return;
         }

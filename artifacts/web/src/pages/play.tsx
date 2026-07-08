@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Gamepad2, AlertCircle, ArrowLeft, Loader2, Wifi, WifiOff, VolumeX, Wallet, Banknote, Coins, Clock, TrendingDown, Activity, RefreshCw, Clapperboard, Settings2, X } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { TouchOverlay } from "@/components/TouchOverlay";
 
 const LZT_PER_USDT = 200;
 type PaymentSource = "auto" | "blue" | "green";
@@ -54,6 +55,13 @@ export default function Play() {
   const [dataChannelOpen, setDataChannelOpen] = useState(false);
   const [isSavingClip, setIsSavingClip] = useState(false);
   const [showClipSettings, setShowClipSettings] = useState(false);
+
+  // Virtual gamepad overlay — auto-enabled on touch devices
+  const [gamepadOverlay, setGamepadOverlay] = useState<boolean>(
+    () => navigator.maxTouchPoints > 0,
+  );
+  // Layout edit mode: lets players drag-to-reposition each control
+  const [gamepadEditMode, setGamepadEditMode] = useState(false);
 
   // Live HUD: client-side ticking balance estimate between API syncs
   const [estimatedBalanceLzt, setEstimatedBalanceLzt] = useState<number | null>(null);
@@ -736,6 +744,13 @@ export default function Play() {
     }
   };
 
+  const sendGamepadInput = useCallback((axes: number[], buttons: number[]) => {
+    const dc = dcRef.current;
+    if (dc && dc.readyState === "open") {
+      dc.send(JSON.stringify({ type: "gamepad", axes, buttons }));
+    }
+  }, []);
+
   if (isLoading) {
     return (
       <div
@@ -1185,53 +1200,104 @@ export default function Play() {
           );
         })()}
 
-        {/* Clip button — only when DC is open */}
-        <div className="flex items-center gap-1 pointer-events-auto">
-          <Button
-            size="sm"
-            onClick={() => void saveClip()}
-            disabled={!dataChannelOpen || isSavingClip}
-            title={dataChannelOpen ? "Сохранить последние ~30 сек" : "Доступно после подключения"}
-            className="shadow-md gap-1.5"
+        <div className="flex items-center gap-2">
+          {/* Clip button — only when DC is open */}
+          <div className="flex items-center gap-1 pointer-events-auto">
+            <Button
+              size="sm"
+              onClick={() => void saveClip()}
+              disabled={!dataChannelOpen || isSavingClip}
+              title={dataChannelOpen ? "Сохранить последние ~30 сек" : "Доступно после подключения"}
+              className="shadow-md gap-1.5"
+              style={{
+                background: dataChannelOpen ? "rgba(139,92,246,0.85)" : "rgba(100,100,100,0.4)",
+                color: "#fff",
+                opacity: dataChannelOpen ? 1 : 0.5,
+              }}
+            >
+              {isSavingClip ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Clapperboard className="h-3.5 w-3.5" />
+              )}
+              Клип
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setShowClipSettings((v) => !v)}
+              title="Настройки облачного сохранения"
+              className="shadow-md px-2"
+              style={{
+                background: showClipSettings ? "rgba(139,92,246,0.6)" : "rgba(255,255,255,0.07)",
+                color: "#fff",
+                border: "1px solid rgba(255,255,255,0.12)",
+              }}
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+
+          {/* Gamepad overlay toggle */}
+          <button
+            onClick={() => {
+              setGamepadOverlay((v) => {
+                if (v) setGamepadEditMode(false);
+                return !v;
+              });
+            }}
+            className="pointer-events-auto"
+            title="Виртуальный геймпад"
             style={{
-              background: dataChannelOpen ? "rgba(139,92,246,0.85)" : "rgba(100,100,100,0.4)",
-              color: "#fff",
-              opacity: dataChannelOpen ? 1 : 0.5,
+              background: gamepadOverlay ? "rgba(14,165,233,0.25)" : "rgba(255,255,255,0.08)",
+              border: gamepadOverlay ? "1px solid rgba(14,165,233,0.6)" : "1px solid rgba(255,255,255,0.15)",
+              borderRadius: 8,
+              padding: "5px 8px",
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              color: gamepadOverlay ? "#38bdf8" : "#94a3b8",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
             }}
           >
-            {isSavingClip ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Clapperboard className="h-3.5 w-3.5" />
-            )}
-            Клип
-          </Button>
+            <Gamepad2 style={{ width: 15, height: 15 }} />
+            Геймпад
+          </button>
+
+          {/* Layout edit toggle — only shown when overlay is active */}
+          {gamepadOverlay && (
+            <button
+              onClick={() => setGamepadEditMode((v) => !v)}
+              className="pointer-events-auto"
+              title="Редактировать раскладку"
+              style={{
+                background: gamepadEditMode ? "rgba(234,179,8,0.25)" : "rgba(255,255,255,0.06)",
+                border: gamepadEditMode ? "1px solid rgba(234,179,8,0.7)" : "1px solid rgba(255,255,255,0.12)",
+                borderRadius: 8,
+                padding: "5px 8px",
+                color: gamepadEditMode ? "#fde047" : "#64748b",
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              {gamepadEditMode ? "✓ Готово" : "✎"}
+            </button>
+          )}
+
           <Button
             size="sm"
-            onClick={() => setShowClipSettings((v) => !v)}
-            title="Настройки облачного сохранения"
-            className="shadow-md px-2"
+            onClick={cleanupConnection}
+            className="pointer-events-auto shadow-md"
             style={{
-              background: showClipSettings ? "rgba(139,92,246,0.6)" : "rgba(255,255,255,0.07)",
+              background: "rgba(239,68,68,0.85)",
               color: "#fff",
-              border: "1px solid rgba(255,255,255,0.12)",
             }}
           >
-            <Settings2 className="h-3.5 w-3.5" />
+            Отключиться
           </Button>
         </div>
-
-        <Button
-          size="sm"
-          onClick={cleanupConnection}
-          className="pointer-events-auto shadow-md"
-          style={{
-            background: "rgba(239,68,68,0.85)",
-            color: "#fff",
-          }}
-        >
-          Отключиться
-        </Button>
       </div>
 
       {/* Clip cloud-upload settings panel */}
@@ -1311,6 +1377,11 @@ export default function Play() {
           className="w-full h-full object-contain pointer-events-auto"
           onClick={requestPointerLock}
         />
+
+        {/* Virtual gamepad overlay */}
+        {isPlaying && gamepadOverlay && (
+          <TouchOverlay onGamepadInput={sendGamepadInput} editMode={gamepadEditMode} />
+        )}
 
         {showAudioPrompt && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-30 pointer-events-auto">
