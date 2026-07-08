@@ -88,6 +88,10 @@ export default function QuotaNewPage() {
       toast.error("Укажи SSH host, user и ключ");
       return;
     }
+    if (!hostToken) {
+      toast.error("Нужна авторизация хоста");
+      return;
+    }
     setVdsTesting(true);
     setVdsTestResult(null);
     try {
@@ -97,6 +101,7 @@ export default function QuotaNewPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            ownerToken: hostToken,
             sshHost: vdsSshHost.trim(),
             sshPort: Number(vdsSshPort) || 22,
             sshUser: vdsSshUser.trim(),
