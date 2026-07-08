@@ -55,6 +55,28 @@ const chip = (active: boolean) => ({
   border: active ? "1px solid #0ea5e9" : "1px solid rgba(14,165,233,0.18)",
 });
 
+type GameEnriched = {
+  steamAppId?: string | null;
+};
+
+function SteamPlayerCount({ steamAppId }: { steamAppId: string }) {
+  const [count, setCount] = useState<number | null>(null);
+  useEffect(() => {
+    const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
+    fetch(`${base}/api/games/steam-lookup?appId=${steamAppId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.currentPlayers != null) setCount(d.currentPlayers); })
+      .catch(() => {});
+  }, [steamAppId]);
+  if (count == null) return null;
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-emerald-400 mt-1 font-mono">
+      <Activity className="h-3 w-3" />
+      {count.toLocaleString("ru-RU")} играют в Steam
+    </span>
+  );
+}
+
 type LibraryHost = {
   hostId: string;
   displayName: string;
@@ -289,6 +311,9 @@ export default function GameDetailPage() {
                 </h1>
                 {game.genre && (
                   <p className="text-sky-400 font-mono mt-1 text-sm">{game.genre}</p>
+                )}
+                {(game as GameEnriched).steamAppId && (
+                  <SteamPlayerCount steamAppId={(game as GameEnriched).steamAppId!} />
                 )}
                 <p className="text-slate-400 mt-4 leading-relaxed text-sm">
                   {game.description || "Описание ещё не добавлено."}

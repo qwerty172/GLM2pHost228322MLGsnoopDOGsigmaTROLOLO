@@ -570,6 +570,20 @@ function LibraryConfigForm({
 }
 
 // --------------------------------------------------------------------------
+// RAWG suggestion type
+// --------------------------------------------------------------------------
+interface RawgSuggestion {
+  rawgId: string;
+  title: string;
+  coverImageUrl: string | null;
+  genres: string[];
+  rating: number | null;
+  metacritic: number | null;
+  steamAppId?: string;
+  source?: "rawg" | "steam";
+}
+
+// --------------------------------------------------------------------------
 // New game submission form (suggest new to moderators)
 // --------------------------------------------------------------------------
 function SubmitGameForm({
@@ -587,6 +601,76 @@ function SubmitGameForm({
   const [description, setDescription] = useState("");
   const [steamId, setSteamId] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // RAWG autocomplete state
+  const [rawgSuggestions, setRawgSuggestions] = useState<RawgSuggestion[]>([]);
+  const [rawgLoading, setRawgLoading] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const rawgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Steam auto-fill state
+  const [steamLoading, setSteamLoading] = useState(false);
+
+  // Debounced RAWG search as user types title
+  const handleTitleChange = (value: string) => {
+    setTitle(value);
+    setShowSuggestions(true);
+    if (rawgTimerRef.current) clearTimeout(rawgTimerRef.current);
+    if (value.trim().length < 3) {
+      setRawgSuggestions([]);
+      return;
+    }
+    rawgTimerRef.current = setTimeout(async () => {
+      setRawgLoading(true);
+      try {
+        const r = await apiFetch<RawgSuggestion[]>(`/api/games/rawg-search?q=${encodeURIComponent(value.trim())}`);
+        if (r.ok) setRawgSuggestions(r.data);
+      } finally {
+        setRawgLoading(false);
+      }
+    }, 400);
+  };
+
+  // Fill form fields from a RAWG/Steam suggestion
+  const applyRawgSuggestion = (s: RawgSuggestion) => {
+    setTitle(s.title);
+    if (s.coverImageUrl) setCoverUrl(s.coverImageUrl);
+    if (s.genres.length) setCategory(s.genres.join(", "));
+    if (s.steamAppId) setSteamId(s.steamAppId);
+    setRawgSuggestions([]);
+    setShowSuggestions(false);
+  };
+
+  // Fetch Steam metadata by App ID and auto-fill form
+  const fetchSteamData = async () => {
+    const id = steamId.trim();
+    if (!id || !/^\d+$/.test(id)) {
+      toast.error("Введи числовой Steam App ID");
+      return;
+    }
+    setSteamLoading(true);
+    try {
+      const r = await apiFetch<{
+        title: string;
+        coverImageUrl: string;
+        description: string;
+        genres: string[];
+        currentPlayers: number | null;
+      }>(`/api/games/steam-lookup?appId=${id}`);
+      if (!r.ok) {
+        toast.error("Игра не найдена в Steam");
+        return;
+      }
+      const d = r.data;
+      setTitle(d.title);
+      setCoverUrl(d.coverImageUrl);
+      if (d.description) setDescription(d.description);
+      if (d.genres.length) setCategory(d.genres.join(", "));
+      toast.success(`Заполнено из Steam: ${d.title}${d.currentPlayers ? ` · ${d.currentPlayers.toLocaleString()} играют` : ""}`);
+    } finally {
+      setSteamLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -631,22 +715,116 @@ function SubmitGameForm({
         <p className="text-xs text-slate-500">Заявка уйдёт на модерацию. После одобрения игра появится в каталоге.</p>
       </div>
 
-      <div className="space-y-1.5">
+      {/* Title with RAWG autocomplete */}
+      <div className="space-y-1.5 relative">
         <Label className="text-slate-300 text-sm">Название *</Label>
-        <Input placeholder="Grand Theft Auto VI" value={title} onChange={(e) => setTitle(e.target.value)} style={inputStyle} autoFocus required />
+        <div className="relative">
+          <Input
+            placeholder="Grand Theft Auto VI"
+            value={title}
+            onChange={(e) => handleTitleChange(e.target.value)}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+            style={inputStyle}
+            autoFocus
+            required
+          />
+          {rawgLoading && (
+            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-slate-500" />
+          )}
+        </div>
+
+        {/* RAWG suggestions dropdown */}
+        {showSuggestions && rawgSuggestions.length > 0 && (
+          <div
+            className="absolute z-50 w-full mt-1 rounded-lg overflow-hidden shadow-2xl"
+            style={{ background: "#0d1623", border: "1px solid rgba(255,255,255,0.1)" }}
+          >
+            {rawgSuggestions.map((s) => (
+              <button
+                key={s.rawgId}
+                type="button"
+                onMouseDown={() => applyRawgSuggestion(s)}
+                className="flex items-center gap-3 w-full px-3 py-2 text-left hover:bg-white/5 transition-colors"
+              >
+                {s.coverImageUrl ? (
+                  <img
+                    src={s.coverImageUrl}
+                    alt={s.title}
+                    className="w-10 h-10 rounded object-cover flex-shrink-0"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded bg-slate-800 flex items-center justify-center flex-shrink-0">
+                    <Gamepad2 className="h-4 w-4 text-slate-600" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm text-white truncate">{s.title}</p>
+                  {s.genres.length > 0 && (
+                    <p className="text-[10px] text-slate-500 truncate">{s.genres.slice(0, 3).join(" · ")}</p>
+                  )}
+                </div>
+                {s.rating != null && s.rating > 0 && (
+                  <span className="ml-auto text-[10px] font-mono text-sky-400 flex-shrink-0">★ {s.rating.toFixed(1)}</span>
+                )}
+              </button>
+            ))}
+            <div className="px-3 py-1.5 border-t border-white/5">
+              <span className="text-[10px] text-slate-600">Данные: RAWG.io</span>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Cover URL with preview */}
       <div className="space-y-1.5">
         <Label className="text-slate-300 text-sm">URL обложки</Label>
-        <Input placeholder="https://…/cover.jpg" value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} style={inputStyle} />
+        <div className="flex gap-2 items-start">
+          <Input placeholder="https://…/cover.jpg" value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} style={inputStyle} />
+          {coverUrl && (
+            <img
+              src={coverUrl}
+              alt="cover"
+              className="w-10 h-10 rounded object-cover flex-shrink-0"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+            />
+          )}
+        </div>
       </div>
+
       <div className="space-y-1.5">
-        <Label className="text-slate-300 text-sm">Категория</Label>
+        <Label className="text-slate-300 text-sm">Категория / жанры</Label>
         <Input placeholder="Action, RPG, Strategy…" value={category} onChange={(e) => setCategory(e.target.value)} style={inputStyle} />
       </div>
+
+      {/* Steam App ID with auto-fill button */}
       <div className="space-y-1.5">
-        <Label className="text-slate-300 text-sm">Steam App ID <span className="text-slate-500 font-normal">(опционально)</span></Label>
-        <Input placeholder="730" value={steamId} onChange={(e) => setSteamId(e.target.value)} style={inputStyle} className="font-mono" />
+        <Label className="text-slate-300 text-sm">
+          Steam App ID{" "}
+          <span className="text-slate-500 font-normal">(заполнит форму автоматически)</span>
+        </Label>
+        <div className="flex gap-2">
+          <Input
+            placeholder="730"
+            value={steamId}
+            onChange={(e) => setSteamId(e.target.value)}
+            style={inputStyle}
+            className="font-mono"
+          />
+          <Button
+            type="button"
+            onClick={fetchSteamData}
+            disabled={steamLoading || !steamId.trim()}
+            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0" }}
+            className="flex-shrink-0 text-xs px-3"
+          >
+            {steamLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Заполнить"}
+          </Button>
+        </div>
+        <p className="text-[10px] text-slate-600">Найди ID на странице игры в Steam: store.steampowered.com/app/<strong>730</strong>/</p>
       </div>
+
       <div className="space-y-1.5">
         <Label className="text-slate-300 text-sm">Краткое описание <span className="text-slate-500 font-normal">(опционально)</span></Label>
         <textarea

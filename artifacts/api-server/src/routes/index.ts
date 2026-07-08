@@ -16,11 +16,13 @@ import premiumRouter from "./premium";
 import agentAuthRouter from "./agentAuth";
 import vdsRouter from "./vds";
 import quotaAiChatRouter from "./quotaAiChat";
+import enrichRouter from "./enrich";
 
 const router: IRouter = Router();
 
 router.use(agentAuthRouter);
 router.use(downloadsRouter);
+router.use(enrichRouter);
 router.use(gamesRouter);
 router.use(healthRouter);
 // Public routes must mount BEFORE hostsRouter — both serve the /hosts path
