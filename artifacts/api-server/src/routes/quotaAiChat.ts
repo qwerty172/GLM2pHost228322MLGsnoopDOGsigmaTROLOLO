@@ -40,6 +40,11 @@ const FormStateSchema = z.object({
   maxSessionMinutes: z.string().optional(),
   startAt: z.string().optional(),
   endAt: z.string().optional(),
+  minGpuVram: z.number().nullish(),
+  minCpuCores: z.number().nullish(),
+  minRamGb: z.number().nullish(),
+  minDownloadMbps: z.number().nullish(),
+  minUploadMbps: z.number().nullish(),
 });
 
 const GameSchema = z.object({ id: z.string(), title: z.string() });
@@ -91,7 +96,9 @@ const SYSTEM_PROMPT = `Ты — ИИ-помощник для заполнени�
 5. Если не хватает данных для заполнения — задай один уточняющий вопрос.
 6. Не публикуй квоту сам — пользователь сделает это кнопкой.
 7. Для спонсорской квоты обязательно нужен budgetLzt > 0 и хотя бы одна ставка > 0.
-8. Для роялти обязательны royaltyBasis, royaltyValue и royaltySource.`;
+8. Для роялти обязательны royaltyBasis, royaltyValue и royaltySource.
+9. Если пользователь говорит «только быстрые хосты», «хорошее соединение», «стрим без фризов» — устанавливай minUploadMbps (рекомендуется ≥10 для 1080p, ≥20 для высококачественного стрима). Поясни это пользователю.
+10. Поля minGpuVram, minCpuCores, minRamGb, minDownloadMbps, minUploadMbps задают минимальные требования к хосту — квоту нельзя прикрепить к сессии хоста, чей ПК ниже этих порогов.`;
 
 const updateFormFieldsTool: Anthropic.Tool = {
   name: "update_form_fields",
@@ -158,6 +165,26 @@ const updateFormFieldsTool: Anthropic.Tool = {
         type: "string",
         description: "Конец действия в формате YYYY-MM-DDTHH:MM (или пустая строка)",
       },
+      minGpuVram: {
+        type: "number",
+        description: "Минимальный VRAM GPU в ГБ",
+      },
+      minCpuCores: {
+        type: "number",
+        description: "Минимальное количество ядер CPU",
+      },
+      minRamGb: {
+        type: "number",
+        description: "Минимальный объём RAM в ГБ",
+      },
+      minDownloadMbps: {
+        type: "number",
+        description: "Минимальная скорость скачивания в Мбит/с",
+      },
+      minUploadMbps: {
+        type: "number",
+        description: "Минимальная скорость аплоада в Мбит/с (рекомендуется ≥10 для 1080p стрима)",
+      },
     },
   },
 };
@@ -167,6 +194,7 @@ const VALID_FORM_PATCH_KEYS = new Set([
   "royaltyValue", "royaltySource", "budgetLzt", "sponsorHostPerMinute",
   "sponsorPlayerPerMinute", "gameId", "minSessionMinutes",
   "maxSessionMinutes", "startAt", "endAt",
+  "minGpuVram", "minCpuCores", "minRamGb", "minDownloadMbps", "minUploadMbps",
 ]);
 
 function sanitizeFormPatch(raw: Record<string, unknown>): Record<string, unknown> {

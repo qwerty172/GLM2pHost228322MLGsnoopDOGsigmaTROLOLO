@@ -944,7 +944,7 @@ router.post("/hosts/me/pc-specs", async (req, res): Promise<void> => {
   }
 
   const [host] = await db
-    .select({ id: hostsTable.id })
+    .select({ id: hostsTable.id, pcSpecs: hostsTable.pcSpecs })
     .from(hostsTable)
     .where(eq(hostsTable.hostToken, hostToken));
   if (!host) {
@@ -952,7 +952,10 @@ router.post("/hosts/me/pc-specs", async (req, res): Promise<void> => {
     return;
   }
 
+  // Merge with existing pcSpecs so measured values (e.g. uploadMbps) are preserved.
+  const existing = (host.pcSpecs ?? {}) as Record<string, unknown>;
   const pcSpecs = {
+    ...existing,
     gpu: body.data.gpu,
     cpu: body.data.cpu,
     ramGb: body.data.ramGb,
@@ -965,6 +968,52 @@ router.post("/hosts/me/pc-specs", async (req, res): Promise<void> => {
 
   req.log.info({ hostId: host.id }, "PC specs updated");
   res.json({ ok: true, pcSpecs });
+});
+
+// ---- Upload speed test ----
+// The host agent POSTs ~1 MB of random binary data; the server measures the
+// elapsed time and persists the result in pcSpecs.uploadMbps.
+router.post("/hosts/me/speedtest", async (req, res): Promise<void> => {
+  const hostToken =
+    (req.headers["x-host-token"] as string | undefined) ??
+    (req.headers["x-token"] as string | undefined);
+  if (!hostToken) {
+    res.status(400).json({ error: "X-Host-Token header required" });
+    return;
+  }
+  const [host] = await db
+    .select()
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, hostToken));
+  if (!host) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+
+  // Collect raw bytes and measure elapsed time.
+  const started = Date.now();
+  await new Promise<void>((resolve) => {
+    req.resume();
+    req.on("end", resolve);
+    req.on("error", resolve);
+  });
+  const elapsedMs = Date.now() - started;
+  const bytes = Number(req.headers["content-length"] ?? 0);
+
+  let uploadMbps: number | null = null;
+  if (bytes > 0 && elapsedMs > 0) {
+    uploadMbps = Math.round((bytes * 8) / elapsedMs / 1000); // bits/ms = Mbps
+  }
+
+  if (uploadMbps !== null && uploadMbps > 0) {
+    const existing = (host.pcSpecs ?? {}) as Record<string, unknown>;
+    await db
+      .update(hostsTable)
+      .set({ pcSpecs: { ...existing, uploadMbps } as typeof host.pcSpecs })
+      .where(eq(hostsTable.id, host.id));
+  }
+
+  res.json({ ok: true, uploadMbps });
 });
 
 router.post("/hosts/heartbeat", async (req, res): Promise<void> => {

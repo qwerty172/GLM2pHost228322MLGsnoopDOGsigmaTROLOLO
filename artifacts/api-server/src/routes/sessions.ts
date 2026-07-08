@@ -218,6 +218,9 @@ router.post("/sessions", async (req, res): Promise<void> => {
       if (quota.minDownloadMbps != null && specs.downloadMbps != null && specs.downloadMbps < quota.minDownloadMbps) {
         violations.push(`Интернет: хост ${specs.downloadMbps} Мбит/с, минимум ${quota.minDownloadMbps} Мбит/с`);
       }
+      if (quota.minUploadMbps != null && specs.uploadMbps != null && specs.uploadMbps < quota.minUploadMbps) {
+        violations.push(`Аплоад: хост ${specs.uploadMbps} Мбит/с, минимум ${quota.minUploadMbps} Мбит/с`);
+      }
 
       if (violations.length > 0) {
         res.status(400).json({

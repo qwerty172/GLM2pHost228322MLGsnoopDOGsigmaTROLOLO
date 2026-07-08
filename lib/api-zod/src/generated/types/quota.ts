@@ -70,6 +70,11 @@ export interface Quota {
    * @nullable
    */
   minDownloadMbps: number | null;
+  /**
+   * Minimum upload bandwidth in Mbps (null = no requirement)
+   * @nullable
+   */
+  minUploadMbps: number | null;
   createdAt: Date;
   updatedAt: Date;
 }

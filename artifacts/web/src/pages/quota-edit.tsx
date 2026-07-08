@@ -49,6 +49,11 @@ export default function QuotaEditPage() {
   const [minSessionMinutes, setMinSessionMinutes] = useState<string>("");
   const [maxSessionMinutes, setMaxSessionMinutes] = useState<string>("");
   const [endAt, setEndAt] = useState<string>("");
+  const [minGpuVram, setMinGpuVram] = useState<string>("");
+  const [minCpuCores, setMinCpuCores] = useState<string>("");
+  const [minRamGb, setMinRamGb] = useState<string>("");
+  const [minDownloadMbps, setMinDownloadMbps] = useState<string>("");
+  const [minUploadMbps, setMinUploadMbps] = useState<string>("");
 
   const { data: games } = useListGames({});
 
@@ -68,6 +73,11 @@ export default function QuotaEditPage() {
       quota.maxSessionMinutes != null ? String(quota.maxSessionMinutes) : "",
     );
     setEndAt(quota.endAt ? quota.endAt.slice(0, 16) : "");
+    setMinGpuVram(quota.minGpuVram != null ? String(quota.minGpuVram) : "");
+    setMinCpuCores(quota.minCpuCores != null ? String(quota.minCpuCores) : "");
+    setMinRamGb(quota.minRamGb != null ? String(quota.minRamGb) : "");
+    setMinDownloadMbps(quota.minDownloadMbps != null ? String(quota.minDownloadMbps) : "");
+    setMinUploadMbps(quota.minUploadMbps != null ? String(quota.minUploadMbps) : "");
   }, [quota]);
 
   if (isLoading || !quota) {
@@ -118,6 +128,11 @@ export default function QuotaEditPage() {
               : null,
           royaltyValue:
             quota.kind === "royalty" ? Math.floor(royaltyValue) : null,
+          minGpuVram: minGpuVram ? Math.floor(Number(minGpuVram)) : null,
+          minCpuCores: minCpuCores ? Math.floor(Number(minCpuCores)) : null,
+          minRamGb: minRamGb ? Math.floor(Number(minRamGb)) : null,
+          minDownloadMbps: minDownloadMbps ? Math.floor(Number(minDownloadMbps)) : null,
+          minUploadMbps: minUploadMbps ? Math.floor(Number(minUploadMbps)) : null,
         },
       });
       toast.success("Изменения сохранены");
@@ -138,6 +153,11 @@ export default function QuotaEditPage() {
     if (patch.minSessionMinutes !== undefined) setMinSessionMinutes(patch.minSessionMinutes);
     if (patch.maxSessionMinutes !== undefined) setMaxSessionMinutes(patch.maxSessionMinutes);
     if (patch.endAt !== undefined) setEndAt(patch.endAt);
+    if (patch.minGpuVram !== undefined) setMinGpuVram(patch.minGpuVram !== null ? String(patch.minGpuVram) : "");
+    if (patch.minCpuCores !== undefined) setMinCpuCores(patch.minCpuCores !== null ? String(patch.minCpuCores) : "");
+    if (patch.minRamGb !== undefined) setMinRamGb(patch.minRamGb !== null ? String(patch.minRamGb) : "");
+    if (patch.minDownloadMbps !== undefined) setMinDownloadMbps(patch.minDownloadMbps !== null ? String(patch.minDownloadMbps) : "");
+    if (patch.minUploadMbps !== undefined) setMinUploadMbps(patch.minUploadMbps !== null ? String(patch.minUploadMbps) : "");
   };
 
   const currentFormState = {
@@ -312,6 +332,81 @@ export default function QuotaEditPage() {
                       </div>
                     </>
                   )}
+                </CardContent>
+              </Card>
+              <Card style={cardStyle}>
+                <CardHeader>
+                  <CardTitle className="text-white">Требования к ПК хоста</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-slate-300">VRAM GPU, ГБ</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={minGpuVram}
+                        onChange={(e) => setMinGpuVram(e.target.value)}
+                        placeholder="без ограничения"
+                        style={inputStyle}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">Ядра CPU</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={minCpuCores}
+                        onChange={(e) => setMinCpuCores(e.target.value)}
+                        placeholder="без ограничения"
+                        style={inputStyle}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-slate-300">RAM, ГБ</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={minRamGb}
+                        onChange={(e) => setMinRamGb(e.target.value)}
+                        placeholder="без ограничения"
+                        style={inputStyle}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">Скачивание, Мбит/с</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={minDownloadMbps}
+                        onChange={(e) => setMinDownloadMbps(e.target.value)}
+                        placeholder="без ограничения"
+                        style={inputStyle}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-slate-300">Мин. скорость аплоада, Мбит/с</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={minUploadMbps}
+                      onChange={(e) => setMinUploadMbps(e.target.value)}
+                      placeholder="без ограничения"
+                      style={inputStyle}
+                      className="mt-1"
+                      data-testid="input-min-upload-mbps"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Рекомендуется ≥10 для 1080p стрима.
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
               <Button

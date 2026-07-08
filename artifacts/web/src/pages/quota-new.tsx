@@ -76,6 +76,7 @@ export default function QuotaNewPage() {
   const [minCpuCores, setMinCpuCores] = useState<string>("");
   const [minRamGb, setMinRamGb] = useState<string>("");
   const [minDownloadMbps, setMinDownloadMbps] = useState<string>("");
+  const [minUploadMbps, setMinUploadMbps] = useState<string>("");
   const [aiLoading, setAiLoading] = useState(false);
 
   const createQuota = useCreateQuota();
@@ -171,11 +172,13 @@ export default function QuotaNewPage() {
         minCpuCores: number;
         minRamGb: number;
         minDownloadMbps: number;
+        minUploadMbps: number;
       };
       setMinGpuVram(String(data.minGpuVram));
       setMinCpuCores(String(data.minCpuCores));
       setMinRamGb(String(data.minRamGb));
       setMinDownloadMbps(String(data.minDownloadMbps));
+      setMinUploadMbps(String(data.minUploadMbps));
       toast.success("ИИ подобрал минимальные требования");
     } catch {
       toast.error("Не удалось подключиться к ИИ");
@@ -223,6 +226,7 @@ export default function QuotaNewPage() {
           minCpuCores: minCpuCores ? Math.floor(Number(minCpuCores)) : null,
           minRamGb: minRamGb ? Math.floor(Number(minRamGb)) : null,
           minDownloadMbps: minDownloadMbps ? Math.floor(Number(minDownloadMbps)) : null,
+          minUploadMbps: minUploadMbps ? Math.floor(Number(minUploadMbps)) : null,
         },
       });
       toast.success("Черновик создан");
@@ -266,6 +270,11 @@ export default function QuotaNewPage() {
     if (patch.maxSessionMinutes !== undefined) setMaxSessionMinutes(patch.maxSessionMinutes);
     if (patch.startAt !== undefined) setStartAt(patch.startAt);
     if (patch.endAt !== undefined) setEndAt(patch.endAt);
+    if (patch.minGpuVram !== undefined) setMinGpuVram(patch.minGpuVram !== null ? String(patch.minGpuVram) : "");
+    if (patch.minCpuCores !== undefined) setMinCpuCores(patch.minCpuCores !== null ? String(patch.minCpuCores) : "");
+    if (patch.minRamGb !== undefined) setMinRamGb(patch.minRamGb !== null ? String(patch.minRamGb) : "");
+    if (patch.minDownloadMbps !== undefined) setMinDownloadMbps(patch.minDownloadMbps !== null ? String(patch.minDownloadMbps) : "");
+    if (patch.minUploadMbps !== undefined) setMinUploadMbps(patch.minUploadMbps !== null ? String(patch.minUploadMbps) : "");
   };
 
   const currentFormState = {
@@ -756,7 +765,7 @@ export default function QuotaNewPage() {
                       />
                     </div>
                     <div>
-                      <Label className="text-slate-300">Интернет, Мбит/с</Label>
+                      <Label className="text-slate-300">Скачивание, Мбит/с</Label>
                       <Input
                         type="number"
                         min={1}
@@ -768,6 +777,24 @@ export default function QuotaNewPage() {
                         data-testid="input-min-download-mbps"
                       />
                     </div>
+                  </div>
+                  <div>
+                    <Label className="text-slate-300">
+                      Мин. скорость аплоада, Мбит/с
+                    </Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={minUploadMbps}
+                      onChange={(e) => setMinUploadMbps(e.target.value)}
+                      placeholder="без ограничения"
+                      style={inputStyle}
+                      className="mt-1"
+                      data-testid="input-min-upload-mbps"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Рекомендуется ≥10 для 1080p стрима. Хосты ниже порога не попадут в матчинг.
+                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -812,7 +839,7 @@ export default function QuotaNewPage() {
                         className="mt-1 w-full h-10 rounded-md px-3 text-sm"
                         style={inputStyle}
                         value="ssh"
-                        readOnly
+                        onChange={() => {}}
                       >
                         <option value="ssh">Свой SSH</option>
                       </select>
@@ -954,7 +981,6 @@ export default function QuotaNewPage() {
               currentFormState={currentFormState}
               availableGames={(games ?? []).map((g) => ({ id: g.id, title: g.title }))}
               onFormPatch={handleAiPatch}
-              ownerToken={hostToken ?? ""}
             />
           </div>
         </div>

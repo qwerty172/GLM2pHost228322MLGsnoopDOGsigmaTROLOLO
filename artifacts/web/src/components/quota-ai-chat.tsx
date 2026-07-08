@@ -24,9 +24,35 @@ export type QuotaFormState = {
   maxSessionMinutes: string;
   startAt: string;
   endAt: string;
+  minGpuVram?: string;
+  minCpuCores?: string;
+  minRamGb?: string;
+  minDownloadMbps?: string;
+  minUploadMbps?: string;
 };
 
-export type QuotaFormPatch = Partial<QuotaFormState>;
+export type QuotaFormPatch = {
+  kind?: string;
+  title?: string;
+  description?: string;
+  visibility?: string;
+  royaltyBasis?: string;
+  royaltyValue?: number;
+  royaltySource?: string;
+  budgetLzt?: number;
+  sponsorHostPerMinute?: number;
+  sponsorPlayerPerMinute?: number;
+  gameId?: string;
+  minSessionMinutes?: string;
+  maxSessionMinutes?: string;
+  startAt?: string;
+  endAt?: string;
+  minGpuVram?: number | null;
+  minCpuCores?: number | null;
+  minRamGb?: number | null;
+  minDownloadMbps?: number | null;
+  minUploadMbps?: number | null;
+};
 
 type Message = {
   role: "user" | "assistant";

@@ -857,6 +857,10 @@ export const ListPublicQuotasResponseItem = zod.object({
     .number()
     .nullable()
     .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
+  minUploadMbps: zod
+    .number()
+    .nullable()
+    .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -886,6 +890,7 @@ export const CreateQuotaBody = zod.object({
   minCpuCores: zod.number().nullish(),
   minRamGb: zod.number().nullish(),
   minDownloadMbps: zod.number().nullish(),
+  minUploadMbps: zod.number().nullish(),
 });
 
 /**
@@ -945,6 +950,10 @@ export const ListMyQuotasResponseItem = zod.object({
     .number()
     .nullable()
     .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
+  minUploadMbps: zod
+    .number()
+    .nullable()
+    .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1007,6 +1016,10 @@ export const ListAppliedQuotasResponseItem = zod.object({
     .number()
     .nullable()
     .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
+  minUploadMbps: zod
+    .number()
+    .nullable()
+    .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1073,6 +1086,10 @@ export const ListApplicableQuotasResponseItem = zod.object({
     .number()
     .nullable()
     .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
+  minUploadMbps: zod
+    .number()
+    .nullable()
+    .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1191,6 +1208,7 @@ export const UpdateQuotaBody = zod.object({
   minCpuCores: zod.number().nullish(),
   minRamGb: zod.number().nullish(),
   minDownloadMbps: zod.number().nullish(),
+  minUploadMbps: zod.number().nullish(),
 });
 
 export const UpdateQuotaResponse = zod.object({
@@ -1243,6 +1261,10 @@ export const UpdateQuotaResponse = zod.object({
     .number()
     .nullable()
     .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
+  minUploadMbps: zod
+    .number()
+    .nullable()
+    .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1308,6 +1330,10 @@ export const PublishQuotaResponse = zod.object({
     .number()
     .nullable()
     .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
+  minUploadMbps: zod
+    .number()
+    .nullable()
+    .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1373,6 +1399,10 @@ export const PauseQuotaResponse = zod.object({
     .number()
     .nullable()
     .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
+  minUploadMbps: zod
+    .number()
+    .nullable()
+    .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1438,6 +1468,10 @@ export const CloseQuotaResponse = zod.object({
     .number()
     .nullable()
     .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
+  minUploadMbps: zod
+    .number()
+    .nullable()
+    .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1459,6 +1493,7 @@ export const AiSuggestQuotaSpecsResponse = zod.object({
   minCpuCores: zod.number(),
   minRamGb: zod.number(),
   minDownloadMbps: zod.number(),
+  minUploadMbps: zod.number(),
 });
 
 /**
@@ -1522,6 +1557,10 @@ export const RegenerateQuotaCodeResponse = zod.object({
     .number()
     .nullable()
     .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
+  minUploadMbps: zod
+    .number()
+    .nullable()
+    .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1553,6 +1592,11 @@ export const QuotaAiChatBody = zod.object({
     maxSessionMinutes: zod.string().optional(),
     startAt: zod.string().optional(),
     endAt: zod.string().optional(),
+    minGpuVram: zod.number().nullish(),
+    minCpuCores: zod.number().nullish(),
+    minRamGb: zod.number().nullish(),
+    minDownloadMbps: zod.number().nullish(),
+    minUploadMbps: zod.number().nullish(),
   }),
   availableGames: zod
     .array(
@@ -1583,6 +1627,11 @@ export const QuotaAiChatResponse = zod.object({
       maxSessionMinutes: zod.string().optional(),
       startAt: zod.string().optional(),
       endAt: zod.string().optional(),
+      minGpuVram: zod.number().nullish(),
+      minCpuCores: zod.number().nullish(),
+      minRamGb: zod.number().nullish(),
+      minDownloadMbps: zod.number().nullish(),
+      minUploadMbps: zod.number().nullish(),
     })
     .optional(),
 });

@@ -1586,6 +1586,17 @@ async function initAgentKey(): Promise<void> {
   bindKeyBtn.disabled = false;
   agentLoginBtn.disabled = false;
   updatePcSpecsBtn.disabled = false;
+
+  // Run upload speed test silently in the background on every startup so that
+  // pcSpecs.uploadMbps is always up-to-date for quota matching.
+  try {
+    const cfg = await window.agent.getConfig();
+    if (cfg.hostToken && cfg.apiBaseUrl) {
+      void runUploadSpeedtest(cfg.apiBaseUrl, cfg.hostToken);
+    }
+  } catch {
+    // Non-fatal — do not block startup
+  }
 }
 
 bindKeyBtn.addEventListener("click", async () => {
@@ -1626,6 +1637,31 @@ agentLoginBtn.addEventListener("click", async () => {
   }
 });
 
+async function runUploadSpeedtest(apiBaseUrl: string, hostToken: string): Promise<void> {
+  try {
+    const MB = 1 * 1024 * 1024;
+    const payload = new Uint8Array(MB);
+    crypto.getRandomValues(payload.slice(0, Math.min(65536, MB)));
+    const resp = await fetch(`${apiBaseUrl.replace(/\/$/, "")}/api/hosts/me/speedtest`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "Content-Length": String(MB),
+        "X-Host-Token": hostToken,
+      },
+      body: payload,
+    });
+    if (resp.ok) {
+      const data = (await resp.json()) as { uploadMbps?: number };
+      if (data.uploadMbps != null) {
+        log(`Скорость аплоада: ${data.uploadMbps} Мбит/с`);
+      }
+    }
+  } catch {
+    // Non-fatal — don't block the agent on speedtest failures
+  }
+}
+
 updatePcSpecsBtn.addEventListener("click", async () => {
   const cfg = currentConfig ?? (await window.agent.getConfig());
   if (!cfg.hostToken || !cfg.apiBaseUrl) {
@@ -1633,6 +1669,8 @@ updatePcSpecsBtn.addEventListener("click", async () => {
     return;
   }
   updatePcSpecsBtn.disabled = true;
+  log("Измеряем скорость аплоада…");
+  await runUploadSpeedtest(cfg.apiBaseUrl, cfg.hostToken);
   const result = await window.agent.updatePcSpecs(cfg.hostToken, cfg.apiBaseUrl);
   updatePcSpecsBtn.disabled = false;
   if (result.ok && result.pcSpecs) {

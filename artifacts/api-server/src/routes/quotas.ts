@@ -65,6 +65,7 @@ function shapeQuota(
     minCpuCores: q.minCpuCores,
     minRamGb: q.minRamGb,
     minDownloadMbps: q.minDownloadMbps,
+    minUploadMbps: q.minUploadMbps,
     createdAt: q.createdAt.toISOString(),
     updatedAt: q.updatedAt.toISOString(),
   };
@@ -196,9 +197,9 @@ router.post("/quotas/ai-suggest-specs", async (req, res): Promise<void> => {
 
   let prompt: string;
   if (resolvedTitle) {
-    prompt = `Какие минимальные требования к ПК для комфортного стриминга игры ${resolvedTitle}${resolvedGenre ? ` (жанр: ${resolvedGenre})` : ""} в 1080p60? Ответь ТОЛЬКО JSON объектом без комментариев и markdown, вот пример формата: {"minGpuVram": 6, "minCpuCores": 6, "minRamGb": 16, "minDownloadMbps": 50}. minGpuVram — минимум видеопамяти GPU в ГБ, minCpuCores — количество ядер CPU, minRamGb — ОЗУ в ГБ, minDownloadMbps — скорость интернета в Мбит/с.`;
+    prompt = `Какие минимальные требования к ПК для комфортного стриминга игры ${resolvedTitle}${resolvedGenre ? ` (жанр: ${resolvedGenre})` : ""} в 1080p60? Ответь ТОЛЬКО JSON объектом без комментариев и markdown, вот пример формата: {"minGpuVram": 6, "minCpuCores": 6, "minRamGb": 16, "minDownloadMbps": 50, "minUploadMbps": 10}. minGpuVram — минимум видеопамяти GPU в ГБ, minCpuCores — количество ядер CPU, minRamGb — ОЗУ в ГБ, minDownloadMbps — скорость скачивания в Мбит/с, minUploadMbps — скорость аплоада в Мбит/с (критично для стрима!).`;
   } else {
-    prompt = `Верни универсальные минимальные требования к ПК для стриминга игр в 1080p60. Ответь ТОЛЬКО JSON объектом без комментариев и markdown, вот пример формата: {"minGpuVram": 6, "minCpuCores": 4, "minRamGb": 16, "minDownloadMbps": 50}.`;
+    prompt = `Верни универсальные минимальные требования к ПК для стриминга игр в 1080p60. Ответь ТОЛЬКО JSON объектом без комментариев и markdown, вот пример формата: {"minGpuVram": 6, "minCpuCores": 4, "minRamGb": 16, "minDownloadMbps": 50, "minUploadMbps": 10}.`;
   }
 
   try {
@@ -218,12 +219,14 @@ router.post("/quotas/ai-suggest-specs", async (req, res): Promise<void> => {
       minCpuCores?: unknown;
       minRamGb?: unknown;
       minDownloadMbps?: unknown;
+      minUploadMbps?: unknown;
     };
     res.json({
       minGpuVram: typeof data.minGpuVram === "number" ? Math.round(data.minGpuVram) : 6,
       minCpuCores: typeof data.minCpuCores === "number" ? Math.round(data.minCpuCores) : 4,
       minRamGb: typeof data.minRamGb === "number" ? Math.round(data.minRamGb) : 16,
       minDownloadMbps: typeof data.minDownloadMbps === "number" ? Math.round(data.minDownloadMbps) : 50,
+      minUploadMbps: typeof data.minUploadMbps === "number" ? Math.round(data.minUploadMbps) : 10,
     });
   } catch (err) {
     res.status(500).json({
@@ -366,14 +369,21 @@ router.get("/quotas/match-my-host", async (req, res): Promise<void> => {
   // Filter to currently-active quotas only.
   const active = rows.filter((q) => isQuotaActiveNow(q, now));
 
-  // Hardware compatibility: skip quotas whose minRamGb exceeds the host's RAM.
+  // Hardware compatibility: filter quotas whose minRamGb or minUploadMbps exceeds host specs.
   // If the host has no pcSpecs yet (null), we still return quotas with no
-  // minRamGb requirement so the host can start working immediately.
-  const hostRamGb = (host.pcSpecs as { ramGb?: number } | null)?.ramGb ?? null;
+  // requirement so the host can start working immediately.
+  const hostSpecs = host.pcSpecs as { ramGb?: number; uploadMbps?: number } | null;
+  const hostRamGb = hostSpecs?.ramGb ?? null;
+  const hostUploadMbps = hostSpecs?.uploadMbps ?? null;
   const filtered = active.filter((q) => {
-    if (q.minRamGb === null || q.minRamGb === undefined) return true; // no requirement
-    if (hostRamGb === null) return true; // host hasn't reported specs yet — don't block
-    return hostRamGb >= q.minRamGb;
+    if (q.minRamGb !== null && q.minRamGb !== undefined) {
+      if (hostRamGb !== null && hostRamGb < q.minRamGb) return false;
+    }
+    if (q.minUploadMbps !== null && q.minUploadMbps !== undefined) {
+      if (hostUploadMbps === null) return true; // host hasn't measured yet — don't block
+      if (hostUploadMbps < q.minUploadMbps) return false;
+    }
+    return true;
   });
 
   // Sort by profitability: sponsor quotas with higher escrow first, then
@@ -631,6 +641,7 @@ router.post("/quotas", async (req, res): Promise<void> => {
       minCpuCores: body.minCpuCores ?? null,
       minRamGb: body.minRamGb ?? null,
       minDownloadMbps: body.minDownloadMbps ?? null,
+      minUploadMbps: body.minUploadMbps ?? null,
     })
     .returning();
   if (!created) {
@@ -719,6 +730,7 @@ router.patch("/quotas/:id", async (req, res): Promise<void> => {
   if (b.minCpuCores !== undefined) updates.minCpuCores = b.minCpuCores;
   if (b.minRamGb !== undefined) updates.minRamGb = b.minRamGb;
   if (b.minDownloadMbps !== undefined) updates.minDownloadMbps = b.minDownloadMbps;
+  if (b.minUploadMbps !== undefined) updates.minUploadMbps = b.minUploadMbps;
   // private→public clears the access code; public→private mints a new one.
   if (b.visibility === "public") updates.accessCode = null;
   if (b.visibility === "private" && !quota.accessCode)

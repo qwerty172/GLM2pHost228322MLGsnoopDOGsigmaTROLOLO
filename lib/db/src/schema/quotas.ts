@@ -63,6 +63,7 @@ export const quotasTable = pgTable(
     minCpuCores: integer("min_cpu_cores"),   // logical cores
     minRamGb: integer("min_ram_gb"),         // GB RAM
     minDownloadMbps: integer("min_download_mbps"), // Mbps
+    minUploadMbps: integer("min_upload_mbps"),     // Mbps
 
     startAt: timestamp("start_at", { withTimezone: true })
       .notNull()

@@ -44,4 +44,6 @@ export interface CreateQuotaBody {
   minRamGb?: number | null;
   /** @nullable */
   minDownloadMbps?: number | null;
+  /** @nullable */
+  minUploadMbps?: number | null;
 }

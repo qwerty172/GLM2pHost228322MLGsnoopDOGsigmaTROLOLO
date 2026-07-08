@@ -540,6 +540,11 @@ export interface Quota {
    * @nullable
    */
   minDownloadMbps: number | null;
+  /**
+   * Minimum upload bandwidth in Mbps (null = no requirement)
+   * @nullable
+   */
+  minUploadMbps: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -613,6 +618,8 @@ export interface CreateQuotaBody {
   minRamGb?: number | null;
   /** @nullable */
   minDownloadMbps?: number | null;
+  /** @nullable */
+  minUploadMbps?: number | null;
 }
 
 export type UpdateQuotaBodyVisibility =
@@ -656,6 +663,8 @@ export interface UpdateQuotaBody {
   minRamGb?: number | null;
   /** @nullable */
   minDownloadMbps?: number | null;
+  /** @nullable */
+  minUploadMbps?: number | null;
 }
 
 export interface AiSuggestQuotaSpecsBody {
@@ -675,6 +684,7 @@ export interface AiSuggestQuotaSpecsResponse {
   minCpuCores: number;
   minRamGb: number;
   minDownloadMbps: number;
+  minUploadMbps: number;
 }
 
 export interface QuotaOwnerBody {
@@ -710,6 +720,11 @@ export interface QuotaFormState {
   maxSessionMinutes?: string;
   startAt?: string;
   endAt?: string;
+  minGpuVram?: number | null;
+  minCpuCores?: number | null;
+  minRamGb?: number | null;
+  minDownloadMbps?: number | null;
+  minUploadMbps?: number | null;
 }
 
 export type QuotaAiChatBodyAvailableGamesItem = {
@@ -740,6 +755,11 @@ export interface QuotaFormPatch {
   maxSessionMinutes?: string;
   startAt?: string;
   endAt?: string;
+  minGpuVram?: number | null;
+  minCpuCores?: number | null;
+  minRamGb?: number | null;
+  minDownloadMbps?: number | null;
+  minUploadMbps?: number | null;
 }
 
 export interface QuotaAiChatResponse {
