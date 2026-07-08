@@ -290,7 +290,7 @@ function FundModal({
                   color: source === s ? "#38bdf8" : "#94a3b8",
                 }}
               >
-                {s === "cash" ? "🟢 Зелёный (cash)" : "🔵 Синий (balance)"}
+                {s === "cash" ? "К выводу (cash)" : "Игровой (balance)"}
               </button>
             ))}
           </div>

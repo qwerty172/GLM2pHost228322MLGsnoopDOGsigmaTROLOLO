@@ -616,7 +616,7 @@ export default function QuotaNewPage() {
                   <CardHeader>
                     <CardTitle className="text-white">Спонсорский эскроу</CardTitle>
                     <CardDescription className="text-slate-500">
-                      Бюджет заморозится с твоего зелёного баланса при публикации.
+                      Бюджет заморозится с твоего баланса «К выводу» при публикации.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -663,7 +663,7 @@ export default function QuotaNewPage() {
                       </div>
                     </div>
                     <p className="text-xs text-slate-500">
-                      При публикации с твоего зелёного баланса спишется{" "}
+                      При публикации с твоего баланса «К выводу» спишется{" "}
                       <span className="text-emerald-300 font-mono">
                         {budgetLzt.toLocaleString("ru-RU")} LZT
                       </span>

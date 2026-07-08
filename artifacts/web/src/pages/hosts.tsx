@@ -92,7 +92,7 @@ function GameChips({ games }: { games: LibraryGame[] }) {
                   border: "1px solid rgba(14,165,233,0.12)",
                   color: "#7dd3fc",
                 }}
-                title={`${g.title} · 🔵 ${g.pricePerMinuteLzt} LZT/мин`}
+                title={`${g.title} · ${g.pricePerMinuteLzt} LZT/мин`}
                 data-testid={`game-chip-${g.slug}`}
               >
                 {src ? (
@@ -106,7 +106,7 @@ function GameChips({ games }: { games: LibraryGame[] }) {
                   <Gamepad2 className="h-3 w-3 flex-shrink-0 text-slate-600" />
                 )}
                 <span className="max-w-[120px] truncate">{g.title}</span>
-                <span className="text-blue-500 flex-shrink-0">🔵{g.pricePerMinuteLzt}</span>
+                <span className="text-blue-500 flex-shrink-0">{g.pricePerMinuteLzt}</span>
               </span>
             </Link>
           );
@@ -250,7 +250,7 @@ function GamePickerDialog({
                     <div className="text-[11px] text-sky-400 font-mono">{g.genre}</div>
                   )}
                   <div className="text-[11px] text-blue-400 mt-1 font-mono">
-                    🔵 {g.pricePerMinuteLzt} LZT/мин
+                    {g.pricePerMinuteLzt} LZT/мин
                   </div>
                 </div>
               </button>
@@ -500,7 +500,7 @@ export default function HostsPage() {
                         </div>
                         {games.length > 0 && (
                           <div className="text-[10px] text-blue-500 font-mono mt-0.5">
-                            🔵 {Math.min(...games.map((g) => g.pricePerMinuteLzt))}+ LZT/мин
+                            {Math.min(...games.map((g) => g.pricePerMinuteLzt))}+ LZT/мин
                           </div>
                         )}
                       </div>

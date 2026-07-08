@@ -811,9 +811,9 @@ export default function Play() {
     const minutesAffordable =
       ratePerMinLzt > 0 ? Math.floor(sourceBalance / ratePerMinLzt) : 0;
     const sourceLabel: Record<PaymentSource, string> = {
-      auto: "Авто (зелёный → синий)",
-      green: "Зелёный (выводимый)",
-      blue: "Синий (внутренний)",
+      auto: "Авто (сначала «К выводу», потом игровой)",
+      green: "Баланс «К выводу»",
+      blue: "Игровой баланс",
     };
     return (
       <div
@@ -875,7 +875,7 @@ export default function Play() {
                 variant="outline"
                 className="border-sky-400/30 text-sky-300"
               >
-                🔵 {ratePerMinLzt} LZT/мин
+                {ratePerMinLzt} LZT/мин
               </Badge>
               <Badge
                 variant="outline"
@@ -895,7 +895,7 @@ export default function Play() {
                 }}
               >
                 <div className="text-[10px] uppercase text-sky-300 flex items-center gap-1">
-                  <Wallet className="h-3 w-3" /> Синий
+                  <Wallet className="h-3 w-3" /> Игровой
                 </div>
                 <div className="font-bold font-mono text-sky-300">
                   {blueLzt.toLocaleString("ru-RU")} LZT
@@ -912,7 +912,7 @@ export default function Play() {
                 }}
               >
                 <div className="text-[10px] uppercase text-emerald-300 flex items-center gap-1">
-                  <Banknote className="h-3 w-3" /> Зелёный
+                  <Banknote className="h-3 w-3" /> К выводу
                 </div>
                 <div className="font-bold font-mono text-emerald-300">
                   {greenLzt.toLocaleString("ru-RU")} LZT
@@ -951,7 +951,7 @@ export default function Play() {
                       }}
                     >
                       <span className="font-bold capitalize">
-                        {s === "auto" ? "Авто" : s === "green" ? "Зелёный" : "Синий"}
+                        {s === "auto" ? "Авто" : s === "green" ? "К выводу" : "Игровой"}
                       </span>
                     </Label>
                   </div>

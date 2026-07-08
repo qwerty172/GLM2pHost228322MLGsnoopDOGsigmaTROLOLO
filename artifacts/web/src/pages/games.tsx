@@ -352,7 +352,7 @@ export default function GamesPage() {
             {globalMaxLzt > 0 && (
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">
-                  Макс. цена: 🔵{maxLzt} LZT/мин
+                  Макс. цена: {maxLzt} LZT/мин
                 </div>
                 <input
                   type="range"
@@ -517,8 +517,8 @@ function GameCard({ game }: { game: GameEnriched }) {
   const liveHosts = game.liveHostsCount ?? game.liveSessionCount ?? 0;
   const minLzt = game.minPricePerMinuteLzt;
   const priceLabel = minLzt != null
-    ? `🔵${minLzt} LZT/мин`
-    : `🔵${Math.round(DEFAULT_PRICE_PER_MIN_USD * LZT_PER_USDT)} LZT/мин`;
+    ? `${minLzt} LZT/мин`
+    : `${Math.round(DEFAULT_PRICE_PER_MIN_USD * LZT_PER_USDT)} LZT/мин`;
   const isLive = liveHosts > 0;
 
   return (

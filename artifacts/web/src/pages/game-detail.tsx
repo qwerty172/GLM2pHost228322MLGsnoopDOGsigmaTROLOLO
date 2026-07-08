@@ -350,7 +350,7 @@ export default function GameDetailPage() {
                     >
                       <span className="text-slate-500 font-normal text-xs mr-1.5">от</span>
                       <span className="text-sky-300">
-                        🔵 {Math.min(...(libraryHosts ?? []).map((h) => h.pricePerMinuteLzt))} LZT
+                        {Math.min(...(libraryHosts ?? []).map((h) => h.pricePerMinuteLzt))} LZT
                       </span>
                       <span className="text-slate-500 font-normal text-xs ml-1">/мин</span>
                     </div>
@@ -509,7 +509,7 @@ function LibraryHostRow({ host: h, browserRtt, onPlay, onPreview }: { host: Libr
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs">
             <span className="flex items-center gap-1" data-testid={`text-minute-price-${h.hostId}`}>
-              <span className="text-blue-400">🔵</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-400 inline-block" />
               <span className="font-bold text-white">{h.pricePerMinuteLzt} LZT</span>
               <span className="text-slate-500">/мин</span>
               <span className="text-slate-600 font-mono ml-1">≈ ${h.pricePerMinuteUsd.toFixed(4)}</span>
@@ -617,7 +617,7 @@ function LegacySessionRow({ session: s }: { session: any }) {
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs">
             {s.pricePerMinuteLzt > 0 ? (
               <span className="flex items-center gap-1">
-                <span className="text-blue-400">🔵</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-400 inline-block" />
                 <span className="font-bold text-white">{s.pricePerMinuteLzt} LZT</span>
                 <span className="text-slate-500">/мин</span>
                 <span className="text-slate-600 font-mono ml-1">
@@ -920,7 +920,7 @@ function PreviewModal({
                 <p className="text-white font-semibold text-sm">Впечатлило?</p>
                 <p className="text-slate-500 text-xs mt-0.5">
                   Играй за{" "}
-                  <span className="text-sky-300 font-mono font-bold">🔵 {host.pricePerMinuteLzt} LZT/мин</span>
+                  <span className="text-sky-300 font-mono font-bold">{host.pricePerMinuteLzt} LZT/мин</span>
                 </p>
               </div>
               <div className="flex gap-2 shrink-0">
@@ -1085,16 +1085,22 @@ function PreSessionModal({
             <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Доступно для игры</p>
             <div className="space-y-1.5 text-xs">
               <div className="flex justify-between items-center">
-                <span className="text-slate-400">🔵 Синий баланс</span>
+                <span className="text-slate-400 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-sky-400 inline-block" />
+                  Игровой баланс
+                </span>
                 <span className="font-mono text-white">{(wallet?.internalBalanceLzt ?? 0).toLocaleString("ru-RU")} LZT</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-400">🟢 Зелёный баланс</span>
+                <span className="text-slate-400 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
+                  К выводу
+                </span>
                 <span className="font-mono text-white">{(wallet?.withdrawableBalanceLzt ?? 0).toLocaleString("ru-RU")} LZT</span>
               </div>
               {creditAvailable > 0 && (
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-400">💳 Кредитный лимит</span>
+                  <span className="text-slate-400">Кредитный лимит</span>
                   <span className="font-mono text-amber-400">+{creditAvailable.toLocaleString("ru-RU")} LZT</span>
                 </div>
               )}

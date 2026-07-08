@@ -759,7 +759,7 @@ export default function Dashboard() {
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs font-medium text-sky-300">
-              Внутренний (синий)
+              Игровой баланс
             </CardTitle>
             <Wallet className="h-4 w-4 text-sky-400" />
           </CardHeader>
@@ -772,7 +772,7 @@ export default function Dashboard() {
               )}
             </div>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              ≈ ${((stats?.internalBalanceLzt ?? 0) / 200).toFixed(2)} · нельзя вывести
+              ≈ ${((stats?.internalBalanceLzt ?? 0) / 200).toFixed(2)} · для трат на платформе
             </p>
           </CardContent>
         </Card>
@@ -784,7 +784,7 @@ export default function Dashboard() {
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs font-medium text-emerald-300">
-              Выводимый (зелёный)
+              К выводу
             </CardTitle>
             <Banknote className="h-4 w-4 text-emerald-400" />
           </CardHeader>

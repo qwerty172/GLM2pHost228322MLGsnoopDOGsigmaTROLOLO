@@ -175,8 +175,8 @@ export default function Landing() {
             <span style={{ color: "#0ea5e9" }}>напрямую у владельцев</span>
           </h1>
           <p className="text-slate-400 text-[15px] leading-relaxed mb-7 max-w-lg">
-            Никаких серверов компании — только реальные люди со своими GPU.
-            Подключайся, плати криптой, запускай любую игру.
+            Владельцы мощных ПК стримят их тебе прямо в браузер.
+            Платишь за фактические минуты игры — без подписок и очередей.
           </p>
 
           <div className="flex flex-col sm:flex-row items-start gap-3">
@@ -420,18 +420,18 @@ export default function Landing() {
           {[
             {
               icon: <Zap className="w-4 h-4 text-sky-400" />,
-              title: "WebRTC · без прокси",
-              text: "Прямое P2P-соединение. Задержка зависит только от пинга до хоста.",
+              title: "Задержка = твой пинг",
+              text: "Стрим идёт напрямую с ПК хоста, без промежуточных серверов. Выбирай хоста ближе — играй без лагов.",
             },
             {
               icon: <CircleDollarSign className="w-4 h-4 text-teal-400" />,
-              title: "Крипто-кошелёк встроен",
-              text: "USDT, Nano, Solana. Платишь поминутно, хост получает 95%.",
+              title: "Поминутная оплата",
+              text: "Пополнение в USDT, SOL или Nano. Списывается только фактическое время, 95% уходит хосту.",
             },
             {
               icon: <Lock className="w-4 h-4 text-sky-400" />,
-              title: "Открытый протокол",
-              text: "Сигнальный сервер — единственная централизованная точка. Стриминг полностью P2P.",
+              title: "Ничего не устанавливать",
+              text: "Открыл ссылку — играешь в браузере. Геймпад, клавиатура и тач-управление работают сразу.",
             },
           ].map((c) => (
             <div key={c.title} className="surface-card p-4">
@@ -473,11 +473,11 @@ export default function Landing() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <Users className="w-4 h-4 text-sky-400" />
-              <span className="text-sm font-bold text-white">У тебя мощный ПК?</span>
+              <span className="text-sm font-bold text-white">Видеокарта простаивает?</span>
             </div>
             <p className="text-xs text-slate-500">
-              Сдавай его в аренду когда не играешь. Устанавливаешь агента,
-              указываешь игру или URL — зарабатываешь крипту.
+              Запусти хост прямо в браузере или поставь агента — и получай
+              95% с каждой минуты, пока кто-то играет на твоём железе.
             </p>
           </div>
           <Link href="/host">

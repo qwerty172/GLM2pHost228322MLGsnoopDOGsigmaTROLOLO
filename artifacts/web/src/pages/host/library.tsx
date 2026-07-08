@@ -130,12 +130,12 @@ function LztBadge({ lzt, className = "" }: { lzt: number; className?: string }) 
   return (
     <span className={`inline-flex items-center gap-1 font-mono ${className}`}>
       <span
-        title="Зелёный (выводимый) — доход хоста"
+        title="Доход хоста — зачисляется на баланс «К выводу»"
         className="inline-block w-2 h-2 rounded-full"
         style={{ background: "#34d399" }}
       />
       <span
-        title="Синий (внутренний)"
+        title="Игровой баланс"
         className="inline-block w-2 h-2 rounded-full -ml-0.5"
         style={{ background: "#38bdf8" }}
       />
@@ -490,8 +490,8 @@ function LibraryConfigForm({
       <div className="space-y-1.5">
         <Label className="text-slate-300 text-sm">
           Цена за минуту (LZT)
-          <span className="ml-2 text-slate-500 font-normal text-xs">
-            🟢 зелёный (выводимый)
+          <span className="ml-2 text-emerald-400/80 font-normal text-xs">
+            зачисляется на «К выводу»
           </span>
         </Label>
         <div className="flex items-center gap-3">

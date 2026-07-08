@@ -269,7 +269,7 @@ export default function WalletPage() {
       return;
     }
     if (amountLzt > greenLzt) {
-      toast.error("Недостаточно зелёного (выводимого) баланса");
+      toast.error("Недостаточно средств на балансе «К выводу»");
       return;
     }
 
@@ -322,6 +322,9 @@ export default function WalletPage() {
               <CardContent className="pt-6 pb-5">
                 <div className="flex items-center justify-between">
                   <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-sky-400/80 mb-1">
+                      Игровой баланс
+                    </p>
                     <div className="flex items-baseline gap-3">
                       <span className="text-5xl font-extrabold text-sky-300 tabular-nums">
                         {isLoading ? (
@@ -333,14 +336,14 @@ export default function WalletPage() {
                       <LightningIcon className="h-7 w-7 text-sky-400 shrink-0" />
                     </div>
                     <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1.5">
-                      ≈ ${lztToUsdt(blueLzt).toFixed(2)} · нельзя вывести
+                      ≈ ${lztToUsdt(blueLzt).toFixed(2)} · для игры и сервисов
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Info className="h-3 w-3 text-slate-600 cursor-default" />
                         </TooltipTrigger>
                         <TooltipContent>
-                          Синие LZT можно тратить на платформе (хосты, будущие
-                          Биржа / Форум / Кредиты), но нельзя вывести.
+                          Тратится на хостов, биржу и кредиты внутри платформы.
+                          Вывести в крипту нельзя — для этого есть баланс «К выводу».
                         </TooltipContent>
                       </Tooltip>
                     </p>
@@ -385,8 +388,8 @@ export default function WalletPage() {
               >
                 <div className="p-4">
                   <p className="text-xs text-slate-500 mb-3">
-                    Любое пополнение зачисляется на{" "}
-                    <span className="text-emerald-400">зелёный</span> баланс по
+                    Любое пополнение зачисляется на баланс{" "}
+                    <span className="text-emerald-400">«К выводу»</span> по
                     курсу {LZT_PER_USDT} LZT за 1 USDT.
                   </p>
                   <Tabs defaultValue="crypto" className="w-full">
@@ -501,6 +504,9 @@ export default function WalletPage() {
               <CardContent className="pt-6 pb-5">
                 <div className="flex items-center justify-between">
                   <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400/80 mb-1">
+                      К выводу
+                    </p>
                     <div className="flex items-baseline gap-3">
                       <span className="text-5xl font-extrabold text-emerald-300 tabular-nums">
                         {isLoading ? (
@@ -512,8 +518,7 @@ export default function WalletPage() {
                       <LeafIcon className="h-7 w-7 text-emerald-400 shrink-0" />
                     </div>
                     <p className="text-xs text-slate-500 mt-1.5">
-                      ≈ ${lztToUsdt(greenLzt).toFixed(2)} · можно вывести в
-                      крипту
+                      ≈ ${lztToUsdt(greenLzt).toFixed(2)} · выводится в крипту
                     </p>
                   </div>
                   <div
@@ -579,8 +584,8 @@ export default function WalletPage() {
                   Вывод средств
                 </CardTitle>
                 <CardDescription className="text-slate-500 text-xs">
-                  Конвертируем{" "}
-                  <span className="text-emerald-400">зелёный</span> LZT в крипту
+                  Конвертируем LZT с баланса{" "}
+                  <span className="text-emerald-400">«К выводу»</span> в крипту
                   по курсу {LZT_PER_USDT}:1.
                 </CardDescription>
               </CardHeader>
@@ -694,9 +699,9 @@ export default function WalletPage() {
                         </div>
                       </TooltipTrigger>
                       <TooltipContent>
-                        У тебя нет{" "}
-                        <span className="text-emerald-400">зелёного</span> LZT.
-                        Синий баланс вывести нельзя.
+                        На балансе{" "}
+                        <span className="text-emerald-400">«К выводу»</span>{" "}
+                        пусто. Игровой баланс вывести нельзя.
                       </TooltipContent>
                     </Tooltip>
                   ) : (
