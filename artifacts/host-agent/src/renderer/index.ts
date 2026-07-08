@@ -87,6 +87,17 @@ let isStreaming = false;
 // One-time warning flag for gamepad input when ViGEm is not connected.
 let gamepadWarnedOnce = false;
 
+// ─── Preview state ────────────────────────────────────────────────────────────
+// Separate WS + RTCPeerConnection used for 30-second preview streams.
+// These are independent of the main session WS/PC so preview never interrupts
+// or interferes with a live billed session.
+let previewWs: WebSocket | null = null;
+let previewPc: RTCPeerConnection | null = null;
+// previewCaptureStream only set when we captured a NEW stream for preview.
+// When preview reuses captureStream we do NOT stop it on preview teardown.
+let previewOwnStream: MediaStream | null = null;
+const previewIndicator = document.getElementById("preview-indicator") as HTMLSpanElement | null;
+
 // Library state
 let libraryEntries: LibraryEntry[] = [];
 let libraryRefreshTimer: ReturnType<typeof setInterval> | null = null;
@@ -149,6 +160,7 @@ async function loadFormFromConfig(): Promise<HostConfig> {
   ($("audioMode") as HTMLSelectElement).value = cfg.audioMode ?? "off";
   ($("killAppOnDisconnect") as HTMLInputElement).checked = cfg.killAppOnDisconnect;
   ($("autoLaunchAtStartup") as HTMLInputElement).checked = cfg.autoLaunchAtStartup;
+  ($("allowPreview") as HTMLInputElement).checked = cfg.allowPreview !== false;
   return cfg;
 }
 
@@ -175,6 +187,7 @@ function readForm(): HostConfig {
     audioMode: (($("audioMode") as HTMLSelectElement).value || "off") as "off" | "voice" | "standard" | "quality",
     killAppOnDisconnect: ($("killAppOnDisconnect") as HTMLInputElement).checked,
     autoLaunchAtStartup: ($("autoLaunchAtStartup") as HTMLInputElement).checked,
+    allowPreview: ($("allowPreview") as HTMLInputElement).checked,
   };
 }
 
@@ -603,6 +616,8 @@ async function connect(cfg: HostConfig, gameId: string | null): Promise<void> {
     log("Signaling connected. Waiting for the player to join…");
     setStatus("idle", "Online — share the player link");
     disconnectBtn.disabled = false;
+    // Open the preview signaling channel alongside the main session.
+    connectPreviewWs(cfg);
   };
 
   ws.onmessage = async (ev) => {
@@ -1267,6 +1282,164 @@ function teardown(reason: string): void {
   setStatus("idle", reason);
   connectBtn.disabled = false;
   disconnectBtn.disabled = true;
+  // Close the preview WS so players don't get an orphaned preview connection.
+  teardownPreview();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Preview stream — host side
+// ─────────────────────────────────────────────────────────────────────────────
+
+function teardownPreview(): void {
+  try { previewPc?.close(); } catch { /* */ }
+  previewPc = null;
+  previewOwnStream?.getTracks().forEach((t) => t.stop());
+  previewOwnStream = null;
+  if (previewIndicator) previewIndicator.hidden = true;
+  // Keep previewWs open — it stays connected while the main session is alive
+  // so the host is ready to serve the next preview request.
+}
+
+function closePreviewWs(): void {
+  teardownPreview();
+  try { previewWs?.close(); } catch { /* */ }
+  previewWs = null;
+}
+
+async function onPreviewPlayerJoined(cfg: HostConfig): Promise<void> {
+  log("[preview] Player joined preview room — starting preview stream.");
+  if (previewIndicator) previewIndicator.hidden = false;
+
+  // Reuse the existing capture stream if the host is actively streaming.
+  // Otherwise capture a fresh stream (shows whatever is on screen right now).
+  let stream = captureStream;
+  if (!stream) {
+    try {
+      stream = await captureScreen(cfg);
+      previewOwnStream = stream; // we own this — clean up on teardown
+    } catch (err) {
+      log(`[preview] Could not capture screen: ${String(err)}`);
+      if (previewIndicator) previewIndicator.hidden = true;
+      return;
+    }
+  }
+
+  // Fetch ICE config.
+  let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
+  try {
+    const cfgRes = await fetch(`${cfg.apiBaseUrl.replace(/\/$/, "")}/api/public/ice-config`);
+    if (cfgRes.ok) {
+      const cfgJson = (await cfgRes.json()) as { iceServers: RTCIceServer[] };
+      if (Array.isArray(cfgJson.iceServers) && cfgJson.iceServers.length > 0) {
+        iceServers = cfgJson.iceServers;
+      }
+    }
+  } catch { /* use default */ }
+
+  const ppc = new RTCPeerConnection({ iceServers });
+  previewPc = ppc;
+
+  ppc.onicecandidate = (e) => {
+    if (e.candidate && previewWs?.readyState === WebSocket.OPEN) {
+      previewWs.send(JSON.stringify({ type: "ice-candidate", candidate: e.candidate.toJSON() }));
+    }
+  };
+
+  ppc.onconnectionstatechange = () => {
+    log(`[preview] Peer state: ${ppc.connectionState}`);
+    if (ppc.connectionState === "closed" || ppc.connectionState === "failed" || ppc.connectionState === "disconnected") {
+      if (previewPc === ppc) teardownPreview();
+    }
+  };
+
+  // Add only video tracks — preview is always muted.
+  for (const track of stream.getVideoTracks()) {
+    ppc.addTrack(track, stream);
+  }
+
+  try {
+    const offer = await ppc.createOffer();
+    await ppc.setLocalDescription(offer);
+    previewWs?.send(JSON.stringify({ type: "offer", sdp: { type: offer.type, sdp: offer.sdp } }));
+    log("[preview] Offer sent to preview player.");
+  } catch (err) {
+    log(`[preview] Failed to create/send offer: ${String(err)}`);
+    teardownPreview();
+  }
+}
+
+function connectPreviewWs(cfg: HostConfig): void {
+  if (cfg.allowPreview === false) {
+    log("[preview] Preview disabled in settings — skipping preview WS.");
+    return;
+  }
+  if (!cfg.hostToken || !cfg.apiBaseUrl) return;
+
+  // Close any existing preview WS first.
+  closePreviewWs();
+
+  let sigUrl: URL;
+  try {
+    sigUrl = new URL(deriveSignalingUrl(cfg));
+  } catch {
+    return;
+  }
+  sigUrl.searchParams.set("type", "preview");
+  sigUrl.searchParams.set("hostToken", cfg.hostToken);
+
+  const pws = new WebSocket(sigUrl.toString());
+  previewWs = pws;
+
+  pws.onopen = () => {
+    log("[preview] Preview signaling connected — ready to accept preview requests.");
+  };
+
+  pws.onmessage = async (ev) => {
+    let msg: { type: string; [k: string]: unknown };
+    try {
+      msg = JSON.parse(typeof ev.data === "string" ? ev.data : "");
+    } catch {
+      return;
+    }
+
+    if (msg.type === "peer-joined" && msg["role"] === "player") {
+      if (previewPc) {
+        // Already in a preview — ignore additional player
+        log("[preview] Already in a preview, ignoring duplicate peer-joined.");
+        return;
+      }
+      const currentCfg = currentConfig ?? cfg;
+      await onPreviewPlayerJoined(currentCfg);
+    } else if (msg.type === "answer" && previewPc) {
+      const sdp = msg["sdp"] as RTCSessionDescriptionInit | string;
+      const desc: RTCSessionDescriptionInit = typeof sdp === "string" ? { type: "answer", sdp } : sdp;
+      await previewPc.setRemoteDescription(desc).catch((err) => log(`[preview] setRemoteDescription failed: ${String(err)}`));
+    } else if (msg.type === "ice-candidate" && previewPc) {
+      try {
+        await previewPc.addIceCandidate(msg["candidate"] as RTCIceCandidateInit);
+      } catch (err) {
+        log(`[preview] ICE add failed: ${String(err)}`);
+      }
+    } else if (msg.type === "peer-left") {
+      log("[preview] Preview player left.");
+      teardownPreview();
+    } else if (msg.type === "preview-ended") {
+      log("[preview] Preview ended by server.");
+      teardownPreview();
+    }
+  };
+
+  pws.onerror = () => {
+    log("[preview] Preview signaling error.");
+  };
+
+  pws.onclose = () => {
+    log("[preview] Preview signaling closed.");
+    if (previewWs === pws) {
+      previewWs = null;
+      teardownPreview();
+    }
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

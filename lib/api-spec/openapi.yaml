@@ -561,6 +561,56 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /sessions/preview:
+    post:
+      operationId: createPreviewSession
+      tags: [sessions]
+      summary: |
+        Mint a short-lived preview token (60-second TTL) for a 30-second
+        free muted live stream from the given host. No session record is
+        created and no billing occurs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hostId]
+              properties:
+                hostId:
+                  type: string
+                  description: UUID of the host to preview
+      responses:
+        "200":
+          description: Preview token minted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  previewToken:
+                    type: string
+                  hostId:
+                    type: string
+        "400":
+          description: hostId missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Host offline
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /quotas:
     get:
       operationId: listPublicQuotas

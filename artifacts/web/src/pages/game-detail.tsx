@@ -1,5 +1,5 @@
 import { Link, useParams, useSearch, useLocation } from "wouter";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   useGetGameBySlug,
@@ -16,8 +16,8 @@ import {
   Clock,
   Eye,
   Gamepad2,
-  Layers,
   Loader2,
+  Play,
   Server,
   Trophy,
   Users,
@@ -142,6 +142,7 @@ export default function GameDetailPage() {
   const [, navigate] = useLocation();
   const [tag, setTag] = useState<string>("");
   const [preSessionHost, setPreSessionHost] = useState<LibraryHost | null>(null);
+  const [previewHost, setPreviewHost] = useState<LibraryHost | null>(null);
 
   useEffect(() => {
     const sp = new URLSearchParams(search$);
@@ -216,6 +217,17 @@ export default function GameDetailPage() {
             if (preSessionHost.playerToken) {
               navigate(`/play/${preSessionHost.playerToken}`);
             }
+          }}
+        />
+      )}
+
+      {previewHost && (
+        <PreviewModal
+          host={previewHost}
+          onClose={() => setPreviewHost(null)}
+          onPlay={() => {
+            setPreviewHost(null);
+            setPreSessionHost(previewHost);
           }}
         />
       )}
@@ -376,6 +388,7 @@ export default function GameDetailPage() {
                       host={h}
                       browserRtt={browserRtt}
                       onPlay={() => handlePlay(h)}
+                      onPreview={() => setPreviewHost(h)}
                     />
                   ))}
                 </ul>
@@ -424,7 +437,7 @@ export default function GameDetailPage() {
   );
 }
 
-function LibraryHostRow({ host: h, browserRtt, onPlay }: { host: LibraryHost; browserRtt: number | null; onPlay: () => void }) {
+function LibraryHostRow({ host: h, browserRtt, onPlay, onPreview }: { host: LibraryHost; browserRtt: number | null; onPlay: () => void; onPreview: () => void }) {
   const isOnline = h.status === "online";
   const isAvailable = h.status === "available";
 
@@ -508,7 +521,23 @@ function LibraryHostRow({ host: h, browserRtt, onPlay }: { host: LibraryHost; br
           )}
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          {isOnline && (
+            <button
+              className="h-9 px-3 text-xs font-semibold rounded-md transition-colors"
+              style={{
+                background: "rgba(14,165,233,0.08)",
+                color: "#7dd3fc",
+                border: "1px solid rgba(14,165,233,0.18)",
+              }}
+              data-testid={`button-preview-${h.hostId}`}
+              onClick={onPreview}
+              title="Бесплатный 30-секундный просмотр экрана хоста"
+            >
+              <Play className="h-3 w-3 inline mr-1" />
+              Превью
+            </button>
+          )}
           {isOnline && h.playerToken ? (
             <Button
               size="sm"
@@ -614,6 +643,290 @@ function LegacySessionRow({ session: s }: { session: any }) {
         </Link>
       </div>
     </li>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PreviewModal — 30-second free muted live stream from the host
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PREVIEW_DURATION_S = 30;
+
+function PreviewModal({
+  host,
+  onClose,
+  onPlay,
+}: {
+  host: LibraryHost;
+  onClose: () => void;
+  onPlay: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hasStreamedRef = useRef(false);
+
+  const [phase, setPhase] = useState<"connecting" | "streaming" | "ended" | "error">("connecting");
+  const [countdown, setCountdown] = useState(PREVIEW_DURATION_S);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const startCountdown = useCallback(() => {
+    if (countdownRef.current) return;
+    countdownRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownRef.current!);
+          countdownRef.current = null;
+          setPhase("ended");
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+
+  const cleanup = useCallback(() => {
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
+    try { pcRef.current?.close(); } catch { /* */ }
+    pcRef.current = null;
+    try { wsRef.current?.close(); } catch { /* */ }
+    wsRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function start() {
+      const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
+
+      // 1. Mint preview token
+      let previewToken: string;
+      try {
+        const res = await fetch(`${base}/api/public/preview-session`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ hostId: host.hostId }),
+        });
+        if (!res.ok) {
+          const err = (await res.json().catch(() => ({}))) as { error?: string };
+          if (!cancelled) {
+            setErrorMsg(err.error === "host_offline" ? "Хост сейчас не в сети" : "Не удалось запустить превью");
+            setPhase("error");
+          }
+          return;
+        }
+        const data = (await res.json()) as { previewToken: string };
+        previewToken = data.previewToken;
+      } catch {
+        if (!cancelled) { setErrorMsg("Ошибка сети"); setPhase("error"); }
+        return;
+      }
+
+      if (cancelled) return;
+
+      // 2. Fetch ICE config
+      let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
+      try {
+        const cfgRes = await fetch(`${base}/api/public/ice-config`);
+        if (cfgRes.ok) {
+          const cfgJson = (await cfgRes.json()) as { iceServers: RTCIceServer[] };
+          if (Array.isArray(cfgJson.iceServers) && cfgJson.iceServers.length > 0) {
+            iceServers = cfgJson.iceServers;
+          }
+        }
+      } catch { /* use default */ }
+
+      if (cancelled) return;
+
+      // 3. Connect preview WS
+      const wsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${wsProto}//${window.location.host}${base}/api/signal?type=preview&previewToken=${previewToken}`;
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      // 4. Create recvonly RTCPeerConnection
+      const pc = new RTCPeerConnection({ iceServers });
+      pcRef.current = pc;
+
+      pc.onicecandidate = (e) => {
+        if (e.candidate && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "ice-candidate", candidate: e.candidate.toJSON() }));
+        }
+      };
+
+      pc.ontrack = (e) => {
+        if (cancelled) return;
+        hasStreamedRef.current = true;
+        const stream = e.streams[0];
+        if (stream && videoRef.current) {
+          videoRef.current.srcObject = stream;
+          void videoRef.current.play().catch(() => { /* autoplay may be blocked */ });
+        }
+        setPhase("streaming");
+        startCountdown();
+      };
+
+      ws.onmessage = async (ev) => {
+        if (cancelled) return;
+        let msg: { type: string; [k: string]: unknown };
+        try {
+          msg = JSON.parse(typeof ev.data === "string" ? ev.data : "");
+        } catch { return; }
+
+        if (msg.type === "offer") {
+          const sdp = msg["sdp"] as RTCSessionDescriptionInit | string;
+          const desc: RTCSessionDescriptionInit = typeof sdp === "string" ? { type: "offer", sdp } : sdp;
+          await pc.setRemoteDescription(desc);
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          ws.send(JSON.stringify({ type: "answer", sdp: { type: answer.type, sdp: answer.sdp } }));
+        } else if (msg.type === "ice-candidate") {
+          try {
+            await pc.addIceCandidate(msg["candidate"] as RTCIceCandidateInit);
+          } catch { /* ignore */ }
+        } else if (msg.type === "preview-ended" || msg.type === "peer-left") {
+          if (!cancelled) setPhase("ended");
+        }
+      };
+
+      ws.onclose = () => {
+        if (!cancelled) setPhase((p) => (p === "ended" ? p : "ended"));
+      };
+
+      // Timeout: if no video track arrives within 12s, show error
+      setTimeout(() => {
+        if (!cancelled && !hasStreamedRef.current) {
+          setErrorMsg("Хост не ответил — попробуй позже");
+          setPhase("error");
+        }
+      }, 12_000);
+    }
+
+    void start();
+    return () => {
+      cancelled = true;
+      cleanup();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleClose = () => {
+    cleanup();
+    onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[300] flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(6px)" }}
+      onClick={handleClose}
+    >
+      <div
+        className="w-full max-w-2xl mx-4 rounded-2xl overflow-hidden flex flex-col"
+        style={{ background: "#06090e", border: "1px solid rgba(14,165,233,0.2)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-5 py-3 flex items-center justify-between border-b border-white/5">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-teal-400 flex-shrink-0" style={{ boxShadow: "0 0 6px rgba(45,212,191,0.6)" }} />
+            <span className="font-semibold text-white text-sm">{host.displayName}</span>
+            <span
+              className="text-[10px] px-1.5 py-0.5 rounded font-mono uppercase"
+              style={{ background: "rgba(14,165,233,0.1)", color: "#7dd3fc", border: "1px solid rgba(14,165,233,0.2)" }}
+            >
+              Превью · 30 сек · бесплатно
+            </span>
+          </div>
+          <button onClick={handleClose} className="text-slate-500 hover:text-white transition-colors p-1 rounded">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Video area */}
+        <div
+          className="relative w-full"
+          style={{ aspectRatio: "16/9", background: "#020508" }}
+        >
+          <video
+            ref={videoRef}
+            muted
+            playsInline
+            className="w-full h-full object-contain"
+            style={{ display: phase === "streaming" || phase === "ended" ? "block" : "none" }}
+          />
+
+          {phase === "connecting" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+              <Loader2 className="h-10 w-10 text-sky-400 animate-spin" />
+              <p className="text-slate-400 text-sm">Подключаемся к хосту…</p>
+            </div>
+          )}
+
+          {phase === "error" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+              <div className="h-12 w-12 rounded-full flex items-center justify-center" style={{ background: "rgba(239,68,68,0.15)" }}>
+                <X className="h-6 w-6 text-red-400" />
+              </div>
+              <p className="text-slate-400 text-sm">{errorMsg || "Ошибка подключения"}</p>
+            </div>
+          )}
+
+          {/* Countdown overlay while streaming */}
+          {phase === "streaming" && (
+            <div
+              className="absolute top-3 right-3 text-xs font-mono font-bold px-2 py-1 rounded"
+              style={{ background: "rgba(0,0,0,0.6)", color: countdown <= 10 ? "#ef4444" : "#7dd3fc", border: "1px solid rgba(255,255,255,0.1)" }}
+            >
+              {countdown}с
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-4">
+          {phase === "ended" ? (
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              <div className="flex-1">
+                <p className="text-white font-semibold text-sm">Впечатлило?</p>
+                <p className="text-slate-500 text-xs mt-0.5">
+                  Играй за{" "}
+                  <span className="text-sky-300 font-mono font-bold">🔵 {host.pricePerMinuteLzt} LZT/мин</span>
+                </p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button
+                  className="h-9 px-4 text-xs font-semibold rounded-md transition-colors"
+                  style={{ background: "rgba(255,255,255,0.05)", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }}
+                  onClick={handleClose}
+                >
+                  Закрыть
+                </button>
+                {host.playerToken && (
+                  <Button
+                    size="sm"
+                    className="h-9 px-5 text-xs font-semibold rounded-md"
+                    style={{ background: "#0ea5e9", color: "#fff" }}
+                    onClick={() => { cleanup(); onPlay(); }}
+                  >
+                    Играть
+                    <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-slate-600 text-center">
+              {phase === "connecting" ? "Ждём поток от хоста…" : "Просмотр без звука и управления. Биллинг не идёт."}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

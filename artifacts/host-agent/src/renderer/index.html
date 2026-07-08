@@ -12,6 +12,9 @@
         <div class="status" id="status">
           <span class="dot" data-status="idle"></span>
           <span id="status-text">Idle</span>
+          <span id="preview-indicator" hidden style="margin-left:10px;padding:2px 8px;border-radius:4px;font-size:11px;background:rgba(14,165,233,0.18);color:#7dd3fc;border:1px solid rgba(14,165,233,0.3);">
+            📺 Идёт превью
+          </span>
         </div>
       </header>
 
@@ -264,6 +267,10 @@
           <label class="checkbox">
             <input id="autoLaunchAtStartup" type="checkbox" />
             <span>Start automatically when Windows logs in</span>
+          </label>
+          <label class="checkbox">
+            <input id="allowPreview" type="checkbox" checked />
+            <span>Allow 30-second free preview stream for players (no billing, view-only)</span>
           </label>
           <div class="actions">
             <button type="submit" id="save">Save</button>

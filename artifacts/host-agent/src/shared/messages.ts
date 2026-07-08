@@ -27,6 +27,9 @@ export interface HostConfig {
   killAppOnDisconnect: boolean;
   autoLaunchAtStartup: boolean;
   autoQuotaEnabled?: boolean;
+  // When false, the agent will not accept preview connections from players.
+  // Defaults to true (preview enabled).
+  allowPreview?: boolean;
   // Audio capture mode for WASAPI loopback (Windows only).
   // off    — no audio transmitted (default, same as previous behaviour)
   // voice  — Opus ~12 kbps (highly compressed, low bandwidth)

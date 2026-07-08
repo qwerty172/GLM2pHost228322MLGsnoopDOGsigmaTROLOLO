@@ -14,6 +14,7 @@ import {
   GetPublicStatsResponse,
 } from "@workspace/api-zod";
 import { isHostAvailableNow } from "../lib/schedule";
+import { mintPreviewToken } from "../lib/signaling";
 
 const router: IRouter = Router();
 
@@ -367,6 +368,48 @@ router.post("/public/sessions", async (req, res): Promise<void> => {
   }
 
   res.json({ playerToken: sessions[0].playerToken });
+});
+
+// ---------------------------------------------------------------------------
+// POST /public/preview-session — mint a short-lived preview token.
+//
+// The player supplies { hostId }. We verify the host is online (has an active
+// non-ended session and was seen recently), then mint an in-memory preview
+// token (60-second TTL) that the player can use to connect to the preview
+// signaling room.
+//
+// No session record is created — preview is free, muted, view-only.
+// ---------------------------------------------------------------------------
+router.post("/public/preview-session", async (req, res): Promise<void> => {
+  const hostId = (req.body?.hostId as string | undefined)?.trim() ?? "";
+
+  if (!hostId) {
+    res.status(400).json({ error: "hostId required" });
+    return;
+  }
+
+  const [host] = await db
+    .select({
+      id: hostsTable.id,
+      lastSeenAt: hostsTable.lastSeenAt,
+    })
+    .from(hostsTable)
+    .where(eq(hostsTable.id, hostId));
+
+  if (!host) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+
+  // Host must have been seen within the last 5 minutes.
+  const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
+  if (!host.lastSeenAt || host.lastSeenAt < fiveMinAgo) {
+    res.status(503).json({ error: "host_offline", reason: "Host agent not recently active" });
+    return;
+  }
+
+  const previewToken = mintPreviewToken(host.id);
+  res.json({ previewToken, hostId: host.id });
 });
 
 // ---------------------------------------------------------------------------
