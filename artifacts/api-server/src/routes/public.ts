@@ -365,6 +365,31 @@ router.post("/public/sessions", async (req, res): Promise<void> => {
   res.json({ playerToken: sessions[0].playerToken });
 });
 
+// ---------------------------------------------------------------------------
+// GET /public/ice-config — ICE server config for WebRTC (STUN + optional TURN)
+// TURN credentials are read from env vars so they never appear in client code.
+// ---------------------------------------------------------------------------
+router.get("/public/ice-config", (_req, res): void => {
+  type IceServer = { urls: string; username?: string; credential?: string };
+  const iceServers: IceServer[] = [
+    { urls: "stun:stun.l.google.com:19302" },
+  ];
+
+  const turnUrl = process.env["TURN_URL"];
+  const turnUsername = process.env["TURN_USERNAME"];
+  const turnCredential = process.env["TURN_CREDENTIAL"];
+
+  if (turnUrl && turnUsername && turnCredential) {
+    iceServers.push({
+      urls: turnUrl,
+      username: turnUsername,
+      credential: turnCredential,
+    });
+  }
+
+  res.json({ iceServers });
+});
+
 // Platform stats for the public landing hero strip. Cheap aggregate queries —
 // safe to call on every page-load (we don't cache today).
 router.get("/stats", async (_req, res): Promise<void> => {

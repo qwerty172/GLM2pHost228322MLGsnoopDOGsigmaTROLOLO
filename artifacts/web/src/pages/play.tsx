@@ -47,6 +47,7 @@ export default function Play() {
   const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>("new");
   const [isPlaying, setIsPlaying] = useState(false);
   const [showAudioPrompt, setShowAudioPrompt] = useState(false);
+  const [iceType, setIceType] = useState<"relay" | "srflx" | "host" | null>(null);
 
   // Live HUD: client-side ticking balance estimate between API syncs
   const [estimatedBalanceLzt, setEstimatedBalanceLzt] = useState<number | null>(null);
@@ -129,14 +130,44 @@ export default function Play() {
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
-    const pc = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-    });
+    // Fetch ICE server config (STUN + optional TURN) from the API.
+    let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
+    try {
+      const cfgRes = await fetch(`${import.meta.env.BASE_URL}api/public/ice-config`);
+      if (cfgRes.ok) {
+        const cfgJson = (await cfgRes.json()) as { iceServers: RTCIceServer[] };
+        if (Array.isArray(cfgJson.iceServers) && cfgJson.iceServers.length > 0) {
+          iceServers = cfgJson.iceServers;
+        }
+      }
+    } catch {
+      console.warn("[ice] Failed to fetch ICE config, using default STUN only");
+    }
+
+    const pc = new RTCPeerConnection({ iceServers });
     pcRef.current = pc;
 
     pc.onconnectionstatechange = () => {
       setConnectionState(pc.connectionState);
-      if (pc.connectionState === "failed" || pc.connectionState === "disconnected" || pc.connectionState === "closed") {
+      if (pc.connectionState === "connected") {
+        // Log the ICE candidate type (relay / srflx / host) for diagnostics.
+        void pc.getStats().then((stats) => {
+          stats.forEach((report) => {
+            if (report.type === "candidate-pair" && report.state === "succeeded") {
+              const localId: string = report.localCandidateId as string;
+              stats.forEach((r) => {
+                if (r.id === localId && r.type === "local-candidate") {
+                  const t = r.candidateType as string;
+                  const mapped =
+                    t === "relay" ? "relay" : t === "srflx" ? "srflx" : "host";
+                  console.log(`[ice] connection type: ${mapped}`);
+                  setIceType(mapped as "relay" | "srflx" | "host");
+                }
+              });
+            }
+          });
+        });
+      } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected" || pc.connectionState === "closed") {
         cleanupConnection();
         toast.error("Соединение потеряно");
       }
@@ -162,6 +193,28 @@ export default function Play() {
         const msg = JSON.parse(event.data);
         if (msg.type === "offer") {
           await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+
+          // Force H.264 on the answer: keep only H.264 codecs so the browser
+          // negotiates hardware-accelerated NVENC on the host side.
+          const transceivers = pc.getTransceivers();
+          for (const transceiver of transceivers) {
+            if (transceiver.receiver.track.kind === "video") {
+              const capabilities = RTCRtpReceiver.getCapabilities("video");
+              if (capabilities) {
+                const h264 = capabilities.codecs.filter(
+                  (c) => c.mimeType.toLowerCase() === "video/h264",
+                );
+                if (h264.length > 0) {
+                  try {
+                    transceiver.setCodecPreferences(h264);
+                  } catch {
+                    console.warn("[h264] setCodecPreferences not supported, falling back to SDP negotiation");
+                  }
+                }
+              }
+            }
+          }
+
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           ws.send(JSON.stringify({ type: "answer", sdp: answer }));
@@ -745,6 +798,18 @@ export default function Play() {
                 ? "СОЕДИНЕНИЕ"
                 : connectionState.toUpperCase()}
           </Badge>
+          {iceType && (
+            <Badge
+              variant="outline"
+              className="bg-black/50 backdrop-blur font-mono text-[10px]"
+              style={{
+                borderColor: iceType === "relay" ? "#a855f7" : "#22c55e",
+                color: iceType === "relay" ? "#c084fc" : "#86efac",
+              }}
+            >
+              {iceType === "relay" ? "TURN" : iceType === "srflx" ? "STUN" : "P2P"}
+            </Badge>
+          )}
         </div>
 
         {/* Live balance HUD */}

@@ -776,9 +776,22 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
   }
 
   captureStream = await captureScreen(cfg);
-  pc = new RTCPeerConnection({
-    iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-  });
+
+  // Fetch ICE server config (STUN + optional TURN) from the API.
+  let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
+  try {
+    const cfgRes = await fetch(`${cfg.apiBaseUrl.replace(/\/$/, "")}/api/public/ice-config`);
+    if (cfgRes.ok) {
+      const cfgJson = (await cfgRes.json()) as { iceServers: RTCIceServer[] };
+      if (Array.isArray(cfgJson.iceServers) && cfgJson.iceServers.length > 0) {
+        iceServers = cfgJson.iceServers;
+      }
+    }
+  } catch {
+    log("[ice] Failed to fetch ICE config, using default STUN only");
+  }
+
+  pc = new RTCPeerConnection({ iceServers });
 
   pc.onicecandidate = (e) => {
     if (e.candidate && ws?.readyState === WebSocket.OPEN) {
@@ -794,6 +807,20 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     log(`Peer state: ${pc?.connectionState}`);
     if (pc?.connectionState === "connected") {
       setStatus("streaming", "Streaming to player");
+      // Log the ICE candidate type (relay / srflx / host) for diagnostics.
+      void pc.getStats().then((stats) => {
+        stats.forEach((report) => {
+          if (report.type === "candidate-pair" && report.state === "succeeded") {
+            const localId: string = (report as unknown as Record<string, string>)["localCandidateId"];
+            stats.forEach((r) => {
+              if (r.id === localId && r.type === "local-candidate") {
+                const t = (r as unknown as Record<string, string>)["candidateType"] ?? "host";
+                log(`[ice] connection type: ${t}`);
+              }
+            });
+          }
+        });
+      });
     } else if (
       pc?.connectionState === "failed" ||
       pc?.connectionState === "disconnected" ||
@@ -835,6 +862,27 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     params.encodings = params.encodings ?? [{}];
     params.encodings[0]!.maxBitrate = cfg.bitrateKbps * 1000;
     await sender.setParameters(params).catch(() => undefined);
+  }
+
+  // Force H.264 via setCodecPreferences so NVENC is used wherever available.
+  const videoTransceiver = pc.getTransceivers().find(
+    (t) => t.sender.track?.kind === "video",
+  );
+  if (videoTransceiver) {
+    const capabilities = RTCRtpSender.getCapabilities("video");
+    if (capabilities) {
+      const h264 = capabilities.codecs.filter(
+        (c) => c.mimeType.toLowerCase() === "video/h264",
+      );
+      if (h264.length > 0) {
+        try {
+          videoTransceiver.setCodecPreferences(h264);
+          log("[h264] setCodecPreferences applied — H.264 preferred");
+        } catch {
+          log("[h264] setCodecPreferences not supported in this runtime");
+        }
+      }
+    }
   }
 
   const offer = await pc.createOffer();
