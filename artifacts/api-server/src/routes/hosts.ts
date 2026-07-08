@@ -1032,9 +1032,16 @@ router.post("/hosts/heartbeat", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Host not found" });
     return;
   }
+
+  const body = req.body as { hostToken?: string; pingMs?: number };
+  const update: Partial<typeof hostsTable.$inferInsert> = { lastSeenAt: new Date() };
+  if (typeof body.pingMs === "number" && Number.isFinite(body.pingMs) && body.pingMs >= 0) {
+    update.pingMs = Math.round(body.pingMs);
+  }
+
   await db
     .update(hostsTable)
-    .set({ lastSeenAt: new Date() })
+    .set(update)
     .where(eq(hostsTable.id, host.id));
   res.json({ ok: true });
 });

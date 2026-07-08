@@ -65,6 +65,7 @@ type LibraryHost = {
   status: "online" | "available" | "scheduled";
   playerToken: string | null;
   scheduleMode: string;
+  pingMs: number | null;
 };
 
 function useLibraryHosts(slug: string) {
@@ -80,6 +81,50 @@ function useLibraryHosts(slug: string) {
     refetchInterval: 20_000,
     staleTime: 10_000,
   });
+}
+
+function useBrowserPingMs(): number | null {
+  const [pingMs, setPingMs] = useState<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    async function probe() {
+      try {
+        const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
+        const t0 = Date.now();
+        await fetch(`${base}/api/public/ping`, { cache: "no-store" });
+        if (!cancelled) setPingMs(Date.now() - t0);
+      } catch {
+        // ignore — just leave null
+      }
+    }
+    void probe();
+    return () => { cancelled = true; };
+  }, []);
+  return pingMs;
+}
+
+function sortHostsByLatency(hosts: LibraryHost[], browserRtt: number | null): LibraryHost[] {
+  return [...hosts].sort((a, b) => {
+    const scoreA = a.pingMs != null ? (browserRtt ?? 0) + a.pingMs : Infinity;
+    const scoreB = b.pingMs != null ? (browserRtt ?? 0) + b.pingMs : Infinity;
+    return scoreA - scoreB;
+  });
+}
+
+function LatencyBadge({ totalMs }: { totalMs: number | null }) {
+  if (totalMs == null) return null;
+  const color = totalMs < 80 ? "#22c55e" : totalMs < 150 ? "#eab308" : "#ef4444";
+  const label = totalMs < 80 ? "низкая задержка" : totalMs < 150 ? "средняя задержка" : "высокая задержка";
+  return (
+    <span
+      title={`~${totalMs} мс задержки (${label})`}
+      className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-mono"
+      style={{ background: `${color}18`, color, border: `1px solid ${color}40` }}
+    >
+      <Wifi className="h-2.5 w-2.5" />
+      ~{totalMs} мс
+    </span>
+  );
 }
 
 function formatDuration(totalMinutes: number): string {
@@ -113,6 +158,7 @@ export default function GameDetailPage() {
   });
 
   const { data: libraryHosts, isLoading: hostsLoading } = useLibraryHosts(slug);
+  const browserRtt = useBrowserPingMs();
 
   function clearTag() {
     setTag("");
@@ -129,11 +175,16 @@ export default function GameDetailPage() {
   const onlineHosts = (libraryHosts ?? []).filter((h) => h.status === "online");
   const offlineHosts = (libraryHosts ?? []).filter((h) => h.status !== "online");
 
+  const sortedLibraryHosts = useMemo(
+    () => sortHostsByLatency(libraryHosts ?? [], browserRtt),
+    [libraryHosts, browserRtt],
+  );
+
   const filteredLibraryHosts = tag
-    ? (libraryHosts ?? []).filter((h) =>
+    ? sortedLibraryHosts.filter((h) =>
         h.tags.some((t) => t.toLowerCase() === tag.toLowerCase()),
       )
-    : (libraryHosts ?? []);
+    : sortedLibraryHosts;
 
   const filteredLiveSessions = tag
     ? (game?.liveSessions ?? []).filter((s) =>
@@ -313,6 +364,7 @@ export default function GameDetailPage() {
                     <LibraryHostRow
                       key={h.hostId}
                       host={h}
+                      browserRtt={browserRtt}
                       onPlay={() => setPreSessionHost(h)}
                     />
                   ))}
@@ -362,12 +414,13 @@ export default function GameDetailPage() {
   );
 }
 
-function LibraryHostRow({ host: h, onPlay }: { host: LibraryHost; onPlay: () => void }) {
+function LibraryHostRow({ host: h, browserRtt, onPlay }: { host: LibraryHost; browserRtt: number | null; onPlay: () => void }) {
   const isOnline = h.status === "online";
   const isAvailable = h.status === "available";
 
   const lztPerHour = h.pricePerMinuteLzt * 60;
   const usdPerHour = (h.pricePerMinuteUsd * 60).toFixed(2);
+  const totalLatency = h.pingMs != null ? Math.round((browserRtt ?? 0) + h.pingMs) : null;
 
   return (
     <li
@@ -403,6 +456,7 @@ function LibraryHostRow({ host: h, onPlay }: { host: LibraryHost; onPlay: () => 
             >
               {isOnline ? "онлайн" : isAvailable ? "доступен" : "по расписанию"}
             </span>
+            <LatencyBadge totalMs={totalLatency} />
           </div>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs">

@@ -182,6 +182,8 @@ router.get("/hosts", async (_req, res): Promise<void> => {
       playerToken: s.playerToken,
       // New: multi-game library entries for this host.
       games,
+      // Host-to-server RTT measured at last heartbeat (null until first measurement).
+      pingMs: h.pingMs ?? null,
     });
   }
 
@@ -266,6 +268,8 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
       status: playerToken ? "online" : (available ? "available" : "scheduled"),
       playerToken,
       scheduleMode: h.scheduleMode,
+      // Host-to-server RTT measured at last heartbeat (null until first measurement).
+      pingMs: h.pingMs ?? null,
     };
   });
 
@@ -388,6 +392,14 @@ router.get("/public/ice-config", (_req, res): void => {
   }
 
   res.json({ iceServers });
+});
+
+// ---------------------------------------------------------------------------
+// GET /public/ping — tiny latency probe for browser-side RTT measurement.
+// No auth required. Returns immediately so the client can measure round-trip.
+// ---------------------------------------------------------------------------
+router.get("/public/ping", (_req, res): void => {
+  res.json({ ok: true });
 });
 
 // Platform stats for the public landing hero strip. Cheap aggregate queries —

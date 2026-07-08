@@ -134,6 +134,10 @@ export const hostsTable = pgTable("hosts", {
     uploadMbps?: number;
   } | null>(),
 
+  // RTT from host agent to the API server, measured during heartbeat (ms).
+  // Null until the first heartbeat that includes a ping measurement.
+  pingMs: integer("ping_ms"),
+
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

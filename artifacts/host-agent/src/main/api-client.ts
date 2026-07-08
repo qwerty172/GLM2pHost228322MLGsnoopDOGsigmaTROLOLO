@@ -32,13 +32,21 @@ export async function fetchLibrary(
   }
 }
 
-// Send a heartbeat to keep lastSeenAt fresh. Fire-and-forget — caller
-// should call this on an interval and ignore failures.
+// Send a heartbeat to keep lastSeenAt fresh. Measures RTT to the server via
+// the lightweight /api/public/ping probe, then reports it as `pingMs` in the
+// heartbeat body so the catalog can sort hosts by latency.
+// Fire-and-forget — caller should call this on an interval and ignore failures.
 export async function sendHeartbeat(
   hostToken: string,
   apiBaseUrl: string,
 ): Promise<void> {
   try {
+    // Measure RTT with a lightweight probe first, then report in heartbeat.
+    const probeUrl = `${base(apiBaseUrl)}/api/public/ping`;
+    const t0 = Date.now();
+    await fetch(probeUrl);
+    const pingMs = Date.now() - t0;
+
     const url = `${base(apiBaseUrl)}/api/hosts/heartbeat`;
     await fetch(url, {
       method: "POST",
@@ -46,7 +54,7 @@ export async function sendHeartbeat(
         "content-type": "application/json",
         "x-host-token": hostToken,
       },
-      body: JSON.stringify({ hostToken }),
+      body: JSON.stringify({ hostToken, pingMs }),
     });
   } catch {
     // Intentionally silent — network blips should not log noise.

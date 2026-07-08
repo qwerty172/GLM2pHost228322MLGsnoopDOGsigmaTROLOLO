@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
-import { ChevronDown, ChevronUp, Cpu, Gamepad2, X } from "lucide-react";
-import { useState } from "react";
+import { ChevronDown, ChevronUp, Cpu, Gamepad2, Wifi, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   useListPublicHosts,
@@ -22,6 +22,41 @@ type LibraryGame = {
   genre: string;
   pricePerMinuteLzt: number;
 };
+
+function useBrowserPingMs(): number | null {
+  const [pingMs, setPingMs] = useState<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    async function probe() {
+      try {
+        const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
+        const t0 = Date.now();
+        await fetch(`${base}/api/public/ping`, { cache: "no-store" });
+        if (!cancelled) setPingMs(Date.now() - t0);
+      } catch {
+        // ignore
+      }
+    }
+    void probe();
+    return () => { cancelled = true; };
+  }, []);
+  return pingMs;
+}
+
+function LatencyBadge({ totalMs }: { totalMs: number | null }) {
+  if (totalMs == null) return null;
+  const color = totalMs < 80 ? "#22c55e" : totalMs < 150 ? "#eab308" : "#ef4444";
+  return (
+    <span
+      title={`~${totalMs} мс задержки`}
+      className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-mono"
+      style={{ background: `${color}18`, color, border: `1px solid ${color}40` }}
+    >
+      <Wifi className="h-2.5 w-2.5" />
+      ~{totalMs} мс
+    </span>
+  );
+}
 
 function formatPrice(usd: number): string {
   const sign = usd < 0 ? "−" : "";
@@ -328,6 +363,19 @@ export default function HostsPage() {
     },
   });
 
+  const browserRtt = useBrowserPingMs();
+
+  const sortedHosts = useMemo(() => {
+    if (!hosts) return hosts;
+    return [...hosts].sort((a, b) => {
+      const pa = (a as any).pingMs as number | null | undefined;
+      const pb = (b as any).pingMs as number | null | undefined;
+      const scoreA = pa != null ? (browserRtt ?? 0) + pa : Infinity;
+      const scoreB = pb != null ? (browserRtt ?? 0) + pb : Infinity;
+      return scoreA - scoreB;
+    });
+  }, [hosts, browserRtt]);
+
   return (
     <div
       className="min-h-screen text-slate-300 font-sans"
@@ -382,7 +430,7 @@ export default function HostsPage() {
               <div key={i} className="h-28 rounded-lg surface-card animate-pulse" />
             ))}
           </div>
-        ) : !hosts || hosts.length === 0 ? (
+        ) : !sortedHosts || sortedHosts.length === 0 ? (
           <div className="surface-card p-12 text-center">
             <Cpu className="w-10 h-10 text-slate-700 mx-auto mb-3" />
             <p className="text-sm text-slate-400 font-medium">
@@ -394,9 +442,11 @@ export default function HostsPage() {
           </div>
         ) : (
           <div className="space-y-3" data-testid="list-public-hosts">
-            {hosts.map((h) => {
+            {sortedHosts.map((h) => {
               const games = ((h as any).games ?? []) as LibraryGame[];
               const isOnline = h.status === "online";
+              const hostPingMs = (h as any).pingMs as number | null | undefined;
+              const totalLatency = hostPingMs != null ? Math.round((browserRtt ?? 0) + hostPingMs) : null;
 
               return (
                 <div
@@ -420,6 +470,7 @@ export default function HostsPage() {
                         <span className="text-[10px] uppercase tracking-wider text-slate-500 font-mono">
                           {isOnline ? "онлайн" : "по расписанию"}
                         </span>
+                        <LatencyBadge totalMs={totalLatency} />
                       </div>
 
                       {h.tags && h.tags.length > 0 && (
