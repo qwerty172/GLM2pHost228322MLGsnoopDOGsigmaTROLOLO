@@ -1,0 +1,1 @@
+- [Stale lib type declarations](stale-lib-types.md) — phantom TS errors after merges = rebuild lib/db composite dist; missing client fields = add to openapi.yaml + codegen.

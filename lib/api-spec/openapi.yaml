@@ -2317,6 +2317,9 @@ components:
         minDownloadMbps:
           type: ["integer", "null"]
           description: Minimum download bandwidth in Mbps (null = no requirement)
+        minUploadMbps:
+          type: ["integer", "null"]
+          description: Minimum upload bandwidth in Mbps (null = no requirement)
         createdAt:
           type: string
           format: date-time
@@ -2351,6 +2354,7 @@ components:
         - minCpuCores
         - minRamGb
         - minDownloadMbps
+        - minUploadMbps
         - createdAt
         - updatedAt
 
@@ -2447,6 +2451,8 @@ components:
           type: ["integer", "null"]
         minDownloadMbps:
           type: ["integer", "null"]
+        minUploadMbps:
+          type: ["integer", "null"]
       required:
         - ownerToken
         - kind
@@ -2494,6 +2500,8 @@ components:
           type: ["integer", "null"]
         minDownloadMbps:
           type: ["integer", "null"]
+        minUploadMbps:
+          type: ["integer", "null"]
       required:
         - ownerToken
 
@@ -2520,11 +2528,14 @@ components:
           type: integer
         minDownloadMbps:
           type: integer
+        minUploadMbps:
+          type: integer
       required:
         - minGpuVram
         - minCpuCores
         - minRamGb
         - minDownloadMbps
+        - minUploadMbps
 
     QuotaOwnerBody:
       type: object

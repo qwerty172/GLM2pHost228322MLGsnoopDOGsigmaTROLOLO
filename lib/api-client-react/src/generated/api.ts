@@ -22,12 +22,18 @@ import type {
   AdminPatchGameBody,
   AiSuggestQuotaSpecsBody,
   AiSuggestQuotaSpecsResponse,
+  AttachQuotaToSession200,
+  AttachQuotaToSessionBody,
   ClaimSessionBody,
   CreateBrowserHostSessionBody,
   CreateBrowserHostSessionResponse,
   CreateLoanRequestBody,
+  CreatePreviewSession200,
+  CreatePreviewSessionBody,
   CreateQuotaBody,
   CreateSessionBody,
+  DetachQuotaFromSession200,
+  DetachQuotaFromSessionBody,
   EndSessionBody,
   ErrorResponse,
   FundLoanRequestBody,
@@ -35,6 +41,8 @@ import type {
   GameDetail,
   GameListItem,
   GetGameBySlugParams,
+  GetHostCurrentQuota200,
+  GetHostCurrentQuotaParams,
   GetQuotaParams,
   GetSessionParams,
   HealthStatus,
@@ -47,6 +55,7 @@ import type {
   ListMyQuotasParams,
   ListPublicQuotasParams,
   LoanRequest,
+  MatchQuotasForHostParams,
   MyLoans,
   Player,
   PublicHostListItem,
@@ -1748,6 +1757,99 @@ export const useEndSession = <
 };
 
 /**
+ * @summary Mint a short-lived preview token (60-second TTL) for a 30-second
+free muted live stream from the given host. No session record is
+created and no billing occurs.
+
+ */
+export const getCreatePreviewSessionUrl = () => {
+  return `/api/sessions/preview`;
+};
+
+export const createPreviewSession = async (
+  createPreviewSessionBody: CreatePreviewSessionBody,
+  options?: RequestInit,
+): Promise<CreatePreviewSession200> => {
+  return customFetch<CreatePreviewSession200>(getCreatePreviewSessionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createPreviewSessionBody),
+  });
+};
+
+export const getCreatePreviewSessionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPreviewSession>>,
+    TError,
+    { data: BodyType<CreatePreviewSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createPreviewSession>>,
+  TError,
+  { data: BodyType<CreatePreviewSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["createPreviewSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createPreviewSession>>,
+    { data: BodyType<CreatePreviewSessionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createPreviewSession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreatePreviewSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPreviewSession>>
+>;
+export type CreatePreviewSessionMutationBody =
+  BodyType<CreatePreviewSessionBody>;
+export type CreatePreviewSessionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Mint a short-lived preview token (60-second TTL) for a 30-second
+free muted live stream from the given host. No session record is
+created and no billing occurs.
+
+ */
+export const useCreatePreviewSession = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPreviewSession>>,
+    TError,
+    { data: BodyType<CreatePreviewSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createPreviewSession>>,
+  TError,
+  { data: BodyType<CreatePreviewSessionBody> },
+  TContext
+> => {
+  return useMutation(getCreatePreviewSessionMutationOptions(options));
+};
+
+/**
  * @summary List public quotas, with optional filters
  */
 export const getListPublicQuotasUrl = (params?: ListPublicQuotasParams) => {
@@ -2120,6 +2222,383 @@ export function useListAppliedQuotas<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Quotas compatible with the host's PC specs, sorted by profitability
+ */
+export const getMatchQuotasForHostUrl = (params: MatchQuotasForHostParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/quotas/match-my-host?${stringifiedParams}`
+    : `/api/quotas/match-my-host`;
+};
+
+export const matchQuotasForHost = async (
+  params: MatchQuotasForHostParams,
+  options?: RequestInit,
+): Promise<Quota[]> => {
+  return customFetch<Quota[]>(getMatchQuotasForHostUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getMatchQuotasForHostQueryKey = (
+  params?: MatchQuotasForHostParams,
+) => {
+  return [`/api/quotas/match-my-host`, ...(params ? [params] : [])] as const;
+};
+
+export const getMatchQuotasForHostQueryOptions = <
+  TData = Awaited<ReturnType<typeof matchQuotasForHost>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: MatchQuotasForHostParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof matchQuotasForHost>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getMatchQuotasForHostQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof matchQuotasForHost>>
+  > = ({ signal }) => matchQuotasForHost(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof matchQuotasForHost>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type MatchQuotasForHostQueryResult = NonNullable<
+  Awaited<ReturnType<typeof matchQuotasForHost>>
+>;
+export type MatchQuotasForHostQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Quotas compatible with the host's PC specs, sorted by profitability
+ */
+
+export function useMatchQuotasForHost<
+  TData = Awaited<ReturnType<typeof matchQuotasForHost>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: MatchQuotasForHostParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof matchQuotasForHost>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getMatchQuotasForHostQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Returns the quota attached to the host's current active session (if any)
+ */
+export const getGetHostCurrentQuotaUrl = (
+  params: GetHostCurrentQuotaParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/hosts/me/current-quota?${stringifiedParams}`
+    : `/api/hosts/me/current-quota`;
+};
+
+export const getHostCurrentQuota = async (
+  params: GetHostCurrentQuotaParams,
+  options?: RequestInit,
+): Promise<GetHostCurrentQuota200> => {
+  return customFetch<GetHostCurrentQuota200>(
+    getGetHostCurrentQuotaUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetHostCurrentQuotaQueryKey = (
+  params?: GetHostCurrentQuotaParams,
+) => {
+  return [`/api/hosts/me/current-quota`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetHostCurrentQuotaQueryOptions = <
+  TData = Awaited<ReturnType<typeof getHostCurrentQuota>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: GetHostCurrentQuotaParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHostCurrentQuota>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetHostCurrentQuotaQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getHostCurrentQuota>>
+  > = ({ signal }) =>
+    getHostCurrentQuota(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getHostCurrentQuota>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetHostCurrentQuotaQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getHostCurrentQuota>>
+>;
+export type GetHostCurrentQuotaQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Returns the quota attached to the host's current active session (if any)
+ */
+
+export function useGetHostCurrentQuota<
+  TData = Awaited<ReturnType<typeof getHostCurrentQuota>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: GetHostCurrentQuotaParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHostCurrentQuota>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetHostCurrentQuotaQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Attach a quota to the host's current active session
+ */
+export const getAttachQuotaToSessionUrl = () => {
+  return `/api/hosts/me/attach-quota`;
+};
+
+export const attachQuotaToSession = async (
+  attachQuotaToSessionBody: AttachQuotaToSessionBody,
+  options?: RequestInit,
+): Promise<AttachQuotaToSession200> => {
+  return customFetch<AttachQuotaToSession200>(getAttachQuotaToSessionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(attachQuotaToSessionBody),
+  });
+};
+
+export const getAttachQuotaToSessionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof attachQuotaToSession>>,
+    TError,
+    { data: BodyType<AttachQuotaToSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof attachQuotaToSession>>,
+  TError,
+  { data: BodyType<AttachQuotaToSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["attachQuotaToSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof attachQuotaToSession>>,
+    { data: BodyType<AttachQuotaToSessionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return attachQuotaToSession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AttachQuotaToSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof attachQuotaToSession>>
+>;
+export type AttachQuotaToSessionMutationBody =
+  BodyType<AttachQuotaToSessionBody>;
+export type AttachQuotaToSessionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Attach a quota to the host's current active session
+ */
+export const useAttachQuotaToSession = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof attachQuotaToSession>>,
+    TError,
+    { data: BodyType<AttachQuotaToSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof attachQuotaToSession>>,
+  TError,
+  { data: BodyType<AttachQuotaToSessionBody> },
+  TContext
+> => {
+  return useMutation(getAttachQuotaToSessionMutationOptions(options));
+};
+
+/**
+ * @summary Detach the current quota from the host's active session
+ */
+export const getDetachQuotaFromSessionUrl = () => {
+  return `/api/hosts/me/detach-quota`;
+};
+
+export const detachQuotaFromSession = async (
+  detachQuotaFromSessionBody: DetachQuotaFromSessionBody,
+  options?: RequestInit,
+): Promise<DetachQuotaFromSession200> => {
+  return customFetch<DetachQuotaFromSession200>(
+    getDetachQuotaFromSessionUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(detachQuotaFromSessionBody),
+    },
+  );
+};
+
+export const getDetachQuotaFromSessionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof detachQuotaFromSession>>,
+    TError,
+    { data: BodyType<DetachQuotaFromSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof detachQuotaFromSession>>,
+  TError,
+  { data: BodyType<DetachQuotaFromSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["detachQuotaFromSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof detachQuotaFromSession>>,
+    { data: BodyType<DetachQuotaFromSessionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return detachQuotaFromSession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DetachQuotaFromSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof detachQuotaFromSession>>
+>;
+export type DetachQuotaFromSessionMutationBody =
+  BodyType<DetachQuotaFromSessionBody>;
+export type DetachQuotaFromSessionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Detach the current quota from the host's active session
+ */
+export const useDetachQuotaFromSession = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof detachQuotaFromSession>>,
+    TError,
+    { data: BodyType<DetachQuotaFromSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof detachQuotaFromSession>>,
+  TError,
+  { data: BodyType<DetachQuotaFromSessionBody> },
+  TContext
+> => {
+  return useMutation(getDetachQuotaFromSessionMutationOptions(options));
+};
 
 /**
  * @summary Quotas a host can attach to a new session (own + public-for-game + optional private code)

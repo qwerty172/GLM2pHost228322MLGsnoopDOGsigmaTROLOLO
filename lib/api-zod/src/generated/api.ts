@@ -411,7 +411,6 @@ export const GetPlayerResponse = zod.object({
   withdrawableBalanceLzt: zod
     .number()
     .describe("Зелёный — LZT convertible back to crypto at 200:1"),
-  isGuest: zod.boolean().optional().default(false),
   createdAt: zod.coerce.date(),
   lastSeenAt: zod.coerce.date(),
 });
@@ -801,6 +800,21 @@ export const EndSessionResponse = zod.object({
 });
 
 /**
+ * @summary Mint a short-lived preview token (60-second TTL) for a 30-second
+free muted live stream from the given host. No session record is
+created and no billing occurs.
+
+ */
+export const CreatePreviewSessionBody = zod.object({
+  hostId: zod.string().describe("UUID of the host to preview"),
+});
+
+export const CreatePreviewSessionResponse = zod.object({
+  previewToken: zod.string().optional(),
+  hostId: zod.string().optional(),
+});
+
+/**
  * @summary List public quotas, with optional filters
  */
 export const ListPublicQuotasQueryParams = zod.object({
@@ -1029,6 +1043,170 @@ export const ListAppliedQuotasResponse = zod.array(
 );
 
 /**
+ * @summary Quotas compatible with the host's PC specs, sorted by profitability
+ */
+export const MatchQuotasForHostQueryParams = zod.object({
+  hostToken: zod.coerce.string(),
+});
+
+export const MatchQuotasForHostResponseItem = zod.object({
+  id: zod.string(),
+  ownerType: zod.enum(["host", "player"]),
+  ownerId: zod.string(),
+  ownerDisplayName: zod.string(),
+  kind: zod.enum(["royalty", "sponsor"]),
+  status: zod.enum([
+    "draft",
+    "active",
+    "paused",
+    "exhausted",
+    "expired",
+    "closed",
+  ]),
+  title: zod.string(),
+  description: zod.string(),
+  gameId: zod.string().nullable(),
+  gameTitle: zod.string().nullable(),
+  visibility: zod.enum(["public", "private"]),
+  accessCode: zod
+    .string()
+    .nullable()
+    .describe("Only returned to the quota owner."),
+  minSessionMinutes: zod.number().nullable(),
+  maxSessionMinutes: zod.number().nullable(),
+  startAt: zod.coerce.date(),
+  endAt: zod.coerce.date().nullable(),
+  budgetLzt: zod.number().nullable(),
+  escrowRemainingLzt: zod.number().nullable(),
+  sponsorHostPerMinuteLzt: zod.number().nullable(),
+  sponsorPlayerPerMinuteLzt: zod.number().nullable(),
+  royaltyBasis: zod.string().nullable(),
+  royaltyValue: zod.number().nullable(),
+  royaltySource: zod.string().nullable(),
+  minGpuVram: zod
+    .number()
+    .nullable()
+    .describe("Minimum GPU VRAM in GB (null = no requirement)"),
+  minCpuCores: zod
+    .number()
+    .nullable()
+    .describe("Minimum CPU core count (null = no requirement)"),
+  minRamGb: zod
+    .number()
+    .nullable()
+    .describe("Minimum RAM in GB (null = no requirement)"),
+  minDownloadMbps: zod
+    .number()
+    .nullable()
+    .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
+  minUploadMbps: zod
+    .number()
+    .nullable()
+    .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const MatchQuotasForHostResponse = zod.array(
+  MatchQuotasForHostResponseItem,
+);
+
+/**
+ * @summary Returns the quota attached to the host's current active session (if any)
+ */
+export const GetHostCurrentQuotaQueryParams = zod.object({
+  hostToken: zod.coerce.string(),
+});
+
+export const GetHostCurrentQuotaResponse = zod.object({
+  quota: zod
+    .object({
+      id: zod.string(),
+      ownerType: zod.enum(["host", "player"]),
+      ownerId: zod.string(),
+      ownerDisplayName: zod.string(),
+      kind: zod.enum(["royalty", "sponsor"]),
+      status: zod.enum([
+        "draft",
+        "active",
+        "paused",
+        "exhausted",
+        "expired",
+        "closed",
+      ]),
+      title: zod.string(),
+      description: zod.string(),
+      gameId: zod.string().nullable(),
+      gameTitle: zod.string().nullable(),
+      visibility: zod.enum(["public", "private"]),
+      accessCode: zod
+        .string()
+        .nullable()
+        .describe("Only returned to the quota owner."),
+      minSessionMinutes: zod.number().nullable(),
+      maxSessionMinutes: zod.number().nullable(),
+      startAt: zod.coerce.date(),
+      endAt: zod.coerce.date().nullable(),
+      budgetLzt: zod.number().nullable(),
+      escrowRemainingLzt: zod.number().nullable(),
+      sponsorHostPerMinuteLzt: zod.number().nullable(),
+      sponsorPlayerPerMinuteLzt: zod.number().nullable(),
+      royaltyBasis: zod.string().nullable(),
+      royaltyValue: zod.number().nullable(),
+      royaltySource: zod.string().nullable(),
+      minGpuVram: zod
+        .number()
+        .nullable()
+        .describe("Minimum GPU VRAM in GB (null = no requirement)"),
+      minCpuCores: zod
+        .number()
+        .nullable()
+        .describe("Minimum CPU core count (null = no requirement)"),
+      minRamGb: zod
+        .number()
+        .nullable()
+        .describe("Minimum RAM in GB (null = no requirement)"),
+      minDownloadMbps: zod
+        .number()
+        .nullable()
+        .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
+      minUploadMbps: zod
+        .number()
+        .nullable()
+        .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    })
+    .nullable(),
+  sessionId: zod.string().optional(),
+});
+
+/**
+ * @summary Attach a quota to the host's current active session
+ */
+export const AttachQuotaToSessionBody = zod.object({
+  hostToken: zod.string(),
+  quotaId: zod.string(),
+});
+
+export const AttachQuotaToSessionResponse = zod.object({
+  ok: zod.boolean(),
+  sessionId: zod.string().optional(),
+  quotaId: zod.string().optional(),
+});
+
+/**
+ * @summary Detach the current quota from the host's active session
+ */
+export const DetachQuotaFromSessionBody = zod.object({
+  hostToken: zod.string(),
+});
+
+export const DetachQuotaFromSessionResponse = zod.object({
+  ok: zod.boolean(),
+  sessionId: zod.string().optional(),
+});
+
+/**
  * @summary Quotas a host can attach to a new session (own + public-for-game + optional private code)
  */
 export const ListApplicableQuotasQueryParams = zod.object({
@@ -1160,6 +1338,10 @@ export const GetQuotaResponse = zod
       .number()
       .nullable()
       .describe("Minimum download bandwidth in Mbps (null = no requirement)"),
+    minUploadMbps: zod
+      .number()
+      .nullable()
+      .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
     createdAt: zod.coerce.date(),
     updatedAt: zod.coerce.date(),
   })
@@ -1593,11 +1775,6 @@ export const QuotaAiChatBody = zod.object({
     maxSessionMinutes: zod.string().optional(),
     startAt: zod.string().optional(),
     endAt: zod.string().optional(),
-    minGpuVram: zod.number().nullish(),
-    minCpuCores: zod.number().nullish(),
-    minRamGb: zod.number().nullish(),
-    minDownloadMbps: zod.number().nullish(),
-    minUploadMbps: zod.number().nullish(),
   }),
   availableGames: zod
     .array(
@@ -1628,11 +1805,6 @@ export const QuotaAiChatResponse = zod.object({
       maxSessionMinutes: zod.string().optional(),
       startAt: zod.string().optional(),
       endAt: zod.string().optional(),
-      minGpuVram: zod.number().nullish(),
-      minCpuCores: zod.number().nullish(),
-      minRamGb: zod.number().nullish(),
-      minDownloadMbps: zod.number().nullish(),
-      minUploadMbps: zod.number().nullish(),
     })
     .optional(),
 });

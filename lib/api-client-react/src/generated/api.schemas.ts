@@ -720,11 +720,6 @@ export interface QuotaFormState {
   maxSessionMinutes?: string;
   startAt?: string;
   endAt?: string;
-  minGpuVram?: number | null;
-  minCpuCores?: number | null;
-  minRamGb?: number | null;
-  minDownloadMbps?: number | null;
-  minUploadMbps?: number | null;
 }
 
 export type QuotaAiChatBodyAvailableGamesItem = {
@@ -755,11 +750,6 @@ export interface QuotaFormPatch {
   maxSessionMinutes?: string;
   startAt?: string;
   endAt?: string;
-  minGpuVram?: number | null;
-  minCpuCores?: number | null;
-  minRamGb?: number | null;
-  minDownloadMbps?: number | null;
-  minUploadMbps?: number | null;
 }
 
 export interface QuotaAiChatResponse {
@@ -964,6 +954,16 @@ export type GetSessionParams = {
   hostToken: string;
 };
 
+export type CreatePreviewSessionBody = {
+  /** UUID of the host to preview */
+  hostId: string;
+};
+
+export type CreatePreviewSession200 = {
+  previewToken?: string;
+  hostId?: string;
+};
+
 export type ListPublicQuotasParams = {
   kind?: ListPublicQuotasKind;
   gameId?: string;
@@ -983,6 +983,39 @@ export type ListMyQuotasParams = {
 
 export type ListAppliedQuotasParams = {
   ownerToken: string;
+};
+
+export type MatchQuotasForHostParams = {
+  hostToken: string;
+};
+
+export type GetHostCurrentQuotaParams = {
+  hostToken: string;
+};
+
+export type GetHostCurrentQuota200 = {
+  quota: Quota | null;
+  sessionId?: string;
+};
+
+export type AttachQuotaToSessionBody = {
+  hostToken: string;
+  quotaId: string;
+};
+
+export type AttachQuotaToSession200 = {
+  ok: boolean;
+  sessionId?: string;
+  quotaId?: string;
+};
+
+export type DetachQuotaFromSessionBody = {
+  hostToken: string;
+};
+
+export type DetachQuotaFromSession200 = {
+  ok: boolean;
+  sessionId?: string;
 };
 
 export type ListApplicableQuotasParams = {

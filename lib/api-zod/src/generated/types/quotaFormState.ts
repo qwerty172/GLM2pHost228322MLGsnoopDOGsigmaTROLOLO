@@ -22,9 +22,4 @@ export interface QuotaFormState {
   maxSessionMinutes?: string;
   startAt?: string;
   endAt?: string;
-  minGpuVram?: number | null;
-  minCpuCores?: number | null;
-  minRamGb?: number | null;
-  minDownloadMbps?: number | null;
-  minUploadMbps?: number | null;
 }
