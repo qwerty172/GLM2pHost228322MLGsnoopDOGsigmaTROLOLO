@@ -27,6 +27,12 @@ export interface HostConfig {
   killAppOnDisconnect: boolean;
   autoLaunchAtStartup: boolean;
   autoQuotaEnabled?: boolean;
+  // Audio capture mode for WASAPI loopback (Windows only).
+  // off    — no audio transmitted (default, same as previous behaviour)
+  // voice  — Opus ~12 kbps (highly compressed, low bandwidth)
+  // standard — Opus ~32 kbps (balanced quality)
+  // quality  — Opus ~64 kbps (high fidelity)
+  audioMode?: "off" | "voice" | "standard" | "quality";
 }
 
 export type InputEvent =

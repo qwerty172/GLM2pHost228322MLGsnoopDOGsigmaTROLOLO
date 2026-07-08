@@ -18,6 +18,7 @@ const DEFAULTS: HostConfig = {
   killAppOnDisconnect: false,
   autoLaunchAtStartup: true,
   autoQuotaEnabled: false,
+  audioMode: "off",
 };
 
 let cached: HostConfig | null = null;

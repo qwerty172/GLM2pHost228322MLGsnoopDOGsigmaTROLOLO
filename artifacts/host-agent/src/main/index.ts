@@ -314,11 +314,12 @@ void app.whenReady().then(async () => {
   // agent is running. This tiny server is intentionally minimal — it only
   // needs to confirm presence and return a version string.
   const PING_PORT = 18080;
-  const pingServer = http.createServer((_req, res) => {
+  const pingServer = http.createServer(async (_req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Content-Type", "application/json");
     res.writeHead(200);
-    res.end(JSON.stringify({ status: "ok", version: "0.1.0" }));
+    const cfg = await loadConfig().catch(() => null);
+    res.end(JSON.stringify({ status: "ok", version: "0.1.0", audioMode: cfg?.audioMode ?? "off" }));
   });
   pingServer.listen(PING_PORT, "127.0.0.1", () => {
     log("info", `Ping server listening on http://127.0.0.1:${PING_PORT}`);

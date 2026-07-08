@@ -45,6 +45,8 @@ import {
   MemoryStick,
   Tag,
   Unlink,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -57,10 +59,19 @@ const cardStyle = {
 
 // ── Agent ping check ──────────────────────────────────────────────────────
 
+type AudioMode = "off" | "voice" | "standard" | "quality";
+
 type AgentState =
   | { status: "checking" }
-  | { status: "online"; version: string }
+  | { status: "online"; version: string; audioMode: AudioMode }
   | { status: "offline" };
+
+const AUDIO_MODE_LABELS: Record<AudioMode, string> = {
+  off: "Без звука",
+  voice: "Голос ~12kbps",
+  standard: "Стандарт ~32kbps",
+  quality: "Качество ~64kbps",
+};
 
 async function pingAgent(): Promise<AgentState> {
   try {
@@ -68,8 +79,9 @@ async function pingAgent(): Promise<AgentState> {
       signal: AbortSignal.timeout(1500),
     });
     if (res.ok) {
-      const data = (await res.json()) as { version?: string };
-      return { status: "online", version: data.version ?? "?" };
+      const data = (await res.json()) as { version?: string; audioMode?: string };
+      const audioMode = (data.audioMode ?? "off") as AudioMode;
+      return { status: "online", version: data.version ?? "?", audioMode };
     }
     return { status: "offline" };
   } catch {
@@ -108,6 +120,14 @@ function AgentStatusCard({ agent }: { agent: AgentState }) {
             </span>
             <span className="text-xs text-slate-500 font-mono">
               v{agent.version}
+            </span>
+            <span className="flex items-center gap-1 text-xs font-mono text-slate-400 ml-1">
+              {agent.audioMode === "off" ? (
+                <VolumeX className="h-3 w-3 text-slate-600" />
+              ) : (
+                <Volume2 className="h-3 w-3 text-sky-400" />
+              )}
+              {AUDIO_MODE_LABELS[agent.audioMode]}
             </span>
           </span>
           <div className="flex gap-2 ml-auto">

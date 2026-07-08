@@ -237,6 +237,15 @@
               <span>Bitrate (kbps)</span>
               <input id="bitrateKbps" type="number" min="500" max="50000" />
             </label>
+            <label>
+              <span>Звук (WASAPI loopback)</span>
+              <select id="audioMode">
+                <option value="off">Выкл (без звука)</option>
+                <option value="voice">Голос (~12 kbps)</option>
+                <option value="standard">Стандарт (~32 kbps)</option>
+                <option value="quality">Качество (~64 kbps)</option>
+              </select>
+            </label>
           </div>
           <div class="row">
             <label>

@@ -144,6 +144,7 @@ async function loadFormFromConfig(): Promise<HostConfig> {
   ($("width") as HTMLInputElement).value = String(cfg.resolution.width);
   ($("height") as HTMLInputElement).value = String(cfg.resolution.height);
   ($("bitrateKbps") as HTMLInputElement).value = String(cfg.bitrateKbps);
+  ($("audioMode") as HTMLSelectElement).value = cfg.audioMode ?? "off";
   ($("killAppOnDisconnect") as HTMLInputElement).checked = cfg.killAppOnDisconnect;
   ($("autoLaunchAtStartup") as HTMLInputElement).checked = cfg.autoLaunchAtStartup;
   return cfg;
@@ -169,6 +170,7 @@ function readForm(): HostConfig {
       height: Number(($("height") as HTMLInputElement).value) || 1080,
     },
     bitrateKbps: Number(($("bitrateKbps") as HTMLInputElement).value) || 6000,
+    audioMode: (($("audioMode") as HTMLSelectElement).value || "off") as "off" | "voice" | "standard" | "quality",
     killAppOnDisconnect: ($("killAppOnDisconnect") as HTMLInputElement).checked,
     autoLaunchAtStartup: ($("autoLaunchAtStartup") as HTMLInputElement).checked,
   };
@@ -856,12 +858,31 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     pc.addTrack(track, captureStream);
   }
 
-  const sender = pc.getSenders().find((s) => s.track?.kind === "video");
-  if (sender) {
-    const params = sender.getParameters();
+  const videoSender = pc.getSenders().find((s) => s.track?.kind === "video");
+  if (videoSender) {
+    const params = videoSender.getParameters();
     params.encodings = params.encodings ?? [{}];
     params.encodings[0]!.maxBitrate = cfg.bitrateKbps * 1000;
-    await sender.setParameters(params).catch(() => undefined);
+    await videoSender.setParameters(params).catch(() => undefined);
+  }
+
+  // Set Opus audio bitrate based on selected audioMode.
+  const audioModeBitrate: Record<string, number> = {
+    voice: 12_000,
+    standard: 32_000,
+    quality: 64_000,
+  };
+  const selectedAudioMode = cfg.audioMode ?? "off";
+  if (selectedAudioMode !== "off") {
+    const audioBitrate = audioModeBitrate[selectedAudioMode];
+    const audioSender = pc.getSenders().find((s) => s.track?.kind === "audio");
+    if (audioSender && audioBitrate) {
+      const audioParams = audioSender.getParameters();
+      audioParams.encodings = audioParams.encodings ?? [{}];
+      audioParams.encodings[0]!.maxBitrate = audioBitrate;
+      await audioSender.setParameters(audioParams).catch(() => undefined);
+      log(`[audio] Opus maxBitrate set to ${audioBitrate / 1000} kbps (mode=${selectedAudioMode})`);
+    }
   }
 
   // Force H.264 via setCodecPreferences so NVENC is used wherever available.
@@ -982,8 +1003,16 @@ async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
   const sourceId = chosen.id;
   log(`Capturing source: ${chosen.name}`);
 
+  const audioMode = cfg.audioMode ?? "off";
   const constraints = {
-    audio: false,
+    audio: audioMode !== "off"
+      ? ({
+          mandatory: {
+            chromeMediaSource: "desktop",
+            chromeMediaSourceId: sourceId,
+          },
+        } as unknown as MediaTrackConstraints)
+      : false,
     video: {
       mandatory: {
         chromeMediaSource: "desktop",
@@ -995,7 +1024,12 @@ async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
     },
   } as unknown as MediaStreamConstraints;
 
-  return navigator.mediaDevices.getUserMedia(constraints);
+  const stream = await navigator.mediaDevices.getUserMedia(constraints);
+  if (audioMode !== "off") {
+    const audioTracks = stream.getAudioTracks();
+    log(`[audio] ${audioTracks.length} audio track(s) captured (mode=${audioMode})`);
+  }
+  return stream;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
