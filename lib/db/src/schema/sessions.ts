@@ -42,6 +42,12 @@ export const sessionsTable = pgTable("sessions", {
   // Optional quota preset-contract attached to this session. The billing
   // worker reads it on every tick to apply royalty/sponsor adjustments.
   quotaId: uuid("quota_id"),
+  // Block-time billing: player pre-purchases a fixed block of minutes (10/15/25).
+  // blockMinutes: the block size chosen at session start (null = unlimited/per-minute).
+  // blockReservedLzt: total LZT reserved for the block (blockMinutes × ratePerMinuteLzt).
+  // The billing worker drains from this reserve each tick; unused reserve is refunded on exit.
+  blockMinutes: integer("block_minutes"),
+  blockReservedLzt: integer("block_reserved_lzt"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

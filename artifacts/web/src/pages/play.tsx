@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRoute, Link } from "wouter";
+import { useRoute, Link, useSearch } from "wouter";
 import {
   useGetSessionByPlayerToken,
   getGetSessionByPlayerTokenQueryKey,
@@ -23,6 +23,12 @@ import { usePlayerWallet } from "@/hooks/use-player-wallet";
 export default function Play() {
   const [, params] = useRoute("/play/:playerToken");
   const playerToken = params?.playerToken || "";
+  const search$ = useSearch();
+  const blockMinutesParam = (() => {
+    const sp = new URLSearchParams(search$);
+    const v = Number(sp.get("block"));
+    return v === 10 || v === 15 || v === 25 ? v : undefined;
+  })();
 
   const { data: session, isLoading, isError } = useGetSessionByPlayerToken(playerToken, {
     query: {
@@ -77,6 +83,11 @@ export default function Play() {
   const ratePerSecLztRef = useRef<number>(0);
   const sessionEndReasonRef = useRef<string | null>(null);
 
+  // Block-time billing state
+  const [blockMinsLeft, setBlockMinsLeft] = useState<number | null>(null);
+  const [showBlockExpiredModal, setShowBlockExpiredModal] = useState(false);
+  const blockWarningShownRef = useRef(false);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -122,7 +133,7 @@ export default function Play() {
     return () => clearInterval(id);
   }, [isPlaying]);
 
-  // Detect host_offline and balance_exhausted end reasons
+  // Detect host_offline, balance_exhausted, and block_expired end reasons
   useEffect(() => {
     if (!session) return;
     const reason = (session as typeof session & { endReason?: string | null }).endReason ?? null;
@@ -132,9 +143,34 @@ export default function Play() {
         toast.error("Хост отключился. Списания остановлены.");
       } else if (reason === "balance_exhausted") {
         toast.error("Баланс исчерпан. Сессия завершена.");
+      } else if (reason === "block_expired") {
+        setShowBlockExpiredModal(true);
       }
     }
   }, [session?.status, (session as typeof session & { endReason?: string | null })?.endReason, isPlaying]);
+
+  // Initialize block countdown from session data when session loads
+  useEffect(() => {
+    if (!session || !isPlaying) return;
+    const s = session as typeof session & { blockMinutes?: number | null };
+    if (!s.blockMinutes) return;
+    if (blockMinsLeft === null) {
+      setBlockMinsLeft(s.blockMinutes);
+    }
+  }, [session?.id, isPlaying]);
+
+  // Client-side block countdown: ticks every minute in sync with billing
+  useEffect(() => {
+    if (blockMinsLeft === null || !isPlaying) return;
+    if (blockMinsLeft <= 0) return;
+    const id = setInterval(() => {
+      setBlockMinsLeft((prev) => {
+        if (prev === null || prev <= 1) return 0;
+        return prev - 1;
+      });
+    }, 60_000);
+    return () => clearInterval(id);
+  }, [blockMinsLeft === null, isPlaying]);
 
   const cleanupConnection = useCallback(() => {
     if (iceRestartTimerRef.current) { clearTimeout(iceRestartTimerRef.current); iceRestartTimerRef.current = null; }
@@ -426,6 +462,16 @@ export default function Play() {
                 : `Хост отклонил соединение (${reason}).`;
           toast.error(msgText);
           cleanupConnection();
+        } else if (type === "block-warning") {
+          const minsLeft = (msg["minsLeft"] as number) ?? 2;
+          setBlockMinsLeft(minsLeft);
+          if (!blockWarningShownRef.current) {
+            blockWarningShownRef.current = true;
+            toast.warning(`Осталось ${minsLeft} мин блока — сессия скоро завершится.`, { duration: 6000 });
+          }
+        } else if (type === "block-expired") {
+          setBlockMinsLeft(0);
+          setShowBlockExpiredModal(true);
         }
       } catch (err) {
         console.error("Error handling WS message", err);
@@ -581,7 +627,7 @@ export default function Play() {
     claimSession.mutate(
       {
         playerToken,
-        data: { playerWalletToken, paymentSource },
+        data: { playerWalletToken, paymentSource, ...(blockMinutesParam ? { blockMinutes: blockMinutesParam } : {}) },
       },
       {
         onSuccess: () => {
@@ -1068,6 +1114,31 @@ export default function Play() {
         </div>
       )}
 
+      {/* Block expired modal */}
+      {showBlockExpiredModal && (
+        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <Card className="w-full max-w-sm mx-4" style={{ background: "#0a1018", border: "1px solid rgba(14,165,233,0.4)" }}>
+            <CardHeader className="text-center pb-2">
+              <Clock className="h-10 w-10 text-sky-400 mx-auto mb-3" />
+              <CardTitle className="text-white">Время блока истекло</CardTitle>
+              <CardDescription className="text-slate-400">
+                Оплаченный блок игрового времени использован. Неиспользованные LZT возвращены на баланс.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              <Link href="/games">
+                <Button className="w-full" style={{ background: "#0ea5e9", color: "#fff" }}>
+                  <ArrowLeft className="h-4 w-4 mr-2" /> В каталог
+                </Button>
+              </Link>
+              <Button variant="outline" className="w-full border-white/10 text-slate-300" onClick={() => setShowBlockExpiredModal(false)}>
+                Закрыть
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Balance exhausted modal */}
       {session?.status === "ended" && (session as typeof session & { endReason?: string | null }).endReason === "balance_exhausted" && (
         <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
@@ -1180,6 +1251,32 @@ export default function Play() {
             </Badge>
           )}
         </div>
+
+        {/* Block-time countdown HUD (shown only for block sessions) */}
+        {blockMinsLeft !== null && isPlaying && (() => {
+          const isDanger = blockMinsLeft <= 2;
+          const isWarning = blockMinsLeft <= 5 && blockMinsLeft > 2;
+          const blockColor = isDanger ? "#ef4444" : isWarning ? "#eab308" : "#22c55e";
+          const blockBg = isDanger ? "rgba(239,68,68,0.15)" : isWarning ? "rgba(234,179,8,0.12)" : "rgba(34,197,94,0.10)";
+          const blockBorder = isDanger ? "rgba(239,68,68,0.4)" : isWarning ? "rgba(234,179,8,0.35)" : "rgba(34,197,94,0.3)";
+          return (
+            <div
+              className="flex items-center gap-2 rounded-lg px-3 py-1.5 pointer-events-none"
+              style={{ background: blockBg, border: `1px solid ${blockBorder}` }}
+            >
+              {isDanger && <TrendingDown className="w-3.5 h-3.5 animate-pulse" style={{ color: blockColor }} />}
+              <div className="text-right">
+                <div className="font-mono font-bold text-sm leading-none" style={{ color: blockColor }}>
+                  <Clock className="w-3 h-3 inline mr-1" />
+                  {blockMinsLeft} мин
+                </div>
+                <div className="font-mono text-[10px] mt-0.5" style={{ color: blockColor, opacity: 0.75 }}>
+                  блок
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Live balance HUD */}
         {estimatedBalanceLzt !== null && session && (() => {

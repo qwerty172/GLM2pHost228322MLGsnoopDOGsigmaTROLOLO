@@ -228,6 +228,17 @@ async function markHostSeen(hostId: string): Promise<void> {
 }
 
 // ─── WS server ────────────────────────────────────────────────────────────────
+// Send a message to all players in a session room. Used by the billing worker
+// to deliver block-warning and block-expired events without a HTTP round-trip.
+export function sendSignalingMessage(sessionId: string, payload: unknown): void {
+  const room = rooms.get(sessionId);
+  if (!room) return;
+  for (const peer of room.peers.values()) {
+    if (peer.role === "player") {
+      send(peer.socket, payload);
+    }
+  }
+}
 
 export function attachSignaling(server: HttpServer): void {
   const wss = new WebSocketServer({ noServer: true });

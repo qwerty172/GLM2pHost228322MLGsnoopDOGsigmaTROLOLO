@@ -677,8 +677,10 @@ export const GetSessionResponse = zod.object({
     .string()
     .nullish()
     .describe(
-      "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline.",
+      "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline, block_expired.",
     ),
+  blockMinutes: zod.number().nullish().describe("Block size in minutes (10, 15, or 25). Null = unlimited per-minute billing."),
+  blockReservedLzt: zod.number().nullish().describe("Total LZT reserved for the block at session start."),
 });
 
 /**
@@ -711,8 +713,10 @@ export const GetSessionByPlayerTokenResponse = zod.object({
     .string()
     .nullish()
     .describe(
-      "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline.",
+      "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline, block_expired.",
     ),
+  blockMinutes: zod.number().nullish().describe("Block size in minutes (10, 15, or 25). Null = unlimited per-minute billing."),
+  blockReservedLzt: zod.number().nullish().describe("Total LZT reserved for the block at session start."),
 });
 
 /**
@@ -732,6 +736,10 @@ export const ClaimSessionBody = zod.object({
     .describe(
       'Which LZT bucket the player wants to pay from. \"auto\" prefers\nзелёный (withdrawable) and falls back to синий (internal).\n',
     ),
+  blockMinutes: zod
+    .union([zod.literal(10), zod.literal(15), zod.literal(25)])
+    .optional()
+    .describe("Optional block size. When set, the full block cost is reserved up-front and unused minutes are refunded on exit."),
 });
 
 export const ClaimSessionResponse = zod.object({
@@ -757,8 +765,10 @@ export const ClaimSessionResponse = zod.object({
     .string()
     .nullish()
     .describe(
-      "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline.",
+      "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline, block_expired.",
     ),
+  blockMinutes: zod.number().nullish().describe("Block size in minutes (10, 15, or 25). Null = unlimited per-minute billing."),
+  blockReservedLzt: zod.number().nullish().describe("Total LZT reserved for the block at session start."),
 });
 
 /**

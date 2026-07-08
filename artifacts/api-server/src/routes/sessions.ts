@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, or, isNull, ne } from "drizzle-orm";
+import { eq, and, or, isNull, ne, sql } from "drizzle-orm";
 import {
   db,
   gamesTable,
@@ -7,6 +7,7 @@ import {
   hostGamesTable,
   playersTable,
   sessionsTable,
+  billingEventsTable,
   quotasTable,
   quotaSessionsTable,
 } from "@workspace/db";
@@ -477,7 +478,70 @@ router.post(
       player.withdrawableBalanceLzt,
       player.internalBalanceLzt,
     );
-    if (picked === null && minBalanceLzt > 0) {
+    // Block billing: if the player chose a block, require the full block reserve
+    // (blockMinutes × perMinuteLzt) to be present in a single bucket, plus the launch fee.
+    const blockMinutes = body.data.blockMinutes ?? null;
+    const ratePerMinuteLzt = Math.round(perMinute * 200);
+    const blockReservedLzt =
+      blockMinutes !== null && ratePerMinuteLzt > 0
+        ? blockMinutes * ratePerMinuteLzt
+        : null;
+
+    // Override minBalanceLzt with block reserve when applicable.
+    // For zero-rate hosts (pricePerMinuteLzt = 0) block logic is skipped.
+    const effectiveMinLzt =
+      blockReservedLzt !== null
+        ? launchFeeLzt + blockReservedLzt
+        : minBalanceLzt;
+    const effectivePicked =
+      effectiveMinLzt !== minBalanceLzt
+        ? pickPlayerBucket(
+            session.paymentSource,
+            effectiveMinLzt,
+            player.withdrawableBalanceLzt,
+            player.internalBalanceLzt,
+          )
+        : picked;
+
+    if (effectivePicked === null && effectiveMinLzt > 0) {
+      const need = blockReservedLzt !== null
+        ? `${effectiveMinLzt} LZT (блок ${blockMinutes} мин × ${ratePerMinuteLzt} LZT + запуск)`
+        : `${effectiveMinLzt} LZT`;
+      res.status(400).json({
+        error: `Insufficient LZT — need at least ${need} in a single ${session.paymentSource === "auto" ? "(green or blue)" : session.paymentSource} bucket to start`,
+      });
+      return;
+    }
+
+    // Reserve the block amount: debit the player immediately so the funds are
+    // locked. The billing worker will refund unused minutes on early exit.
+    if (blockReservedLzt !== null && blockReservedLzt > 0 && !isReclaimBySamePlayer) {
+      const bucket = effectivePicked ?? "balance";
+      const playerCol =
+        bucket === "green"
+          ? playersTable.withdrawableBalanceLzt
+          : playersTable.internalBalanceLzt;
+      const debitResult = await db
+        .update(playersTable)
+        .set(
+          bucket === "green"
+            ? { withdrawableBalanceLzt: sql`${playersTable.withdrawableBalanceLzt} - ${blockReservedLzt}` }
+            : { internalBalanceLzt: sql`${playersTable.internalBalanceLzt} - ${blockReservedLzt}` },
+        )
+        .where(
+          and(
+            eq(playersTable.id, player.id),
+            sql`${playerCol} >= ${blockReservedLzt + launchFeeLzt}`,
+          ),
+        )
+        .returning({ id: playersTable.id });
+      if (debitResult.length === 0) {
+        res.status(400).json({ error: "Insufficient balance to reserve the block" });
+        return;
+      }
+    }
+
+    if (picked === null && minBalanceLzt > 0 && blockReservedLzt === null) {
       res.status(400).json({
         error: `Insufficient LZT — need at least ${minBalanceLzt} LZT in a single ${session.paymentSource === "auto" ? "(green or blue)" : session.paymentSource} bucket to start`,
       });
@@ -486,7 +550,12 @@ router.post(
 
     const [updated] = await db
       .update(sessionsTable)
-      .set({ claimedByPlayerId: player.id })
+      .set({
+        claimedByPlayerId: player.id,
+        ...(blockMinutes !== null
+          ? { blockMinutes, blockReservedLzt: blockReservedLzt ?? 0 }
+          : {}),
+      })
       .where(
         and(
           eq(sessionsTable.id, session.id),
@@ -605,9 +674,46 @@ router.patch("/sessions/:id/end", async (req, res): Promise<void> => {
     return;
   }
 
+  const now = new Date();
+
+  // Block session early-exit refund: count minutes used, refund remainder.
+  if (
+    existing.blockMinutes &&
+    existing.blockReservedLzt &&
+    existing.claimedByPlayerId &&
+    existing.status === "active"
+  ) {
+    try {
+      const ticksRow = await db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(billingEventsTable)
+        .where(
+          and(
+            eq(billingEventsTable.sessionId, existing.id),
+            eq(billingEventsTable.kind, "session_tick"),
+            eq(billingEventsTable.bucket, "green"),
+          ),
+        );
+      const minutesUsed = Number(ticksRow[0]?.n ?? 0);
+      const costPerMinute = Math.round(existing.blockReservedLzt / existing.blockMinutes);
+      const costUsed = minutesUsed * costPerMinute;
+      const refundLzt = Math.max(0, existing.blockReservedLzt - costUsed);
+      if (refundLzt > 0) {
+        const bucket = existing.paymentSource === "blue" ? "internalBalanceLzt" : "withdrawableBalanceLzt";
+        await db
+          .update(playersTable)
+          .set({ [bucket]: sql`${playersTable[bucket as keyof typeof playersTable]} + ${refundLzt}` } as never)
+          .where(eq(playersTable.id, existing.claimedByPlayerId));
+        req.log.info({ sessionId: existing.id, refundLzt, minutesUsed }, "Block session early exit — refunded unused reserve");
+      }
+    } catch (err) {
+      req.log.error({ err, sessionId: existing.id }, "Block refund failed during session end");
+    }
+  }
+
   const [session] = await db
     .update(sessionsTable)
-    .set({ status: "ended", endedAt: new Date() })
+    .set({ status: "ended", endedAt: now })
     .where(eq(sessionsTable.id, params.data.id))
     .returning();
 

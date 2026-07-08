@@ -29,8 +29,18 @@ export interface Session {
   /** @nullable */
   endedAt?: Date | null;
   /**
-   * Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline.
+   * Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline, block_expired.
    * @nullable
    */
   endReason?: string | null;
+  /**
+   * Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.
+   * @nullable
+   */
+  blockMinutes?: number | null;
+  /**
+   * Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.
+   * @nullable
+   */
+  blockReservedLzt?: number | null;
 }

@@ -11,6 +11,7 @@ import {
 } from "@workspace/db";
 import { logger } from "./logger";
 import { usdtToLztRound, pickPlayerBucket } from "./lzt";
+import { sendSignalingMessage } from "./signaling";
 import {
   computeQuotaEffect,
   creditOwnerGreen,
@@ -50,6 +51,47 @@ async function outstandingHostServiceLzt(
       ),
     );
   return Number(rows[0]?.s ?? 0);
+}
+
+// Refund unused block reserve back to the player's bucket.
+// Called when a block session ends early (player exits before blockMinutes exhausted).
+async function refundBlockRemainder(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  session: typeof sessionsTable.$inferSelect,
+  minutesUsed: number,
+): Promise<void> {
+  if (!session.blockMinutes || !session.blockReservedLzt || !session.claimedByPlayerId) return;
+  const costPerMinute = Math.round(session.blockReservedLzt / session.blockMinutes);
+  const costUsed = minutesUsed * costPerMinute;
+  const refundLzt = Math.max(0, session.blockReservedLzt - costUsed);
+  if (refundLzt <= 0) return;
+
+  // Determine which bucket was used (based on paymentSource). On "auto" we
+  // prefer green, matching the claim-time reservation logic.
+  const bucket = session.paymentSource === "blue" ? "balance" : "green";
+  const col = bucket === "green" ? playersTable.withdrawableBalanceLzt : playersTable.internalBalanceLzt;
+  await tx
+    .update(playersTable)
+    .set(
+      bucket === "green"
+        ? { withdrawableBalanceLzt: sql`${col} + ${refundLzt}` }
+        : { internalBalanceLzt: sql`${col} + ${refundLzt}` },
+    )
+    .where(eq(playersTable.id, session.claimedByPlayerId));
+  await writeLedger(tx, [
+    {
+      groupId: randomUUID(),
+      kind: "block_refund",
+      ownerType: "player",
+      ownerId: session.claimedByPlayerId,
+      bucket: bucket === "green" ? "cash" : "balance",
+      deltaLzt: refundLzt,
+      refType: "session",
+      refId: session.id,
+      note: `block refund: ${minutesUsed}/${session.blockMinutes} мин использовано`,
+    },
+  ]);
+  logger.info({ sessionId: session.id, refundLzt, minutesUsed }, "Block remainder refunded");
 }
 
 async function billOnce(): Promise<void> {
@@ -454,6 +496,28 @@ async function billOnce(): Promise<void> {
           }
         }
 
+        // ---------- Block expiry check ----------
+        // For block sessions: check if minutesInto >= blockMinutes.
+        // If yes, end the session (block exhausted, reserve already fully used).
+        // If minutesInto === blockMinutes - 2, send a "block-warning" to the player.
+        if (session.blockMinutes) {
+          if (minutesInto >= session.blockMinutes) {
+            // Block fully consumed. End the session; no refund needed (all minutes used).
+            await tx
+              .update(sessionsTable)
+              .set({ status: "ended", endedAt: now, endReason: "block_expired", lastBilledAt: now })
+              .where(eq(sessionsTable.id, session.id));
+            return "block_expired";
+          }
+          // Send 2-minute warning to the player via signaling room.
+          const minsLeft = session.blockMinutes - minutesInto;
+          await tx
+            .update(sessionsTable)
+            .set({ lastBilledAt: now })
+            .where(eq(sessionsTable.id, session.id));
+          return { blockWarning: minsLeft === 2 };
+        }
+
         await tx
           .update(sessionsTable)
           .set({ lastBilledAt: now })
@@ -461,7 +525,16 @@ async function billOnce(): Promise<void> {
         return false;
       });
 
-      if (ended) {
+      if (ended === "block_expired") {
+        logger.info({ sessionId: session.id }, "Block session expired — block time exhausted");
+        // Notify the player via signaling
+        sendSignalingMessage(session.id, { type: "block-expired" });
+      } else if (ended && typeof ended === "object" && "lastBilledAt" in ended) {
+        // Normal tick — update lastBilledAt outside the transaction (already done above)
+        if ((ended as any).blockWarning) {
+          sendSignalingMessage(session.id, { type: "block-warning", minsLeft: 2 });
+        }
+      } else if (ended) {
         logger.info(
           { sessionId: session.id },
           "Session ended — player out of LZT and no host-service credit available",

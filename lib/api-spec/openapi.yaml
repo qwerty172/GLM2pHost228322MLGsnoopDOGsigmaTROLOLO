@@ -1909,7 +1909,13 @@ components:
           format: date-time
         endReason:
           type: ["string", "null"]
-          description: Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline.
+          description: Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline, block_expired.
+        blockMinutes:
+          type: ["integer", "null"]
+          description: Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.
+        blockReservedLzt:
+          type: ["integer", "null"]
+          description: Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.
       required:
         - id
         - hostId
