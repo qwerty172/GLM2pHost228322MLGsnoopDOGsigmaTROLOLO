@@ -109,9 +109,22 @@ export default function BrowserPlay() {
     setConnectionState("connecting");
 
     const videoStream = canvas.captureStream(30);
-    const pc = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-    });
+
+    // Fetch ICE server config (STUN + optional TURN) from the API.
+    let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
+    try {
+      const cfgRes = await fetch(`${import.meta.env.BASE_URL}api/public/ice-config`);
+      if (cfgRes.ok) {
+        const cfgJson = (await cfgRes.json()) as { iceServers: RTCIceServer[] };
+        if (Array.isArray(cfgJson.iceServers) && cfgJson.iceServers.length > 0) {
+          iceServers = cfgJson.iceServers;
+        }
+      }
+    } catch {
+      console.warn("[ice] Failed to fetch ICE config, using default STUN only");
+    }
+
+    const pc = new RTCPeerConnection({ iceServers });
     pcRef.current = pc;
     for (const track of videoStream.getVideoTracks()) {
       pc.addTrack(track, videoStream);
