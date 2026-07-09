@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Coins, Sparkles, Loader2, Server, ChevronDown, ChevronRight, CheckCircle2, XCircle, Cpu, Wand2 } from "lucide-react";
 import { QuotaAiChat, type QuotaFormPatch } from "@/components/quota-ai-chat";
+import { VtScanner } from "@/components/vt-scanner";
 
 const cardStyle = {
   background: "#0a1018",
@@ -801,6 +802,22 @@ export default function QuotaNewPage() {
                       Рекомендуется ≥10 для 1080p стрима. Хосты ниже порога не попадут в матчинг.
                     </p>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* VirusTotal File Check */}
+              <Card style={cardStyle}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-white text-sm font-semibold flex items-center gap-2">
+                    <span style={{ fontSize: 15 }}>🛡</span>
+                    Антивирусная проверка файла
+                  </CardTitle>
+                  <CardDescription className="text-xs text-slate-500">
+                    Покажи хостерам, что игра безопасна — результат отображается в карточке квоты.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <VtScanner ownerToken={hostToken ?? ""} />
                 </CardContent>
               </Card>
 

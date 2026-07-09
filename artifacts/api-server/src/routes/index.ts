@@ -17,6 +17,7 @@ import agentAuthRouter from "./agentAuth";
 import vdsRouter from "./vds";
 import quotaAiChatRouter from "./quotaAiChat";
 import enrichRouter from "./enrich";
+import vtRouter from "./vt";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(loansRouter);
 router.use(premiumRouter);
 router.use(vdsRouter);
 router.use(quotaAiChatRouter);
+router.use(vtRouter);
 
 export default router;
