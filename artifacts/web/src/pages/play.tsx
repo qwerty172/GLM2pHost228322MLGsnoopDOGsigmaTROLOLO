@@ -10,7 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Gamepad2, AlertCircle, ArrowLeft, Loader2, Wifi, WifiOff, VolumeX, Wallet, Banknote, Coins, Clock, TrendingDown, Activity, RefreshCw, Clapperboard, Settings2, X } from "lucide-react";
+import { Gamepad2, AlertCircle, ArrowLeft, Loader2, Wifi, WifiOff, VolumeX, Wallet, Banknote, Coins, Clock, TrendingDown, Activity, RefreshCw, Clapperboard, Settings2, X, Layers } from "lucide-react";
+import { WebGLVideoShader, SHADER_PRESETS, type PresetKey } from "@/components/webgl-video-shader";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { TouchOverlay } from "@/components/TouchOverlay";
@@ -70,6 +71,19 @@ export default function Play() {
   const [dataChannelOpen, setDataChannelOpen] = useState(false);
   const [isSavingClip, setIsSavingClip] = useState(false);
   const [showClipSettings, setShowClipSettings] = useState(false);
+
+  // Shader / post-processing state
+  const [showShaderPanel, setShowShaderPanel] = useState(false);
+  const [activePreset, setActivePreset] = useState<PresetKey>(
+    () => (localStorage.getItem("shaderPreset") as PresetKey | null) ?? "none",
+  );
+  const [customShaderCode, setCustomShaderCode] = useState(
+    () => localStorage.getItem("shaderCustomCode") ?? SHADER_PRESETS.sharpen.code,
+  );
+  const [shaderCompileError, setShaderCompileError] = useState<string | null>(null);
+  const shaderActive = activePreset !== "none";
+  const activeFrag =
+    activePreset === "custom" ? customShaderCode : SHADER_PRESETS[activePreset as Exclude<PresetKey, "custom">]?.code ?? SHADER_PRESETS.none.code;
 
   // Virtual gamepad overlay — auto-enabled on touch devices
   const [gamepadOverlay, setGamepadOverlay] = useState<boolean>(
@@ -1392,6 +1406,35 @@ export default function Play() {
             </button>
           )}
 
+          {/* Shader toggle button */}
+          <button
+            onClick={() => setShowShaderPanel((v) => !v)}
+            className="pointer-events-auto"
+            title="Шейдеры и пост-обработка"
+            style={{
+              background: shaderActive
+                ? "rgba(16,185,129,0.25)"
+                : showShaderPanel
+                  ? "rgba(255,255,255,0.12)"
+                  : "rgba(255,255,255,0.06)",
+              border: shaderActive
+                ? "1px solid rgba(16,185,129,0.6)"
+                : "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 8,
+              padding: "5px 8px",
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              color: shaderActive ? "#34d399" : "#64748b",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            <Layers style={{ width: 15, height: 15 }} />
+            {shaderActive ? SHADER_PRESETS[activePreset as Exclude<PresetKey, "custom">]?.label ?? "Кастом" : "Шейдер"}
+          </button>
+
           <Button
             size="sm"
             onClick={cleanupConnection}
@@ -1405,6 +1448,138 @@ export default function Play() {
           </Button>
         </div>
       </div>
+
+      {/* Shader / post-processing panel */}
+      {showShaderPanel && (
+        <div
+          className="absolute top-16 right-4 z-50 rounded-xl p-4 pointer-events-auto"
+          style={{
+            background: "#0a1018",
+            border: "1px solid rgba(16,185,129,0.3)",
+            width: 320,
+          }}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-semibold text-white flex items-center gap-2">
+              <Layers className="h-4 w-4 text-emerald-400" />
+              Пост-обработка
+            </span>
+            <button onClick={() => setShowShaderPanel(false)} className="text-slate-500 hover:text-white">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Preset chips */}
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {(["none", "sharpen", "contrast", "upscale", "night"] as const).map((key) => (
+              <button
+                key={key}
+                onClick={() => {
+                  setActivePreset(key);
+                  localStorage.setItem("shaderPreset", key);
+                  setShaderCompileError(null);
+                }}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  background:
+                    activePreset === key
+                      ? "rgba(16,185,129,0.25)"
+                      : "rgba(255,255,255,0.05)",
+                  border:
+                    activePreset === key
+                      ? "1px solid rgba(16,185,129,0.6)"
+                      : "1px solid rgba(255,255,255,0.10)",
+                  color: activePreset === key ? "#34d399" : "#94a3b8",
+                }}
+              >
+                {SHADER_PRESETS[key].label}
+              </button>
+            ))}
+            <button
+              onClick={() => {
+                setActivePreset("custom" as PresetKey);
+                localStorage.setItem("shaderPreset", "custom");
+              }}
+              style={{
+                padding: "4px 10px",
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+                background:
+                  activePreset === "custom"
+                    ? "rgba(139,92,246,0.25)"
+                    : "rgba(255,255,255,0.05)",
+                border:
+                  activePreset === "custom"
+                    ? "1px solid rgba(139,92,246,0.6)"
+                    : "1px solid rgba(255,255,255,0.10)",
+                color: activePreset === "custom" ? "#a78bfa" : "#94a3b8",
+              }}
+            >
+              GLSL
+            </button>
+          </div>
+
+          {/* Description */}
+          {activePreset !== "custom" && (
+            <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
+              {SHADER_PRESETS[activePreset as Exclude<PresetKey, "custom">]?.description}
+            </p>
+          )}
+
+          {/* Custom GLSL editor */}
+          {activePreset === "custom" && (
+            <div className="space-y-2">
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Пиши fragment shader на GLSL. Доступно:{" "}
+                <code className="text-violet-400">uVideo</code>,{" "}
+                <code className="text-violet-400">uResolution</code>,{" "}
+                <code className="text-violet-400">uTime</code>,{" "}
+                <code className="text-violet-400">vTexCoord</code>.
+              </p>
+              <textarea
+                value={customShaderCode}
+                onChange={(e) => {
+                  setCustomShaderCode(e.target.value);
+                  localStorage.setItem("shaderCustomCode", e.target.value);
+                  setShaderCompileError(null);
+                }}
+                spellCheck={false}
+                rows={10}
+                className="w-full rounded-md text-xs font-mono text-emerald-300 outline-none resize-y"
+                style={{
+                  background: "rgba(0,0,0,0.5)",
+                  border: shaderCompileError
+                    ? "1px solid rgba(239,68,68,0.6)"
+                    : "1px solid rgba(255,255,255,0.08)",
+                  padding: "8px 10px",
+                  lineHeight: 1.5,
+                  minHeight: 140,
+                }}
+              />
+              {shaderCompileError && (
+                <p className="text-[11px] text-red-400 font-mono leading-relaxed whitespace-pre-wrap">
+                  {shaderCompileError}
+                </p>
+              )}
+            </div>
+          )}
+
+          {shaderActive && !shaderCompileError && activePreset !== "custom" && (
+            <div
+              className="flex items-center gap-1.5 text-[11px] text-emerald-500 mt-1"
+            >
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
+              Активно
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Clip cloud-upload settings panel */}
       {showClipSettings && (
@@ -1475,12 +1650,23 @@ export default function Play() {
           </div>
         )}
 
+        {/* WebGL shader canvas — overlays video when a shader is active */}
+        <WebGLVideoShader
+          videoRef={videoRef}
+          fragCode={activeFrag}
+          active={shaderActive}
+          className="w-full h-full object-contain pointer-events-auto absolute inset-0"
+          style={{ zIndex: shaderActive ? 1 : -1 }}
+          onCompileError={setShaderCompileError}
+        />
+
         <video
           ref={videoRef}
           autoPlay
           playsInline
           muted={false}
           className="w-full h-full object-contain pointer-events-auto"
+          style={{ opacity: shaderActive ? 0 : 1, pointerEvents: shaderActive ? "none" : "auto" }}
           onClick={requestPointerLock}
         />
 
