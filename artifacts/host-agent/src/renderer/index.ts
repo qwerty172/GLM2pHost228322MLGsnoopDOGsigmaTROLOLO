@@ -1000,6 +1000,37 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
           }
           return;
         }
+        // Adaptive-bitrate hint from the player: renegotiate the video sender's
+        // maxBitrate live without a full re-offer.
+        if (raw["type"] === "set-bitrate") {
+          const kbps = Number(raw["kbps"]);
+          if (Number.isFinite(kbps) && kbps > 0) {
+            const clamped = Math.max(300, Math.min(20_000, Math.round(kbps)));
+            const sender = pc?.getSenders().find((s) => s.track?.kind === "video");
+            if (sender) {
+              const p = sender.getParameters();
+              p.encodings = p.encodings ?? [{}];
+              p.encodings[0]!.maxBitrate = clamped * 1000;
+              void sender.setParameters(p).catch(() => undefined);
+            }
+          }
+          return;
+        }
+        // FPS cap hint from the player.
+        if (raw["type"] === "set-fps") {
+          const fps = Number(raw["fps"]);
+          if (Number.isFinite(fps) && fps > 0) {
+            const clamped = Math.max(15, Math.min(144, Math.round(fps)));
+            const sender = pc?.getSenders().find((s) => s.track?.kind === "video");
+            if (sender) {
+              const p = sender.getParameters();
+              p.encodings = p.encodings ?? [{}];
+              p.encodings[0]!.maxFramerate = clamped;
+              void sender.setParameters(p).catch(() => undefined);
+            }
+          }
+          return;
+        }
         // Gamepad input from the virtual touch overlay on mobile.
         if (raw["type"] === "gamepad") {
           // Validate payload shape and clamp to expected ranges.

@@ -75,7 +75,7 @@ export default function Play() {
   // Shader / post-processing state
   const [showShaderPanel, setShowShaderPanel] = useState(false);
   const [activePreset, setActivePreset] = useState<PresetKey>(
-    () => (localStorage.getItem("shaderPreset") as PresetKey | null) ?? "none",
+    () => (localStorage.getItem("shaderPreset") as PresetKey | null) ?? "upscale",
   );
   const [customShaderCode, setCustomShaderCode] = useState(
     () => localStorage.getItem("shaderCustomCode") ?? SHADER_PRESETS.sharpen.code,
@@ -84,6 +84,24 @@ export default function Play() {
   const shaderActive = activePreset !== "none";
   const activeFrag =
     activePreset === "custom" ? customShaderCode : SHADER_PRESETS[activePreset as Exclude<PresetKey, "custom">]?.code ?? SHADER_PRESETS.none.code;
+
+  // Stream quality settings — adaptive bitrate is on by default so newcomers
+  // get a smooth stream without touching anything.
+  const [adaptiveBitrate, setAdaptiveBitrate] = useState<boolean>(
+    () => localStorage.getItem("adaptiveBitrate") !== "off",
+  );
+  const [manualBitrateKbps, setManualBitrateKbps] = useState<number>(
+    () => Number(localStorage.getItem("manualBitrateKbps")) || 6000,
+  );
+  const [fpsCapHint, setFpsCapHint] = useState<number>(
+    () => Number(localStorage.getItem("fpsCapHint")) || 60,
+  );
+  const [showStatsOverlay, setShowStatsOverlay] = useState<boolean>(
+    () => localStorage.getItem("showStatsOverlay") === "on",
+  );
+  const [liveStats, setLiveStats] = useState<{ kbps: number; fps: number; lossPct: number } | null>(null);
+  const currentBitrateKbpsRef = useRef<number>(6000);
+  const lastStatsSampleRef = useRef<{ bytes: number; ts: number } | null>(null);
 
   // Virtual gamepad overlay — auto-enabled on touch devices
   const [gamepadOverlay, setGamepadOverlay] = useState<boolean>(
@@ -819,6 +837,82 @@ export default function Play() {
       dc.send(JSON.stringify({ type: "gamepad", axes, buttons }));
     }
   }, []);
+
+  // Send a live FPS cap hint to the host whenever it changes.
+  useEffect(() => {
+    localStorage.setItem("fpsCapHint", String(fpsCapHint));
+    const dc = dcRef.current;
+    if (isPlaying && dc && dc.readyState === "open") {
+      dc.send(JSON.stringify({ type: "set-fps", fps: fpsCapHint }));
+    }
+  }, [fpsCapHint, isPlaying, dataChannelOpen]);
+
+  // Manual bitrate: applied immediately whenever adaptive mode is off.
+  useEffect(() => {
+    localStorage.setItem("manualBitrateKbps", String(manualBitrateKbps));
+    localStorage.setItem("adaptiveBitrate", adaptiveBitrate ? "on" : "off");
+    if (adaptiveBitrate) return;
+    const dc = dcRef.current;
+    if (isPlaying && dc && dc.readyState === "open") {
+      currentBitrateKbpsRef.current = manualBitrateKbps;
+      dc.send(JSON.stringify({ type: "set-bitrate", kbps: manualBitrateKbps }));
+    }
+  }, [manualBitrateKbps, adaptiveBitrate, isPlaying, dataChannelOpen]);
+
+  // Adaptive bitrate: sample inbound-rtp video stats every 3s and nudge the
+  // host's encoder bitrate up/down based on packet loss + free bandwidth.
+  useEffect(() => {
+    if (!isPlaying) return;
+    localStorage.setItem("showStatsOverlay", showStatsOverlay ? "on" : "off");
+    const id = setInterval(async () => {
+      const pc = pcRef.current;
+      const dc = dcRef.current;
+      if (!pc) return;
+      try {
+        const stats = await pc.getStats();
+        let bytesReceived = 0;
+        let packetsLost = 0;
+        let packetsReceived = 0;
+        let framesPerSecond = 0;
+        stats.forEach((r) => {
+          if (r.type === "inbound-rtp" && (r as { kind?: string }).kind === "video") {
+            const rr = r as unknown as Record<string, number>;
+            bytesReceived = rr["bytesReceived"] ?? 0;
+            packetsLost = rr["packetsLost"] ?? 0;
+            packetsReceived = rr["packetsReceived"] ?? 0;
+            framesPerSecond = rr["framesPerSecond"] ?? 0;
+          }
+        });
+        const now = Date.now();
+        const prev = lastStatsSampleRef.current;
+        let kbps = 0;
+        if (prev && now > prev.ts) {
+          kbps = Math.round(((bytesReceived - prev.bytes) * 8) / (now - prev.ts));
+        }
+        lastStatsSampleRef.current = { bytes: bytesReceived, ts: now };
+        const lossPct = packetsReceived > 0 ? (packetsLost / (packetsReceived + packetsLost)) * 100 : 0;
+        setLiveStats({ kbps, fps: Math.round(framesPerSecond), lossPct: Math.round(lossPct * 10) / 10 });
+
+        if (adaptiveBitrate && dc && dc.readyState === "open") {
+          let target = currentBitrateKbpsRef.current;
+          if (lossPct > 3) {
+            // Losing packets — back off hard.
+            target = Math.max(800, Math.round(target * 0.75));
+          } else if (lossPct < 0.5 && kbps > target * 0.85) {
+            // Clean channel and we're using most of the budget — try for more.
+            target = Math.min(12_000, Math.round(target * 1.1));
+          }
+          if (target !== currentBitrateKbpsRef.current) {
+            currentBitrateKbpsRef.current = target;
+            dc.send(JSON.stringify({ type: "set-bitrate", kbps: target }));
+          }
+        }
+      } catch {
+        /* ignore — stats not ready yet */
+      }
+    }, 3000);
+    return () => clearInterval(id);
+  }, [isPlaying, adaptiveBitrate, showStatsOverlay, dataChannelOpen]);
 
   if (isLoading) {
     return (
@@ -1578,6 +1672,109 @@ export default function Play() {
               Активно
             </div>
           )}
+
+          {/* Stream quality settings */}
+          <div className="mt-4 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-white">Качество стрима</span>
+              <button
+                onClick={() => setAdaptiveBitrate((v) => !v)}
+                style={{
+                  padding: "2px 8px",
+                  borderRadius: 6,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  background: adaptiveBitrate ? "rgba(16,185,129,0.25)" : "rgba(255,255,255,0.06)",
+                  border: adaptiveBitrate ? "1px solid rgba(16,185,129,0.6)" : "1px solid rgba(255,255,255,0.12)",
+                  color: adaptiveBitrate ? "#34d399" : "#94a3b8",
+                }}
+              >
+                Авто {adaptiveBitrate ? "вкл" : "выкл"}
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-500 mb-2 leading-relaxed">
+              {adaptiveBitrate
+                ? "Битрейт подстраивается под канал автоматически (меньше фризов, апскейл сглаживает картинку по умолчанию)."
+                : "Битрейт фиксирован вручную."}
+            </p>
+
+            {!adaptiveBitrate && (
+              <div className="mb-3">
+                <div className="flex items-center justify-between text-[10px] uppercase text-slate-400 tracking-wider mb-1">
+                  <span>Битрейт</span>
+                  <span>{manualBitrateKbps} кбит/с</span>
+                </div>
+                <input
+                  type="range"
+                  min={800}
+                  max={12000}
+                  step={200}
+                  value={manualBitrateKbps}
+                  onChange={(e) => setManualBitrateKbps(Number(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+            )}
+
+            <div className="mb-3">
+              <div className="flex items-center justify-between text-[10px] uppercase text-slate-400 tracking-wider mb-1">
+                <span>Лимит FPS</span>
+                <span>{fpsCapHint}</span>
+              </div>
+              <div className="flex gap-1.5">
+                {[30, 60, 90, 120].map((fps) => (
+                  <button
+                    key={fps}
+                    onClick={() => setFpsCapHint(fps)}
+                    style={{
+                      flex: 1,
+                      padding: "3px 0",
+                      borderRadius: 6,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      background: fpsCapHint === fps ? "rgba(16,185,129,0.25)" : "rgba(255,255,255,0.05)",
+                      border: fpsCapHint === fps ? "1px solid rgba(16,185,129,0.6)" : "1px solid rgba(255,255,255,0.10)",
+                      color: fpsCapHint === fps ? "#34d399" : "#94a3b8",
+                    }}
+                  >
+                    {fps}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowStatsOverlay((v) => !v)}
+              className="w-full text-left"
+              style={{
+                padding: "5px 8px",
+                borderRadius: 6,
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: "pointer",
+                background: showStatsOverlay ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.05)",
+                border: showStatsOverlay ? "1px solid rgba(16,185,129,0.4)" : "1px solid rgba(255,255,255,0.10)",
+                color: showStatsOverlay ? "#34d399" : "#94a3b8",
+              }}
+            >
+              {showStatsOverlay ? "✓" : ""} Показывать статистику (пинг / кбит/с / потери)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Live stream stats overlay */}
+      {showStatsOverlay && isPlaying && (
+        <div
+          className="absolute bottom-4 left-4 z-40 rounded-lg px-3 py-2 pointer-events-none font-mono text-[11px] text-slate-300"
+          style={{ background: "rgba(10,16,24,0.75)", border: "1px solid rgba(255,255,255,0.08)" }}
+        >
+          <div>ping: {e2eRtt !== null ? `${e2eRtt} мс` : "—"}</div>
+          <div>битрейт: {liveStats ? `${liveStats.kbps} кбит/с` : "—"}</div>
+          <div>fps: {liveStats ? liveStats.fps : "—"}</div>
+          <div>потери: {liveStats ? `${liveStats.lossPct}%` : "—"}</div>
         </div>
       )}
 
