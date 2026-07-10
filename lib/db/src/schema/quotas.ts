@@ -5,8 +5,11 @@ import {
   timestamp,
   integer,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { gamesTable } from "./games";
+import { devKeysTable } from "./devKeys";
 
 // Quotas — re-usable "preset contracts" that any user can create and attach
 // to a hosting session. A quota tweaks the standard money flow (player → host
@@ -52,6 +55,17 @@ export const quotasTable = pgTable(
     // private → hidden, requires the access code when attaching.
     visibility: text("visibility").notNull().default("public"),
     accessCode: text("access_code"),
+
+    // Optional: link this quota to a developer API key (see devKeys.ts). When
+    // set, the quota becomes key-exclusive:
+    //   - it can no longer be attached manually (regular /sessions quotaId /
+    //     access-code path rejects it — see sessions.ts and embed.ts).
+    //   - every /embed/sessions call made with that exact key auto-attaches
+    //     this quota, with no manual selection needed on the developer side.
+    // NULL → quota behaves as before (manual attach via id/access code).
+    devKeyId: uuid("dev_key_id").references(() => devKeysTable.id, {
+      onDelete: "set null",
+    }),
 
     minSessionMinutes: integer("min_session_minutes"),
     maxSessionMinutes: integer("max_session_minutes"),
@@ -111,6 +125,13 @@ export const quotasTable = pgTable(
     index("quotas_owner_idx").on(t.ownerType, t.ownerId),
     index("quotas_visibility_idx").on(t.visibility, t.status),
     index("quotas_game_idx").on(t.gameId),
+    index("quotas_dev_key_idx").on(t.devKeyId),
+    // Enforce a 1:1 mapping between a dev key and its linked quota at the DB
+    // level (partial unique — only enforced when devKeyId is set), so
+    // concurrent requests can't link two quotas to the same key.
+    uniqueIndex("quotas_dev_key_unique_idx")
+      .on(t.devKeyId)
+      .where(sql`${t.devKeyId} is not null`),
   ],
 );
 

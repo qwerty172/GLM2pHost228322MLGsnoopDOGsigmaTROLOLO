@@ -10,6 +10,7 @@ import {
   quotaSessionsTable,
   billingEventsTable,
   sessionsTable,
+  devKeysTable,
   type Quota,
 } from "@workspace/db";
 import { CreateQuotaBody, UpdateQuotaBody, AiSuggestQuotaSpecsBody } from "@workspace/api-zod";
@@ -28,15 +29,40 @@ import { computeHostTier, specsFromPcSpecs } from "../lib/hostTier";
 
 const router: IRouter = Router();
 
+// Postgres unique-violation error code, used to detect a race on the
+// partial unique index over quotas.devKeyId.
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: string }).code === "23505"
+  );
+}
+
+// Never expose the raw key back to the client — only whether one is linked
+// and a masked hint, similar to how access codes are hidden from non-owners.
+function maskApiKey(key: string): string {
+  if (key.length <= 8) return "••••";
+  return `${key.slice(0, 4)}••••${key.slice(-4)}`;
+}
+
 function shapeQuota(
   q: Quota,
-  opts: { includeAccessCode: boolean; ownerDisplayName: string; gameTitle: string | null },
+  opts: {
+    includeAccessCode: boolean;
+    ownerDisplayName: string;
+    gameTitle: string | null;
+    apiKeyMasked?: string | null;
+  },
 ) {
   return {
     id: q.id,
     ownerType: q.ownerType as "host" | "player",
     ownerId: q.ownerId,
     ownerDisplayName: opts.ownerDisplayName,
+    hasApiKey: !!q.devKeyId,
+    apiKeyMasked: opts.apiKeyMasked ?? null,
     kind: q.kind as "royalty" | "sponsor",
     status: q.status as
       | "draft"
@@ -93,6 +119,9 @@ async function decorate(
   const gameIds = Array.from(
     new Set(quotas.map((q) => q.gameId).filter((x): x is string => !!x)),
   );
+  const devKeyIds = Array.from(
+    new Set(quotas.map((q) => q.devKeyId).filter((x): x is string => !!x)),
+  );
 
   const hostRows = ownerHostIds.length
     ? await db
@@ -115,16 +144,26 @@ async function decorate(
         .from(gamesTable)
         .where(inArray(gamesTable.id, gameIds))
     : [];
+  const devKeyRows = devKeyIds.length
+    ? await db
+        .select({ id: devKeysTable.id, apiKey: devKeysTable.apiKey })
+        .from(devKeysTable)
+        .where(inArray(devKeysTable.id, devKeyIds))
+    : [];
 
   const hostName = new Map(hostRows.map((r) => [r.id, r.displayName]));
   const playerName = new Map(playerRows.map((r) => [r.id, r.displayName]));
   const gameTitle = new Map(gameRows.map((r) => [r.id, r.title]));
+  const devKeyMasked = new Map(
+    devKeyRows.map((r) => [r.id, maskApiKey(r.apiKey)]),
+  );
 
   return quotas.map((q) =>
     shapeQuota(q, {
       includeAccessCode:
         !!opts.includeAccessCodeForOwnerId &&
         opts.includeAccessCodeForOwnerId === q.ownerId,
+      apiKeyMasked: q.devKeyId ? devKeyMasked.get(q.devKeyId) ?? null : null,
       ownerDisplayName:
         q.ownerType === "host"
           ? hostName.get(q.ownerId) ?? "Хост"
@@ -644,7 +683,30 @@ router.post("/quotas", async (req, res): Promise<void> => {
   const accessCode =
     body.visibility === "private" ? generateAccessCode() : null;
 
-  const [created] = await db
+  let devKeyId: string | null = null;
+  if (body.apiKey && body.apiKey.trim()) {
+    const [devKey] = await db
+      .select({ id: devKeysTable.id })
+      .from(devKeysTable)
+      .where(eq(devKeysTable.apiKey, body.apiKey.trim()));
+    if (!devKey) {
+      res.status(404).json({ error: "API key not found" });
+      return;
+    }
+    const [existing] = await db
+      .select({ id: quotasTable.id })
+      .from(quotasTable)
+      .where(eq(quotasTable.devKeyId, devKey.id));
+    if (existing) {
+      res.status(400).json({ error: "This API key already has a linked quota" });
+      return;
+    }
+    devKeyId = devKey.id;
+  }
+
+  let created;
+  try {
+    [created] = await db
     .insert(quotasTable)
     .values({
       ownerType: owner.type,
@@ -656,6 +718,7 @@ router.post("/quotas", async (req, res): Promise<void> => {
       gameId: body.gameId ?? null,
       visibility: body.visibility,
       accessCode,
+      devKeyId,
       minSessionMinutes: body.minSessionMinutes ?? null,
       maxSessionMinutes: body.maxSessionMinutes ?? null,
       startAt: body.startAt ? new Date(body.startAt) : new Date(),
@@ -685,6 +748,15 @@ router.post("/quotas", async (req, res): Promise<void> => {
       minUploadMbps: body.minUploadMbps ?? null,
     })
     .returning();
+  } catch (err) {
+    // Race guard: DB-level partial unique index on devKeyId catches
+    // concurrent requests linking two quotas to the same key.
+    if (isUniqueViolation(err)) {
+      res.status(400).json({ error: "This API key already has a linked quota" });
+      return;
+    }
+    throw err;
+  }
   if (!created) {
     res.status(500).json({ error: "Failed to create quota" });
     return;
@@ -783,11 +855,45 @@ router.patch("/quotas/:id", async (req, res): Promise<void> => {
   if (b.visibility === "private" && !quota.accessCode)
     updates.accessCode = generateAccessCode();
 
-  const [updated] = await db
-    .update(quotasTable)
-    .set(updates)
-    .where(eq(quotasTable.id, quota.id))
-    .returning();
+  if (b.apiKey !== undefined) {
+    const trimmed = b.apiKey?.trim() ?? "";
+    if (!trimmed) {
+      updates.devKeyId = null;
+    } else {
+      const [devKey] = await db
+        .select({ id: devKeysTable.id })
+        .from(devKeysTable)
+        .where(eq(devKeysTable.apiKey, trimmed));
+      if (!devKey) {
+        res.status(404).json({ error: "API key not found" });
+        return;
+      }
+      const [existing] = await db
+        .select({ id: quotasTable.id })
+        .from(quotasTable)
+        .where(eq(quotasTable.devKeyId, devKey.id));
+      if (existing && existing.id !== quota.id) {
+        res.status(400).json({ error: "This API key already has a linked quota" });
+        return;
+      }
+      updates.devKeyId = devKey.id;
+    }
+  }
+
+  let updated;
+  try {
+    [updated] = await db
+      .update(quotasTable)
+      .set(updates)
+      .where(eq(quotasTable.id, quota.id))
+      .returning();
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      res.status(400).json({ error: "This API key already has a linked quota" });
+      return;
+    }
+    throw err;
+  }
   if (!updated) {
     res.status(500).json({ error: "Failed to update quota" });
     return;

@@ -16,6 +16,13 @@ export interface Quota {
   ownerType: QuotaOwnerType;
   ownerId: string;
   ownerDisplayName: string;
+  /** True when an API (dev) key is linked to this quota. */
+  hasApiKey: boolean;
+  /**
+   * Masked hint of the linked API key (e.g. "abcd••••wxyz"), never the raw key.
+   * @nullable
+   */
+  apiKeyMasked: string | null;
   kind: QuotaKind;
   status: QuotaStatus;
   title: string;

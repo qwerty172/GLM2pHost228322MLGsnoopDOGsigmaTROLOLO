@@ -85,6 +85,7 @@ export default function QuotaNewPage() {
   const [recUploadMbps, setRecUploadMbps] = useState<string>("");
   const [requiredTier, setRequiredTier] = useState<"min" | "recommended">("min");
   const [aiLoading, setAiLoading] = useState(false);
+  const [apiKey, setApiKey] = useState<string>("");
 
   const createQuota = useCreateQuota();
   const publishQuota = usePublishQuota();
@@ -255,6 +256,7 @@ export default function QuotaNewPage() {
           recDownloadMbps: recDownloadMbps ? Math.floor(Number(recDownloadMbps)) : null,
           recUploadMbps: recUploadMbps ? Math.floor(Number(recUploadMbps)) : null,
           requiredTier,
+          apiKey: apiKey.trim() || null,
         },
       });
       toast.success("Черновик создан");
@@ -466,6 +468,25 @@ export default function QuotaNewPage() {
                         </div>
                       ))}
                     </RadioGroup>
+                  </div>
+                  <div>
+                    <Label className="text-slate-300">
+                      Привязка к API-ключу (опционально)
+                    </Label>
+                    <Input
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      placeholder="Вставь dev-ключ, если квота только для него"
+                      style={inputStyle}
+                      className="mt-1"
+                      data-testid="input-api-key"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Если указан ключ, квоту можно применить только к сессиям,
+                      запущенным через этот API-ключ — она автоматически
+                      применится к ним и станет недоступной для ручного выбора
+                      другими хостами.
+                    </p>
                   </div>
                   <div>
                     <Label className="text-slate-300">

@@ -8,9 +8,13 @@ import {
   hostsTable,
   hostGamesTable,
   sessionsTable,
+  quotasTable,
+  quotaSessionsTable,
 } from "@workspace/db";
 import { generateToken } from "../lib/tokens";
 import { isHostAvailableNow } from "../lib/schedule";
+import { isQuotaActiveNow } from "../lib/quotaEngine";
+import { checkQuotaAttachment } from "../lib/quotaAttach";
 import type { DevKeyHostRules } from "@workspace/db/schema";
 
 const router: IRouter = Router();
@@ -100,10 +104,23 @@ router.post("/embed/sessions", async (req, res): Promise<void> => {
     return;
   }
 
+  // Key-exclusive quota: sessions started with this API key auto-attach the
+  // quota linked to it (if any) — no manual quotaId/access-code needed on
+  // the developer side. Such quotas can ONLY be attached this way (see the
+  // devKeyId guard in sessions.ts's manual attach path).
+  const [linkedQuota] = await db
+    .select()
+    .from(quotasTable)
+    .where(eq(quotasTable.devKeyId, devKey.id));
+  const quota =
+    linkedQuota && isQuotaActiveNow(linkedQuota) ? linkedQuota : null;
+
   // Cheapest eligible host first; skip any that are already busy running
   // another session (checked one at a time, since "busy" can change between
   // the query above and now).
   eligible.sort((a, b) => a.entry.pricePerMinuteLzt - b.entry.pricePerMinuteLzt);
+
+  let sawQuotaMismatch = false;
 
   for (const { entry, host } of eligible) {
     const [busy] = await db
@@ -112,6 +129,14 @@ router.post("/embed/sessions", async (req, res): Promise<void> => {
       .where(and(eq(sessionsTable.hostId, host.id), ne(sessionsTable.status, "ended")))
       .limit(1);
     if (busy) continue;
+
+    if (quota) {
+      const check = checkQuotaAttachment(quota, host, game.id);
+      if (!check.ok) {
+        sawQuotaMismatch = true;
+        continue;
+      }
+    }
 
     const ratePerMinuteLzt = entry.pricePerMinuteLzt;
     const balanceLzt = devKey.internalBalanceLzt + devKey.withdrawableBalanceLzt;
@@ -138,6 +163,7 @@ router.post("/embed/sessions", async (req, res): Promise<void> => {
         ratePerMinute: String(ratePerMinuteLzt / 200),
         paymentSource: "auto",
         devKeyId: devKey.id,
+        quotaId: quota ? quota.id : null,
       })
       .returning();
     if (!session) {
@@ -145,8 +171,14 @@ router.post("/embed/sessions", async (req, res): Promise<void> => {
       return;
     }
 
+    if (quota) {
+      await db
+        .insert(quotaSessionsTable)
+        .values({ quotaId: quota.id, sessionId: session.id });
+    }
+
     req.log.info(
-      { sessionId: session.id, devKeyId: devKey.id, hostId: host.id, gameSlug },
+      { sessionId: session.id, devKeyId: devKey.id, hostId: host.id, gameSlug, quotaId: quota?.id ?? null },
       "Embed session created (dev-key funded)",
     );
 
@@ -158,6 +190,15 @@ router.post("/embed/sessions", async (req, res): Promise<void> => {
       hostDisplayName: host.displayName,
       ratePerMinuteLzt,
       keyBalanceLzt: balanceLzt,
+    });
+    return;
+  }
+
+  if (sawQuotaMismatch) {
+    res.status(409).json({
+      error: "quota_requirements_unmet",
+      message:
+        "This key's linked quota requires a game binding or PC-spec tier that no currently-available host meets",
     });
     return;
   }

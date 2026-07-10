@@ -2284,6 +2284,12 @@ components:
           type: string
         ownerDisplayName:
           type: string
+        hasApiKey:
+          type: boolean
+          description: True when an API (dev) key is linked to this quota.
+        apiKeyMasked:
+          type: ["string", "null"]
+          description: Masked hint of the linked API key (e.g. "abcd••••wxyz"), never the raw key.
         kind:
           type: string
           enum: [royalty, sponsor]
@@ -2373,6 +2379,8 @@ components:
         - ownerType
         - ownerId
         - ownerDisplayName
+        - hasApiKey
+        - apiKeyMasked
         - kind
         - status
         - title
@@ -2514,6 +2522,9 @@ components:
         requiredTier:
           type: ["string", "null"]
           enum: [min, recommended, null]
+        apiKey:
+          type: ["string", "null"]
+          description: Link this quota to a dev/API key — sessions launched via that key auto-apply the quota and it becomes unusable via any other path.
       required:
         - ownerToken
         - kind
@@ -2576,6 +2587,9 @@ components:
         requiredTier:
           type: ["string", "null"]
           enum: [min, recommended, null]
+        apiKey:
+          type: ["string", "null"]
+          description: Link this quota to a dev/API key (empty string clears the link).
       required:
         - ownerToken
 

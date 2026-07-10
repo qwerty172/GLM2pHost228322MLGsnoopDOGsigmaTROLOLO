@@ -55,4 +55,9 @@ export interface UpdateQuotaBody {
   recUploadMbps?: number | null;
   /** @nullable */
   requiredTier?: UpdateQuotaBodyRequiredTier;
+  /**
+   * Link this quota to a dev/API key (empty string clears the link).
+   * @nullable
+   */
+  apiKey?: string | null;
 }

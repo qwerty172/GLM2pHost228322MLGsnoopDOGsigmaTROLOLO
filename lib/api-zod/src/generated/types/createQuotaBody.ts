@@ -59,4 +59,9 @@ export interface CreateQuotaBody {
   recUploadMbps?: number | null;
   /** @nullable */
   requiredTier?: CreateQuotaBodyRequiredTier;
+  /**
+   * Link this quota to a dev/API key — sessions launched via that key auto-apply the quota and it becomes unusable via any other path.
+   * @nullable
+   */
+  apiKey?: string | null;
 }

@@ -33,6 +33,7 @@ import {
   removeFromLibrary,
 } from "../lib/hostLibrary";
 import { generalHostTier } from "../lib/hostTier";
+import { isQuotaActiveNow } from "../lib/quotaEngine";
 
 const router: IRouter = Router();
 
@@ -800,7 +801,7 @@ router.post("/hosts/me/attach-quota", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Quota not found" });
     return;
   }
-  if (quota.status !== "active") {
+  if (!isQuotaActiveNow(quota)) {
     res.status(400).json({ error: `Quota is not active (status: ${quota.status})` });
     return;
   }
@@ -824,13 +825,24 @@ router.post("/hosts/me/attach-quota", async (req, res): Promise<void> => {
     return;
   }
 
-  if (session.quotaId && session.quotaId !== quotaId) {
-    res.status(409).json({ error: "Session already has a different quota attached" });
+  if (session.quotaId === quotaId) {
+    // Idempotent re-confirmation — allowed even for key-exclusive quotas,
+    // since this session was already auto-attached (e.g. via /embed/sessions).
+    res.json({ ok: true, sessionId: session.id, quotaId });
     return;
   }
 
-  if (session.quotaId === quotaId) {
-    res.json({ ok: true, sessionId: session.id, quotaId });
+  if (quota.devKeyId) {
+    res.status(403).json({
+      error: "quota_key_exclusive",
+      message:
+        "This quota is exclusive to a specific API key and can only be used by sessions launched through that key.",
+    });
+    return;
+  }
+
+  if (session.quotaId && session.quotaId !== quotaId) {
+    res.status(409).json({ error: "Session already has a different quota attached" });
     return;
   }
 

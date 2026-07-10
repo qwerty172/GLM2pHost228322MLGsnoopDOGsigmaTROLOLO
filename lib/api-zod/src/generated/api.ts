@@ -923,6 +923,15 @@ export const ListPublicQuotasResponseItem = zod.object({
   ownerType: zod.enum(["host", "player"]),
   ownerId: zod.string(),
   ownerDisplayName: zod.string(),
+  hasApiKey: zod
+    .boolean()
+    .describe("True when an API (dev) key is linked to this quota."),
+  apiKeyMasked: zod
+    .string()
+    .nullable()
+    .describe(
+      'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+    ),
   kind: zod.enum(["royalty", "sponsor"]),
   status: zod.enum([
     "draft",
@@ -1039,6 +1048,12 @@ export const CreateQuotaBody = zod.object({
   requiredTier: zod
     .union([zod.literal("min"), zod.literal("recommended"), zod.literal(null)])
     .nullish(),
+  apiKey: zod
+    .string()
+    .nullish()
+    .describe(
+      "Link this quota to a dev\/API key — sessions launched via that key auto-apply the quota and it becomes unusable via any other path.",
+    ),
 });
 
 /**
@@ -1053,6 +1068,15 @@ export const ListMyQuotasResponseItem = zod.object({
   ownerType: zod.enum(["host", "player"]),
   ownerId: zod.string(),
   ownerDisplayName: zod.string(),
+  hasApiKey: zod
+    .boolean()
+    .describe("True when an API (dev) key is linked to this quota."),
+  apiKeyMasked: zod
+    .string()
+    .nullable()
+    .describe(
+      'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+    ),
   kind: zod.enum(["royalty", "sponsor"]),
   status: zod.enum([
     "draft",
@@ -1148,6 +1172,15 @@ export const ListAppliedQuotasResponseItem = zod.object({
   ownerType: zod.enum(["host", "player"]),
   ownerId: zod.string(),
   ownerDisplayName: zod.string(),
+  hasApiKey: zod
+    .boolean()
+    .describe("True when an API (dev) key is linked to this quota."),
+  apiKeyMasked: zod
+    .string()
+    .nullable()
+    .describe(
+      'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+    ),
   kind: zod.enum(["royalty", "sponsor"]),
   status: zod.enum([
     "draft",
@@ -1245,6 +1278,15 @@ export const MatchQuotasForHostResponseItem = zod.object({
   ownerType: zod.enum(["host", "player"]),
   ownerId: zod.string(),
   ownerDisplayName: zod.string(),
+  hasApiKey: zod
+    .boolean()
+    .describe("True when an API (dev) key is linked to this quota."),
+  apiKeyMasked: zod
+    .string()
+    .nullable()
+    .describe(
+      'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+    ),
   kind: zod.enum(["royalty", "sponsor"]),
   status: zod.enum([
     "draft",
@@ -1344,6 +1386,15 @@ export const GetHostCurrentQuotaResponse = zod.object({
       ownerType: zod.enum(["host", "player"]),
       ownerId: zod.string(),
       ownerDisplayName: zod.string(),
+      hasApiKey: zod
+        .boolean()
+        .describe("True when an API (dev) key is linked to this quota."),
+      apiKeyMasked: zod
+        .string()
+        .nullable()
+        .describe(
+          'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+        ),
       kind: zod.enum(["royalty", "sponsor"]),
       status: zod.enum([
         "draft",
@@ -1469,6 +1520,15 @@ export const ListApplicableQuotasResponseItem = zod.object({
   ownerType: zod.enum(["host", "player"]),
   ownerId: zod.string(),
   ownerDisplayName: zod.string(),
+  hasApiKey: zod
+    .boolean()
+    .describe("True when an API (dev) key is linked to this quota."),
+  apiKeyMasked: zod
+    .string()
+    .nullable()
+    .describe(
+      'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+    ),
   kind: zod.enum(["royalty", "sponsor"]),
   status: zod.enum([
     "draft",
@@ -1571,6 +1631,15 @@ export const GetQuotaResponse = zod
     ownerType: zod.enum(["host", "player"]),
     ownerId: zod.string(),
     ownerDisplayName: zod.string(),
+    hasApiKey: zod
+      .boolean()
+      .describe("True when an API (dev) key is linked to this quota."),
+    apiKeyMasked: zod
+      .string()
+      .nullable()
+      .describe(
+        'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+      ),
     kind: zod.enum(["royalty", "sponsor"]),
     status: zod.enum([
       "draft",
@@ -1707,6 +1776,12 @@ export const UpdateQuotaBody = zod.object({
   requiredTier: zod
     .union([zod.literal("min"), zod.literal("recommended"), zod.literal(null)])
     .nullish(),
+  apiKey: zod
+    .string()
+    .nullish()
+    .describe(
+      "Link this quota to a dev\/API key (empty string clears the link).",
+    ),
 });
 
 export const UpdateQuotaResponse = zod.object({
@@ -1714,6 +1789,15 @@ export const UpdateQuotaResponse = zod.object({
   ownerType: zod.enum(["host", "player"]),
   ownerId: zod.string(),
   ownerDisplayName: zod.string(),
+  hasApiKey: zod
+    .boolean()
+    .describe("True when an API (dev) key is linked to this quota."),
+  apiKeyMasked: zod
+    .string()
+    .nullable()
+    .describe(
+      'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+    ),
   kind: zod.enum(["royalty", "sponsor"]),
   status: zod.enum([
     "draft",
@@ -1812,6 +1896,15 @@ export const PublishQuotaResponse = zod.object({
   ownerType: zod.enum(["host", "player"]),
   ownerId: zod.string(),
   ownerDisplayName: zod.string(),
+  hasApiKey: zod
+    .boolean()
+    .describe("True when an API (dev) key is linked to this quota."),
+  apiKeyMasked: zod
+    .string()
+    .nullable()
+    .describe(
+      'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+    ),
   kind: zod.enum(["royalty", "sponsor"]),
   status: zod.enum([
     "draft",
@@ -1910,6 +2003,15 @@ export const PauseQuotaResponse = zod.object({
   ownerType: zod.enum(["host", "player"]),
   ownerId: zod.string(),
   ownerDisplayName: zod.string(),
+  hasApiKey: zod
+    .boolean()
+    .describe("True when an API (dev) key is linked to this quota."),
+  apiKeyMasked: zod
+    .string()
+    .nullable()
+    .describe(
+      'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+    ),
   kind: zod.enum(["royalty", "sponsor"]),
   status: zod.enum([
     "draft",
@@ -2008,6 +2110,15 @@ export const CloseQuotaResponse = zod.object({
   ownerType: zod.enum(["host", "player"]),
   ownerId: zod.string(),
   ownerDisplayName: zod.string(),
+  hasApiKey: zod
+    .boolean()
+    .describe("True when an API (dev) key is linked to this quota."),
+  apiKeyMasked: zod
+    .string()
+    .nullable()
+    .describe(
+      'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+    ),
   kind: zod.enum(["royalty", "sponsor"]),
   status: zod.enum([
     "draft",
@@ -2131,6 +2242,15 @@ export const RegenerateQuotaCodeResponse = zod.object({
   ownerType: zod.enum(["host", "player"]),
   ownerId: zod.string(),
   ownerDisplayName: zod.string(),
+  hasApiKey: zod
+    .boolean()
+    .describe("True when an API (dev) key is linked to this quota."),
+  apiKeyMasked: zod
+    .string()
+    .nullable()
+    .describe(
+      'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+    ),
   kind: zod.enum(["royalty", "sponsor"]),
   status: zod.enum([
     "draft",

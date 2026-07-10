@@ -541,6 +541,13 @@ export interface Quota {
   ownerType: QuotaOwnerType;
   ownerId: string;
   ownerDisplayName: string;
+  /** True when an API (dev) key is linked to this quota. */
+  hasApiKey: boolean;
+  /**
+   * Masked hint of the linked API key (e.g. "abcd••••wxyz"), never the raw key.
+   * @nullable
+   */
+  apiKeyMasked: string | null;
   kind: QuotaKind;
   status: QuotaStatus;
   title: string;
@@ -727,6 +734,11 @@ export interface CreateQuotaBody {
   recUploadMbps?: number | null;
   /** @nullable */
   requiredTier?: CreateQuotaBodyRequiredTier;
+  /**
+   * Link this quota to a dev/API key — sessions launched via that key auto-apply the quota and it becomes unusable via any other path.
+   * @nullable
+   */
+  apiKey?: string | null;
 }
 
 export type UpdateQuotaBodyVisibility =
@@ -796,6 +808,11 @@ export interface UpdateQuotaBody {
   recUploadMbps?: number | null;
   /** @nullable */
   requiredTier?: UpdateQuotaBodyRequiredTier;
+  /**
+   * Link this quota to a dev/API key (empty string clears the link).
+   * @nullable
+   */
+  apiKey?: string | null;
 }
 
 export interface AiSuggestQuotaSpecsBody {

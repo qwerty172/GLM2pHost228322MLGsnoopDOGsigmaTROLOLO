@@ -61,6 +61,7 @@ export default function QuotaEditPage() {
   const [recDownloadMbps, setRecDownloadMbps] = useState<string>("");
   const [recUploadMbps, setRecUploadMbps] = useState<string>("");
   const [requiredTier, setRequiredTier] = useState<"min" | "recommended">("min");
+  const [apiKey, setApiKey] = useState<string>("");
 
   const { data: games } = useListGames({});
 
@@ -152,6 +153,7 @@ export default function QuotaEditPage() {
           recDownloadMbps: recDownloadMbps ? Math.floor(Number(recDownloadMbps)) : null,
           recUploadMbps: recUploadMbps ? Math.floor(Number(recUploadMbps)) : null,
           requiredTier,
+          ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
         },
       });
       toast.success("Изменения сохранены");
@@ -259,6 +261,61 @@ export default function QuotaEditPage() {
                       className="mt-1"
                       rows={3}
                     />
+                  </div>
+                  <div>
+                    <Label className="text-slate-300">
+                      Привязка к API-ключу
+                    </Label>
+                    {quota.hasApiKey && (
+                      <p className="text-xs text-slate-500 mb-1">
+                        Сейчас привязан ключ {quota.apiKeyMasked}. Вставь
+                        новый ключ, чтобы заменить, или нажми «Отключить»,
+                        чтобы снять привязку.
+                      </p>
+                    )}
+                    <div className="flex gap-2">
+                      <Input
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        placeholder={
+                          quota.hasApiKey
+                            ? "Новый ключ (оставь пустым, чтобы не менять)"
+                            : "Вставь dev-ключ, если квота только для него"
+                        }
+                        style={inputStyle}
+                        className="mt-1"
+                        data-testid="input-api-key"
+                      />
+                      {quota.hasApiKey && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="mt-1 shrink-0"
+                          onClick={async () => {
+                            if (!hostToken) return;
+                            try {
+                              await update.mutateAsync({
+                                id: quota.id,
+                                data: { ownerToken: hostToken, apiKey: "" },
+                              });
+                              toast.success("Привязка к API-ключу снята");
+                            } catch (err) {
+                              toast.error(
+                                err instanceof Error ? err.message : "Ошибка",
+                              );
+                            }
+                          }}
+                        >
+                          Отключить
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Если указан ключ, квоту можно применить только к сессиям,
+                      запущенным через этот API-ключ — она автоматически
+                      применится к ним и станет недоступной для ручного выбора
+                      другими хостами.
+                    </p>
                   </div>
                   <div>
                     <Label className="text-slate-300">Привязка к игре</Label>

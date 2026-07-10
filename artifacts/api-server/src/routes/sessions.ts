@@ -32,7 +32,7 @@ import { generateToken } from "../lib/tokens";
 import { applyLaunchFee } from "../lib/launchFee";
 import { pickPlayerBucket } from "../lib/lzt";
 import { isHostAvailableNow } from "../lib/schedule";
-import { computeHostTier, specsFromPcSpecs, STREAM_OVERHEAD } from "../lib/hostTier";
+import { checkQuotaAttachment } from "../lib/quotaAttach";
 
 const router: IRouter = Router();
 
@@ -177,6 +177,14 @@ router.post("/sessions", async (req, res): Promise<void> => {
       res.status(400).json({ error: "Quota is not active" });
       return;
     }
+    // Key-exclusive quota: only attachable via the linked dev key's
+    // /embed/sessions call, never through this manual host/access-code path.
+    if (quota.devKeyId) {
+      res.status(400).json({
+        error: "Эта квота привязана к API-ключу и подключается только через него",
+      });
+      return;
+    }
     const ownsIt =
       quota.ownerType === "host" && quota.ownerId === host.id;
     if (!ownsIt && quota.visibility === "private") {
@@ -187,68 +195,12 @@ router.post("/sessions", async (req, res): Promise<void> => {
         return;
       }
     }
-    // Game binding is enforced for every attachment, including the owner's
-    // own quotas: if a quota declares a game, the host MUST be bound to that
-    // exact game.
-    if (quota.gameId && quota.gameId !== (resolvedGameId ?? host.gameId)) {
-      res
-        .status(400)
-        .json({ error: "Quota is bound to a different game" });
+    // Game binding + PC-spec checks, shared with the dev-key auto-attach path
+    // in embed.ts (see quotaAttach.ts for the STREAM_OVERHEAD rationale).
+    const check = checkQuotaAttachment(quota, host, resolvedGameId);
+    if (!check.ok) {
+      res.status(400).json({ error: check.error });
       return;
-    }
-    // PC specs check: enforce the quota's min* floor (always) and, when the
-    // quota requires it, the stricter rec* tier too. A fixed streaming
-    // overhead (STREAM_OVERHEAD) is added on top of every threshold since the
-    // host also has to spend CPU/GPU/upload encoding the stream itself, on
-    // top of whatever the game needs. Fields the host hasn't reported yet are
-    // skipped (never block) so existing/unmeasured hosts aren't broken.
-    const specs = host.pcSpecs;
-    if (specs) {
-      const hostSpecs = specsFromPcSpecs(specs);
-      const minThresholds = {
-        gpuVram: quota.minGpuVram,
-        cpuCores: quota.minCpuCores,
-        ramGb: quota.minRamGb,
-        downloadMbps: quota.minDownloadMbps,
-        uploadMbps: quota.minUploadMbps,
-      };
-      const recThresholds = {
-        gpuVram: quota.recGpuVram,
-        cpuCores: quota.recCpuCores,
-        ramGb: quota.recRamGb,
-        downloadMbps: quota.recDownloadMbps,
-        uploadMbps: quota.recUploadMbps,
-      };
-      const tier = computeHostTier(hostSpecs, minThresholds, recThresholds);
-
-      if (tier === "below_min") {
-        const violations: string[] = [];
-        if (quota.minGpuVram != null && hostSpecs.gpuVram != null && hostSpecs.gpuVram < quota.minGpuVram + STREAM_OVERHEAD.gpuVram) {
-          violations.push(`GPU VRAM: хост ${hostSpecs.gpuVram} GB, минимум ${quota.minGpuVram} GB`);
-        }
-        if (quota.minCpuCores != null && hostSpecs.cpuCores != null && hostSpecs.cpuCores < quota.minCpuCores + STREAM_OVERHEAD.cpuCores) {
-          violations.push(`CPU ядра: хост ${hostSpecs.cpuCores}, минимум ${quota.minCpuCores} (+${STREAM_OVERHEAD.cpuCores} на стриминг)`);
-        }
-        if (quota.minRamGb != null && hostSpecs.ramGb != null && hostSpecs.ramGb < quota.minRamGb + STREAM_OVERHEAD.ramGb) {
-          violations.push(`RAM: хост ${hostSpecs.ramGb} GB, минимум ${quota.minRamGb} (+${STREAM_OVERHEAD.ramGb} на стриминг)`);
-        }
-        if (quota.minDownloadMbps != null && hostSpecs.downloadMbps != null && hostSpecs.downloadMbps < quota.minDownloadMbps) {
-          violations.push(`Интернет: хост ${hostSpecs.downloadMbps} Мбит/с, минимум ${quota.minDownloadMbps} Мбит/с`);
-        }
-        if (quota.minUploadMbps != null && hostSpecs.uploadMbps != null && hostSpecs.uploadMbps < quota.minUploadMbps + STREAM_OVERHEAD.uploadMbps) {
-          violations.push(`Аплоад: хост ${hostSpecs.uploadMbps} Мбит/с, минимум ${quota.minUploadMbps} (+${STREAM_OVERHEAD.uploadMbps} на стриминг)`);
-        }
-        res.status(400).json({
-          error: `ПК хоста (${specs.gpu}, ${specs.ramGb} GB RAM) ниже минимальных требований квоты: ${violations.join("; ")}`,
-        });
-        return;
-      }
-      if (quota.requiredTier === "recommended" && tier !== "above_rec") {
-        res.status(400).json({
-          error: `Квота требует ПК уровня «выше рекомендуемых» — ПК хоста (${specs.gpu}, ${specs.ramGb} GB RAM) пока только на уровне минимальных требований`,
-        });
-        return;
-      }
     }
     resolvedQuotaId = quota.id;
   }
@@ -436,6 +388,16 @@ router.post(
     }
     if (session.status === "ended") {
       res.status(400).json({ error: "Session has ended" });
+      return;
+    }
+    if (session.devKeyId) {
+      // Embed sessions are funded entirely by the dev key's own balance and
+      // never involve a player wallet — the /embed widget skips the claim
+      // step by design (see embed.ts). Reject any attempt to claim one.
+      res.status(400).json({
+        error: "embed_session_not_claimable",
+        message: "This session was launched via an API key and cannot be claimed by a player.",
+      });
       return;
     }
 
