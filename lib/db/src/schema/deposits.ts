@@ -5,6 +5,7 @@ import {
   timestamp,
   numeric,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 
 export const depositsTable = pgTable(
@@ -34,6 +35,7 @@ export const depositsTable = pgTable(
       t.network,
       t.txHash,
     ),
+    ownerIdx: index("deposits_owner_idx").on(t.ownerType, t.ownerId),
   }),
 );
 

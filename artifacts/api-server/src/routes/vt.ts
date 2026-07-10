@@ -126,15 +126,18 @@ async function vtScanUrl(url: string, apiKey: string): Promise<VtResult> {
     };
   };
 
-  // Step 2: poll analysis result (up to 5 attempts with 2s delay)
+  // Step 2: poll analysis result with exponential backoff (1s, 2s, 4s, 8s, 16s)
+  // — avoids hammering VirusTotal and respects its rate limits.
   let analysisJson: AnalysisResponse | null = null;
 
   for (let attempt = 0; attempt < 5; attempt++) {
-    await new Promise((r) => setTimeout(r, 2000));
+    await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
     const pollRes = await fetch(`${VT_BASE}/analyses/${analysisId}`, {
       headers: { "x-apikey": apiKey },
       signal: AbortSignal.timeout(10_000),
     });
+    // Back off (rather than fail) if VT rate-limits the poll.
+    if (pollRes.status === 429) continue;
     if (!pollRes.ok) throw new Error(`VT poll error ${pollRes.status}`);
     const polled = (await pollRes.json()) as AnalysisResponse;
     if (polled.data.attributes.status === "completed") {

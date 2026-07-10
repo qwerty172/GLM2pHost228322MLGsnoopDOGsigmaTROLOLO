@@ -4,6 +4,7 @@ import {
   uuid,
   timestamp,
   integer,
+  index,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -55,7 +56,10 @@ export const sessionsTable = pgTable("sessions", {
   endedAt: timestamp("ended_at", { withTimezone: true }),
   lastBilledAt: timestamp("last_billed_at", { withTimezone: true }),
   endReason: text("end_reason"),
-});
+}, (t) => ({
+  hostStatusIdx: index("sessions_host_status_idx").on(t.hostId, t.status),
+  statusIdx: index("sessions_status_idx").on(t.status),
+}));
 
 export const insertSessionSchema = createInsertSchema(sessionsTable).omit({
   id: true,

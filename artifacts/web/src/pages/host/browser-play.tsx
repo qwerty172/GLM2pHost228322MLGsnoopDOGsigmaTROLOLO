@@ -51,7 +51,7 @@ export default function BrowserPlay() {
       query: {
         enabled: !!sessionId && !!hostToken,
         queryKey: getGetSessionQueryKey(sessionId, { hostToken: hostToken || "" }),
-        refetchInterval: 5000,
+        refetchInterval: 10000,
       },
     },
   );

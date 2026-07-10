@@ -10,14 +10,37 @@ import { applyDepositCents } from "./economy";
 const POLL_INTERVAL_MS = Number(
   process.env["WALLET_DEPOSIT_POLL_MS"] ?? 60_000,
 );
+// Delay between consecutive external RPC calls, to avoid hammering public
+// endpoints and tripping their rate limits.
+const REQUEST_DELAY_MS = Number(
+  process.env["WALLET_DEPOSIT_REQUEST_DELAY_MS"] ?? 350,
+);
+// When a network returns HTTP 429, pause polling that network for this long.
+const RATE_LIMIT_COOLDOWN_MS = Number(
+  process.env["WALLET_DEPOSIT_COOLDOWN_MS"] ?? 5 * 60_000,
+);
 let interval: NodeJS.Timeout | null = null;
+// Guard against overlapping runs: if a poll is still in flight when the next
+// tick fires, skip it instead of stacking concurrent external calls.
+let isPolling = false;
+// Per-network cooldown: timestamp (ms) until which a network is paused.
+const networkCooldownUntil: Record<string, number> = {};
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 interface DetectedDeposit {
   txHash: string;
   amount: number;
 }
 
-async function pollSolana(address: string): Promise<DetectedDeposit[]> {
+// Pollers return the deposits found plus whether the upstream signalled a rate
+// limit, so the caller can back that network off for a while.
+interface PollResult {
+  deposits: DetectedDeposit[];
+  rateLimited: boolean;
+}
+
+async function pollSolana(address: string): Promise<PollResult> {
   try {
     const { Connection, PublicKey } = await import("@solana/web3.js");
     const conn = new Connection(
@@ -45,14 +68,15 @@ async function pollSolana(address: string): Promise<DetectedDeposit[]> {
         out.push({ txHash: s.signature, amount: delta / 1e9 });
       }
     }
-    return out;
+    return { deposits: out, rateLimited: false };
   } catch (err) {
+    const rateLimited = /429|rate.?limit|too many/i.test(String(err));
     logger.debug({ err }, "Solana deposit poll failed");
-    return [];
+    return { deposits: [], rateLimited };
   }
 }
 
-async function pollNano(address: string): Promise<DetectedDeposit[]> {
+async function pollNano(address: string): Promise<PollResult> {
   try {
     const url = process.env["NANO_RPC_URL"] ?? "https://mynano.ninja/api/node";
     const resp = await fetch(url, {
@@ -64,7 +88,8 @@ async function pollNano(address: string): Promise<DetectedDeposit[]> {
         count: "10",
       }),
     });
-    if (!resp.ok) return [];
+    if (resp.status === 429) return { deposits: [], rateLimited: true };
+    if (!resp.ok) return { deposits: [], rateLimited: false };
     const data = (await resp.json()) as {
       history?: Array<{ type: string; hash?: string; amount?: string }>;
     };
@@ -74,18 +99,19 @@ async function pollNano(address: string): Promise<DetectedDeposit[]> {
       const amount = Number(BigInt(h.amount)) / 1e30;
       if (amount > 0) out.push({ txHash: h.hash, amount });
     }
-    return out;
+    return { deposits: out, rateLimited: false };
   } catch (err) {
     logger.debug({ err }, "Nano deposit poll failed");
-    return [];
+    return { deposits: [], rateLimited: false };
   }
 }
 
-async function pollTronUsdt(address: string): Promise<DetectedDeposit[]> {
+async function pollTronUsdt(address: string): Promise<PollResult> {
   try {
     const url = `https://api.trongrid.io/v1/accounts/${address}/transactions/trc20?limit=10&contract_address=TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t`;
     const resp = await fetch(url);
-    if (!resp.ok) return [];
+    if (resp.status === 429) return { deposits: [], rateLimited: true };
+    if (!resp.ok) return { deposits: [], rateLimited: false };
     const data = (await resp.json()) as {
       data?: Array<{
         transaction_id?: string;
@@ -101,10 +127,10 @@ async function pollTronUsdt(address: string): Promise<DetectedDeposit[]> {
       const amount = Number(t.value) / 10 ** decimals;
       if (amount > 0) out.push({ txHash: t.transaction_id, amount });
     }
-    return out;
+    return { deposits: out, rateLimited: false };
   } catch (err) {
     logger.debug({ err }, "Tron USDT deposit poll failed");
-    return [];
+    return { deposits: [], rateLimited: false };
   }
 }
 
@@ -193,24 +219,56 @@ async function creditDeposit(
 }
 
 async function pollOnce(): Promise<void> {
-  const addresses = await db.select().from(depositAddressesTable);
-  for (const addr of addresses) {
-    if (addr.ownerType !== "host" && addr.ownerType !== "player") continue;
-    let detected: DetectedDeposit[] = [];
-    if (addr.currency === "SOL") detected = await pollSolana(addr.address);
-    else if (addr.currency === "NANO") detected = await pollNano(addr.address);
-    else if (addr.currency === "USDT_TRC20")
-      detected = await pollTronUsdt(addr.address);
-    for (const d of detected) {
-      await creditDeposit(
-        addr.ownerType as "host" | "player",
-        addr.ownerId,
-        addr.address,
-        addr.currency,
-        addr.network,
-        d,
-      );
+  // Skip if a previous run is still in flight — prevents stacking concurrent
+  // external calls when the network is slow.
+  if (isPolling) {
+    logger.debug("Deposit poll skipped — previous run still in flight");
+    return;
+  }
+  isPolling = true;
+  try {
+    const addresses = await db.select().from(depositAddressesTable);
+    let madeRequest = false;
+    for (const addr of addresses) {
+      if (addr.ownerType !== "host" && addr.ownerType !== "player") continue;
+
+      // Honour per-network cooldown after a 429.
+      const cooldown = networkCooldownUntil[addr.currency] ?? 0;
+      if (Date.now() < cooldown) continue;
+
+      // Throttle: space out external calls (skip the delay before the first).
+      if (madeRequest) await sleep(REQUEST_DELAY_MS);
+
+      let result: PollResult | null = null;
+      if (addr.currency === "SOL") result = await pollSolana(addr.address);
+      else if (addr.currency === "NANO") result = await pollNano(addr.address);
+      else if (addr.currency === "USDT_TRC20")
+        result = await pollTronUsdt(addr.address);
+      if (!result) continue;
+      madeRequest = true;
+
+      if (result.rateLimited) {
+        networkCooldownUntil[addr.currency] = Date.now() + RATE_LIMIT_COOLDOWN_MS;
+        logger.warn(
+          { currency: addr.currency, cooldownMs: RATE_LIMIT_COOLDOWN_MS },
+          "Deposit RPC rate-limited — backing off network",
+        );
+        continue;
+      }
+
+      for (const d of result.deposits) {
+        await creditDeposit(
+          addr.ownerType as "host" | "player",
+          addr.ownerId,
+          addr.address,
+          addr.currency,
+          addr.network,
+          d,
+        );
+      }
     }
+  } finally {
+    isPolling = false;
   }
 }
 

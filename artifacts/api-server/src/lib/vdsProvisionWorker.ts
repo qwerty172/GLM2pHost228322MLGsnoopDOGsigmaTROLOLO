@@ -262,7 +262,14 @@ async function provisionVds(vds: typeof quotaVdsTable.$inferSelect) {
   logger.info({ vdsId: vds.id, hostId: newHost.id }, "VDS provisioned successfully");
 }
 
+// In-flight guards: skip a tick if the previous cycle is still running, so a
+// slow SSH/DB endpoint can't stack overlapping cycles under degraded conditions.
+let isProvisioning = false;
+let isHealthCycling = false;
+
 async function runProvisionCycle() {
+  if (isProvisioning) return;
+  isProvisioning = true;
   try {
     const pending = await db
       .select()
@@ -277,10 +284,54 @@ async function runProvisionCycle() {
     }
   } catch (err) {
     logger.error({ err }, "VDS provision cycle error");
+  } finally {
+    isProvisioning = false;
+  }
+}
+
+// Max concurrent SSH health checks — keeps the worker from opening 20 sockets
+// at once while still finishing the cycle quickly.
+const HEALTH_CHECK_CONCURRENCY = 5;
+
+async function checkVdsHealth(
+  vds: typeof quotaVdsTable.$inferSelect,
+): Promise<void> {
+  let privateKey: string;
+  try {
+    privateKey = decryptSshKey(vds.sshKeyEncrypted);
+  } catch {
+    return;
+  }
+  try {
+    const res = await tryConnectSsh(
+      vds.sshHost,
+      vds.sshPort,
+      vds.sshUser,
+      privateKey,
+    );
+    const status = res.ok ? "online" : "offline";
+    await db
+      .update(quotaVdsTable)
+      .set({
+        status,
+        lastHealthAt: res.ok ? new Date() : vds.lastHealthAt,
+        updatedAt: new Date(),
+      })
+      .where(eq(quotaVdsTable.id, vds.id));
+    if (res.ok && vds.hostId) {
+      await db
+        .update(hostsTable)
+        .set({ lastSeenAt: new Date() })
+        .where(eq(hostsTable.id, vds.hostId));
+    }
+  } catch (err) {
+    logger.error({ err, vdsId: vds.id }, "VDS health check error");
   }
 }
 
 async function runHealthCycle() {
+  if (isHealthCycling) return;
+  isHealthCycling = true;
   try {
     const online = await db
       .select()
@@ -288,37 +339,16 @@ async function runHealthCycle() {
       .where(eq(quotaVdsTable.status, "online"))
       .limit(20);
 
-    for (const vds of online) {
-      let privateKey: string;
-      try {
-        privateKey = decryptSshKey(vds.sshKeyEncrypted);
-      } catch {
-        continue;
-      }
-      tryConnectSsh(vds.sshHost, vds.sshPort, vds.sshUser, privateKey)
-        .then(async (res) => {
-          const status = res.ok ? "online" : "offline";
-          await db
-            .update(quotaVdsTable)
-            .set({
-              status,
-              lastHealthAt: res.ok ? new Date() : vds.lastHealthAt,
-              updatedAt: new Date(),
-            })
-            .where(eq(quotaVdsTable.id, vds.id));
-          if (res.ok && vds.hostId) {
-            await db
-              .update(hostsTable)
-              .set({ lastSeenAt: new Date() })
-              .where(eq(hostsTable.id, vds.hostId));
-          }
-        })
-        .catch((err) => {
-          logger.error({ err, vdsId: vds.id }, "VDS health check error");
-        });
+    // Process in bounded-concurrency batches so a slow/hung SSH endpoint can't
+    // block the whole cycle and we don't fan out unbounded sockets.
+    for (let i = 0; i < online.length; i += HEALTH_CHECK_CONCURRENCY) {
+      const batch = online.slice(i, i + HEALTH_CHECK_CONCURRENCY);
+      await Promise.all(batch.map((vds) => checkVdsHealth(vds)));
     }
   } catch (err) {
     logger.error({ err }, "VDS health cycle error");
+  } finally {
+    isHealthCycling = false;
   }
 }
 
