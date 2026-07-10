@@ -1627,6 +1627,12 @@ components:
           type: string
           enum: [below_min, meets_min, above_rec]
           description: Quick general strength badge vs the site-wide baseline hardware profile (not tied to a specific quota)
+        scheduleAutoDisabledReason:
+          type: ["string", "null"]
+          description: Set by the schedule watchdog when it auto-deactivated this host's schedule due to a missed wake-up window. Null once cleared by the hoster saving config again.
+        scheduleAutoDisabledAt:
+          type: ["string", "null"]
+          format: date-time
       required:
         - id
         - hostToken
@@ -1650,6 +1656,9 @@ components:
         - creditMaxLztPerPlayer
         - createdAt
         - lastSeenAt
+        - hostTier
+        - scheduleAutoDisabledReason
+        - scheduleAutoDisabledAt
 
     UpdateHostConfigBody:
       type: object
@@ -1948,6 +1957,9 @@ components:
           description: |
             Which LZT bucket the player wants to pay from. "auto" prefers
             зелёный (withdrawable) and falls back to синий (internal).
+        blockMinutes:
+          type: ["integer", "null"]
+          description: Block size in minutes chosen at session start (10, 15, or 25). Omit/null for unlimited per-minute billing.
       required:
         - playerWalletToken
 

@@ -8,7 +8,8 @@ import { loadConfig, saveConfig } from "./config";
 import { createTray, setStatus } from "./tray";
 import { initInputInjector, injectInput } from "./input-injection";
 import { launchApp, launchEntry, killApp, setExitCallback } from "./app-launcher";
-import { fetchLibrary, patchLocalAvailability, sendHeartbeat } from "./api-client";
+import { fetchLibrary, fetchHostSchedule, patchLocalAvailability, sendHeartbeat } from "./api-client";
+import { syncWakeTasks } from "./wake-scheduler";
 import { scanSteam, loadScanState, saveScanState } from "./steam-scanner";
 import { loadOrGenerateKeyPair, signChallenge } from "./crypto-key";
 import { log } from "./logger";
@@ -56,19 +57,39 @@ function createWindow(): void {
   });
 }
 
-function applyAutoLaunch(config: HostConfig): void {
+function applyAutoLaunch(config: HostConfig, forceOn = false): void {
   if (process.platform !== "win32") return;
   app.setLoginItemSettings({
-    openAtLogin: !!config.autoLaunchAtStartup,
+    openAtLogin: forceOn || !!config.autoLaunchAtStartup,
     path: process.execPath,
     args: ["--hidden"],
   });
+}
+
+// Pulls the host's schedule from the server and reconciles both the local
+// login-item (auto-launch on boot/sign-in) and the OS wake-up tasks so they
+// stay in sync with whatever the hoster last saved on the web dashboard —
+// without requiring the hoster to touch the agent's own settings.
+async function syncScheduleFromServer(): Promise<void> {
+  const cfg = await loadConfig();
+  if (!cfg.hostToken || !cfg.apiBaseUrl) return;
+  const schedule = await fetchHostSchedule(cfg.hostToken, cfg.apiBaseUrl);
+  if (!schedule) return;
+
+  const isScheduled = schedule.scheduleMode === "scheduled" && schedule.scheduleJson.length > 0;
+  // A host with an active schedule must come back up on its own — force the
+  // login item on regardless of the user's local toggle, without persisting
+  // over their saved preference (so the UI checkbox still reflects intent).
+  applyAutoLaunch(cfg, isScheduled);
+
+  await syncWakeTasks(schedule.scheduleMode, schedule.scheduleJson);
 }
 
 void app.whenReady().then(async () => {
   initInputInjector();
   const config = await loadConfig();
   applyAutoLaunch(config);
+  void syncScheduleFromServer();
 
   createTray(() => {
     createWindow();
@@ -86,6 +107,7 @@ void app.whenReady().then(async () => {
   ipcMain.handle("config:set", async (_e, next: HostConfig) => {
     const saved = await saveConfig(next);
     applyAutoLaunch(saved);
+    void syncScheduleFromServer();
     return saved;
   });
 
@@ -495,6 +517,14 @@ void app.whenReady().then(async () => {
       }
     });
   }, HEARTBEAT_INTERVAL_MS);
+
+  // ── Schedule sync (auto-launch + wake tasks) ────────────────────────────
+  // Re-pull the schedule periodically so changes saved on the web dashboard
+  // take effect on this PC even without an agent restart or manual save.
+  const SCHEDULE_SYNC_INTERVAL_MS = 5 * 60_000;
+  setInterval(() => {
+    void syncScheduleFromServer();
+  }, SCHEDULE_SYNC_INTERVAL_MS);
 
   // ── Auto-quota scheduler ──────────────────────────────────────────────────
   // Runs in the main process (survives renderer reloads) so the 60s polling

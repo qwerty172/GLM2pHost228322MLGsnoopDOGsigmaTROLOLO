@@ -2,6 +2,14 @@
 
 export type AgentStatus = "idle" | "connecting" | "streaming" | "error";
 
+// Mirrors lib/db's ScheduleSlot — a single weekly availability window.
+// day: 0 = Sunday … 6 = Saturday. startMin/endMin: minutes-from-midnight, UTC.
+export interface ScheduleSlot {
+  day: number;
+  startMin: number;
+  endMin: number;
+}
+
 export interface HostConfig {
   hostToken: string;
   // Base HTTPS URL of the platform API, e.g. https://gaming.example.com

@@ -77,6 +77,10 @@ function serializeHost(h: typeof hostsTable.$inferSelect) {
     // Quick general strength badge vs the site-wide baseline (not tied to
     // any specific quota/game): "below_min" | "meets_min" | "above_rec".
     hostTier: generalHostTier(h.pcSpecs),
+    // Set when the schedule watchdog auto-deactivated this host's schedule
+    // due to a missed wake-up window. Cleared once the hoster saves config.
+    scheduleAutoDisabledReason: h.scheduleAutoDisabledReason ?? null,
+    scheduleAutoDisabledAt: h.scheduleAutoDisabledAt ?? null,
   };
 }
 
@@ -276,6 +280,12 @@ router.patch("/hosts/:hostToken/config", async (req, res): Promise<void> => {
     update.minutePriceUsd = String(body.minutePriceUsd);
   if (body.scheduleMode !== undefined) update.scheduleMode = body.scheduleMode;
   if (body.scheduleJson !== undefined) update.scheduleJson = body.scheduleJson;
+  // Any manual config save clears the "auto-disabled" marker — the hoster is
+  // actively managing their config again, so the stale warning shouldn't stick.
+  if (body.scheduleMode !== undefined || body.scheduleJson !== undefined) {
+    update.scheduleAutoDisabledReason = null;
+    update.scheduleAutoDisabledAt = null;
+  }
   if (body.streamPlatform !== undefined) update.streamPlatform = body.streamPlatform;
   if (body.streamUrl !== undefined) update.streamUrl = body.streamUrl;
   if (body.streamKey !== undefined) {

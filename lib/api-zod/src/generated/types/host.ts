@@ -49,5 +49,12 @@ export interface Host {
   createdAt: Date;
   lastSeenAt: Date;
   /** Quick general strength badge vs the site-wide baseline hardware profile (not tied to a specific quota) */
-  hostTier?: HostHostTier;
+  hostTier: HostHostTier;
+  /**
+   * Set by the schedule watchdog when it auto-deactivated this host's schedule due to a missed wake-up window. Null once cleared by the hoster saving config again.
+   * @nullable
+   */
+  scheduleAutoDisabledReason: string | null;
+  /** @nullable */
+  scheduleAutoDisabledAt: Date | null;
 }

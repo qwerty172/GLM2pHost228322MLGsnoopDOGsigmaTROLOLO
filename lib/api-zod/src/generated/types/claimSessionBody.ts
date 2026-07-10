@@ -14,4 +14,9 @@ export interface ClaimSessionBody {
 зелёный (withdrawable) and falls back to синий (internal).
  */
   paymentSource?: ClaimSessionBodyPaymentSource;
+  /**
+   * Block size in minutes chosen at session start (10, 15, or 25). Omit/null for unlimited per-minute billing.
+   * @nullable
+   */
+  blockMinutes?: number | null;
 }

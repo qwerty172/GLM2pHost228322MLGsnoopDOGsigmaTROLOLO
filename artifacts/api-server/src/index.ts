@@ -8,6 +8,7 @@ import { startQuotaExpiryWorker } from "./lib/quotaExpiryWorker";
 import { startInterestWorker } from "./lib/interestWorker";
 import { startLoanDefaultWorker } from "./lib/loanDefaultWorker";
 import { startHostHealthWorker } from "./lib/hostHealthWorker";
+import { startScheduleWatchdog } from "./lib/scheduleWatchdog";
 import { startVdsProvisionWorker } from "./lib/vdsProvisionWorker";
 import { seedGames } from "./lib/seedGames";
 import { runLegacyBackfill } from "./lib/legacyBackfill";
@@ -36,6 +37,7 @@ function startWorkers() {
   startInterestWorker();
   startLoanDefaultWorker();
   startHostHealthWorker();
+  startScheduleWatchdog();
   startVdsProvisionWorker();
   seedGames().catch((err) => {
     logger.error({ err }, "Failed to seed games catalog");

@@ -112,7 +112,14 @@ export interface Host {
   createdAt: string;
   lastSeenAt: string;
   /** Quick general strength badge vs the site-wide baseline hardware profile (not tied to a specific quota) */
-  hostTier?: HostHostTier;
+  hostTier: HostHostTier;
+  /**
+   * Set by the schedule watchdog when it auto-deactivated this host's schedule due to a missed wake-up window. Null once cleared by the hoster saving config again.
+   * @nullable
+   */
+  scheduleAutoDisabledReason: string | null;
+  /** @nullable */
+  scheduleAutoDisabledAt: string | null;
 }
 
 export type UpdateHostConfigBodyScheduleMode =
@@ -306,6 +313,11 @@ export interface ClaimSessionBody {
 зелёный (withdrawable) and falls back to синий (internal).
  */
   paymentSource?: ClaimSessionBodyPaymentSource;
+  /**
+   * Block size in minutes chosen at session start (10, 15, or 25). Omit/null for unlimited per-minute billing.
+   * @nullable
+   */
+  blockMinutes?: number | null;
 }
 
 /**

@@ -649,7 +649,7 @@ async function connect(cfg: HostConfig, gameId: string | null): Promise<void> {
         await pc.setRemoteDescription(desc);
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        ws.send(
+        ws!.send(
           JSON.stringify({ type: "answer", sdp: { type: answer.type, sdp: answer.sdp } }),
         );
         log("[ice-restart] Sent answer — awaiting ICE recovery");
@@ -704,7 +704,7 @@ async function connect(cfg: HostConfig, gameId: string | null): Promise<void> {
     const delay = wsReconnectDelay;
     wsReconnectDelay = Math.min(wsReconnectDelay * 2, 8000);
     log(`[ws] Reconnecting signaling in ${delay}ms…`);
-    const closedUrl = ws.url;
+    const closedUrl = ws!.url;
     setTimeout(() => {
       if (!isStreaming) return;
       const newWs = new WebSocket(closedUrl);

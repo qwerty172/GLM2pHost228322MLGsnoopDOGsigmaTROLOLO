@@ -113,10 +113,16 @@ export const GetHostResponse = zod.object({
   lastSeenAt: zod.coerce.date(),
   hostTier: zod
     .enum(["below_min", "meets_min", "above_rec"])
-    .optional()
     .describe(
       "Quick general strength badge vs the site-wide baseline hardware profile (not tied to a specific quota)",
     ),
+  scheduleAutoDisabledReason: zod
+    .string()
+    .nullable()
+    .describe(
+      "Set by the schedule watchdog when it auto-deactivated this host's schedule due to a missed wake-up window. Null once cleared by the hoster saving config again.",
+    ),
+  scheduleAutoDisabledAt: zod.coerce.date().nullable(),
 });
 
 /**
@@ -286,10 +292,16 @@ export const UpdateHostConfigResponse = zod.object({
   lastSeenAt: zod.coerce.date(),
   hostTier: zod
     .enum(["below_min", "meets_min", "above_rec"])
-    .optional()
     .describe(
       "Quick general strength badge vs the site-wide baseline hardware profile (not tied to a specific quota)",
     ),
+  scheduleAutoDisabledReason: zod
+    .string()
+    .nullable()
+    .describe(
+      "Set by the schedule watchdog when it auto-deactivated this host's schedule due to a missed wake-up window. Null once cleared by the hoster saving config again.",
+    ),
+  scheduleAutoDisabledAt: zod.coerce.date().nullable(),
 });
 
 /**
@@ -779,6 +791,12 @@ export const ClaimSessionBody = zod.object({
     .optional()
     .describe(
       'Which LZT bucket the player wants to pay from. \"auto\" prefers\nзелёный (withdrawable) and falls back to синий (internal).\n',
+    ),
+  blockMinutes: zod
+    .number()
+    .nullish()
+    .describe(
+      "Block size in minutes chosen at session start (10, 15, or 25). Omit\/null for unlimited per-minute billing.",
     ),
 });
 

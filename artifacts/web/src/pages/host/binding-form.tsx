@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Save, Trash2, Calendar } from "lucide-react";
+import { Plus, Save, Trash2, Calendar, AlertTriangle } from "lucide-react";
 
 const DAYS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
 
@@ -243,6 +243,18 @@ export default function BindingForm({ hostToken }: Props) {
           <div className="text-sm text-slate-500">Загрузка…</div>
         ) : (
           <>
+            {host?.scheduleAutoDisabledReason && (
+              <div
+                className="flex items-start gap-2 rounded border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-300"
+                data-testid="banner-schedule-auto-disabled"
+              >
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium">Расписание было отключено автоматически</p>
+                  <p className="text-amber-300/80">{host.scheduleAutoDisabledReason}</p>
+                </div>
+              </div>
+            )}
             {/* Game + executable */}
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">

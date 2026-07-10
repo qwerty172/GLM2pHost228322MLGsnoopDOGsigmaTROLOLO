@@ -777,7 +777,7 @@ router.patch("/quotas/:id", async (req, res): Promise<void> => {
   if (b.recRamGb !== undefined) updates.recRamGb = b.recRamGb;
   if (b.recDownloadMbps !== undefined) updates.recDownloadMbps = b.recDownloadMbps;
   if (b.recUploadMbps !== undefined) updates.recUploadMbps = b.recUploadMbps;
-  if (b.requiredTier !== undefined) updates.requiredTier = b.requiredTier;
+  if (b.requiredTier !== undefined) updates.requiredTier = b.requiredTier ?? "min";
   // private→public clears the access code; public→private mints a new one.
   if (b.visibility === "public") updates.accessCode = null;
   if (b.visibility === "private" && !quota.accessCode)

@@ -138,6 +138,15 @@ export const hostsTable = pgTable("hosts", {
   // Null until the first heartbeat that includes a ping measurement.
   pingMs: integer("ping_ms"),
 
+  // Set by the schedule watchdog when it auto-deactivates a "scheduled" host
+  // that didn't come online within 10 minutes of its window start. Cleared
+  // whenever the hoster saves their config again (manual re-enable).
+  // Null when the schedule was never auto-disabled (or was cleared since).
+  scheduleAutoDisabledReason: text("schedule_auto_disabled_reason"),
+  scheduleAutoDisabledAt: timestamp("schedule_auto_disabled_at", {
+    withTimezone: true,
+  }),
+
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

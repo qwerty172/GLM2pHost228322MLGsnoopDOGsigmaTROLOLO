@@ -2,11 +2,36 @@
 // Runs in the Electron main process (Node.js) so we use Node's built-in
 // fetch (available since Electron 22 / Node 18).
 
-import type { LibraryEntry } from "../shared/messages";
+import type { LibraryEntry, ScheduleSlot } from "../shared/messages";
 import { log } from "./logger";
 
 function base(apiBaseUrl: string): string {
   return apiBaseUrl.replace(/\/$/, "");
+}
+
+// Fetch this host's current schedule config from the server (source of
+// truth — the web dashboard writes it there directly). Returns null on
+// network/auth errors so callers can skip and retry on the next cycle.
+export async function fetchHostSchedule(
+  hostToken: string,
+  apiBaseUrl: string,
+): Promise<{ scheduleMode: string; scheduleJson: ScheduleSlot[] } | null> {
+  try {
+    const url = `${base(apiBaseUrl)}/api/hosts/${encodeURIComponent(hostToken)}`;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      log("warn", `fetchHostSchedule HTTP ${resp.status}`);
+      return null;
+    }
+    const data = (await resp.json()) as {
+      scheduleMode: string;
+      scheduleJson: ScheduleSlot[];
+    };
+    return { scheduleMode: data.scheduleMode, scheduleJson: data.scheduleJson ?? [] };
+  } catch (err) {
+    log("warn", `fetchHostSchedule error: ${String(err)}`);
+    return null;
+  }
 }
 
 // Fetch the full game library for this host token.
