@@ -24,6 +24,7 @@ import ExchangePage from "@/pages/exchange";
 import { HostLayout } from "@/components/layout";
 import { HostAuthGuard } from "@/components/host-auth-guard";
 import ProfilePage from "@/pages/profile";
+import Embed from "@/pages/embed";
 
 const queryClient = new QueryClient();
 
@@ -73,6 +74,8 @@ function Router() {
         </HostAuthGuard>
       </Route>
       <Route path="/play/:playerToken" component={Play} />
+      {/* Embeddable third-party widget (task-125) — no auth guard, standalone. */}
+      <Route path="/embed" component={Embed} />
       {/* Browser-host page is a player-side feature (the human running it
           authenticates via their own wallet, not a hostToken). Route it
           before /host so HostAuthGuard does not gate it. */}

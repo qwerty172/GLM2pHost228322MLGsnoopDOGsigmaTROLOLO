@@ -5,7 +5,7 @@ import {
   depositsTable,
 } from "@workspace/db";
 import { logger } from "./logger";
-import { applyDepositCents } from "./economy";
+import { applyDepositCents, creditDevKeyDeposit } from "./economy";
 
 const POLL_INTERVAL_MS = Number(
   process.env["WALLET_DEPOSIT_POLL_MS"] ?? 60_000,
@@ -141,7 +141,7 @@ function toUsdtCents(n: number): number {
 }
 
 async function creditDeposit(
-  ownerType: "host" | "player",
+  ownerType: "host" | "player" | "dev_key",
   ownerId: string,
   address: string,
   currency: string,
@@ -177,6 +177,17 @@ async function creditDeposit(
         .returning({ id: depositsTable.id });
 
       if (inserted.length === 0) return null;
+
+      // Dev keys skip the tariff/premium machinery — see creditDevKeyDeposit.
+      if (ownerType === "dev_key") {
+        const devResult = await creditDevKeyDeposit(tx, {
+          devKeyId: ownerId,
+          grossUsdtCents: grossCents,
+          refType: "deposit",
+          refId: inserted[0]!.id,
+        });
+        return { feeLzt: 0, grantedFreePremium: false, ...devResult };
+      }
 
       const result = await applyDepositCents(tx, {
         ownerType,
@@ -230,7 +241,12 @@ async function pollOnce(): Promise<void> {
     const addresses = await db.select().from(depositAddressesTable);
     let madeRequest = false;
     for (const addr of addresses) {
-      if (addr.ownerType !== "host" && addr.ownerType !== "player") continue;
+      if (
+        addr.ownerType !== "host" &&
+        addr.ownerType !== "player" &&
+        addr.ownerType !== "dev_key"
+      )
+        continue;
 
       // Honour per-network cooldown after a 429.
       const cooldown = networkCooldownUntil[addr.currency] ?? 0;
@@ -258,7 +274,7 @@ async function pollOnce(): Promise<void> {
 
       for (const d of result.deposits) {
         await creditDeposit(
-          addr.ownerType as "host" | "player",
+          addr.ownerType as "host" | "player" | "dev_key",
           addr.ownerId,
           addr.address,
           addr.currency,

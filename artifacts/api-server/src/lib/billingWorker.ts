@@ -3,6 +3,7 @@ import {
   db,
   hostsTable,
   playersTable,
+  devKeysTable,
   sessionsTable,
   billingEventsTable,
   quotasTable,
@@ -117,7 +118,10 @@ async function billOnceInner(): Promise<void> {
     .where(
       and(
         eq(sessionsTable.status, "active"),
-        isNotNull(sessionsTable.claimedByPlayerId),
+        or(
+          isNotNull(sessionsTable.claimedByPlayerId),
+          isNotNull(sessionsTable.devKeyId),
+        ),
         or(
           isNull(sessionsTable.lastBilledAt),
           lte(sessionsTable.lastBilledAt, cutoff),
@@ -126,11 +130,126 @@ async function billOnceInner(): Promise<void> {
     );
 
   for (const session of eligible) {
-    if (!session.claimedByPlayerId) continue;
+    if (!session.claimedByPlayerId && !session.devKeyId) continue;
     const rateUsd = Number(session.ratePerMinute);
     if (!Number.isFinite(rateUsd) || rateUsd <= 0) continue;
     const costLzt = usdtToLztRound(rateUsd);
     if (costLzt <= 0) continue;
+
+    // ---------------------------------------------------------------
+    // Dev-key-funded (embed widget) sessions: no player, no loans/quota
+    // fallback — just debit the key's own two buckets (blue then green)
+    // and end the session with a clear "key_balance_exhausted" reason if
+    // it can't cover the tick. See task-125.
+    // ---------------------------------------------------------------
+    if (session.devKeyId) {
+      try {
+        const ended = await db.transaction(async (tx) => {
+          const [key] = await tx
+            .select({
+              blue: devKeysTable.internalBalanceLzt,
+              green: devKeysTable.withdrawableBalanceLzt,
+            })
+            .from(devKeysTable)
+            .where(eq(devKeysTable.id, session.devKeyId!));
+          const blue = key?.blue ?? 0;
+          const green = key?.green ?? 0;
+
+          let bucketCol: "internalBalanceLzt" | "withdrawableBalanceLzt" | null =
+            null;
+          if (blue >= costLzt) bucketCol = "internalBalanceLzt";
+          else if (green >= costLzt) bucketCol = "withdrawableBalanceLzt";
+
+          if (!bucketCol) {
+            await tx
+              .update(sessionsTable)
+              .set({
+                status: "ended",
+                endedAt: now,
+                endReason: "key_balance_exhausted",
+              })
+              .where(eq(sessionsTable.id, session.id));
+            return true;
+          }
+
+          const debited = await tx
+            .update(devKeysTable)
+            .set({
+              [bucketCol]: sql`${devKeysTable[bucketCol]} - ${costLzt}`,
+            } as never)
+            .where(
+              and(
+                eq(devKeysTable.id, session.devKeyId!),
+                sql`${devKeysTable[bucketCol]} >= ${costLzt}`,
+              ),
+            )
+            .returning({ id: devKeysTable.id });
+
+          if (debited.length === 0) {
+            await tx
+              .update(sessionsTable)
+              .set({
+                status: "ended",
+                endedAt: now,
+                endReason: "key_balance_exhausted",
+              })
+              .where(eq(sessionsTable.id, session.id));
+            return true;
+          }
+
+          const payoutSplit = await creditPayoutToUser(tx, {
+            ownerType: "host",
+            ownerId: session.hostId,
+            amountLzt: costLzt,
+            kind: "session_tick",
+            refType: "session",
+            refId: session.id,
+          });
+
+          await tx.insert(billingEventsTable).values({
+            sessionId: session.id,
+            hostId: session.hostId,
+            playerId: null,
+            minutes: 1,
+            bucket: bucketCol === "withdrawableBalanceLzt" ? "green" : "blue",
+            playerDebitLzt: costLzt,
+            hostCreditLzt: payoutSplit.cash + payoutSplit.balance,
+            kind: "session_tick",
+          });
+
+          await writeLedger(tx, [
+            {
+              groupId: randomUUID(),
+              kind: "session_tick",
+              ownerType: "dev_key",
+              ownerId: session.devKeyId!,
+              bucket: bucketCol === "withdrawableBalanceLzt" ? "cash" : "balance",
+              deltaLzt: -costLzt,
+              refType: "session",
+              refId: session.id,
+            },
+          ]);
+
+          await tx
+            .update(sessionsTable)
+            .set({ lastBilledAt: now })
+            .where(eq(sessionsTable.id, session.id));
+          return false;
+        });
+
+        if (ended) {
+          logger.info(
+            { sessionId: session.id },
+            "Embed session ended — dev key balance exhausted",
+          );
+        }
+      } catch (err) {
+        logger.error({ err, sessionId: session.id }, "Dev-key billing tick failed");
+      }
+      continue;
+    }
+
+    if (!session.claimedByPlayerId) continue;
 
     try {
       const ended = await db.transaction(async (tx) => {

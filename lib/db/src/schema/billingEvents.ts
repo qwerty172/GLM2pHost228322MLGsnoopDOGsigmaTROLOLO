@@ -17,7 +17,10 @@ export const billingEventsTable = pgTable("billing_events", {
   id: uuid("id").primaryKey().defaultRandom(),
   sessionId: uuid("session_id").notNull(),
   hostId: uuid("host_id").notNull(),
-  playerId: uuid("player_id").notNull(),
+  // Nullable: embed/dev-key-funded sessions (task-125) have no player behind
+  // them — the dev key itself is billed instead. All player-flow inserts
+  // still pass a real id, so this stays NOT NULL in practice for that path.
+  playerId: uuid("player_id"),
   minutes: integer("minutes").notNull().default(1),
   // Which bucket this row reflects on the host side (and where the player
   // debit was taken from when non-zero).

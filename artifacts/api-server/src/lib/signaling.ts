@@ -119,10 +119,6 @@ async function authenticate(
   if (!playerToken) {
     return { ok: false, reason: "playerToken required" };
   }
-  const playerWalletToken = url.searchParams.get("playerWalletToken");
-  if (!playerWalletToken) {
-    return { ok: false, reason: "playerWalletToken required" };
-  }
   const [session] = await db
     .select()
     .from(sessionsTable)
@@ -132,6 +128,17 @@ async function authenticate(
   }
   if (session.status === "ended") {
     return { ok: false, reason: "session has ended" };
+  }
+  // Embed/dev-key sessions (task-125) are funded directly from the dev key's
+  // own balance and never go through the claim flow — no player wallet to
+  // validate here. The API-side balance check happens in the embed route
+  // (and per-tick in the billing worker), not at connect time.
+  if (session.devKeyId) {
+    return { ok: true, result: { sessionId: session.id, role } };
+  }
+  const playerWalletToken = url.searchParams.get("playerWalletToken");
+  if (!playerWalletToken) {
+    return { ok: false, reason: "playerWalletToken required" };
   }
   if (!session.claimedByPlayerId) {
     return { ok: false, reason: "session not claimed — wallet required" };

@@ -3,12 +3,13 @@ import {
   db,
   hostsTable,
   playersTable,
+  devKeysTable,
   depositAddressesTable,
 } from "@workspace/db";
 import { generateAllDepositAddresses } from "./walletAddresses";
 import { logger } from "./logger";
 
-export type OwnerType = "host" | "player";
+export type OwnerType = "host" | "player" | "dev_key";
 
 export interface OwnerRecord {
   id: string;
@@ -66,6 +67,26 @@ export async function resolveOwnerByToken(
       premiumUntil: player.premiumUntil ?? null,
       token: player.playerToken,
       createdAt: player.createdAt,
+    };
+  }
+  const [devKey] = await db
+    .select()
+    .from(devKeysTable)
+    .where(eq(devKeysTable.apiKey, token));
+  if (devKey) {
+    return {
+      id: devKey.id,
+      type: "dev_key",
+      displayName: devKey.displayName || "Developer key",
+      internalBalanceLzt: devKey.internalBalanceLzt,
+      withdrawableBalanceLzt: devKey.withdrawableBalanceLzt,
+      creditLimitLzt: 0,
+      creditDebtLzt: devKey.creditDebtLzt,
+      creditReceivableLzt: devKey.creditReceivableLzt,
+      lifetimeDepositUsdtCents: devKey.lifetimeDepositUsdtCents,
+      premiumUntil: null,
+      token: devKey.apiKey,
+      createdAt: devKey.createdAt,
     };
   }
   return null;

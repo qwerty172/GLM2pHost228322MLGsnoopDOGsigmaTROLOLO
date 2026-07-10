@@ -307,6 +307,13 @@ router.post(
       res.status(404).json({ error: "User not found" });
       return;
     }
+    if (owner.type === "dev_key") {
+      // Out of scope for task-125: API keys are spend-only wallets (top up
+      // via deposit, spend via the embed widget). No withdrawal flow.
+      res.status(400).json({ error: "dev_key_no_withdrawal", message: "API keys cannot withdraw — deposit-only wallet" });
+      return;
+    }
+    const ownerType = owner.type;
 
     const amountUsdt = lztToUsdt(amountLzt);
     const amountUsdtStr = amountUsdt.toFixed(6);
@@ -315,7 +322,7 @@ router.post(
     try {
       const created = await db.transaction(async (tx) => {
         const ok = await recordWithdrawalDebit(tx, {
-          ownerType: owner.type,
+          ownerType,
           ownerId: owner.id,
           amountLzt,
           amountUsdtCents,

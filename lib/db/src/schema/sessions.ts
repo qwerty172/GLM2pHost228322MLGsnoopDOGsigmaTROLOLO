@@ -11,6 +11,7 @@ import { z } from "zod/v4";
 import { hostsTable } from "./hosts";
 import { playersTable } from "./players";
 import { gamesTable } from "./games";
+import { devKeysTable } from "./devKeys";
 
 export const sessionsTable = pgTable("sessions", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -30,6 +31,13 @@ export const sessionsTable = pgTable("sessions", {
     () => playersTable.id,
     { onDelete: "set null" },
   ),
+  // Set when this session was created through the embeddable widget
+  // (POST /embed/sessions). When present, the billing worker debits this
+  // dev key's balance instead of requiring claimedByPlayerId — there is no
+  // logged-in player behind an embed session.
+  devKeyId: uuid("dev_key_id").references(() => devKeysTable.id, {
+    onDelete: "set null",
+  }),
   appName: text("app_name").notNull(),
   status: text("status").notNull().default("pending"),
   resolution: text("resolution").notNull().default("1920x1080"),
@@ -71,6 +79,7 @@ export const insertSessionSchema = createInsertSchema(sessionsTable).omit({
   endedAt: true,
   lastBilledAt: true,
   claimedByPlayerId: true,
+  devKeyId: true,
 });
 export type InsertSession = z.infer<typeof insertSessionSchema>;
 export type Session = typeof sessionsTable.$inferSelect;

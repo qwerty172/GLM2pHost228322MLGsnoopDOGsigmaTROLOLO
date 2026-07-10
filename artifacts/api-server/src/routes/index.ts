@@ -18,6 +18,8 @@ import vdsRouter from "./vds";
 import quotaAiChatRouter from "./quotaAiChat";
 import enrichRouter from "./enrich";
 import vtRouter from "./vt";
+import devKeysRouter from "./devKeys";
+import embedRouter from "./embed";
 
 const router: IRouter = Router();
 
@@ -42,5 +44,7 @@ router.use(premiumRouter);
 router.use(vdsRouter);
 router.use(quotaAiChatRouter);
 router.use(vtRouter);
+router.use(devKeysRouter);
+router.use(embedRouter);
 
 export default router;

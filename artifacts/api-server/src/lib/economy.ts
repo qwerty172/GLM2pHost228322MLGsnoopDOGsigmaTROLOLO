@@ -20,6 +20,7 @@ import { randomUUID } from "node:crypto";
 import {
   hostsTable,
   playersTable,
+  devKeysTable,
   ledgerTable,
   loansTable,
   systemAccountsTable,
@@ -29,7 +30,10 @@ import type { NodePgQueryResultHKT } from "drizzle-orm/node-postgres";
 import type { ExtractTablesWithRelations } from "drizzle-orm";
 import * as schema from "@workspace/db/schema";
 
-export type OwnerType = "host" | "player";
+// "dev_key" is the widget-embed API key wallet — it shares the same
+// green/blue bucket columns as hosts/players (see lib/db/src/schema/devKeys.ts)
+// so it can flow through this module unmodified.
+export type OwnerType = "host" | "player" | "dev_key";
 export type UserBucket = "cash" | "balance";
 export type LedgerBucket = UserBucket | "debt" | "reserve" | "escrow";
 
@@ -45,7 +49,9 @@ export const SYSTEM_PLATFORM_FEES = "platform_fees";
 // ---------------------------------------------------------------- helpers
 
 function userTable(t: OwnerType) {
-  return t === "host" ? hostsTable : playersTable;
+  if (t === "host") return hostsTable;
+  if (t === "dev_key") return devKeysTable;
+  return playersTable;
 }
 
 async function getUserBalances(
@@ -527,7 +533,9 @@ import {
 export async function applyDepositCents(
   tx: DbTx,
   args: {
-    ownerType: OwnerType;
+    // Dev keys skip the tariff/premium machinery entirely — see
+    // creditDevKeyDeposit — so they are intentionally excluded here.
+    ownerType: Exclude<OwnerType, "dev_key">;
     ownerId: string;
     grossUsdtCents: number;
     refType?: string | null;
@@ -688,6 +696,84 @@ export async function applyDepositCents(
   };
 }
 
+// Credit a dev-key wallet with an on-chain deposit. Simpler than
+// applyDepositCents (which drives host/player tariff tiers and premium
+// grants — concepts that don't apply to API-key wallets): dev keys always
+// get the plain 50/50 cash/balance split with zero platform fee, since the
+// deposit-worker rate limiting and tariff logic exists to discourage abuse
+// by end users, not developer billing accounts.
+export async function creditDevKeyDeposit(
+  tx: DbTx,
+  args: {
+    devKeyId: string;
+    grossUsdtCents: number;
+    refType?: string | null;
+    refId?: string | null;
+  },
+): Promise<{ cashLzt: number; balanceLzt: number; newLifetimeCents: number }> {
+  const gross = Math.max(0, Math.floor(args.grossUsdtCents));
+  if (gross <= 0) return { cashLzt: 0, balanceLzt: 0, newLifetimeCents: 0 };
+  const grossLzt = gross * 2;
+
+  const balances = await getUserBalances(tx, "dev_key", args.devKeyId);
+  const split = splitPayoutLzt(grossLzt, balances?.debt ?? 0);
+  const groupId = randomUUID();
+
+  if (split.cash > 0)
+    await adjustUserBucket(tx, "dev_key", args.devKeyId, "cash", split.cash);
+  if (split.balance > 0)
+    await adjustUserBucket(
+      tx,
+      "dev_key",
+      args.devKeyId,
+      "balance",
+      split.balance,
+    );
+
+  await tx
+    .update(devKeysTable)
+    .set({
+      lifetimeDepositUsdtCents: sql`${devKeysTable.lifetimeDepositUsdtCents} + ${gross}`,
+    })
+    .where(eq(devKeysTable.id, args.devKeyId));
+
+  const rows: Parameters<typeof writeLedger>[1] = [];
+  if (split.cash > 0)
+    rows.push({
+      groupId,
+      kind: "deposit_credit",
+      ownerType: "dev_key",
+      ownerId: args.devKeyId,
+      bucket: "cash",
+      deltaLzt: split.cash,
+      refType: args.refType,
+      refId: args.refId,
+    });
+  if (split.balance > 0)
+    rows.push({
+      groupId,
+      kind: "deposit_credit",
+      ownerType: "dev_key",
+      ownerId: args.devKeyId,
+      bucket: "balance",
+      deltaLzt: split.balance,
+      refType: args.refType,
+      refId: args.refId,
+    });
+  await writeLedger(tx, rows);
+
+  const [row] = await tx
+    .select({ lifetime: devKeysTable.lifetimeDepositUsdtCents })
+    .from(devKeysTable)
+    .where(eq(devKeysTable.id, args.devKeyId));
+
+  return {
+    cashLzt: split.cash,
+    balanceLzt: split.balance,
+    newLifetimeCents: row?.lifetime ?? gross,
+  };
+}
+
 // ---------------------------------------------------------------- withdrawals
 
 // Record a withdrawal debit (the withdrawal row itself is created by the
@@ -696,7 +782,10 @@ export async function applyDepositCents(
 export async function recordWithdrawalDebit(
   tx: DbTx,
   args: {
-    ownerType: OwnerType;
+    // Dev-key withdrawals are out of scope for task-125 (key balance is
+    // spend-only from the widget's perspective); exclude to keep the
+    // maxWithdrawalUsdtCents stat column (host/player-only) type-safe.
+    ownerType: Exclude<OwnerType, "dev_key">;
     ownerId: string;
     amountLzt: number;
     amountUsdtCents: number;
