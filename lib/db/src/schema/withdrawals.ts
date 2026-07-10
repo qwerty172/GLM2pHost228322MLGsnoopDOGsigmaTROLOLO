@@ -4,6 +4,7 @@ import {
   uuid,
   timestamp,
   numeric,
+  index,
 } from "drizzle-orm/pg-core";
 
 export const withdrawalsTable = pgTable("withdrawals", {
@@ -18,6 +19,8 @@ export const withdrawalsTable = pgTable("withdrawals", {
     .notNull()
     .defaultNow(),
   completedAt: timestamp("completed_at", { withTimezone: true }),
-});
+}, (t) => ({
+  ownerIdx: index("withdrawals_owner_idx").on(t.ownerType, t.ownerId),
+}));
 
 export type Withdrawal = typeof withdrawalsTable.$inferSelect;

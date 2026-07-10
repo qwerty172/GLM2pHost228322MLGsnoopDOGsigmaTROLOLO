@@ -94,7 +94,21 @@ async function refundBlockRemainder(
   logger.info({ sessionId: session.id, refundLzt, minutesUsed }, "Block remainder refunded");
 }
 
+// Overlap guard: a billing cycle that runs long (DB contention) must not stack
+// with the next tick — concurrent runs risk double-billing / lock exhaustion.
+let isBilling = false;
+
 async function billOnce(): Promise<void> {
+  if (isBilling) return;
+  isBilling = true;
+  try {
+    await billOnceInner();
+  } finally {
+    isBilling = false;
+  }
+}
+
+async function billOnceInner(): Promise<void> {
   const now = new Date();
   const cutoff = new Date(now.getTime() - BILLING_INTERVAL_MS);
   const eligible = await db

@@ -12,8 +12,20 @@ import { creditOwnerGreen } from "./quotaEngine";
 
 const INTERVAL_MS = 60_000;
 let interval: NodeJS.Timeout | null = null;
+// Overlap guard: skip a tick if the previous run is still in flight.
+let isTicking = false;
 
 async function tickOnce(): Promise<void> {
+  if (isTicking) return;
+  isTicking = true;
+  try {
+    await tickOnceInner();
+  } finally {
+    isTicking = false;
+  }
+}
+
+async function tickOnceInner(): Promise<void> {
   const now = new Date();
   // 1. Mark `expired` for any active/paused quota past its end_at and
   //    refund any remaining sponsor escrow.

@@ -5,8 +5,20 @@ import { logger } from "./logger";
 const HEALTH_INTERVAL_MS = 30_000;
 const HOST_TIMEOUT_MS = 60_000;
 let interval: NodeJS.Timeout | null = null;
+// Overlap guard: skip a tick if the previous check is still running.
+let isChecking = false;
 
 async function healthCheck(): Promise<void> {
+  if (isChecking) return;
+  isChecking = true;
+  try {
+    await healthCheckInner();
+  } finally {
+    isChecking = false;
+  }
+}
+
+async function healthCheckInner(): Promise<void> {
   const cutoff = new Date(Date.now() - HOST_TIMEOUT_MS);
 
   const staleSessions = await db

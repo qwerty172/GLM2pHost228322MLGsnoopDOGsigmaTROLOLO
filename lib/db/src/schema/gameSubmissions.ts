@@ -4,6 +4,7 @@ import {
   uuid,
   timestamp,
   jsonb,
+  index,
 } from "drizzle-orm/pg-core";
 import { gamesTable } from "./games";
 import { hostsTable } from "./hosts";
@@ -58,6 +59,9 @@ export const gameSubmissionsTable = pgTable("game_submissions", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (t) => ({
+  hostIdx: index("game_submissions_host_idx").on(t.hostId),
+  statusIdx: index("game_submissions_status_idx").on(t.status),
+}));
 
 export type GameSubmission = typeof gameSubmissionsTable.$inferSelect;

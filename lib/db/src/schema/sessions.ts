@@ -59,6 +59,7 @@ export const sessionsTable = pgTable("sessions", {
 }, (t) => ({
   hostStatusIdx: index("sessions_host_status_idx").on(t.hostId, t.status),
   statusIdx: index("sessions_status_idx").on(t.status),
+  quotaIdx: index("sessions_quota_idx").on(t.quotaId),
 }));
 
 export const insertSessionSchema = createInsertSchema(sessionsTable).omit({

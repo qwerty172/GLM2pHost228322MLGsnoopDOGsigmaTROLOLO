@@ -1,4 +1,11 @@
-import { pgTable, uuid, timestamp, integer, text } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  uuid,
+  timestamp,
+  integer,
+  text,
+  index,
+} from "drizzle-orm/pg-core";
 
 // Each settlement (per-minute tick OR launch fee) records one row per bucket
 // affected on the host side. For session billing the host's cut is split 50/50
@@ -30,6 +37,9 @@ export const billingEventsTable = pgTable("billing_events", {
   billedAt: timestamp("billed_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (t) => ({
+  sessionIdx: index("billing_events_session_idx").on(t.sessionId),
+  quotaIdx: index("billing_events_quota_idx").on(t.quotaId),
+}));
 
 export type BillingEvent = typeof billingEventsTable.$inferSelect;

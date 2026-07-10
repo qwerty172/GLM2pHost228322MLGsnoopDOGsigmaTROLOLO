@@ -14,8 +14,20 @@ const CHECK_INTERVAL_MS = Number(
   process.env["LOAN_DEFAULT_CHECK_MS"] ?? 6 * 3600 * 1000,
 );
 let interval: NodeJS.Timeout | null = null;
+// Overlap guard: skip a tick if the previous run is still in flight.
+let isTicking = false;
 
 async function tick(now: Date = new Date()): Promise<void> {
+  if (isTicking) return;
+  isTicking = true;
+  try {
+    await tickInner(now);
+  } finally {
+    isTicking = false;
+  }
+}
+
+async function tickInner(now: Date = new Date()): Promise<void> {
   const cutoff = new Date(
     now.getTime() - DEFAULT_GRACE_DAYS * 24 * 3600 * 1000,
   );

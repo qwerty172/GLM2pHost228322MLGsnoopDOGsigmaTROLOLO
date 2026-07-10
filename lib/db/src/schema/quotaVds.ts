@@ -33,7 +33,11 @@ export const quotaVdsTable = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("quota_vds_quota_idx").on(t.quotaId)],
+  (t) => [
+    index("quota_vds_quota_idx").on(t.quotaId),
+    index("quota_vds_host_idx").on(t.hostId),
+    index("quota_vds_status_idx").on(t.status),
+  ],
 );
 
 export type QuotaVds = typeof quotaVdsTable.$inferSelect;
