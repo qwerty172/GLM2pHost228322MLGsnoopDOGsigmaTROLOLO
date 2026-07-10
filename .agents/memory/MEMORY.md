@@ -1,1 +1,2 @@
 - [Stale lib type declarations](stale-lib-types.md) — phantom TS errors after merges = rebuild lib/db composite dist; missing client fields = add to openapi.yaml + codegen.
+- [orval codegen breakage](js-yaml-orval-codegen.md) — pnpm can hoist js-yaml to ESM-only v5 (pin via pnpm.overrides); multi-line YAML descriptions with blank line + `>` can break generated JSDoc comments.

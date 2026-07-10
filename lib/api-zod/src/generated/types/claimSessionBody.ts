@@ -14,6 +14,4 @@ export interface ClaimSessionBody {
 зелёный (withdrawable) and falls back to синий (internal).
  */
   paymentSource?: ClaimSessionBodyPaymentSource;
-  /** Optional block-time reservation, in minutes (10/15/25) */
-  blockMinutes?: number;
 }

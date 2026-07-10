@@ -45,6 +45,12 @@ const FormStateSchema = z.object({
   minRamGb: z.number().nullish(),
   minDownloadMbps: z.number().nullish(),
   minUploadMbps: z.number().nullish(),
+  recGpuVram: z.number().nullish(),
+  recCpuCores: z.number().nullish(),
+  recRamGb: z.number().nullish(),
+  recDownloadMbps: z.number().nullish(),
+  recUploadMbps: z.number().nullish(),
+  requiredTier: z.string().optional(),
 });
 
 const GameSchema = z.object({ id: z.string(), title: z.string() });
@@ -98,7 +104,9 @@ const SYSTEM_PROMPT = `Ты — ИИ-помощник для заполнени�
 7. Для спонсорской квоты обязательно нужен budgetLzt > 0 и хотя бы одна ставка > 0.
 8. Для роялти обязательны royaltyBasis, royaltyValue и royaltySource.
 9. Если пользователь говорит «только быстрые хосты», «хорошее соединение», «стрим без фризов» — устанавливай minUploadMbps (рекомендуется ≥10 для 1080p, ≥20 для высококачественного стрима). Поясни это пользователю.
-10. Поля minGpuVram, minCpuCores, minRamGb, minDownloadMbps, minUploadMbps задают минимальные требования к хосту — квоту нельзя прикрепить к сессии хоста, чей ПК ниже этих порогов.`;
+10. Поля minGpuVram, minCpuCores, minRamGb, minDownloadMbps, minUploadMbps задают минимальные требования к хосту (жёсткий порог с учётом технологического запаса на стриминг) — квоту нельзя прикрепить к сессии хоста, чей ПК ниже этих порогов.
+11. Поля recGpuVram, recCpuCores, recRamGb, recDownloadMbps, recUploadMbps — рекомендуемые требования (должны быть >= min*). Задавай их, если пользователь хочет "топовый хост", "без просадок", "максимальное качество".
+12. requiredTier: "min" (по умолчанию) — достаточно соответствовать min*; "recommended" — квоту получат только хосты, прошедшие ПОЛНОСТЬЮ rec*-порог (жёстче). Ставь "recommended", если пользователь явно просит только лучшие/премиальные хосты.`;
 
 const updateFormFieldsTool: Anthropic.Tool = {
   name: "update_form_fields",
@@ -185,6 +193,31 @@ const updateFormFieldsTool: Anthropic.Tool = {
         type: "number",
         description: "Минимальная скорость аплоада в Мбит/с (рекомендуется ≥10 для 1080p стрима)",
       },
+      recGpuVram: {
+        type: "number",
+        description: "Рекомендуемый VRAM GPU в ГБ (>= minGpuVram)",
+      },
+      recCpuCores: {
+        type: "number",
+        description: "Рекомендуемое количество ядер CPU (>= minCpuCores)",
+      },
+      recRamGb: {
+        type: "number",
+        description: "Рекомендуемый объём RAM в ГБ (>= minRamGb)",
+      },
+      recDownloadMbps: {
+        type: "number",
+        description: "Рекомендуемая скорость скачивания в Мбит/с (>= minDownloadMbps)",
+      },
+      recUploadMbps: {
+        type: "number",
+        description: "Рекомендуемая скорость аплоада в Мбит/с (>= minUploadMbps)",
+      },
+      requiredTier: {
+        type: "string",
+        enum: ["min", "recommended"],
+        description: "\"min\" — хватает соответствия min*; \"recommended\" — только хосты, прошедшие rec*-порог",
+      },
     },
   },
 };
@@ -195,6 +228,8 @@ const VALID_FORM_PATCH_KEYS = new Set([
   "sponsorPlayerPerMinute", "gameId", "minSessionMinutes",
   "maxSessionMinutes", "startAt", "endAt",
   "minGpuVram", "minCpuCores", "minRamGb", "minDownloadMbps", "minUploadMbps",
+  "recGpuVram", "recCpuCores", "recRamGb", "recDownloadMbps", "recUploadMbps",
+  "requiredTier",
 ]);
 
 function sanitizeFormPatch(raw: Record<string, unknown>): Record<string, unknown> {

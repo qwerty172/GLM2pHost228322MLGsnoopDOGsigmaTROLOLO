@@ -29,10 +29,7 @@ export interface UpdateHostConfigBody {
   /** Pass empty string to clear the stored key. */
   streamKey?: string;
   /**
-   * Host service credit policy. When > 0, this host extends short-term
-in-game credit to new players who run out of LZT mid-session, up to
-this many minutes of play. Set to 0 to disable.
-
+   * Host service credit policy. When > 0, this host extends short-term in-game credit to new players who run out of LZT mid-session, up to this many minutes of play. Set to 0 to disable.
    * @minimum 0
    * @maximum 1440
    */

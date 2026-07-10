@@ -29,6 +29,12 @@ export type QuotaFormState = {
   minRamGb?: string;
   minDownloadMbps?: string;
   minUploadMbps?: string;
+  recGpuVram?: string;
+  recCpuCores?: string;
+  recRamGb?: string;
+  recDownloadMbps?: string;
+  recUploadMbps?: string;
+  requiredTier?: "min" | "recommended";
 };
 
 export type QuotaFormPatch = {
@@ -52,6 +58,12 @@ export type QuotaFormPatch = {
   minRamGb?: number | null;
   minDownloadMbps?: number | null;
   minUploadMbps?: number | null;
+  recGpuVram?: number | null;
+  recCpuCores?: number | null;
+  recRamGb?: number | null;
+  recDownloadMbps?: number | null;
+  recUploadMbps?: number | null;
+  requiredTier?: "min" | "recommended";
 };
 
 type Message = {

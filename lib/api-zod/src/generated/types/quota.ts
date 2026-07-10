@@ -7,6 +7,7 @@
  */
 import type { QuotaKind } from "./quotaKind";
 import type { QuotaOwnerType } from "./quotaOwnerType";
+import type { QuotaRequiredTier } from "./quotaRequiredTier";
 import type { QuotaStatus } from "./quotaStatus";
 import type { QuotaVisibility } from "./quotaVisibility";
 
@@ -75,6 +76,33 @@ export interface Quota {
    * @nullable
    */
   minUploadMbps: number | null;
+  /**
+   * Recommended GPU VRAM in GB (null = no recommended tier)
+   * @nullable
+   */
+  recGpuVram: number | null;
+  /**
+   * Recommended CPU core count (null = no recommended tier)
+   * @nullable
+   */
+  recCpuCores: number | null;
+  /**
+   * Recommended RAM in GB (null = no recommended tier)
+   * @nullable
+   */
+  recRamGb: number | null;
+  /**
+   * Recommended download bandwidth in Mbps (null = no recommended tier)
+   * @nullable
+   */
+  recDownloadMbps: number | null;
+  /**
+   * Recommended upload bandwidth in Mbps (null = no recommended tier)
+   * @nullable
+   */
+  recUploadMbps: number | null;
+  /** min = host just needs to clear min*; recommended = host must also clear every rec* threshold */
+  requiredTier: QuotaRequiredTier;
   createdAt: Date;
   updatedAt: Date;
 }

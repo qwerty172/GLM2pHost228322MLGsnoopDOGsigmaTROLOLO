@@ -111,6 +111,12 @@ export const GetHostResponse = zod.object({
     .describe("Per-borrower cap on host service credit, in LZT."),
   createdAt: zod.coerce.date(),
   lastSeenAt: zod.coerce.date(),
+  hostTier: zod
+    .enum(["below_min", "meets_min", "above_rec"])
+    .optional()
+    .describe(
+      "Quick general strength badge vs the site-wide baseline hardware profile (not tied to a specific quota)",
+    ),
 });
 
 /**
@@ -183,7 +189,7 @@ export const UpdateHostConfigBody = zod
       .max(updateHostConfigBodyCreditMinutesPerNewPlayerMax)
       .optional()
       .describe(
-        "Host service credit policy. When > 0, this host extends short-term\nin-game credit to new players who run out of LZT mid-session, up to\nthis many minutes of play. Set to 0 to disable.\n",
+        "Host service credit policy. When > 0, this host extends short-term in-game credit to new players who run out of LZT mid-session, up to this many minutes of play. Set to 0 to disable.",
       ),
     creditMaxLztPerPlayer: zod
       .number()
@@ -278,6 +284,12 @@ export const UpdateHostConfigResponse = zod.object({
     .describe("Per-borrower cap on host service credit, in LZT."),
   createdAt: zod.coerce.date(),
   lastSeenAt: zod.coerce.date(),
+  hostTier: zod
+    .enum(["below_min", "meets_min", "above_rec"])
+    .optional()
+    .describe(
+      "Quick general strength badge vs the site-wide baseline hardware profile (not tied to a specific quota)",
+    ),
 });
 
 /**
@@ -310,7 +322,19 @@ export const ListHostSessionsResponseItem = zod.object({
     .string()
     .nullish()
     .describe(
-      "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline.",
+      "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline, block_expired.",
+    ),
+  blockMinutes: zod
+    .number()
+    .nullish()
+    .describe(
+      "Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.",
+    ),
+  blockReservedLzt: zod
+    .number()
+    .nullish()
+    .describe(
+      "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
     ),
 });
 export const ListHostSessionsResponse = zod.array(ListHostSessionsResponseItem);
@@ -679,8 +703,18 @@ export const GetSessionResponse = zod.object({
     .describe(
       "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline, block_expired.",
     ),
-  blockMinutes: zod.number().nullish().describe("Block size in minutes (10, 15, or 25). Null = unlimited per-minute billing."),
-  blockReservedLzt: zod.number().nullish().describe("Total LZT reserved for the block at session start."),
+  blockMinutes: zod
+    .number()
+    .nullish()
+    .describe(
+      "Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.",
+    ),
+  blockReservedLzt: zod
+    .number()
+    .nullish()
+    .describe(
+      "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
+    ),
 });
 
 /**
@@ -715,8 +749,18 @@ export const GetSessionByPlayerTokenResponse = zod.object({
     .describe(
       "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline, block_expired.",
     ),
-  blockMinutes: zod.number().nullish().describe("Block size in minutes (10, 15, or 25). Null = unlimited per-minute billing."),
-  blockReservedLzt: zod.number().nullish().describe("Total LZT reserved for the block at session start."),
+  blockMinutes: zod
+    .number()
+    .nullish()
+    .describe(
+      "Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.",
+    ),
+  blockReservedLzt: zod
+    .number()
+    .nullish()
+    .describe(
+      "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
+    ),
 });
 
 /**
@@ -736,10 +780,6 @@ export const ClaimSessionBody = zod.object({
     .describe(
       'Which LZT bucket the player wants to pay from. \"auto\" prefers\nзелёный (withdrawable) and falls back to синий (internal).\n',
     ),
-  blockMinutes: zod
-    .union([zod.literal(10), zod.literal(15), zod.literal(25)])
-    .optional()
-    .describe("Optional block size. When set, the full block cost is reserved up-front and unused minutes are refunded on exit."),
 });
 
 export const ClaimSessionResponse = zod.object({
@@ -767,8 +807,18 @@ export const ClaimSessionResponse = zod.object({
     .describe(
       "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline, block_expired.",
     ),
-  blockMinutes: zod.number().nullish().describe("Block size in minutes (10, 15, or 25). Null = unlimited per-minute billing."),
-  blockReservedLzt: zod.number().nullish().describe("Total LZT reserved for the block at session start."),
+  blockMinutes: zod
+    .number()
+    .nullish()
+    .describe(
+      "Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.",
+    ),
+  blockReservedLzt: zod
+    .number()
+    .nullish()
+    .describe(
+      "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
+    ),
 });
 
 /**
@@ -805,7 +855,19 @@ export const EndSessionResponse = zod.object({
     .string()
     .nullish()
     .describe(
-      "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline.",
+      "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline, block_expired.",
+    ),
+  blockMinutes: zod
+    .number()
+    .nullish()
+    .describe(
+      "Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.",
+    ),
+  blockReservedLzt: zod
+    .number()
+    .nullish()
+    .describe(
+      "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
     ),
 });
 
@@ -886,6 +948,35 @@ export const ListPublicQuotasResponseItem = zod.object({
     .number()
     .nullable()
     .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
+  recGpuVram: zod
+    .number()
+    .nullable()
+    .describe("Recommended GPU VRAM in GB (null = no recommended tier)"),
+  recCpuCores: zod
+    .number()
+    .nullable()
+    .describe("Recommended CPU core count (null = no recommended tier)"),
+  recRamGb: zod
+    .number()
+    .nullable()
+    .describe("Recommended RAM in GB (null = no recommended tier)"),
+  recDownloadMbps: zod
+    .number()
+    .nullable()
+    .describe(
+      "Recommended download bandwidth in Mbps (null = no recommended tier)",
+    ),
+  recUploadMbps: zod
+    .number()
+    .nullable()
+    .describe(
+      "Recommended upload bandwidth in Mbps (null = no recommended tier)",
+    ),
+  requiredTier: zod
+    .enum(["min", "recommended"])
+    .describe(
+      "min = host just needs to clear min\*; recommended = host must also clear every rec\* threshold",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -916,6 +1007,14 @@ export const CreateQuotaBody = zod.object({
   minRamGb: zod.number().nullish(),
   minDownloadMbps: zod.number().nullish(),
   minUploadMbps: zod.number().nullish(),
+  recGpuVram: zod.number().nullish(),
+  recCpuCores: zod.number().nullish(),
+  recRamGb: zod.number().nullish(),
+  recDownloadMbps: zod.number().nullish(),
+  recUploadMbps: zod.number().nullish(),
+  requiredTier: zod
+    .union([zod.literal("min"), zod.literal("recommended"), zod.literal(null)])
+    .nullish(),
 });
 
 /**
@@ -979,6 +1078,35 @@ export const ListMyQuotasResponseItem = zod.object({
     .number()
     .nullable()
     .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
+  recGpuVram: zod
+    .number()
+    .nullable()
+    .describe("Recommended GPU VRAM in GB (null = no recommended tier)"),
+  recCpuCores: zod
+    .number()
+    .nullable()
+    .describe("Recommended CPU core count (null = no recommended tier)"),
+  recRamGb: zod
+    .number()
+    .nullable()
+    .describe("Recommended RAM in GB (null = no recommended tier)"),
+  recDownloadMbps: zod
+    .number()
+    .nullable()
+    .describe(
+      "Recommended download bandwidth in Mbps (null = no recommended tier)",
+    ),
+  recUploadMbps: zod
+    .number()
+    .nullable()
+    .describe(
+      "Recommended upload bandwidth in Mbps (null = no recommended tier)",
+    ),
+  requiredTier: zod
+    .enum(["min", "recommended"])
+    .describe(
+      "min = host just needs to clear min\*; recommended = host must also clear every rec\* threshold",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1045,6 +1173,35 @@ export const ListAppliedQuotasResponseItem = zod.object({
     .number()
     .nullable()
     .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
+  recGpuVram: zod
+    .number()
+    .nullable()
+    .describe("Recommended GPU VRAM in GB (null = no recommended tier)"),
+  recCpuCores: zod
+    .number()
+    .nullable()
+    .describe("Recommended CPU core count (null = no recommended tier)"),
+  recRamGb: zod
+    .number()
+    .nullable()
+    .describe("Recommended RAM in GB (null = no recommended tier)"),
+  recDownloadMbps: zod
+    .number()
+    .nullable()
+    .describe(
+      "Recommended download bandwidth in Mbps (null = no recommended tier)",
+    ),
+  recUploadMbps: zod
+    .number()
+    .nullable()
+    .describe(
+      "Recommended upload bandwidth in Mbps (null = no recommended tier)",
+    ),
+  requiredTier: zod
+    .enum(["min", "recommended"])
+    .describe(
+      "min = host just needs to clear min\*; recommended = host must also clear every rec\* threshold",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1113,6 +1270,35 @@ export const MatchQuotasForHostResponseItem = zod.object({
     .number()
     .nullable()
     .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
+  recGpuVram: zod
+    .number()
+    .nullable()
+    .describe("Recommended GPU VRAM in GB (null = no recommended tier)"),
+  recCpuCores: zod
+    .number()
+    .nullable()
+    .describe("Recommended CPU core count (null = no recommended tier)"),
+  recRamGb: zod
+    .number()
+    .nullable()
+    .describe("Recommended RAM in GB (null = no recommended tier)"),
+  recDownloadMbps: zod
+    .number()
+    .nullable()
+    .describe(
+      "Recommended download bandwidth in Mbps (null = no recommended tier)",
+    ),
+  recUploadMbps: zod
+    .number()
+    .nullable()
+    .describe(
+      "Recommended upload bandwidth in Mbps (null = no recommended tier)",
+    ),
+  requiredTier: zod
+    .enum(["min", "recommended"])
+    .describe(
+      "min = host just needs to clear min\*; recommended = host must also clear every rec\* threshold",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1183,6 +1369,35 @@ export const GetHostCurrentQuotaResponse = zod.object({
         .number()
         .nullable()
         .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
+      recGpuVram: zod
+        .number()
+        .nullable()
+        .describe("Recommended GPU VRAM in GB (null = no recommended tier)"),
+      recCpuCores: zod
+        .number()
+        .nullable()
+        .describe("Recommended CPU core count (null = no recommended tier)"),
+      recRamGb: zod
+        .number()
+        .nullable()
+        .describe("Recommended RAM in GB (null = no recommended tier)"),
+      recDownloadMbps: zod
+        .number()
+        .nullable()
+        .describe(
+          "Recommended download bandwidth in Mbps (null = no recommended tier)",
+        ),
+      recUploadMbps: zod
+        .number()
+        .nullable()
+        .describe(
+          "Recommended upload bandwidth in Mbps (null = no recommended tier)",
+        ),
+      requiredTier: zod
+        .enum(["min", "recommended"])
+        .describe(
+          "min = host just needs to clear min\*; recommended = host must also clear every rec\* threshold",
+        ),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date(),
     })
@@ -1279,6 +1494,35 @@ export const ListApplicableQuotasResponseItem = zod.object({
     .number()
     .nullable()
     .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
+  recGpuVram: zod
+    .number()
+    .nullable()
+    .describe("Recommended GPU VRAM in GB (null = no recommended tier)"),
+  recCpuCores: zod
+    .number()
+    .nullable()
+    .describe("Recommended CPU core count (null = no recommended tier)"),
+  recRamGb: zod
+    .number()
+    .nullable()
+    .describe("Recommended RAM in GB (null = no recommended tier)"),
+  recDownloadMbps: zod
+    .number()
+    .nullable()
+    .describe(
+      "Recommended download bandwidth in Mbps (null = no recommended tier)",
+    ),
+  recUploadMbps: zod
+    .number()
+    .nullable()
+    .describe(
+      "Recommended upload bandwidth in Mbps (null = no recommended tier)",
+    ),
+  requiredTier: zod
+    .enum(["min", "recommended"])
+    .describe(
+      "min = host just needs to clear min\*; recommended = host must also clear every rec\* threshold",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1352,6 +1596,35 @@ export const GetQuotaResponse = zod
       .number()
       .nullable()
       .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
+    recGpuVram: zod
+      .number()
+      .nullable()
+      .describe("Recommended GPU VRAM in GB (null = no recommended tier)"),
+    recCpuCores: zod
+      .number()
+      .nullable()
+      .describe("Recommended CPU core count (null = no recommended tier)"),
+    recRamGb: zod
+      .number()
+      .nullable()
+      .describe("Recommended RAM in GB (null = no recommended tier)"),
+    recDownloadMbps: zod
+      .number()
+      .nullable()
+      .describe(
+        "Recommended download bandwidth in Mbps (null = no recommended tier)",
+      ),
+    recUploadMbps: zod
+      .number()
+      .nullable()
+      .describe(
+        "Recommended upload bandwidth in Mbps (null = no recommended tier)",
+      ),
+    requiredTier: zod
+      .enum(["min", "recommended"])
+      .describe(
+        "min = host just needs to clear min\*; recommended = host must also clear every rec\* threshold",
+      ),
     createdAt: zod.coerce.date(),
     updatedAt: zod.coerce.date(),
   })
@@ -1402,6 +1675,14 @@ export const UpdateQuotaBody = zod.object({
   minRamGb: zod.number().nullish(),
   minDownloadMbps: zod.number().nullish(),
   minUploadMbps: zod.number().nullish(),
+  recGpuVram: zod.number().nullish(),
+  recCpuCores: zod.number().nullish(),
+  recRamGb: zod.number().nullish(),
+  recDownloadMbps: zod.number().nullish(),
+  recUploadMbps: zod.number().nullish(),
+  requiredTier: zod
+    .union([zod.literal("min"), zod.literal("recommended"), zod.literal(null)])
+    .nullish(),
 });
 
 export const UpdateQuotaResponse = zod.object({
@@ -1458,6 +1739,35 @@ export const UpdateQuotaResponse = zod.object({
     .number()
     .nullable()
     .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
+  recGpuVram: zod
+    .number()
+    .nullable()
+    .describe("Recommended GPU VRAM in GB (null = no recommended tier)"),
+  recCpuCores: zod
+    .number()
+    .nullable()
+    .describe("Recommended CPU core count (null = no recommended tier)"),
+  recRamGb: zod
+    .number()
+    .nullable()
+    .describe("Recommended RAM in GB (null = no recommended tier)"),
+  recDownloadMbps: zod
+    .number()
+    .nullable()
+    .describe(
+      "Recommended download bandwidth in Mbps (null = no recommended tier)",
+    ),
+  recUploadMbps: zod
+    .number()
+    .nullable()
+    .describe(
+      "Recommended upload bandwidth in Mbps (null = no recommended tier)",
+    ),
+  requiredTier: zod
+    .enum(["min", "recommended"])
+    .describe(
+      "min = host just needs to clear min\*; recommended = host must also clear every rec\* threshold",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1527,6 +1837,35 @@ export const PublishQuotaResponse = zod.object({
     .number()
     .nullable()
     .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
+  recGpuVram: zod
+    .number()
+    .nullable()
+    .describe("Recommended GPU VRAM in GB (null = no recommended tier)"),
+  recCpuCores: zod
+    .number()
+    .nullable()
+    .describe("Recommended CPU core count (null = no recommended tier)"),
+  recRamGb: zod
+    .number()
+    .nullable()
+    .describe("Recommended RAM in GB (null = no recommended tier)"),
+  recDownloadMbps: zod
+    .number()
+    .nullable()
+    .describe(
+      "Recommended download bandwidth in Mbps (null = no recommended tier)",
+    ),
+  recUploadMbps: zod
+    .number()
+    .nullable()
+    .describe(
+      "Recommended upload bandwidth in Mbps (null = no recommended tier)",
+    ),
+  requiredTier: zod
+    .enum(["min", "recommended"])
+    .describe(
+      "min = host just needs to clear min\*; recommended = host must also clear every rec\* threshold",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1596,6 +1935,35 @@ export const PauseQuotaResponse = zod.object({
     .number()
     .nullable()
     .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
+  recGpuVram: zod
+    .number()
+    .nullable()
+    .describe("Recommended GPU VRAM in GB (null = no recommended tier)"),
+  recCpuCores: zod
+    .number()
+    .nullable()
+    .describe("Recommended CPU core count (null = no recommended tier)"),
+  recRamGb: zod
+    .number()
+    .nullable()
+    .describe("Recommended RAM in GB (null = no recommended tier)"),
+  recDownloadMbps: zod
+    .number()
+    .nullable()
+    .describe(
+      "Recommended download bandwidth in Mbps (null = no recommended tier)",
+    ),
+  recUploadMbps: zod
+    .number()
+    .nullable()
+    .describe(
+      "Recommended upload bandwidth in Mbps (null = no recommended tier)",
+    ),
+  requiredTier: zod
+    .enum(["min", "recommended"])
+    .describe(
+      "min = host just needs to clear min\*; recommended = host must also clear every rec\* threshold",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1665,6 +2033,35 @@ export const CloseQuotaResponse = zod.object({
     .number()
     .nullable()
     .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
+  recGpuVram: zod
+    .number()
+    .nullable()
+    .describe("Recommended GPU VRAM in GB (null = no recommended tier)"),
+  recCpuCores: zod
+    .number()
+    .nullable()
+    .describe("Recommended CPU core count (null = no recommended tier)"),
+  recRamGb: zod
+    .number()
+    .nullable()
+    .describe("Recommended RAM in GB (null = no recommended tier)"),
+  recDownloadMbps: zod
+    .number()
+    .nullable()
+    .describe(
+      "Recommended download bandwidth in Mbps (null = no recommended tier)",
+    ),
+  recUploadMbps: zod
+    .number()
+    .nullable()
+    .describe(
+      "Recommended upload bandwidth in Mbps (null = no recommended tier)",
+    ),
+  requiredTier: zod
+    .enum(["min", "recommended"])
+    .describe(
+      "min = host just needs to clear min\*; recommended = host must also clear every rec\* threshold",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1687,6 +2084,11 @@ export const AiSuggestQuotaSpecsResponse = zod.object({
   minRamGb: zod.number(),
   minDownloadMbps: zod.number(),
   minUploadMbps: zod.number(),
+  recGpuVram: zod.number(),
+  recCpuCores: zod.number(),
+  recRamGb: zod.number(),
+  recDownloadMbps: zod.number(),
+  recUploadMbps: zod.number(),
 });
 
 /**
@@ -1754,6 +2156,35 @@ export const RegenerateQuotaCodeResponse = zod.object({
     .number()
     .nullable()
     .describe("Minimum upload bandwidth in Mbps (null = no requirement)"),
+  recGpuVram: zod
+    .number()
+    .nullable()
+    .describe("Recommended GPU VRAM in GB (null = no recommended tier)"),
+  recCpuCores: zod
+    .number()
+    .nullable()
+    .describe("Recommended CPU core count (null = no recommended tier)"),
+  recRamGb: zod
+    .number()
+    .nullable()
+    .describe("Recommended RAM in GB (null = no recommended tier)"),
+  recDownloadMbps: zod
+    .number()
+    .nullable()
+    .describe(
+      "Recommended download bandwidth in Mbps (null = no recommended tier)",
+    ),
+  recUploadMbps: zod
+    .number()
+    .nullable()
+    .describe(
+      "Recommended upload bandwidth in Mbps (null = no recommended tier)",
+    ),
+  requiredTier: zod
+    .enum(["min", "recommended"])
+    .describe(
+      "min = host just needs to clear min\*; recommended = host must also clear every rec\* threshold",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

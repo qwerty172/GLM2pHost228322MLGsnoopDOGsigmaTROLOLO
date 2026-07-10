@@ -1623,6 +1623,10 @@ components:
         lastSeenAt:
           type: string
           format: date-time
+        hostTier:
+          type: string
+          enum: [below_min, meets_min, above_rec]
+          description: Quick general strength badge vs the site-wide baseline hardware profile (not tied to a specific quota)
       required:
         - id
         - hostToken
@@ -1688,10 +1692,7 @@ components:
           type: integer
           minimum: 0
           maximum: 1440
-          description: |
-            Host service credit policy. When > 0, this host extends short-term
-            in-game credit to new players who run out of LZT mid-session, up to
-            this many minutes of play. Set to 0 to disable.
+          description: "Host service credit policy. When > 0, this host extends short-term in-game credit to new players who run out of LZT mid-session, up to this many minutes of play. Set to 0 to disable."
         creditMaxLztPerPlayer:
           type: integer
           minimum: 0
@@ -2326,6 +2327,25 @@ components:
         minUploadMbps:
           type: ["integer", "null"]
           description: Minimum upload bandwidth in Mbps (null = no requirement)
+        recGpuVram:
+          type: ["integer", "null"]
+          description: Recommended GPU VRAM in GB (null = no recommended tier)
+        recCpuCores:
+          type: ["integer", "null"]
+          description: Recommended CPU core count (null = no recommended tier)
+        recRamGb:
+          type: ["integer", "null"]
+          description: Recommended RAM in GB (null = no recommended tier)
+        recDownloadMbps:
+          type: ["integer", "null"]
+          description: Recommended download bandwidth in Mbps (null = no recommended tier)
+        recUploadMbps:
+          type: ["integer", "null"]
+          description: Recommended upload bandwidth in Mbps (null = no recommended tier)
+        requiredTier:
+          type: string
+          enum: [min, recommended]
+          description: "min = host just needs to clear min*; recommended = host must also clear every rec* threshold"
         createdAt:
           type: string
           format: date-time
@@ -2361,6 +2381,12 @@ components:
         - minRamGb
         - minDownloadMbps
         - minUploadMbps
+        - recGpuVram
+        - recCpuCores
+        - recRamGb
+        - recDownloadMbps
+        - recUploadMbps
+        - requiredTier
         - createdAt
         - updatedAt
 
@@ -2459,6 +2485,19 @@ components:
           type: ["integer", "null"]
         minUploadMbps:
           type: ["integer", "null"]
+        recGpuVram:
+          type: ["integer", "null"]
+        recCpuCores:
+          type: ["integer", "null"]
+        recRamGb:
+          type: ["integer", "null"]
+        recDownloadMbps:
+          type: ["integer", "null"]
+        recUploadMbps:
+          type: ["integer", "null"]
+        requiredTier:
+          type: ["string", "null"]
+          enum: [min, recommended, null]
       required:
         - ownerToken
         - kind
@@ -2508,6 +2547,19 @@ components:
           type: ["integer", "null"]
         minUploadMbps:
           type: ["integer", "null"]
+        recGpuVram:
+          type: ["integer", "null"]
+        recCpuCores:
+          type: ["integer", "null"]
+        recRamGb:
+          type: ["integer", "null"]
+        recDownloadMbps:
+          type: ["integer", "null"]
+        recUploadMbps:
+          type: ["integer", "null"]
+        requiredTier:
+          type: ["string", "null"]
+          enum: [min, recommended, null]
       required:
         - ownerToken
 
@@ -2536,12 +2588,27 @@ components:
           type: integer
         minUploadMbps:
           type: integer
+        recGpuVram:
+          type: integer
+        recCpuCores:
+          type: integer
+        recRamGb:
+          type: integer
+        recDownloadMbps:
+          type: integer
+        recUploadMbps:
+          type: integer
       required:
         - minGpuVram
         - minCpuCores
         - minRamGb
         - minDownloadMbps
         - minUploadMbps
+        - recGpuVram
+        - recCpuCores
+        - recRamGb
+        - recDownloadMbps
+        - recUploadMbps
 
     QuotaOwnerBody:
       type: object

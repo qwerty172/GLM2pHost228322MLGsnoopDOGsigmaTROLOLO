@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2 } from "lucide-react";
 import { QuotaAiChat, type QuotaFormPatch } from "@/components/quota-ai-chat";
 
@@ -54,6 +55,12 @@ export default function QuotaEditPage() {
   const [minRamGb, setMinRamGb] = useState<string>("");
   const [minDownloadMbps, setMinDownloadMbps] = useState<string>("");
   const [minUploadMbps, setMinUploadMbps] = useState<string>("");
+  const [recGpuVram, setRecGpuVram] = useState<string>("");
+  const [recCpuCores, setRecCpuCores] = useState<string>("");
+  const [recRamGb, setRecRamGb] = useState<string>("");
+  const [recDownloadMbps, setRecDownloadMbps] = useState<string>("");
+  const [recUploadMbps, setRecUploadMbps] = useState<string>("");
+  const [requiredTier, setRequiredTier] = useState<"min" | "recommended">("min");
 
   const { data: games } = useListGames({});
 
@@ -78,6 +85,12 @@ export default function QuotaEditPage() {
     setMinRamGb(quota.minRamGb != null ? String(quota.minRamGb) : "");
     setMinDownloadMbps(quota.minDownloadMbps != null ? String(quota.minDownloadMbps) : "");
     setMinUploadMbps(quota.minUploadMbps != null ? String(quota.minUploadMbps) : "");
+    setRecGpuVram(quota.recGpuVram != null ? String(quota.recGpuVram) : "");
+    setRecCpuCores(quota.recCpuCores != null ? String(quota.recCpuCores) : "");
+    setRecRamGb(quota.recRamGb != null ? String(quota.recRamGb) : "");
+    setRecDownloadMbps(quota.recDownloadMbps != null ? String(quota.recDownloadMbps) : "");
+    setRecUploadMbps(quota.recUploadMbps != null ? String(quota.recUploadMbps) : "");
+    setRequiredTier(quota.requiredTier === "recommended" ? "recommended" : "min");
   }, [quota]);
 
   if (isLoading || !quota) {
@@ -133,6 +146,12 @@ export default function QuotaEditPage() {
           minRamGb: minRamGb ? Math.floor(Number(minRamGb)) : null,
           minDownloadMbps: minDownloadMbps ? Math.floor(Number(minDownloadMbps)) : null,
           minUploadMbps: minUploadMbps ? Math.floor(Number(minUploadMbps)) : null,
+          recGpuVram: recGpuVram ? Math.floor(Number(recGpuVram)) : null,
+          recCpuCores: recCpuCores ? Math.floor(Number(recCpuCores)) : null,
+          recRamGb: recRamGb ? Math.floor(Number(recRamGb)) : null,
+          recDownloadMbps: recDownloadMbps ? Math.floor(Number(recDownloadMbps)) : null,
+          recUploadMbps: recUploadMbps ? Math.floor(Number(recUploadMbps)) : null,
+          requiredTier,
         },
       });
       toast.success("Изменения сохранены");
@@ -158,6 +177,12 @@ export default function QuotaEditPage() {
     if (patch.minRamGb !== undefined) setMinRamGb(patch.minRamGb !== null ? String(patch.minRamGb) : "");
     if (patch.minDownloadMbps !== undefined) setMinDownloadMbps(patch.minDownloadMbps !== null ? String(patch.minDownloadMbps) : "");
     if (patch.minUploadMbps !== undefined) setMinUploadMbps(patch.minUploadMbps !== null ? String(patch.minUploadMbps) : "");
+    if (patch.recGpuVram !== undefined) setRecGpuVram(patch.recGpuVram !== null ? String(patch.recGpuVram) : "");
+    if (patch.recCpuCores !== undefined) setRecCpuCores(patch.recCpuCores !== null ? String(patch.recCpuCores) : "");
+    if (patch.recRamGb !== undefined) setRecRamGb(patch.recRamGb !== null ? String(patch.recRamGb) : "");
+    if (patch.recDownloadMbps !== undefined) setRecDownloadMbps(patch.recDownloadMbps !== null ? String(patch.recDownloadMbps) : "");
+    if (patch.recUploadMbps !== undefined) setRecUploadMbps(patch.recUploadMbps !== null ? String(patch.recUploadMbps) : "");
+    if (patch.requiredTier && (patch.requiredTier === "min" || patch.requiredTier === "recommended")) setRequiredTier(patch.requiredTier);
   };
 
   const currentFormState = {
@@ -176,6 +201,17 @@ export default function QuotaEditPage() {
     maxSessionMinutes,
     startAt: "",
     endAt,
+    minGpuVram,
+    minCpuCores,
+    minRamGb,
+    minDownloadMbps,
+    minUploadMbps,
+    recGpuVram,
+    recCpuCores,
+    recRamGb,
+    recDownloadMbps,
+    recUploadMbps,
+    requiredTier,
   };
 
   return (
@@ -406,6 +442,121 @@ export default function QuotaEditPage() {
                     <p className="text-xs text-slate-500 mt-1">
                       Рекомендуется ≥10 для 1080p стрима.
                     </p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card style={cardStyle}>
+                <CardHeader>
+                  <CardTitle className="text-white">Рекомендуемая мощность ПК</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-slate-300">VRAM GPU, ГБ</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={recGpuVram}
+                        onChange={(e) => setRecGpuVram(e.target.value)}
+                        placeholder="без ограничения"
+                        style={inputStyle}
+                        className="mt-1"
+                        data-testid="input-rec-gpu-vram"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">Ядра CPU</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={recCpuCores}
+                        onChange={(e) => setRecCpuCores(e.target.value)}
+                        placeholder="без ограничения"
+                        style={inputStyle}
+                        className="mt-1"
+                        data-testid="input-rec-cpu-cores"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-slate-300">RAM, ГБ</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={recRamGb}
+                        onChange={(e) => setRecRamGb(e.target.value)}
+                        placeholder="без ограничения"
+                        style={inputStyle}
+                        className="mt-1"
+                        data-testid="input-rec-ram-gb"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">Скачивание, Мбит/с</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={recDownloadMbps}
+                        onChange={(e) => setRecDownloadMbps(e.target.value)}
+                        placeholder="без ограничения"
+                        style={inputStyle}
+                        className="mt-1"
+                        data-testid="input-rec-download-mbps"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-slate-300">Рек. скорость аплоада, Мбит/с</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={recUploadMbps}
+                      onChange={(e) => setRecUploadMbps(e.target.value)}
+                      placeholder="без ограничения"
+                      style={inputStyle}
+                      className="mt-1"
+                      data-testid="input-rec-upload-mbps"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-slate-300">Требуемый уровень хоста</Label>
+                    <RadioGroup
+                      value={requiredTier}
+                      onValueChange={(v) => setRequiredTier(v as "min" | "recommended")}
+                      className="grid grid-cols-2 gap-3 mt-2"
+                    >
+                      {[
+                        { v: "min", label: "Достаточно минимума" },
+                        { v: "recommended", label: "Только топовые хосты" },
+                      ].map((opt) => (
+                        <div key={opt.v}>
+                          <RadioGroupItem
+                            value={opt.v}
+                            id={`edit-tier-${opt.v}`}
+                            className="peer sr-only"
+                          />
+                          <Label
+                            htmlFor={`edit-tier-${opt.v}`}
+                            className="flex justify-center rounded-md py-2 text-sm cursor-pointer text-center"
+                            style={{
+                              background:
+                                requiredTier === opt.v
+                                  ? "rgba(139,92,246,0.12)"
+                                  : "rgba(255,255,255,0.02)",
+                              border:
+                                requiredTier === opt.v
+                                  ? "2px solid #8b5cf6"
+                                  : "2px solid rgba(255,255,255,0.06)",
+                              color: requiredTier === opt.v ? "#fff" : "#94a3b8",
+                            }}
+                            data-testid={`radio-required-tier-${opt.v}`}
+                          >
+                            {opt.label}
+                          </Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
                   </div>
                 </CardContent>
               </Card>

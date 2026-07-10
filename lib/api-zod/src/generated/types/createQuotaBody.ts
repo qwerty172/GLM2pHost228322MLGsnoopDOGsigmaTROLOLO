@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CreateQuotaBodyKind } from "./createQuotaBodyKind";
+import type { CreateQuotaBodyRequiredTier } from "./createQuotaBodyRequiredTier";
 import type { CreateQuotaBodyVisibility } from "./createQuotaBodyVisibility";
 
 export interface CreateQuotaBody {
@@ -46,4 +47,16 @@ export interface CreateQuotaBody {
   minDownloadMbps?: number | null;
   /** @nullable */
   minUploadMbps?: number | null;
+  /** @nullable */
+  recGpuVram?: number | null;
+  /** @nullable */
+  recCpuCores?: number | null;
+  /** @nullable */
+  recRamGb?: number | null;
+  /** @nullable */
+  recDownloadMbps?: number | null;
+  /** @nullable */
+  recUploadMbps?: number | null;
+  /** @nullable */
+  requiredTier?: CreateQuotaBodyRequiredTier;
 }

@@ -65,6 +65,19 @@ export const quotasTable = pgTable(
     minDownloadMbps: integer("min_download_mbps"), // Mbps
     minUploadMbps: integer("min_upload_mbps"),     // Mbps
 
+    // ---- Recommended PC specs (optional, stricter tier) ----
+    // When set, a host must clear ALL of these (in addition to the min*
+    // floor) to count as "above recommended" for this quota. NULL = no
+    // recommended tier defined, only the min* floor applies.
+    recGpuVram: integer("rec_gpu_vram"),
+    recCpuCores: integer("rec_cpu_cores"),
+    recRamGb: integer("rec_ram_gb"),
+    recDownloadMbps: integer("rec_download_mbps"),
+    recUploadMbps: integer("rec_upload_mbps"),
+    // "min" → any host meeting the min* floor can attach (default).
+    // "recommended" → only hosts clearing every rec* threshold can attach.
+    requiredTier: text("required_tier").notNull().default("min"),
+
     startAt: timestamp("start_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

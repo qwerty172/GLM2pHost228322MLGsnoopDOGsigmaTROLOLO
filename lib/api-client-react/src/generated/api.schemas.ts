@@ -61,6 +61,17 @@ export const HostScheduleMode = {
   scheduled: "scheduled",
 } as const;
 
+/**
+ * Quick general strength badge vs the site-wide baseline hardware profile (not tied to a specific quota)
+ */
+export type HostHostTier = (typeof HostHostTier)[keyof typeof HostHostTier];
+
+export const HostHostTier = {
+  below_min: "below_min",
+  meets_min: "meets_min",
+  above_rec: "above_rec",
+} as const;
+
 export interface Host {
   id: string;
   hostToken: string;
@@ -100,6 +111,8 @@ export interface Host {
   creditMaxLztPerPlayer: number;
   createdAt: string;
   lastSeenAt: string;
+  /** Quick general strength badge vs the site-wide baseline hardware profile (not tied to a specific quota) */
+  hostTier?: HostHostTier;
 }
 
 export type UpdateHostConfigBodyScheduleMode =
@@ -131,10 +144,7 @@ export interface UpdateHostConfigBody {
   /** Pass empty string to clear the stored key. */
   streamKey?: string;
   /**
-   * Host service credit policy. When > 0, this host extends short-term
-in-game credit to new players who run out of LZT mid-session, up to
-this many minutes of play. Set to 0 to disable.
-
+   * Host service credit policy. When > 0, this host extends short-term in-game credit to new players who run out of LZT mid-session, up to this many minutes of play. Set to 0 to disable.
    * @minimum 0
    * @maximum 1440
    */
@@ -255,10 +265,20 @@ export interface Session {
   /** @nullable */
   endedAt?: string | null;
   /**
-   * Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline.
+   * Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline, block_expired.
    * @nullable
    */
   endReason?: string | null;
+  /**
+   * Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.
+   * @nullable
+   */
+  blockMinutes?: number | null;
+  /**
+   * Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.
+   * @nullable
+   */
+  blockReservedLzt?: number | null;
 }
 
 export interface EndSessionBody {
@@ -480,6 +500,17 @@ export const QuotaVisibility = {
   private: "private",
 } as const;
 
+/**
+ * min = host just needs to clear min*; recommended = host must also clear every rec* threshold
+ */
+export type QuotaRequiredTier =
+  (typeof QuotaRequiredTier)[keyof typeof QuotaRequiredTier];
+
+export const QuotaRequiredTier = {
+  min: "min",
+  recommended: "recommended",
+} as const;
+
 export interface Quota {
   id: string;
   ownerType: QuotaOwnerType;
@@ -545,6 +576,33 @@ export interface Quota {
    * @nullable
    */
   minUploadMbps: number | null;
+  /**
+   * Recommended GPU VRAM in GB (null = no recommended tier)
+   * @nullable
+   */
+  recGpuVram: number | null;
+  /**
+   * Recommended CPU core count (null = no recommended tier)
+   * @nullable
+   */
+  recCpuCores: number | null;
+  /**
+   * Recommended RAM in GB (null = no recommended tier)
+   * @nullable
+   */
+  recRamGb: number | null;
+  /**
+   * Recommended download bandwidth in Mbps (null = no recommended tier)
+   * @nullable
+   */
+  recDownloadMbps: number | null;
+  /**
+   * Recommended upload bandwidth in Mbps (null = no recommended tier)
+   * @nullable
+   */
+  recUploadMbps: number | null;
+  /** min = host just needs to clear min*; recommended = host must also clear every rec* threshold */
+  requiredTier: QuotaRequiredTier;
   createdAt: string;
   updatedAt: string;
 }
@@ -580,6 +638,18 @@ export type CreateQuotaBodyVisibility =
 export const CreateQuotaBodyVisibility = {
   public: "public",
   private: "private",
+} as const;
+
+/**
+ * @nullable
+ */
+export type CreateQuotaBodyRequiredTier =
+  | (typeof CreateQuotaBodyRequiredTier)[keyof typeof CreateQuotaBodyRequiredTier]
+  | null;
+
+export const CreateQuotaBodyRequiredTier = {
+  min: "min",
+  recommended: "recommended",
 } as const;
 
 export interface CreateQuotaBody {
@@ -620,6 +690,18 @@ export interface CreateQuotaBody {
   minDownloadMbps?: number | null;
   /** @nullable */
   minUploadMbps?: number | null;
+  /** @nullable */
+  recGpuVram?: number | null;
+  /** @nullable */
+  recCpuCores?: number | null;
+  /** @nullable */
+  recRamGb?: number | null;
+  /** @nullable */
+  recDownloadMbps?: number | null;
+  /** @nullable */
+  recUploadMbps?: number | null;
+  /** @nullable */
+  requiredTier?: CreateQuotaBodyRequiredTier;
 }
 
 export type UpdateQuotaBodyVisibility =
@@ -628,6 +710,18 @@ export type UpdateQuotaBodyVisibility =
 export const UpdateQuotaBodyVisibility = {
   public: "public",
   private: "private",
+} as const;
+
+/**
+ * @nullable
+ */
+export type UpdateQuotaBodyRequiredTier =
+  | (typeof UpdateQuotaBodyRequiredTier)[keyof typeof UpdateQuotaBodyRequiredTier]
+  | null;
+
+export const UpdateQuotaBodyRequiredTier = {
+  min: "min",
+  recommended: "recommended",
 } as const;
 
 export interface UpdateQuotaBody {
@@ -665,6 +759,18 @@ export interface UpdateQuotaBody {
   minDownloadMbps?: number | null;
   /** @nullable */
   minUploadMbps?: number | null;
+  /** @nullable */
+  recGpuVram?: number | null;
+  /** @nullable */
+  recCpuCores?: number | null;
+  /** @nullable */
+  recRamGb?: number | null;
+  /** @nullable */
+  recDownloadMbps?: number | null;
+  /** @nullable */
+  recUploadMbps?: number | null;
+  /** @nullable */
+  requiredTier?: UpdateQuotaBodyRequiredTier;
 }
 
 export interface AiSuggestQuotaSpecsBody {
@@ -685,6 +791,11 @@ export interface AiSuggestQuotaSpecsResponse {
   minRamGb: number;
   minDownloadMbps: number;
   minUploadMbps: number;
+  recGpuVram: number;
+  recCpuCores: number;
+  recRamGb: number;
+  recDownloadMbps: number;
+  recUploadMbps: number;
 }
 
 export interface QuotaOwnerBody {

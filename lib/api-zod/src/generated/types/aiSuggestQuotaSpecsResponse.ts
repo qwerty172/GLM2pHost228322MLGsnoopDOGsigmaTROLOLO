@@ -12,4 +12,9 @@ export interface AiSuggestQuotaSpecsResponse {
   minRamGb: number;
   minDownloadMbps: number;
   minUploadMbps: number;
+  recGpuVram: number;
+  recCpuCores: number;
+  recRamGb: number;
+  recDownloadMbps: number;
+  recUploadMbps: number;
 }

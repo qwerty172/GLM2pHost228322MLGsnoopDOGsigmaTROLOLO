@@ -24,6 +24,7 @@ import {
   creditOwnerGreen,
   isQuotaActiveNow,
 } from "../lib/quotaEngine";
+import { computeHostTier, specsFromPcSpecs } from "../lib/hostTier";
 
 const router: IRouter = Router();
 
@@ -66,6 +67,12 @@ function shapeQuota(
     minRamGb: q.minRamGb,
     minDownloadMbps: q.minDownloadMbps,
     minUploadMbps: q.minUploadMbps,
+    recGpuVram: q.recGpuVram,
+    recCpuCores: q.recCpuCores,
+    recRamGb: q.recRamGb,
+    recDownloadMbps: q.recDownloadMbps,
+    recUploadMbps: q.recUploadMbps,
+    requiredTier: q.requiredTier as "min" | "recommended",
     createdAt: q.createdAt.toISOString(),
     updatedAt: q.updatedAt.toISOString(),
   };
@@ -197,9 +204,9 @@ router.post("/quotas/ai-suggest-specs", async (req, res): Promise<void> => {
 
   let prompt: string;
   if (resolvedTitle) {
-    prompt = `Какие минимальные требования к ПК для комфортного стриминга игры ${resolvedTitle}${resolvedGenre ? ` (жанр: ${resolvedGenre})` : ""} в 1080p60? Ответь ТОЛЬКО JSON объектом без комментариев и markdown, вот пример формата: {"minGpuVram": 6, "minCpuCores": 6, "minRamGb": 16, "minDownloadMbps": 50, "minUploadMbps": 10}. minGpuVram — минимум видеопамяти GPU в ГБ, minCpuCores — количество ядер CPU, minRamGb — ОЗУ в ГБ, minDownloadMbps — скорость скачивания в Мбит/с, minUploadMbps — скорость аплоада в Мбит/с (критично для стрима!).`;
+    prompt = `Какие минимальные и рекомендуемые требования к ПК для комфортного стриминга игры ${resolvedTitle}${resolvedGenre ? ` (жанр: ${resolvedGenre})` : ""} в 1080p60? Ответь ТОЛЬКО JSON объектом без комментариев и markdown, вот пример формата: {"minGpuVram": 6, "minCpuCores": 6, "minRamGb": 16, "minDownloadMbps": 50, "minUploadMbps": 10, "recGpuVram": 10, "recCpuCores": 8, "recRamGb": 32, "recDownloadMbps": 100, "recUploadMbps": 20}. Поля min* — минимальные требования, rec* — рекомендуемые (должны быть строго выше min*). *GpuVram — видеопамять GPU в ГБ, *CpuCores — количество ядер CPU, *RamGb — ОЗУ в ГБ, *DownloadMbps — скорость скачивания в Мбит/с, *UploadMbps — скорость аплоада в Мбит/с (критично для стрима!).`;
   } else {
-    prompt = `Верни универсальные минимальные требования к ПК для стриминга игр в 1080p60. Ответь ТОЛЬКО JSON объектом без комментариев и markdown, вот пример формата: {"minGpuVram": 6, "minCpuCores": 4, "minRamGb": 16, "minDownloadMbps": 50, "minUploadMbps": 10}.`;
+    prompt = `Верни универсальные минимальные и рекомендуемые требования к ПК для стриминга игр в 1080p60. Ответь ТОЛЬКО JSON объектом без комментариев и markdown, вот пример формата: {"minGpuVram": 6, "minCpuCores": 4, "minRamGb": 16, "minDownloadMbps": 50, "minUploadMbps": 10, "recGpuVram": 10, "recCpuCores": 8, "recRamGb": 32, "recDownloadMbps": 100, "recUploadMbps": 20}.`;
   }
 
   try {
@@ -220,13 +227,29 @@ router.post("/quotas/ai-suggest-specs", async (req, res): Promise<void> => {
       minRamGb?: unknown;
       minDownloadMbps?: unknown;
       minUploadMbps?: unknown;
+      recGpuVram?: unknown;
+      recCpuCores?: unknown;
+      recRamGb?: unknown;
+      recDownloadMbps?: unknown;
+      recUploadMbps?: unknown;
     };
+    const minGpuVram = typeof data.minGpuVram === "number" ? Math.round(data.minGpuVram) : 6;
+    const minCpuCores = typeof data.minCpuCores === "number" ? Math.round(data.minCpuCores) : 4;
+    const minRamGb = typeof data.minRamGb === "number" ? Math.round(data.minRamGb) : 16;
+    const minDownloadMbps = typeof data.minDownloadMbps === "number" ? Math.round(data.minDownloadMbps) : 50;
+    const minUploadMbps = typeof data.minUploadMbps === "number" ? Math.round(data.minUploadMbps) : 10;
     res.json({
-      minGpuVram: typeof data.minGpuVram === "number" ? Math.round(data.minGpuVram) : 6,
-      minCpuCores: typeof data.minCpuCores === "number" ? Math.round(data.minCpuCores) : 4,
-      minRamGb: typeof data.minRamGb === "number" ? Math.round(data.minRamGb) : 16,
-      minDownloadMbps: typeof data.minDownloadMbps === "number" ? Math.round(data.minDownloadMbps) : 50,
-      minUploadMbps: typeof data.minUploadMbps === "number" ? Math.round(data.minUploadMbps) : 10,
+      minGpuVram,
+      minCpuCores,
+      minRamGb,
+      minDownloadMbps,
+      minUploadMbps,
+      // rec* must always be >= min* even if the AI returns something odd.
+      recGpuVram: Math.max(minGpuVram, typeof data.recGpuVram === "number" ? Math.round(data.recGpuVram) : minGpuVram * 2),
+      recCpuCores: Math.max(minCpuCores, typeof data.recCpuCores === "number" ? Math.round(data.recCpuCores) : minCpuCores * 2),
+      recRamGb: Math.max(minRamGb, typeof data.recRamGb === "number" ? Math.round(data.recRamGb) : minRamGb * 2),
+      recDownloadMbps: Math.max(minDownloadMbps, typeof data.recDownloadMbps === "number" ? Math.round(data.recDownloadMbps) : minDownloadMbps * 2),
+      recUploadMbps: Math.max(minUploadMbps, typeof data.recUploadMbps === "number" ? Math.round(data.recUploadMbps) : minUploadMbps * 2),
     });
   } catch (err) {
     res.status(500).json({
@@ -369,20 +392,32 @@ router.get("/quotas/match-my-host", async (req, res): Promise<void> => {
   // Filter to currently-active quotas only.
   const active = rows.filter((q) => isQuotaActiveNow(q, now));
 
-  // Hardware compatibility: filter quotas whose minRamGb or minUploadMbps exceeds host specs.
-  // If the host has no pcSpecs yet (null), we still return quotas with no
-  // requirement so the host can start working immediately.
-  const hostSpecs = host.pcSpecs as { ramGb?: number; uploadMbps?: number } | null;
-  const hostRamGb = hostSpecs?.ramGb ?? null;
-  const hostUploadMbps = hostSpecs?.uploadMbps ?? null;
+  // Hardware compatibility: hard-floor filter using the quota's min* fields
+  // (plus streaming overhead), and — when the quota requires the stricter
+  // "recommended" tier — its rec* fields too. If the host has no pcSpecs yet
+  // (null), we still return quotas with no requirement so the host can start
+  // working immediately.
+  const hostSpecs = specsFromPcSpecs(host.pcSpecs);
   const filtered = active.filter((q) => {
-    if (q.minRamGb !== null && q.minRamGb !== undefined) {
-      if (hostRamGb !== null && hostRamGb < q.minRamGb) return false;
-    }
-    if (q.minUploadMbps !== null && q.minUploadMbps !== undefined) {
-      if (hostUploadMbps === null) return true; // host hasn't measured yet — don't block
-      if (hostUploadMbps < q.minUploadMbps) return false;
-    }
+    const tier = computeHostTier(
+      hostSpecs,
+      {
+        gpuVram: q.minGpuVram,
+        cpuCores: q.minCpuCores,
+        ramGb: q.minRamGb,
+        downloadMbps: q.minDownloadMbps,
+        uploadMbps: q.minUploadMbps,
+      },
+      {
+        gpuVram: q.recGpuVram,
+        cpuCores: q.recCpuCores,
+        ramGb: q.recRamGb,
+        downloadMbps: q.recDownloadMbps,
+        uploadMbps: q.recUploadMbps,
+      },
+    );
+    if (tier === "below_min") return false;
+    if (q.requiredTier === "recommended" && tier !== "above_rec") return false;
     return true;
   });
 
@@ -637,6 +672,12 @@ router.post("/quotas", async (req, res): Promise<void> => {
       royaltyValue: body.kind === "royalty" ? body.royaltyValue ?? null : null,
       royaltySource:
         body.kind === "royalty" ? body.royaltySource ?? null : null,
+      recGpuVram: body.recGpuVram ?? null,
+      recCpuCores: body.recCpuCores ?? null,
+      recRamGb: body.recRamGb ?? null,
+      recDownloadMbps: body.recDownloadMbps ?? null,
+      recUploadMbps: body.recUploadMbps ?? null,
+      requiredTier: body.requiredTier ?? "min",
       minGpuVram: body.minGpuVram ?? null,
       minCpuCores: body.minCpuCores ?? null,
       minRamGb: body.minRamGb ?? null,
@@ -731,6 +772,12 @@ router.patch("/quotas/:id", async (req, res): Promise<void> => {
   if (b.minRamGb !== undefined) updates.minRamGb = b.minRamGb;
   if (b.minDownloadMbps !== undefined) updates.minDownloadMbps = b.minDownloadMbps;
   if (b.minUploadMbps !== undefined) updates.minUploadMbps = b.minUploadMbps;
+  if (b.recGpuVram !== undefined) updates.recGpuVram = b.recGpuVram;
+  if (b.recCpuCores !== undefined) updates.recCpuCores = b.recCpuCores;
+  if (b.recRamGb !== undefined) updates.recRamGb = b.recRamGb;
+  if (b.recDownloadMbps !== undefined) updates.recDownloadMbps = b.recDownloadMbps;
+  if (b.recUploadMbps !== undefined) updates.recUploadMbps = b.recUploadMbps;
+  if (b.requiredTier !== undefined) updates.requiredTier = b.requiredTier;
   // private→public clears the access code; public→private mints a new one.
   if (b.visibility === "public") updates.accessCode = null;
   if (b.visibility === "private" && !quota.accessCode)

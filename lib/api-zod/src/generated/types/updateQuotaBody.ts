@@ -5,6 +5,7 @@
  * P2P Cloud Gaming signaling, session, and wallet API
  * OpenAPI spec version: 0.1.0
  */
+import type { UpdateQuotaBodyRequiredTier } from "./updateQuotaBodyRequiredTier";
 import type { UpdateQuotaBodyVisibility } from "./updateQuotaBodyVisibility";
 
 export interface UpdateQuotaBody {
@@ -42,4 +43,16 @@ export interface UpdateQuotaBody {
   minDownloadMbps?: number | null;
   /** @nullable */
   minUploadMbps?: number | null;
+  /** @nullable */
+  recGpuVram?: number | null;
+  /** @nullable */
+  recCpuCores?: number | null;
+  /** @nullable */
+  recRamGb?: number | null;
+  /** @nullable */
+  recDownloadMbps?: number | null;
+  /** @nullable */
+  recUploadMbps?: number | null;
+  /** @nullable */
+  requiredTier?: UpdateQuotaBodyRequiredTier;
 }

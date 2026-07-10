@@ -32,6 +32,7 @@ import { generateToken } from "../lib/tokens";
 import { applyLaunchFee } from "../lib/launchFee";
 import { pickPlayerBucket } from "../lib/lzt";
 import { isHostAvailableNow } from "../lib/schedule";
+import { computeHostTier, specsFromPcSpecs, STREAM_OVERHEAD } from "../lib/hostTier";
 
 const router: IRouter = Router();
 
@@ -195,37 +196,56 @@ router.post("/sessions", async (req, res): Promise<void> => {
         .json({ error: "Quota is bound to a different game" });
       return;
     }
-    // PC specs check: enforce all four quota thresholds against the host's
-    // reported pcSpecs. Fields that the host hasn't reported (cpuCores,
-    // downloadMbps) are skipped so existing hosts are not broken; RAM is
-    // always present; VRAM is parsed best-effort from the GPU name string.
+    // PC specs check: enforce the quota's min* floor (always) and, when the
+    // quota requires it, the stricter rec* tier too. A fixed streaming
+    // overhead (STREAM_OVERHEAD) is added on top of every threshold since the
+    // host also has to spend CPU/GPU/upload encoding the stream itself, on
+    // top of whatever the game needs. Fields the host hasn't reported yet are
+    // skipped (never block) so existing/unmeasured hosts aren't broken.
     const specs = host.pcSpecs;
     if (specs) {
-      // Build human-readable host/quota descriptions for error messages.
-      const vramMatch = specs.gpu.match(/(\d+)\s*GB/i);
-      const hostVram = vramMatch ? parseInt(vramMatch[1], 10) : null;
+      const hostSpecs = specsFromPcSpecs(specs);
+      const minThresholds = {
+        gpuVram: quota.minGpuVram,
+        cpuCores: quota.minCpuCores,
+        ramGb: quota.minRamGb,
+        downloadMbps: quota.minDownloadMbps,
+        uploadMbps: quota.minUploadMbps,
+      };
+      const recThresholds = {
+        gpuVram: quota.recGpuVram,
+        cpuCores: quota.recCpuCores,
+        ramGb: quota.recRamGb,
+        downloadMbps: quota.recDownloadMbps,
+        uploadMbps: quota.recUploadMbps,
+      };
+      const tier = computeHostTier(hostSpecs, minThresholds, recThresholds);
 
-      const violations: string[] = [];
-
-      if (quota.minGpuVram != null && hostVram != null && hostVram < quota.minGpuVram) {
-        violations.push(`GPU VRAM: хост ${hostVram} GB, минимум ${quota.minGpuVram} GB`);
-      }
-      if (quota.minCpuCores != null && specs.cpuCores != null && specs.cpuCores < quota.minCpuCores) {
-        violations.push(`CPU ядра: хост ${specs.cpuCores}, минимум ${quota.minCpuCores}`);
-      }
-      if (quota.minRamGb != null && specs.ramGb < quota.minRamGb) {
-        violations.push(`RAM: хост ${specs.ramGb} GB, минимум ${quota.minRamGb} GB`);
-      }
-      if (quota.minDownloadMbps != null && specs.downloadMbps != null && specs.downloadMbps < quota.minDownloadMbps) {
-        violations.push(`Интернет: хост ${specs.downloadMbps} Мбит/с, минимум ${quota.minDownloadMbps} Мбит/с`);
-      }
-      if (quota.minUploadMbps != null && specs.uploadMbps != null && specs.uploadMbps < quota.minUploadMbps) {
-        violations.push(`Аплоад: хост ${specs.uploadMbps} Мбит/с, минимум ${quota.minUploadMbps} Мбит/с`);
-      }
-
-      if (violations.length > 0) {
+      if (tier === "below_min") {
+        const violations: string[] = [];
+        if (quota.minGpuVram != null && hostSpecs.gpuVram != null && hostSpecs.gpuVram < quota.minGpuVram + STREAM_OVERHEAD.gpuVram) {
+          violations.push(`GPU VRAM: хост ${hostSpecs.gpuVram} GB, минимум ${quota.minGpuVram} GB`);
+        }
+        if (quota.minCpuCores != null && hostSpecs.cpuCores != null && hostSpecs.cpuCores < quota.minCpuCores + STREAM_OVERHEAD.cpuCores) {
+          violations.push(`CPU ядра: хост ${hostSpecs.cpuCores}, минимум ${quota.minCpuCores} (+${STREAM_OVERHEAD.cpuCores} на стриминг)`);
+        }
+        if (quota.minRamGb != null && hostSpecs.ramGb != null && hostSpecs.ramGb < quota.minRamGb + STREAM_OVERHEAD.ramGb) {
+          violations.push(`RAM: хост ${hostSpecs.ramGb} GB, минимум ${quota.minRamGb} (+${STREAM_OVERHEAD.ramGb} на стриминг)`);
+        }
+        if (quota.minDownloadMbps != null && hostSpecs.downloadMbps != null && hostSpecs.downloadMbps < quota.minDownloadMbps) {
+          violations.push(`Интернет: хост ${hostSpecs.downloadMbps} Мбит/с, минимум ${quota.minDownloadMbps} Мбит/с`);
+        }
+        if (quota.minUploadMbps != null && hostSpecs.uploadMbps != null && hostSpecs.uploadMbps < quota.minUploadMbps + STREAM_OVERHEAD.uploadMbps) {
+          violations.push(`Аплоад: хост ${hostSpecs.uploadMbps} Мбит/с, минимум ${quota.minUploadMbps} (+${STREAM_OVERHEAD.uploadMbps} на стриминг)`);
+        }
         res.status(400).json({
           error: `ПК хоста (${specs.gpu}, ${specs.ramGb} GB RAM) ниже минимальных требований квоты: ${violations.join("; ")}`,
+        });
+        return;
+      }
+      if (quota.requiredTier === "recommended" && tier !== "above_rec") {
+        res.status(400).json({
+          error: `Квота требует ПК уровня «выше рекомендуемых» — ПК хоста (${specs.gpu}, ${specs.ramGb} GB RAM) пока только на уровне минимальных требований`,
         });
         return;
       }

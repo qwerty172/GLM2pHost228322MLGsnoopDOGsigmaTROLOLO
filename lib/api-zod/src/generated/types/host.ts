@@ -5,6 +5,7 @@
  * P2P Cloud Gaming signaling, session, and wallet API
  * OpenAPI spec version: 0.1.0
  */
+import type { HostHostTier } from "./hostHostTier";
 import type { HostScheduleMode } from "./hostScheduleMode";
 import type { ScheduleSlot } from "./scheduleSlot";
 
@@ -47,4 +48,6 @@ export interface Host {
   creditMaxLztPerPlayer: number;
   createdAt: Date;
   lastSeenAt: Date;
+  /** Quick general strength badge vs the site-wide baseline hardware profile (not tied to a specific quota) */
+  hostTier?: HostHostTier;
 }

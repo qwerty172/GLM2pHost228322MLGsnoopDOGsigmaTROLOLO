@@ -32,6 +32,7 @@ import {
   updateEntry,
   removeFromLibrary,
 } from "../lib/hostLibrary";
+import { generalHostTier } from "../lib/hostTier";
 
 const router: IRouter = Router();
 
@@ -73,6 +74,9 @@ function serializeHost(h: typeof hostsTable.$inferSelect) {
     agentKeyBound: (h.agentPubkey ?? "").length > 0,
     // PC hardware specs reported by the agent (null until first upload).
     pcSpecs: h.pcSpecs ?? null,
+    // Quick general strength badge vs the site-wide baseline (not tied to
+    // any specific quota/game): "below_min" | "meets_min" | "above_rec".
+    hostTier: generalHostTier(h.pcSpecs),
   };
 }
 
