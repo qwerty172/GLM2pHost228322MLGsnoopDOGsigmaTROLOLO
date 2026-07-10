@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { ChevronDown, ChevronUp, Cpu, Gamepad2, Wifi, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Cpu, Gamepad2, Star, Wifi, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -367,7 +367,11 @@ export default function HostsPage() {
 
   const sortedHosts = useMemo(() => {
     if (!hosts) return hosts;
+    const tierRank = (t: unknown) => (t === "above_rec" ? 0 : 1);
     return [...hosts].sort((a, b) => {
+      // Recommended-and-above hosts always come first, regardless of latency.
+      const tierDiff = tierRank((a as any).hostTier) - tierRank((b as any).hostTier);
+      if (tierDiff !== 0) return tierDiff;
       const pa = (a as any).pingMs as number | null | undefined;
       const pb = (b as any).pingMs as number | null | undefined;
       const scoreA = pa != null ? (browserRtt ?? 0) + pa : Infinity;
@@ -394,6 +398,26 @@ export default function HostsPage() {
           transition: border-color .15s;
         }
         .host-row:hover { border-color: rgba(14,165,233,0.25); }
+        .host-row--top {
+          border-color: rgba(250,204,21,0.35);
+          background:
+            linear-gradient(180deg, rgba(250,204,21,0.05), rgba(250,204,21,0) 40%),
+            #0a1018;
+        }
+        .host-row--top:hover { border-color: rgba(250,204,21,0.55); }
+        .tier-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          font-size: 10px;
+          font-weight: 600;
+          padding: 2px 7px;
+          border-radius: 999px;
+          background: rgba(250,204,21,0.12);
+          color: #fde047;
+          border: 1px solid rgba(250,204,21,0.3);
+          white-space: nowrap;
+        }
         .tag-chip {
           font-size: 10px;
           padding: 2px 6px;
@@ -447,11 +471,12 @@ export default function HostsPage() {
               const isOnline = h.status === "online";
               const hostPingMs = (h as any).pingMs as number | null | undefined;
               const totalLatency = hostPingMs != null ? Math.round((browserRtt ?? 0) + hostPingMs) : null;
+              const isTop = (h as any).hostTier === "above_rec";
 
               return (
                 <div
                   key={h.id}
-                  className="host-row p-4"
+                  className={`host-row p-4${isTop ? " host-row--top" : ""}`}
                   data-testid={`host-row-${h.id}`}
                 >
                   <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
@@ -467,6 +492,12 @@ export default function HostsPage() {
                         <span className="font-semibold text-white truncate">
                           {h.displayName}
                         </span>
+                        {isTop && (
+                          <span className="tier-badge" title="ПК мощнее рекомендуемых требований">
+                            <Star className="h-2.5 w-2.5" fill="currentColor" />
+                            Рекомендуемый+
+                          </span>
+                        )}
                         <span className="text-[10px] uppercase tracking-wider text-slate-500 font-mono">
                           {isOnline ? "онлайн" : "по расписанию"}
                         </span>

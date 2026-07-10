@@ -19,6 +19,7 @@ import {
   Loader2,
   Play,
   Server,
+  Star,
   Trophy,
   Users,
   Wand2,
@@ -88,6 +89,7 @@ type LibraryHost = {
   playerToken: string | null;
   scheduleMode: string;
   pingMs: number | null;
+  hostTier?: "meets_min" | "above_rec";
 };
 
 function useLibraryHosts(slug: string) {
@@ -126,7 +128,11 @@ function useBrowserPingMs(): number | null {
 }
 
 function sortHostsByLatency(hosts: LibraryHost[], browserRtt: number | null): LibraryHost[] {
+  const tierRank = (t: unknown) => (t === "above_rec" ? 0 : 1);
   return [...hosts].sort((a, b) => {
+    // Recommended-and-above hosts always come first, regardless of latency.
+    const tierDiff = tierRank(a.hostTier) - tierRank(b.hostTier);
+    if (tierDiff !== 0) return tierDiff;
     const scoreA = a.pingMs != null ? (browserRtt ?? 0) + a.pingMs : Infinity;
     const scoreB = b.pingMs != null ? (browserRtt ?? 0) + b.pingMs : Infinity;
     return scoreA - scoreB;
@@ -220,13 +226,7 @@ export default function GameDetailPage() {
       )
     : sortedLibraryHosts;
 
-  const filteredLiveSessions = tag
-    ? (game?.liveSessions ?? []).filter((s) =>
-        s.tags?.some((t: string) => t.toLowerCase() === tag.toLowerCase()),
-      )
-    : (game?.liveSessions ?? []);
-
-  const totalHostCount = (libraryHosts ?? []).length || (game?.liveSessions ?? []).length;
+  const totalHostCount = (libraryHosts ?? []).length;
 
   return (
     <div className="min-h-screen text-slate-300" style={{ background: "#06090e" }}>
@@ -385,7 +385,7 @@ export default function GameDetailPage() {
                   </span>
                 ) : (
                   <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: "rgba(255,255,255,0.04)", color: "#94a3b8" }}>
-                    {filteredLibraryHosts.length || filteredLiveSessions.length}
+                    {filteredLibraryHosts.length}
                   </span>
                 )}
                 {tag && (
@@ -421,12 +421,6 @@ export default function GameDetailPage() {
                       onPlay={() => handlePlay(h)}
                       onPreview={() => setPreviewHost(h)}
                     />
-                  ))}
-                </ul>
-              ) : filteredLiveSessions.length > 0 ? (
-                <ul className="space-y-3" data-testid="list-live-sessions">
-                  {filteredLiveSessions.map((s: any) => (
-                    <LegacySessionRow key={s.playerToken} session={s} />
                   ))}
                 </ul>
               ) : (
@@ -475,13 +469,16 @@ function LibraryHostRow({ host: h, browserRtt, onPlay, onPreview }: { host: Libr
   const lztPerHour = h.pricePerMinuteLzt * 60;
   const usdPerHour = (h.pricePerMinuteUsd * 60).toFixed(2);
   const totalLatency = h.pingMs != null ? Math.round((browserRtt ?? 0) + h.pingMs) : null;
+  const isTop = h.hostTier === "above_rec";
 
   return (
     <li
       className="rounded-lg px-4 py-4 transition-colors"
       style={{
-        background: "#0a1018",
-        border: `1px solid ${isOnline ? "rgba(14,165,233,0.18)" : "rgba(255,255,255,0.06)"}`,
+        background: isTop
+          ? "linear-gradient(180deg, rgba(250,204,21,0.05), rgba(250,204,21,0) 40%), #0a1018"
+          : "#0a1018",
+        border: `1px solid ${isTop ? "rgba(250,204,21,0.35)" : isOnline ? "rgba(14,165,233,0.18)" : "rgba(255,255,255,0.06)"}`,
       }}
       data-testid={`live-host-${h.hostId}`}
     >
@@ -496,6 +493,20 @@ function LibraryHostRow({ host: h, browserRtt, onPlay, onPreview }: { host: Libr
               }}
             />
             <span className="font-semibold text-white truncate">{h.displayName}</span>
+            {isTop && (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                style={{
+                  background: "rgba(250,204,21,0.12)",
+                  color: "#fde047",
+                  border: "1px solid rgba(250,204,21,0.3)",
+                }}
+                title="ПК мощнее рекомендуемых требований"
+              >
+                <Star className="h-2.5 w-2.5" fill="currentColor" />
+                Рекомендуемый+
+              </span>
+            )}
             <span
               className="text-[10px] px-1.5 py-0.5 rounded font-mono uppercase"
               style={{
@@ -595,83 +606,6 @@ function LibraryHostRow({ host: h, browserRtt, onPlay, onPreview }: { host: Libr
             </button>
           )}
         </div>
-      </div>
-    </li>
-  );
-}
-
-function LegacySessionRow({ session: s }: { session: any }) {
-  return (
-    <li
-      className="rounded-lg px-4 py-4 transition-colors"
-      style={{ background: "#0a1018", border: "1px solid rgba(14,165,233,0.15)" }}
-      data-testid={`live-host-${s.playerToken}`}
-    >
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="w-2 h-2 rounded-full bg-teal-400" style={{ boxShadow: "0 0 6px rgba(45,212,191,0.6)" }} />
-            <span className="font-semibold text-white truncate">{s.hostDisplayName}</span>
-            <span
-              className="text-[10px] px-1.5 py-0.5 rounded font-mono uppercase"
-              style={{ background: "rgba(45,212,191,0.12)", color: "#2dd4bf", border: "1px solid rgba(45,212,191,0.2)" }}
-            >
-              онлайн
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs">
-            {s.pricePerMinuteLzt > 0 ? (
-              <span className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-sky-400 inline-block" />
-                <span className="font-bold text-white">{s.pricePerMinuteLzt} LZT</span>
-                <span className="text-slate-500">/мин</span>
-                <span className="text-slate-600 font-mono ml-1">
-                  ≈ ${(s.pricePerMinuteLzt / LZT_PER_USD).toFixed(4)}
-                </span>
-              </span>
-            ) : (
-              <span className="flex items-center gap-1">
-                <Clock className="h-3 w-3 text-sky-400" />
-                <span className="text-slate-500">за минуту:</span>
-                <span className="font-semibold text-white">
-                  ${s.minutePriceUsd < 0 ? "−" : ""}${Math.abs(s.minutePriceUsd).toFixed(4)}
-                </span>
-              </span>
-            )}
-            {s.resolution && (
-              <span className="text-slate-600 font-mono">
-                {s.resolution} · {s.bitrateKbps} kbps
-              </span>
-            )}
-          </div>
-
-          {s.tags?.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2">
-              {s.tags.map((t: string) => (
-                <span
-                  key={t}
-                  className="text-[10px] px-1.5 py-0.5 rounded"
-                  style={{ background: "rgba(14,165,233,0.08)", color: "#7dd3fc", border: "1px solid rgba(14,165,233,0.15)" }}
-                >
-                  {t}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <Link href={`/play/${s.playerToken}`} className="shrink-0">
-          <Button
-            size="sm"
-            className="h-9 px-5 text-xs font-semibold rounded-md"
-            style={{ background: "#0ea5e9", color: "#fff" }}
-            data-testid={`button-join-${s.playerToken}`}
-          >
-            Играть
-            <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-          </Button>
-        </Link>
       </div>
     </li>
   );

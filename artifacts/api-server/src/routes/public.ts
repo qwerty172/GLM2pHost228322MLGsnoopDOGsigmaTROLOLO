@@ -14,6 +14,7 @@ import {
   GetPublicStatsResponse,
 } from "@workspace/api-zod";
 import { isHostAvailableNow } from "../lib/schedule";
+import { generalHostTier } from "../lib/hostTier";
 import { mintPreviewToken } from "../lib/signaling";
 
 const router: IRouter = Router();
@@ -168,6 +169,12 @@ router.get("/hosts", async (_req, res): Promise<void> => {
     );
     const minutePrice = Number(h.minutePriceUsd);
     const games = libraryByHost.get(h.id) ?? [];
+    const hostTier = generalHostTier(h.pcSpecs);
+
+    // Hosts whose measured hardware falls below the site-wide minimum are not
+    // listed in the public catalog / search. They can still register and run,
+    // but stay out of the discoverable library until they meet the floor.
+    if (hostTier === "below_min") continue;
 
     items.push({
       id: h.id,
@@ -185,8 +192,18 @@ router.get("/hosts", async (_req, res): Promise<void> => {
       games,
       // Host-to-server RTT measured at last heartbeat (null until first measurement).
       pingMs: h.pingMs ?? null,
+      // Strength badge vs the site-wide baseline: "meets_min" | "above_rec".
+      // (below_min hosts are filtered out above and never reach the client.)
+      hostTier,
     });
   }
+
+  // Recommended-and-above hosts always come first, regardless of any other
+  // client-side filter/sort, so the best boxes surface at the top of the list.
+  items.sort((a, b) => {
+    const rank = (t: string) => (t === "above_rec" ? 0 : 1);
+    return rank(a.hostTier) - rank(b.hostTier);
+  });
 
   // We extend the response with a `games[]` field per host that isn't in the
   // generated schema yet. Return raw JSON — clients get backward-compat extra
@@ -252,34 +269,42 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
   }
 
   const now = new Date();
-  const result = libraryRows.map(({ hg, host: h }) => {
-    const playerToken = sessionByHost.get(h.id) ?? null;
-    const available = isHostAvailableNow(
-      h.scheduleMode,
-      h.scheduleJson ?? [],
-      now,
-    );
-    return {
-      hostId: h.id,
-      displayName: h.displayName,
-      tags: h.tags ?? [],
-      description: h.description,
-      pricePerMinuteLzt: hg.pricePerMinuteLzt,
-      pricePerMinuteUsd: hg.pricePerMinuteLzt / 200,
-      status: playerToken ? "online" : (available ? "available" : "scheduled"),
-      playerToken,
-      scheduleMode: h.scheduleMode,
-      // Host-to-server RTT measured at last heartbeat (null until first measurement).
-      pingMs: h.pingMs ?? null,
-    };
-  });
+  const result = libraryRows
+    .map(({ hg, host: h }) => {
+      const playerToken = sessionByHost.get(h.id) ?? null;
+      const available = isHostAvailableNow(
+        h.scheduleMode,
+        h.scheduleJson ?? [],
+        now,
+      );
+      return {
+        hostId: h.id,
+        displayName: h.displayName,
+        tags: h.tags ?? [],
+        description: h.description,
+        pricePerMinuteLzt: hg.pricePerMinuteLzt,
+        pricePerMinuteUsd: hg.pricePerMinuteLzt / 200,
+        status: playerToken ? "online" : (available ? "available" : "scheduled"),
+        playerToken,
+        scheduleMode: h.scheduleMode,
+        // Host-to-server RTT measured at last heartbeat (null until first measurement).
+        pingMs: h.pingMs ?? null,
+        // Strength badge vs the site-wide baseline: "meets_min" | "above_rec".
+        hostTier: generalHostTier(h.pcSpecs),
+      };
+    })
+    // Below-minimum hosts are kept out of the discoverable catalog/search.
+    .filter((r) => r.hostTier !== "below_min");
 
-  // Sort: online > available > scheduled, then by price asc.
+  // Sort: recommended-and-above first, then online > available > scheduled,
+  // then by price asc.
   const statusOrder = { online: 0, available: 1, scheduled: 2 };
+  const tierRank = (t: string) => (t === "above_rec" ? 0 : 1);
   result.sort(
     (a, b) =>
+      tierRank(a.hostTier) - tierRank(b.hostTier) ||
       (statusOrder[a.status as keyof typeof statusOrder] ?? 2) -
-      (statusOrder[b.status as keyof typeof statusOrder] ?? 2) ||
+        (statusOrder[b.status as keyof typeof statusOrder] ?? 2) ||
       a.pricePerMinuteLzt - b.pricePerMinuteLzt,
   );
 

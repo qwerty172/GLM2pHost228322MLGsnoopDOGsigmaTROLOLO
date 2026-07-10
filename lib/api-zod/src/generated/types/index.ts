@@ -62,6 +62,7 @@ export * from "./matchQuotasForHostParams";
 export * from "./myLoans";
 export * from "./player";
 export * from "./publicHostListItem";
+export * from "./publicHostListItemHostTier";
 export * from "./publicStats";
 export * from "./quota";
 export * from "./quotaAiChatBody";

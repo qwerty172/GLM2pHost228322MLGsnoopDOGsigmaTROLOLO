@@ -408,6 +408,12 @@ export const ListPublicHostsResponseItem = zod
     playerToken: zod
       .string()
       .describe("Share token so anonymous visitors can join the open session."),
+    hostTier: zod
+      .enum(["meets_min", "above_rec"])
+      .optional()
+      .describe(
+        "Strength badge vs the site-wide baseline. below_min hosts are excluded from this list entirely.",
+      ),
   })
   .describe("Anonymous-safe view of a live host");
 export const ListPublicHostsResponse = zod.array(ListPublicHostsResponseItem);

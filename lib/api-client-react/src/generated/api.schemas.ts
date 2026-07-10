@@ -452,6 +452,17 @@ export interface Wallet {
 }
 
 /**
+ * Strength badge vs the site-wide baseline. below_min hosts are excluded from this list entirely.
+ */
+export type PublicHostListItemHostTier =
+  (typeof PublicHostListItemHostTier)[keyof typeof PublicHostListItemHostTier];
+
+export const PublicHostListItemHostTier = {
+  meets_min: "meets_min",
+  above_rec: "above_rec",
+} as const;
+
+/**
  * Anonymous-safe view of a live host
  */
 export interface PublicHostListItem {
@@ -469,6 +480,8 @@ export interface PublicHostListItem {
   status: string;
   /** Share token so anonymous visitors can join the open session. */
   playerToken: string;
+  /** Strength badge vs the site-wide baseline. below_min hosts are excluded from this list entirely. */
+  hostTier?: PublicHostListItemHostTier;
 }
 
 export interface PublicStats {

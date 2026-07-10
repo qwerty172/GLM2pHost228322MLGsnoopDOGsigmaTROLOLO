@@ -2241,6 +2241,10 @@ components:
         playerToken:
           type: string
           description: Share token so anonymous visitors can join the open session.
+        hostTier:
+          type: string
+          enum: [meets_min, above_rec]
+          description: "Strength badge vs the site-wide baseline. below_min hosts are excluded from this list entirely."
       required:
         - id
         - displayName

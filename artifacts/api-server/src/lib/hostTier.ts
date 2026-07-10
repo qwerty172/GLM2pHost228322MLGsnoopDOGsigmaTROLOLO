@@ -135,8 +135,15 @@ export function specsFromPcSpecs(
 
 // The host's general tier badge, computed against the site-wide baseline
 // (not tied to any specific quota/game).
+//
+// A host that has never reported any hardware (pcSpecs == null) is treated as
+// "meets_min" — a neutral default. We don't promote it to "above_rec" (that
+// would falsely highlight an unknown box as top-tier) and we don't demote it
+// to "below_min" (we never punish missing telemetry / block an unmeasured host
+// from the catalog). Once the agent uploads real specs it tiers normally.
 export function generalHostTier(
   pcSpecs: Parameters<typeof specsFromPcSpecs>[0],
 ): HostTier {
+  if (pcSpecs == null) return "meets_min";
   return computeHostTier(specsFromPcSpecs(pcSpecs), BASELINE_MIN, BASELINE_REC);
 }

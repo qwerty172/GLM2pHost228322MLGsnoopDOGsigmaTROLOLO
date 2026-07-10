@@ -5,6 +5,7 @@
  * P2P Cloud Gaming signaling, session, and wallet API
  * OpenAPI spec version: 0.1.0
  */
+import type { PublicHostListItemHostTier } from "./publicHostListItemHostTier";
 
 /**
  * Anonymous-safe view of a live host
@@ -24,4 +25,6 @@ export interface PublicHostListItem {
   status: string;
   /** Share token so anonymous visitors can join the open session. */
   playerToken: string;
+  /** Strength badge vs the site-wide baseline. below_min hosts are excluded from this list entirely. */
+  hostTier?: PublicHostListItemHostTier;
 }
