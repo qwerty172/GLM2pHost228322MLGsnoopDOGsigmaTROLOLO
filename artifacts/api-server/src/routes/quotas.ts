@@ -584,16 +584,6 @@ router.get("/quotas/:id", async (req, res): Promise<void> => {
     .where(eq(billingEventsTable.quotaId, quota.id))
     .orderBy(desc(billingEventsTable.billedAt))
     .limit(50);
-  const movements = movementsRows.map((m) => ({
-    id: m.id,
-    sessionId: m.sessionId,
-    kind: m.kind,
-    amountLzt:
-      m.kind === "quota_escrow_refund" || m.kind === "quota_escrow_lock"
-        ? Math.abs(m.playerDebitLzt) || Math.abs(m.hostCreditLzt) || 0
-        : 0,
-    billedAt: m.billedAt.toISOString(),
-  }));
   // Compute total paid-out from quota_sessions totals (cheaper than re-summing
   // events row-by-row).
   const totalsRow = await db
@@ -623,7 +613,6 @@ router.get("/quotas/:id", async (req, res): Promise<void> => {
       billedAt: m.billedAt.toISOString(),
     };
   });
-  void movements; // keep linter happy
 
   const [decorated] = await decorate([quota], {
     includeAccessCodeForOwnerId: isOwner ? quota.ownerId : null,
