@@ -385,7 +385,10 @@ async function billOnceInner(): Promise<void> {
                     outstandingLzt: playerDebitLzt,
                     repaidLzt: 0,
                     platformFeeLzt: 0,
-                    lenderPayoutMode: "cash_on_close",
+                    // balance_streaming: every repayment slice (from deposit or
+                    // earnings) is immediately credited to the host's balance
+                    // rather than sitting in escrow until full close.
+                    lenderPayoutMode: "balance_streaming",
                     status: "active",
                     dueAt: new Date(
                       Date.now() + 60 * 24 * 3600 * 1000,

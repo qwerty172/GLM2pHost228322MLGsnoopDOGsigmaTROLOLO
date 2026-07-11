@@ -10,6 +10,8 @@ import {
   scheduleSchema,
   quotasTable,
   quotaSessionsTable,
+  loansTable,
+  playersTable,
 } from "@workspace/db";
 import {
   RegisterHostBody,
@@ -1040,6 +1042,65 @@ router.post("/hosts/me/speedtest", async (req, res): Promise<void> => {
   }
 
   res.json({ ok: true, uploadMbps });
+});
+
+// List players who have an open host_service debt to this host.
+// Returns each debtor with their current outstanding amount and
+// how much has already been streamed back.
+router.get("/hosts/:hostToken/debtors", async (req, res): Promise<void> => {
+  const hostToken = req.params.hostToken;
+  if (!hostToken) {
+    res.status(400).json({ error: "hostToken required" });
+    return;
+  }
+  const [host] = await db
+    .select({ id: hostsTable.id })
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, hostToken));
+  if (!host) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+
+  const loans = await db
+    .select({
+      loanId: loansTable.id,
+      borrowerId: loansTable.borrowerId,
+      principalLzt: loansTable.principalLzt,
+      outstandingLzt: loansTable.outstandingLzt,
+      repaidLzt: loansTable.repaidLzt,
+      status: loansTable.status,
+      startedAt: loansTable.startedAt,
+      dueAt: loansTable.dueAt,
+      // Player display info
+      playerDisplayName: playersTable.displayName,
+    })
+    .from(loansTable)
+    .leftJoin(playersTable, eq(playersTable.id, loansTable.borrowerId))
+    .where(
+      and(
+        eq(loansTable.loanType, "host_service"),
+        eq(loansTable.lenderType, "host"),
+        eq(loansTable.lenderId, host.id),
+        sql`${loansTable.status} in ('active', 'defaulted')`,
+      ),
+    )
+    .orderBy(desc(loansTable.startedAt));
+
+  res.json({
+    debtors: loans.map((l) => ({
+      loanId: l.loanId,
+      playerId: l.borrowerId,
+      playerDisplayName: l.playerDisplayName ?? null,
+      principalLzt: l.principalLzt,
+      outstandingLzt: l.outstandingLzt,
+      repaidLzt: l.repaidLzt,
+      status: l.status,
+      startedAt: l.startedAt,
+      dueAt: l.dueAt,
+    })),
+    totalOutstandingLzt: loans.reduce((s, l) => s + l.outstandingLzt, 0),
+  });
 });
 
 router.post("/hosts/heartbeat", async (req, res): Promise<void> => {
