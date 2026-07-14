@@ -40,6 +40,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
+import { WalletHistory } from "@/components/wallet-history";
 
 const cardStyle = {
   background: "#0a1018",
@@ -735,6 +736,8 @@ export default function WalletPage() {
             </Card>
           </div>
         </div>
+
+        <WalletHistory userToken={hostToken} />
       </div>
     </TooltipProvider>
   );
