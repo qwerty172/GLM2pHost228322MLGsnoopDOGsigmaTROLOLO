@@ -11,6 +11,7 @@ import {
   sessionsTable,
 } from "@workspace/db";
 import { addToLibrary } from "../lib/hostLibrary";
+import { rateLimit, ipKey } from "../lib/rateLimit";
 
 const router: IRouter = Router();
 
@@ -26,7 +27,40 @@ function getHostFromAuthHeader(req: {
   return Array.isArray(auth) ? auth[0] : auth;
 }
 
+// IP-keyed limiter across ALL admin routes — blocks brute-forcing of both
+// the admin secret and host tokens against this surface.
+const adminLimiter = rateLimit({
+  scope: "admin",
+  windowMs: 60_000,
+  max: 30,
+  keyFn: ipKey,
+});
+router.use("/admin", adminLimiter);
+
 const requireAdmin: RequestHandler = async (req, res, next) => {
+  // Defense in depth: admin access requires BOTH a host account flagged
+  // isAdmin AND the deployment-level ADMIN_SECRET (X-Admin-Secret header).
+  // A leaked/brute-forced host token alone is not enough.
+  const adminSecret = process.env.ADMIN_SECRET;
+  if (!adminSecret) {
+    res.status(503).json({
+      error: "admin_disabled",
+      message: "ADMIN_SECRET is not configured on the server",
+    });
+    return;
+  }
+  const providedSecretRaw = req.headers["x-admin-secret"];
+  const providedSecret = Array.isArray(providedSecretRaw)
+    ? providedSecretRaw[0]
+    : providedSecretRaw;
+  if (!providedSecret || providedSecret !== adminSecret) {
+    res.status(403).json({
+      error: "admin_secret_required",
+      message: "Missing or invalid X-Admin-Secret header",
+    });
+    return;
+  }
+
   const token = getHostFromAuthHeader(req);
   if (!token) {
     res.status(401).json({ error: "Missing X-Host-Token header" });

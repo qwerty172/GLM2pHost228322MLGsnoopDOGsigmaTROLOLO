@@ -33,8 +33,18 @@ import { applyLaunchFee } from "../lib/launchFee";
 import { pickPlayerBucket } from "../lib/lzt";
 import { isHostAvailableNow } from "../lib/schedule";
 import { checkQuotaAttachment } from "../lib/quotaAttach";
+import { rateLimit, ipKey } from "../lib/rateLimit";
 
 const router: IRouter = Router();
+
+// Claim links a session to a wallet and can charge a launch fee. IP-keyed so
+// session-token / wallet-token guessing hits the wall fast.
+const claimLimiter = rateLimit({
+  scope: "sessions:claim",
+  windowMs: 60_000,
+  max: 15,
+  keyFn: ipKey,
+});
 
 function serialize(s: typeof sessionsTable.$inferSelect) {
   return {
@@ -366,6 +376,7 @@ router.get(
 
 router.post(
   "/sessions/by-player-token/:playerToken/claim",
+  claimLimiter,
   async (req, res): Promise<void> => {
     const params = ClaimSessionParams.safeParse(req.params);
     if (!params.success) {

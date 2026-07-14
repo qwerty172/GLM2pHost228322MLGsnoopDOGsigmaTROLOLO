@@ -158,9 +158,14 @@ async function apiFetch<T>(
   opts?: RequestInit,
 ): Promise<{ ok: true; data: T } | { ok: false; error: string; status: number }> {
   try {
+    const token = localStorage.getItem("streamline.hostToken");
     const res = await fetch(url, {
-      headers: { "Content-Type": "application/json" },
       ...opts,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { "X-User-Token": token } : {}),
+        ...(opts?.headers ?? {}),
+      },
     });
     if (res.status === 204) return { ok: true, data: undefined as T };
     const json = await res.json();
@@ -1032,7 +1037,7 @@ function AddGameModal({
     }
 
     // Real catalog game: add to library immediately.
-    const r = await apiFetch(`/api/hosts/${hostToken}/library`, {
+    const r = await apiFetch(`/api/hosts/@me/library`, {
       method: "POST",
       body: JSON.stringify({ gameId: selectedGame.id, ...v }),
     });
@@ -1115,7 +1120,7 @@ export default function HostLibrary() {
   const loadLibrary = useCallback(async () => {
     if (!hostToken) return;
     setLoading(true);
-    const r = await apiFetch<LibraryEntry[]>(`/api/hosts/${hostToken}/library`);
+    const r = await apiFetch<LibraryEntry[]>(`/api/hosts/@me/library`);
     setLoading(false);
     if (r.ok) {
       const sorted = [...r.data].sort((a, b) => a.sortOrder - b.sortOrder);
@@ -1137,7 +1142,7 @@ export default function HostLibrary() {
     // Persist new sortOrder values for each moved item
     await Promise.all(
       reordered.map((entry, idx) =>
-        apiFetch(`/api/hosts/${hostToken}/library/${entry.gameId}`, {
+        apiFetch(`/api/hosts/@me/library/${entry.gameId}`, {
           method: "PATCH",
           body: JSON.stringify({ sortOrder: idx }),
         }),
@@ -1147,7 +1152,7 @@ export default function HostLibrary() {
 
   const handleToggle = async (entry: LibraryEntry) => {
     setToggling(entry.id);
-    const r = await apiFetch(`/api/hosts/${hostToken}/library/${entry.gameId}`, {
+    const r = await apiFetch(`/api/hosts/@me/library/${entry.gameId}`, {
       method: "PATCH",
       body: JSON.stringify({ enabled: !entry.enabled }),
     });
@@ -1157,7 +1162,7 @@ export default function HostLibrary() {
   };
 
   const handleEdit = async (gameId: string, v: { pricePerMinuteLzt: number; appPath: string; boundUrl: string; launchArgs: string }) => {
-    const r = await apiFetch(`/api/hosts/${hostToken}/library/${gameId}`, {
+    const r = await apiFetch(`/api/hosts/@me/library/${gameId}`, {
       method: "PATCH",
       body: JSON.stringify(v),
     });
@@ -1169,7 +1174,7 @@ export default function HostLibrary() {
 
   const handleDelete = async () => {
     if (!deleteEntry) return;
-    const r = await apiFetch(`/api/hosts/${hostToken}/library/${deleteEntry.gameId}`, {
+    const r = await apiFetch(`/api/hosts/@me/library/${deleteEntry.gameId}`, {
       method: "DELETE",
     });
     if (!r.ok) {

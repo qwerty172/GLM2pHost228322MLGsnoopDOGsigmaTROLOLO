@@ -10,6 +10,15 @@ interface Bucket {
   updatedAt: number;
 }
 
+/**
+ * Key requests by client IP. Use for endpoints where the attacker does NOT
+ * yet hold a valid token (token brute-force, registration flooding) — keying
+ * by token would give every guess its own fresh bucket.
+ */
+export function ipKey(req: Request): string {
+  return req.ip || "anon";
+}
+
 export function rateLimit(opts: {
   windowMs: number;
   max: number;
@@ -21,7 +30,9 @@ export function rateLimit(opts: {
   const keyOf =
     opts.keyFn ??
     ((req: Request) => {
+      const hdr = req.headers["x-user-token"];
       const tok =
+        (typeof hdr === "string" ? hdr : Array.isArray(hdr) ? hdr[0] : "") ||
         (req.body && (req.body.userToken as string)) ||
         (req.query.userToken as string) ||
         "";

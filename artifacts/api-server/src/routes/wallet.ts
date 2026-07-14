@@ -23,14 +23,32 @@ import {
 } from "../lib/walletOwner";
 import { LZT_PER_USDT, lztToUsdt, usdtToLzt } from "../lib/lzt";
 import { recordWithdrawalDebit } from "../lib/economy";
+import { rateLimit, ipKey } from "../lib/rateLimit";
 
 const router: IRouter = Router();
+
+// Wallet reads are keyed by IP: a token brute-forcer sends many *different*
+// tokens, so per-token buckets would never fill. 429 long before a random
+// token space can be explored.
+const walletReadLimiter = rateLimit({
+  scope: "wallet:read",
+  windowMs: 60_000,
+  max: 60,
+  keyFn: ipKey,
+});
+// Withdrawals are rare, human-initiated actions — keep the cap tight.
+const withdrawLimiter = rateLimit({
+  scope: "wallet:withdraw",
+  windowMs: 10 * 60_000,
+  max: 5,
+  keyFn: ipKey,
+});
 
 function ownerBalanceTable(type: OwnerType) {
   return type === "host" ? hostsTable : playersTable;
 }
 
-router.get("/wallet/:userToken", async (req, res): Promise<void> => {
+router.get("/wallet/:userToken", walletReadLimiter, async (req, res): Promise<void> => {
   const params = GetWalletParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -118,6 +136,7 @@ router.get("/wallet/:userToken", async (req, res): Promise<void> => {
 
 router.get(
   "/wallet/:userToken/transactions",
+  walletReadLimiter,
   async (req, res): Promise<void> => {
     const params = ListWalletTransactionsParams.safeParse(req.params);
     if (!params.success) {
@@ -285,6 +304,7 @@ router.get(
 
 router.post(
   "/wallet/:userToken/withdraw",
+  withdrawLimiter,
   async (req, res): Promise<void> => {
     const params = RequestWithdrawalParams.safeParse(req.params);
     if (!params.success) {

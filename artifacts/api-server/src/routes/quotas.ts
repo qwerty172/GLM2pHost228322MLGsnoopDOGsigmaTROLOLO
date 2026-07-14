@@ -20,6 +20,7 @@ import { anthropic } from "@workspace/integrations-anthropic-ai";
 // single local schema for the simple owner-only POST bodies.
 const QuotaOwnerBody = z.object({ ownerToken: z.string() });
 import { resolveOwnerByToken } from "../lib/walletOwner";
+import { headerUserToken } from "../lib/requestToken";
 import {
   generateAccessCode,
   creditOwnerGreen,
@@ -401,7 +402,7 @@ router.get("/quotas/applied", async (req, res): Promise<void> => {
 // follow sorted by royaltyValue descending.
 
 router.get("/quotas/match-my-host", async (req, res): Promise<void> => {
-  const hostToken = String(req.query.hostToken ?? "");
+  const hostToken = headerUserToken(req) ?? String(req.query.hostToken ?? "");
   if (!hostToken) {
     res.status(400).json({ error: "hostToken required" });
     return;
@@ -477,7 +478,7 @@ router.get("/quotas/match-my-host", async (req, res): Promise<void> => {
 // ---------- Applicable to a host's next session ----------
 
 router.get("/quotas/applicable", async (req, res): Promise<void> => {
-  const hostToken = String(req.query.hostToken ?? "");
+  const hostToken = headerUserToken(req) ?? String(req.query.hostToken ?? "");
   const gameId = req.query.gameId ? String(req.query.gameId) : null;
   const accessCode = req.query.accessCode
     ? String(req.query.accessCode).trim()

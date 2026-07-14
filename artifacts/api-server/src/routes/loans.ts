@@ -15,6 +15,7 @@ import {
   loanRequestsTable,
 } from "@workspace/db";
 import { resolveOwnerByToken } from "../lib/walletOwner";
+import { headerUserToken } from "../lib/requestToken";
 import {
   adjustSystem,
   adjustUserBucket,
@@ -326,7 +327,7 @@ router.post("/loans/requests/:id/fund", fundLimiter, async (req, res): Promise<v
 });
 
 router.get("/loans/mine", async (req, res): Promise<void> => {
-  const userToken = String(req.query.userToken ?? "");
+  const userToken = headerUserToken(req) ?? String(req.query.userToken ?? "");
   if (!userToken) {
     res.status(400).json({ error: "userToken required" });
     return;

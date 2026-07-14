@@ -46,6 +46,16 @@ type CatalogGame = {
   createdAt: string;
 };
 
+const ADMIN_SECRET_KEY = "streamline.adminSecret";
+
+function adminHeaders(hostToken: string): Record<string, string> {
+  const secret = localStorage.getItem(ADMIN_SECRET_KEY) ?? "";
+  return {
+    "X-Host-Token": hostToken,
+    ...(secret ? { "X-Admin-Secret": secret } : {}),
+  };
+}
+
 async function approveSubmission(
   id: string,
   hostToken: string,
@@ -54,7 +64,7 @@ async function approveSubmission(
     `${import.meta.env.BASE_URL}api/admin/games/submissions/${id}/approve`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Host-Token": hostToken },
+      headers: { "Content-Type": "application/json", ...adminHeaders(hostToken) },
       body: JSON.stringify({}),
     },
   );
@@ -70,7 +80,7 @@ async function rejectSubmission(
     `${import.meta.env.BASE_URL}api/admin/games/submissions/${id}/reject`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Host-Token": hostToken },
+      headers: { "Content-Type": "application/json", ...adminHeaders(hostToken) },
       body: JSON.stringify({ reason }),
     },
   );
@@ -86,7 +96,7 @@ async function toggleVisibility(
     `${import.meta.env.BASE_URL}api/admin/games/${id}`,
     {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "X-Host-Token": hostToken },
+      headers: { "Content-Type": "application/json", ...adminHeaders(hostToken) },
       body: JSON.stringify({ isHidden: !currentHidden }),
     },
   );
@@ -101,7 +111,7 @@ async function deleteGame(
     `${import.meta.env.BASE_URL}api/admin/games/${id}`,
     {
       method: "DELETE",
-      headers: { "X-Host-Token": hostToken },
+      headers: adminHeaders(hostToken),
     },
   );
   return r.json();
@@ -501,6 +511,22 @@ export default function AdminGamesPage() {
   const { hostToken } = useAuth();
   const [tab, setTab] = useState<Tab>("catalog");
   const [statusFilter, setStatusFilter] = useState("pending");
+  const [adminSecret, setAdminSecret] = useState(
+    () => localStorage.getItem(ADMIN_SECRET_KEY) ?? "",
+  );
+
+  const handleSecretChange = (value: string) => {
+    setAdminSecret(value);
+    if (value) {
+      localStorage.setItem(ADMIN_SECRET_KEY, value);
+    } else {
+      localStorage.removeItem(ADMIN_SECRET_KEY);
+    }
+    setCatalogGames(null);
+    setCatError(null);
+    setSubmissions(null);
+    setSubError(null);
+  };
 
   const [submissions, setSubmissions] = useState<Submission[] | null>(null);
   const [subLoading, setSubLoading] = useState(false);
@@ -516,7 +542,7 @@ export default function AdminGamesPage() {
     try {
       const r = await fetch(
         `${import.meta.env.BASE_URL}api/admin/games/submissions?status=${status}`,
-        { headers: { "X-Host-Token": token } },
+        { headers: adminHeaders(token) },
       );
       const data = await r.json();
       if (data.error) {
@@ -538,7 +564,7 @@ export default function AdminGamesPage() {
     try {
       const r = await fetch(
         `${import.meta.env.BASE_URL}api/admin/games`,
-        { headers: { "X-Host-Token": token } },
+        { headers: adminHeaders(token) },
       );
       const data = await r.json();
       if (data.error) {
@@ -591,6 +617,28 @@ export default function AdminGamesPage() {
         <p className="text-sm text-slate-500 mb-6">
           Каталог и заявки хостов на добавление новых игр.
         </p>
+
+        {/* Admin secret */}
+        <div className="mb-6">
+          <label className="block text-xs font-medium text-slate-500 mb-1.5">
+            Секрет администратора
+          </label>
+          <input
+            type="password"
+            value={adminSecret}
+            onChange={(e) => handleSecretChange(e.target.value)}
+            placeholder="Введите X-Admin-Secret…"
+            autoComplete="off"
+            className="w-full max-w-sm h-9 px-3 text-sm rounded-lg text-slate-200 placeholder:text-slate-600 outline-none focus:border-sky-600"
+            style={{
+              background: "#0a1018",
+              border: "1px solid rgba(255,255,255,0.09)",
+            }}
+          />
+          <p className="text-[11px] text-slate-600 mt-1">
+            Требуется для всех действий на этой странице. Хранится только в этом браузере.
+          </p>
+        </div>
 
         {/* Tab switcher */}
         <div className="flex gap-2 mb-8 border-b border-white/[0.06] pb-0">

@@ -8,8 +8,25 @@ import {
 } from "@workspace/api-zod";
 import { generateToken } from "../lib/tokens";
 import { ensureDepositAddressesForOwner } from "../lib/walletOwner";
+import { rateLimit, ipKey } from "../lib/rateLimit";
 
 const router: IRouter = Router();
+
+// Registration creates DB rows and (for full accounts) burns deposit
+// addresses from the pool — cap per client IP.
+const registerLimiter = rateLimit({
+  scope: "players:register",
+  windowMs: 60 * 60_000,
+  max: 20,
+  keyFn: ipKey,
+});
+// Player lookups by token: IP-keyed to block token brute-force.
+const playerReadLimiter = rateLimit({
+  scope: "players:read",
+  windowMs: 60_000,
+  max: 60,
+  keyFn: ipKey,
+});
 
 const GUEST_CREDIT_LIMIT_LZT = 500;
 const DEFAULT_CREDIT_LIMIT_LZT = 3000;
@@ -27,7 +44,7 @@ function serialize(p: typeof playersTable.$inferSelect) {
   };
 }
 
-router.post("/players/register", async (req, res): Promise<void> => {
+router.post("/players/register", registerLimiter, async (req, res): Promise<void> => {
   const isGuestRequest = !!(req.body?.guest);
 
   if (isGuestRequest) {
@@ -79,7 +96,7 @@ router.post("/players/register", async (req, res): Promise<void> => {
   res.status(201).json(GetPlayerResponse.parse(serialize(player)));
 });
 
-router.get("/players/:playerToken", async (req, res): Promise<void> => {
+router.get("/players/:playerToken", playerReadLimiter, async (req, res): Promise<void> => {
   const params = GetPlayerParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

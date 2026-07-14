@@ -28,6 +28,7 @@ import {
 import { generateToken } from "../lib/tokens";
 import { ensureDepositAddressesForOwner } from "../lib/walletOwner";
 import { encryptSecret } from "../lib/encryption";
+import { headerUserToken } from "../lib/requestToken";
 import {
   listLibrary,
   addToLibrary,
@@ -36,8 +37,18 @@ import {
 } from "../lib/hostLibrary";
 import { generalHostTier } from "../lib/hostTier";
 import { isQuotaActiveNow } from "../lib/quotaEngine";
+import { rateLimit, ipKey } from "../lib/rateLimit";
 
 const router: IRouter = Router();
+
+// Host registration allocates deposit addresses from a finite pool — keep the
+// limit conservative and IP-keyed to block pool-exhaustion abuse.
+const hostRegisterLimiter = rateLimit({
+  scope: "hosts:register",
+  windowMs: 60 * 60_000,
+  max: 10,
+  keyFn: ipKey,
+});
 
 // Hosts can declare any rate, including negative ("loss-leader" promos), but
 // we cap the absolute value so a typo can't drain a wallet in one tick.
@@ -87,7 +98,7 @@ function serializeHost(h: typeof hostsTable.$inferSelect) {
   };
 }
 
-router.post("/hosts/register", async (req, res): Promise<void> => {
+router.post("/hosts/register", hostRegisterLimiter, async (req, res): Promise<void> => {
   const parsed = RegisterHostBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -737,7 +748,7 @@ const DetachQuotaBody = z.object({
 // GET /api/hosts/me/current-quota — returns the quota attached to the
 // host's current active/pending session, or null.
 router.get("/hosts/me/current-quota", async (req, res): Promise<void> => {
-  const hostToken = String(req.query.hostToken ?? "");
+  const hostToken = headerUserToken(req) ?? String(req.query.hostToken ?? "");
   if (!hostToken) {
     res.status(400).json({ error: "hostToken required" });
     return;

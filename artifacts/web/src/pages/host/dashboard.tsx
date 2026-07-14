@@ -238,9 +238,14 @@ async function apiFetch<T>(
   opts?: RequestInit,
 ): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
   try {
+    const token = localStorage.getItem("streamline.hostToken");
     const res = await fetch(url, {
-      headers: { "Content-Type": "application/json" },
       ...opts,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { "X-User-Token": token } : {}),
+        ...(opts?.headers ?? {}),
+      },
     });
     if (res.status === 204) return { ok: true, data: undefined as T };
     const json = await res.json();
@@ -258,9 +263,7 @@ function HostTemplates({ hostToken }: { hostToken: string }) {
 
   const fetchEntries = async () => {
     setLoading(true);
-    const r = await apiFetch<LibraryTemplate[]>(
-      `/api/hosts/${hostToken}/library`,
-    );
+    const r = await apiFetch<LibraryTemplate[]>(`/api/hosts/@me/library`);
     setLoading(false);
     if (r.ok) setEntries(r.data);
   };
@@ -272,10 +275,9 @@ function HostTemplates({ hostToken }: { hostToken: string }) {
   const handleDelete = async (entry: LibraryTemplate) => {
     if (entry.hasActiveSession) return;
     setRemoving(entry.gameId);
-    const r = await apiFetch(
-      `/api/hosts/${hostToken}/library/${entry.gameId}`,
-      { method: "DELETE" },
-    );
+    const r = await apiFetch(`/api/hosts/@me/library/${entry.gameId}`, {
+      method: "DELETE",
+    });
     setRemoving(null);
     if (r.ok) {
       toast.success(`«${entry.game.title}» удалена из шаблонов`);
@@ -476,9 +478,7 @@ function CurrentQuotaCard({ hostToken }: { hostToken: string }) {
   const [detaching, setDetaching] = useState(false);
 
   const fetchCurrent = async () => {
-    const r = await apiFetch<CurrentQuotaInfo>(
-      `/api/hosts/me/current-quota?hostToken=${encodeURIComponent(hostToken)}`,
-    );
+    const r = await apiFetch<CurrentQuotaInfo>(`/api/hosts/me/current-quota`);
     if (r.ok) setInfo(r.data);
   };
 
@@ -583,7 +583,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!hostToken) return;
-    fetch(`/api/hosts/${hostToken}`)
+    fetch(`/api/hosts/@me`, { headers: { "X-User-Token": hostToken } })
       .then((r) => r.ok ? r.json() : null)
       .then((data: { pcSpecs?: PcSpecs | null } | null) => {
         if (data?.pcSpecs) setPcSpecs(data.pcSpecs);

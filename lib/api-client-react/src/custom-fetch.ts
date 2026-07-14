@@ -44,6 +44,80 @@ export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
   _authTokenGetter = getter;
 }
 
+// ---------------------------------------------------------------------------
+// X-User-Token URL rewrite
+// ---------------------------------------------------------------------------
+
+export type UserTokensGetter = () => Array<string | null | undefined>;
+
+let _userTokensGetter: UserTokensGetter | null = null;
+
+/**
+ * Register a getter returning the caller's known wallet/host tokens.
+ *
+ * Before every request, if the request URL contains one of these tokens as a
+ * path segment or as a `userToken` / `hostToken` / `playerToken` query param,
+ * the token is stripped from the URL (path segment replaced with the literal
+ * `@me` placeholder, query param removed) and sent in the `X-User-Token`
+ * header instead — keeping secrets out of browser history and server logs.
+ *
+ * Pass `null` to disable.
+ */
+export function setUserTokensGetter(getter: UserTokensGetter | null): void {
+  _userTokensGetter = getter;
+}
+
+const TOKEN_QUERY_PARAMS = ["userToken", "hostToken", "playerToken"];
+
+function rewriteTokenUrl(
+  url: string,
+  tokens: Array<string | null | undefined>,
+): { url: string; token: string | null } {
+  const [pathPart, queryPart] = url.split("?", 2) as [string, string?];
+
+  for (const token of tokens) {
+    if (!token) continue;
+    const enc = encodeURIComponent(token);
+
+    // Path segment match (raw or URL-encoded).
+    const segments = pathPart.split("/");
+    let replaced = false;
+    for (let i = 0; i < segments.length; i++) {
+      if (segments[i] === token || segments[i] === enc) {
+        segments[i] = "@me";
+        replaced = true;
+      }
+    }
+    if (replaced) {
+      const newPath = segments.join("/");
+      return {
+        url: queryPart !== undefined ? `${newPath}?${queryPart}` : newPath,
+        token,
+      };
+    }
+
+    // Query param match.
+    if (queryPart) {
+      const params = queryPart.split("&");
+      const kept = params.filter((p) => {
+        const [k, v] = p.split("=", 2);
+        return !(
+          TOKEN_QUERY_PARAMS.includes(decodeURIComponent(k ?? "")) &&
+          (v === token || v === enc)
+        );
+      });
+      if (kept.length !== params.length) {
+        return {
+          url: kept.length > 0 ? `${pathPart}?${kept.join("&")}` : pathPart,
+          token,
+        };
+      }
+    }
+  }
+
+  return { url, token: null };
+}
+
 function isRequest(input: RequestInfo | URL): input is Request {
   return typeof Request !== "undefined" && input instanceof Request;
 }
@@ -329,6 +403,23 @@ export async function customFetch<T = unknown>(
   input = applyBaseUrl(input);
   const { responseType = "auto", headers: headersInit, ...init } = options;
 
+  // Move known user tokens out of the URL into the X-User-Token header.
+  let userTokenHeader: string | null = null;
+  if (_userTokensGetter) {
+    const original = resolveUrl(input);
+    const rewritten = rewriteTokenUrl(original, _userTokensGetter());
+    if (rewritten.token) {
+      userTokenHeader = rewritten.token;
+      if (typeof input === "string") {
+        input = rewritten.url;
+      } else if (isUrl(input)) {
+        input = new URL(rewritten.url, input.origin || undefined);
+      } else if (isRequest(input)) {
+        input = new Request(rewritten.url, input);
+      }
+    }
+  }
+
   const method = resolveMethod(input, init.method);
 
   if (init.body != null && (method === "GET" || method === "HEAD")) {
@@ -336,6 +427,10 @@ export async function customFetch<T = unknown>(
   }
 
   const headers = mergeHeaders(isRequest(input) ? input.headers : undefined, headersInit);
+
+  if (userTokenHeader && !headers.has("x-user-token")) {
+    headers.set("x-user-token", userTokenHeader);
+  }
 
   if (
     typeof init.body === "string" &&
