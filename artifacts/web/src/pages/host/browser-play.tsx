@@ -79,6 +79,7 @@ export default function BrowserPlay() {
 
   const [iframeReady, setIframeReady] = useState(false);
   const [canvasFound, setCanvasFound] = useState(false);
+  const [tabCaptured, setTabCaptured] = useState(false);
   const [connectionState, setConnectionState] =
     useState<RTCPeerConnectionState>("new");
   const [shareUrl, setShareUrl] = useState<string>("");
@@ -421,8 +422,10 @@ export default function BrowserPlay() {
         video: { frameRate: 30 },
         audio: true,
       });
+      setTabCaptured(true);
       // If the host stops sharing from the browser UI, tear down the stream.
       stream.getVideoTracks()[0]?.addEventListener("ended", () => {
+        setTabCaptured(false);
         cleanup();
         setConnectionState("closed");
         toast.info("Показ вкладки остановлен");
@@ -639,18 +642,29 @@ export default function BrowserPlay() {
               <CardTitle className="text-sm text-white">Состояние</CardTitle>
             </CardHeader>
             <CardContent className="text-xs space-y-2 text-slate-400">
-              <div className="flex justify-between">
-                <span>Игра загружена</span>
-                <span className={iframeReady ? "text-emerald-400" : "text-slate-500"}>
-                  {iframeReady ? "да" : "нет"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Canvas найден</span>
-                <span className={canvasFound ? "text-emerald-400" : "text-slate-500"}>
-                  {canvasFound ? "да" : "нет"}
-                </span>
-              </div>
+              {isExternal ? (
+                <div className="flex justify-between">
+                  <span>Вкладка захвачена</span>
+                  <span className={tabCaptured ? "text-emerald-400" : "text-slate-500"}>
+                    {tabCaptured ? "да" : "нет"}
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <div className="flex justify-between">
+                    <span>Игра загружена</span>
+                    <span className={iframeReady ? "text-emerald-400" : "text-slate-500"}>
+                      {iframeReady ? "да" : "нет"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Canvas найден</span>
+                    <span className={canvasFound ? "text-emerald-400" : "text-slate-500"}>
+                      {canvasFound ? "да" : "нет"}
+                    </span>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between">
                 <span>Гость</span>
                 <span
