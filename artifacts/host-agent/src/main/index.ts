@@ -336,9 +336,40 @@ void app.whenReady().then(async () => {
   // agent is running. This tiny server is intentionally minimal — it only
   // needs to confirm presence and return a version string.
   const PING_PORT = 18080;
-  const pingServer = http.createServer(async (_req, res) => {
+  const pingServer = http.createServer(async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Content-Type", "application/json");
+
+    // CORS preflight — browsers send this before cross-origin POST.
+    if (req.method === "OPTIONS") {
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    // POST /input — relay a single InputEvent to Win32 SendInput.
+    // Used by browser-play.tsx when streaming an external URL: player input
+    // arrives via WebRTC DataChannel; the host page forwards it here so the
+    // agent can inject it at the OS level.
+    if (req.method === "POST" && req.url === "/input") {
+      let body = "";
+      req.on("data", (chunk: Buffer) => { body += chunk.toString(); });
+      req.on("end", () => {
+        try {
+          const event = JSON.parse(body) as import("../shared/messages").InputEvent;
+          injectInput(event);
+          res.writeHead(204);
+          res.end();
+        } catch {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: "bad_input" }));
+        }
+      });
+      return;
+    }
+
     res.writeHead(200);
     const cfg = await loadConfig().catch(() => null);
     res.end(JSON.stringify({ status: "ok", version: "0.1.0", audioMode: cfg?.audioMode ?? "off" }));

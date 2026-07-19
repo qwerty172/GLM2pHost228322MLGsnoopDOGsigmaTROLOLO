@@ -69,6 +69,10 @@ export default function BrowserPlay() {
     storedBrowserHostUrl ||
     (/^https?:\/\//i.test(session?.appName ?? "") ? (session?.appName ?? null) : null);
 
+  // True when the host is streaming an arbitrary external https site via tab
+  // capture (getDisplayMedia). Defined here so handleInputMessage can use it.
+  const isExternal = /^https?:\/\//i.test(browserHostUrl ?? "");
+
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const externalStreamRef = useRef<MediaStream | null>(null);
@@ -297,7 +301,6 @@ export default function BrowserPlay() {
 
   const handleInputMessage = (raw: unknown) => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
     let msg: {
       type?: string;
       kind?: string;
@@ -315,6 +318,52 @@ export default function BrowserPlay() {
       return;
     }
     if (msg.type !== "input") return;
+
+    // External URL (tab capture) mode: relay input events to the local
+    // host-agent at localhost:18080/input so Win32 SendInput can replay them
+    // at the OS level. This makes the player's mouse/keyboard affect whatever
+    // the host has focused on their screen (typically the captured tab).
+    if (isExternal) {
+      const x = msg.x ?? 0.5;
+      const y = msg.y ?? 0.5;
+      const buttonName =
+        msg.button === 2 ? "right" : msg.button === 1 ? "middle" : "left";
+      let event: Record<string, unknown> | null = null;
+      if (msg.kind === "key") {
+        event = {
+          kind: msg.action === "up" ? "keyup" : "keydown",
+          code: msg.code || msg.key || "",
+          key: msg.key || msg.code || "",
+        };
+      } else if (msg.kind === "mouse") {
+        if (msg.action === "move") {
+          event = { kind: "mousemove", x, y, mode: "absolute" };
+        } else if (msg.action === "down") {
+          // Send move first so the cursor is in the right spot before the click.
+          void fetch("http://127.0.0.1:18080/input", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ kind: "mousemove", x, y, mode: "absolute" }),
+          }).catch(() => undefined);
+          event = { kind: "mousedown", button: buttonName };
+        } else if (msg.action === "up") {
+          event = { kind: "mouseup", button: buttonName };
+        }
+      } else if (msg.kind === "wheel") {
+        event = { kind: "wheel", deltaY: msg.deltaY ?? 0 };
+      }
+      if (event) {
+        void fetch("http://127.0.0.1:18080/input", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(event),
+        }).catch(() => undefined);
+      }
+      return;
+    }
+
+    // Iframe/canvas game mode — dispatch events directly into the embedded game.
+    if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
     const cx = typeof msg.x === "number" ? msg.x * canvas.width : canvas.width / 2;
@@ -414,7 +463,6 @@ export default function BrowserPlay() {
 
   // External http(s) URL (arbitrary site like DeepSeek): cross-origin iframes
   // can't be canvas-captured, so the host shares the tab via getDisplayMedia.
-  const isExternal = /^https?:\/\//i.test(browserHostUrl ?? "");
 
   const handleShareTab = async () => {
     try {
@@ -577,8 +625,8 @@ export default function BrowserPlay() {
                 </Badge>
               )}
               <p className="text-xs text-slate-500 max-w-md">
-                Управление у игрока в этом режиме не работает — он видит и
-                слышит вкладку, но действия выполняешь ты.
+                Управление работает через агент — мышь и клавиатура игрока
+                управляют твоим экраном. Требуется запущенный Desktop Agent.
               </p>
             </div>
           ) : (
