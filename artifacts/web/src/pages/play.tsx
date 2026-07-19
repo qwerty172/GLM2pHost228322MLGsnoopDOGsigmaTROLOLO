@@ -10,16 +10,112 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Gamepad2, AlertCircle, ArrowLeft, Loader2, Wifi, WifiOff, VolumeX, Wallet, Banknote, Coins, Clock, TrendingDown, Activity, RefreshCw, Clapperboard, Settings2, X, Layers } from "lucide-react";
+import { Gamepad2, AlertCircle, ArrowLeft, Loader2, Wifi, WifiOff, VolumeX, Wallet, Banknote, Coins, Clock, TrendingDown, Activity, RefreshCw, Clapperboard, Settings2, X, Layers, ExternalLink, FlaskConical } from "lucide-react";
 import { WebGLVideoShader, SHADER_PRESETS, type PresetKey } from "@/components/webgl-video-shader";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { TouchOverlay } from "@/components/TouchOverlay";
+import { toast } from "sonner";
+import { usePlayerWallet } from "@/hooks/use-player-wallet";
 
 const LZT_PER_USDT = 200;
 type PaymentSource = "auto" | "blue" | "green";
-import { toast } from "sonner";
-import { usePlayerWallet } from "@/hooks/use-player-wallet";
+
+// ---------------------------------------------------------------------------
+// IframeTestSession — renders a browser-hosted game URL inside an iframe.
+// Shows a warning banner if the site blocks framing (X-Frame-Options / CSP),
+// and always exposes an "Open in new tab" button as a fallback.
+// ---------------------------------------------------------------------------
+function IframeTestSession({ iframeUrl, gameTitle }: { iframeUrl: string; gameTitle: string }) {
+  const [blocked, setBlocked] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Heuristic: if the iframe hasn't received a load event within 6 s, the
+  // page is likely being blocked by X-Frame-Options / CSP frame-ancestors.
+  // We can't read the actual error (cross-origin), so the timer is the best
+  // signal available in a browser sandbox.
+  useEffect(() => {
+    let loaded = false;
+    const timer = setTimeout(() => {
+      if (!loaded) setBlocked(true);
+    }, 6000);
+    const el = iframeRef.current;
+    const onLoad = () => {
+      loaded = true;
+      clearTimeout(timer);
+      setBlocked(false);
+    };
+    el?.addEventListener("load", onLoad);
+    return () => {
+      clearTimeout(timer);
+      el?.removeEventListener("load", onLoad);
+    };
+  }, [iframeUrl]);
+
+  return (
+    <div className="min-h-screen bg-black flex flex-col relative overflow-hidden">
+      {/* Top bar */}
+      <div className="absolute top-3 left-0 right-0 z-20 flex justify-center pointer-events-none">
+        <div
+          className="flex items-center gap-3 px-4 py-2 rounded-full pointer-events-auto"
+          style={{ background: "rgba(10,16,24,0.85)", border: "1px solid rgba(139,92,246,0.4)", backdropFilter: "blur(8px)" }}
+        >
+          <FlaskConical className="w-3.5 h-3.5 text-violet-400" />
+          <span className="text-violet-300 text-xs font-semibold tracking-wide">ТЕСТ-СЕССИЯ</span>
+          <span className="text-slate-500 text-xs">{gameTitle}</span>
+          <span className="text-violet-400 text-xs">· бесплатно</span>
+          <a
+            href={iframeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300 ml-1"
+          >
+            <ExternalLink className="w-3 h-3" />
+            Открыть в новой вкладке
+          </a>
+        </div>
+      </div>
+
+      {/* Blocked-by-X-Frame-Options warning */}
+      {blocked && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-black/90 text-center px-6">
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-6 max-w-md space-y-3">
+            <p className="text-amber-300 font-semibold text-base">Сайт запрещает встраивание</p>
+            <p className="text-slate-400 text-sm">
+              <strong className="text-white">{iframeUrl}</strong> возвращает заголовок{" "}
+              <code className="text-amber-300">X-Frame-Options: DENY</code>, поэтому
+              браузер блокирует iframe. Это ограничение на стороне самого сайта —
+              обойти его внутри плеера нельзя.
+            </p>
+            <p className="text-slate-400 text-sm">
+              Для тест-сессии используй URL игры, которая допускает встраивание
+              (например, <code className="text-sky-300">https://shellshock.io</code>,{" "}
+              <code className="text-sky-300">https://krunker.io</code>).
+            </p>
+            <a
+              href={iframeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm font-medium px-4 py-2"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Открыть {iframeUrl} в новой вкладке
+            </a>
+          </div>
+        </div>
+      )}
+
+      <iframe
+        ref={iframeRef}
+        src={iframeUrl}
+        className="flex-1 w-full border-0"
+        style={{ minHeight: "100vh" }}
+        allow="autoplay; fullscreen; keyboard-map"
+        title={`Тест: ${gameTitle}`}
+      />
+    </div>
+  );
+}
 
 export default function Play() {
   const [, params] = useRoute("/play/:playerToken");
@@ -967,25 +1063,10 @@ export default function Play() {
       ? gameBrowserHostUrl
       : `${import.meta.env.BASE_URL}${gameBrowserHostUrl.replace(/^\//, "")}`;
     return (
-      <div className="min-h-screen bg-black flex flex-col relative overflow-hidden">
-        <div className="absolute top-3 left-0 right-0 z-20 flex justify-center pointer-events-none">
-          <div
-            className="flex items-center gap-3 px-4 py-2 rounded-full pointer-events-auto"
-            style={{ background: "rgba(10,16,24,0.85)", border: "1px solid rgba(139,92,246,0.4)", backdropFilter: "blur(8px)" }}
-          >
-            <span className="text-violet-300 text-xs font-semibold tracking-wide">🧪 ТЕСТ-СЕССИЯ</span>
-            <span className="text-slate-500 text-xs">{(session as any).gameTitle || session.appName}</span>
-            <span className="text-violet-400 text-xs">· бесплатно</span>
-          </div>
-        </div>
-        <iframe
-          src={iframeUrl}
-          className="flex-1 w-full border-0"
-          style={{ minHeight: "100vh" }}
-          allow="autoplay; fullscreen; keyboard-map"
-          title={`Тест: ${session.appName}`}
-        />
-      </div>
+      <IframeTestSession
+        iframeUrl={iframeUrl}
+        gameTitle={(session as any).gameTitle || session.appName}
+      />
     );
   }
 
