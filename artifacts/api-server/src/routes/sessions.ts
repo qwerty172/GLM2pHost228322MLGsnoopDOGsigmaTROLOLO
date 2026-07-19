@@ -485,7 +485,14 @@ router.post("/sessions/test", testSessionLimiter, async (req, res): Promise<void
     { sessionId: session.id, hostId: host.id },
     "Test session created",
   );
-  res.status(201).json({ session: serialize(session) });
+  // hostBoundUrl lets the dashboard decide how to open the test:
+  // external http(s) URL → host streaming page (tab capture via WebRTC);
+  // local/relative game path → player iframe directly.
+  res.status(201).json({
+    session: serialize(session),
+    hostBoundUrl: hostBoundUrl || null,
+    isExternalUrl: /^https?:\/\//i.test(hostBoundUrl),
+  });
 });
 
 router.get(
@@ -522,9 +529,16 @@ router.get(
 
     // For self-test sessions the host's own bound browser URL wins over the
     // catalog game's URL — the host is testing exactly what they configured.
+    // External http(s) URLs are NOT returned as iframe targets: arbitrary
+    // sites block framing (X-Frame-Options), so the player must receive the
+    // WebRTC stream from the host's shared tab instead.
+    const boundTrimmed = (hostBoundUrl ?? "").trim();
+    const boundIsExternal = /^https?:\/\//i.test(boundTrimmed);
     const effectiveBrowserUrl =
-      session.isTest && (hostBoundUrl ?? "").trim()
-        ? (hostBoundUrl ?? "").trim()
+      session.isTest && boundTrimmed
+        ? boundIsExternal
+          ? null
+          : boundTrimmed
         : game?.browserHostUrl ?? null;
 
     // Return strict-schema fields plus extra game info for the player UI.

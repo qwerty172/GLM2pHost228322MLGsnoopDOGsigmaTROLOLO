@@ -58,6 +58,7 @@ export default function BrowserPlay() {
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
+  const externalStreamRef = useRef<MediaStream | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const inputDcRef = useRef<RTCDataChannel | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -101,14 +102,35 @@ export default function BrowserPlay() {
     };
   }, [iframeReady]);
 
-  const startStreaming = useCallback(async () => {
+  const cleanup = useCallback(() => {
+    // Stop tab capture explicitly so the browser's "sharing" indicator goes
+    // away even when the session is ended from our UI.
+    externalStreamRef.current?.getTracks().forEach((t) => t.stop());
+    externalStreamRef.current = null;
+    inputDcRef.current?.close();
+    inputDcRef.current = null;
+    wsRef.current?.close();
+    wsRef.current = null;
+    if (pcRef.current) {
+      const poll = (pcRef.current as unknown as { __audioPoll?: number })
+        .__audioPoll;
+      if (poll) clearInterval(poll as unknown as NodeJS.Timeout);
+      pcRef.current.close();
+      pcRef.current = null;
+    }
+    streamingStartedRef.current = false;
+  }, []);
+
+  const startStreaming = useCallback(async (externalStream?: MediaStream) => {
     if (!sessionId || !hostToken || streamingStartedRef.current) return;
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!externalStream && !canvas) return;
     streamingStartedRef.current = true;
     setConnectionState("connecting");
+    if (externalStream) externalStreamRef.current = externalStream;
 
-    const videoStream = canvas.captureStream(30);
+    try {
+    const videoStream = externalStream ?? canvas!.captureStream(30);
 
     // Fetch ICE server config (STUN + optional TURN) from the API.
     let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
@@ -117,7 +139,15 @@ export default function BrowserPlay() {
       if (cfgRes.ok) {
         const cfgJson = (await cfgRes.json()) as { iceServers: RTCIceServer[] };
         if (Array.isArray(cfgJson.iceServers) && cfgJson.iceServers.length > 0) {
-          iceServers = cfgJson.iceServers;
+          // Sanitize: drop entries whose urls are not valid ICE URIs so a
+          // bad server config can never hard-crash RTCPeerConnection.
+          const valid = cfgJson.iceServers.filter((s) => {
+            const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
+            return urls.every(
+              (u) => typeof u === "string" && /^(stun|stuns|turn|turns):/i.test(u),
+            );
+          });
+          if (valid.length > 0) iceServers = valid;
         }
       }
     } catch {
@@ -128,6 +158,15 @@ export default function BrowserPlay() {
     pcRef.current = pc;
     for (const track of videoStream.getVideoTracks()) {
       pc.addTrack(track, videoStream);
+    }
+
+    // External tab capture already carries its own audio track (if the host
+    // ticked "share tab audio" in the browser dialog) — just forward it.
+    if (externalStream) {
+      for (const track of externalStream.getAudioTracks()) {
+        pc.addTrack(track, externalStream);
+        setAudioCaptured(true);
+      }
     }
 
     // Audio: route every <audio> element Phaser creates inside the iframe
@@ -225,7 +264,17 @@ export default function BrowserPlay() {
     ws.onerror = () => {
       toast.error("Сигнальный сервер недоступен");
     };
-  }, [sessionId, hostToken]);
+    } catch (err) {
+      // Any hard setup failure (e.g. RTCPeerConnection rejecting a bad ICE
+      // config) must not leave the page in a dead state — reset so the host
+      // can retry.
+      console.error("Browser host: failed to start streaming", err);
+      cleanup();
+      streamingStartedRef.current = false;
+      setConnectionState("closed");
+      toast.error("Не удалось запустить стрим — попробуй ещё раз");
+    }
+  }, [sessionId, hostToken, cleanup]);
 
   // Auto-start once iframe canvas is ready.
   useEffect(() => {
@@ -307,21 +356,6 @@ export default function BrowserPlay() {
     }
   };
 
-  const cleanup = useCallback(() => {
-    inputDcRef.current?.close();
-    inputDcRef.current = null;
-    wsRef.current?.close();
-    wsRef.current = null;
-    if (pcRef.current) {
-      const poll = (pcRef.current as unknown as { __audioPoll?: number })
-        .__audioPoll;
-      if (poll) clearInterval(poll as unknown as NodeJS.Timeout);
-      pcRef.current.close();
-      pcRef.current = null;
-    }
-    streamingStartedRef.current = false;
-  }, []);
-
   useEffect(() => () => cleanup(), [cleanup]);
 
   // Live earnings ticker — host receives the full per-minute rate on each
@@ -361,6 +395,28 @@ export default function BrowserPlay() {
       toast.error(
         err instanceof Error ? err.message : "Не удалось завершить сессию",
       );
+    }
+  };
+
+  // External http(s) URL (arbitrary site like DeepSeek): cross-origin iframes
+  // can't be canvas-captured, so the host shares the tab via getDisplayMedia.
+  const isExternal = /^https?:\/\//i.test(browserHostUrl ?? "");
+
+  const handleShareTab = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: 30 },
+        audio: true,
+      });
+      // If the host stops sharing from the browser UI, tear down the stream.
+      stream.getVideoTracks()[0]?.addEventListener("ended", () => {
+        cleanup();
+        setConnectionState("closed");
+        toast.info("Показ вкладки остановлен");
+      });
+      void startStreaming(stream);
+    } catch {
+      toast.error("Доступ к захвату экрана не предоставлен");
     }
   };
 
@@ -454,14 +510,58 @@ export default function BrowserPlay() {
             minHeight: 480,
           }}
         >
-          <iframe
-            ref={iframeRef}
-            src={iframeSrc}
-            title="Browser-hosted game"
-            className="w-full h-full"
-            style={{ minHeight: 480, border: 0 }}
-            onLoad={() => setIframeReady(true)}
-          />
+          {isExternal ? (
+            <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
+              <Gamepad2 className="h-10 w-10 text-sky-400" />
+              <p className="text-white font-semibold">
+                Стрим произвольного сайта
+              </p>
+              <p className="text-sm text-slate-400 max-w-md">
+                1. Открой{" "}
+                <a
+                  href={browserHostUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sky-400 underline break-all"
+                >
+                  {browserHostUrl}
+                </a>{" "}
+                в новой вкладке.
+                <br />
+                2. Нажми «Поделиться вкладкой» и выбери её в диалоге браузера
+                (отметь «Также делиться звуком вкладки», если нужен звук).
+              </p>
+              {connectionState === "new" || connectionState === "closed" ? (
+                <Button
+                  onClick={handleShareTab}
+                  className="bg-sky-500 hover:bg-sky-400 text-white"
+                  data-testid="button-share-tab"
+                >
+                  <Wifi className="h-4 w-4 mr-2" />
+                  Поделиться вкладкой
+                </Button>
+              ) : (
+                <Badge variant="outline" className="text-sky-300 border-sky-500/40">
+                  {connectionState === "connected"
+                    ? "Стрим идёт — игрок видит твою вкладку"
+                    : "Ожидание подключения игрока…"}
+                </Badge>
+              )}
+              <p className="text-xs text-slate-500 max-w-md">
+                Управление у игрока в этом режиме не работает — он видит и
+                слышит вкладку, но действия выполняешь ты.
+              </p>
+            </div>
+          ) : (
+            <iframe
+              ref={iframeRef}
+              src={iframeSrc}
+              title="Browser-hosted game"
+              className="w-full h-full"
+              style={{ minHeight: 480, border: 0 }}
+              onLoad={() => setIframeReady(true)}
+            />
+          )}
         </div>
 
         <aside className="flex flex-col gap-4">

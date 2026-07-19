@@ -644,12 +644,35 @@ export default function Dashboard() {
         toast.error(data?.error || "Не удалось создать тест-сессию");
         return;
       }
-      toast.success("Тест-сессия создана — открываю плеер");
       refetchSessions();
-      window.open(
-        `${window.location.origin}${import.meta.env.BASE_URL}play/${data.session.playerToken}`,
-        "_blank",
-      );
+      if (data.isExternalUrl && data.hostBoundUrl) {
+        // Arbitrary external site: iframes are blocked by most sites, so the
+        // honest test is a real WebRTC stream. Open the host streaming page
+        // where the host shares their tab; the guest link is shown there.
+        try {
+          localStorage.setItem(
+            "streamline.browserHostToken:" + data.session.id,
+            hostToken,
+          );
+          localStorage.setItem(
+            "streamline.browserHostUrl:" + data.session.id,
+            data.hostBoundUrl,
+          );
+        } catch {
+          // localStorage unavailable — the host page will show an error
+        }
+        toast.success("Тест-сессия создана — поделись вкладкой со стримом");
+        window.open(
+          `${window.location.origin}${import.meta.env.BASE_URL}host/play/${data.session.id}`,
+          "_blank",
+        );
+      } else {
+        toast.success("Тест-сессия создана — открываю плеер");
+        window.open(
+          `${window.location.origin}${import.meta.env.BASE_URL}play/${data.session.playerToken}`,
+          "_blank",
+        );
+      }
     } catch {
       toast.error("Ошибка сети при создании тест-сессии");
     } finally {

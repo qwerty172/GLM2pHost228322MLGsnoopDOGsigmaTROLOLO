@@ -2,3 +2,4 @@
 - [orval codegen breakage](js-yaml-orval-codegen.md) — pnpm can hoist js-yaml to ESM-only v5 (pin via pnpm.overrides, e.g. `'>=4.2.0 <5.0.0'`); multi-line YAML descriptions with blank line + `>` can break generated JSDoc comments.
 - [Host strength tier in catalog](host-tier-catalog.md) — below_min hosts hidden from public catalog/search; above_rec sort first + highlighted; null-specs = neutral meets_min, never falsely above_rec.
 - [X-User-Token header auth](user-token-header.md) — tokens go in X-User-Token header with `@me` path placeholder (never bare `me` — literal routes exist); admin routes also need X-Admin-Secret.
+- [TURN secrets swapped](turn-secrets-swapped.md) — TURN_URL/TURN_CREDENTIAL values are swapped in secret storage; /public/ice-config auto-corrects. Don't "fix" by editing code — fix the secrets.
