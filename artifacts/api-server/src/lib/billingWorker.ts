@@ -118,6 +118,8 @@ async function billOnceInner(): Promise<void> {
     .where(
       and(
         eq(sessionsTable.status, "active"),
+        // Host self-test sessions are never billed.
+        eq(sessionsTable.isTest, false),
         or(
           isNotNull(sessionsTable.claimedByPlayerId),
           isNotNull(sessionsTable.devKeyId),

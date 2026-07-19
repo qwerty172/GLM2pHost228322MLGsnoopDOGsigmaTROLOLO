@@ -35,6 +35,7 @@ import {
   Wifi,
   WifiOff,
   ExternalLink,
+  FlaskConical,
   Plus,
   Pencil,
   Trash2,
@@ -628,6 +629,34 @@ export default function Dashboard() {
     toast.success("Ссылка скопирована");
   };
 
+  const [testLoading, setTestLoading] = useState(false);
+  const handleTestSession = async () => {
+    if (!hostToken) return;
+    setTestLoading(true);
+    try {
+      const res = await fetch(`/api/sessions/test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hostToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data?.error || "Не удалось создать тест-сессию");
+        return;
+      }
+      toast.success("Тест-сессия создана — открываю плеер");
+      refetchSessions();
+      window.open(
+        `${window.location.origin}${import.meta.env.BASE_URL}play/${data.session.playerToken}`,
+        "_blank",
+      );
+    } catch {
+      toast.error("Ошибка сети при создании тест-сессии");
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
   const handleEndSession = (id: string) => {
     if (!hostToken) return;
     endSession.mutate(
@@ -655,6 +684,15 @@ export default function Dashboard() {
             Управляй своим узлом и активными сессиями.
           </p>
         </div>
+        <Button
+          onClick={handleTestSession}
+          disabled={testLoading || !hostToken}
+          className="bg-violet-600 hover:bg-violet-500 text-white"
+          data-testid="button-test-session"
+        >
+          <FlaskConical className="h-4 w-4 mr-2" />
+          {testLoading ? "Создаём..." : "Проверить самому"}
+        </Button>
       </div>
 
       {/* Agent status */}

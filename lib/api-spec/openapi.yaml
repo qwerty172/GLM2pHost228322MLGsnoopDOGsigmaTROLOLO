@@ -1926,6 +1926,9 @@ components:
         blockReservedLzt:
           type: ["integer", "null"]
           description: Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.
+        isTest:
+          type: boolean
+          description: Host self-test session — completely free, skipped by billing.
       required:
         - id
         - hostId

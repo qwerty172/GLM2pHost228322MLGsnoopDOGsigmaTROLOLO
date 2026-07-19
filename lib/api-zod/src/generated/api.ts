@@ -348,6 +348,10 @@ export const ListHostSessionsResponseItem = zod.object({
     .describe(
       "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
     ),
+  isTest: zod
+    .boolean()
+    .optional()
+    .describe("Host self-test session — completely free, skipped by billing."),
 });
 export const ListHostSessionsResponse = zod.array(ListHostSessionsResponseItem);
 
@@ -733,6 +737,10 @@ export const GetSessionResponse = zod.object({
     .describe(
       "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
     ),
+  isTest: zod
+    .boolean()
+    .optional()
+    .describe("Host self-test session — completely free, skipped by billing."),
 });
 
 /**
@@ -779,6 +787,10 @@ export const GetSessionByPlayerTokenResponse = zod.object({
     .describe(
       "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
     ),
+  isTest: zod
+    .boolean()
+    .optional()
+    .describe("Host self-test session — completely free, skipped by billing."),
 });
 
 /**
@@ -843,6 +855,10 @@ export const ClaimSessionResponse = zod.object({
     .describe(
       "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
     ),
+  isTest: zod
+    .boolean()
+    .optional()
+    .describe("Host self-test session — completely free, skipped by billing."),
 });
 
 /**
@@ -893,6 +909,10 @@ export const EndSessionResponse = zod.object({
     .describe(
       "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
     ),
+  isTest: zod
+    .boolean()
+    .optional()
+    .describe("Host self-test session — completely free, skipped by billing."),
 });
 
 /**

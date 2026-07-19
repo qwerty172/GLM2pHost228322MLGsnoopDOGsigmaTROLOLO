@@ -286,6 +286,8 @@ export interface Session {
    * @nullable
    */
   blockReservedLzt?: number | null;
+  /** Host self-test session — completely free, skipped by billing. */
+  isTest?: boolean;
 }
 
 export interface EndSessionBody {

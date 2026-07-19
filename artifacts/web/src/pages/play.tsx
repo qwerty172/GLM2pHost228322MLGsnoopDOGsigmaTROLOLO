@@ -1025,18 +1025,30 @@ export default function Play() {
               >
                 {session.bitrateKbps} kbps
               </Badge>
-              <Badge
-                variant="outline"
-                className="border-sky-400/30 text-sky-300"
-              >
-                {ratePerMinLzt} LZT/мин
-              </Badge>
-              <Badge
-                variant="outline"
-                className="border-white/10 text-slate-500 text-[10px]"
-              >
-                ≈ ${ratePerMinUsd.toFixed(4)}/мин
-              </Badge>
+              {(session as any).isTest ? (
+                <Badge
+                  variant="outline"
+                  className="border-violet-400/40 text-violet-300"
+                  data-testid="badge-test-session"
+                >
+                  Тест-сессия · бесплатно
+                </Badge>
+              ) : (
+                <>
+                  <Badge
+                    variant="outline"
+                    className="border-sky-400/30 text-sky-300"
+                  >
+                    {ratePerMinLzt} LZT/мин
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className="border-white/10 text-slate-500 text-[10px]"
+                  >
+                    ≈ ${ratePerMinUsd.toFixed(4)}/мин
+                  </Badge>
+                </>
+              )}
             </div>
           </CardHeader>
           <CardContent className="space-y-4">

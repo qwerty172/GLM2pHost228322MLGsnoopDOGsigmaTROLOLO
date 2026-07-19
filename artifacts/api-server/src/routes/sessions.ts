@@ -335,6 +335,107 @@ router.post("/sessions/browser-host", async (req, res): Promise<void> => {
   });
 });
 
+// Self-test sessions are free, so throttle creation hard: token guessing or
+// spam would otherwise churn the sessions table at zero cost.
+const testSessionLimiter = rateLimit({
+  scope: "sessions:test",
+  windowMs: 60_000,
+  max: 5,
+  keyFn: ipKey,
+});
+
+// Self-test session: the host launches a session against their own PC to
+// verify the stream works end-to-end. Completely free — no launch fee, no
+// per-minute billing (billing worker skips isTest), no earnings.
+router.post("/sessions/test", testSessionLimiter, async (req, res): Promise<void> => {
+  const hostToken =
+    (req.headers["x-host-token"] as string | undefined) ||
+    String(req.body?.hostToken ?? "");
+  if (!hostToken) {
+    res.status(401).json({ error: "hostToken required" });
+    return;
+  }
+  const [host] = await db
+    .select()
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, hostToken));
+  if (!host) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+  if (!host.gameId) {
+    res.status(400).json({ error: "У хоста не привязана игра — сначала настройте библиотеку" });
+    return;
+  }
+  const [game] = await db
+    .select()
+    .from(gamesTable)
+    .where(eq(gamesTable.id, host.gameId));
+  if (!game) {
+    res.status(404).json({ error: "Game not found" });
+    return;
+  }
+
+  // Only one open test session per host at a time — end any stale ones.
+  await db
+    .update(sessionsTable)
+    .set({ status: "ended", endedAt: new Date(), endReason: "test_superseded" })
+    .where(
+      and(
+        eq(sessionsTable.hostId, host.id),
+        eq(sessionsTable.isTest, true),
+        ne(sessionsTable.status, "ended"),
+      ),
+    );
+
+  // Same hardware constraint as /sessions: the host machine streams one game
+  // at a time. If a real (paid) session is still open, don't preempt it.
+  const [busy] = await db
+    .select({ id: sessionsTable.id })
+    .from(sessionsTable)
+    .where(
+      and(
+        eq(sessionsTable.hostId, host.id),
+        ne(sessionsTable.status, "ended"),
+      ),
+    )
+    .limit(1);
+  if (busy) {
+    res.status(409).json({
+      error: "host_busy",
+      message: "У хоста уже идёт сессия — завершите её перед тестом.",
+    });
+    return;
+  }
+
+  const playerToken = generateToken();
+  const [session] = await db
+    .insert(sessionsTable)
+    .values({
+      hostId: host.id,
+      gameId: game.id,
+      playerToken,
+      appName: game.title,
+      resolution: "1280x720",
+      bitrateKbps: 4000,
+      // Rate kept for display purposes only; billing worker skips isTest.
+      ratePerMinute: String(Number(host.minutePriceUsd)),
+      paymentSource: "auto",
+      isTest: true,
+    })
+    .returning();
+  if (!session) {
+    res.status(500).json({ error: "Failed to create test session" });
+    return;
+  }
+
+  req.log.info(
+    { sessionId: session.id, hostId: host.id },
+    "Test session created",
+  );
+  res.status(201).json({ session: serialize(session) });
+});
+
 router.get(
   "/sessions/by-player-token/:playerToken",
   async (req, res): Promise<void> => {
@@ -453,6 +554,35 @@ router.post(
       .where(eq(hostsTable.id, session.hostId));
     if (!host) {
       res.status(404).json({ error: "Host not found" });
+      return;
+    }
+
+    // Test sessions are free: skip balance requirements and the launch fee
+    // entirely — just bind the wallet and let the stream start. The billing
+    // worker never touches isTest sessions.
+    if (session.isTest) {
+      const [claimed] = await db
+        .update(sessionsTable)
+        .set({ claimedByPlayerId: player.id })
+        .where(
+          and(
+            eq(sessionsTable.id, session.id),
+            or(
+              isNull(sessionsTable.claimedByPlayerId),
+              eq(sessionsTable.claimedByPlayerId, player.id),
+            ),
+          ),
+        )
+        .returning();
+      if (!claimed) {
+        res.status(409).json({ error: "Session already claimed by another player" });
+        return;
+      }
+      req.log.info(
+        { sessionId: claimed.id, playerId: player.id },
+        "Test session claimed (free)",
+      );
+      res.json(ClaimSessionResponse.parse(serialize(claimed)));
       return;
     }
 

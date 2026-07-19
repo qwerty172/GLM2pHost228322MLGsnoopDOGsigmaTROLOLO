@@ -4,6 +4,7 @@ import {
   uuid,
   timestamp,
   integer,
+  boolean,
   index,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -57,6 +58,10 @@ export const sessionsTable = pgTable("sessions", {
   // The billing worker drains from this reserve each tick; unused reserve is refunded on exit.
   blockMinutes: integer("block_minutes"),
   blockReservedLzt: integer("block_reserved_lzt"),
+  // Self-test session launched by the host to verify their own setup.
+  // No launch fee, no per-minute billing (the billing worker skips these),
+  // no host earnings — purely a technical stream check.
+  isTest: boolean("is_test").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
