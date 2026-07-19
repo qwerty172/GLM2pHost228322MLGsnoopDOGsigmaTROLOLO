@@ -364,14 +364,14 @@ router.post("/sessions/test", testSessionLimiter, async (req, res): Promise<void
     res.status(404).json({ error: "Host not found" });
     return;
   }
-  // 0. Host's own bound browser URL (boundUrl) — highest priority: the host
-  //    explicitly configured what their machine streams, so the self-test
-  //    must reflect exactly that, not a catalog fallback.
-  // 1. Modern library (hostGamesTable) — first enabled entry.
-  // 2. Legacy hosts.gameId.
-  // 3. Any catalog game (browser-hosted first) — so test works even before
+  // 0. One-shot override URL from the dashboard "quick test" input.
+  // 1. Host's own bound browser URL (boundUrl) from profile settings.
+  // 2. Modern library (hostGamesTable) — first enabled entry.
+  // 3. Legacy hosts.gameId.
+  // 4. Any catalog game (browser-hosted first) — so test works even before
   //    the host has configured their library.
-  const hostBoundUrl = (host.boundUrl ?? "").trim();
+  const overrideUrl = (String(req.body?.overrideUrl ?? "")).trim();
+  const hostBoundUrl = overrideUrl || (host.boundUrl ?? "").trim();
   let game: typeof gamesTable.$inferSelect | undefined;
 
   const [libraryEntry] = await db

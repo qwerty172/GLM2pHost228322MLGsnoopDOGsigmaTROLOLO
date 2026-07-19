@@ -18,6 +18,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -630,14 +631,18 @@ export default function Dashboard() {
   };
 
   const [testLoading, setTestLoading] = useState(false);
+  const [testUrl, setTestUrl] = useState("");
   const handleTestSession = async () => {
     if (!hostToken) return;
     setTestLoading(true);
     try {
+      const body: Record<string, string> = { hostToken };
+      const trimmedUrl = testUrl.trim();
+      if (trimmedUrl) body.overrideUrl = trimmedUrl;
       const res = await fetch(`/api/sessions/test`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hostToken }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -707,15 +712,31 @@ export default function Dashboard() {
             Управляй своим узлом и активными сессиями.
           </p>
         </div>
-        <Button
-          onClick={handleTestSession}
-          disabled={testLoading || !hostToken}
-          className="bg-violet-600 hover:bg-violet-500 text-white"
-          data-testid="button-test-session"
-        >
-          <FlaskConical className="h-4 w-4 mr-2" />
-          {testLoading ? "Создаём..." : "Проверить самому"}
-        </Button>
+        <div className="flex flex-col gap-2 w-full md:w-auto">
+          <div className="flex gap-2">
+            <Input
+              placeholder="https://deepseek.com/ или другой сайт"
+              value={testUrl}
+              onChange={(e) => setTestUrl(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !testLoading) void handleTestSession(); }}
+              className="w-64 text-sm"
+              style={{ background: "#0a1018", borderColor: "rgba(255,255,255,0.12)", color: "#fff" }}
+              data-testid="input-test-url"
+            />
+            <Button
+              onClick={handleTestSession}
+              disabled={testLoading || !hostToken}
+              className="bg-violet-600 hover:bg-violet-500 text-white shrink-0"
+              data-testid="button-test-session"
+            >
+              <FlaskConical className="h-4 w-4 mr-2" />
+              {testLoading ? "Создаём..." : "Проверить самому"}
+            </Button>
+          </div>
+          <p className="text-xs text-slate-500">
+            Оставь пустым — откроется тест с настроенным в профиле URL
+          </p>
+        </div>
       </div>
 
       {/* Agent status */}
