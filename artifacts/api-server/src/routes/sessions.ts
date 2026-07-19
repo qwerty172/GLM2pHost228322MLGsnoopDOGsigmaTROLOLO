@@ -485,6 +485,7 @@ router.get(
           slug: gamesTable.slug,
           coverImageUrl: gamesTable.coverImageUrl,
           title: gamesTable.title,
+          browserHostUrl: gamesTable.browserHostUrl,
         },
       })
       .from(sessionsTable)
@@ -504,6 +505,9 @@ router.get(
       gameSlug: game?.slug ?? null,
       gameCoverImageUrl: game?.coverImageUrl ?? null,
       gameTitle: game?.title ?? null,
+      // For isTest sessions with a browser game, the play page renders an
+      // iframe directly (no WebRTC / no agent needed).
+      gameBrowserHostUrl: game?.browserHostUrl ?? null,
     });
   },
 );

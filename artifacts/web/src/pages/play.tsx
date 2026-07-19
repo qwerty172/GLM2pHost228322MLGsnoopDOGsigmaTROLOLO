@@ -950,6 +950,37 @@ export default function Play() {
     );
   }
 
+  // Test session with a browser-hosted game: render it directly in an iframe.
+  // No WebRTC, no billing, no agent needed.
+  const sAny = session as any;
+  const gameBrowserHostUrl: string | null = sAny.gameBrowserHostUrl ?? null;
+  if ((sAny.isTest || sAny.is_test) && gameBrowserHostUrl) {
+    const iframeUrl = gameBrowserHostUrl.startsWith("http")
+      ? gameBrowserHostUrl
+      : `${import.meta.env.BASE_URL}${gameBrowserHostUrl.replace(/^\//, "")}`;
+    return (
+      <div className="min-h-screen bg-black flex flex-col relative overflow-hidden">
+        <div className="absolute top-3 left-0 right-0 z-20 flex justify-center pointer-events-none">
+          <div
+            className="flex items-center gap-3 px-4 py-2 rounded-full pointer-events-auto"
+            style={{ background: "rgba(10,16,24,0.85)", border: "1px solid rgba(139,92,246,0.4)", backdropFilter: "blur(8px)" }}
+          >
+            <span className="text-violet-300 text-xs font-semibold tracking-wide">🧪 ТЕСТ-СЕССИЯ</span>
+            <span className="text-slate-500 text-xs">{(session as any).gameTitle || session.appName}</span>
+            <span className="text-violet-400 text-xs">· бесплатно</span>
+          </div>
+        </div>
+        <iframe
+          src={iframeUrl}
+          className="flex-1 w-full border-0"
+          style={{ minHeight: "100vh" }}
+          allow="autoplay; fullscreen; keyboard-map"
+          title={`Тест: ${session.appName}`}
+        />
+      </div>
+    );
+  }
+
   if (!isPlaying) {
     const greenLzt = wallet?.withdrawableBalanceLzt ?? 0;
     const blueLzt = wallet?.internalBalanceLzt ?? 0;
