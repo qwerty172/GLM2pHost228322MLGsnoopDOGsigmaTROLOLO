@@ -288,11 +288,11 @@ router.post("/sessions/browser-host", async (req, res): Promise<void> => {
     .insert(hostsTable)
     .values({
       hostToken,
-      displayName: `${player.displayName} (browser host)`,
+      displayName: `${player.displayName} (браузерный хост)`,
       gameId: game.id,
       boundUrl: game.browserHostUrl,
       boundAppLabel: game.title,
-      description: `Browser-hosted session of ${game.title}.`,
+      description: `Браузерная сессия — ${game.title}.`,
       // Browser-host sessions are always available while the tab is open.
       scheduleMode: "always",
       // Default per-minute price. The host page can surface its own pricing

@@ -1278,8 +1278,12 @@ async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
     chosen = sources.find((s) => s.id.startsWith("screen:"));
   }
   if (!chosen) {
+    // List available windows so the user can diagnose what went wrong.
+    const names = sources.map((s) => s.name).join(", ");
     throw new Error(
-      "No matching capture source found. Pick a Capture Target in settings.",
+      `Окно игры не найдено автоматически. ` +
+      `Зайди в Настройки → «Цель захвата» и выбери нужное окно из списка. ` +
+      `Доступные окна: ${names || "(пусто — попробуй перезапустить игру)"}`,
     );
   }
   const sourceId = chosen.id;

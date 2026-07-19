@@ -171,49 +171,55 @@ function AgentStatusCard({ agent }: { agent: AgentState }) {
       }}
     >
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base text-white">
-          <WifiOff className="h-4 w-4 text-sky-400" />
-          Установить агент хоста
-        </CardTitle>
-        <CardDescription className="text-slate-400">
-          Агент запускается на Windows-ПК и стримит окно игры по WebRTC.
-          Скачай ZIP, распакуй и запусти{" "}
-          <span className="font-mono text-xs text-sky-400">start.bat</span>.
-          Нужен Node.js 20+ (см.{" "}
-          <span className="font-mono text-xs text-sky-400">INSTALL.txt</span>{" "}
-          внутри архива).
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="pt-0 flex flex-wrap items-center gap-3">
-        <div className="flex gap-2 flex-wrap">
-          {[
-            "Стриминг окна игры по WebRTC",
-            "Авто-запуск игр",
-            "95% выплата хосту",
-          ].map((f) => (
-            <span
-              key={f}
-              className="text-[11px] px-2 py-0.5 rounded-full text-sky-300"
-              style={{ background: "rgba(14,165,233,0.1)", border: "1px solid rgba(14,165,233,0.2)" }}
-            >
-              {f}
-            </span>
-          ))}
-        </div>
-        <a
-          href="/api/downloads/host-agent.zip"
-          download="cloud-gaming-host-agent.zip"
-          data-testid="link-download-host-agent"
-          className="ml-auto"
-        >
-          <Button
-            className="gap-2 h-9 font-semibold"
-            style={{ background: "#0ea5e9", color: "#fff" }}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-base text-white mb-1">
+              <WifiOff className="h-4 w-4 text-sky-400" />
+              Агент не запущен
+            </CardTitle>
+            <CardDescription className="text-slate-400 text-xs">
+              Скачай архив, распакуй и запусти{" "}
+              <span className="font-mono text-sky-400">start.bat</span> на своём Windows-ПК.
+            </CardDescription>
+          </div>
+          <a
+            href="/api/downloads/host-agent.zip"
+            download="cloud-gaming-host-agent.zip"
+            data-testid="link-download-host-agent"
           >
-            <Download className="h-4 w-4" />
-            Скачать агент (.zip)
-          </Button>
-        </a>
+            <Button
+              size="sm"
+              className="gap-2 h-8 text-xs font-semibold shrink-0"
+              style={{ background: "#0ea5e9", color: "#fff" }}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Скачать агент
+            </Button>
+          </a>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <ol className="space-y-1.5 text-xs text-slate-400">
+          {[
+            { n: "1", text: "Скачай ZIP и распакуй в любую папку (например C:\\CloudAgent)" },
+            { n: "2", text: "Дважды кликни start.bat — при первом запуске установит Node.js зависимости (~2 мин)" },
+            { n: "3", text: "В окне агента вставь токен хоста (скопируй ниже) и нажми Сохранить" },
+            { n: "4", text: "Выбери игру и нажми Выйти в онлайн — эта страница покажет «Агент онлайн ✓»" },
+          ].map((s) => (
+            <li key={s.n} className="flex items-start gap-2">
+              <span
+                className="shrink-0 w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center mt-0.5"
+                style={{ background: "rgba(14,165,233,0.15)", color: "#38bdf8" }}
+              >
+                {s.n}
+              </span>
+              <span>{s.text}</span>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-3 text-[11px] text-slate-600">
+          Нужен Node.js 20+ · Windows 10/11 · Запусти от имени администратора, если игра не захватывается
+        </p>
       </CardContent>
     </Card>
   );

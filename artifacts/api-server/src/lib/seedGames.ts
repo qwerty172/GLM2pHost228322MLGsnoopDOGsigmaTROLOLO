@@ -38,7 +38,7 @@ const SEED: InsertGame[] = [
     genre: "Browser Roguelike",
     coverImageUrl: "/rf3-cover.svg",
     description:
-      "Turn-based browser roguelike. Hostable directly from your browser tab — no desktop agent required.",
+      "Пошаговый браузерный рогалик. Запускается прямо из твоей вкладки браузера — установка агента не нужна.",
     hasMods: true,
     isMultiplayer: false,
     hostSpectatesPlayer: true,

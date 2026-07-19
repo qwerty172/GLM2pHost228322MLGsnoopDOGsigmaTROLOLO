@@ -69,6 +69,7 @@ function useLiveHosts() {
 
 export default function Landing() {
   const [shareLink, setShareLink] = useState("");
+  const [showLinkInput, setShowLinkInput] = useState(false);
   const [, navigate] = useLocation();
   const { playerWalletToken, registerGuest } = usePlayerWallet();
   const { data: liveHosts } = useLiveHosts();
@@ -198,30 +199,42 @@ export default function Landing() {
             </Link>
           </div>
 
-          <form
-            onSubmit={handleJoin}
-            className="mt-6 flex items-center gap-2 max-w-md"
-          >
-            <Input
-              placeholder="Вставьте ссылку хоста или токен…"
-              className="h-8 text-xs rounded-md"
-              style={{
-                background: "#0a1018",
-                border: "1px solid rgba(255,255,255,0.08)",
-                color: "#e2e8f0",
-              }}
-              value={shareLink}
-              onChange={(e) => setShareLink(e.target.value)}
-            />
-            <Button
-              type="submit"
-              size="sm"
-              variant="outline"
-              className="h-8 px-4 text-xs shrink-0 rounded-md border-white/10 hover:border-sky-500/40 text-slate-400 hover:text-white"
-            >
-              Играть
-            </Button>
-          </form>
+          <div className="mt-5">
+            {!showLinkInput ? (
+              <button
+                onClick={() => setShowLinkInput(true)}
+                className="text-xs text-slate-500 hover:text-slate-300 transition-colors underline underline-offset-2"
+              >
+                У меня есть ссылка от друга
+              </button>
+            ) : (
+              <form
+                onSubmit={handleJoin}
+                className="flex items-center gap-2 max-w-md"
+              >
+                <Input
+                  autoFocus
+                  placeholder="Вставьте ссылку или токен хоста…"
+                  className="h-8 text-xs rounded-md"
+                  style={{
+                    background: "#0a1018",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    color: "#e2e8f0",
+                  }}
+                  value={shareLink}
+                  onChange={(e) => setShareLink(e.target.value)}
+                />
+                <Button
+                  type="submit"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 px-4 text-xs shrink-0 rounded-md border-white/10 hover:border-sky-500/40 text-slate-400 hover:text-white"
+                >
+                  Войти
+                </Button>
+              </form>
+            )}
+          </div>
         </div>
 
         <div className="surface-card p-5 flex gap-8 shrink-0 lg:self-center">

@@ -644,7 +644,7 @@ export default function BrowserPlay() {
             <iframe
               ref={iframeRef}
               src={iframeSrc}
-              title="Browser-hosted game"
+              title="Браузерная игра"
               className="w-full h-full"
               style={{ minHeight: 480, border: 0 }}
               onLoad={() => setIframeReady(true)}
