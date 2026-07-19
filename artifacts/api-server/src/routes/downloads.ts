@@ -43,7 +43,43 @@ REM Requires Node.js 20+ installed (https://nodejs.org).
 setlocal
 cd /d "%~dp0"
 
-if not exist node_modules (
+REM ── 1. Check Node.js version ────────────────────────────────────────────────
+for /f "tokens=1 delims=v." %%M in ('node --version 2^>nul') do set NODE_MAJOR=%%M
+if "%NODE_MAJOR%"=="" (
+  echo ERROR: Node.js was not found. Install Node.js 20+ from https://nodejs.org
+  pause
+  exit /b 1
+)
+if %NODE_MAJOR% LSS 20 (
+  echo ERROR: Node.js 20 or newer is required. You have version %NODE_MAJOR%.
+  echo        Download the latest LTS from https://nodejs.org
+  pause
+  exit /b 1
+)
+
+REM ── 2. Re-install when Node version changed (native addons may be stale) ────
+set STAMP_FILE=.node_version
+set CURRENT_NODE_VER=
+for /f %%V in ('node --version 2^>nul') do set CURRENT_NODE_VER=%%V
+
+set SAVED_NODE_VER=
+if exist "%STAMP_FILE%" (
+  set /p SAVED_NODE_VER=<"%STAMP_FILE%"
+)
+
+if not "%CURRENT_NODE_VER%"=="%SAVED_NODE_VER%" (
+  echo Node.js version changed (was: %SAVED_NODE_VER%, now: %CURRENT_NODE_VER%).
+  echo Re-installing dependencies to rebuild native addons...
+  if exist node_modules rmdir /s /q node_modules
+  call npm install --include=dev --no-audit --no-fund
+  if errorlevel 1 (
+    echo.
+    echo Dependency install failed. Make sure Node.js 20+ is installed.
+    pause
+    exit /b 1
+  )
+  echo %CURRENT_NODE_VER%>"%STAMP_FILE%"
+) else if not exist node_modules (
   echo Installing dependencies, this only happens once and may take a few minutes...
   call npm install --include=dev --no-audit --no-fund
   if errorlevel 1 (
@@ -52,10 +88,17 @@ if not exist node_modules (
     pause
     exit /b 1
   )
+  echo %CURRENT_NODE_VER%>"%STAMP_FILE%"
 )
 
+REM ── 3. Launch Electron ───────────────────────────────────────────────────────
 echo Starting Cloud Gaming Host Agent...
-call npx --no-install electron .
+if exist ".\\node_modules\\.bin\\electron.cmd" (
+  call ".\\node_modules\\.bin\\electron.cmd" .
+) else (
+  echo Local Electron binary not found, falling back to npx...
+  call npx --yes electron .
+)
 if errorlevel 1 (
   echo.
   echo The agent exited with an error. See the messages above.
@@ -82,8 +125,18 @@ How to run
 ----------
 1. Extract this ZIP anywhere (for example: C:\\CloudGamingHost).
 2. Double-click "start.bat".
-   On the first run it will download Electron and a few helper
-   packages. This takes 2-3 minutes and only happens once.
+
+   What start.bat does automatically:
+   a. Checks that Node.js 20+ is installed — exits with a clear message
+      if not.
+   b. On first run, runs "npm install" to fetch Electron and all helper
+      packages (2-3 minutes, happens once per machine).
+   c. If you later upgrade Node.js, it detects the version change and
+      re-installs automatically so native addons (e.g. koffi) stay
+      compatible.
+   d. Launches Electron directly from the local node_modules — no npx
+      confirmation prompts, no internet required after the first install.
+
 3. The agent window opens. Sign in with the host token from your
    Host Dashboard, choose a game window to capture, and you are live.
 
