@@ -363,9 +363,12 @@ router.post("/sessions/test", testSessionLimiter, async (req, res): Promise<void
     res.status(404).json({ error: "Host not found" });
     return;
   }
-  // Prefer a game from the host's modern library (hostGamesTable).
-  // Fall back to the legacy hosts.gameId field for older host registrations.
+  // 1. Modern library (hostGamesTable) — first enabled entry.
+  // 2. Legacy hosts.gameId.
+  // 3. Any catalog game (browser-hosted first) — so test works even before
+  //    the host has configured their library.
   let game: typeof gamesTable.$inferSelect | undefined;
+
   const [libraryEntry] = await db
     .select({ gameId: hostGamesTable.gameId })
     .from(hostGamesTable)
@@ -379,23 +382,32 @@ router.post("/sessions/test", testSessionLimiter, async (req, res): Promise<void
     .limit(1);
 
   const resolvedGameId = libraryEntry?.gameId ?? host.gameId;
-  if (!resolvedGameId) {
+
+  if (resolvedGameId) {
+    const [found] = await db
+      .select()
+      .from(gamesTable)
+      .where(eq(gamesTable.id, resolvedGameId));
+    game = found;
+  }
+
+  // Fallback: pick any catalog game. Prefer browser-hosted so the test is
+  // immediately playable in the browser without the desktop agent.
+  if (!game) {
+    const allGames = await db
+      .select()
+      .from(gamesTable)
+      .orderBy(gamesTable.title);
+    game = allGames.find((g) => g.browserHostUrl) ?? allGames[0];
+  }
+
+  if (!game) {
     res.status(400).json({
       error: "no_game",
-      message: "У хоста нет игр в библиотеке — добавьте хотя бы одну игру в разделе «Библиотека».",
+      message: "В каталоге нет ни одной игры — обратитесь к администратору.",
     });
     return;
   }
-
-  const [foundGame] = await db
-    .select()
-    .from(gamesTable)
-    .where(eq(gamesTable.id, resolvedGameId));
-  if (!foundGame) {
-    res.status(404).json({ error: "Game not found" });
-    return;
-  }
-  game = foundGame;
 
   // Only one open test session per host at a time — end any stale ones.
   await db
