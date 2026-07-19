@@ -33,6 +33,7 @@ import { applyLaunchFee } from "../lib/launchFee";
 import { pickPlayerBucket } from "../lib/lzt";
 import { isHostAvailableNow } from "../lib/schedule";
 import { checkQuotaAttachment } from "../lib/quotaAttach";
+import { headerUserToken } from "../lib/requestToken";
 import { rateLimit, ipKey } from "../lib/rateLimit";
 
 const router: IRouter = Router();
@@ -809,16 +810,19 @@ router.get("/sessions/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const query = GetSessionQueryParams.safeParse(req.query);
-  if (!query.success) {
-    res.status(400).json({ error: query.error.message });
+  // API client strips hostToken from query params and sends it as X-User-Token
+  // header to keep secrets out of server logs. Accept both sources.
+  const resolvedHostToken =
+    headerUserToken(req) || String(req.query.hostToken ?? "");
+  if (!resolvedHostToken) {
+    res.status(403).json({ error: "Invalid host token" });
     return;
   }
 
   const [host] = await db
     .select()
     .from(hostsTable)
-    .where(eq(hostsTable.hostToken, query.data.hostToken));
+    .where(eq(hostsTable.hostToken, resolvedHostToken));
   if (!host) {
     res.status(403).json({ error: "Invalid host token" });
     return;
