@@ -24,7 +24,12 @@ const BROWSER_HOST_URL_STORAGE_PREFIX = "streamline.browserHostUrl:";
 
 function getStoredHostToken(sessionId: string): string | null {
   try {
-    return localStorage.getItem(HOST_TOKEN_STORAGE_PREFIX + sessionId);
+    // Prefer the session-scoped key; fall back to the global host token so the
+    // page works even when the popup was blocked or localStorage was cleared.
+    return (
+      localStorage.getItem(HOST_TOKEN_STORAGE_PREFIX + sessionId) ||
+      localStorage.getItem("streamline.hostToken")
+    );
   } catch {
     return null;
   }
@@ -42,9 +47,11 @@ export default function BrowserPlay() {
   const [, params] = useRoute("/host/play/:sessionId");
   const sessionId = params?.sessionId || "";
   const hostToken = sessionId ? getStoredHostToken(sessionId) : null;
-  const browserHostUrl = sessionId ? getStoredBrowserHostUrl(sessionId) : null;
+  // localStorage key may be absent (popup blocked, different device, etc.).
+  // Resolve after the session API call returns.
+  const storedBrowserHostUrl = sessionId ? getStoredBrowserHostUrl(sessionId) : null;
 
-  const { data: session } = useGetSession(
+  const { data: session, isLoading: sessionLoading } = useGetSession(
     sessionId,
     { hostToken: hostToken || "" },
     {
@@ -55,6 +62,12 @@ export default function BrowserPlay() {
       },
     },
   );
+
+  // Derive browserHostUrl: prefer localStorage, fall back to session.appName
+  // when it looks like an external URL (test sessions store the boundUrl there).
+  const browserHostUrl: string | null =
+    storedBrowserHostUrl ||
+    (/^https?:\/\//i.test(session?.appName ?? "") ? (session?.appName ?? null) : null);
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -420,7 +433,20 @@ export default function BrowserPlay() {
     }
   };
 
-  if (!sessionId || !hostToken || !browserHostUrl) {
+  // Still loading — wait before showing an error so the API-based fallback
+  // for browserHostUrl has a chance to resolve.
+  if (!sessionId || (!browserHostUrl && (sessionLoading || !hostToken))) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "#06090e" }}
+      >
+        <Loader2 className="h-8 w-8 animate-spin text-sky-400" />
+      </div>
+    );
+  }
+
+  if (!hostToken || !browserHostUrl) {
     return (
       <div
         className="min-h-screen flex items-center justify-center p-4"
@@ -441,12 +467,12 @@ export default function BrowserPlay() {
           </CardHeader>
           <CardContent className="text-center text-sm text-slate-400 space-y-3">
             <p>
-              Открой страницу хоста с того же устройства, на котором ты создал
-              сессию.
+              Перейди в дашборд хоста и нажми «Проверить самому» ещё раз — эта
+              страница доступна только через кнопку тест-сессии.
             </p>
-            <Link href="/games">
+            <Link href="/host">
               <Button className="bg-sky-500 hover:bg-sky-400">
-                К библиотеке игр
+                Дашборд хоста
               </Button>
             </Link>
           </CardContent>
