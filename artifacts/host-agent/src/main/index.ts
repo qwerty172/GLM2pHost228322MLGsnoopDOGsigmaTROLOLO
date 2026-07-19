@@ -1,12 +1,12 @@
 import { app, BrowserWindow, desktopCapturer, dialog, ipcMain, shell } from "electron";
 import path from "node:path";
 import { promises as fs } from "node:fs";
-import http from "node:http";
 import os from "node:os";
 import { execSync } from "node:child_process";
 import { loadConfig, saveConfig } from "./config";
 import { createTray, setStatus } from "./tray";
-import { initInputInjector, injectInput } from "./input-injection";
+import { initInputInjector, injectInput, getInjectorStatus } from "./input-injection";
+import { createPingServer, PING_PORT } from "./ping-server";
 import { launchApp, launchEntry, killApp, setExitCallback } from "./app-launcher";
 import { fetchLibrary, fetchHostSchedule, patchLocalAvailability, sendHeartbeat } from "./api-client";
 import { syncWakeTasks } from "./wake-scheduler";
@@ -21,6 +21,38 @@ const singleInstance = app.requestSingleInstanceLock();
 if (!singleInstance) {
   app.quit();
 }
+
+// ── Startup diagnostics ──────────────────────────────────────────────────────
+// The agent must never die silently: any unhandled error is shown in a
+// human-readable dialog with a hint about what to do, and written to the log.
+
+function showFatalError(title: string, details: string): void {
+  log("error", `[fatal] ${title}: ${details}`);
+  try {
+    dialog.showErrorBox(
+      title,
+      `${details}\n\nЧто делать:\n` +
+        "1. Закрой агент и запусти start.bat заново.\n" +
+        "2. Если не помогло — удали папку node_modules и запусти start.bat " +
+        "(зависимости переустановятся автоматически).\n" +
+        "3. Проверь, что установлен Node.js 20+ (node --version).\n" +
+        "4. Лог ошибок: %APPDATA%\\cloud-gaming-host-agent\\logs\\agent.log",
+    );
+  } catch {
+    // dialog unavailable (app not ready) — the log line above is the trace.
+  }
+}
+
+process.on("uncaughtException", (err) => {
+  showFatalError(
+    "Агент столкнулся с ошибкой",
+    `Непредвиденная ошибка: ${err?.stack ?? String(err)}`,
+  );
+});
+
+process.on("unhandledRejection", (reason) => {
+  log("error", `[fatal] Unhandled rejection: ${String(reason)}`);
+});
 
 function createWindow(): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -85,7 +117,16 @@ async function syncScheduleFromServer(): Promise<void> {
   await syncWakeTasks(schedule.scheduleMode, schedule.scheduleJson);
 }
 
-void app.whenReady().then(async () => {
+void app.whenReady().then(() =>
+  startAgent().catch((err) => {
+    showFatalError(
+      "Агент не смог запуститься",
+      `Ошибка при старте: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`,
+    );
+  }),
+);
+
+async function startAgent(): Promise<void> {
   initInputInjector();
   const config = await loadConfig();
   applyAutoLaunch(config);
@@ -98,6 +139,14 @@ void app.whenReady().then(async () => {
   // Don't show the window automatically when launched at startup with --hidden.
   if (!process.argv.includes("--hidden")) {
     createWindow();
+  }
+
+  // koffi failed to load on Windows → the player would see the stream but be
+  // unable to control the game. Warn loudly with a fix hint instead of
+  // failing silently at the first input event.
+  const injStatus = getInjectorStatus();
+  if (!injStatus.ok) {
+    dialog.showErrorBox("Модуль управления не загрузился", injStatus.error);
   }
 
   ipcMain.handle("config:get", async () => {
@@ -333,46 +382,14 @@ void app.whenReady().then(async () => {
 
   // ── Local HTTP ping server ────────────────────────────────────────────────
   // The web dashboard pings http://localhost:18080/ping to detect whether the
-  // agent is running. This tiny server is intentionally minimal — it only
-  // needs to confirm presence and return a version string.
-  const PING_PORT = 18080;
-  const pingServer = http.createServer(async (req, res) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Content-Type", "application/json");
-
-    // CORS preflight — browsers send this before cross-origin POST.
-    if (req.method === "OPTIONS") {
-      res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-      res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-      res.writeHead(204);
-      res.end();
-      return;
-    }
-
-    // POST /input — relay a single InputEvent to Win32 SendInput.
-    // Used by browser-play.tsx when streaming an external URL: player input
-    // arrives via WebRTC DataChannel; the host page forwards it here so the
-    // agent can inject it at the OS level.
-    if (req.method === "POST" && req.url === "/input") {
-      let body = "";
-      req.on("data", (chunk: Buffer) => { body += chunk.toString(); });
-      req.on("end", () => {
-        try {
-          const event = JSON.parse(body) as import("../shared/messages").InputEvent;
-          injectInput(event);
-          res.writeHead(204);
-          res.end();
-        } catch {
-          res.writeHead(400);
-          res.end(JSON.stringify({ error: "bad_input" }));
-        }
-      });
-      return;
-    }
-
-    res.writeHead(200);
-    const cfg = await loadConfig().catch(() => null);
-    res.end(JSON.stringify({ status: "ok", version: "0.1.0", audioMode: cfg?.audioMode ?? "off" }));
+  // agent is running. Implementation lives in ping-server.ts (unit-tested).
+  const pingServer = createPingServer({
+    getInfo: async () => {
+      const cfg = await loadConfig().catch(() => null);
+      return { version: "0.1.0", audioMode: cfg?.audioMode ?? "off" };
+    },
+    injectInput,
+    log,
   });
   pingServer.listen(PING_PORT, "127.0.0.1", () => {
     log("info", `Ping server listening on http://127.0.0.1:${PING_PORT}`);
@@ -381,6 +398,9 @@ void app.whenReady().then(async () => {
     // EADDRINUSE: another agent instance already running — harmless.
     log("warn", `Ping server error: ${err.message}`);
   });
+
+  // Injector status for the renderer's diagnostics panel.
+  ipcMain.handle("agent:get-injector-status", () => getInjectorStatus());
 
   // ── Crypto key & PC binding ───────────────────────────────────────────────
   // Load (or generate) the Ed25519 key pair on startup.
@@ -750,7 +770,7 @@ void app.whenReady().then(async () => {
 
   setStatus("idle");
   log("info", "Host agent ready.");
-});
+}
 
 app.on("second-instance", () => {
   createWindow();

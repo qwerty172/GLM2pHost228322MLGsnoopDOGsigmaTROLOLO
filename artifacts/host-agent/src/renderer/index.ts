@@ -41,6 +41,7 @@ declare global {
       agentLogin: (apiBaseUrl: string) => Promise<{ ok: boolean; error?: string }>;
       updatePcSpecs: (hostToken: string, apiBaseUrl: string) => Promise<{ ok: boolean; error?: string; pcSpecs?: { gpu: string; cpu: string; ramGb: number } }>;
       getPcSpecs: () => Promise<{ gpu: string; cpu: string; ramGb: number }>;
+      getInjectorStatus: () => Promise<{ ok: boolean; error: string; platform: string }>;
       // Auto-quota IPC (main-process scheduler)
       onQuotaStatus: (cb: (ev: { statusText: string; attachedQuotaId: string | null; attachedQuotaTitle: string | null; hasAttached: boolean }) => void) => () => void;
       quotaRunCycle: () => void;
@@ -131,6 +132,35 @@ function setStatus(status: AgentStatus, message?: string): void {
       error: "Error",
     }[status];
   window.agent.setStatus(status, message);
+}
+
+// ─── Session pipeline panel ──────────────────────────────────────────────────
+// Step-by-step status of the native stream flow:
+//   Игра запущена → Окно найдено → Стрим начат → Игрок подключён
+type PipelineStep = "launch" | "window" | "stream" | "player";
+type PipelineState = "pending" | "active" | "done" | "error";
+
+const pipelineCard = document.getElementById("pipeline-card") as HTMLElement;
+
+function setPipelineStep(step: PipelineStep, state: PipelineState, note = ""): void {
+  pipelineCard.hidden = false;
+  const li = document.getElementById(`step-${step}`);
+  if (!li) return;
+  li.dataset["state"] = state;
+  const icon = li.querySelector<HTMLSpanElement>(".step-icon");
+  if (icon) {
+    icon.textContent =
+      state === "done" ? "✅" : state === "active" ? "⏳" : state === "error" ? "❌" : "○";
+  }
+  const noteEl = li.querySelector<HTMLSpanElement>(".step-note");
+  if (noteEl) noteEl.textContent = note ? ` — ${note}` : "";
+}
+
+function resetPipeline(show: boolean): void {
+  for (const step of ["launch", "window", "stream", "player"] as PipelineStep[]) {
+    setPipelineStep(step, "pending");
+  }
+  pipelineCard.hidden = !show;
 }
 
 function log(msg: string): void {
@@ -917,6 +947,8 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
   isStreaming = true;
 
   setStatus("connecting", "Player joined — preparing stream…");
+  resetPipeline(true);
+  setPipelineStep("launch", "active");
 
   // Fetch authoritative session.gameId from the server before launching.
   // This is the source of truth — avoids relying on stale renderer state in
@@ -947,6 +979,7 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     );
     if (!entry) {
       log(`[game_unavailable] Game ${resolvedGameId} not in library or disabled.`);
+      setPipelineStep("launch", "error", "игры нет в библиотеке или она выключена");
       setStatus("error", "Game unavailable");
       sendControlReject("game_unavailable");
       isStreaming = false;
@@ -958,6 +991,7 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
       log(
         `[game_unavailable] ${entry.game.title}: ${entry.lastError || "file not found"}`,
       );
+      setPipelineStep("launch", "error", `файл игры не найден: ${entry.game.title}`);
       setStatus("error", `Game file not found: ${entry.game.title}`);
       sendControlReject("game_unavailable");
       isStreaming = false;
@@ -972,6 +1006,7 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     if (!launchResult.ok) {
       // Hard-fail: do not start WebRTC capture when the game couldn't launch.
       log(`[game_unavailable] Launch failed for ${entry.game.title}: ${launchResult.error}`);
+      setPipelineStep("launch", "error", `запуск не удался: ${launchResult.error}`);
       setStatus("error", `Launch failed: ${launchResult.error}`);
       sendControlReject("game_unavailable");
       isStreaming = false;
@@ -979,12 +1014,14 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
       return;
     }
     log(`Launched ${entry.game.title} (pid=${launchResult.pid ?? "browser"}).`);
+    setPipelineStep("launch", "done", entry.game.title);
   } else {
     // Legacy path: launch from HostConfig.appPath / boundUrl
     const launchResult = await window.agent.launchApp();
     if (!launchResult.ok) {
       // Hard-fail: do not capture if legacy app couldn't launch.
       log(`[game_unavailable] Legacy launch failed: ${launchResult.error}`);
+      setPipelineStep("launch", "error", `запуск не удался: ${launchResult.error}`);
       setStatus("error", `Launch failed: ${launchResult.error}`);
       sendControlReject("game_unavailable");
       isStreaming = false;
@@ -992,9 +1029,21 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
       return;
     }
     log(`App launched (pid=${launchResult.pid}).`);
+    setPipelineStep("launch", "done");
   }
 
-  captureStream = await captureScreen(cfg);
+  setPipelineStep("window", "active", "ищем окно игры…");
+  try {
+    captureStream = await captureScreen(cfg);
+  } catch (err) {
+    setPipelineStep("window", "error", String(err));
+    setStatus("error", `Capture failed: ${String(err)}`);
+    sendControlReject("game_unavailable");
+    isStreaming = false;
+    teardown("capture_failed");
+    return;
+  }
+  setPipelineStep("stream", "active", "устанавливаем WebRTC-соединение…");
 
   // Fetch ICE server config (STUN + optional TURN) from the API.
   let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
@@ -1026,6 +1075,8 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     log(`Peer state: ${pc?.connectionState}`);
     if (pc?.connectionState === "connected") {
       setStatus("streaming", "Streaming to player");
+      setPipelineStep("stream", "done");
+      setPipelineStep("player", "done");
       // Log the ICE candidate type (relay / srflx / host) for diagnostics.
       void pc.getStats().then((stats) => {
         stats.forEach((report) => {
@@ -1196,6 +1247,7 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
       sdp: { type: offer.type, sdp: offer.sdp },
     }),
   );
+  setPipelineStep("player", "active", "ждём подключения игрока…");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1240,40 +1292,112 @@ function mapPlayerInput(raw: Record<string, unknown>): InputEvent | null {
 // Screen capture
 // ─────────────────────────────────────────────────────────────────────────────
 
+function exeBasename(path: string | undefined | null): string | undefined {
+  return path
+    ?.split(/[\\/]/)
+    .pop()
+    ?.replace(/\.exe$/i, "")
+    .toLowerCase();
+}
+
+function targetExeName(cfg: HostConfig): string | undefined {
+  // Currently-selected library game's exe name takes priority.
+  if (currentGameId) {
+    const entry = libraryEntries.find((e) => e.gameId === currentGameId);
+    const name = exeBasename(entry?.appPath);
+    if (name) return name;
+  }
+  // Fall back to HostConfig appPath basename.
+  return exeBasename(cfg.appPath);
+}
+
+// Manual window picker — shown when auto-matching the game window fails.
+// Resolves with the chosen source, or the primary screen if the host clicks
+// "Стримить весь экран".
+function pickWindowManually(): Promise<{ id: string; name: string }> {
+  const modal = document.getElementById("window-picker-modal") as HTMLElement;
+  const list = document.getElementById("window-picker-list") as HTMLUListElement;
+  const refreshBtn = document.getElementById("window-picker-refresh") as HTMLButtonElement;
+  const screenBtn = document.getElementById("window-picker-screen") as HTMLButtonElement;
+
+  return new Promise((resolve) => {
+    const cleanup = () => {
+      modal.hidden = true;
+      refreshBtn.onclick = null;
+      screenBtn.onclick = null;
+      list.innerHTML = "";
+    };
+
+    const render = async () => {
+      const sources = await window.agent.getCaptureSources();
+      list.innerHTML = "";
+      for (const source of sources) {
+        const li = document.createElement("li");
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = source.id.startsWith("screen:")
+          ? `🖥 ${source.name}`
+          : `🪟 ${source.name}`;
+        btn.style.width = "100%";
+        btn.style.textAlign = "left";
+        btn.onclick = () => {
+          cleanup();
+          resolve(source);
+        };
+        li.appendChild(btn);
+        list.appendChild(li);
+      }
+    };
+
+    refreshBtn.onclick = () => void render();
+    screenBtn.onclick = async () => {
+      const sources = await window.agent.getCaptureSources();
+      const screen = sources.find((s) => s.id.startsWith("screen:")) ?? sources[0];
+      cleanup();
+      resolve(screen);
+    };
+
+    modal.hidden = false;
+    void render();
+  });
+}
+
 async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
-  const sources = await window.agent.getCaptureSources();
+  let sources = await window.agent.getCaptureSources();
   if (sources.length === 0) {
-    throw new Error("No screen/window capture sources available");
+    throw new Error("Нет доступных источников захвата экрана/окна");
   }
   let chosen: { id: string; name: string } | undefined;
   if (cfg.captureSourceName) {
     chosen = sources.find((s) => s.name === cfg.captureSourceName);
   }
-  if (!chosen) {
-    // Try to match by currently-selected library game's exe name.
-    let targetName: string | undefined;
-    if (currentGameId) {
-      const entry = libraryEntries.find((e) => e.gameId === currentGameId);
-      if (entry?.appPath) {
-        targetName = entry.appPath
-          .split(/[\\/]/)
-          .pop()
-          ?.replace(/\.exe$/i, "")
-          .toLowerCase();
+
+  const targetName = targetExeName(cfg);
+  if (!chosen && targetName) {
+    // The game window may take a while to appear after launch — retry the
+    // auto-match for ~10 seconds before bothering the host with the picker.
+    const RETRY_MS = 2_000;
+    const MAX_ATTEMPTS = 5;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS && !chosen; attempt++) {
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, RETRY_MS));
+        sources = await window.agent.getCaptureSources();
+      }
+      chosen = sources.find((s) => s.name.toLowerCase().includes(targetName));
+      if (!chosen && attempt < MAX_ATTEMPTS - 1) {
+        setPipelineStep("window", "active", `ищем окно «${targetName}»… (${attempt + 1}/${MAX_ATTEMPTS})`);
       }
     }
-    // Fall back to HostConfig appPath basename.
-    if (!targetName && cfg.appPath) {
-      targetName = cfg.appPath
-        .split(/[\\/]/)
-        .pop()
-        ?.replace(/\.exe$/i, "")
-        .toLowerCase();
-    }
-    if (targetName) {
-      chosen = sources.find((s) => s.name.toLowerCase().includes(targetName!));
-    }
   }
+
+  if (!chosen && targetName) {
+    // Auto-match failed → ask the host to pick the window manually instead of
+    // silently streaming the wrong screen.
+    log(`Окно «${targetName}» не найдено автоматически — открываю ручной выбор.`);
+    setPipelineStep("window", "active", "выбери окно вручную");
+    chosen = await pickWindowManually();
+  }
+
   if (!chosen) {
     chosen = sources.find((s) => s.id.startsWith("screen:"));
   }
@@ -1288,6 +1412,7 @@ async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
   }
   const sourceId = chosen.id;
   log(`Capturing source: ${chosen.name}`);
+  setPipelineStep("window", "done", chosen.name);
 
   const audioMode = cfg.audioMode ?? "off";
   const constraints = {
@@ -2133,6 +2258,12 @@ updatePcSpecsBtn.addEventListener("click", async () => {
 void loadFormFromConfig().then(async (cfg) => {
   log("Agent UI loaded.");
   void initAgentKey();
+  // Input injector health — warn the host up-front if player control won't work.
+  void window.agent.getInjectorStatus().then((st) => {
+    if (!st.ok && st.platform === "win32") {
+      log(`⚠ ${st.error}`);
+    }
+  }).catch(() => { /* older main without the handler */ });
   if (cfg.hostToken && cfg.apiBaseUrl) {
     log("Stored credentials detected. Loading library…");
 

@@ -96,6 +96,9 @@ const api = {
   // Returns local PC specs without uploading them.
   getPcSpecs: (): Promise<{ gpu: string; cpu: string; ramGb: number }> =>
     ipcRenderer.invoke("agent:get-pc-specs"),
+  // Input injector (koffi/SendInput) health — for the diagnostics panel.
+  getInjectorStatus: (): Promise<{ ok: boolean; error: string; platform: string }> =>
+    ipcRenderer.invoke("agent:get-injector-status"),
 
   // ── Auto-quota (main-process scheduler) ──────────────────────────────────
   // Register a listener that fires every time the main process emits a

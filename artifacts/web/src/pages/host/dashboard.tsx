@@ -68,6 +68,17 @@ type AgentState =
   | { status: "online"; version: string; audioMode: AudioMode }
   | { status: "offline" };
 
+// Heartbeat freshness: the agent sends a heartbeat to the API every 15s.
+// If lastSeenAt is fresher than this, the agent is considered connected even
+// when the local ping fails (agent may run on a different PC than the browser).
+const HEARTBEAT_FRESH_MS = 45_000;
+
+type HeartbeatState =
+  | { status: "unknown" }
+  | { status: "fresh"; lastSeenAt: string }
+  | { status: "stale"; lastSeenAt: string }
+  | { status: "never" };
+
 const AUDIO_MODE_LABELS: Record<AudioMode, string> = {
   off: "Без звука",
   voice: "Голос ~12kbps",
@@ -91,7 +102,65 @@ async function pingAgent(): Promise<AgentState> {
   }
 }
 
-function AgentStatusCard({ agent }: { agent: AgentState }) {
+function AgentTroubleshootChecklist() {
+  return (
+    <details className="w-full mt-2" data-testid="agent-troubleshoot">
+      <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-300 select-none">
+        Если не работает — чеклист
+      </summary>
+      <ul className="mt-2 space-y-1 text-xs text-slate-400 list-disc pl-5">
+        <li>
+          Установлен <span className="text-slate-300">Node.js 20+</span> — проверь командой{" "}
+          <span className="font-mono text-sky-400">node --version</span>
+        </li>
+        <li>
+          Агент запущен через <span className="font-mono text-sky-400">start.bat</span> и не закрыт
+          (иконка в трее)
+        </li>
+        <li>
+          Для игр с античитом запускай <span className="font-mono text-sky-400">start.bat</span>{" "}
+          <span className="text-slate-300">от имени администратора</span>
+        </li>
+        <li>
+          Файрвол/антивирус не блокирует порт{" "}
+          <span className="font-mono text-sky-400">18080</span> и исходящие соединения агента
+        </li>
+        <li>
+          В агенте вставлен токен хоста и есть надпись «Вход выполнен»
+        </li>
+      </ul>
+    </details>
+  );
+}
+
+function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: HeartbeatState }) {
+  // A fresh server-side heartbeat means the agent is running (possibly on
+  // another PC) even if the local ping to localhost:18080 fails.
+  if (agent.status === "offline" && heartbeat.status === "fresh") {
+    return (
+      <Card
+        style={{
+          background: "rgba(16,185,129,0.06)",
+          border: "1px solid rgba(16,185,129,0.25)",
+        }}
+      >
+        <CardContent className="py-4 flex flex-wrap items-center gap-3" data-testid="agent-status-heartbeat">
+          <span className="flex items-center gap-1.5">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
+            </span>
+            <span className="text-sm font-semibold text-emerald-300">Агент онлайн</span>
+            <span className="text-xs text-slate-500">
+              (на другом ПК · был на связи{" "}
+              {formatDistanceToNow(new Date(heartbeat.lastSeenAt), { addSuffix: true })})
+            </span>
+          </span>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (agent.status === "checking") {
     return (
       <Card style={cardStyle}>
@@ -111,7 +180,7 @@ function AgentStatusCard({ agent }: { agent: AgentState }) {
           border: "1px solid rgba(16,185,129,0.25)",
         }}
       >
-        <CardContent className="py-4 flex flex-wrap items-center gap-3">
+        <CardContent className="py-4 flex flex-wrap items-center gap-3" data-testid="agent-status-online">
           <span className="flex items-center gap-1.5">
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -170,7 +239,7 @@ function AgentStatusCard({ agent }: { agent: AgentState }) {
         border: "1px solid rgba(14,165,233,0.2)",
       }}
     >
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-3" data-testid="agent-status-offline">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2 text-base text-white mb-1">
@@ -220,6 +289,7 @@ function AgentStatusCard({ agent }: { agent: AgentState }) {
         <p className="mt-3 text-[11px] text-slate-600">
           Нужен Node.js 20+ · Windows 10/11 · Запусти от имени администратора, если игра не захватывается
         </p>
+        <AgentTroubleshootChecklist />
       </CardContent>
     </Card>
   );
@@ -579,6 +649,7 @@ interface PcSpecs {
 export default function Dashboard() {
   const { hostToken } = useAuth();
   const [agent, setAgent] = useState<AgentState>({ status: "checking" });
+  const [heartbeat, setHeartbeat] = useState<HeartbeatState>({ status: "unknown" });
   const [pcSpecs, setPcSpecs] = useState<PcSpecs | null>(null);
 
   useEffect(() => {
@@ -589,14 +660,35 @@ export default function Dashboard() {
     return () => { cancelled = true; };
   }, []);
 
+  // Server-side heartbeat: the agent POSTs a heartbeat every 15s, so polling
+  // /api/hosts/@me every 15s keeps lastSeenAt at most ~30s stale.
   useEffect(() => {
     if (!hostToken) return;
-    fetch(`/api/hosts/@me`, { headers: { "X-User-Token": hostToken } })
-      .then((r) => r.ok ? r.json() : null)
-      .then((data: { pcSpecs?: PcSpecs | null } | null) => {
-        if (data?.pcSpecs) setPcSpecs(data.pcSpecs);
-      })
-      .catch(() => {});
+    let cancelled = false;
+
+    const check = () => {
+      fetch(`/api/hosts/@me`, { headers: { "X-User-Token": hostToken } })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: { pcSpecs?: PcSpecs | null; lastSeenAt?: string | null } | null) => {
+          if (cancelled || !data) return;
+          if (data.pcSpecs) setPcSpecs(data.pcSpecs);
+          if (!data.lastSeenAt) {
+            setHeartbeat({ status: "never" });
+          } else if (Date.now() - new Date(data.lastSeenAt).getTime() < HEARTBEAT_FRESH_MS) {
+            setHeartbeat({ status: "fresh", lastSeenAt: data.lastSeenAt });
+          } else {
+            setHeartbeat({ status: "stale", lastSeenAt: data.lastSeenAt });
+          }
+        })
+        .catch(() => {});
+    };
+
+    check();
+    const timer = setInterval(check, 15_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, [hostToken]);
 
   const { data: stats, isLoading: statsLoading } = useGetHostStats(
@@ -746,7 +838,7 @@ export default function Dashboard() {
       </div>
 
       {/* Agent status */}
-      <AgentStatusCard agent={agent} />
+      <AgentStatusCard agent={agent} heartbeat={heartbeat} />
 
       {hostToken && <BindingForm hostToken={hostToken} />}
 

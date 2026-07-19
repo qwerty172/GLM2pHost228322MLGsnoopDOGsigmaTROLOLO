@@ -509,3 +509,25 @@ details summary {
   overflow: hidden;
   padding: 16px 20px 0;
 }
+
+/* ─── Session pipeline ─── */
+.pipeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pipeline li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #8b93a3;
+}
+.pipeline li[data-state="active"] { color: #e7ecf3; }
+.pipeline li[data-state="done"] { color: #4ade80; }
+.pipeline li[data-state="error"] { color: #f87171; }
+.pipeline .step-icon { width: 20px; text-align: center; }
+.pipeline .step-note { font-size: 12px; }

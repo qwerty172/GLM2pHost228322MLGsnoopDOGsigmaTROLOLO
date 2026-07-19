@@ -14,6 +14,25 @@ let injector: Injector = () => {
   /* no-op fallback */
 };
 
+export interface InjectorStatus {
+  ok: boolean;
+  // Human-readable (Russian) reason when ok === false. Empty when ok.
+  error: string;
+  // "win32" when running on Windows, otherwise the current platform —
+  // non-Windows is a supported no-op, not an error.
+  platform: string;
+}
+
+let injectorStatus: InjectorStatus = {
+  ok: true,
+  error: "",
+  platform: process.platform,
+};
+
+export function getInjectorStatus(): InjectorStatus {
+  return injectorStatus;
+}
+
 export function initInputInjector(): void {
   if (process.platform !== "win32") {
     log("info", "Input injection disabled (non-Windows platform).");
@@ -200,6 +219,15 @@ export function initInputInjector(): void {
     log("info", "Input injector ready.");
   } catch (err) {
     log("error", `Failed to initialize input injector: ${String(err)}`);
+    injectorStatus = {
+      ok: false,
+      error:
+        "Модуль управления (koffi) не загрузился — игрок не сможет управлять игрой. " +
+        "Переустанови зависимости: удали папку node_modules и запусти start.bat заново " +
+        "(он выполнит npm install автоматически). " +
+        `Техническая ошибка: ${String(err)}`,
+      platform: process.platform,
+    };
   }
 }
 

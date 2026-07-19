@@ -18,6 +18,36 @@
         </div>
       </header>
 
+      <!-- Session pipeline — step-by-step status of the native stream flow -->
+      <section class="card" id="pipeline-card" hidden>
+        <h2>Статус сессии</h2>
+        <ol id="pipeline-steps" class="pipeline">
+          <li id="step-launch" data-state="pending"><span class="step-icon"></span>Игра запущена<span class="step-note muted"></span></li>
+          <li id="step-window" data-state="pending"><span class="step-icon"></span>Окно найдено<span class="step-note muted"></span></li>
+          <li id="step-stream" data-state="pending"><span class="step-icon"></span>Стрим начат<span class="step-note muted"></span></li>
+          <li id="step-player" data-state="pending"><span class="step-icon"></span>Игрок подключён<span class="step-note muted"></span></li>
+        </ol>
+      </section>
+
+      <!-- Manual window picker — fallback when auto-match fails -->
+      <div id="window-picker-modal" class="modal-overlay" hidden>
+        <div class="modal-box">
+          <div class="modal-header">
+            <h2 style="margin:0;color:#e7ecf3;font-size:16px;text-transform:none;letter-spacing:0">
+              Окно игры не найдено автоматически
+            </h2>
+          </div>
+          <p class="muted" style="margin:8px 0">
+            Выбери вручную, какое окно (или экран) стримить игроку:
+          </p>
+          <ul id="window-picker-list" class="library-list" style="max-height:280px;overflow-y:auto"></ul>
+          <div class="modal-actions" style="margin-top:12px">
+            <button type="button" id="window-picker-refresh">Обновить список</button>
+            <button type="button" id="window-picker-screen" style="margin-left:auto">Стримить весь экран</button>
+          </div>
+        </div>
+      </div>
+
       <section class="card" id="share-card" hidden>
         <h2>Share with player</h2>
         <p class="muted">
