@@ -451,11 +451,25 @@ router.get("/public/ice-config", (_req, res): void => {
   const turnUsername = process.env["TURN_USERNAME"];
   const turnCredential = process.env["TURN_CREDENTIAL"];
 
-  if (turnUrl && turnUsername && turnCredential) {
+  // Validate that TURN_URL looks like a proper ICE URI (turn:/turns:/stun: prefix).
+  // If the env vars are misconfigured (e.g. URL and credential swapped), skip
+  // the TURN entry rather than serving a URI that crashes RTCPeerConnection.
+  const isValidIceUri = (url: string) =>
+    /^(turn|turns|stun|stuns):/.test(url);
+
+  if (turnUrl && turnUsername && turnCredential && isValidIceUri(turnUrl)) {
     iceServers.push({
       urls: turnUrl,
       username: turnUsername,
       credential: turnCredential,
+    });
+  } else if (turnCredential && isValidIceUri(turnCredential)) {
+    // Common misconfiguration: TURN_URL and TURN_CREDENTIAL are swapped.
+    // Silently correct by using the credential field as the URL.
+    iceServers.push({
+      urls: turnCredential,
+      username: turnUsername ?? "",
+      credential: turnUrl ?? "",
     });
   }
 

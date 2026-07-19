@@ -39,6 +39,12 @@ export default function Play() {
     }
   });
 
+  // Detect test sessions with a browser-hosted game early so all effects can
+  // skip WebRTC / billing logic before the early-return iframe branch fires.
+  const isTestBrowserSession = !!(
+    (session as any)?.isTest && (session as any)?.gameBrowserHostUrl
+  );
+
   const { playerWalletToken, registerGuest } = usePlayerWallet();
 
   // Auto-register a guest account when a user lands directly on /play/:playerToken
@@ -648,7 +654,8 @@ export default function Play() {
       session.status === "ended" ||
       !playerWalletToken ||
       hasClaimed ||
-      claimSession.isPending
+      claimSession.isPending ||
+      isTestBrowserSession
     ) {
       return;
     }
@@ -685,7 +692,8 @@ export default function Play() {
       session &&
       session.status !== "ended" &&
       hasClaimed &&
-      !startedRef.current
+      !startedRef.current &&
+      !isTestBrowserSession
     ) {
       void startConnection();
     }
@@ -693,7 +701,7 @@ export default function Play() {
       cleanupConnection();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.id, hasClaimed]);
+  }, [session?.id, hasClaimed, isTestBrowserSession]);
 
   const handleEnableAudio = () => {
     if (videoRef.current) {
