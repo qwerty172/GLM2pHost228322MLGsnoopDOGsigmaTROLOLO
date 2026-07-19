@@ -363,18 +363,39 @@ router.post("/sessions/test", testSessionLimiter, async (req, res): Promise<void
     res.status(404).json({ error: "Host not found" });
     return;
   }
-  if (!host.gameId) {
-    res.status(400).json({ error: "У хоста не привязана игра — сначала настройте библиотеку" });
+  // Prefer a game from the host's modern library (hostGamesTable).
+  // Fall back to the legacy hosts.gameId field for older host registrations.
+  let game: typeof gamesTable.$inferSelect | undefined;
+  const [libraryEntry] = await db
+    .select({ gameId: hostGamesTable.gameId })
+    .from(hostGamesTable)
+    .where(
+      and(
+        eq(hostGamesTable.hostId, host.id),
+        eq(hostGamesTable.enabled, true),
+      ),
+    )
+    .orderBy(hostGamesTable.sortOrder)
+    .limit(1);
+
+  const resolvedGameId = libraryEntry?.gameId ?? host.gameId;
+  if (!resolvedGameId) {
+    res.status(400).json({
+      error: "no_game",
+      message: "У хоста нет игр в библиотеке — добавьте хотя бы одну игру в разделе «Библиотека».",
+    });
     return;
   }
-  const [game] = await db
+
+  const [foundGame] = await db
     .select()
     .from(gamesTable)
-    .where(eq(gamesTable.id, host.gameId));
-  if (!game) {
+    .where(eq(gamesTable.id, resolvedGameId));
+  if (!foundGame) {
     res.status(404).json({ error: "Game not found" });
     return;
   }
+  game = foundGame;
 
   // Only one open test session per host at a time — end any stale ones.
   await db
