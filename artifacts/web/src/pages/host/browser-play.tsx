@@ -80,6 +80,7 @@ export default function BrowserPlay() {
   const inputDcRef = useRef<RTCDataChannel | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamingStartedRef = useRef(false);
+  const agentWarningShownRef = useRef(false);
 
   const [iframeReady, setIframeReady] = useState(false);
   const [canvasFound, setCanvasFound] = useState(false);
@@ -344,7 +345,12 @@ export default function BrowserPlay() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ kind: "mousemove", x, y, mode: "absolute" }),
-          }).catch(() => undefined);
+          }).catch(() => {
+            if (!agentWarningShownRef.current) {
+              agentWarningShownRef.current = true;
+              toast.warning("Агент не запущен — управление недоступно");
+            }
+          });
           event = { kind: "mousedown", button: buttonName };
         } else if (msg.action === "up") {
           event = { kind: "mouseup", button: buttonName };
@@ -357,7 +363,12 @@ export default function BrowserPlay() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(event),
-        }).catch(() => undefined);
+        }).catch(() => {
+          if (!agentWarningShownRef.current) {
+            agentWarningShownRef.current = true;
+            toast.warning("Агент не запущен — управление недоступно");
+          }
+        });
       }
       return;
     }
