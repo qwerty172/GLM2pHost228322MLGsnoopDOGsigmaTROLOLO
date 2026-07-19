@@ -43,6 +43,21 @@
         </div>
       </section>
 
+      <!-- Auto-login banner — shown when a saved token is detected on startup -->
+      <section class="card" id="signin-banner" hidden style="border-color:rgba(34,197,94,0.35);background:rgba(34,197,94,0.05)">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:#e7ecf3;margin-bottom:2px">
+              ✓ Выполнен вход как <span id="signin-display-name" style="color:#22c55e"></span>
+            </div>
+            <div class="muted" style="font-size:11px">Токен сохранён · платформа: <span id="signin-api-url" style="color:#7dd3fc"></span></div>
+          </div>
+          <button type="button" id="switch-account-btn" style="font-size:11px;padding:4px 10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#94a3b8">
+            Сменить аккаунт
+          </button>
+        </div>
+      </section>
+
       <!-- Agent key & PC binding -->
       <section class="card" id="agent-key-card">
         <h2>Agent Key &amp; PC Binding</h2>

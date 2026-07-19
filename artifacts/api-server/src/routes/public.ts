@@ -176,6 +176,13 @@ router.get("/hosts", async (_req, res): Promise<void> => {
     // but stay out of the discoverable library until they meet the floor.
     if (hostTier === "below_min") continue;
 
+    // A host is considered "live online" if the agent sent a heartbeat within
+    // the last 2 minutes, regardless of schedule mode.
+    const TWO_MINUTES_MS = 2 * 60 * 1000;
+    const isOnline =
+      h.lastSeenAt != null &&
+      now.getTime() - new Date(h.lastSeenAt).getTime() < TWO_MINUTES_MS;
+
     items.push({
       id: h.id,
       displayName: h.displayName,
@@ -187,6 +194,8 @@ router.get("/hosts", async (_req, res): Promise<void> => {
       launchPriceUsd: Number(h.launchPriceUsd),
       minutePriceUsd: minutePrice,
       status: available ? "online" : "scheduled",
+      // True when the agent sent a heartbeat within the last 2 minutes.
+      isOnline,
       playerToken: s.playerToken,
       // New: multi-game library entries for this host.
       games,
@@ -195,6 +204,8 @@ router.get("/hosts", async (_req, res): Promise<void> => {
       // Strength badge vs the site-wide baseline: "meets_min" | "above_rec".
       // (below_min hosts are filtered out above and never reach the client.)
       hostTier,
+      // PC hardware specs reported by the agent (null until first upload).
+      pcSpecs: h.pcSpecs ?? null,
     });
   }
 

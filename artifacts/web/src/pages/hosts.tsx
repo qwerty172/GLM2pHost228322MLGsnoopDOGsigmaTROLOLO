@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { ChevronDown, ChevronUp, Cpu, Gamepad2, Star, Wifi, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Cpu, Gamepad2, MemoryStick, Monitor, Star, Wifi } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -364,12 +364,20 @@ export default function HostsPage() {
   });
 
   const browserRtt = useBrowserPingMs();
+  const [onlineOnly, setOnlineOnly] = useState(false);
 
   const sortedHosts = useMemo(() => {
     if (!hosts) return hosts;
     const tierRank = (t: unknown) => (t === "above_rec" ? 0 : 1);
-    return [...hosts].sort((a, b) => {
-      // Recommended-and-above hosts always come first, regardless of latency.
+    let list = [...hosts];
+    if (onlineOnly) {
+      list = list.filter((h) => !!(h as any).isOnline);
+    }
+    return list.sort((a, b) => {
+      // Online hosts first, then recommended-and-above, then by latency.
+      const onlineA = (a as any).isOnline ? 0 : 1;
+      const onlineB = (b as any).isOnline ? 0 : 1;
+      if (onlineA !== onlineB) return onlineA - onlineB;
       const tierDiff = tierRank((a as any).hostTier) - tierRank((b as any).hostTier);
       if (tierDiff !== 0) return tierDiff;
       const pa = (a as any).pingMs as number | null | undefined;
@@ -378,7 +386,7 @@ export default function HostsPage() {
       const scoreB = pb != null ? (browserRtt ?? 0) + pb : Infinity;
       return scoreA - scoreB;
     });
-  }, [hosts, browserRtt]);
+  }, [hosts, browserRtt, onlineOnly]);
 
   return (
     <div
@@ -440,11 +448,26 @@ export default function HostsPage() {
               Живой список ПК, готовых к подключению прямо сейчас.
             </p>
           </div>
-          <div className="text-xs text-slate-500">
-            Всего:{" "}
-            <span className="text-sky-400 font-semibold" data-testid="text-host-count">
-              {hosts?.length ?? 0}
-            </span>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <div
+                className="relative w-9 h-5 rounded-full transition-colors"
+                style={{ background: onlineOnly ? "#22c55e" : "rgba(255,255,255,0.1)" }}
+                onClick={() => setOnlineOnly((v) => !v)}
+              >
+                <div
+                  className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform"
+                  style={{ transform: onlineOnly ? "translateX(16px)" : "translateX(0)" }}
+                />
+              </div>
+              <span className="text-xs text-slate-400">Только онлайн</span>
+            </label>
+            <div className="text-xs text-slate-500">
+              Всего:{" "}
+              <span className="text-sky-400 font-semibold" data-testid="text-host-count">
+                {sortedHosts?.length ?? hosts?.length ?? 0}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -468,10 +491,11 @@ export default function HostsPage() {
           <div className="space-y-3" data-testid="list-public-hosts">
             {sortedHosts.map((h) => {
               const games = ((h as any).games ?? []) as LibraryGame[];
-              const isOnline = h.status === "online";
+              const isOnline = !!(h as any).isOnline;
               const hostPingMs = (h as any).pingMs as number | null | undefined;
               const totalLatency = hostPingMs != null ? Math.round((browserRtt ?? 0) + hostPingMs) : null;
               const isTop = (h as any).hostTier === "above_rec";
+              const pcSpecs = (h as any).pcSpecs as { cpu?: string; gpu?: string; ramGb?: number } | null | undefined;
 
               return (
                 <div
@@ -485,24 +509,57 @@ export default function HostsPage() {
                         <span
                           className="w-2 h-2 rounded-full flex-shrink-0"
                           style={{
-                            background: isOnline ? "#2dd4bf" : "#64748b",
-                            boxShadow: isOnline ? "0 0 6px rgba(45,212,191,0.7)" : "none",
+                            background: isOnline ? "#22c55e" : "#64748b",
+                            boxShadow: isOnline ? "0 0 6px rgba(34,197,94,0.7)" : "none",
                           }}
                         />
                         <span className="font-semibold text-white truncate">
                           {h.displayName}
                         </span>
+                        {isOnline && (
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                            style={{ background: "rgba(34,197,94,0.12)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.3)" }}
+                          >
+                            ● Онлайн
+                          </span>
+                        )}
                         {isTop && (
                           <span className="tier-badge" title="ПК мощнее рекомендуемых требований">
                             <Star className="h-2.5 w-2.5" fill="currentColor" />
                             Рекомендуемый+
                           </span>
                         )}
-                        <span className="text-[10px] uppercase tracking-wider text-slate-500 font-mono">
-                          {isOnline ? "онлайн" : "по расписанию"}
-                        </span>
+                        {!isOnline && (
+                          <span className="text-[10px] uppercase tracking-wider text-slate-500 font-mono">
+                            по расписанию
+                          </span>
+                        )}
                         <LatencyBadge totalMs={totalLatency} />
                       </div>
+
+                      {pcSpecs && (pcSpecs.gpu || pcSpecs.cpu || pcSpecs.ramGb) && (
+                        <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                          {pcSpecs.gpu && (
+                            <span className="inline-flex items-center gap-1 text-[10px] text-slate-500 font-mono">
+                              <Monitor className="h-2.5 w-2.5 text-violet-400" />
+                              {pcSpecs.gpu}
+                            </span>
+                          )}
+                          {pcSpecs.cpu && (
+                            <span className="inline-flex items-center gap-1 text-[10px] text-slate-500 font-mono">
+                              <Cpu className="h-2.5 w-2.5 text-sky-400" />
+                              {pcSpecs.cpu}
+                            </span>
+                          )}
+                          {pcSpecs.ramGb && (
+                            <span className="inline-flex items-center gap-1 text-[10px] text-slate-500 font-mono">
+                              <MemoryStick className="h-2.5 w-2.5 text-emerald-400" />
+                              {pcSpecs.ramGb} GB
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       {h.tags && h.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
