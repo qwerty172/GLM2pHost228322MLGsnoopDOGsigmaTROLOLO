@@ -363,10 +363,14 @@ router.post("/sessions/test", testSessionLimiter, async (req, res): Promise<void
     res.status(404).json({ error: "Host not found" });
     return;
   }
+  // 0. Host's own bound browser URL (boundUrl) — highest priority: the host
+  //    explicitly configured what their machine streams, so the self-test
+  //    must reflect exactly that, not a catalog fallback.
   // 1. Modern library (hostGamesTable) — first enabled entry.
   // 2. Legacy hosts.gameId.
   // 3. Any catalog game (browser-hosted first) — so test works even before
   //    the host has configured their library.
+  const hostBoundUrl = (host.boundUrl ?? "").trim();
   let game: typeof gamesTable.$inferSelect | undefined;
 
   const [libraryEntry] = await db
@@ -455,6 +459,21 @@ router.post("/sessions/test", testSessionLimiter, async (req, res): Promise<void
       ratePerMinute: String(Number(host.minutePriceUsd)),
       paymentSource: "auto",
       isTest: true,
+      // When the host bound their own browser URL, show that in the player —
+      // the catalog game row above is only used to satisfy the gameId FK.
+      ...(hostBoundUrl
+        ? {
+            appName:
+              host.boundAppLabel ||
+              (() => {
+                try {
+                  return new URL(hostBoundUrl).hostname;
+                } catch {
+                  return game.title;
+                }
+              })(),
+          }
+        : {}),
     })
     .returning();
   if (!session) {
@@ -487,9 +506,11 @@ router.get(
           title: gamesTable.title,
           browserHostUrl: gamesTable.browserHostUrl,
         },
+        hostBoundUrl: hostsTable.boundUrl,
       })
       .from(sessionsTable)
       .leftJoin(gamesTable, eq(sessionsTable.gameId, gamesTable.id))
+      .leftJoin(hostsTable, eq(sessionsTable.hostId, hostsTable.id))
       .where(eq(sessionsTable.playerToken, params.data.playerToken));
 
     if (rows.length === 0) {
@@ -497,17 +518,24 @@ router.get(
       return;
     }
 
-    const { session, game } = rows[0];
+    const { session, game, hostBoundUrl } = rows[0];
+
+    // For self-test sessions the host's own bound browser URL wins over the
+    // catalog game's URL — the host is testing exactly what they configured.
+    const effectiveBrowserUrl =
+      session.isTest && (hostBoundUrl ?? "").trim()
+        ? (hostBoundUrl ?? "").trim()
+        : game?.browserHostUrl ?? null;
 
     // Return strict-schema fields plus extra game info for the player UI.
     res.json({
       ...GetSessionByPlayerTokenResponse.parse(serialize(session)),
       gameSlug: game?.slug ?? null,
       gameCoverImageUrl: game?.coverImageUrl ?? null,
-      gameTitle: game?.title ?? null,
+      gameTitle: session.isTest ? session.appName : game?.title ?? null,
       // For isTest sessions with a browser game, the play page renders an
       // iframe directly (no WebRTC / no agent needed).
-      gameBrowserHostUrl: game?.browserHostUrl ?? null,
+      gameBrowserHostUrl: effectiveBrowserUrl,
     });
   },
 );
