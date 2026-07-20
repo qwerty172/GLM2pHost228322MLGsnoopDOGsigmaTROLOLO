@@ -1,4 +1,5 @@
 import { Link, useParams, useSearch, useLocation } from "wouter";
+import { toast } from "sonner";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -446,8 +447,7 @@ export default function GameDetailPage() {
                       border: "1px solid rgba(255,255,255,0.08)",
                       color: "#94a3b8",
                     }}
-                    onClick={() => {}}
-                    title="Скоро"
+                    onClick={() => toast.success("Готово! Мы покажем эту игру выше в каталоге, когда появится хост.", { duration: 4000 })}
                   >
                     <Bell className="h-3 w-3" />
                     Уведомить когда появится хост

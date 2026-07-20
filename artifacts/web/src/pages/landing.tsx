@@ -186,7 +186,7 @@ export default function Landing() {
                 className="h-9 px-5 text-sm font-semibold rounded-md"
                 style={{ background: "#0ea5e9", color: "#fff" }}
               >
-                Найти хоста <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                <Play className="w-3.5 h-3.5 mr-1.5" /> Играть
               </Button>
             </Link>
             <Link href="/host">
@@ -375,7 +375,7 @@ export default function Landing() {
                               style={{ background: "rgba(20,184,166,0.85)", color: "#fff" }}
                             >
                               <span className="w-1.5 h-1.5 rounded-full bg-white opacity-80" />
-                              Live
+                              В эфире
                             </span>
                           </div>
                         )}
@@ -413,7 +413,7 @@ export default function Landing() {
                             style={{ background: "rgba(20,184,166,0.85)", color: "#fff" }}
                           >
                             <span className="w-1.5 h-1.5 rounded-full bg-white opacity-80" />
-                            Live
+                            В эфире
                           </span>
                         </div>
                       )}

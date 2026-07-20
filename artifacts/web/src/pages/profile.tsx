@@ -418,10 +418,10 @@ type VdsEntry = {
 
 function VdsStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; color: string; bg: string }> = {
-    online: { label: "Online", color: "#22c55e", bg: "rgba(34,197,94,0.1)" },
-    offline: { label: "Offline", color: "#f87171", bg: "rgba(248,113,113,0.1)" },
+    online: { label: "Онлайн", color: "#22c55e", bg: "rgba(34,197,94,0.1)" },
+    offline: { label: "Офлайн", color: "#f87171", bg: "rgba(248,113,113,0.1)" },
     pending: { label: "Ожидание", color: "#fbbf24", bg: "rgba(251,191,36,0.1)" },
-    provisioning: { label: "Провижининг…", color: "#38bdf8", bg: "rgba(56,189,248,0.1)" },
+    provisioning: { label: "Настройка…", color: "#38bdf8", bg: "rgba(56,189,248,0.1)" },
     error: { label: "Ошибка", color: "#f43f5e", bg: "rgba(244,63,94,0.1)" },
   };
   const s = map[status] ?? { label: status, color: "#94a3b8", bg: "rgba(148,163,184,0.1)" };

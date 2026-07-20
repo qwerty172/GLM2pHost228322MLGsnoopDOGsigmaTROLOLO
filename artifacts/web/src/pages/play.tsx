@@ -80,17 +80,12 @@ function IframeTestSession({ iframeUrl, gameTitle }: { iframeUrl: string; gameTi
       {blocked && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-black/90 text-center px-6">
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-6 max-w-md space-y-3">
-            <p className="text-amber-300 font-semibold text-base">Сайт запрещает встраивание</p>
+            <p className="text-amber-300 font-semibold text-base">Игра не открывается во встроенном окне</p>
             <p className="text-slate-400 text-sm">
-              <strong className="text-white">{iframeUrl}</strong> возвращает заголовок{" "}
-              <code className="text-amber-300">X-Frame-Options: DENY</code>, поэтому
-              браузер блокирует iframe. Это ограничение на стороне самого сайта —
-              обойти его внутри плеера нельзя.
+              Эта игра запрещает запуск внутри другого сайта. Это ограничение самой игры — обойти его невозможно.
             </p>
             <p className="text-slate-400 text-sm">
-              Для тест-сессии используй URL игры, которая допускает встраивание
-              (например, <code className="text-sky-300">https://shellshock.io</code>,{" "}
-              <code className="text-sky-300">https://krunker.io</code>).
+              Попробуй открыть игру напрямую в новой вкладке или выбери другую игру из каталога.
             </p>
             <a
               href={iframeUrl}
@@ -1462,7 +1457,15 @@ export default function Play() {
                 ? "ПОДКЛЮЧЕНО"
                 : connectionState === "connecting"
                   ? "СОЕДИНЕНИЕ"
-                  : connectionState.toUpperCase()}
+                  : connectionState === "disconnected"
+                    ? "ОТКЛЮЧЕНО"
+                    : connectionState === "failed"
+                      ? "ОШИБКА СВЯЗИ"
+                      : connectionState === "closed"
+                        ? "ЗАКРЫТО"
+                        : connectionState === "new"
+                          ? "ИНИЦИАЛИЗАЦИЯ"
+                          : "ПОДКЛЮЧЕНИЕ"}
           </Badge>
           {iceType && !reconnecting && (
             <Badge

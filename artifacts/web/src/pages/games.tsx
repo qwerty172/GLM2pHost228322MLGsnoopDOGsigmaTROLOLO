@@ -584,7 +584,7 @@ function GameCard({ game }: { game: GameEnriched }) {
               }}
               data-testid={`button-open-${game.slug}`}
             >
-              {isLive ? "Найти хоста" : "Подробнее"}
+              {isLive ? "Играть" : "Подробнее"}
               <ArrowRight className="ml-1 h-3 w-3" />
             </Button>
           </Link>
