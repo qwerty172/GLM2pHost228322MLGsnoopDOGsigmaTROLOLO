@@ -1,12 +1,23 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   ArrowLeftRight,
   Coins,
   Cpu,
   Gamepad2,
+  LogOut,
   MonitorPlay,
+  Search,
+  Settings,
   UserCircle2,
+  Wallet,
   Zap,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -53,8 +64,12 @@ function BalanceChip({ hostToken }: { hostToken: string }) {
 }
 
 export function SiteNav({ activePath }: Props) {
-  const { hostToken } = useAuth();
+  const { hostToken, logout } = useAuth();
   const { playerWalletToken, isGuest } = usePlayerWallet();
+  const [, navigate] = useLocation();
+
+  const isActive = (path: string) => activePath === path;
+  const isHostActive = activePath === "/host" || activePath === "/wallet";
 
   return (
     <nav
@@ -65,7 +80,8 @@ export function SiteNav({ activePath }: Props) {
         borderColor: "rgba(255,255,255,0.06)",
       }}
     >
-      <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between gap-8">
+      <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
+        {/* Logo */}
         <Link href="/">
           <div className="flex items-center gap-2 shrink-0 cursor-pointer">
             <div
@@ -74,132 +90,157 @@ export function SiteNav({ activePath }: Props) {
             >
               <MonitorPlay className="w-4 h-4 text-white" />
             </div>
-            <span className="text-[15px] font-bold text-white tracking-tight">
+            <span className="text-[15px] font-bold text-white tracking-tight hidden sm:block">
               DecentralHub
             </span>
           </div>
         </Link>
 
-        <div className="hidden md:flex items-center gap-1">
-          {/* Player branch */}
+        {/* Primary nav — desktop */}
+        <div className="hidden md:flex items-center gap-1 flex-1">
           <Link href="/games">
             <span
-              className="flex items-center gap-1.5 text-[13px] font-medium transition-colors cursor-pointer px-3 py-1.5 rounded-md"
+              className="flex items-center gap-1.5 text-[13px] font-semibold transition-colors cursor-pointer px-3 py-1.5 rounded-md"
               style={{
-                color: activePath === "/games" ? "#38bdf8" : "#94a3b8",
-                background:
-                  activePath === "/games"
-                    ? "rgba(14,165,233,0.08)"
-                    : "transparent",
+                color: isActive("/games") ? "#38bdf8" : "#e2e8f0",
+                background: isActive("/games") ? "rgba(14,165,233,0.08)" : "transparent",
               }}
               data-testid="link-nav-games"
             >
               <Gamepad2 className="w-3.5 h-3.5" /> Играть
             </span>
           </Link>
-          <Link href="/profile">
-            <span
-              className="flex items-center gap-1.5 text-[13px] font-medium transition-colors cursor-pointer px-3 py-1.5 rounded-md"
-              style={{
-                color: activePath === "/profile" ? "#38bdf8" : "#94a3b8",
-                background:
-                  activePath === "/profile"
-                    ? "rgba(14,165,233,0.08)"
-                    : "transparent",
-              }}
-              data-testid="link-nav-profile"
-            >
-              <UserCircle2 className="w-3.5 h-3.5" /> Профиль
-            </span>
-          </Link>
 
-          <div
-            className="mx-2 h-4 w-px shrink-0"
-            style={{ background: "rgba(255,255,255,0.1)" }}
-          />
-
-          {/* Host branch */}
           <Link href="/host">
             <span
-              className="flex items-center gap-1.5 text-[13px] font-medium transition-colors cursor-pointer px-3 py-1.5 rounded-md"
+              className="flex items-center gap-1.5 text-[13px] font-semibold transition-colors cursor-pointer px-3 py-1.5 rounded-md"
               style={{
-                color:
-                  activePath === "/host" || activePath === "/wallet"
-                    ? "#38bdf8"
-                    : "#94a3b8",
-                background:
-                  activePath === "/host" || activePath === "/wallet"
-                    ? "rgba(14,165,233,0.08)"
-                    : "transparent",
+                color: isHostActive ? "#38bdf8" : "#e2e8f0",
+                background: isHostActive ? "rgba(14,165,233,0.08)" : "transparent",
               }}
               data-testid="link-nav-host-panel"
             >
               <Cpu className="w-3.5 h-3.5" /> Хостить
             </span>
           </Link>
-          <Link href="/quotas">
-            <span
-              className="flex items-center gap-1.5 text-[13px] font-medium transition-colors cursor-pointer px-3 py-1.5 rounded-md"
-              style={{
-                color: activePath === "/quotas" ? "#38bdf8" : "#94a3b8",
-                background:
-                  activePath === "/quotas"
-                    ? "rgba(14,165,233,0.08)"
-                    : "transparent",
-              }}
-              data-testid="link-nav-quotas"
-            >
-              <Coins className="w-3.5 h-3.5" /> Квоты
-            </span>
-          </Link>
-          <Link href="/exchange">
-            <span
-              className="flex items-center gap-1.5 text-[13px] font-medium transition-colors cursor-pointer px-3 py-1.5 rounded-md"
-              style={{
-                color: activePath === "/exchange" ? "#38bdf8" : "#94a3b8",
-                background:
-                  activePath === "/exchange"
-                    ? "rgba(14,165,233,0.08)"
-                    : "transparent",
-              }}
-              data-testid="link-nav-exchange"
-            >
-              <ArrowLeftRight className="w-3.5 h-3.5" /> Биржа
-            </span>
-          </Link>
         </div>
 
+        {/* Right side actions */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Search button */}
+          <Link href="/games">
+            <button
+              type="button"
+              className="w-8 h-8 flex items-center justify-center rounded-md transition-colors hover:bg-white/5"
+              style={{ color: "#64748b" }}
+              title="Поиск игр"
+              data-testid="button-nav-search"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+          </Link>
+
+          {/* Online indicator — desktop only */}
           <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-500">
             <span className="w-1.5 h-1.5 rounded-full bg-teal-400 inline-block" />
             онлайн
           </div>
-          {hostToken && <BalanceChip hostToken={hostToken} />}
-          <Link href="/host">
-            <Button
-              size="sm"
-              className="h-8 px-4 text-xs font-semibold rounded-md"
+
+          {/* Balance chip — clickable link to wallet */}
+          {hostToken && (
+            <Link href="/wallet" data-testid="link-nav-balance">
+              <BalanceChip hostToken={hostToken} />
+            </Link>
+          )}
+
+          {/* Avatar / profile dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-white/8"
+                style={{
+                  background: isActive("/profile") ? "rgba(14,165,233,0.15)" : "rgba(255,255,255,0.06)",
+                  border: isActive("/profile") ? "1px solid rgba(14,165,233,0.3)" : "1px solid rgba(255,255,255,0.1)",
+                  color: isActive("/profile") ? "#38bdf8" : "#94a3b8",
+                }}
+                data-testid="button-nav-avatar"
+              >
+                <UserCircle2 className="w-4.5 h-4.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-48 mt-1"
               style={{
-                background:
-                  activePath === "/host" || activePath === "/wallet"
-                    ? "#0ea5e9"
-                    : "rgba(14,165,233,0.12)",
-                color:
-                  activePath === "/host" || activePath === "/wallet"
-                    ? "#fff"
-                    : "#38bdf8",
-                border: "1px solid rgba(14,165,233,0.25)",
+                background: "rgba(10,16,26,0.97)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                backdropFilter: "blur(12px)",
               }}
-              data-testid="button-nav-host"
             >
-              <UserCircle2 className="w-3.5 h-3.5 mr-1.5" /> Кабинет
-            </Button>
-          </Link>
+              <DropdownMenuItem
+                onSelect={() => navigate("/profile")}
+                className="cursor-pointer text-slate-300 hover:text-white focus:text-white gap-2"
+                data-testid="menu-item-profile"
+              >
+                <UserCircle2 className="w-4 h-4 shrink-0" />
+                Профиль
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => navigate("/wallet")}
+                className="cursor-pointer text-slate-300 hover:text-white focus:text-white gap-2"
+                data-testid="menu-item-wallet"
+              >
+                <Wallet className="w-4 h-4 shrink-0" />
+                Кошелёк
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => navigate("/profile?tab=account")}
+                className="cursor-pointer text-slate-300 hover:text-white focus:text-white gap-2"
+                data-testid="menu-item-settings"
+              >
+                <Settings className="w-4 h-4 shrink-0" />
+                Настройки
+              </DropdownMenuItem>
+              <DropdownMenuSeparator style={{ background: "rgba(255,255,255,0.07)" }} />
+              <DropdownMenuItem
+                onSelect={() => navigate("/exchange")}
+                className="cursor-pointer text-slate-300 hover:text-white focus:text-white gap-2"
+                data-testid="menu-item-exchange"
+              >
+                <ArrowLeftRight className="w-4 h-4 shrink-0" />
+                Биржа
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => navigate("/quotas")}
+                className="cursor-pointer text-slate-300 hover:text-white focus:text-white gap-2"
+                data-testid="menu-item-quotas"
+              >
+                <Coins className="w-4 h-4 shrink-0" />
+                Квоты
+              </DropdownMenuItem>
+              {hostToken && (
+                <>
+                  <DropdownMenuSeparator style={{ background: "rgba(255,255,255,0.07)" }} />
+                  <DropdownMenuItem
+                    onSelect={() => logout()}
+                    className="cursor-pointer text-red-400 hover:text-red-300 focus:text-red-300 gap-2"
+                    data-testid="menu-item-logout"
+                  >
+                    <LogOut className="w-4 h-4 shrink-0" />
+                    Выйти
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
+      {/* Mobile primary nav */}
       <MobileMenu activePath={activePath} />
 
+      {/* Guest banner */}
       {playerWalletToken && isGuest && (
         <div
           className="px-6 py-1.5 flex items-center justify-center gap-2 text-[11px]"
@@ -221,65 +262,80 @@ export function SiteNav({ activePath }: Props) {
 }
 
 function MobileMenu({ activePath }: { activePath?: string }) {
+  const isHostActive = activePath === "/host" || activePath === "/wallet";
+
   return (
     <div
       className="md:hidden border-t flex items-center gap-0 overflow-x-auto px-4 h-10"
       style={{ borderColor: "rgba(255,255,255,0.05)" }}
     >
-      {/* Player branch */}
+      {/* Primary: Играть */}
       <Link href="/games">
         <span
-          className="flex items-center gap-1 text-[12px] font-medium px-3 py-1 rounded whitespace-nowrap"
-          style={{ color: activePath === "/games" ? "#38bdf8" : "#94a3b8" }}
+          className="flex items-center gap-1 text-[12px] font-semibold px-3 py-1 rounded whitespace-nowrap"
+          style={{ color: activePath === "/games" ? "#38bdf8" : "#e2e8f0" }}
           data-testid="link-mobile-games"
         >
           <Gamepad2 className="w-3 h-3" /> Играть
         </span>
       </Link>
-      <Link href="/profile">
-        <span
-          className="flex items-center gap-1 text-[12px] font-medium px-3 py-1 rounded whitespace-nowrap"
-          style={{ color: activePath === "/profile" ? "#38bdf8" : "#94a3b8" }}
-          data-testid="link-mobile-profile"
-        >
-          <UserCircle2 className="w-3 h-3" /> Профиль
-        </span>
-      </Link>
+
       <div
         className="mx-1.5 h-3.5 w-px shrink-0"
         style={{ background: "rgba(255,255,255,0.1)" }}
       />
-      {/* Host branch */}
+
+      {/* Primary: Хостить */}
       <Link href="/host">
         <span
-          className="flex items-center gap-1 text-[12px] font-medium px-3 py-1 rounded whitespace-nowrap"
-          style={{
-            color:
-              activePath === "/host" || activePath === "/wallet"
-                ? "#38bdf8"
-                : "#94a3b8",
-          }}
+          className="flex items-center gap-1 text-[12px] font-semibold px-3 py-1 rounded whitespace-nowrap"
+          style={{ color: isHostActive ? "#38bdf8" : "#e2e8f0" }}
           data-testid="link-mobile-host"
         >
           <Cpu className="w-3 h-3" /> Хостить
         </span>
       </Link>
-      <Link href="/quotas">
+
+      <div
+        className="mx-1.5 h-3.5 w-px shrink-0"
+        style={{ background: "rgba(255,255,255,0.08)" }}
+      />
+
+      {/* Secondary (scrollable) */}
+      <Link href="/profile">
         <span
           className="flex items-center gap-1 text-[12px] font-medium px-3 py-1 rounded whitespace-nowrap"
-          style={{ color: activePath === "/quotas" ? "#38bdf8" : "#94a3b8" }}
-          data-testid="link-mobile-quotas"
+          style={{ color: activePath === "/profile" ? "#38bdf8" : "#64748b" }}
+          data-testid="link-mobile-profile"
         >
-          <Coins className="w-3 h-3" /> Квоты
+          <UserCircle2 className="w-3 h-3" /> Профиль
+        </span>
+      </Link>
+      <Link href="/wallet">
+        <span
+          className="flex items-center gap-1 text-[12px] font-medium px-3 py-1 rounded whitespace-nowrap"
+          style={{ color: activePath === "/wallet" ? "#38bdf8" : "#64748b" }}
+          data-testid="link-mobile-wallet"
+        >
+          <Wallet className="w-3 h-3" /> Кошелёк
         </span>
       </Link>
       <Link href="/exchange">
         <span
           className="flex items-center gap-1 text-[12px] font-medium px-3 py-1 rounded whitespace-nowrap"
-          style={{ color: activePath === "/exchange" ? "#38bdf8" : "#94a3b8" }}
+          style={{ color: activePath === "/exchange" ? "#38bdf8" : "#64748b" }}
           data-testid="link-mobile-exchange"
         >
           <ArrowLeftRight className="w-3 h-3" /> Биржа
+        </span>
+      </Link>
+      <Link href="/quotas">
+        <span
+          className="flex items-center gap-1 text-[12px] font-medium px-3 py-1 rounded whitespace-nowrap"
+          style={{ color: activePath === "/quotas" ? "#38bdf8" : "#64748b" }}
+          data-testid="link-mobile-quotas"
+        >
+          <Coins className="w-3 h-3" /> Квоты
         </span>
       </Link>
     </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearch } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import {
   useGetHost,
@@ -761,8 +762,14 @@ function AccountTab({ hostToken }: { hostToken: string | null }) {
 export default function ProfilePage() {
   const { hostToken } = useAuth();
   const isHost = !!hostToken;
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  const tabParam = params.get("tab");
 
-  const defaultTab = "history";
+  const validTabs = isHost
+    ? ["stats", "history", "account", "vds"]
+    : ["history", "account"];
+  const defaultTab = tabParam && validTabs.includes(tabParam) ? tabParam : "history";
 
   return (
     <div

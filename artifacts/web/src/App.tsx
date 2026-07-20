@@ -22,6 +22,7 @@ import QuotaNewPage from "@/pages/quota-new";
 import QuotaEditPage from "@/pages/quota-edit";
 import ExchangePage from "@/pages/exchange";
 import { HostLayout } from "@/components/layout";
+import { SiteNav } from "@/components/site-nav";
 import { HostAuthGuard } from "@/components/host-auth-guard";
 import ProfilePage from "@/pages/profile";
 import Embed from "@/pages/embed";
@@ -41,6 +42,18 @@ function HostRoutes() {
         </Switch>
       </HostLayout>
     </HostAuthGuard>
+  );
+}
+
+/** Standalone wallet page — accessible to all users (no HostAuthGuard). */
+function StandaloneWallet() {
+  return (
+    <div className="min-h-screen flex flex-col text-slate-300" style={{ background: "#06090e" }}>
+      <SiteNav activePath="/wallet" />
+      <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-8">
+        <WalletPage />
+      </main>
+    </div>
   );
 }
 
@@ -68,11 +81,8 @@ function Router() {
         )}
       </Route>
       <Route path="/quotas/:id" component={QuotaDetailPage} />
-      <Route path="/exchange">
-        <HostAuthGuard>
-          <ExchangePage />
-        </HostAuthGuard>
-      </Route>
+      {/* Standalone wallet — accessible to any user, no auth guard */}
+      <Route path="/wallet" component={StandaloneWallet} />
       <Route path="/play/:playerToken" component={Play} />
       {/* Embeddable third-party widget (task-125) — no auth guard, standalone. */}
       <Route path="/embed" component={Embed} />
@@ -86,7 +96,6 @@ function Router() {
       <Route path="/host" component={HostRoutes} />
       <Route path="/host/setup" component={HostRoutes} />
       <Route path="/host/library" component={HostRoutes} />
-      <Route path="/wallet" component={HostRoutes} />
       <Route component={NotFound} />
     </Switch>
   );
