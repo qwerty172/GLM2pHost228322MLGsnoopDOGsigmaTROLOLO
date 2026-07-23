@@ -35,7 +35,7 @@ import {
   updateEntry,
   removeFromLibrary,
 } from "../lib/hostLibrary";
-import { generalHostTier, computeHostTier, specsFromPcSpecs, BASELINE_REC, BASELINE_MIN } from "../lib/hostTier";
+import { generalHostTier, computeHostTier, specsFromPcSpecs, BASELINE_REC, BASELINE_MIN, type TierThresholds } from "../lib/hostTier";
 import { isQuotaActiveNow } from "../lib/quotaEngine";
 import { rateLimit, ipKey, failedAttemptGuard } from "../lib/rateLimit";
 
@@ -1212,7 +1212,7 @@ router.post("/hosts/me/steam-auto-hostable", async (req, res): Promise<void> => 
       continue;
     }
 
-    const rec = game.recSpecs ?? BASELINE_REC;
+    const rec = (game.recSpecs ?? BASELINE_REC) as TierThresholds;
     const min = BASELINE_MIN;
     const tier = computeHostTier(hostSpecs, min, rec);
     if (tier !== "above_rec") {

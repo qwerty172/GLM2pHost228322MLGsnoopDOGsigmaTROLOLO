@@ -197,8 +197,23 @@ export default function Play() {
     () => localStorage.getItem("showStatsOverlay") === "on",
   );
   const [liveStats, setLiveStats] = useState<{ kbps: number; fps: number; lossPct: number } | null>(null);
+  type StreamPreset = "low" | "balanced" | "quality";
+  const [streamPreset, setStreamPreset] = useState<StreamPreset>(
+    () => (localStorage.getItem("streamPreset") as StreamPreset) || "balanced",
+  );
+  type MouseInputMode = "auto" | "fps" | "ui";
+  const [mouseInputMode, setMouseInputMode] = useState<MouseInputMode>(
+    () => (localStorage.getItem("mouseInputMode") as MouseInputMode) || "auto",
+  );
+  const pointerLockedRef = useRef(false);
+  useEffect(() => {
+    localStorage.setItem("mouseInputMode", mouseInputMode);
+  }, [mouseInputMode]);
   const currentBitrateKbpsRef = useRef<number>(6000);
   const lastStatsSampleRef = useRef<{ bytes: number; ts: number } | null>(null);
+  const lastMetricsUploadRef = useRef<number>(0);
+  const captureWidthRef = useRef<number>(1920);
+  const captureHeightRef = useRef<number>(1080);
 
   // Virtual gamepad overlay — auto-enabled on touch devices
   const [gamepadOverlay, setGamepadOverlay] = useState<boolean>(
@@ -821,9 +836,12 @@ export default function Play() {
       type: "input";
       kind: "mouse";
       action: "down" | "up" | "move";
-      button: number;
-      x: number;
-      y: number;
+      button?: number;
+      x?: number;
+      y?: number;
+      movementX?: number;
+      movementY?: number;
+      mode?: "relative" | "absolute";
     };
     type WheelInput = {
       type: "input";
@@ -882,22 +900,60 @@ export default function Play() {
       });
     };
 
+    const useRelativeMouse = (): boolean => {
+      if (mouseInputMode === "fps") return true;
+      if (mouseInputMode === "ui") return false;
+      return pointerLockedRef.current;
+    };
+
     const handleMouseDown = (e: MouseEvent) => {
       if (!isOverVideo(e)) return;
       const { x, y } = normalizedCoords(e);
-      sendInput({ type: "input", kind: "mouse", action: "down", button: e.button, x, y });
+      if (!useRelativeMouse()) {
+        sendInput({ type: "input", kind: "mouse", action: "move", x, y, mode: "absolute" });
+      }
+      sendInput({
+        type: "input",
+        kind: "mouse",
+        action: "down",
+        button: e.button,
+        ...(useRelativeMouse() ? {} : { x, y, mode: "absolute" as const }),
+      });
     };
 
     const handleMouseUp = (e: MouseEvent) => {
-      if (!isOverVideo(e)) return;
+      if (!isOverVideo(e) && !pointerLockedRef.current) return;
       const { x, y } = normalizedCoords(e);
-      sendInput({ type: "input", kind: "mouse", action: "up", button: e.button, x, y });
+      sendInput({
+        type: "input",
+        kind: "mouse",
+        action: "up",
+        button: e.button,
+        ...(useRelativeMouse() ? {} : { x, y, mode: "absolute" as const }),
+      });
     };
 
     const handleMouseMove = (e: MouseEvent) => {
+      if (useRelativeMouse()) {
+        if (!pointerLockedRef.current && !isOverVideo(e)) return;
+        if (e.movementX === 0 && e.movementY === 0) return;
+        sendInput({
+          type: "input",
+          kind: "mouse",
+          action: "move",
+          movementX: e.movementX,
+          movementY: e.movementY,
+          mode: "relative",
+        });
+        return;
+      }
       if (!isOverVideo(e)) return;
       const { x, y } = normalizedCoords(e);
-      sendInput({ type: "input", kind: "mouse", action: "move", button: 0, x, y });
+      sendInput({ type: "input", kind: "mouse", action: "move", x, y, mode: "absolute" });
+    };
+
+    const handlePointerLockChange = () => {
+      pointerLockedRef.current = document.pointerLockElement === videoRef.current;
     };
 
     const handleWheel = (e: WheelEvent) => {
@@ -907,6 +963,7 @@ export default function Play() {
       sendInput({ type: "input", kind: "wheel", deltaY: e.deltaY, x, y });
     };
 
+    document.addEventListener("pointerlockchange", handlePointerLockChange);
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
     window.addEventListener("mousedown", handleMouseDown);
@@ -915,6 +972,7 @@ export default function Play() {
     window.addEventListener("wheel", handleWheel, { passive: false });
 
     return () => {
+      document.removeEventListener("pointerlockchange", handlePointerLockChange);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("mousedown", handleMouseDown);
@@ -922,7 +980,7 @@ export default function Play() {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("wheel", handleWheel);
     };
-  }, [isPlaying]);
+  }, [isPlaying, mouseInputMode]);
 
   const requestPointerLock = () => {
     if (videoRef.current && isPlaying) {
@@ -957,6 +1015,26 @@ export default function Play() {
       dc.send(JSON.stringify({ type: "set-bitrate", kbps: manualBitrateKbps }));
     }
   }, [manualBitrateKbps, adaptiveBitrate, isPlaying, dataChannelOpen]);
+
+  useEffect(() => {
+    localStorage.setItem("streamPreset", streamPreset);
+    const presets: Record<StreamPreset, { kbps: number; fps: number; w: number; h: number }> = {
+      low: { kbps: 3000, fps: 30, w: 1280, h: 720 },
+      balanced: { kbps: 6000, fps: 60, w: 1920, h: 1080 },
+      quality: { kbps: 12000, fps: 60, w: 1920, h: 1080 },
+    };
+    const p = presets[streamPreset];
+    setManualBitrateKbps(p.kbps);
+    setFpsCapHint(p.fps);
+    captureWidthRef.current = p.w;
+    captureHeightRef.current = p.h;
+    const dc = dcRef.current;
+    if (isPlaying && dc && dc.readyState === "open") {
+      dc.send(JSON.stringify({ type: "set-bitrate", kbps: p.kbps }));
+      dc.send(JSON.stringify({ type: "set-fps", fps: p.fps }));
+      dc.send(JSON.stringify({ type: "set-resolution", width: p.w, height: p.h }));
+    }
+  }, [streamPreset, isPlaying, dataChannelOpen]);
 
   // Adaptive bitrate: sample inbound-rtp video stats every 3s and nudge the
   // host's encoder bitrate up/down based on packet loss + free bandwidth.
@@ -995,23 +1073,47 @@ export default function Play() {
         if (adaptiveBitrate && dc && dc.readyState === "open") {
           let target = currentBitrateKbpsRef.current;
           if (lossPct > 3) {
-            // Losing packets — back off hard.
             target = Math.max(800, Math.round(target * 0.75));
           } else if (lossPct < 0.5 && kbps > target * 0.85) {
-            // Clean channel and we're using most of the budget — try for more.
             target = Math.min(12_000, Math.round(target * 1.1));
+          }
+          if (lossPct > 5 && captureWidthRef.current > 960) {
+            captureWidthRef.current = Math.round(captureWidthRef.current * 0.75);
+            captureHeightRef.current = Math.round(captureHeightRef.current * 0.75);
+            dc.send(JSON.stringify({
+              type: "set-resolution",
+              width: captureWidthRef.current,
+              height: captureHeightRef.current,
+            }));
           }
           if (target !== currentBitrateKbpsRef.current) {
             currentBitrateKbpsRef.current = target;
             dc.send(JSON.stringify({ type: "set-bitrate", kbps: target }));
           }
         }
+
+        if (session?.id && now - lastMetricsUploadRef.current >= 10_000) {
+          lastMetricsUploadRef.current = now;
+          void fetch(`/api/sessions/${session.id}/metrics`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Player-Token": playerToken },
+            body: JSON.stringify({
+              samples: [{
+                role: "player",
+                rttMs: e2eRtt ?? undefined,
+                bitrateKbps: kbps,
+                fps: Math.round(framesPerSecond),
+                packetLossPct: Math.round(lossPct * 10) / 10,
+              }],
+            }),
+          }).catch(() => undefined);
+        }
       } catch {
         /* ignore — stats not ready yet */
       }
     }, 3000);
     return () => clearInterval(id);
-  }, [isPlaying, adaptiveBitrate, showStatsOverlay, dataChannelOpen]);
+  }, [isPlaying, adaptiveBitrate, showStatsOverlay, dataChannelOpen, session?.id, playerToken, e2eRtt]);
 
   if (isLoading) {
     return (
@@ -1853,6 +1955,37 @@ export default function Play() {
             )}
 
             <div className="mb-3">
+              <div className="text-[10px] uppercase text-slate-400 tracking-wider mb-1.5">
+                Профиль качества
+              </div>
+              <div className="flex gap-1.5">
+                {([
+                  ["low", "Low"],
+                  ["balanced", "Balanced"],
+                  ["quality", "Quality"],
+                ] as const).map(([preset, label]) => (
+                  <button
+                    key={preset}
+                    onClick={() => setStreamPreset(preset)}
+                    style={{
+                      flex: 1,
+                      padding: "3px 0",
+                      borderRadius: 6,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      background: streamPreset === preset ? "rgba(16,185,129,0.25)" : "rgba(255,255,255,0.05)",
+                      border: streamPreset === preset ? "1px solid rgba(16,185,129,0.6)" : "1px solid rgba(255,255,255,0.10)",
+                      color: streamPreset === preset ? "#34d399" : "#94a3b8",
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-3">
               <div className="flex items-center justify-between text-[10px] uppercase text-slate-400 tracking-wider mb-1">
                 <span>Лимит FPS</span>
                 <span>{fpsCapHint}</span>
@@ -1896,6 +2029,44 @@ export default function Play() {
             >
               {showStatsOverlay ? "✓" : ""} Показывать статистику (пинг / кбит/с / потери)
             </button>
+
+            <div className="mt-3">
+              <div className="text-[10px] uppercase text-slate-400 tracking-wider mb-1.5">
+                Режим мыши
+              </div>
+              <div className="flex gap-1.5">
+                {([
+                  ["auto", "Авто"],
+                  ["fps", "FPS"],
+                  ["ui", "UI"],
+                ] as const).map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    onClick={() => setMouseInputMode(mode)}
+                    style={{
+                      flex: 1,
+                      padding: "3px 0",
+                      borderRadius: 6,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      background: mouseInputMode === mode ? "rgba(16,185,129,0.25)" : "rgba(255,255,255,0.05)",
+                      border: mouseInputMode === mode ? "1px solid rgba(16,185,129,0.6)" : "1px solid rgba(255,255,255,0.10)",
+                      color: mouseInputMode === mode ? "#34d399" : "#94a3b8",
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+                {mouseInputMode === "fps"
+                  ? "Относительные движения — для шутеров с pointer lock."
+                  : mouseInputMode === "ui"
+                    ? "Абсолютные координаты — для меню и стратегий."
+                    : "Авто: relative при pointer lock, иначе absolute."}
+              </p>
+            </div>
           </div>
         </div>
       )}

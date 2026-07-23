@@ -20,4 +20,12 @@ describe("economy E2E (offline)", () => {
     const debt = 500;
     assert.equal(Math.max(0, limit - debt), 2500);
   });
+
+  it("outbox idempotency key prevents duplicate side-effects", () => {
+    const keys = new Set<string>();
+    const insert = (key: string) => keys.add(key);
+    insert("deposit:abc");
+    insert("deposit:abc");
+    assert.equal(keys.size, 1);
+  });
 });

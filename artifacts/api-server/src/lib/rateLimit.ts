@@ -1,8 +1,8 @@
-// Rate limiter with optional PostgreSQL backing for multi-instance deployments.
-// Falls back to in-memory storage when Postgres is unavailable.
+// Rate limiter with Redis (primary), optional PostgreSQL backing, and in-memory fallback.
 
 import type { Request, Response, NextFunction, RequestHandler } from "express";
 import { logger } from "./logger";
+import { getRedis, isRedisAvailable } from "./redis";
 
 interface Bucket {
   tokens: number;
@@ -35,6 +35,27 @@ async function refillBucket(
 ): Promise<{ allowed: boolean; retryAfterSec: number }> {
   const now = Date.now();
   const refillPerMs = max / windowMs;
+
+  if (isRedisAvailable()) {
+    const redis = getRedis();
+    if (redis) {
+      try {
+        const count = await redis.incr(key);
+        if (count === 1) {
+          await redis.expire(key, Math.ceil(windowMs / 1000));
+        }
+        if (count > max) {
+          const ttl = await redis.expire(key, Math.ceil(windowMs / 1000));
+          void ttl;
+          const retryAfterSec = Math.ceil(windowMs / 1000);
+          return { allowed: false, retryAfterSec: Math.max(1, retryAfterSec) };
+        }
+        return { allowed: true, retryAfterSec: 0 };
+      } catch (err) {
+        logger.warn({ err, key }, "Redis rate limit failed; falling back");
+      }
+    }
+  }
 
   if (usePostgres()) {
     try {

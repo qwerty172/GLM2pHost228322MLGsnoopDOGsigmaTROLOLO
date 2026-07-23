@@ -924,6 +924,48 @@ export default function Dashboard() {
 
       {hostToken && <BindingForm hostToken={hostToken} />}
 
+      {/* Stream quality summary from recent sessions */}
+      {sessions && sessions.length > 0 && (
+        <Card style={cardStyle}>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-white text-base">
+              <Activity className="h-4 w-4 text-emerald-400" />
+              Качество последних сессий
+            </CardTitle>
+            <CardDescription className="text-slate-500">
+              Агрегированные метрики WebRTC (RTT, потери, score).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {sessions
+                .filter((s) => (s as { qualityScore?: number | null }).qualityScore != null)
+                .slice(0, 5)
+                .map((s) => {
+                  const q = s as typeof s & { qualityScore?: number; avgRttMs?: number; avgLossPct?: number };
+                  return (
+                    <div
+                      key={s.id}
+                      className="flex items-center justify-between p-3 rounded-lg text-sm"
+                      style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
+                    >
+                      <span className="text-white font-medium truncate">{s.appName}</span>
+                      <div className="flex gap-4 text-slate-400 font-mono text-xs shrink-0">
+                        <span>score: {q.qualityScore ?? "—"}</span>
+                        <span>RTT: {q.avgRttMs != null ? `${q.avgRttMs} мс` : "—"}</span>
+                        <span>loss: {q.avgLossPct != null ? `${q.avgLossPct}%` : "—"}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              {sessions.every((s) => (s as { qualityScore?: number | null }).qualityScore == null) && (
+                <p className="text-sm text-slate-500">Метрики появятся после первых стримов с активным плеером.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* PC Specs card — shown only when the agent has reported specs */}
       {pcSpecs && (
         <Card style={cardStyle}>

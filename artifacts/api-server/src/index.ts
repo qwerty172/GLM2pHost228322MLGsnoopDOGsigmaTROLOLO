@@ -11,6 +11,9 @@ import { startHostHealthWorker } from "./lib/hostHealthWorker";
 import { startScheduleWatchdog } from "./lib/scheduleWatchdog";
 import { startVdsProvisionWorker } from "./lib/vdsProvisionWorker";
 import { startRateLimitCleanup } from "./lib/rateLimit";
+import { initRedis } from "./lib/redis";
+import { startOutboxWorker } from "./lib/outboxWorker";
+import { startMetricsWorker } from "./lib/metricsWorker";
 import { seedGames } from "./lib/seedGames";
 import { runLegacyBackfill } from "./lib/legacyBackfill";
 
@@ -41,6 +44,8 @@ function startWorkers() {
   startScheduleWatchdog();
   startVdsProvisionWorker();
   startRateLimitCleanup();
+  startOutboxWorker();
+  startMetricsWorker();
   seedGames().catch((err) => {
     logger.error({ err }, "Failed to seed games catalog");
   });
@@ -52,6 +57,11 @@ function startWorkers() {
 const MAX_RETRIES = 5;
 const RETRY_DELAY_MS = 2_000;
 let listenAttempt = 0;
+
+async function boot(): Promise<void> {
+  await initRedis();
+  listen();
+}
 
 function listen(): void {
   listenAttempt += 1;
@@ -103,4 +113,4 @@ function gracefulShutdown(signal: string) {
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
-listen();
+void boot();

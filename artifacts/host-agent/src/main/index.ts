@@ -1,4 +1,5 @@
 import { app, BrowserWindow, desktopCapturer, dialog, ipcMain, shell } from "electron";
+import { autoUpdater } from "electron-updater";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import os from "node:os";
@@ -148,6 +149,8 @@ async function startAgent(): Promise<void> {
   if (!injStatus.ok) {
     dialog.showErrorBox("Модуль управления не загрузился", injStatus.error);
   }
+
+  initAutoUpdater();
 
   ipcMain.handle("config:get", async () => {
     return loadConfig();
@@ -784,4 +787,31 @@ app.on("window-all-closed", () => {
 app.on("before-quit", () => {
   (app as unknown as { isQuitting?: boolean }).isQuitting = true;
   killApp();
+});
+
+function initAutoUpdater(): void {
+  if (!app.isPackaged) return;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on("update-downloaded", () => {
+    log("info", "Update downloaded — notifying renderer");
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("agent:update-ready");
+    }
+  });
+
+  autoUpdater.on("error", (err: Error) => {
+    log("warn", `Auto-updater error: ${String(err)}`);
+  });
+
+  setTimeout(() => {
+    void autoUpdater.checkForUpdatesAndNotify().catch((err: unknown) => {
+      log("warn", `Update check failed: ${String(err)}`);
+    });
+  }, 30_000).unref();
+}
+
+ipcMain.handle("agent:install-update", () => {
+  autoUpdater.quitAndInstall(false, true);
 });

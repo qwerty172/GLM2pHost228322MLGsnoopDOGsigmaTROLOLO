@@ -44,6 +44,8 @@ export interface HostConfig {
   // standard — Opus ~32 kbps (balanced quality)
   // quality  — Opus ~64 kbps (high fidelity)
   audioMode?: "off" | "voice" | "standard" | "quality";
+  // Capture pipeline: "chromium" (desktopCapturer) or "native" (DXGI/NVENC addon).
+  captureMode?: "chromium" | "native";
 }
 
 export type InputEvent =

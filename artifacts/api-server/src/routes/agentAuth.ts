@@ -5,16 +5,44 @@ import { z } from "zod/v4";
 import { db, hostsTable, agentPairingCodesTable } from "@workspace/db";
 import { headerUserToken } from "../lib/requestToken";
 import { rateLimit, ipKey, failedAttemptGuard, clearFailedAttempts } from "../lib/rateLimit";
+import { getRedis } from "../lib/redis";
 
 const router: IRouter = Router();
 
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 const PAIRING_TTL_MS = 10 * 60 * 1000;
+const CHALLENGE_TTL_SEC = Math.ceil(CHALLENGE_TTL_MS / 1000);
 
 interface ChallengeEntry {
   expiresAt: number;
 }
 const challenges = new Map<string, ChallengeEntry>();
+
+async function storeChallenge(challenge: string, expiresAt: number): Promise<void> {
+  const redis = getRedis();
+  if (redis) {
+    await redis.setex(`agent:challenge:${challenge}`, CHALLENGE_TTL_SEC, String(expiresAt));
+    return;
+  }
+  challenges.set(challenge, { expiresAt });
+}
+
+async function consumeChallenge(challenge: string): Promise<boolean> {
+  const redis = getRedis();
+  if (redis) {
+    const key = `agent:challenge:${challenge}`;
+    const raw = await redis.get(key);
+    if (!raw) return false;
+    await redis.del(key);
+    const expiresAt = Number(raw);
+    return Number.isFinite(expiresAt) && expiresAt >= Date.now();
+  }
+  const entry = challenges.get(challenge);
+  if (!entry) return false;
+  challenges.delete(challenge);
+  if (entry.expiresAt < Date.now()) return false;
+  return true;
+}
 
 function issueChallenge(): { challenge: string; expiresAt: number } {
   const now = Date.now();
@@ -23,16 +51,8 @@ function issueChallenge(): { challenge: string; expiresAt: number } {
   }
   const challenge = crypto.randomBytes(32).toString("hex");
   const expiresAt = now + CHALLENGE_TTL_MS;
-  challenges.set(challenge, { expiresAt });
+  void storeChallenge(challenge, expiresAt);
   return { challenge, expiresAt };
-}
-
-function consumeChallenge(challenge: string): boolean {
-  const entry = challenges.get(challenge);
-  if (!entry) return false;
-  challenges.delete(challenge);
-  if (entry.expiresAt < Date.now()) return false;
-  return true;
 }
 
 function verifyEd25519(
@@ -102,7 +122,7 @@ router.post("/auth/bind-agent-key", async (req, res): Promise<void> => {
   }
   const { hostToken, pubkey, challenge, signature } = parsed.data;
 
-  if (!consumeChallenge(challenge)) {
+  if (!(await consumeChallenge(challenge))) {
     res.status(400).json({ error: "Challenge expired or already used" });
     return;
   }
@@ -155,7 +175,7 @@ router.post("/auth/agent-login", async (req, res): Promise<void> => {
   }
   const { pubkey, challenge, signature } = parsed.data;
 
-  if (!consumeChallenge(challenge)) {
+  if (!(await consumeChallenge(challenge))) {
     res.status(400).json({ error: "Challenge expired or already used" });
     return;
   }

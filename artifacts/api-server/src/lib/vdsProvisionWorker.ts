@@ -7,6 +7,17 @@ import { randomBytes } from "node:crypto";
 const PROVISION_INTERVAL_MS = 15_000;
 const HEALTH_CHECK_INTERVAL_MS = 60_000;
 
+export type VdsProvider = "ssh" | "firecracker";
+
+export interface VdsProvisionContext {
+  vds: typeof quotaVdsTable.$inferSelect;
+  provider: VdsProvider;
+}
+
+function resolveProvider(vds: typeof quotaVdsTable.$inferSelect): VdsProvider {
+  return vds.provider === "firecracker" ? "firecracker" : "ssh";
+}
+
 let provisionTimer: ReturnType<typeof setInterval> | null = null;
 let healthTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -143,6 +154,14 @@ async function runRemoteCommand(
 }
 
 async function provisionVds(vds: typeof quotaVdsTable.$inferSelect) {
+  const ctx: VdsProvisionContext = { vds, provider: resolveProvider(vds) };
+  if (ctx.provider === "firecracker") {
+    logger.info({ vdsId: vds.id }, "Firecracker provider not implemented — spike only");
+    await appendLog(vds.id, "[SKIP] Firecracker provider is research-only in Phase 4");
+    await setStatus(vds.id, "error");
+    return;
+  }
+
   logger.info({ vdsId: vds.id, sshHost: vds.sshHost }, "Starting VDS provisioning");
   await setStatus(vds.id, "provisioning");
 

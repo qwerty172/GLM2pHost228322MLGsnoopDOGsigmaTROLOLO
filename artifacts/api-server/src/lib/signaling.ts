@@ -4,6 +4,8 @@ import { eq, and, isNull } from "drizzle-orm";
 import { db, hostsTable, sessionsTable, playersTable } from "@workspace/db";
 import { logger } from "./logger";
 import { pickPlayerBucket } from "./lzt";
+import { getRedis, getRedisSubscriber, isRedisAvailable } from "./redis";
+import { verifyWsTicket } from "./jwt";
 
 type Role = "host" | "player";
 
@@ -17,6 +19,60 @@ interface Room {
 }
 
 const rooms = new Map<string, Room>();
+
+const INSTANCE_ID = `${process.pid}-${Date.now().toString(36)}`;
+const subscribedChannels = new Set<string>();
+
+function signalChannel(sessionId: string): string {
+  return `signal:${sessionId}`;
+}
+
+async function ensureSignalSubscription(sessionId: string): Promise<void> {
+  const channel = signalChannel(sessionId);
+  if (subscribedChannels.has(channel)) return;
+  const sub = getRedisSubscriber();
+  if (!sub) return;
+  await sub.subscribe(channel);
+  subscribedChannels.add(channel);
+}
+
+function initSignalPubSub(): void {
+  const sub = getRedisSubscriber();
+  if (!sub) return;
+  sub.on("message", (channel: unknown, message: unknown) => {
+    if (typeof channel !== "string" || typeof message !== "string") return;
+    if (!channel.startsWith("signal:")) return;
+    const sessionId = channel.slice("signal:".length);
+    let parsed: { fromInstance?: string; fromRole?: Role; payload?: unknown };
+    try {
+      parsed = JSON.parse(message) as typeof parsed;
+    } catch {
+      return;
+    }
+    if (parsed.fromInstance === INSTANCE_ID) return;
+    const room = rooms.get(sessionId);
+    if (!room || !parsed.fromRole) return;
+    broadcastToOther(room, parsed.fromRole, parsed.payload);
+  });
+}
+
+async function relaySignal(
+  sessionId: string,
+  fromRole: Role,
+  payload: unknown,
+): Promise<void> {
+  const redis = getRedis();
+  if (isRedisAvailable() && redis) {
+    await ensureSignalSubscription(sessionId);
+    await redis.publish(
+      signalChannel(sessionId),
+      JSON.stringify({ fromInstance: INSTANCE_ID, fromRole, payload }),
+    );
+    return;
+  }
+  const room = rooms.get(sessionId);
+  if (room) broadcastToOther(room, fromRole, payload);
+}
 
 function getRoom(sessionId: string): Room {
   let room = rooms.get(sessionId);
@@ -47,11 +103,36 @@ function broadcastToOther(
 
 // ─── Preview rooms ────────────────────────────────────────────────────────────
 // Short-lived tokens minted by POST /api/public/preview-session.
-// Stored in-memory only — 60-second TTL, no DB persistence.
+// Stored in Redis (preferred) or in-memory — 60-second TTL.
 const previewTokens = new Map<string, { hostId: string; expiresAt: number }>();
 
-// Separate signaling rooms for preview, keyed by hostId.
-const previewRooms = new Map<string, Room>();
+const PREVIEW_TTL_SEC = 60;
+
+async function storePreviewToken(token: string, hostId: string): Promise<void> {
+  const redis = getRedis();
+  if (redis) {
+    await redis.setex(`preview:${token}`, PREVIEW_TTL_SEC, hostId);
+    return;
+  }
+  previewTokens.set(token, { hostId, expiresAt: Date.now() + PREVIEW_TTL_SEC * 1000 });
+}
+
+async function consumePreviewToken(
+  token: string,
+): Promise<{ hostId: string } | null> {
+  const redis = getRedis();
+  if (redis) {
+    const hostId = await redis.get(`preview:${token}`);
+    if (!hostId) return null;
+    await redis.del(`preview:${token}`);
+    return { hostId };
+  }
+  const entry = previewTokens.get(token);
+  if (!entry) return null;
+  previewTokens.delete(token);
+  if (entry.expiresAt < Date.now()) return null;
+  return { hostId: entry.hostId };
+}
 
 /** Mint a new preview token for the given hostId (60-second TTL). */
 export function mintPreviewToken(hostId: string): string {
@@ -60,9 +141,12 @@ export function mintPreviewToken(hostId: string): string {
     if (e.expiresAt < now) previewTokens.delete(tok);
   }
   const token = `prev_${Math.random().toString(36).slice(2, 14)}_${now.toString(36)}`;
-  previewTokens.set(token, { hostId, expiresAt: now + 60_000 });
+  void storePreviewToken(token, hostId);
   return token;
 }
+
+// Separate signaling rooms for preview, keyed by hostId.
+const previewRooms = new Map<string, Room>();
 
 function getPreviewRoom(hostId: string): Room {
   let room = previewRooms.get(hostId);
@@ -86,6 +170,35 @@ async function authenticate(
   const role = url.searchParams.get("role");
   if (role !== "host" && role !== "player") {
     return { ok: false, reason: "role must be host or player" };
+  }
+
+  const wsTicket = url.searchParams.get("wsTicket");
+  if (wsTicket && process.env["JWT_SECRET"]?.trim()) {
+    const claims = await verifyWsTicket(wsTicket);
+    if (!claims?.sub || claims.typ !== role) {
+      return { ok: false, reason: "invalid ws ticket" };
+    }
+    const sessionId = claims.sessionId ?? url.searchParams.get("sessionId");
+    if (!sessionId) {
+      return { ok: false, reason: "sessionId required with ws ticket" };
+    }
+    const [session] = await db
+      .select()
+      .from(sessionsTable)
+      .where(eq(sessionsTable.id, sessionId));
+    if (!session || session.status === "ended") {
+      return { ok: false, reason: "session not found or ended" };
+    }
+    if (role === "host") {
+      const [host] = await db
+        .select()
+        .from(hostsTable)
+        .where(eq(hostsTable.id, claims.sub));
+      if (!host || session.hostId !== host.id) {
+        return { ok: false, reason: "ws ticket host mismatch" };
+      }
+    }
+    return { ok: true, result: { sessionId, role } };
   }
 
   if (role === "host") {
@@ -194,17 +307,10 @@ async function authenticatePreview(
   }
 
   if (previewToken) {
-    // Player side: validate previewToken from in-memory store
-    const entry = previewTokens.get(previewToken);
+    const entry = await consumePreviewToken(previewToken);
     if (!entry) {
       return { ok: false, reason: "invalid or expired preview token" };
     }
-    if (entry.expiresAt < Date.now()) {
-      previewTokens.delete(previewToken);
-      return { ok: false, reason: "preview token expired" };
-    }
-    // Consume token — each preview token is single-use
-    previewTokens.delete(previewToken);
     return { ok: true, result: { hostId: entry.hostId, role: "player" } };
   }
 
@@ -248,6 +354,7 @@ export function sendSignalingMessage(sessionId: string, payload: unknown): void 
 }
 
 export function attachSignaling(server: HttpServer): void {
+  initSignalPubSub();
   const wss = new WebSocketServer({ noServer: true });
 
   server.on("upgrade", (req: IncomingMessage, socket, head): void => {
@@ -402,6 +509,7 @@ function handlePreviewConnection(ws: WebSocket, auth: PreviewAuthResult): void {
 function handleConnection(ws: WebSocket, auth: AuthResult): void {
   const { sessionId, role } = auth;
   const room = getRoom(sessionId);
+  void ensureSignalSubscription(sessionId);
   const peerId = `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   // Replace any existing peer with same role (reconnects).
@@ -476,7 +584,7 @@ function handleConnection(ws: WebSocket, auth: AuthResult): void {
       case "ice-candidate":
       case "input":
       case "control":
-        broadcastToOther(room, role, { ...message, fromRole: role });
+        void relaySignal(sessionId, role, { ...message, fromRole: role });
         break;
       case "ping":
         send(ws, { type: "pong" });

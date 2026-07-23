@@ -42,6 +42,8 @@ import {
 } from "../lib/economy";
 import { refundBlockRemainder } from "../lib/billingWorker";
 import { randomUUID } from "node:crypto";
+import { z } from "zod/v4";
+import { sessionMetricsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -1006,6 +1008,89 @@ router.patch("/sessions/:id/end", async (req, res): Promise<void> => {
 
   req.log.info({ sessionId: session.id }, "Session ended");
   res.json(EndSessionResponse.parse(serialize(session)));
+});
+
+const SessionMetricSample = z.object({
+  role: z.enum(["player", "host"]),
+  sampledAt: z.string().datetime().optional(),
+  rttMs: z.number().int().optional(),
+  bitrateKbps: z.number().int().optional(),
+  fps: z.number().int().optional(),
+  packetLossPct: z.number().optional(),
+  framesDropped: z.number().int().optional(),
+  iceCandidateType: z.string().optional(),
+  jitterMs: z.number().int().optional(),
+});
+
+const PostSessionMetricsBody = z.object({
+  samples: z.array(SessionMetricSample).min(1).max(50),
+});
+
+router.post("/sessions/:id/metrics", async (req, res): Promise<void> => {
+  const sessionId = (req.params.id ?? "").trim();
+  if (!sessionId) {
+    res.status(400).json({ error: "session id required" });
+    return;
+  }
+
+  const parsed = PostSessionMetricsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const authHeader = req.headers.authorization;
+  const bearerToken = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice("Bearer ".length).trim()
+    : undefined;
+  const hostToken =
+    bearerToken ??
+    (req.query.hostToken as string | undefined) ??
+    (req.body?.hostToken as string | undefined);
+  const playerToken =
+    (req.headers["x-player-token"] as string | undefined) ??
+    (req.body?.playerToken as string | undefined);
+
+  const [session] = await db
+    .select()
+    .from(sessionsTable)
+    .where(eq(sessionsTable.id, sessionId));
+
+  if (!session) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+
+  let authorized = false;
+  if (hostToken) {
+    const [host] = await db
+      .select({ id: hostsTable.id })
+      .from(hostsTable)
+      .where(eq(hostsTable.hostToken, hostToken));
+    authorized = host?.id === session.hostId;
+  } else if (playerToken) {
+    authorized = session.playerToken === playerToken;
+  }
+  if (!authorized) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  const rows = parsed.data.samples.map((s) => ({
+    sessionId,
+    role: s.role,
+    sampledAt: s.sampledAt ? new Date(s.sampledAt) : new Date(),
+    rttMs: s.rttMs ?? null,
+    bitrateKbps: s.bitrateKbps ?? null,
+    fps: s.fps ?? null,
+    packetLossPct: s.packetLossPct != null ? Math.round(s.packetLossPct) : null,
+    framesDropped: s.framesDropped ?? null,
+    iceCandidateType: s.iceCandidateType ?? null,
+    jitterMs: s.jitterMs ?? null,
+  }));
+
+  await db.insert(sessionMetricsTable).values(rows);
+  res.status(201).json({ inserted: rows.length });
 });
 
 export default router;

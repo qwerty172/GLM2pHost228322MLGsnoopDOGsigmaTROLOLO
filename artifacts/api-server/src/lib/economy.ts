@@ -24,6 +24,7 @@ import {
   ledgerTable,
   loansTable,
   systemAccountsTable,
+  outboxTable,
 } from "@workspace/db";
 import type { PgTransaction } from "drizzle-orm/pg-core";
 import type { NodePgQueryResultHKT } from "drizzle-orm/node-postgres";
@@ -687,6 +688,22 @@ export async function applyDepositCents(
     });
   await writeLedger(tx, rows);
 
+  await tx.insert(outboxTable).values({
+    aggregateType: args.ownerType,
+    aggregateId: args.ownerId,
+    eventType: "deposit_confirmed",
+    payload: {
+      grossUsdtCents: gross,
+      feeLzt,
+      cashLzt,
+      balanceLzt,
+      refType: args.refType ?? null,
+      refId: args.refId ?? null,
+    },
+    idempotencyKey: `deposit:${groupId}`,
+    status: "pending",
+  }).onConflictDoNothing();
+
   return {
     feeLzt,
     cashLzt,
@@ -820,6 +837,22 @@ export async function recordWithdrawalDebit(
       refId: args.refId ?? null,
     },
   ]);
+
+  const withdrawalGroupId = randomUUID();
+  await tx.insert(outboxTable).values({
+    aggregateType: args.ownerType,
+    aggregateId: args.ownerId,
+    eventType: "withdrawal_requested",
+    payload: {
+      amountLzt: args.amountLzt,
+      amountUsdtCents: args.amountUsdtCents,
+      refType: args.refType ?? "withdrawal",
+      refId: args.refId ?? null,
+    },
+    idempotencyKey: `withdrawal:${args.refId ?? withdrawalGroupId}`,
+    status: "pending",
+  }).onConflictDoNothing();
+
   return true;
 }
 

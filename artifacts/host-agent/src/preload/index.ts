@@ -119,6 +119,13 @@ const api = {
   // Get the current quota state snapshot (for renderer re-init on window open).
   quotaGetState: (): Promise<QuotaStatusEvent> =>
     ipcRenderer.invoke("quota:get-state"),
+
+  onUpdateReady: (cb: () => void): (() => void) => {
+    const handler = () => cb();
+    ipcRenderer.on("agent:update-ready", handler);
+    return () => ipcRenderer.off("agent:update-ready", handler);
+  },
+  installUpdate: (): Promise<void> => ipcRenderer.invoke("agent:install-update"),
 };
 
 contextBridge.exposeInMainWorld("agent", api);
