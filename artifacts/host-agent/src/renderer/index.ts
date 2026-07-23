@@ -1920,6 +1920,7 @@ scanSteamBtn.addEventListener("click", async () => {
     const startTab: SteamTab = inCatalog > 0 ? "catalog" : isNew > 0 ? "new" : "added";
     renderSteamTab(startTab);
     log(`Steam scan: ${steamGames.length} game(s) found.`);
+    void refreshSteamAutoHost(cfg);
   } catch (err) {
     steamScanProgress.hidden = true;
     steamScanError.hidden = false;
@@ -2252,6 +2253,133 @@ updatePcSpecsBtn.addEventListener("click", async () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Pairing code login
+// ─────────────────────────────────────────────────────────────────────────────
+
+const pairingCodeInput = document.getElementById("pairing-code") as HTMLInputElement;
+const pairingSubmitBtn = document.getElementById("pairing-submit") as HTMLButtonElement;
+const pairingStatusEl = document.getElementById("pairing-status") as HTMLParagraphElement;
+const pairingCard = document.getElementById("pairing-card") as HTMLElement;
+
+async function submitPairingCode(): Promise<void> {
+  const code = pairingCodeInput.value.trim();
+  const cfg = await window.agent.getConfig();
+  const apiBaseUrl = ($("apiBaseUrl") as HTMLInputElement).value.trim() || cfg.apiBaseUrl;
+  if (!/^\d{6}$/.test(code)) {
+    pairingStatusEl.textContent = "Введи 6 цифр с сайта";
+    return;
+  }
+  if (!apiBaseUrl) {
+    pairingStatusEl.textContent = "Сначала укажи Platform URL в расширенных настройках";
+    return;
+  }
+  pairingSubmitBtn.disabled = true;
+  pairingStatusEl.textContent = "Подключаем…";
+  try {
+    const resp = await fetch(`${apiBaseUrl.replace(/\/$/, "")}/api/auth/agent-pair`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    const data = (await resp.json()) as { hostToken?: string; displayName?: string; error?: string };
+    if (!resp.ok || !data.hostToken) {
+      pairingStatusEl.textContent = data.error ?? "Неверный или просроченный код";
+      return;
+    }
+    const newCfg = { ...cfg, hostToken: data.hostToken, apiBaseUrl };
+    await window.agent.setConfig(newCfg);
+    ($("hostToken") as HTMLInputElement).value = data.hostToken;
+    ($("apiBaseUrl") as HTMLInputElement).value = apiBaseUrl;
+    pairingStatusEl.textContent = `Подключено: ${data.displayName ?? "хост"}`;
+    pairingCard.hidden = true;
+    if (data.displayName) showSigninBanner(data.displayName, apiBaseUrl);
+    log(`Вход по коду выполнен: ${data.displayName ?? data.hostToken.slice(0, 8)}…`);
+    await loadLibrary(newCfg);
+    startLibraryPolling(newCfg);
+    showAutoQuotaCard();
+  } catch {
+    pairingStatusEl.textContent = "Ошибка сети — проверь Platform URL";
+  } finally {
+    pairingSubmitBtn.disabled = false;
+  }
+}
+
+pairingSubmitBtn.addEventListener("click", () => void submitPairingCode());
+pairingCodeInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") void submitPairingCode();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Steam auto-host (above recommended specs)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const autoSteamCard = document.getElementById("auto-steam-card") as HTMLElement;
+const autoSteamStatus = document.getElementById("auto-steam-status") as HTMLParagraphElement;
+const autoSteamPublishBtn = document.getElementById("auto-steam-publish") as HTMLButtonElement;
+let steamEligibleItems: Array<{ gameId: string; title: string; appPath: string | null }> = [];
+
+async function refreshSteamAutoHost(cfg: HostConfig): Promise<void> {
+  if (!cfg.hostToken || !cfg.apiBaseUrl || steamGames.length === 0) return;
+  const payload = {
+    steamGames: steamGames.map((g) => ({
+      appId: g.appId,
+      name: g.name,
+      bestExePath: g.bestExePath,
+    })),
+  };
+  try {
+    const resp = await fetch(`${cfg.apiBaseUrl.replace(/\/$/, "")}/api/hosts/me/steam-auto-hostable`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Token": cfg.hostToken,
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) return;
+    const data = (await resp.json()) as {
+      eligible: Array<{ gameId: string; title: string; appPath: string | null }>;
+    };
+    steamEligibleItems = data.eligible ?? [];
+    if (steamEligibleItems.length > 0) {
+      autoSteamCard.hidden = false;
+      autoSteamStatus.textContent = `${steamEligibleItems.length} игр подходят под ваш ПК (выше рекомендуемых)`;
+      autoSteamPublishBtn.hidden = false;
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+autoSteamPublishBtn.addEventListener("click", async () => {
+  const cfg = await window.agent.getConfig();
+  if (!cfg.hostToken || !cfg.apiBaseUrl || steamEligibleItems.length === 0) return;
+  autoSteamPublishBtn.disabled = true;
+  try {
+    const resp = await fetch(`${cfg.apiBaseUrl.replace(/\/$/, "")}/api/hosts/me/library/bulk-publish`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Token": cfg.hostToken,
+      },
+      body: JSON.stringify({
+        items: steamEligibleItems.map((g) => ({
+          gameId: g.gameId,
+          appPath: g.appPath ?? undefined,
+        })),
+      }),
+    });
+    const data = (await resp.json()) as { added?: string[]; updated?: string[] };
+    log(`Добавлено в библиотеку: ${(data.added?.length ?? 0) + (data.updated?.length ?? 0)} игр`);
+    await loadLibrary(cfg);
+  } catch {
+    log("Ошибка bulk-publish");
+  } finally {
+    autoSteamPublishBtn.disabled = false;
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2273,6 +2401,7 @@ void loadFormFromConfig().then(async (cfg) => {
     if (displayName) {
       showSigninBanner(displayName, cfg.apiBaseUrl);
       log(`Вход выполнен как: ${displayName}`);
+      pairingCard.hidden = true;
     } else {
       // Token is stale or platform unreachable — show the form so user can fix it.
       log("Не удалось проверить токен. Введи заново или проверь Platform URL.");

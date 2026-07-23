@@ -1,4 +1,4 @@
-import { db, hostsTable, quotaVdsTable } from "@workspace/db";
+import { db, hostsTable, quotaVdsTable, quotasTable, hostGamesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { decryptSshKey } from "./sshKey";
 import { logger } from "./logger";
@@ -249,6 +249,25 @@ async function provisionVds(vds: typeof quotaVdsTable.$inferSelect) {
   }
 
   await appendLog(vds.id, `[OK] Host registered: ${newHost.id}`);
+
+  // Link quota game to VDS host library when quota specifies a game.
+  const [quota] = await db
+    .select({ gameId: quotasTable.gameId })
+    .from(quotasTable)
+    .where(eq(quotasTable.id, vds.quotaId));
+  if (quota?.gameId) {
+    await db
+      .insert(hostGamesTable)
+      .values({
+        hostId: newHost.id,
+        gameId: quota.gameId,
+        pricePerMinuteLzt: 10,
+        enabled: true,
+      })
+      .onConflictDoNothing({ target: [hostGamesTable.hostId, hostGamesTable.gameId] });
+    await appendLog(vds.id, `[OK] Game ${quota.gameId} added to VDS host library`);
+  }
+
   await db
     .update(quotaVdsTable)
     .set({

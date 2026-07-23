@@ -34,6 +34,8 @@ type GameEnriched = GameListItem & {
   genres?: string[];
   createdAt?: string;
   liveHostsCount?: number;
+  vdsHostsCount?: number;
+  hasVdsHosts?: boolean;
   minPricePerMinuteLzt?: number | null;
   browserHostUrl?: string | null;
 };
@@ -90,6 +92,14 @@ export default function GamesPage() {
   const { data: rawGames, isLoading } = useListGames(apiParams, {
     query: { queryKey: getListGamesQueryKey(apiParams) },
   });
+
+  const [vdsGames, setVdsGames] = useState<GameEnriched[]>([]);
+  useEffect(() => {
+    void fetch(`${import.meta.env.BASE_URL}api/games?vdsOnly=true&liveOnly=true`)
+      .then((r) => r.json())
+      .then((data) => setVdsGames((data ?? []) as GameEnriched[]))
+      .catch(() => setVdsGames([]));
+  }, []);
 
   const games = (rawGames ?? []) as GameEnriched[];
 
@@ -432,6 +442,22 @@ export default function GamesPage() {
               </div>
             </div>
 
+            {vdsGames.length > 0 && (
+              <section className="mb-10">
+                <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-emerald-400" />
+                  Всегда онлайн
+                </h2>
+                <div className="flex gap-4 overflow-x-auto pb-2">
+                  {vdsGames.map((g) => (
+                    <div key={g.id} className="min-w-[180px] max-w-[200px] shrink-0">
+                      <GameCard game={g} vdsBadge />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {isLoading ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
                 {Array.from({ length: 8 }).map((_, i) => (
@@ -484,7 +510,7 @@ export default function GamesPage() {
 const HOST_TOKEN_STORAGE_PREFIX = "streamline.browserHostToken:";
 const BROWSER_HOST_URL_STORAGE_PREFIX = "streamline.browserHostUrl:";
 
-function GameCard({ game }: { game: GameEnriched }) {
+function GameCard({ game, vdsBadge }: { game: GameEnriched; vdsBadge?: boolean }) {
   const [, navigate] = useLocation();
   const { playerWalletToken, isRegistering } = usePlayerWallet();
   const createBrowserHost = useCreateBrowserHostSession();
@@ -542,6 +568,17 @@ function GameCard({ game }: { game: GameEnriched }) {
           </div>
         )}
       </div>
+
+      {(vdsBadge || game.hasVdsHosts) && (
+        <div className="absolute top-2.5 left-2.5">
+          <span
+            className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+            style={{ background: "rgba(56,189,248,0.9)", color: "#fff" }}
+          >
+            Всегда онлайн
+          </span>
+        </div>
+      )}
 
       {/* Live hosts badge */}
       {isLive && (

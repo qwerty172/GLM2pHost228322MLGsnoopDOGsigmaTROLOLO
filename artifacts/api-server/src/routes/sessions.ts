@@ -34,7 +34,14 @@ import { pickPlayerBucket } from "../lib/lzt";
 import { isHostAvailableNow } from "../lib/schedule";
 import { checkQuotaAttachment } from "../lib/quotaAttach";
 import { headerUserToken } from "../lib/requestToken";
-import { rateLimit, ipKey } from "../lib/rateLimit";
+import { rateLimit, ipKey, failedAttemptGuard } from "../lib/rateLimit";
+import {
+  writeLedger,
+  creditPayoutToUser,
+  adjustUserBucket,
+} from "../lib/economy";
+import { refundBlockRemainder } from "../lib/billingWorker";
+import { randomUUID } from "node:crypto";
 
 const router: IRouter = Router();
 
@@ -707,40 +714,118 @@ router.post(
         : picked;
 
     if (effectivePicked === null && effectiveMinLzt > 0) {
-      const need = blockReservedLzt !== null
-        ? `${effectiveMinLzt} LZT (блок ${blockMinutes} мин × ${ratePerMinuteLzt} LZT + запуск)`
-        : `${effectiveMinLzt} LZT`;
-      res.status(400).json({
-        error: `Insufficient LZT — need at least ${need} in a single ${session.paymentSource === "auto" ? "(green or blue)" : session.paymentSource} bucket to start`,
-      });
-      return;
+      const creditAvailable = Math.max(
+        0,
+        player.creditLimitLzt - player.creditDebtLzt,
+      );
+      if (creditAvailable < effectiveMinLzt) {
+        const need = blockReservedLzt !== null
+          ? `${effectiveMinLzt} LZT (блок ${blockMinutes} мин × ${ratePerMinuteLzt} LZT + запуск)`
+          : `${effectiveMinLzt} LZT`;
+        res.status(400).json({
+          error: `Insufficient LZT — need at least ${need} in balance or credit`,
+        });
+        return;
+      }
     }
 
     // Reserve the block amount: debit the player immediately so the funds are
     // locked. The billing worker will refund unused minutes on early exit.
     if (blockReservedLzt !== null && blockReservedLzt > 0 && !isReclaimBySamePlayer) {
       const bucket = effectivePicked ?? "balance";
-      const playerCol =
-        bucket === "green"
-          ? playersTable.withdrawableBalanceLzt
-          : playersTable.internalBalanceLzt;
-      const debitResult = await db
-        .update(playersTable)
-        .set(
+      const useCredit = effectivePicked === null;
+
+      if (useCredit) {
+        await db.transaction(async (tx) => {
+          await adjustUserBucket(tx, "player", player.id, "debt", blockReservedLzt);
+          const groupId = randomUUID();
+          const [gameRow] = session.gameId
+            ? await tx
+                .select({ title: gamesTable.title })
+                .from(gamesTable)
+                .where(eq(gamesTable.id, session.gameId))
+            : [];
+          await writeLedger(tx, [
+            {
+              groupId,
+              kind: "block_purchase",
+              ownerType: "player",
+              ownerId: player.id,
+              bucket: "debt",
+              deltaLzt: blockReservedLzt,
+              refType: "session",
+              refId: session.id,
+              note: `Блок ${blockMinutes} мин — ${gameRow?.title ?? session.appName}`,
+            },
+          ]);
+          const hostShare = Math.round(blockReservedLzt * 0.5);
+          if (hostShare > 0) {
+            await creditPayoutToUser(tx, {
+              ownerType: "host",
+              ownerId: session.hostId,
+              amountLzt: hostShare,
+              kind: "block_purchase",
+              refType: "session",
+              refId: session.id,
+            });
+          }
+        });
+      } else {
+        const playerCol =
           bucket === "green"
-            ? { withdrawableBalanceLzt: sql`${playersTable.withdrawableBalanceLzt} - ${blockReservedLzt}` }
-            : { internalBalanceLzt: sql`${playersTable.internalBalanceLzt} - ${blockReservedLzt}` },
-        )
-        .where(
-          and(
-            eq(playersTable.id, player.id),
-            sql`${playerCol} >= ${blockReservedLzt + launchFeeLzt}`,
-          ),
-        )
-        .returning({ id: playersTable.id });
-      if (debitResult.length === 0) {
-        res.status(400).json({ error: "Insufficient balance to reserve the block" });
-        return;
+            ? playersTable.withdrawableBalanceLzt
+            : playersTable.internalBalanceLzt;
+        const debitResult = await db
+          .update(playersTable)
+          .set(
+            bucket === "green"
+              ? { withdrawableBalanceLzt: sql`${playersTable.withdrawableBalanceLzt} - ${blockReservedLzt}` }
+              : { internalBalanceLzt: sql`${playersTable.internalBalanceLzt} - ${blockReservedLzt}` },
+          )
+          .where(
+            and(
+              eq(playersTable.id, player.id),
+              sql`${playerCol} >= ${blockReservedLzt + launchFeeLzt}`,
+            ),
+          )
+          .returning({ id: playersTable.id });
+        if (debitResult.length === 0) {
+          res.status(400).json({ error: "Insufficient balance to reserve the block" });
+          return;
+        }
+        await db.transaction(async (tx) => {
+          const groupId = randomUUID();
+          const [gameRow] = session.gameId
+            ? await tx
+                .select({ title: gamesTable.title })
+                .from(gamesTable)
+                .where(eq(gamesTable.id, session.gameId))
+            : [];
+          await writeLedger(tx, [
+            {
+              groupId,
+              kind: "block_purchase",
+              ownerType: "player",
+              ownerId: player.id,
+              bucket: bucket === "green" ? "cash" : "balance",
+              deltaLzt: -blockReservedLzt,
+              refType: "session",
+              refId: session.id,
+              note: `Блок ${blockMinutes} мин — ${gameRow?.title ?? session.appName}`,
+            },
+          ]);
+          const hostShare = Math.round(blockReservedLzt * 0.5);
+          if (hostShare > 0) {
+            await creditPayoutToUser(tx, {
+              ownerType: "host",
+              ownerId: session.hostId,
+              amountLzt: hostShare,
+              kind: "block_purchase",
+              refType: "session",
+              refId: session.id,
+            });
+          }
+        });
       }
     }
 
@@ -896,22 +981,13 @@ router.patch("/sessions/:id/end", async (req, res): Promise<void> => {
         .where(
           and(
             eq(billingEventsTable.sessionId, existing.id),
-            eq(billingEventsTable.kind, "session_tick"),
-            eq(billingEventsTable.bucket, "green"),
+            eq(billingEventsTable.kind, "block_tick"),
           ),
         );
       const minutesUsed = Number(ticksRow[0]?.n ?? 0);
-      const costPerMinute = Math.round(existing.blockReservedLzt / existing.blockMinutes);
-      const costUsed = minutesUsed * costPerMinute;
-      const refundLzt = Math.max(0, existing.blockReservedLzt - costUsed);
-      if (refundLzt > 0) {
-        const bucket = existing.paymentSource === "blue" ? "internalBalanceLzt" : "withdrawableBalanceLzt";
-        await db
-          .update(playersTable)
-          .set({ [bucket]: sql`${playersTable[bucket as keyof typeof playersTable]} + ${refundLzt}` } as never)
-          .where(eq(playersTable.id, existing.claimedByPlayerId));
-        req.log.info({ sessionId: existing.id, refundLzt, minutesUsed }, "Block session early exit — refunded unused reserve");
-      }
+      await db.transaction(async (tx) => {
+        await refundBlockRemainder(tx, existing, minutesUsed);
+      });
     } catch (err) {
       req.log.error({ err, sessionId: existing.id }, "Block refund failed during session end");
     }

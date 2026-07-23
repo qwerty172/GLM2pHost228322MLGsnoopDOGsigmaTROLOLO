@@ -8,6 +8,18 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function consumeTokenFromUrl(setHostToken: (token: string | null) => void): void {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("token");
+  if (token) {
+    setHostToken(token);
+    params.delete("token");
+    const qs = params.toString();
+    const next = `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`;
+    window.history.replaceState({}, "", next);
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [hostToken, setToken] = useState<string | null>(() => {
     return localStorage.getItem("streamline.hostToken");
@@ -21,6 +33,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setToken(token);
   };
+
+  useEffect(() => {
+    consumeTokenFromUrl(setHostToken);
+  }, []);
 
   const logout = () => {
     setHostToken(null);

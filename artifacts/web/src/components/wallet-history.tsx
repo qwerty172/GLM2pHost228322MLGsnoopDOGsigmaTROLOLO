@@ -54,6 +54,12 @@ function kindMeta(kind: string, amountLzt: number): KindMeta {
     return { label: "Заработок хоста", icon: Coins, color: "#22c55e" };
   if (kind === "block_refund")
     return { label: "Возврат за блок", icon: RotateCcw, color: "#22c55e" };
+  if (kind === "block_purchase")
+    return { label: "Блок тариф", icon: Gamepad2, color: "#38bdf8" };
+  if (kind === "platform_credit")
+    return { label: "Игра в кредит", icon: HandCoins, color: "#a78bfa" };
+  if (kind === "platform_credit_repay")
+    return { label: "Погашение кредита платформы", icon: HandCoins, color: "#22c55e" };
   if (kind.startsWith("loan_repay"))
     return { label: "Погашение долга", icon: HandCoins, color: "#a78bfa" };
   if (kind.startsWith("loan_disburse"))

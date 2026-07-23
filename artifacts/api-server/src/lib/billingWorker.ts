@@ -276,6 +276,52 @@ async function billOnceInner(): Promise<void> {
           );
         const minutesInto = Number(ticksRow[0]?.n ?? 0) + 1;
 
+        // Block sessions are prepaid at claim — skip per-minute debits.
+        if (session.blockMinutes) {
+          const blockTicksRow = await tx
+            .select({ n: sql<number>`count(*)::int` })
+            .from(billingEventsTable)
+            .where(
+              and(
+                eq(billingEventsTable.sessionId, session.id),
+                eq(billingEventsTable.kind, "block_tick"),
+              ),
+            );
+          const blockMinutesInto = Number(blockTicksRow[0]?.n ?? 0) + 1;
+
+          if (blockMinutesInto >= session.blockMinutes) {
+            await tx
+              .update(sessionsTable)
+              .set({
+                status: "ended",
+                endedAt: now,
+                endReason: "block_expired",
+                lastBilledAt: now,
+              })
+              .where(eq(sessionsTable.id, session.id));
+            return "block_expired";
+          }
+
+          await tx.insert(billingEventsTable).values({
+            sessionId: session.id,
+            hostId: session.hostId,
+            playerId: session.claimedByPlayerId!,
+            minutes: 1,
+            bucket: "green",
+            playerDebitLzt: 0,
+            hostCreditLzt: 0,
+            kind: "block_tick",
+          });
+
+          await tx
+            .update(sessionsTable)
+            .set({ lastBilledAt: now })
+            .where(eq(sessionsTable.id, session.id));
+
+          const minsLeft = session.blockMinutes - blockMinutesInto;
+          return { blockWarning: minsLeft === 2 };
+        }
+
         const quotaActive = quota && isQuotaActiveNow(quota, now);
         const effect = quotaActive
           ? computeQuotaEffect(quota!, costLzt, minutesInto)
@@ -308,12 +354,66 @@ async function billOnceInner(): Promise<void> {
           player?.blue ?? 0,
         );
 
+        // ---------- Platform credit fallback ----------
+        if (bucket === null) {
+          const [creditPlayer] = await tx
+            .select({
+              creditLimit: playersTable.creditLimitLzt,
+              creditDebt: playersTable.creditDebtLzt,
+            })
+            .from(playersTable)
+            .where(eq(playersTable.id, session.claimedByPlayerId!));
+
+          const creditAvail =
+            (creditPlayer?.creditLimit ?? 0) - (creditPlayer?.creditDebt ?? 0);
+          if (creditAvail >= playerDebitLzt) {
+            await adjustUserBucket(
+              tx,
+              "player",
+              session.claimedByPlayerId!,
+              "debt",
+              playerDebitLzt,
+            );
+            const groupId = randomUUID();
+            await writeLedger(tx, [
+              {
+                groupId,
+                kind: "platform_credit",
+                ownerType: "player",
+                ownerId: session.claimedByPlayerId!,
+                bucket: "debt",
+                deltaLzt: playerDebitLzt,
+                refType: "session",
+                refId: session.id,
+              },
+            ]);
+            await creditPayoutToUser(tx, {
+              ownerType: "host",
+              ownerId: session.hostId,
+              amountLzt: hostNetLzt,
+              kind: "session_tick",
+              refType: "session",
+              refId: session.id,
+            });
+            await tx.insert(billingEventsTable).values({
+              sessionId: session.id,
+              hostId: session.hostId,
+              playerId: session.claimedByPlayerId!,
+              minutes: 1,
+              bucket: "green",
+              playerDebitLzt: 0,
+              hostCreditLzt: hostNetLzt,
+              kind: "session_tick_credit",
+            });
+            await tx
+              .update(sessionsTable)
+              .set({ lastBilledAt: now })
+              .where(eq(sessionsTable.id, session.id));
+            return false;
+          }
+        }
+
         // ---------- Host-service credit fallback ----------
-        // If the player can't pay this tick AND the host has the
-        // "play-on-credit" policy enabled AND we're under the per-player cap,
-        // continue the session: open/extend a `host_service` loan instead of
-        // ending the session. The host gets nothing this minute; it will trickle
-        // back via the 40/40/20 split as the player earns later.
         if (bucket === null) {
           const [host] = await tx
             .select({
@@ -634,26 +734,9 @@ async function billOnceInner(): Promise<void> {
           }
         }
 
-        // ---------- Block expiry check ----------
-        // For block sessions: check if minutesInto >= blockMinutes.
-        // If yes, end the session (block exhausted, reserve already fully used).
-        // If minutesInto === blockMinutes - 2, send a "block-warning" to the player.
+        // ---------- Block expiry check (legacy path — block_tick handler above) ----------
         if (session.blockMinutes) {
-          if (minutesInto >= session.blockMinutes) {
-            // Block fully consumed. End the session; no refund needed (all minutes used).
-            await tx
-              .update(sessionsTable)
-              .set({ status: "ended", endedAt: now, endReason: "block_expired", lastBilledAt: now })
-              .where(eq(sessionsTable.id, session.id));
-            return "block_expired";
-          }
-          // Send 2-minute warning to the player via signaling room.
-          const minsLeft = session.blockMinutes - minutesInto;
-          await tx
-            .update(sessionsTable)
-            .set({ lastBilledAt: now })
-            .where(eq(sessionsTable.id, session.id));
-          return { blockWarning: minsLeft === 2 };
+          return false;
         }
 
         await tx
@@ -693,6 +776,8 @@ async function billOnceInner(): Promise<void> {
       ),
     );
 }
+
+export { refundBlockRemainder };
 
 export function startBillingWorker(): void {
   if (interval) return;

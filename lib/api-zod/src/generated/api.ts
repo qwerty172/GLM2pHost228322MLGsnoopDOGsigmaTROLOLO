@@ -521,6 +521,14 @@ export const ListGamesResponseItem = zod.object({
     .describe(
       "Number of pending or active sessions matching this game right now",
     ),
+  vdsHostsCount: zod
+    .number()
+    .optional()
+    .describe("Number of always-on VDS hosts offering this game"),
+  hasVdsHosts: zod
+    .boolean()
+    .optional()
+    .describe("True when at least one VDS host offers this game"),
   browserHostUrl: zod
     .string()
     .describe(
@@ -577,6 +585,14 @@ export const GetGameBySlugResponse = zod
       .describe(
         "Number of pending or active sessions matching this game right now",
       ),
+    vdsHostsCount: zod
+      .number()
+      .optional()
+      .describe("Number of always-on VDS hosts offering this game"),
+    hasVdsHosts: zod
+      .boolean()
+      .optional()
+      .describe("True when at least one VDS host offers this game"),
     browserHostUrl: zod
       .string()
       .describe(
@@ -2562,6 +2578,14 @@ export const AdminListGamesResponseItem = zod.object({
     .describe(
       "Number of pending or active sessions matching this game right now",
     ),
+  vdsHostsCount: zod
+    .number()
+    .optional()
+    .describe("Number of always-on VDS hosts offering this game"),
+  hasVdsHosts: zod
+    .boolean()
+    .optional()
+    .describe("True when at least one VDS host offers this game"),
   browserHostUrl: zod
     .string()
     .describe(
@@ -2766,6 +2790,14 @@ export const AdminPatchGameResponse = zod.object({
     .describe(
       "Number of pending or active sessions matching this game right now",
     ),
+  vdsHostsCount: zod
+    .number()
+    .optional()
+    .describe("Number of always-on VDS hosts offering this game"),
+  hasVdsHosts: zod
+    .boolean()
+    .optional()
+    .describe("True when at least one VDS host offers this game"),
   browserHostUrl: zod
     .string()
     .describe(

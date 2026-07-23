@@ -37,6 +37,7 @@ const ListGamesQuery = z.object({
   isMultiplayer: strictBool,
   hostSpectatesPlayer: strictBool,
   hasQuests: strictBool,
+  vdsOnly: strictBool,
   liveOnly: strictBool,
   search: z.string().optional(),
   tag: z.string().optional(),
@@ -60,6 +61,7 @@ type GameRow = typeof gamesTable.$inferSelect;
 // Per-game aggregates from the host_games junction table.
 type GameAggregates = {
   liveHostsCount: number;
+  vdsHostsCount: number;
   minPricePerMinuteLzt: number | null;
 };
 
@@ -86,6 +88,8 @@ function shapeGame(
     browserHostUrl: g.browserHostUrl,
     liveSessionCount,
     liveHostsCount: agg?.liveHostsCount ?? 0,
+    vdsHostsCount: agg?.vdsHostsCount ?? 0,
+    hasVdsHosts: (agg?.vdsHostsCount ?? 0) > 0,
     minPricePerMinuteLzt: agg?.minPricePerMinuteLzt ?? null,
   };
 }
@@ -131,8 +135,10 @@ async function gameAggregates(
       gameId: hostGamesTable.gameId,
       hostId: hostGamesTable.hostId,
       pricePerMinuteLzt: hostGamesTable.pricePerMinuteLzt,
+      isVds: hostsTable.isVds,
     })
     .from(hostGamesTable)
+    .innerJoin(hostsTable, eq(hostGamesTable.hostId, hostsTable.id))
     .where(
       and(
         eq(hostGamesTable.enabled, true),
@@ -143,8 +149,14 @@ async function gameAggregates(
   const map = new Map<string, GameAggregates>();
   for (const row of hgRows) {
     const isLive = activeHostIds.has(row.hostId);
-    const cur = map.get(row.gameId) ?? { liveHostsCount: 0, minPricePerMinuteLzt: null };
+    const isVds = row.isVds === 1;
+    const cur = map.get(row.gameId) ?? {
+      liveHostsCount: 0,
+      vdsHostsCount: 0,
+      minPricePerMinuteLzt: null,
+    };
     if (isLive) cur.liveHostsCount += 1;
+    if (isVds && isLive) cur.vdsHostsCount += 1;
     if (
       cur.minPricePerMinuteLzt === null ||
       row.pricePerMinuteLzt < cur.minPricePerMinuteLzt
@@ -218,6 +230,9 @@ router.get("/games", async (req, res): Promise<void> => {
     shaped = shaped.filter(
       (g) => g.liveSessionCount > 0 || g.liveHostsCount > 0,
     );
+  }
+  if (q.vdsOnly === true) {
+    shaped = shaped.filter((g) => g.hasVdsHosts);
   }
 
   // Tag filter: keep only games that have at least one currently-available

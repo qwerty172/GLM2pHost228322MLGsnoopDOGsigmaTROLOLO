@@ -10,6 +10,7 @@ import { startLoanDefaultWorker } from "./lib/loanDefaultWorker";
 import { startHostHealthWorker } from "./lib/hostHealthWorker";
 import { startScheduleWatchdog } from "./lib/scheduleWatchdog";
 import { startVdsProvisionWorker } from "./lib/vdsProvisionWorker";
+import { startRateLimitCleanup } from "./lib/rateLimit";
 import { seedGames } from "./lib/seedGames";
 import { runLegacyBackfill } from "./lib/legacyBackfill";
 
@@ -39,6 +40,7 @@ function startWorkers() {
   startHostHealthWorker();
   startScheduleWatchdog();
   startVdsProvisionWorker();
+  startRateLimitCleanup();
   seedGames().catch((err) => {
     logger.error({ err }, "Failed to seed games catalog");
   });

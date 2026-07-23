@@ -1,23 +1,15 @@
-// Agent authentication routes — Ed25519-based passwordless login for host agents.
-//
-// Flow:
-//   1. GET  /api/auth/agent-challenge              → { challenge, expiresAt }
-//   2. POST /api/auth/bind-agent-key               → binds pubkey to a host account
-//   3. POST /api/auth/agent-login                  → returns hostToken after sig verification
-
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { and, eq, gt, isNull, desc } from "drizzle-orm";
 import crypto from "node:crypto";
 import { z } from "zod/v4";
-import { db, hostsTable } from "@workspace/db";
+import { db, hostsTable, agentPairingCodesTable } from "@workspace/db";
+import { headerUserToken } from "../lib/requestToken";
+import { rateLimit, ipKey, failedAttemptGuard, clearFailedAttempts } from "../lib/rateLimit";
 
 const router: IRouter = Router();
 
-// ── In-memory challenge store ─────────────────────────────────────────────────
-// Challenges are one-time nonces with a short TTL.  The map is periodically
-// pruned so memory doesn't grow unboundedly.
-
-const CHALLENGE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CHALLENGE_TTL_MS = 5 * 60 * 1000;
+const PAIRING_TTL_MS = 10 * 60 * 1000;
 
 interface ChallengeEntry {
   expiresAt: number;
@@ -25,12 +17,10 @@ interface ChallengeEntry {
 const challenges = new Map<string, ChallengeEntry>();
 
 function issueChallenge(): { challenge: string; expiresAt: number } {
-  // Prune expired entries on every issue to keep the map small.
   const now = Date.now();
   for (const [k, v] of challenges) {
     if (v.expiresAt < now) challenges.delete(k);
   }
-
   const challenge = crypto.randomBytes(32).toString("hex");
   const expiresAt = now + CHALLENGE_TTL_MS;
   challenges.set(challenge, { expiresAt });
@@ -40,12 +30,10 @@ function issueChallenge(): { challenge: string; expiresAt: number } {
 function consumeChallenge(challenge: string): boolean {
   const entry = challenges.get(challenge);
   if (!entry) return false;
-  challenges.delete(challenge); // one-time use
+  challenges.delete(challenge);
   if (entry.expiresAt < Date.now()) return false;
   return true;
 }
-
-// ── Signature verification ────────────────────────────────────────────────────
 
 function verifyEd25519(
   pubkeyHex: string,
@@ -69,18 +57,36 @@ function verifyEd25519(
   }
 }
 
-// ── Routes ────────────────────────────────────────────────────────────────────
+function generatePairingCode(): string {
+  return String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+}
 
-// GET /api/auth/agent-challenge
-// Returns a fresh one-time challenge the agent must sign.
+async function resolveHostFromHeader(req: import("express").Request) {
+  const hostToken = headerUserToken(req);
+  if (!hostToken) return null;
+  const [host] = await db
+    .select({
+      id: hostsTable.id,
+      hostToken: hostsTable.hostToken,
+      displayName: hostsTable.displayName,
+    })
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, hostToken));
+  return host ?? null;
+}
+
+const pairLimiter = rateLimit({
+  scope: "agent:pair",
+  windowMs: 60_000,
+  max: 10,
+  keyFn: ipKey,
+});
+
 router.get("/auth/agent-challenge", (_req, res): void => {
   const { challenge, expiresAt } = issueChallenge();
   res.json({ challenge, expiresAt });
 });
 
-// POST /api/auth/bind-agent-key
-// Associates an Ed25519 public key with an existing host account.
-// Body: { hostToken, pubkey, challenge, signature }
 const BindAgentKeyBody = z.object({
   hostToken: z.string().min(1),
   pubkey: z.string().regex(/^[0-9a-f]+$/i, "pubkey must be hex"),
@@ -115,7 +121,6 @@ router.post("/auth/bind-agent-key", async (req, res): Promise<void> => {
     return;
   }
 
-  // Reject if a *different* pubkey is already bound (prevent key takeover).
   const [existing] = await db
     .select({ agentPubkey: hostsTable.agentPubkey })
     .from(hostsTable)
@@ -136,10 +141,6 @@ router.post("/auth/bind-agent-key", async (req, res): Promise<void> => {
   res.json({ ok: true });
 });
 
-// POST /api/auth/agent-login
-// Verifies the agent's signature and returns the hostToken so the agent can
-// open the web dashboard pre-authenticated.
-// Body: { pubkey, challenge, signature }
 const AgentLoginBody = z.object({
   pubkey: z.string().regex(/^[0-9a-f]+$/i, "pubkey must be hex"),
   challenge: z.string().min(1),
@@ -176,5 +177,167 @@ router.post("/auth/agent-login", async (req, res): Promise<void> => {
   req.log.info({ hostId: host.id }, "Agent login via key signature");
   res.json({ hostToken: host.hostToken });
 });
+
+// POST /api/auth/agent-pairing-code — host dashboard generates a 6-digit code
+router.post("/auth/agent-pairing-code", async (req, res): Promise<void> => {
+  const host = await resolveHostFromHeader(req);
+  if (!host) {
+    res.status(401).json({ error: "Host token required" });
+    return;
+  }
+
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + PAIRING_TTL_MS);
+
+  await db
+    .update(agentPairingCodesTable)
+    .set({ usedAt: now })
+    .where(
+      and(
+        eq(agentPairingCodesTable.hostId, host.id),
+        isNull(agentPairingCodesTable.usedAt),
+        gt(agentPairingCodesTable.expiresAt, now),
+      ),
+    );
+
+  let code = generatePairingCode();
+  for (let i = 0; i < 5; i++) {
+    const [conflict] = await db
+      .select({ id: agentPairingCodesTable.id })
+      .from(agentPairingCodesTable)
+      .where(
+        and(
+          eq(agentPairingCodesTable.code, code),
+          isNull(agentPairingCodesTable.usedAt),
+          gt(agentPairingCodesTable.expiresAt, now),
+        ),
+      );
+    if (!conflict) break;
+    code = generatePairingCode();
+  }
+
+  await db.insert(agentPairingCodesTable).values({
+    hostId: host.id,
+    code,
+    expiresAt,
+  });
+
+  res.json({ code, expiresAt: expiresAt.toISOString() });
+});
+
+// GET /api/auth/agent-pairing-status
+router.get("/auth/agent-pairing-status", async (req, res): Promise<void> => {
+  const host = await resolveHostFromHeader(req);
+  if (!host) {
+    res.status(401).json({ error: "Host token required" });
+    return;
+  }
+
+  const now = new Date();
+  const [used] = await db
+    .select({ usedAt: agentPairingCodesTable.usedAt })
+    .from(agentPairingCodesTable)
+    .where(
+      and(
+        eq(agentPairingCodesTable.hostId, host.id),
+        gt(agentPairingCodesTable.usedAt, new Date(now.getTime() - 60_000)),
+      ),
+    )
+    .orderBy(desc(agentPairingCodesTable.usedAt))
+    .limit(1);
+
+  if (used?.usedAt) {
+    res.json({ status: "paired", pairedAt: used.usedAt.toISOString() });
+    return;
+  }
+
+  const [pending] = await db
+    .select({ expiresAt: agentPairingCodesTable.expiresAt })
+    .from(agentPairingCodesTable)
+    .where(
+      and(
+        eq(agentPairingCodesTable.hostId, host.id),
+        isNull(agentPairingCodesTable.usedAt),
+        gt(agentPairingCodesTable.expiresAt, now),
+      ),
+    )
+    .limit(1);
+
+  if (pending) {
+    res.json({ status: "pending", expiresAt: pending.expiresAt.toISOString() });
+    return;
+  }
+
+  res.json({ status: "expired" });
+});
+
+const AgentPairBody = z.object({
+  code: z.string().regex(/^\d{6}$/),
+  agentPubkey: z.string().regex(/^[0-9a-f]+$/i).optional(),
+});
+
+// POST /api/auth/agent-pair — agent submits 6-digit code, receives hostToken
+router.post(
+  "/auth/agent-pair",
+  pairLimiter,
+  failedAttemptGuard("agent:pair"),
+  async (req, res): Promise<void> => {
+    const parsed = AgentPairBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const { code, agentPubkey } = parsed.data;
+    const now = new Date();
+
+    const [row] = await db
+      .select({
+        id: agentPairingCodesTable.id,
+        hostId: agentPairingCodesTable.hostId,
+      })
+      .from(agentPairingCodesTable)
+      .where(
+        and(
+          eq(agentPairingCodesTable.code, code),
+          isNull(agentPairingCodesTable.usedAt),
+          gt(agentPairingCodesTable.expiresAt, now),
+        ),
+      );
+
+    if (!row) {
+      res.status(401).json({ error: "Invalid or expired pairing code" });
+      return;
+    }
+
+    const [host] = await db
+      .select({
+        hostToken: hostsTable.hostToken,
+        displayName: hostsTable.displayName,
+      })
+      .from(hostsTable)
+      .where(eq(hostsTable.id, row.hostId));
+
+    if (!host) {
+      res.status(404).json({ error: "Host not found" });
+      return;
+    }
+
+    await db
+      .update(agentPairingCodesTable)
+      .set({ usedAt: now, agentPubkey: agentPubkey ?? null })
+      .where(eq(agentPairingCodesTable.id, row.id));
+
+    if (agentPubkey) {
+      await db
+        .update(hostsTable)
+        .set({ agentPubkey: agentPubkey })
+        .where(eq(hostsTable.id, row.hostId));
+    }
+
+    await clearFailedAttempts("agent:pair", req);
+    req.log.info({ hostId: row.hostId }, "Agent paired via 6-digit code");
+    res.json({ hostToken: host.hostToken, displayName: host.displayName });
+  },
+);
 
 export default router;
