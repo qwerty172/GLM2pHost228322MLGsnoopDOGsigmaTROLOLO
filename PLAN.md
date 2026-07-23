@@ -176,58 +176,6 @@ Rate-limit + экспоненциальная задержка на перебо
 
 ---
 
-## ФАЗА 4 — Технологические апгрейды (после фаз 1–3)
-
-Цель: поднять качество стриминга и инфраструктуру до уровня «продукт», а не «демо».
-Отсортировано по соотношению эффект/сложность.
-
-### 4.1 Relative mouse mode (Pointer Lock) для шутеров
-SendInput с абсолютными координатами не работает в играх с относительной мышью (все FPS). Игрок: Pointer Lock API + отправка дельт `{dx,dy}` вместо `{x,y}`. Агент: инжект `MOUSEEVENTF_MOVE` (относительный) вместо абсолютного позиционирования.
-- Файлы: `artifacts/web/src/pages/play.tsx`, `artifacts/host-agent/src/main/input-injection.ts`, `artifacts/host-agent/src/renderer/index.ts`
-- Готово: в FPS-игре камера крутится мышью плавно, без «прилипания» курсора к краям; переключатель «захват мыши» в HUD игрока.
-
-### 4.2 Тюнинг WebRTC: адаптивное качество + frame pacing
-Выжать максимум из текущего стека: `degradationPreference: "maintain-framerate"`, `contentHint: "motion"`, приоритет битрейта, ограничение разрешения при потерях, замер и логирование `getStats()`.
-- Файлы: `artifacts/web/src/pages/play.tsx`, `artifacts/web/src/pages/host/browser-play.tsx`, `artifacts/host-agent/src/renderer/index.ts`
-- Готово: при деградации канала стрим снижает разрешение, а не фризит; параметры энкодера залогированы.
-
-### 4.3 Метрики качества сессий (getStats-пайплайн)
-Обе стороны раз в 10с шлют на API срез WebRTC-статистики: битрейт, RTT, потери, фризы, jitter. Хранить в новой таблице, показывать в админке сводку по сессии.
-- Файлы: новая схема `lib/db/src/schema/sessionMetrics.ts`, `artifacts/api-server/src/routes/sessions.ts`, `artifacts/web/src/pages/admin/`
-- Готово: по любой сессии виден график качества; жалобу «лагает» можно проверить данными.
-
-### 4.4 Redis: общий rate-limit, pub/sub сигналинга, кэш каталога
-Одним подключением закрыть три задачи: лимиты между инстансами (сейчас in-memory), горизонтальное масштабирование сигналинга, кэш `/api/games`.
-- Файлы: `artifacts/api-server/src/lib/rateLimit.ts`, `artifacts/api-server/src/lib/signaling.ts`, новый `artifacts/api-server/src/lib/redis.ts`
-- Готово: graceful-фоллбек на in-memory, если REDIS_URL не задан; лимиты работают на 2+ инстансах.
-
-### 4.5 Свой TURN-сервер (coturn)
-Заменить ExpressTurn на свой coturn с ephemeral-credentials (REST API auth), выдача креденшалов через API с TTL.
-- Файлы: `artifacts/api-server/src/routes/public.ts` (GET /public/ice-config, ~строка 455 — здесь выдаётся ICE-конфиг), деплой-конфиг coturn (docker-compose или systemd — в `docs/`)
-- Готово: relay-соединения ходят через свой сервер; креденшалы живут ≤1 часа.
-
-### 4.6 CI/CD: GitHub Actions + автообновление агента
-Пайплайн: typecheck + тесты на каждый push; сборка `.exe` агента (electron-builder) на тег; автообновление через electron-updater (GitHub Releases как канал).
-- Файлы: `.github/workflows/ci.yml`, `.github/workflows/agent-release.yml`, `artifacts/host-agent/electron-builder.yml`
-- Готово: тег `agent-v*` → готовый установщик в Releases; агент сам предлагает обновиться.
-
-### 4.7 Транзакционный леджер (outbox-паттерн)
-Все денежные операции — строго внутри одной DB-транзакции: проводка + событие в outbox-таблицу. Воркеры читают outbox, а не делают побочные эффекты в момент запроса.
-- Файлы: `artifacts/api-server/src/lib/economy.ts`, `lib/db/src/schema/ledger.ts`, новая таблица outbox
-- Готово: краш сервера в любой момент не оставляет «полусписаний»; тест с искусственным прерыванием проходит.
-
-### 4.8 Короткоживущие токены сессий (JWT + refresh)
-Заменить вечные токены в localStorage на пары access (15 мин) + refresh (30 дней, httpOnly cookie). Старые токены поддерживать переходный период.
-- Файлы: `artifacts/api-server/src/lib/tokens.ts`, `artifacts/api-server/src/routes/players.ts`, `artifacts/web/src/lib/`
-- Готово: утёкший access-токен бесполезен через 15 минут; UX не меняется (тихий refresh).
-
-### 4.9 (Исследование) Нативный захват + NVENC в агенте
-Прототип: DXGI Desktop Duplication + NVENC через нативный модуль (Rust/C++, napi-rs), подача уже кодированного H.264 в WebRTC. ⚠️ encoded-insertable-streams в браузере не рассчитаны на чужой битстрим — спайк должен в первую очередь оценить свой RTP-стек (например, поверх webrtc-rs/libdatachannel в main-процессе Electron). Это недели работы — сначала спайк на 2-3 дня: замерить latency и CPU против текущего desktopCapturer.
-- Файлы: новый `artifacts/host-agent/native/` (прототип отдельно от прода)
-- Готово (для спайка): цифры сравнения задержки и нагрузки, решение go/no-go в `docs/nvenc-spike.md`.
-
----
-
 ## Что сознательно НЕ вошло (и почему)
 
 | Задача | Причина |
