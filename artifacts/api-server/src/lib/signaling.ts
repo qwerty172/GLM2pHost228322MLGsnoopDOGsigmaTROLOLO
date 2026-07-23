@@ -153,6 +153,10 @@ async function authenticate(
   if (wallet.id !== session.claimedByPlayerId) {
     return { ok: false, reason: "wallet does not match session claimant" };
   }
+  // Self-test sessions are free — billing worker skips them; don't block WS.
+  if (session.isTest) {
+    return { ok: true, result: { sessionId: session.id, role } };
+  }
   const rateLzt = Math.round(Number(session.ratePerMinute) * 200);
   if (rateLzt > 0) {
     const picked = pickPlayerBucket(
@@ -343,6 +347,12 @@ function handlePreviewConnection(ws: WebSocket, auth: PreviewAuthResult): void {
     peerCount: room.peers.size,
   });
 
+  for (const peer of room.peers.values()) {
+    if (peer.socket !== ws) {
+      send(ws, { type: "peer-joined", role: peer.role, preview: true });
+    }
+  }
+
   broadcastToOther(room, role, { type: "peer-joined", role, preview: true });
 
   ws.on("message", (raw) => {
@@ -426,6 +436,13 @@ function handleConnection(ws: WebSocket, auth: AuthResult): void {
     role,
     peerCount: room.peers.size,
   });
+
+  // Newcomer learns who is already in the room (host often connects first).
+  for (const peer of room.peers.values()) {
+    if (peer.socket !== ws) {
+      send(ws, { type: "peer-joined", role: peer.role });
+    }
+  }
 
   // Notify the other side of presence.
   broadcastToOther(room, role, { type: "peer-joined", role });

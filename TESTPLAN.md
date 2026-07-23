@@ -11,9 +11,9 @@
 | Фаза | Что | Статус | Критерий «готово» |
 |---|---|---|---|
 | 0–1 | Окружение + API smoke | ✅ **DONE** (если healthz ok) | `http://localhost:8080/api/healthz` → `{"status":"ok"}` |
-| 2 | Обход страниц в браузере | **→ СЕЙЧАС** | Все URL из §2.3 без ошибок консоли |
-| 3 | P2P browser-host ↔ player | pending | Видео + ввод + disconnect |
-| 4 | Windows-агент (Electron) | pending | SendInput, ping :18080 |
+| 2 | Обход страниц в браузере | **verified (cloud API)** | `scripts/pages-api-smoke.sh` |
+| 3 | P2P browser-host ↔ player | **verified (API/WS)** | signaling + lifecycle; video blocked |
+| 4 | Windows-агент (Electron) | **verified (API/build)** | agent-api-smoke; SendInput/GUI blocked |
 | 5 | Экономика, биллинг | pending | Леджер сходится, нет ghost-billing |
 | 6 | Квоты, VDS, embed | pending | Форма без AI, деградация внешних сервисов |
 | 7 | Регресс + отчёт | pending | TESTLOG итог |
@@ -195,6 +195,29 @@ pnpm --filter @workspace/web run build
 
 **Критерий:** полный цикл видео + ввод + биллинг + disconnect.
 
+### 3.5 Автономные проверки (cloud Linux)
+
+API и Web должны быть запущены (`./scripts/dev-local.sh`).
+
+```bash
+node scripts/signaling-smoke.mjs      # WS host+player, offer/answer/ICE relay
+./scripts/session-lifecycle.sh        # create → active → end, SQL ghost check
+BILLING_SMOKE=1 ./scripts/session-lifecycle.sh   # + billing_events после ~70с
+```
+
+| Проверка | Скрипт | Cloud |
+|---|---|---|
+| Signaling relay | `signaling-smoke.mjs` | ✅ |
+| Session end, no ghost | `session-lifecycle.sh` | ✅ |
+| Billing tick | `BILLING_SMOKE=1 session-lifecycle.sh` | ✅ |
+| WebRTC video | — | **blocked** |
+| DataChannel input / browser UX | — | **blocked** |
+| getDisplayMedia | — | **blocked** |
+
+### 3.6 Ручные проверки (Windows / браузер)
+
+Только пункты **blocked** выше — два окна браузера, захват экрана, disconnect UX.
+
 ---
 
 ## ФАЗА 4 — Windows-агент E2E
@@ -210,6 +233,29 @@ pnpm --filter @workspace/host-agent run dev
 4. Kill агента → игрок «Хост отключился» ≤30 сек, сессия закрыта
 
 ViGEm/gamepad inject — **не чинить** (известное ограничение).
+
+### 4.1 Автономные проверки (cloud Linux)
+
+```bash
+pnpm --filter @workspace/host-agent run typecheck
+pnpm --filter @workspace/host-agent run test      # ping-server 11 tests
+pnpm --filter @workspace/host-agent run build
+./scripts/agent-api-smoke.sh   # heartbeat, agent-auth, ice-config, zip, ping :18080
+```
+
+| Проверка | Скрипт / команда | Cloud |
+|---|---|---|
+| host-agent unit tests | `pnpm … run test` | ✅ |
+| ping-server :18080 | `ping-server-smoke.mjs` (via agent-api-smoke) | ✅ |
+| agent-auth Ed25519 | `agent-auth-smoke.mjs` | ✅ |
+| host-agent.zip download | `agent-api-smoke.sh` | ✅ |
+| Electron tray / Go online UI | — | **blocked** |
+| SendInput в реальной игре | — | **blocked** |
+| desktopCapturer / exe launch | — | **blocked** |
+
+### 4.2 Ручные проверки (Windows)
+
+Дашборд «Агент онлайн», полный цикл Steam → сессия → SendInput — только на Windows-ПК.
 
 ---
 
@@ -263,24 +309,31 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 
 ---
 
-## Приложение: Cloud Agent (опционально)
+## Приложение: Cloud Agent (автономные фазы 2–4)
 
-Agent может прогнать фазы 0–1 в Linux-окружении без браузера:
+Agent может прогнать API/WS/SQL/build в Linux без браузера и Windows:
 
 ```bash
-chmod +x scripts/*.sh
+chmod +x scripts/*.sh scripts/*.mjs
 ./scripts/cloud-setup.sh
-./scripts/dev-local.sh
+./scripts/dev-local.sh          # в отдельном терминале
 ./scripts/smoke-api.sh
+./scripts/pages-api-smoke.sh    # фаза 2 API + web shell
+node scripts/signaling-smoke.mjs
+./scripts/session-lifecycle.sh
+./scripts/agent-api-smoke.sh
+pnpm --filter @workspace/host-agent run test
 ```
 
-| Что | Cloud Agent | Ваш ПК |
+| Что | Cloud Agent | Windows / браузер |
 |---|---|---|
-| Install, API smoke | ✅ | ✅ |
-| Браузер, WebRTC | ❌ | ✅ |
-| Windows-агент | ❌ | ✅ |
+| Install, API smoke, pages API | ✅ | ✅ |
+| Signaling WS, session lifecycle | ✅ | ✅ |
+| host-agent test/build/zip | ✅ | ✅ |
+| Браузер, WebRTC video | **blocked** | ✅ |
+| Windows-агент GUI, SendInput | **blocked** | ✅ |
 
-Фазы 2–4 и P2P — **только на вашем ПК**.
+Фазы 2–4 API — **прогнаны автономно** (см. [TESTLOG.md](./TESTLOG.md)). WebRTC/Electron — только на ПК.
 
 ---
 
