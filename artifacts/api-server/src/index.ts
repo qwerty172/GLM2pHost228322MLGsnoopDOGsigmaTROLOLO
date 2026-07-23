@@ -12,6 +12,12 @@ import { startScheduleWatchdog } from "./lib/scheduleWatchdog";
 import { startVdsProvisionWorker } from "./lib/vdsProvisionWorker";
 import { seedGames } from "./lib/seedGames";
 import { runLegacyBackfill } from "./lib/legacyBackfill";
+import { startPgNotifyListener, stopPgNotifyListener, emitPlatformEvent } from "./lib/pgNotify";
+import { initSentry } from "./lib/sentry";
+
+export { emitPlatformEvent };
+
+void initSentry();
 
 const rawPort = process.env["PORT"];
 
@@ -29,6 +35,10 @@ if (Number.isNaN(port) || port <= 0) {
 
 const server = createServer(app);
 attachSignaling(server);
+
+void startPgNotifyListener().catch((err) => {
+  logger.warn({ err }, "Postgres LISTEN unavailable — SSE will use in-process fan-out only");
+});
 
 function startWorkers() {
   startBillingWorker();
@@ -84,6 +94,7 @@ server.on("error", (err: NodeJS.ErrnoException) => {
 
 function gracefulShutdown(signal: string) {
   logger.info({ signal }, "Received shutdown signal — closing HTTP server");
+  void stopPgNotifyListener();
   server.close((closeErr) => {
     if (closeErr) {
       logger.error({ err: closeErr }, "Error closing HTTP server");

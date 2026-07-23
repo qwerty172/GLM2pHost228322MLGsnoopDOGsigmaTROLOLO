@@ -84,6 +84,7 @@ function shapeGame(
     hostSpectatesPlayer: g.hostSpectatesPlayer,
     hasQuests: g.hasQuests,
     browserHostUrl: g.browserHostUrl,
+    saveManifest: g.saveManifest ?? [],
     liveSessionCount,
     liveHostsCount: agg?.liveHostsCount ?? 0,
     minPricePerMinuteLzt: agg?.minPricePerMinuteLzt ?? null,

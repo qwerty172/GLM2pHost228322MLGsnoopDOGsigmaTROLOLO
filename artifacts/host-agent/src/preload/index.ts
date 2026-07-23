@@ -11,6 +11,38 @@ const api = {
   injectInput: (event: InputEvent): void => {
     ipcRenderer.send("input:inject", event);
   },
+  setInputGuard: (
+    pid: number | null,
+    guardDisabled?: boolean,
+  ): Promise<{
+    active: boolean;
+    allowedPid: number | null;
+    guardDisabled: boolean;
+    foregroundAllowed: boolean;
+    inputBlocked: boolean;
+  }> => ipcRenderer.invoke("input:set-guard", pid, guardDisabled),
+  clearInputGuard: (): Promise<{
+    active: boolean;
+    allowedPid: number | null;
+    guardDisabled: boolean;
+    foregroundAllowed: boolean;
+    inputBlocked: boolean;
+  }> => ipcRenderer.invoke("input:clear-guard"),
+  getInputGuardStatus: (): Promise<{
+    active: boolean;
+    allowedPid: number | null;
+    guardDisabled: boolean;
+    foregroundAllowed: boolean;
+    inputBlocked: boolean;
+  }> => ipcRenderer.invoke("input:get-guard-status"),
+  clearInputBlock: (): void => {
+    ipcRenderer.send("input:clear-block");
+  },
+  onInputPanic: (cb: () => void): (() => void) => {
+    const handler = () => cb();
+    ipcRenderer.on("input:panic", handler);
+    return () => ipcRenderer.removeListener("input:panic", handler);
+  },
   injectGamepad: (state: GamepadState): void => {
     ipcRenderer.send("gamepad:inject", state);
   },

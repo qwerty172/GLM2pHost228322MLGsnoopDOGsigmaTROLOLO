@@ -1510,6 +1510,75 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /players/me/saves/{gameId}:
+    get:
+      operationId: getPlayerGameSave
+      tags: [players]
+      summary: Get latest cloud save metadata for a game
+      parameters:
+        - in: path
+          name: gameId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Save metadata or null
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerGameSaveResponse"
+
+  /players/me/saves/{gameId}/upload-url:
+    post:
+      operationId: requestPlayerGameSaveUploadUrl
+      tags: [players]
+      summary: Request presigned upload URL for a cloud save archive
+      parameters:
+        - in: path
+          name: gameId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerGameSaveUploadUrlBody"
+      responses:
+        "200":
+          description: Presigned upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerGameSaveUploadUrlResponse"
+
+  /players/me/saves/{gameId}/commit:
+    post:
+      operationId: commitPlayerGameSave
+      tags: [players]
+      summary: Finalize cloud save after upload
+      parameters:
+        - in: path
+          name: gameId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerGameSaveCommitBody"
+      responses:
+        "200":
+          description: Save committed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerGameSaveCommitResponse"
+
 components:
   schemas:
     AdminPatchGameBody:
@@ -1816,6 +1885,20 @@ components:
         isHidden:
           type: boolean
           description: When true the game is excluded from the public catalog (admin-only flag).
+        saveManifest:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              pathTemplate:
+                type: string
+              provider:
+                type: string
+                enum: [steam, custom]
+            required: [label, pathTemplate, provider]
+          description: Cloud save path templates for this game.
       required:
         - id
         - slug
@@ -1979,6 +2062,53 @@ components:
           type: string
       required:
         - hostToken
+
+    PlayerGameSaveUploadUrlBody:
+      type: object
+      properties:
+        sizeBytes:
+          type: integer
+      required: [sizeBytes]
+
+    PlayerGameSaveUploadUrlResponse:
+      type: object
+      properties:
+        uploadURL:
+          type: string
+        storageKey:
+          type: string
+        sizeBytes:
+          type: integer
+      required: [uploadURL, storageKey, sizeBytes]
+
+    PlayerGameSaveCommitBody:
+      type: object
+      properties:
+        storageKey:
+          type: string
+        sizeBytes:
+          type: integer
+        version:
+          type: integer
+      required: [storageKey, sizeBytes]
+
+    PlayerGameSaveCommitResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        save:
+          type: object
+          additionalProperties: true
+      required: [ok]
+
+    PlayerGameSaveResponse:
+      type: object
+      properties:
+        save:
+          type: ["object", "null"]
+          additionalProperties: true
+      required: [save]
 
     ClaimSessionBody:
       type: object

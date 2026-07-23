@@ -128,6 +128,32 @@ export class ObjectStorageService {
     });
   }
 
+  /** Presigned PUT for a namespaced object key (e.g. saves/player/game/uuid.zip). */
+  async getObjectUploadURLForKey(relativeKey: string): Promise<string> {
+    const privateObjectDir = this.getPrivateObjectDir();
+    const fullPath = `${privateObjectDir}/${relativeKey}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    return signObjectURL({
+      bucketName,
+      objectName,
+      method: "PUT",
+      ttlSec: 900,
+    });
+  }
+
+  /** Presigned GET for a namespaced object key. */
+  async getObjectDownloadURL(relativeKey: string): Promise<string> {
+    const privateObjectDir = this.getPrivateObjectDir();
+    const fullPath = `${privateObjectDir}/${relativeKey}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    return signObjectURL({
+      bucketName,
+      objectName,
+      method: "GET",
+      ttlSec: 900,
+    });
+  }
+
   async getObjectEntityFile(objectPath: string): Promise<File> {
     if (!objectPath.startsWith("/objects/")) {
       throw new ObjectNotFoundError();

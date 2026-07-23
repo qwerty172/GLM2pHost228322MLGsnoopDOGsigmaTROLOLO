@@ -933,6 +933,13 @@ router.patch("/sessions/:id/end", async (req, res): Promise<void> => {
   }
 
   req.log.info({ sessionId: session.id }, "Session ended");
+  const { emitPlatformEvent } = await import("../lib/pgNotify");
+  void emitPlatformEvent("session_status", {
+    sessionId: session.id,
+    status: "ended",
+    hostId: session.hostId,
+    playerToken: session.playerToken,
+  });
   res.json(EndSessionResponse.parse(await enrichSession(session)));
 });
 

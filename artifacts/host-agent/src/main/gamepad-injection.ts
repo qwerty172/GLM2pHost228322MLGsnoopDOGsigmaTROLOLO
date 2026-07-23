@@ -4,6 +4,7 @@
 import path from "node:path";
 import { existsSync } from "node:fs";
 import type { GamepadState } from "../shared/messages";
+import { guardInput } from "./focus-guard";
 import { log } from "./logger";
 
 export interface GamepadInjectorStatus {
@@ -239,10 +240,12 @@ export function disconnectGamepad(): void {
 
 export function injectGamepad(state: GamepadState): void {
   if (!backend) initGamepadInjector();
-  if (!status.connected) {
-    connectGamepad();
-  }
-  backend?.update(state);
+  guardInput(() => {
+    if (!status.connected) {
+      connectGamepad();
+    }
+    backend?.update(state);
+  });
 }
 
 export function destroyGamepadInjector(): void {

@@ -14,7 +14,7 @@ import {
   type Quota,
 } from "@workspace/db";
 import { CreateQuotaBody, UpdateQuotaBody, AiSuggestQuotaSpecsBody } from "@workspace/api-zod";
-import { getAnthropicClient } from "@workspace/integrations-anthropic-ai";
+import Anthropic from "@anthropic-ai/sdk";
 
 // Orval splits each endpoint's body into a unique generated symbol; we use a
 // single local schema for the simple owner-only POST bodies.
@@ -29,6 +29,13 @@ import {
 import { computeHostTier, specsFromPcSpecs } from "../lib/hostTier";
 
 const router: IRouter = Router();
+
+function getAnthropicClient(): Anthropic | null {
+  const baseURL = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+  const apiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+  if (!baseURL || !apiKey) return null;
+  return new Anthropic({ apiKey, baseURL });
+}
 
 // Postgres unique-violation error code, used to detect a race on the
 // partial unique index over quotas.devKeyId.
@@ -264,7 +271,8 @@ router.post("/quotas/ai-suggest-specs", async (req, res): Promise<void> => {
       max_tokens: 256,
       messages: [{ role: "user", content: prompt }],
     });
-    const text = message.content.find((b) => b.type === "text")?.text ?? "";
+    const textBlock = message.content.find((b) => b.type === "text");
+    const text = textBlock && textBlock.type === "text" ? textBlock.text : "";
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       res.status(500).json({ error: "AI returned unexpected format" });

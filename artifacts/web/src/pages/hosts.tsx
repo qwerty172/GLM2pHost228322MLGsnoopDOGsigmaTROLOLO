@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, Cpu, Gamepad2, MemoryStick, Monitor, Star, Wifi
 import { useEffect, useMemo, useState } from "react";
 import { useBrowserPingMs } from "@/hooks/use-browser-ping";
 import { playJoinPath } from "@/lib/play-link";
+import { prewarmIce } from "@/lib/ice-prewarm";
 import { toast } from "sonner";
 import {
   useListPublicHosts,
@@ -319,6 +320,7 @@ function PlayButton({
       <button
         type="button"
         onClick={() => void handlePlay()}
+        onPointerEnter={() => void prewarmIce(hostId)}
         disabled={loading}
         className="h-9 px-4 text-xs font-semibold rounded-md transition-colors disabled:opacity-60"
         style={{ background: "#0ea5e9", color: "#fff" }}

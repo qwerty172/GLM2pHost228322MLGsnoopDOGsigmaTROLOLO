@@ -44,6 +44,13 @@ export interface HostConfig {
   // standard — Opus ~32 kbps (balanced quality)
   // quality  — Opus ~64 kbps (high fidelity)
   audioMode?: "off" | "voice" | "standard" | "quality";
+  /** Optional isolated Windows user for game launches. */
+  limitedUser?: {
+    enabled: boolean;
+    username: string;
+    password: string;
+    domain?: string;
+  };
 }
 
 export type InputEvent =

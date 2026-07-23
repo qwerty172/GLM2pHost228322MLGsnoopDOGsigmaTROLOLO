@@ -1055,6 +1055,47 @@ router.post("/hosts/me/speedtest", async (req, res): Promise<void> => {
   res.json({ ok: true, uploadMbps });
 });
 
+// GET /hosts/me/speedtest/download — agent measures download throughput.
+router.get("/hosts/me/speedtest/download", async (req, res): Promise<void> => {
+  const hostToken =
+    (req.headers["x-host-token"] as string | undefined) ??
+    (req.headers["x-token"] as string | undefined);
+  if (!hostToken) {
+    res.status(400).json({ error: "X-Host-Token header required" });
+    return;
+  }
+  const [host] = await db
+    .select()
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, hostToken));
+  if (!host) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+
+  const bytesParam = Number(req.query.bytes ?? 512 * 1024);
+  const bytes = Number.isFinite(bytesParam)
+    ? Math.min(Math.max(bytesParam, 64 * 1024), 2 * 1024 * 1024)
+    : 512 * 1024;
+
+  const started = Date.now();
+  const payload = Buffer.alloc(bytes, 0x5a);
+  res.setHeader("Content-Type", "application/octet-stream");
+  res.setHeader("Content-Length", String(bytes));
+  res.send(payload);
+
+  const elapsedMs = Date.now() - started;
+  const downloadMbps =
+    elapsedMs > 0 ? Math.round((bytes * 8) / elapsedMs / 1000) : null;
+  if (downloadMbps !== null && downloadMbps > 0) {
+    const existing = (host.pcSpecs ?? {}) as Record<string, unknown>;
+    void db
+      .update(hostsTable)
+      .set({ pcSpecs: { ...existing, downloadMbps } as typeof host.pcSpecs })
+      .where(eq(hostsTable.id, host.id));
+  }
+});
+
 // List players who have an open host_service debt to this host.
 // Returns each debtor with their current outstanding amount and
 // how much has already been streamed back.
@@ -1141,6 +1182,8 @@ router.post("/hosts/heartbeat", async (req, res): Promise<void> => {
     .update(hostsTable)
     .set(update)
     .where(eq(hostsTable.id, host.id));
+  const { emitPlatformEvent } = await import("../lib/pgNotify");
+  void emitPlatformEvent("host_last_seen", { hostId: host.id });
   res.json({ ok: true });
 });
 

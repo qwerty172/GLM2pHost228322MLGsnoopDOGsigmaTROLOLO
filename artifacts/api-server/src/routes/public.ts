@@ -575,4 +575,15 @@ router.get("/stats", async (_req, res): Promise<void> => {
   );
 });
 
+// Fixed-size download payload for pre-session bandwidth measurement.
+const SPEEDTEST_BYTES = 512 * 1024;
+const speedtestPayload = Buffer.alloc(SPEEDTEST_BYTES, 0x5a);
+
+router.get("/public/speedtest/download", (_req, res): void => {
+  res.setHeader("Content-Type", "application/octet-stream");
+  res.setHeader("Content-Length", String(SPEEDTEST_BYTES));
+  res.setHeader("Cache-Control", "no-store");
+  res.send(speedtestPayload);
+});
+
 export default router;

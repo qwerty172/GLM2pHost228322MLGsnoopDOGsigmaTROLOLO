@@ -34,6 +34,7 @@ import { SiteNav } from "@/components/site-nav";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
 import { useBrowserPingMs } from "@/hooks/use-browser-ping";
 import { playJoinPath } from "@/lib/play-link";
+import { prewarmIce } from "@/lib/ice-prewarm";
 
 const LZT_PER_USD = 200;
 const DEFAULT_CREDIT_LZT = 3000;
@@ -303,6 +304,15 @@ export default function GameDetailPage() {
                 {game.genre && (
                   <p className="text-sky-400 font-mono mt-1 text-sm">{game.genre}</p>
                 )}
+                {Array.isArray((game as { saveManifest?: unknown[] }).saveManifest) &&
+                  ((game as { saveManifest?: unknown[] }).saveManifest?.length ?? 0) > 0 && (
+                  <span
+                    className="inline-flex items-center gap-1 mt-2 text-[11px] px-2 py-0.5 rounded-md"
+                    style={{ background: "rgba(16,185,129,0.12)", color: "#6ee7b7", border: "1px solid rgba(16,185,129,0.25)" }}
+                  >
+                    ☁ Облачное сохранение
+                  </span>
+                )}
                 {(game as GameEnriched).steamAppId && (
                   <SteamPlayerCount steamAppId={(game as GameEnriched).steamAppId!} />
                 )}
@@ -570,6 +580,7 @@ function LibraryHostRow({ host: h, browserRtt, onPlay, onPreview }: { host: Libr
               className="h-9 px-5 text-xs font-semibold rounded-md"
               style={{ background: "#0ea5e9", color: "#fff" }}
               data-testid={`button-join-${h.hostId}`}
+              onPointerEnter={() => void prewarmIce(h.hostId)}
               onClick={onPlay}
             >
               Играть
@@ -903,6 +914,38 @@ function PreSessionModal({
       : browserRtt;
   const pinging = totalPingMs == null;
 
+  const [downloadMbps, setDownloadMbps] = useState<number | null>(null);
+  const [speedTesting, setSpeedTesting] = useState(false);
+
+  useEffect(() => {
+    void prewarmIce(host.hostId);
+  }, [host.hostId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSpeedTesting(true);
+    const started = performance.now();
+    void fetch(`${import.meta.env.BASE_URL}api/public/speedtest/download`)
+      .then((r) => r.arrayBuffer())
+      .then((buf) => {
+        if (cancelled) return;
+        const elapsed = Math.max(performance.now() - started, 1);
+        const mbps = Math.round(((buf.byteLength * 8) / elapsed) / 1000);
+        setDownloadMbps(mbps);
+      })
+      .catch(() => {
+        if (!cancelled) setDownloadMbps(null);
+      })
+      .finally(() => {
+        if (!cancelled) setSpeedTesting(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const bandwidthOk = downloadMbps === null || downloadMbps >= 5;
+
   const [blockChoice, setBlockChoice] = useState<"unlimited" | "10" | "15" | "25">("unlimited");
 
   const balanceLzt = (wallet?.internalBalanceLzt ?? 0) + (wallet?.withdrawableBalanceLzt ?? 0);
@@ -922,7 +965,7 @@ function PreSessionModal({
   const selectedBlockMins = blockChoice === "unlimited" ? null : (Number(blockChoice) as 10 | 15 | 25);
   const blockCost = selectedBlockMins ? selectedBlockMins * host.pricePerMinuteLzt : null;
   const canAffordBlock = blockCost === null || totalAvailableLzt >= blockCost;
-  const canStart = minsAvailable >= 1 && canAffordBlock;
+  const canStart = minsAvailable >= 1 && canAffordBlock && bandwidthOk;
 
   const pingColor =
     totalPingMs === null ? "#64748b"
@@ -1000,6 +1043,33 @@ function PreSessionModal({
                 в минуту · {host.pricePerMinuteLzt * 60} LZT/час
               </p>
             </div>
+          </div>
+
+          <div
+            className="rounded-xl p-3"
+            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+          >
+            <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+              <Activity className="h-3 w-3" /> Скорость загрузки
+            </p>
+            {speedTesting ? (
+              <Loader2 className="h-4 w-4 text-slate-500 animate-spin" />
+            ) : (
+              <>
+                <p className="text-lg font-bold font-mono" style={{ color: bandwidthOk ? "#2dd4bf" : "#ef4444" }}>
+                  {downloadMbps != null ? `${downloadMbps} Мбит/с` : "—"}
+                </p>
+                <p className="text-[10px] mt-0.5 text-slate-500">
+                  {downloadMbps == null
+                    ? "не удалось измерить"
+                    : downloadMbps >= 15
+                      ? "1080p60 OK"
+                      : downloadMbps >= 5
+                        ? "рекомендуем 720p"
+                        : "низкая скорость — возможны лаги"}
+                </p>
+              </>
+            )}
           </div>
 
           <div

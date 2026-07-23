@@ -22,6 +22,9 @@ import {
   resolvePlaySlug,
   stripTokenFromPlayUrl,
 } from "@/lib/play-link";
+import { takePrewarmedConnection } from "@/lib/ice-prewarm";
+import { usePlatformEvents } from "@/hooks/use-platform-events";
+import { useQueryClient } from "@tanstack/react-query";
 
 const LZT_PER_USDT = 200;
 type PaymentSource = "auto" | "blue" | "green";
@@ -159,7 +162,7 @@ export default function Play() {
     query: {
       enabled: !!playerToken,
       queryKey: getGetSessionByPlayerTokenQueryKey(playerToken),
-      refetchInterval: 8000,
+      refetchInterval: 60_000,
     }
   });
 
@@ -187,12 +190,32 @@ export default function Play() {
     },
   });
   const claimSession = useClaimSession();
+  const queryClient = useQueryClient();
   const [claimError, setClaimError] = useState<string | null>(null);
   const [hasClaimed, setHasClaimed] = useState(false);
   const [paymentSource, setPaymentSource] = useState<PaymentSource>("auto");
 
   const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>("new");
   const [isPlaying, setIsPlaying] = useState(false);
+
+  usePlatformEvents(
+    useCallback(
+      (ev) => {
+        if (ev.type === "session_status") {
+          const sid = ev.payload["sessionId"];
+          const pt = ev.payload["playerToken"];
+          if (pt === playerToken || sid === session?.id) {
+            void queryClient.invalidateQueries({
+              queryKey: getGetSessionByPlayerTokenQueryKey(playerToken),
+            });
+          }
+        }
+      },
+      [playerToken, session?.id, queryClient],
+    ),
+    !!playerToken && isPlaying,
+  );
+
   const [showAudioPrompt, setShowAudioPrompt] = useState(false);
   const [iceType, setIceType] = useState<"relay" | "srflx" | "host" | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
@@ -239,6 +262,10 @@ export default function Play() {
   );
   // Layout edit mode: lets players drag-to-reposition each control
   const [gamepadEditMode, setGamepadEditMode] = useState(false);
+  const [physicalGamepadConnected, setPhysicalGamepadConnected] = useState(false);
+  const [localCursor, setLocalCursor] = useState({ x: 0.5, y: 0.5 });
+  const [cloudSaveStatus, setCloudSaveStatus] = useState<string | null>(null);
+  const lastGamepadSentRef = useRef("");
 
   // Live HUD: client-side ticking balance estimate between API syncs
   const [estimatedBalanceLzt, setEstimatedBalanceLzt] = useState<number | null>(null);
@@ -686,7 +713,13 @@ export default function Play() {
       console.warn("[ice] Failed to fetch ICE config, using default STUN only");
     }
 
-    const pc = new RTCPeerConnection({ iceServers });
+    const hostId = session?.hostId;
+    const prewarmed = hostId ? takePrewarmedConnection(hostId) : null;
+    const pc =
+      prewarmed?.pc ?? new RTCPeerConnection({ iceServers: prewarmed?.iceServers ?? iceServers });
+    if (prewarmed) {
+      console.log("[ice] Using prewarmed peer connection");
+    }
     pcRef.current = pc;
 
     pc.onconnectionstatechange = () => {
@@ -762,19 +795,25 @@ export default function Play() {
     };
 
     pc.ontrack = (event) => {
+      const receiver = event.receiver as RTCRtpReceiver & {
+        jitterBufferTarget?: number;
+      };
+      try {
+        receiver.jitterBufferTarget = 0;
+      } catch {
+        /* jitterBufferTarget not supported in this browser */
+      }
       if (videoRef.current && event.streams[0]) {
         videoRef.current.srcObject = event.streams[0];
         videoRef.current.play().catch(() => {
           setShowAudioPrompt(true);
         });
-        // Start clip ring-buffer recorder with canvas watermarking
-        // Small delay so the video element has time to attach the stream
         setTimeout(() => initClipRecorder(), 500);
       }
     };
 
     connectWs(wsUrl, pc);
-  }, [playerToken, playerWalletToken, cleanupConnection, connectWs, triggerIceRestart, initClipRecorder]);
+  }, [playerToken, playerWalletToken, session?.hostId, cleanupConnection, connectWs, triggerIceRestart, initClipRecorder]);
 
   useEffect(() => {
     if (
@@ -934,6 +973,7 @@ export default function Play() {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isOverVideo(e)) return;
       const { x, y } = normalizedCoords(e);
+      setLocalCursor({ x, y });
       sendInput({ type: "input", kind: "mouse", action: "move", button: 0, x, y });
     };
 
@@ -973,6 +1013,75 @@ export default function Play() {
       dc.send(JSON.stringify({ type: "gamepad", axes, buttons }));
     }
   }, []);
+
+  // Physical gamepad via Gamepad API
+  useEffect(() => {
+    if (!isPlaying) return;
+    let raf = 0;
+    const mapGamepad = (gp: Gamepad) => {
+      const axes = [gp.axes[0] ?? 0, gp.axes[1] ?? 0, gp.axes[2] ?? 0, gp.axes[3] ?? 0];
+      const buttons = [
+        gp.buttons[0]?.pressed ? 1 : 0,
+        gp.buttons[1]?.pressed ? 1 : 0,
+        gp.buttons[2]?.pressed ? 1 : 0,
+        gp.buttons[3]?.pressed ? 1 : 0,
+        gp.buttons[4]?.pressed ? 1 : 0,
+        gp.buttons[5]?.pressed ? 1 : 0,
+        (gp.buttons[6]?.value ?? 0) > 0.5 ? 1 : 0,
+        (gp.buttons[7]?.value ?? 0) > 0.5 ? 1 : 0,
+        gp.buttons[8]?.pressed ? 1 : 0,
+        gp.buttons[9]?.pressed ? 1 : 0,
+      ];
+      return { axes, buttons };
+    };
+    const loop = () => {
+      const pads = navigator.getGamepads();
+      let anyConnected = false;
+      for (const gp of pads) {
+        if (!gp?.connected) continue;
+        anyConnected = true;
+        const { axes, buttons } = mapGamepad(gp);
+        const key = JSON.stringify({ axes, buttons });
+        if (key !== lastGamepadSentRef.current) {
+          lastGamepadSentRef.current = key;
+          sendGamepadInput(axes, buttons);
+        }
+      }
+      setPhysicalGamepadConnected(anyConnected);
+      raf = requestAnimationFrame(loop);
+    };
+    const onConnect = (e: GamepadEvent) => {
+      toast.success(`${e.gamepad.id || "Геймпад"} подключён`);
+      setGamepadOverlay(false);
+    };
+    const onDisconnect = () => setPhysicalGamepadConnected(false);
+    window.addEventListener("gamepadconnected", onConnect);
+    window.addEventListener("gamepaddisconnected", onDisconnect);
+    raf = requestAnimationFrame(loop);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("gamepadconnected", onConnect);
+      window.removeEventListener("gamepaddisconnected", onDisconnect);
+    };
+  }, [isPlaying, sendGamepadInput]);
+
+  // Cloud save status for current game
+  useEffect(() => {
+    const gameId = (session as { gameId?: string } | undefined)?.gameId;
+    if (!gameId || !playerWalletToken) return;
+    void fetch(`${import.meta.env.BASE_URL}api/players/me/saves/${gameId}`, {
+      headers: { "X-Player-Wallet-Token": playerWalletToken },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { save?: { updatedAt?: string } | null } | null) => {
+        if (data?.save?.updatedAt) {
+          setCloudSaveStatus(`Сохранено ${new Date(data.save.updatedAt).toLocaleString("ru-RU")}`);
+        } else {
+          setCloudSaveStatus(null);
+        }
+      })
+      .catch(() => setCloudSaveStatus(null));
+  }, [session, playerWalletToken]);
 
   // Send a live FPS cap hint to the host whenever it changes.
   useEffect(() => {
@@ -2038,7 +2147,7 @@ export default function Play() {
         </div>
       )}
 
-      <div className="flex-1 relative flex items-center justify-center bg-black cursor-crosshair">
+      <div className="flex-1 relative flex items-center justify-center bg-black cursor-none">
         {connectionState !== "connected" && !reconnecting && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-40 backdrop-blur-sm">
             <Loader2 className="h-12 w-12 animate-spin text-sky-400 mb-4" />
@@ -2074,13 +2183,34 @@ export default function Play() {
           autoPlay
           playsInline
           muted={false}
-          className="w-full h-full object-contain pointer-events-auto"
+          className="w-full h-full object-contain pointer-events-auto cursor-none"
           style={{ opacity: shaderActive ? 0 : 1, pointerEvents: shaderActive ? "none" : "auto" }}
           onClick={requestPointerLock}
         />
 
-        {/* Virtual gamepad overlay */}
-        {isPlaying && gamepadOverlay && (
+        {/* Local cursor prediction overlay */}
+        {isPlaying && connectionState === "connected" && (
+          <div
+            className="absolute pointer-events-none z-20 rounded-full border border-white/80 bg-white/90"
+            style={{
+              width: 10,
+              height: 10,
+              left: `${localCursor.x * 100}%`,
+              top: `${localCursor.y * 100}%`,
+              transform: "translate(-50%, -50%)",
+              boxShadow: "0 0 6px rgba(0,0,0,0.6)",
+            }}
+          />
+        )}
+
+        {cloudSaveStatus && (
+          <div className="absolute top-3 left-3 z-30 px-2 py-1 rounded-md text-[11px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+            ☁ {cloudSaveStatus}
+          </div>
+        )}
+
+        {/* Virtual gamepad overlay — hidden when physical pad connected */}
+        {isPlaying && gamepadOverlay && !physicalGamepadConnected && (
           <TouchOverlay onGamepadInput={sendGamepadInput} editMode={gamepadEditMode} />
         )}
 
