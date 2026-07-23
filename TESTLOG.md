@@ -6,8 +6,8 @@
 
 | Фаза | Статус | Примечание |
 |---|---|---|
-| 0–1 | done | healthz ok, API + Web на :8080 / :5000 |
-| 2 | in progress | Обход страниц в браузере |
+| 0–1 | done | healthz ok, smoke-api зелёный, storage → 503 |
+| 2 | in progress | P0 web-фиксы применены, обход страниц на ПК |
 | 3 | pending | P2P browser-host |
 | 4 | pending | Windows-агент |
 | 5 | pending | Экономика, биллинг |
@@ -19,6 +19,12 @@
 | # | Где | Симптом | Причина | Фикс | Статус |
 |---|-----|---------|---------|------|--------|
 | 1 | `lib/integrations-anthropic-ai/src/client.ts` | API падает при старте без Anthropic-ключей | Eager throw при import | Lazy `getAnthropicClient()`, 503 в quotas | fixed |
+| 2 | `game-detail.tsx` | 404 на `/api/public/stats` в диалоге «Играть» | Неверный URL | `/api/public/ping` | fixed |
+| 3 | `wallet.tsx`, `exchange.tsx`, `profile.tsx`, `site-nav.tsx` | Кошелёк/биржа/история пусты у игрока | Только `hostToken` | `playerWalletToken ?? hostToken` | fixed |
+| 4 | `routes/storage.ts` | Storage без Replit → 500 | Generic catch | 503 + русское сообщение | fixed |
+| 5 | `depositWorker.ts`, `walletOwner.ts` | Спам error при отсутствии crypto key | Нет guard | `isWalletCryptoEnabled()`, log once | fixed |
+| 6 | `rateLimit.ts` | 429 на английском | Hardcoded string | Русское сообщение | fixed |
+| 7 | `host/dashboard.tsx` | Карточка квоты пропадает при ошибке API | `if (!info) return null` | Сообщение об ошибке | fixed |
 
 ## SQL-проверки
 

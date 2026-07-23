@@ -51,7 +51,10 @@ export function rateLimit(opts: {
     if (tokens < 1) {
       const retryAfter = Math.ceil((1 - tokens) / refillPerMs / 1000);
       res.setHeader("Retry-After", String(Math.max(1, retryAfter)));
-      res.status(429).json({ error: "Too many requests" });
+      res.status(429).json({
+        error: "too_many_requests",
+        message: "Слишком много запросов, попробуйте позже",
+      });
       return;
     }
     buckets.set(key, { tokens: tokens - 1, updatedAt: now });

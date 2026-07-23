@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { usePlayerWallet } from "@/hooks/use-player-wallet";
 import {
   useListLoanRequests,
   useCreateLoanRequest,
@@ -856,7 +857,8 @@ function MyDealsSection({ myToken }: { myToken: string | null }) {
 
 export default function ExchangePage() {
   const { hostToken } = useAuth();
-  const myToken = hostToken ?? null;
+  const { playerWalletToken } = usePlayerWallet();
+  const myToken = playerWalletToken ?? hostToken ?? null;
 
   return (
     <div

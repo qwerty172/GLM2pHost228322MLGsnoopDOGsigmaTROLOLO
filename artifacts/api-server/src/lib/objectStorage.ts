@@ -37,6 +37,24 @@ export class ObjectNotFoundError extends Error {
   }
 }
 
+export class ObjectStorageNotConfiguredError extends Error {
+  constructor(message = "Object storage is not configured") {
+    super(message);
+    this.name = "ObjectStorageNotConfiguredError";
+    Object.setPrototypeOf(this, ObjectStorageNotConfiguredError.prototype);
+  }
+}
+
+/** True when both PUBLIC_OBJECT_SEARCH_PATHS and PRIVATE_OBJECT_DIR are non-empty. */
+export function isObjectStorageConfigured(): boolean {
+  const paths = (process.env.PUBLIC_OBJECT_SEARCH_PATHS ?? "")
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const privateDir = (process.env.PRIVATE_OBJECT_DIR ?? "").trim();
+  return paths.length > 0 && privateDir.length > 0;
+}
+
 export class ObjectStorageService {
   constructor() {}
 
@@ -51,9 +69,9 @@ export class ObjectStorageService {
       )
     );
     if (paths.length === 0) {
-      throw new Error(
+      throw new ObjectStorageNotConfiguredError(
         "PUBLIC_OBJECT_SEARCH_PATHS not set. Create a bucket in 'Object Storage' " +
-          "tool and set PUBLIC_OBJECT_SEARCH_PATHS env var (comma-separated paths)."
+          "tool and set PUBLIC_OBJECT_SEARCH_PATHS env var (comma-separated paths).",
       );
     }
     return paths;
@@ -62,9 +80,9 @@ export class ObjectStorageService {
   getPrivateObjectDir(): string {
     const dir = process.env.PRIVATE_OBJECT_DIR || "";
     if (!dir) {
-      throw new Error(
+      throw new ObjectStorageNotConfiguredError(
         "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' " +
-          "tool and set PRIVATE_OBJECT_DIR env var."
+          "tool and set PRIVATE_OBJECT_DIR env var.",
       );
     }
     return dir;

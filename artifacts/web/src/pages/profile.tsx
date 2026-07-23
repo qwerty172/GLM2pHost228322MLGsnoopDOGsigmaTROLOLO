@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearch } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { usePlayerWallet } from "@/hooks/use-player-wallet";
 import {
   useGetHost,
   useGetHostStats,
@@ -193,35 +194,35 @@ function StatsTab({ hostToken }: { hostToken: string }) {
   );
 }
 
-function HistoryTab({ hostToken }: { hostToken: string | null }) {
+function HistoryTab({ walletToken }: { walletToken: string | null }) {
   const [page, setPage] = useState(0);
 
   const { data: txs, isLoading: txLoading } = useListWalletTransactions(
-    hostToken ?? "",
+    walletToken ?? "",
     {
       query: {
-        enabled: !!hostToken,
-        queryKey: getListWalletTransactionsQueryKey(hostToken ?? ""),
+        enabled: !!walletToken,
+        queryKey: getListWalletTransactionsQueryKey(walletToken ?? ""),
         staleTime: 30_000,
       },
     },
   );
 
-  const { data: wallet } = useGetWallet(hostToken ?? "", {
+  const { data: wallet } = useGetWallet(walletToken ?? "", {
     query: {
-      enabled: !!hostToken,
-      queryKey: getGetWalletQueryKey(hostToken ?? ""),
+      enabled: !!walletToken,
+      queryKey: getGetWalletQueryKey(walletToken ?? ""),
       staleTime: 30_000,
     },
   });
 
-  if (!hostToken) {
+  if (!walletToken) {
     return (
       <div className="mt-10 flex flex-col items-center gap-2 text-slate-500">
         <History className="w-8 h-8 opacity-40" />
         <p className="text-sm">История транзакций пуста.</p>
         <p className="text-xs text-slate-600">
-          Зарегистрируйтесь как хост, чтобы начать пополнять историю.
+          Зайдите в каталог игр или на главную — кошелёк создастся автоматически.
         </p>
       </div>
     );
@@ -761,6 +762,8 @@ function AccountTab({ hostToken }: { hostToken: string | null }) {
 
 export default function ProfilePage() {
   const { hostToken } = useAuth();
+  const { playerWalletToken } = usePlayerWallet();
+  const walletToken = playerWalletToken ?? hostToken ?? null;
   const isHost = !!hostToken;
   const search = useSearch();
   const params = new URLSearchParams(search);
@@ -850,7 +853,7 @@ export default function ProfilePage() {
           )}
 
           <TabsContent value="history">
-            <HistoryTab hostToken={hostToken} />
+            <HistoryTab walletToken={walletToken} />
           </TabsContent>
 
           <TabsContent value="account">

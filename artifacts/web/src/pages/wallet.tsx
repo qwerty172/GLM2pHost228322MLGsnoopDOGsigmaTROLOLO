@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { usePlayerWallet } from "@/hooks/use-player-wallet";
 import {
   useGetWallet,
   useRequestWithdrawal,
@@ -234,14 +235,16 @@ function LeafIcon({ className }: { className?: string }) {
 
 export default function WalletPage() {
   const { hostToken } = useAuth();
+  const { playerWalletToken } = usePlayerWallet();
+  const walletToken = playerWalletToken ?? hostToken ?? "";
   const {
     data: wallet,
     isLoading,
     refetch,
-  } = useGetWallet(hostToken || "", {
+  } = useGetWallet(walletToken, {
     query: {
-      enabled: !!hostToken,
-      queryKey: getGetWalletQueryKey(hostToken || ""),
+      enabled: !!walletToken,
+      queryKey: getGetWalletQueryKey(walletToken),
     },
   });
 
@@ -262,7 +265,7 @@ export default function WalletPage() {
 
   const handleWithdraw = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!hostToken || !withdrawAddress || !withdrawAmountLzt) return;
+    if (!walletToken || !withdrawAddress || !withdrawAmountLzt) return;
 
     const amountLzt = parseInt(withdrawAmountLzt, 10);
     if (!Number.isFinite(amountLzt) || amountLzt <= 0) {
@@ -276,7 +279,7 @@ export default function WalletPage() {
 
     requestWithdrawal.mutate(
       {
-        userToken: hostToken,
+        userToken: walletToken,
         data: {
           currency: withdrawCurrency,
           address: withdrawAddress,
@@ -737,7 +740,7 @@ export default function WalletPage() {
           </div>
         </div>
 
-        <WalletHistory userToken={hostToken} />
+        <WalletHistory userToken={walletToken || null} />
       </div>
     </TooltipProvider>
   );

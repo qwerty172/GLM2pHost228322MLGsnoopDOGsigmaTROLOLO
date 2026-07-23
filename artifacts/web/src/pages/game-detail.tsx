@@ -922,7 +922,7 @@ function PreSessionModal({
     didPing.current = true;
     const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
     const t0 = performance.now();
-    fetch(`${base}/api/public/stats`, { method: "GET", cache: "no-store" })
+    fetch(`${base}/api/public/ping`, { method: "GET", cache: "no-store" })
       .then(() => {
         setPingMs(Math.round(performance.now() - t0));
       })

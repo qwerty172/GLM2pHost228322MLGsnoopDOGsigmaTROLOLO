@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import { z } from "zod/v4";
-import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import { ObjectStorageService, ObjectNotFoundError, ObjectStorageNotConfiguredError } from "../lib/objectStorage";
 import multer from "multer";
 
 const ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -34,6 +34,27 @@ const RequestUploadUrlResponse = z.object({
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
+
+function respondStorageUnavailable(res: Response): void {
+  res.status(503).json({
+    error: "storage_unavailable",
+    message: "Хранилище объектов не настроено в этой среде",
+  });
+}
+
+function handleStorageError(req: Request, res: Response, error: unknown, fallbackMessage: string): void {
+  if (error instanceof ObjectStorageNotConfiguredError) {
+    respondStorageUnavailable(res);
+    return;
+  }
+  if (error instanceof ObjectNotFoundError) {
+    req.log.warn({ err: error }, "Object not found");
+    res.status(404).json({ error: "Object not found" });
+    return;
+  }
+  req.log.error({ err: error }, fallbackMessage);
+  res.status(500).json({ error: fallbackMessage });
+}
 
 /**
  * POST /storage/uploads/request-url
@@ -84,8 +105,7 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
       }),
     );
   } catch (error) {
-    req.log.error({ err: error }, "Error generating upload URL");
-    res.status(500).json({ error: "Failed to generate upload URL" });
+    handleStorageError(req, res, error, "Failed to generate upload URL");
   }
 });
 
@@ -118,8 +138,7 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
       res.end();
     }
   } catch (error) {
-    req.log.error({ err: error }, "Error serving public object");
-    res.status(500).json({ error: "Failed to serve public object" });
+    handleStorageError(req, res, error, "Failed to serve public object");
   }
 });
 
@@ -164,13 +183,7 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
       res.end();
     }
   } catch (error) {
-    if (error instanceof ObjectNotFoundError) {
-      req.log.warn({ err: error }, "Object not found");
-      res.status(404).json({ error: "Object not found" });
-      return;
-    }
-    req.log.error({ err: error }, "Error serving object");
-    res.status(500).json({ error: "Failed to serve object" });
+    handleStorageError(req, res, error, "Failed to serve object");
   }
 });
 
@@ -228,8 +241,7 @@ router.post(
       const objectPath = `/api/storage${rawPath}`;
       res.json({ objectPath, size: req.file.size });
     } catch (error) {
-      req.log.error({ err: error }, "Error uploading clip");
-      res.status(500).json({ error: "Failed to upload clip" });
+      handleStorageError(req, res, error, "Failed to upload clip");
     }
   },
 );

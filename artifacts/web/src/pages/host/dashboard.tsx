@@ -553,11 +553,17 @@ interface CurrentQuotaInfo {
 
 function CurrentQuotaCard({ hostToken }: { hostToken: string }) {
   const [info, setInfo] = useState<CurrentQuotaInfo | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [detaching, setDetaching] = useState(false);
 
   const fetchCurrent = async () => {
     const r = await apiFetch<CurrentQuotaInfo>(`/api/hosts/me/current-quota`);
-    if (r.ok) setInfo(r.data);
+    if (r.ok) {
+      setInfo(r.data);
+      setLoadFailed(false);
+    } else if (r.status !== 404) {
+      setLoadFailed(true);
+    }
   };
 
   useEffect(() => {
@@ -580,6 +586,16 @@ function CurrentQuotaCard({ hostToken }: { hostToken: string }) {
       toast.error("Не удалось отвязать квоту");
     }
   };
+
+  if (loadFailed && !info) {
+    return (
+      <Card style={{ background: "#0a1018", border: "1px solid rgba(255,255,255,0.06)" }}>
+        <CardContent className="py-4 text-sm text-slate-500">
+          Не удалось загрузить текущую квоту. Проверьте подключение к API.
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!info) return null;
 

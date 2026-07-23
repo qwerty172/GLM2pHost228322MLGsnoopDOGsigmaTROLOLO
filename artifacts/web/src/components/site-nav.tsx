@@ -38,9 +38,9 @@ interface Props {
   activePath?: NavKey | string;
 }
 
-function BalanceChip({ hostToken }: { hostToken: string }) {
-  const { data: wallet } = useGetWallet(hostToken, {
-    query: { retry: false, staleTime: 30_000, queryKey: getGetWalletQueryKey(hostToken) },
+function BalanceChip({ walletToken }: { walletToken: string }) {
+  const { data: wallet } = useGetWallet(walletToken, {
+    query: { retry: false, staleTime: 30_000, queryKey: getGetWalletQueryKey(walletToken) },
   });
 
   const blueLzt = wallet?.internalBalanceLzt ?? null;
@@ -66,6 +66,7 @@ function BalanceChip({ hostToken }: { hostToken: string }) {
 export function SiteNav({ activePath }: Props) {
   const { hostToken, logout } = useAuth();
   const { playerWalletToken, isGuest } = usePlayerWallet();
+  const walletToken = playerWalletToken ?? hostToken ?? null;
   const [, navigate] = useLocation();
 
   const isActive = (path: string) => activePath === path;
@@ -147,9 +148,9 @@ export function SiteNav({ activePath }: Props) {
           </div>
 
           {/* Balance chip — clickable link to wallet */}
-          {hostToken && (
+          {walletToken && (
             <Link href="/wallet" data-testid="link-nav-balance">
-              <BalanceChip hostToken={hostToken} />
+              <BalanceChip walletToken={walletToken} />
             </Link>
           )}
 

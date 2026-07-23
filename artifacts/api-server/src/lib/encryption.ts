@@ -20,6 +20,16 @@ function getKey(): Buffer {
   return buf;
 }
 
+/** True when WALLET_ENCRYPTION_KEY is set and valid (32-byte hex). */
+export function isWalletCryptoEnabled(): boolean {
+  try {
+    getKey();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function encryptSecret(plaintext: string): string {
   const iv = randomBytes(12);
   const cipher = createCipheriv(ALGO, getKey(), iv);

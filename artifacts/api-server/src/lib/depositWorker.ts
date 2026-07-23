@@ -5,6 +5,7 @@ import {
   depositsTable,
 } from "@workspace/db";
 import { logger } from "./logger";
+import { isWalletCryptoEnabled } from "./encryption";
 import { applyDepositCents, creditDevKeyDeposit } from "./economy";
 
 const POLL_INTERVAL_MS = Number(
@@ -292,6 +293,12 @@ export function startDepositWorker(): void {
   if (interval) return;
   if (process.env["WALLET_DEPOSIT_POLLING"] === "off") {
     logger.info("Deposit worker disabled (WALLET_DEPOSIT_POLLING=off)");
+    return;
+  }
+  if (!isWalletCryptoEnabled()) {
+    logger.info(
+      "Deposit worker disabled (WALLET_ENCRYPTION_KEY not configured)",
+    );
     return;
   }
   logger.info({ intervalMs: POLL_INTERVAL_MS }, "Starting deposit worker");
