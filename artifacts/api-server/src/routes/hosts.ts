@@ -27,7 +27,7 @@ import {
 } from "@workspace/api-zod";
 import { generateToken } from "../lib/tokens";
 import { ensureDepositAddressesForOwner } from "../lib/walletOwner";
-import { encryptSecret } from "../lib/encryption";
+import { encryptSecret, isWalletCryptoEnabled } from "../lib/encryption";
 import { headerUserToken } from "../lib/requestToken";
 import {
   listLibrary,
@@ -303,6 +303,13 @@ router.patch("/hosts/:hostToken/config", async (req, res): Promise<void> => {
   if (body.streamPlatform !== undefined) update.streamPlatform = body.streamPlatform;
   if (body.streamUrl !== undefined) update.streamUrl = body.streamUrl;
   if (body.streamKey !== undefined) {
+    if (body.streamKey !== "" && !isWalletCryptoEnabled()) {
+      res.status(503).json({
+        error: "encryption_unavailable",
+        message: "Шифрование не настроено (WALLET_ENCRYPTION_KEY)",
+      });
+      return;
+    }
     update.streamKey = body.streamKey === "" ? "" : encryptSecret(body.streamKey);
   }
   // Host service credit policy.
