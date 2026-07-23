@@ -35,3 +35,9 @@ id = "gcgJTX4RTXskBqSDs9rAU"
 uri = "file://PLAN.md"
 type = "text"
 title = "План разработки — 30 задач в 3 фазы"
+
+[[outputs]]
+id = "D8Ru-bdQi_dTFXl_p6Pd3"
+uri = "file://TESTPLAN.md"
+type = "text"
+title = "План тестирования и отладки — 7 фаз"
