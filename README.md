@@ -42,6 +42,8 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
 
+**Пошаговая инструкция «куда вводить команды»:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
+
 ### Требования
 
 - Node.js 20+
@@ -58,33 +60,33 @@ cd decentral-hub
 
 ### Первичная настройка
 
-```bash
-cp .env.example .env
-# Отредактируй DATABASE_URL (PostgreSQL) — остальное можно оставить по умолчанию
+**Windows (cmd или двойной клик):**
 
-# Автоматическая настройка (Linux/macOS/Git Bash):
+```bat
+git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
+cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
+git checkout cursor/local-test-prep-9755
+copy .env.example .env
+notepad .env
+scripts\setup-local.bat
+scripts\dev-local.bat
+```
+
+**Git Bash / Linux / macOS:**
+
+```bash
+git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
+cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
+git checkout cursor/local-test-prep-9755
+cp .env.example .env
+# отредактируй DATABASE_URL
+
 chmod +x scripts/*.sh
 ./scripts/setup-local.sh
+./scripts/dev-local.sh
 ```
 
-Или вручную:
-
-```bash
-pnpm install
-
-# Сгенерировать ключ шифрования кошелька:
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-# Вставь результат в .env -> WALLET_ENCRYPTION_KEY
-
-# Создай базу PostgreSQL:
-createdb decentral_hub
-
-# Применить схему
-pnpm --filter @workspace/db run push
-
-# Проверка типов
-pnpm run typecheck
-```
+Подробнее — [LOCAL_SETUP.md](./LOCAL_SETUP.md).
 
 ### Переменные окружения (`.env`)
 
