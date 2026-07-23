@@ -1,0 +1,73 @@
+# DecentralHub — Cursor AI Rules
+
+## Проект
+
+P2P cloud gaming платформа. Хосты стримят игры с Windows-ПК через WebRTC, игроки смотрят и управляют в браузере.
+
+## Монорепо (pnpm workspaces)
+
+```
+artifacts/web          → React + Vite SPA (хост-дашборд + player UI)
+artifacts/api-server   → Express 5 API (сигналинг, сессии, кошелёк)
+artifacts/host-agent   → Electron Windows-агент (захват экрана + SendInput)
+lib/db                 → Drizzle ORM схема (PostgreSQL 16)
+lib/api-spec           → openapi.yaml (источник истины для типов)
+lib/api-client-react   → автогенерированные React Query хуки (orval)
+lib/api-zod            → автогенерированные Zod-схемы (orval)
+```
+
+## Ключевые соглашения
+
+### TypeScript
+- Строгий режим везде (`strict: true`)
+- Zod v4 (`zod/v4`, не `zod`) для валидации
+- Типы API только из `lib/api-client-react` или `lib/api-zod` — никогда вручную
+
+### Кодогенерация
+- После изменений в `lib/api-spec/openapi.yaml` → запускать: `pnpm --filter @workspace/api-spec run codegen`
+- Никогда не редактировать файлы в `lib/api-client-react/src/` и `lib/api-zod/src/` вручную
+
+### База данных
+- ORM: Drizzle (`lib/db/src/schema/`)
+- Миграции: `pnpm --filter @workspace/db run push` (dev) или генерация SQL-миграций (prod)
+- Никаких raw SQL-запросов минуя Drizzle без серьёзной причины
+
+### API Server
+- Framework: Express 5 (async handlers нативны, не нужен `asyncHandler` враппер)
+- Логирование: pino (`lib/logger.ts`) — не `console.log`
+- Аутентификация хоста: Bearer-токен из `hostsTable.hostToken` (header `Authorization: Bearer <token>`)
+- Аутентификация игрока: header `X-Player-Token`
+
+### Web (React + Vite)
+- Состояние сервера: React Query через хуки из `@workspace/api-client-react`
+- UI: shadcn/ui компоненты + Tailwind CSS v4
+- Роутинг: wouter (не react-router)
+- Иконки: lucide-react
+- Toast: sonner
+
+### Агент (Electron)
+- Main process: `artifacts/host-agent/src/main/index.ts`
+- Renderer: `artifacts/host-agent/src/renderer/index.ts`
+- Нативный ввод: koffi → `user32.dll!SendInput`
+- Захват экрана: `desktopCapturer` (renderer process)
+- Локальный HTTP-сервер агента: порт 18080 (`/ping`, `/input`)
+
+## Язык UI
+
+**Весь пользовательский интерфейс на русском.** Технические идентификаторы (имена переменных, ключи API, названия таблиц) на английском.
+
+## Важные детали
+
+- Токен хоста хранится в localStorage: `streamline.hostToken`
+- Сигналинг WebRTC: WebSocket `/api/signal?role=host|player&token=<playerToken>`
+- DataChannel формат ввода: `{type:"input", kind:"key|mouse|wheel", action:"down|up|move", button:0/1/2, x, y}` (x,y нормализованы 0–1)
+- Онлайн-статус хоста: `lastSeenAt` < 2 минут назад (heartbeat каждые 30с)
+- LZT — внутренняя валюта платформы (Lozet Token)
+
+## Что НЕ делать
+
+- Не трогать `lib/api-client-react/src/` и `lib/api-zod/src/` — это автогенерат
+- Не добавлять `console.log` в production код (использовать pino)
+- Не использовать `react-router-dom` (в проекте wouter)
+- Не импортировать `zod` напрямую без `zod/v4` (breaking changes в v4)
+- Не запускать `pnpm install` в корне — только `pnpm install` из нужного пакета или `pnpm --filter <pkg> install`

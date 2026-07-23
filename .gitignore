@@ -47,3 +47,9 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Replit agent working memory (internal, not useful in GitHub)
+.agents/
+
+# Screenshot/asset dumps from Replit sessions
+attached_assets/
