@@ -1,6 +1,18 @@
 # DecentralHub — Журнал тестирования
 
-> Заполняй по мере прохождения [TESTPLAN.md](./TESTPLAN.md). Одна строка = один баг или находка.
+> Заполняй по мере прохождения [TESTPLAN.md](./TESTPLAN.md).
+
+## Прогресс по фазам
+
+| Фаза | Статус | Примечание |
+|---|---|---|
+| 0–1 | done | healthz ok, API + Web на :8080 / :5000 |
+| 2 | in progress | Обход страниц в браузере |
+| 3 | pending | P2P browser-host |
+| 4 | pending | Windows-агент |
+| 5 | pending | Экономика, биллинг |
+| 6 | pending | Квоты, VDS, embed |
+| 7 | pending | Регресс + итог |
 
 ## Баги
 

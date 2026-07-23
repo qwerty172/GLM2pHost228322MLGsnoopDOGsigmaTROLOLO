@@ -1,15 +1,38 @@
 # Локальный запуск на своём ПК
 
-> Эти команды вводятся **на твоём компьютере**, не в облачном Cursor Agent.
-> Agent уже имеет копию репозитория в облаке, но тестировать P2P/WebRTC нужно у себя.
+> Команды вводятся **на вашем компьютере** (cmd, Git Bash, Terminal в Cursor).
+> Cursor Agent чинит код; вы проверяете в браузере.
+
+Полный план тестирования: [TESTPLAN.md](./TESTPLAN.md). Журнал багов: [TESTLOG.md](./TESTLOG.md).
+
+---
+
+## Ты здесь
+
+Если у вас уже работает:
+
+| Проверка | URL |
+|---|---|
+| API | http://localhost:8080/api/healthz → `{"status":"ok"}` |
+| Web | http://localhost:5000 |
+
+**→ Фазы 0–1 пройдены. Переходите к [TESTPLAN § Фаза 2](./TESTPLAN.md#фаза-2--web-обход-всех-страниц--сейчас).**
+
+Быстрый чек перед обходом страниц:
+
+1. F12 → **Network** на :5000 — нет красных `/api`?
+2. Откройте http://localhost:5000/games — видна **Rogue Fable III**?
+3. Пройдите таблицу URL из TESTPLAN §2.2; баги — в TESTLOG
+
+Если healthz **не** ok — сначала [Быстрый старт](#быстрый-старт-windows) ниже.
+
+---
 
 ## Куда вводить команды (Windows)
 
-1. Установи [Git for Windows](https://git-scm.com/download/win) (если ещё нет)
-2. Открой **Git Bash** (Пуск → Git Bash) **или** **Windows Terminal** / **cmd**
-3. Вставляй команды туда и жми Enter
-
-Альтернатива: открой папку проекта в **Cursor / VS Code** → меню **Terminal → New Terminal** → вводи там.
+1. [Git for Windows](https://git-scm.com/download/win) — если нет `git`
+2. **Git Bash**, **cmd** или **Windows Terminal** (Win+R → `cmd`)
+3. Или **Cursor → Terminal → New Terminal** в папке проекта
 
 ## Требования
 
@@ -17,13 +40,13 @@
 - [pnpm](https://pnpm.io/installation): `npm install -g pnpm`
 - [PostgreSQL 16](https://www.postgresql.org/download/windows/)
 
-После установки PostgreSQL создай базу:
+База данных:
 
 ```sql
 CREATE DATABASE decentral_hub;
 ```
 
-Или в cmd: `createdb decentral_hub` (если `createdb` в PATH).
+---
 
 ## Быстрый старт (Windows)
 
@@ -36,20 +59,24 @@ copy .env.example .env
 notepad .env
 ```
 
-В `.env` измени строку `DATABASE_URL`, например:
+В `.env` измените `DATABASE_URL`:
 
 ```
-DATABASE_URL=postgresql://postgres:ТВОЙ_ПАРОЛЬ@localhost:5432/decentral_hub
+DATABASE_URL=postgresql://postgres:ВАШ_ПАРОЛЬ@localhost:5432/decentral_hub
 ```
-
-Дальше — два `.bat` файла (двойной клик или из cmd):
 
 ```bat
-scripts\setup-local.bat    :: один раз: install + db push
-scripts\dev-local.bat      :: запуск API + Web
+scripts\setup-local.bat
+scripts\dev-local.bat
+scripts\smoke-api.bat
 ```
 
-Открой в браузере: **http://localhost:5000**
+| Сервис | URL |
+|---|---|
+| Web | http://localhost:5000 |
+| API health | http://localhost:8080/api/healthz |
+
+---
 
 ## Быстрый старт (Git Bash / Linux / macOS)
 
@@ -64,12 +91,16 @@ cp .env.example .env
 chmod +x scripts/*.sh
 ./scripts/setup-local.sh
 ./scripts/dev-local.sh
+./scripts/smoke-api.sh
 ```
 
-## Что дальше
+---
 
-Следуй [TESTPLAN.md](./TESTPLAN.md), баги пиши в [TESTLOG.md](./TESTLOG.md).
+## Роли
 
-## Почему agent сам не может
+| Кто | Задача |
+|---|---|
+| **Вы** | Браузер, 2 окна WebRTC, Electron-агент, скрины/console при багах |
+| **Agent** | Фиксы в коде, TESTPLAN/TESTLOG, smoke при необходимости |
 
-Cloud Agent работает на удалённом сервере без твоего PostgreSQL, без браузера с WebRTC и без Windows для Electron-агента. Подготовить код и инструкции — может. Запустить у тебя на ПК — только ты.
+Не нужно заново clone/setup, если healthz ok и `dev-local.bat` уже запущен.
