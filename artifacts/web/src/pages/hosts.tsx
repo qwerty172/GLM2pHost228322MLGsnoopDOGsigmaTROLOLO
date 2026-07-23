@@ -1,6 +1,8 @@
 import { Link, useLocation } from "wouter";
 import { ChevronDown, ChevronUp, Cpu, Gamepad2, MemoryStick, Monitor, Star, Wifi } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useBrowserPingMs } from "@/hooks/use-browser-ping";
+import { playJoinPath } from "@/lib/play-link";
 import { toast } from "sonner";
 import {
   useListPublicHosts,
@@ -22,26 +24,6 @@ type LibraryGame = {
   genre: string;
   pricePerMinuteLzt: number;
 };
-
-function useBrowserPingMs(): number | null {
-  const [pingMs, setPingMs] = useState<number | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    async function probe() {
-      try {
-        const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
-        const t0 = Date.now();
-        await fetch(`${base}/api/public/ping`, { cache: "no-store" });
-        if (!cancelled) setPingMs(Date.now() - t0);
-      } catch {
-        // ignore
-      }
-    }
-    void probe();
-    return () => { cancelled = true; };
-  }, []);
-  return pingMs;
-}
 
 function LatencyBadge({ totalMs }: { totalMs: number | null }) {
   if (totalMs == null) return null;
@@ -149,7 +131,7 @@ function GameChips({ games }: { games: LibraryGame[] }) {
 }
 
 type SessionResult =
-  | { ok: true; playerToken: string }
+  | { ok: true; playerToken: string; joinCode?: string | null }
   | { ok: false; reason: "game_unavailable" | "host_offline" | "error" };
 
 // POST /api/public/sessions { hostId, gameId? }
@@ -167,8 +149,8 @@ async function requestSession(
       body: JSON.stringify({ hostId, ...(gameId ? { gameId } : {}) }),
     });
     if (resp.ok) {
-      const data = (await resp.json()) as { playerToken: string };
-      return { ok: true, playerToken: data.playerToken };
+      const data = (await resp.json()) as { playerToken: string; joinCode?: string | null };
+      return { ok: true, playerToken: data.playerToken, joinCode: data.joinCode };
     }
     if (resp.status === 409) {
       return { ok: false, reason: "game_unavailable" };
@@ -277,10 +259,12 @@ function PlayButton({
   hostId,
   games,
   fallbackPlayerToken,
+  fallbackJoinCode,
 }: {
   hostId: string;
   games: LibraryGame[];
   fallbackPlayerToken: string;
+  fallbackJoinCode?: string | null;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -297,7 +281,7 @@ function PlayButton({
     try {
       const result = await requestSession(hostId, game.gameId);
       if (result.ok) {
-        navigate(`/play/${result.playerToken}`);
+        navigate(playJoinPath(result.joinCode ?? result.playerToken));
         return;
       }
       if (result.reason === "game_unavailable") {
@@ -305,7 +289,7 @@ function PlayButton({
       }
       // Fall back to the host's known session token (backward compat).
       if (fallbackPlayerToken) {
-        navigate(`/play/${fallbackPlayerToken}`);
+        navigate(playJoinPath(fallbackJoinCode ?? fallbackPlayerToken));
       } else {
         navigate(`/games/${game.slug}`);
       }
@@ -317,7 +301,7 @@ function PlayButton({
   const handlePlay = async () => {
     if (games.length === 0) {
       // No library — connect directly via the session token we already have.
-      navigate(`/play/${fallbackPlayerToken}`);
+      navigate(playJoinPath(fallbackJoinCode ?? fallbackPlayerToken));
     } else if (games.length === 1) {
       await connectToGame(games[0]);
     } else {
@@ -360,6 +344,7 @@ export default function HostsPage() {
       queryKey: getListPublicHostsQueryKey(),
       refetchOnWindowFocus: true,
       staleTime: 15_000,
+      refetchInterval: 60_000,
     },
   });
 
@@ -597,6 +582,7 @@ export default function HostsPage() {
                         hostId={h.id}
                         games={games}
                         fallbackPlayerToken={h.playerToken}
+                        fallbackJoinCode={(h as { joinCode?: string | null }).joinCode}
                       />
                     </div>
                   </div>

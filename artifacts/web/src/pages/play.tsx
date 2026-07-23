@@ -17,6 +17,11 @@ import { Label } from "@/components/ui/label";
 import { TouchOverlay } from "@/components/TouchOverlay";
 import { toast } from "sonner";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import {
+  SESSION_PLAYER_TOKEN_KEY,
+  resolvePlaySlug,
+  stripTokenFromPlayUrl,
+} from "@/lib/play-link";
 
 const LZT_PER_USDT = 200;
 type PaymentSource = "auto" | "blue" | "green";
@@ -114,8 +119,36 @@ function IframeTestSession({ iframeUrl, gameTitle }: { iframeUrl: string; gameTi
 
 export default function Play() {
   const [, params] = useRoute("/play/:playerToken");
-  const playerToken = params?.playerToken || "";
+  const slugFromUrl = params?.playerToken;
   const search$ = useSearch();
+  const [playerToken, setPlayerToken] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return sessionStorage.getItem(SESSION_PLAYER_TOKEN_KEY) ?? "";
+  });
+  const [resolvingSlug, setResolvingSlug] = useState(false);
+
+  useEffect(() => {
+    if (!slugFromUrl) return;
+    let cancelled = false;
+    setResolvingSlug(true);
+    void resolvePlaySlug(slugFromUrl)
+      .then((token) => {
+        if (cancelled) return;
+        sessionStorage.setItem(SESSION_PLAYER_TOKEN_KEY, token);
+        setPlayerToken(token);
+        stripTokenFromPlayUrl();
+      })
+      .catch(() => {
+        if (!cancelled) toast.error("Ссылка недействительна или истекла");
+      })
+      .finally(() => {
+        if (!cancelled) setResolvingSlug(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [slugFromUrl]);
+
   const blockMinutesParam = (() => {
     const sp = new URLSearchParams(search$);
     const v = Number(sp.get("block"));
@@ -150,7 +183,7 @@ export default function Play() {
     query: {
       enabled: !!playerWalletToken,
       queryKey: getGetWalletQueryKey(playerWalletToken || ""),
-      refetchInterval: 30000,
+      refetchInterval: 15_000,
     },
   });
   const claimSession = useClaimSession();
@@ -278,15 +311,19 @@ export default function Play() {
     }
   }, [session?.status, (session as typeof session & { endReason?: string | null })?.endReason, isPlaying]);
 
-  // Initialize block countdown from session data when session loads
+  // Initialize block countdown from server-authoritative remaining minutes
   useEffect(() => {
-    if (!session || !isPlaying) return;
-    const s = session as typeof session & { blockMinutes?: number | null };
-    if (!s.blockMinutes) return;
-    if (blockMinsLeft === null) {
+    if (!session) return;
+    const s = session as typeof session & {
+      blockMinutes?: number | null;
+      blockMinsRemaining?: number | null;
+    };
+    if (s.blockMinsRemaining != null) {
+      setBlockMinsLeft(s.blockMinsRemaining);
+    } else if (s.blockMinutes != null && blockMinsLeft === null) {
       setBlockMinsLeft(s.blockMinutes);
     }
-  }, [session?.id, isPlaying]);
+  }, [session?.id, (session as typeof session & { blockMinsRemaining?: number | null })?.blockMinsRemaining, session?.blockMinutes]);
 
   // Client-side block countdown: ticks every minute in sync with billing
   useEffect(() => {
@@ -1013,6 +1050,36 @@ export default function Play() {
     return () => clearInterval(id);
   }, [isPlaying, adaptiveBitrate, showStatsOverlay, dataChannelOpen]);
 
+  if (resolvingSlug || (slugFromUrl && !playerToken)) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-sky-400" />
+      </div>
+    );
+  }
+
+  if (!playerToken) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center p-6">
+        <Card className="max-w-md w-full" style={{ background: "#0a1018", border: "1px solid rgba(14,165,233,0.3)" }}>
+          <CardHeader>
+            <CardTitle className="text-white">Нужна ссылка от хоста</CardTitle>
+            <CardDescription className="text-slate-400">
+              Откройте ссылку на игру, которую прислал хост, или выберите игру в каталоге.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/games">
+              <Button className="w-full" style={{ background: "#0ea5e9", color: "#fff" }}>
+                Перейти в каталог
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div
@@ -1382,7 +1449,7 @@ export default function Play() {
               <Coins className="h-10 w-10 text-yellow-400 mx-auto mb-3" />
               <CardTitle className="text-white">Баланс исчерпан</CardTitle>
               <CardDescription className="text-slate-400">
-                Сессия завершена — на балансе не хватило LZT для следующей минуты.
+                Сессия завершена — на балансе не хватило ЛТ для следующей минуты.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
@@ -1521,8 +1588,8 @@ export default function Play() {
           );
         })()}
 
-        {/* Live balance HUD */}
-        {estimatedBalanceLzt !== null && session && (() => {
+        {/* Live balance HUD (hidden for prepaid block sessions) */}
+        {estimatedBalanceLzt !== null && session && !(session as typeof session & { blockMinutes?: number | null }).blockMinutes && (() => {
           const rateLztPerMin = Math.round(Number(session.ratePerMinute) * LZT_PER_USDT);
           const minsLeft = rateLztPerMin > 0 ? Math.floor(estimatedBalanceLzt / rateLztPerMin) : 999;
           const isWarning = minsLeft < 5 && minsLeft >= 2;
@@ -1531,18 +1598,28 @@ export default function Play() {
           const hudBg = isDanger ? "rgba(239,68,68,0.15)" : isWarning ? "rgba(234,179,8,0.12)" : "rgba(14,165,233,0.1)";
           const hudBorder = isDanger ? "rgba(239,68,68,0.4)" : isWarning ? "rgba(234,179,8,0.35)" : "rgba(14,165,233,0.25)";
           return (
-            <div
-              className="flex items-center gap-3 rounded-lg px-3 py-1.5 pointer-events-none"
-              style={{ background: hudBg, border: `1px solid ${hudBorder}` }}
-            >
-              {isDanger && <TrendingDown className="w-3.5 h-3.5 animate-pulse" style={{ color: hudColor }} />}
-              <div className="text-right">
-                <div className="font-mono font-bold text-sm leading-none" style={{ color: hudColor }}>
-                  {estimatedBalanceLzt.toLocaleString("ru-RU", { maximumFractionDigits: 0 })} LZT
+            <div className="flex flex-col items-end gap-1 pointer-events-none">
+              {isDanger && (
+                <div
+                  className="rounded px-2 py-0.5 text-[10px] font-semibold text-yellow-950"
+                  style={{ background: "#eab308" }}
+                >
+                  Осталось менее 2 минут
                 </div>
-                <div className="font-mono text-[10px] mt-0.5" style={{ color: hudColor, opacity: 0.75 }}>
-                  <Clock className="w-2.5 h-2.5 inline mr-0.5" />
-                  {minsLeft >= 999 ? "∞" : `~${minsLeft} мин`}
+              )}
+              <div
+                className="flex items-center gap-3 rounded-lg px-3 py-1.5"
+                style={{ background: hudBg, border: `1px solid ${hudBorder}` }}
+              >
+                {isDanger && <TrendingDown className="w-3.5 h-3.5 animate-pulse" style={{ color: hudColor }} />}
+                <div className="text-right">
+                  <div className="font-mono font-bold text-sm leading-none" style={{ color: hudColor }}>
+                    {estimatedBalanceLzt.toLocaleString("ru-RU", { maximumFractionDigits: 0 })} ЛТ
+                  </div>
+                  <div className="font-mono text-[10px] mt-0.5" style={{ color: hudColor, opacity: 0.75 }}>
+                    <Clock className="w-2.5 h-2.5 inline mr-0.5" />
+                    {minsLeft >= 999 ? "∞" : `~${minsLeft} мин`}
+                  </div>
                 </div>
               </div>
             </div>

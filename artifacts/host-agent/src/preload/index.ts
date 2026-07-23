@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry, SteamScanResult, QuotaStatusEvent } from "../shared/messages";
+import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, GamepadState, LibraryEntry, SteamScanResult, QuotaStatusEvent } from "../shared/messages";
 
 const api = {
   getConfig: (): Promise<HostConfig> => ipcRenderer.invoke("config:get"),
@@ -10,6 +10,15 @@ const api = {
   },
   injectInput: (event: InputEvent): void => {
     ipcRenderer.send("input:inject", event);
+  },
+  injectGamepad: (state: GamepadState): void => {
+    ipcRenderer.send("gamepad:inject", state);
+  },
+  connectGamepad: (): void => {
+    ipcRenderer.send("gamepad:connect");
+  },
+  disconnectGamepad: (): void => {
+    ipcRenderer.send("gamepad:disconnect");
   },
   // Legacy single-game launch via HostConfig stored in config file.
   launchApp: (): Promise<{ ok: boolean; pid?: number; error?: string }> =>
@@ -99,6 +108,8 @@ const api = {
   // Input injector (koffi/SendInput) health — for the diagnostics panel.
   getInjectorStatus: (): Promise<{ ok: boolean; error: string; platform: string }> =>
     ipcRenderer.invoke("agent:get-injector-status"),
+  getGamepadInjectorStatus: (): Promise<{ ok: boolean; error: string; platform: string; connected: boolean }> =>
+    ipcRenderer.invoke("agent:get-gamepad-injector-status"),
 
   // ── Auto-quota (main-process scheduler) ──────────────────────────────────
   // Register a listener that fires every time the main process emits a

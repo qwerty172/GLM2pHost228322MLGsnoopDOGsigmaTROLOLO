@@ -3,6 +3,7 @@ export * from "./hosts";
 export * from "./hostGames";
 export * from "./players";
 export * from "./sessions";
+export * from "./joinCodes";
 export * from "./withdrawals";
 export * from "./depositAddresses";
 export * from "./deposits";

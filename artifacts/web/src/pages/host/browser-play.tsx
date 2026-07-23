@@ -95,8 +95,10 @@ export default function BrowserPlay() {
     if (!session) return;
     const origin = window.location.origin;
     const base = import.meta.env.BASE_URL;
+    const slug =
+      (session as { joinCode?: string | null }).joinCode ?? session.playerToken;
     setShareUrl(
-      `${origin}${base.replace(/\/$/, "")}/play/${session.playerToken}`,
+      `${origin}${base.replace(/\/$/, "")}/play/${slug}`,
     );
   }, [session]);
 

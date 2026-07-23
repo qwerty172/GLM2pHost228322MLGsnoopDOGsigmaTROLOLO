@@ -32,6 +32,8 @@ import type { ScheduleSlot } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { SiteNav } from "@/components/site-nav";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { useBrowserPingMs } from "@/hooks/use-browser-ping";
+import { playJoinPath } from "@/lib/play-link";
 
 const LZT_PER_USD = 200;
 const DEFAULT_CREDIT_LZT = 3000;
@@ -88,6 +90,7 @@ type LibraryHost = {
   pricePerMinuteUsd: number;
   status: "online" | "available" | "scheduled";
   playerToken: string | null;
+  joinCode?: string | null;
   scheduleMode: string;
   pingMs: number | null;
   hostTier?: "meets_min" | "above_rec";
@@ -103,29 +106,9 @@ function useLibraryHosts(slug: string) {
       return res.json();
     },
     enabled: !!slug,
-    refetchInterval: 20_000,
+    refetchInterval: 60_000,
     staleTime: 10_000,
   });
-}
-
-function useBrowserPingMs(): number | null {
-  const [pingMs, setPingMs] = useState<number | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    async function probe() {
-      try {
-        const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
-        const t0 = Date.now();
-        await fetch(`${base}/api/public/ping`, { cache: "no-store" });
-        if (!cancelled) setPingMs(Date.now() - t0);
-      } catch {
-        // ignore — just leave null
-      }
-    }
-    void probe();
-    return () => { cancelled = true; };
-  }, []);
-  return pingMs;
 }
 
 function sortHostsByLatency(hosts: LibraryHost[], browserRtt: number | null): LibraryHost[] {
@@ -244,7 +227,8 @@ export default function GameDetailPage() {
             if (preSessionHost.playerToken) {
               setSelectedBlockMinutes(blockMins ?? null);
               const qs = blockMins ? `?block=${blockMins}` : "";
-              navigate(`/play/${preSessionHost.playerToken}${qs}`);
+              const slug = preSessionHost.joinCode ?? preSessionHost.playerToken;
+              navigate(`${playJoinPath(slug)}${qs}`);
             }
           }}
         />
@@ -912,25 +896,14 @@ function PreSessionModal({
     },
   });
 
-  const [pingMs, setPingMs] = useState<number | null>(null);
-  const [pinging, setPinging] = useState(true);
-  const didPing = useRef(false);
-  const [blockChoice, setBlockChoice] = useState<"unlimited" | "10" | "15" | "25">("unlimited");
+  const browserRtt = useBrowserPingMs();
+  const totalPingMs =
+    browserRtt != null && host.pingMs != null
+      ? Math.round(browserRtt + host.pingMs)
+      : browserRtt;
+  const pinging = totalPingMs == null;
 
-  useEffect(() => {
-    if (didPing.current) return;
-    didPing.current = true;
-    const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
-    const t0 = performance.now();
-    fetch(`${base}/api/public/stats`, { method: "GET", cache: "no-store" })
-      .then(() => {
-        setPingMs(Math.round(performance.now() - t0));
-      })
-      .catch(() => {
-        setPingMs(null);
-      })
-      .finally(() => setPinging(false));
-  }, []);
+  const [blockChoice, setBlockChoice] = useState<"unlimited" | "10" | "15" | "25">("unlimited");
 
   const balanceLzt = (wallet?.internalBalanceLzt ?? 0) + (wallet?.withdrawableBalanceLzt ?? 0);
   const creditLimit = (wallet as any)?.creditLimitLzt ?? DEFAULT_CREDIT_LZT;
@@ -952,15 +925,15 @@ function PreSessionModal({
   const canStart = minsAvailable >= 1 && canAffordBlock;
 
   const pingColor =
-    pingMs === null ? "#64748b"
-    : pingMs < 60 ? "#2dd4bf"
-    : pingMs < 120 ? "#eab308"
+    totalPingMs === null ? "#64748b"
+    : totalPingMs < 60 ? "#2dd4bf"
+    : totalPingMs < 120 ? "#eab308"
     : "#ef4444";
 
   const pingLabel =
-    pingMs === null ? "нет данных"
-    : pingMs < 60 ? "отлично"
-    : pingMs < 120 ? "нормально"
+    totalPingMs === null ? "нет данных"
+    : totalPingMs < 60 ? "отлично"
+    : totalPingMs < 120 ? "нормально"
     : "высокий";
 
   return (
@@ -1004,7 +977,7 @@ function PreSessionModal({
               ) : (
                 <>
                   <p className="text-lg font-bold font-mono" style={{ color: pingColor }}>
-                    {pingMs !== null ? `${pingMs} мс` : "—"}
+                    {totalPingMs !== null ? `${totalPingMs} мс` : "—"}
                   </p>
                   <p className="text-[10px] mt-0.5" style={{ color: pingColor, opacity: 0.75 }}>
                     {pingLabel}

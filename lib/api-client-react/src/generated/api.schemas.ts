@@ -286,6 +286,16 @@ export interface Session {
    * @nullable
    */
   blockReservedLzt?: number | null;
+  /**
+   * Server-authoritative minutes left in a prepaid block session (null when not block-billed).
+   * @nullable
+   */
+  blockMinsRemaining?: number | null;
+  /**
+   * Short-lived code for share links (/play/:joinCode). Reusable until expiry.
+   * @nullable
+   */
+  joinCode?: string | null;
   /** Host self-test session — completely free, skipped by billing. */
   isTest?: boolean;
 }
@@ -320,6 +330,12 @@ export interface ClaimSessionBody {
    * @nullable
    */
   blockMinutes?: number | null;
+}
+
+export interface ExchangeJoinCodeResponse {
+  /** Long-lived session token — store in memory, never put back in the URL */
+  playerToken: string;
+  sessionId: string;
 }
 
 /**
@@ -482,6 +498,11 @@ export interface PublicHostListItem {
   status: string;
   /** Share token so anonymous visitors can join the open session. */
   playerToken: string;
+  /**
+   * Short join code for share links (preferred over playerToken in URLs).
+   * @nullable
+   */
+  joinCode?: string | null;
   /** Strength badge vs the site-wide baseline. below_min hosts are excluded from this list entirely. */
   hostTier?: PublicHostListItemHostTier;
 }

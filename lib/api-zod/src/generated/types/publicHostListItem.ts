@@ -25,6 +25,11 @@ export interface PublicHostListItem {
   status: string;
   /** Share token so anonymous visitors can join the open session. */
   playerToken: string;
+  /**
+   * Short join code for share links (preferred over playerToken in URLs).
+   * @nullable
+   */
+  joinCode?: string | null;
   /** Strength badge vs the site-wide baseline. below_min hosts are excluded from this list entirely. */
   hostTier?: PublicHostListItemHostTier;
 }

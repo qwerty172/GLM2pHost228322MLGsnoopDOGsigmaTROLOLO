@@ -13,6 +13,7 @@ import {
   ListPublicHostsResponse,
   GetPublicStatsResponse,
 } from "@workspace/api-zod";
+import { ensureJoinCodeForSession } from "../lib/joinCodes";
 import { isHostAvailableNow } from "../lib/schedule";
 import { generalHostTier } from "../lib/hostTier";
 import { mintPreviewToken } from "../lib/signaling";
@@ -197,6 +198,7 @@ router.get("/hosts", async (_req, res): Promise<void> => {
       // True when the agent sent a heartbeat within the last 2 minutes.
       isOnline,
       playerToken: s.playerToken,
+      joinCode: await ensureJoinCodeForSession(s.id),
       // New: multi-game library entries for this host.
       games,
       // Host-to-server RTT measured at last heartbeat (null until first measurement).
@@ -262,6 +264,7 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
   const sessionRows = await db
     .select({
       hostId: sessionsTable.hostId,
+      sessionId: sessionsTable.id,
       playerToken: sessionsTable.playerToken,
       status: sessionsTable.status,
     })
@@ -274,15 +277,20 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
       ),
     );
 
-  const sessionByHost = new Map<string, string>();
+  const sessionByHost = new Map<string, { playerToken: string; sessionId: string }>();
   for (const s of sessionRows) {
-    if (!sessionByHost.has(s.hostId)) sessionByHost.set(s.hostId, s.playerToken);
+    if (!sessionByHost.has(s.hostId)) {
+      sessionByHost.set(s.hostId, { playerToken: s.playerToken, sessionId: s.sessionId });
+    }
   }
 
   const now = new Date();
-  const result = libraryRows
-    .map(({ hg, host: h }) => {
-      const playerToken = sessionByHost.get(h.id) ?? null;
+  const result = await Promise.all(
+    libraryRows
+    .map(async ({ hg, host: h }) => {
+      const live = sessionByHost.get(h.id) ?? null;
+      const playerToken = live?.playerToken ?? null;
+      const joinCode = live ? await ensureJoinCodeForSession(live.sessionId) : null;
       const available = isHostAvailableNow(
         h.scheduleMode,
         h.scheduleJson ?? [],
@@ -297,13 +305,17 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
         pricePerMinuteUsd: hg.pricePerMinuteLzt / 200,
         status: playerToken ? "online" : (available ? "available" : "scheduled"),
         playerToken,
+        joinCode,
         scheduleMode: h.scheduleMode,
         // Host-to-server RTT measured at last heartbeat (null until first measurement).
         pingMs: h.pingMs ?? null,
         // Strength badge vs the site-wide baseline: "meets_min" | "above_rec".
         hostTier: generalHostTier(h.pcSpecs),
       };
-    })
+    }),
+  );
+
+  const filtered = result
     // Below-minimum hosts are kept out of the discoverable catalog/search.
     .filter((r) => r.hostTier !== "below_min");
 
@@ -311,7 +323,7 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
   // then by price asc.
   const statusOrder = { online: 0, available: 1, scheduled: 2 };
   const tierRank = (t: string) => (t === "above_rec" ? 0 : 1);
-  result.sort(
+  filtered.sort(
     (a, b) =>
       tierRank(a.hostTier) - tierRank(b.hostTier) ||
       (statusOrder[a.status as keyof typeof statusOrder] ?? 2) -
@@ -319,7 +331,7 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
       a.pricePerMinuteLzt - b.pricePerMinuteLzt,
   );
 
-  res.json(result);
+  res.json(filtered);
 });
 
 // ---------------------------------------------------------------------------
@@ -370,6 +382,7 @@ router.post("/public/sessions", async (req, res): Promise<void> => {
 
   const sessions = await db
     .select({
+      id: sessionsTable.id,
       playerToken: sessionsTable.playerToken,
       status: sessionsTable.status,
     })
@@ -403,7 +416,9 @@ router.post("/public/sessions", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json({ playerToken: sessions[0].playerToken });
+  const session = sessions[0]!;
+  const joinCode = await ensureJoinCodeForSession(session.id);
+  res.json({ playerToken: session.playerToken, joinCode });
 });
 
 // ---------------------------------------------------------------------------

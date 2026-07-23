@@ -43,6 +43,16 @@ export interface Session {
    * @nullable
    */
   blockReservedLzt?: number | null;
+  /**
+   * Server-authoritative minutes left in a prepaid block session (null when not block-billed).
+   * @nullable
+   */
+  blockMinsRemaining?: number | null;
+  /**
+   * Short-lived code for share links (/play/:joinCode). Reusable until expiry.
+   * @nullable
+   */
+  joinCode?: string | null;
   /** Host self-test session — completely free, skipped by billing. */
   isTest?: boolean;
 }

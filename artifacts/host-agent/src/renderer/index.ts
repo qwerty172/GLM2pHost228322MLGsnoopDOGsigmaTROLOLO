@@ -10,6 +10,9 @@ declare global {
       setConfig: (next: HostConfig) => Promise<HostConfig>;
       setStatus: (status: AgentStatus, message?: string) => void;
       injectInput: (event: InputEvent) => void;
+      injectGamepad: (state: { axes: number[]; buttons: number[] }) => void;
+      connectGamepad: () => void;
+      disconnectGamepad: () => void;
       launchApp: () => Promise<{ ok: boolean; pid?: number; error?: string }>;
       launchEntry: (entry: {
         appPath: string;
@@ -42,6 +45,7 @@ declare global {
       updatePcSpecs: (hostToken: string, apiBaseUrl: string) => Promise<{ ok: boolean; error?: string; pcSpecs?: { gpu: string; cpu: string; ramGb: number } }>;
       getPcSpecs: () => Promise<{ gpu: string; cpu: string; ramGb: number }>;
       getInjectorStatus: () => Promise<{ ok: boolean; error: string; platform: string }>;
+      getGamepadInjectorStatus: () => Promise<{ ok: boolean; error: string; platform: string; connected: boolean }>;
       // Auto-quota IPC (main-process scheduler)
       onQuotaStatus: (cb: (ev: { statusText: string; attachedQuotaId: string | null; attachedQuotaTitle: string | null; hasAttached: boolean }) => void) => () => void;
       quotaRunCycle: () => void;
@@ -945,6 +949,13 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     return;
   }
   isStreaming = true;
+  window.agent.connectGamepad();
+  void window.agent.getGamepadInjectorStatus().then((st) => {
+    if (!st.ok && !gamepadWarnedOnce) {
+      gamepadWarnedOnce = true;
+      log(`[gamepad] ${st.error}`);
+    }
+  });
 
   setStatus("connecting", "Player joined — preparing stream…");
   resetPipeline(true);
@@ -1160,14 +1171,7 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
             Math.max(-1, Math.min(1, typeof v === "number" ? v : 0)),
           );
           const buttons = rawBtns.map((v) => (v ? 1 : 0));
-          // Forward to ViGEm/XInput injection layer when the IPC method is
-          // available (added in a future task). Until then, warn once and skip.
-          if (typeof (window.agent as Record<string, unknown>)["injectGamepad"] === "function") {
-            (window.agent as unknown as { injectGamepad: (s: { axes: number[]; buttons: number[] }) => void }).injectGamepad({ axes, buttons });
-          } else if (!gamepadWarnedOnce) {
-            gamepadWarnedOnce = true;
-            log("[gamepad] ViGEm/XInput backend not connected — overlay input received but not injected.");
-          }
+          window.agent.injectGamepad({ axes, buttons });
           return;
         }
         const event =
@@ -1449,6 +1453,8 @@ async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
 
 function teardownPeer(cfg: HostConfig): void {
   isStreaming = false;
+  window.agent.disconnectGamepad();
+  gamepadWarnedOnce = false;
   try { dataChannel?.close(); } catch { /* */ }
   dataChannel = null;
   try { pc?.close(); } catch { /* */ }

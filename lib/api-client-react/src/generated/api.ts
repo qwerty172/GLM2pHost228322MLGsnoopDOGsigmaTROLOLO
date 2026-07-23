@@ -36,6 +36,7 @@ import type {
   DetachQuotaFromSessionBody,
   EndSessionBody,
   ErrorResponse,
+  ExchangeJoinCodeResponse,
   FundLoanRequestBody,
   FundLoanResponse,
   GameDetail,
@@ -1667,6 +1668,90 @@ export const useClaimSession = <
   TContext
 > => {
   return useMutation(getClaimSessionMutationOptions(options));
+};
+
+/**
+ * @summary Exchange a short-lived join code for a session playerToken
+ */
+export const getExchangeJoinCodeUrl = (code: string) => {
+  return `/api/join-codes/${code}/exchange`;
+};
+
+export const exchangeJoinCode = async (
+  code: string,
+  options?: RequestInit,
+): Promise<ExchangeJoinCodeResponse> => {
+  return customFetch<ExchangeJoinCodeResponse>(getExchangeJoinCodeUrl(code), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getExchangeJoinCodeMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof exchangeJoinCode>>,
+    TError,
+    { code: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof exchangeJoinCode>>,
+  TError,
+  { code: string },
+  TContext
+> => {
+  const mutationKey = ["exchangeJoinCode"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof exchangeJoinCode>>,
+    { code: string }
+  > = (props) => {
+    const { code } = props ?? {};
+
+    return exchangeJoinCode(code, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ExchangeJoinCodeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof exchangeJoinCode>>
+>;
+
+export type ExchangeJoinCodeMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Exchange a short-lived join code for a session playerToken
+ */
+export const useExchangeJoinCode = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof exchangeJoinCode>>,
+    TError,
+    { code: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof exchangeJoinCode>>,
+  TError,
+  { code: string },
+  TContext
+> => {
+  return useMutation(getExchangeJoinCodeMutationOptions(options));
 };
 
 /**

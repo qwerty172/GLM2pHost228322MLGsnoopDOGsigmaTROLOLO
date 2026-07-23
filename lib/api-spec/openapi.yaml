@@ -524,6 +524,32 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /join-codes/{code}/exchange:
+    post:
+      operationId: exchangeJoinCode
+      tags: [sessions]
+      summary: Exchange a short-lived join code for a session playerToken
+      parameters:
+        - in: path
+          name: code
+          required: true
+          schema:
+            type: string
+            description: Short join code from the share link (6–8 chars)
+      responses:
+        "200":
+          description: Exchange successful — playerToken is returned once, not for URLs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExchangeJoinCodeResponse"
+        "404":
+          description: Join code invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /sessions/{id}/end:
     patch:
       operationId: endSession
@@ -1926,6 +1952,12 @@ components:
         blockReservedLzt:
           type: ["integer", "null"]
           description: Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.
+        blockMinsRemaining:
+          type: ["integer", "null"]
+          description: Server-authoritative minutes left in a prepaid block session (null when not block-billed).
+        joinCode:
+          type: ["string", "null"]
+          description: Short-lived code for share links (/play/:joinCode). Reusable until expiry.
         isTest:
           type: boolean
           description: Host self-test session — completely free, skipped by billing.
@@ -1965,6 +1997,19 @@ components:
           description: Block size in minutes chosen at session start (10, 15, or 25). Omit/null for unlimited per-minute billing.
       required:
         - playerWalletToken
+
+    ExchangeJoinCodeResponse:
+      type: object
+      properties:
+        playerToken:
+          type: string
+          description: Long-lived session token — store in memory, never put back in the URL
+        sessionId:
+          type: string
+          format: uuid
+      required:
+        - playerToken
+        - sessionId
 
     CreateBrowserHostSessionBody:
       type: object
@@ -2244,6 +2289,9 @@ components:
         playerToken:
           type: string
           description: Share token so anonymous visitors can join the open session.
+        joinCode:
+          type: ["string", "null"]
+          description: Short join code for share links (preferred over playerToken in URLs).
         hostTier:
           type: string
           enum: [meets_min, above_rec]

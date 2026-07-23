@@ -83,6 +83,7 @@ function Router() {
       <Route path="/quotas/:id" component={QuotaDetailPage} />
       {/* Standalone wallet — accessible to any user, no auth guard */}
       <Route path="/wallet" component={StandaloneWallet} />
+      <Route path="/play" component={Play} />
       <Route path="/play/:playerToken" component={Play} />
       {/* Embeddable third-party widget (task-125) — no auth guard, standalone. */}
       <Route path="/embed" component={Embed} />

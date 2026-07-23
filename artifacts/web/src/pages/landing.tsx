@@ -16,6 +16,7 @@ import {
   Server,
 } from "lucide-react";
 import { useState } from "react";
+import { playJoinPath } from "@/lib/play-link";
 import { useQuery } from "@tanstack/react-query";
 import {
   useGetPublicStats,
@@ -106,7 +107,7 @@ export default function Landing() {
     if (!token) {
       token = await registerGuest();
     }
-    navigate(`/play/${host.playerToken}`);
+    navigate(playJoinPath((host as { joinCode?: string | null }).joinCode ?? host.playerToken));
   };
 
   const playableHosts = (liveHosts ?? [])

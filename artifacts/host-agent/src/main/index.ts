@@ -6,6 +6,14 @@ import { execSync } from "node:child_process";
 import { loadConfig, saveConfig } from "./config";
 import { createTray, setStatus } from "./tray";
 import { initInputInjector, injectInput, getInjectorStatus } from "./input-injection";
+import {
+  initGamepadInjector,
+  injectGamepad,
+  connectGamepad,
+  disconnectGamepad,
+  destroyGamepadInjector,
+  getGamepadInjectorStatus,
+} from "./gamepad-injection";
 import { createPingServer, PING_PORT } from "./ping-server";
 import { launchApp, launchEntry, killApp, setExitCallback } from "./app-launcher";
 import { fetchLibrary, fetchHostSchedule, patchLocalAvailability, sendHeartbeat } from "./api-client";
@@ -128,6 +136,7 @@ void app.whenReady().then(() =>
 
 async function startAgent(): Promise<void> {
   initInputInjector();
+  initGamepadInjector();
   const config = await loadConfig();
   applyAutoLaunch(config);
   void syncScheduleFromServer();
@@ -167,6 +176,18 @@ async function startAgent(): Promise<void> {
   ipcMain.on("input:inject", (_e, event: InputEvent) => {
     injectInput(event);
   });
+
+  ipcMain.on("gamepad:inject", (_e, state: { axes: number[]; buttons: number[] }) => {
+    injectGamepad(state);
+  });
+  ipcMain.on("gamepad:connect", () => {
+    connectGamepad();
+  });
+  ipcMain.on("gamepad:disconnect", () => {
+    disconnectGamepad();
+  });
+
+  ipcMain.handle("agent:get-gamepad-injector-status", () => getGamepadInjectorStatus());
 
   ipcMain.handle(
     "capture:get-sources",
@@ -783,5 +804,6 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   (app as unknown as { isQuitting?: boolean }).isQuitting = true;
+  destroyGamepadInjector();
   killApp();
 });
