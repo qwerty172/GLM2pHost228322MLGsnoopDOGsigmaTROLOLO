@@ -40,43 +40,97 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
+Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
+
 ### Требования
 
 - Node.js 20+
 - pnpm 9+
 - PostgreSQL 16
+- Git Bash / WSL (для Windows) или Linux/macOS
 
-### Установка
+### Клонирование
 
 ```bash
-git clone https://github.com/your-org/decentral-hub.git
+git clone https://github.com/qwerty172/glm2phost228322mlgsnoopdogsigmatrololo.git decentral-hub
 cd decentral-hub
-pnpm install
 ```
 
-### Переменные окружения
-
-Скопируй `.env.example` → `.env` и заполни значения:
+### Первичная настройка
 
 ```bash
 cp .env.example .env
+# Отредактируй DATABASE_URL (PostgreSQL) — остальное можно оставить по умолчанию
+
+# Автоматическая настройка (Linux/macOS/Git Bash):
+chmod +x scripts/*.sh
+./scripts/setup-local.sh
 ```
 
-### База данных
+Или вручную:
 
 ```bash
-# Применить схему к базе
+pnpm install
+
+# Сгенерировать ключ шифрования кошелька:
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# Вставь результат в .env -> WALLET_ENCRYPTION_KEY
+
+# Создай базу PostgreSQL:
+createdb decentral_hub
+
+# Применить схему
 pnpm --filter @workspace/db run push
+
+# Проверка типов
+pnpm run typecheck
 ```
 
-### Запуск
+### Переменные окружения (`.env`)
+
+| Переменная | Назначение |
+|---|---|
+| `DATABASE_URL` | PostgreSQL, база `decentral_hub` |
+| `PORT` | API-сервер (8080) |
+| `WALLET_ENCRYPTION_KEY` | 32-байт hex, обязателен для кошелька |
+| `ADMIN_SECRET` | Секрет admin-роутов (`X-Admin-Secret`) |
+| `API_PROXY_TARGET` | Куда Vite проксирует `/api` (http://localhost:8080) |
+| `BASE_PATH` | Базовый путь web (`/`) |
+
+`.env` подхватывается автоматически через `dotenv-cli` в dev-скриптах. На Replit переменные задаёт платформа.
+
+### Запуск (два терминала или один скрипт)
+
+**Вариант A — скрипт (Git Bash / Linux / macOS):**
 
 ```bash
-# API сервер (порт из DATABASE_URL / PORT)
+./scripts/dev-local.sh
+```
+
+**Вариант B — вручную:**
+
+```bash
+# Терминал 1: API (порт 8080)
 pnpm --filter @workspace/api-server run dev
 
-# Web-приложение
+# Терминал 2: Web (порт 5000, прокси /api -> :8080)
 pnpm --filter @workspace/web run dev
+```
+
+Открой http://localhost:5000
+
+### Smoke-тест API (фаза 1)
+
+```bash
+./scripts/smoke-api.sh
+# или: ./scripts/smoke-api.sh http://localhost:8080
+```
+
+### Сборка production
+
+```bash
+pnpm --filter @workspace/api-server run build
+pnpm --filter @workspace/web run build
 ```
 
 ### Кодогенерация (после изменения OpenAPI схемы)

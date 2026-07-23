@@ -171,6 +171,12 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
+      cross-env:
+        specifier: ^7.0.3
+        version: 7.0.3
+      dotenv-cli:
+        specifier: ^8.0.0
+        version: 8.0.0
       esbuild:
         specifier: ^0.28.1
         version: 0.28.1
@@ -533,9 +539,15 @@ importers:
       cmdk:
         specifier: ^1.1.1
         version: 1.1.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      cross-env:
+        specifier: ^7.0.3
+        version: 7.0.3
       date-fns:
         specifier: ^3.6.0
         version: 3.6.0
+      dotenv-cli:
+        specifier: ^8.0.0
+        version: 8.0.0
       embla-carousel-react:
         specifier: ^8.6.0
         version: 8.6.0(react@19.1.0)
@@ -636,6 +648,9 @@ importers:
       '@types/pg':
         specifier: ^8.18.0
         version: 8.18.0
+      dotenv-cli:
+        specifier: ^8.0.0
+        version: 8.0.0
       drizzle-kit:
         specifier: ^0.31.9
         version: 0.31.9
@@ -876,11 +891,11 @@ packages:
 
   '@esbuild-kit/core-utils@3.3.2':
     resolution: {integrity: sha512-sPRAnw9CdSsRmEtnsl2WXWdyquogVpB3yZ3dgwJfe8zrOzTsV7cJvmwrKVa+0ma5BoiGJ+BoqkMvawbayKUsqQ==}
-    deprecated: 'Merged into tsx: https://tsx.is'
+    deprecated: 'Merged into tsx: https://tsx.hirok.io'
 
   '@esbuild-kit/esm-loader@2.6.5':
     resolution: {integrity: sha512-FxEMIkJKnodyA1OaCUoEvbYRkoZlLZ4d/eXFu9Fh8CbBBgP5EmZxrfTRyN0qpXZ4vOvqnE5YdRdcrmUUXuU+dA==}
-    deprecated: 'Merged into tsx: https://tsx.is'
+    deprecated: 'Merged into tsx: https://tsx.hirok.io'
 
   '@esbuild/aix-ppc64@0.25.12':
     resolution: {integrity: sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA==}
@@ -3345,6 +3360,11 @@ packages:
   crc@3.8.0:
     resolution: {integrity: sha512-iX3mfgcTMIq3ZKLIsVFAbv7+Mc10kxabAGQb8HvjA1o3T1PIYprbakQ65d3I+2HGHt6nSKkM9PYjgoJO2KcFBQ==}
 
+  cross-env@7.0.3:
+    resolution: {integrity: sha512-+/HKd6EgcQCJGh2PSjZuUitQBQynKor4wrFbRg4DtAgS1aWO+gU52xpH7M9ScGgXSYmAVS9bIJ8EzuaGw0oNAw==}
+    engines: {node: '>=10.14', npm: '>=6', yarn: '>=1'}
+    hasBin: true
+
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
     engines: {node: '>= 8'}
@@ -3487,6 +3507,14 @@ packages:
 
   dom-helpers@5.2.1:
     resolution: {integrity: sha512-nRCa7CK3VTrM2NmGkIy4cbK7IZlgBE/PYMn55rrXefr5xXDP0LdtfPnblFDoVdcAfslJ7or6iqAUnx0CCGIWQA==}
+
+  dotenv-cli@8.0.0:
+    resolution: {integrity: sha512-aLqYbK7xKOiTMIRf1lDPbI+Y+Ip/wo5k3eyp6ePysVaSqbyxjyK3dK35BTxG+rmd7djf5q2UPs4noPNH+cj0Qw==}
+    hasBin: true
+
+  dotenv-expand@10.0.0:
+    resolution: {integrity: sha512-GopVGCpVS1UKH75VKHGuQFqS1Gusej0z4FyQkPdwjil2gNIv+LNsqBlboOzpJFZKVT95GkCyWJbBSdFEFUWI2A==}
+    engines: {node: '>=12'}
 
   dotenv-expand@11.0.7:
     resolution: {integrity: sha512-zIHwmZPRshsCdpMDyVsqGmgyP0yT8GAgXUnkdAoJisxvf33k7yO6OuoKmcTGuXPWSsm8Oh88nZicRLA9Y0rUeA==}
@@ -8542,6 +8570,10 @@ snapshots:
       buffer: 5.7.1
     optional: true
 
+  cross-env@7.0.3:
+    dependencies:
+      cross-spawn: 7.0.6
+
   cross-spawn@7.0.6:
     dependencies:
       path-key: 3.1.1
@@ -8681,6 +8713,15 @@ snapshots:
     dependencies:
       '@babel/runtime': 7.28.6
       csstype: 3.2.3
+
+  dotenv-cli@8.0.0:
+    dependencies:
+      cross-spawn: 7.0.6
+      dotenv: 16.6.1
+      dotenv-expand: 10.0.0
+      minimist: 1.2.8
+
+  dotenv-expand@10.0.0: {}
 
   dotenv-expand@11.0.7:
     dependencies:
