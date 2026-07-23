@@ -109,3 +109,111 @@ export async function patchLocalAvailability(
     log("warn", `patchLocalAvailability error: ${String(err)}`);
   }
 }
+
+export type SaveUrlResult = {
+  ok: boolean;
+  status?: number;
+  downloadURL?: string;
+  uploadURL?: string;
+  objectPath?: string;
+  error?: string;
+};
+
+export async function requestSaveDownloadUrl(
+  hostToken: string,
+  apiBaseUrl: string,
+  sessionId: string,
+): Promise<SaveUrlResult> {
+  try {
+    const url =
+      `${base(apiBaseUrl)}/api/saves/download-url?sessionId=${encodeURIComponent(sessionId)}`;
+    const resp = await fetch(url, {
+      headers: { "x-host-token": hostToken },
+    });
+    if (resp.status === 404) {
+      return { ok: false, status: 404 };
+    }
+    if (resp.status === 503) {
+      return { ok: false, status: 503, error: "storage_unavailable" };
+    }
+    if (!resp.ok) {
+      return { ok: false, status: resp.status, error: `HTTP ${resp.status}` };
+    }
+    const data = (await resp.json()) as { downloadURL?: string; objectPath?: string };
+    if (!data.downloadURL) {
+      return { ok: false, error: "missing_download_url" };
+    }
+    return {
+      ok: true,
+      downloadURL: data.downloadURL,
+      objectPath: data.objectPath,
+    };
+  } catch (err) {
+    log("warn", `requestSaveDownloadUrl error: ${String(err)}`);
+    return { ok: false, error: String(err) };
+  }
+}
+
+export async function requestSaveUploadUrl(
+  hostToken: string,
+  apiBaseUrl: string,
+  sessionId: string,
+  sizeBytes: number,
+): Promise<SaveUrlResult> {
+  try {
+    const url = `${base(apiBaseUrl)}/api/saves/upload-url`;
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-host-token": hostToken,
+      },
+      body: JSON.stringify({ sessionId, sizeBytes }),
+    });
+    if (resp.status === 503) {
+      return { ok: false, status: 503, error: "storage_unavailable" };
+    }
+    if (!resp.ok) {
+      return { ok: false, status: resp.status, error: `HTTP ${resp.status}` };
+    }
+    const data = (await resp.json()) as { uploadURL?: string; objectPath?: string };
+    if (!data.uploadURL) {
+      return { ok: false, error: "missing_upload_url" };
+    }
+    return {
+      ok: true,
+      uploadURL: data.uploadURL,
+      objectPath: data.objectPath,
+    };
+  } catch (err) {
+    log("warn", `requestSaveUploadUrl error: ${String(err)}`);
+    return { ok: false, error: String(err) };
+  }
+}
+
+export async function confirmSaveUpload(
+  hostToken: string,
+  apiBaseUrl: string,
+  sessionId: string,
+  contentHash: string,
+  sizeBytes: number,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const url = `${base(apiBaseUrl)}/api/saves/confirm`;
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-host-token": hostToken,
+      },
+      body: JSON.stringify({ sessionId, contentHash, sizeBytes }),
+    });
+    if (!resp.ok) {
+      return { ok: false, error: `HTTP ${resp.status}` };
+    }
+    return { ok: true };
+  } catch (err) {
+    log("warn", `confirmSaveUpload error: ${String(err)}`);
+    return { ok: false, error: String(err) };
+  }
+}

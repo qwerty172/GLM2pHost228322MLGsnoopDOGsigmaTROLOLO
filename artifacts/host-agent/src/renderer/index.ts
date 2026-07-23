@@ -1,4 +1,4 @@
-import type { AgentStatus, HostConfig, InputEvent, LibraryEntry, SteamScanGame, SteamScanResult } from "../shared/messages";
+import type { AgentStatus, HostConfig, InputEvent, LibraryEntry, SteamScanGame, SteamScanResult, SaveSyncRequest, SaveSyncResult } from "../shared/messages";
 
 // The preload script (src/preload/index.ts) exposes this API on `window.agent`
 // via contextBridge. Re-declare the surface here so the renderer typechecks
@@ -47,6 +47,8 @@ declare global {
       quotaRunCycle: () => void;
       quotaDetach: () => Promise<{ ok: boolean }>;
       quotaGetState: () => Promise<{ statusText: string; attachedQuotaId: string | null; attachedQuotaTitle: string | null; hasAttached: boolean }>;
+      saveSyncPull: (req: SaveSyncRequest) => Promise<SaveSyncResult>;
+      saveSyncPush: (req: SaveSyncRequest) => Promise<SaveSyncResult>;
     };
   }
 }
@@ -83,6 +85,8 @@ let currentSessionId: string | null = null;
 let currentConfig: HostConfig | null = null;
 // gameId of the session currently being streamed (from library or legacy).
 let currentGameId: string | null = null;
+// Active save-sync context for push on session teardown.
+let activeSaveSyncContext: SaveSyncRequest | null = null;
 // Guard: prevents accepting a second peer-joined while already streaming.
 let isStreaming = false;
 // One-time warning flag for gamepad input when ViGEm is not connected.
@@ -137,7 +141,7 @@ function setStatus(status: AgentStatus, message?: string): void {
 // ─── Session pipeline panel ──────────────────────────────────────────────────
 // Step-by-step status of the native stream flow:
 //   Игра запущена → Окно найдено → Стрим начат → Игрок подключён
-type PipelineStep = "launch" | "window" | "stream" | "player";
+type PipelineStep = "saves" | "launch" | "window" | "stream" | "player";
 type PipelineState = "pending" | "active" | "done" | "error";
 
 const pipelineCard = document.getElementById("pipeline-card") as HTMLElement;
@@ -157,7 +161,7 @@ function setPipelineStep(step: PipelineStep, state: PipelineState, note = ""): v
 }
 
 function resetPipeline(show: boolean): void {
-  for (const step of ["launch", "window", "stream", "player"] as PipelineStep[]) {
+  for (const step of ["saves", "launch", "window", "stream", "player"] as PipelineStep[]) {
     setPipelineStep(step, "pending");
   }
   pipelineCard.hidden = !show;
@@ -912,20 +916,31 @@ function sendControlReject(reason: "host_busy" | "game_unavailable"): void {
   }
 }
 
-// Fetch the authoritative session.gameId from the server at join time.
-// Returns null if the session cannot be retrieved or has no gameId.
-async function fetchSessionGameId(
+// Fetch authoritative session fields from the server at join time.
+async function fetchSessionContext(
   cfg: HostConfig,
   sessionId: string,
-): Promise<string | null> {
+): Promise<{
+  gameId: string | null;
+  claimedByPlayerId: string | null;
+  isTest: boolean;
+} | null> {
   try {
     const url =
       `${cfg.apiBaseUrl.replace(/\/$/, "")}/api/sessions/${encodeURIComponent(sessionId)}` +
       `?hostToken=${encodeURIComponent(cfg.hostToken)}`;
     const resp = await fetch(url);
     if (!resp.ok) return null;
-    const data = (await resp.json()) as { gameId?: string | null };
-    return data.gameId ?? null;
+    const data = (await resp.json()) as {
+      gameId?: string | null;
+      claimedByPlayerId?: string | null;
+      isTest?: boolean;
+    };
+    return {
+      gameId: data.gameId ?? null,
+      claimedByPlayerId: data.claimedByPlayerId ?? null,
+      isTest: !!data.isTest,
+    };
   } catch {
     return null;
   }
@@ -948,28 +963,29 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
 
   setStatus("connecting", "Player joined — preparing stream…");
   resetPipeline(true);
-  setPipelineStep("launch", "active");
 
-  // Fetch authoritative session.gameId from the server before launching.
-  // This is the source of truth — avoids relying on stale renderer state in
-  // edge cases (e.g. game changed between session creation and player join).
+  // Fetch authoritative session context from the server before launching.
   let resolvedGameId = currentGameId;
+  let claimedByPlayerId: string | null = null;
+  let isTestSession = false;
   if (currentSessionId) {
-    const serverGameId = await fetchSessionGameId(cfg, currentSessionId);
-    if (serverGameId) {
-      resolvedGameId = serverGameId;
-      if (resolvedGameId !== currentGameId) {
-        log(`gameId corrected by server: ${currentGameId} → ${resolvedGameId}`);
-        currentGameId = resolvedGameId;
+    const sessionCtx = await fetchSessionContext(cfg, currentSessionId);
+    if (sessionCtx?.gameId) {
+      if (sessionCtx.gameId !== currentGameId) {
+        log(`gameId corrected by server: ${currentGameId} → ${sessionCtx.gameId}`);
       }
+      resolvedGameId = sessionCtx.gameId;
+      currentGameId = sessionCtx.gameId;
     }
+    claimedByPlayerId = sessionCtx?.claimedByPlayerId ?? null;
+    isTestSession = sessionCtx?.isTest ?? false;
   }
 
   // Register exit callback BEFORE launching. When the game process exits,
   // main sends "app:game-exited" → we auto-end the session.
   window.agent.onGameExited(() => {
     log("Game process exited — ending session automatically.");
-    teardown("Game exited");
+    void teardown("Game exited");
   });
 
   // Library-based launch
@@ -983,7 +999,7 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
       setStatus("error", "Game unavailable");
       sendControlReject("game_unavailable");
       isStreaming = false;
-      teardown("game_unavailable");
+      void teardown("game_unavailable");
       return;
     }
     const isBrowser = !!entry.boundUrl;
@@ -995,9 +1011,53 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
       setStatus("error", `Game file not found: ${entry.game.title}`);
       sendControlReject("game_unavailable");
       isStreaming = false;
-      teardown("game_unavailable");
+      void teardown("game_unavailable");
       return;
     }
+
+    activeSaveSyncContext = null;
+    if (
+      currentSessionId &&
+      claimedByPlayerId &&
+      !isTestSession &&
+      !isBrowser
+    ) {
+      setPipelineStep("saves", "active", "загрузка сейва…");
+      const pullResult = await window.agent.saveSyncPull({
+        hostToken: cfg.hostToken,
+        apiBaseUrl: cfg.apiBaseUrl,
+        sessionId: currentSessionId,
+        gameId: resolvedGameId,
+        appPath: entry.appPath,
+        steamAppId: entry.game.steamAppId ?? null,
+      });
+      activeSaveSyncContext = {
+        hostToken: cfg.hostToken,
+        apiBaseUrl: cfg.apiBaseUrl,
+        sessionId: currentSessionId,
+        gameId: resolvedGameId,
+        appPath: entry.appPath,
+        steamAppId: entry.game.steamAppId ?? null,
+      };
+      if (!pullResult.ok) {
+        log(`Save pull failed: ${pullResult.error ?? "unknown"}`);
+        setPipelineStep("saves", "error", pullResult.error ?? "ошибка загрузки");
+      } else if (pullResult.skipped) {
+        const note =
+          pullResult.reason === "no_cloud_save"
+            ? "новая игра"
+            : pullResult.reason === "no_save_paths"
+              ? "пути не найдены"
+              : "пропущено";
+        setPipelineStep("saves", "done", note);
+      } else {
+        setPipelineStep("saves", "done", "сейв загружен");
+      }
+    } else {
+      setPipelineStep("saves", "done", "не требуется");
+    }
+
+    setPipelineStep("launch", "active");
     const launchResult = await window.agent.launchEntry({
       appPath: entry.appPath,
       boundUrl: entry.boundUrl,
@@ -1010,12 +1070,14 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
       setStatus("error", `Launch failed: ${launchResult.error}`);
       sendControlReject("game_unavailable");
       isStreaming = false;
-      teardown("game_unavailable");
+      void teardown("game_unavailable");
       return;
     }
     log(`Launched ${entry.game.title} (pid=${launchResult.pid ?? "browser"}).`);
     setPipelineStep("launch", "done", entry.game.title);
   } else {
+    setPipelineStep("saves", "done", "не требуется");
+    setPipelineStep("launch", "active");
     // Legacy path: launch from HostConfig.appPath / boundUrl
     const launchResult = await window.agent.launchApp();
     if (!launchResult.ok) {
@@ -1025,7 +1087,7 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
       setStatus("error", `Launch failed: ${launchResult.error}`);
       sendControlReject("game_unavailable");
       isStreaming = false;
-      teardown("game_unavailable");
+      void teardown("game_unavailable");
       return;
     }
     log(`App launched (pid=${launchResult.pid}).`);
@@ -1040,7 +1102,7 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     setStatus("error", `Capture failed: ${String(err)}`);
     sendControlReject("game_unavailable");
     isStreaming = false;
-    teardown("capture_failed");
+    void teardown("capture_failed");
     return;
   }
   setPipelineStep("stream", "active", "устанавливаем WebRTC-соединение…");
@@ -1476,15 +1538,48 @@ function teardownDeferred(reason: string, graceMs: number): void {
   pendingTeardown = setTimeout(() => {
     pendingTeardown = null;
     if (currentSessionId && currentSessionId === sidAtSchedule) {
-      teardown(reason);
+      void teardown(reason);
     }
   }, graceMs);
 }
 
-function teardown(reason: string): void {
+function teardown(reason: string): Promise<void> {
+  return teardownAsync(reason);
+}
+
+async function teardownAsync(reason: string): Promise<void> {
   cancelDeferredTeardown();
   isStreaming = false;
   log(reason);
+
+  const saveCtx = activeSaveSyncContext;
+  activeSaveSyncContext = null;
+
+  if (saveCtx) {
+    setPipelineStep("saves", "active", "сохранение сейва…");
+    try {
+      const pushResult = await Promise.race([
+        window.agent.saveSyncPush(saveCtx),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error("timeout")), 30_000);
+        }),
+      ]);
+      if (!pushResult.ok) {
+        log(`Save push failed: ${pushResult.error ?? "unknown"}`);
+        setPipelineStep("saves", "error", pushResult.error ?? "ошибка сохранения");
+      } else if (pushResult.skipped) {
+        log(`Save push skipped: ${pushResult.reason ?? "unknown"}`);
+        setPipelineStep("saves", "done", "нечего сохранять");
+      } else {
+        log("Save uploaded to cloud.");
+        setPipelineStep("saves", "done", "сейв сохранён");
+      }
+    } catch (err) {
+      log(`Save push error: ${String(err)}`);
+      setPipelineStep("saves", "error", "таймаут сохранения");
+    }
+  }
+
   if (currentSessionId && currentConfig?.hostToken && currentConfig.apiBaseUrl) {
     const sid = currentSessionId;
     const base = currentConfig.apiBaseUrl.replace(/\/$/, "");

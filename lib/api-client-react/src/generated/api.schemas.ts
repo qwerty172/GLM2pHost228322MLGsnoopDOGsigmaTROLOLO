@@ -256,6 +256,8 @@ export interface Session {
   playerToken: string;
   /** @nullable */
   claimedByPlayerId?: string | null;
+  /** Catalog game id this session is bound to */
+  gameId: string;
   appName: string;
   /** One of pending, active, ended */
   status: string;
@@ -292,6 +294,34 @@ export interface Session {
 
 export interface EndSessionBody {
   hostToken: string;
+}
+
+export interface SaveUploadUrlBody {
+  sessionId: string;
+  /** Save archive size in bytes (max 500 MB) */
+  sizeBytes: number;
+}
+
+export interface SaveUploadUrlResponse {
+  uploadURL: string;
+  objectPath: string;
+}
+
+export interface SaveDownloadUrlResponse {
+  downloadURL: string;
+  objectPath: string;
+}
+
+export interface SaveConfirmBody {
+  sessionId: string;
+  /** SHA-256 hex digest of the uploaded archive */
+  contentHash: string;
+  sizeBytes: number;
+}
+
+export interface SaveConfirmResponse {
+  saved: boolean;
+  objectPath: string;
 }
 
 /**
@@ -1107,6 +1137,10 @@ export type GetGameBySlugParams = {
 
 export type GetSessionParams = {
   hostToken: string;
+};
+
+export type GetSaveDownloadUrlParams = {
+  sessionId: string;
 };
 
 export type CreatePreviewSessionBody = {

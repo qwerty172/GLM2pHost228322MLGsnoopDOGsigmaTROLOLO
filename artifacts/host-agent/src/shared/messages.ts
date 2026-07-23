@@ -88,6 +88,7 @@ export interface LibraryEntry {
     browserHostUrl: string;
     hasMods: boolean;
     isMultiplayer: boolean;
+    steamAppId?: string | null;
   };
 }
 
@@ -119,6 +120,22 @@ export interface SteamScanGame {
 export interface SteamScanResult {
   steamRoot: string | null;
   games: SteamScanGame[];
+  error?: string;
+}
+
+export interface SaveSyncRequest {
+  hostToken: string;
+  apiBaseUrl: string;
+  sessionId: string;
+  gameId: string;
+  appPath: string;
+  steamAppId?: string | null;
+}
+
+export interface SaveSyncResult {
+  ok: boolean;
+  skipped?: boolean;
+  reason?: string;
   error?: string;
 }
 

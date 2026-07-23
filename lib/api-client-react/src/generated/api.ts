@@ -44,6 +44,7 @@ import type {
   GetHostCurrentQuota200,
   GetHostCurrentQuotaParams,
   GetQuotaParams,
+  GetSaveDownloadUrlParams,
   GetSessionParams,
   HealthStatus,
   Host,
@@ -70,6 +71,11 @@ import type {
   RepayLoanBody,
   RepayLoanResponse,
   RequestWithdrawalBody,
+  SaveConfirmBody,
+  SaveConfirmResponse,
+  SaveDownloadUrlResponse,
+  SaveUploadUrlBody,
+  SaveUploadUrlResponse,
   Session,
   UpdateHostConfigBody,
   UpdateQuotaBody,
@@ -1754,6 +1760,278 @@ export const useEndSession = <
   TContext
 > => {
   return useMutation(getEndSessionMutationOptions(options));
+};
+
+/**
+ * @summary Get a presigned download URL for a player's cloud save (host-authenticated)
+ */
+export const getGetSaveDownloadUrlUrl = (params: GetSaveDownloadUrlParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/saves/download-url?${stringifiedParams}`
+    : `/api/saves/download-url`;
+};
+
+export const getSaveDownloadUrl = async (
+  params: GetSaveDownloadUrlParams,
+  options?: RequestInit,
+): Promise<SaveDownloadUrlResponse> => {
+  return customFetch<SaveDownloadUrlResponse>(
+    getGetSaveDownloadUrlUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetSaveDownloadUrlQueryKey = (
+  params?: GetSaveDownloadUrlParams,
+) => {
+  return [`/api/saves/download-url`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetSaveDownloadUrlQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSaveDownloadUrl>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: GetSaveDownloadUrlParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSaveDownloadUrl>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSaveDownloadUrlQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSaveDownloadUrl>>
+  > = ({ signal }) => getSaveDownloadUrl(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSaveDownloadUrl>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSaveDownloadUrlQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSaveDownloadUrl>>
+>;
+export type GetSaveDownloadUrlQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get a presigned download URL for a player's cloud save (host-authenticated)
+ */
+
+export function useGetSaveDownloadUrl<
+  TData = Awaited<ReturnType<typeof getSaveDownloadUrl>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: GetSaveDownloadUrlParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSaveDownloadUrl>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSaveDownloadUrlQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Request a presigned upload URL for a player's cloud save (host-authenticated)
+ */
+export const getRequestSaveUploadUrlUrl = () => {
+  return `/api/saves/upload-url`;
+};
+
+export const requestSaveUploadUrl = async (
+  saveUploadUrlBody: SaveUploadUrlBody,
+  options?: RequestInit,
+): Promise<SaveUploadUrlResponse> => {
+  return customFetch<SaveUploadUrlResponse>(getRequestSaveUploadUrlUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(saveUploadUrlBody),
+  });
+};
+
+export const getRequestSaveUploadUrlMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestSaveUploadUrl>>,
+    TError,
+    { data: BodyType<SaveUploadUrlBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof requestSaveUploadUrl>>,
+  TError,
+  { data: BodyType<SaveUploadUrlBody> },
+  TContext
+> => {
+  const mutationKey = ["requestSaveUploadUrl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof requestSaveUploadUrl>>,
+    { data: BodyType<SaveUploadUrlBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return requestSaveUploadUrl(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RequestSaveUploadUrlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof requestSaveUploadUrl>>
+>;
+export type RequestSaveUploadUrlMutationBody = BodyType<SaveUploadUrlBody>;
+export type RequestSaveUploadUrlMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Request a presigned upload URL for a player's cloud save (host-authenticated)
+ */
+export const useRequestSaveUploadUrl = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestSaveUploadUrl>>,
+    TError,
+    { data: BodyType<SaveUploadUrlBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof requestSaveUploadUrl>>,
+  TError,
+  { data: BodyType<SaveUploadUrlBody> },
+  TContext
+> => {
+  return useMutation(getRequestSaveUploadUrlMutationOptions(options));
+};
+
+/**
+ * @summary Confirm a successful save upload and upsert metadata (host-authenticated)
+ */
+export const getConfirmSaveUploadUrl = () => {
+  return `/api/saves/confirm`;
+};
+
+export const confirmSaveUpload = async (
+  saveConfirmBody: SaveConfirmBody,
+  options?: RequestInit,
+): Promise<SaveConfirmResponse> => {
+  return customFetch<SaveConfirmResponse>(getConfirmSaveUploadUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(saveConfirmBody),
+  });
+};
+
+export const getConfirmSaveUploadMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmSaveUpload>>,
+    TError,
+    { data: BodyType<SaveConfirmBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof confirmSaveUpload>>,
+  TError,
+  { data: BodyType<SaveConfirmBody> },
+  TContext
+> => {
+  const mutationKey = ["confirmSaveUpload"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof confirmSaveUpload>>,
+    { data: BodyType<SaveConfirmBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return confirmSaveUpload(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ConfirmSaveUploadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof confirmSaveUpload>>
+>;
+export type ConfirmSaveUploadMutationBody = BodyType<SaveConfirmBody>;
+export type ConfirmSaveUploadMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Confirm a successful save upload and upsert metadata (host-authenticated)
+ */
+export const useConfirmSaveUpload = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmSaveUpload>>,
+    TError,
+    { data: BodyType<SaveConfirmBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof confirmSaveUpload>>,
+  TError,
+  { data: BodyType<SaveConfirmBody> },
+  TContext
+> => {
+  return useMutation(getConfirmSaveUploadMutationOptions(options));
 };
 
 /**

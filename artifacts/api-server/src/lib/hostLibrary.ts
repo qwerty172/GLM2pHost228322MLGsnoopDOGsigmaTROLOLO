@@ -24,6 +24,7 @@ export type LibraryEntry = {
     browserHostUrl: string;
     hasMods: boolean;
     isMultiplayer: boolean;
+    steamAppId: string | null;
   };
 };
 
@@ -73,6 +74,7 @@ export async function listLibrary(hostId: string): Promise<LibraryEntry[]> {
       browserHostUrl: r.games.browserHostUrl,
       hasMods: r.games.hasMods,
       isMultiplayer: r.games.isMultiplayer,
+      steamAppId: r.games.steamAppId,
     },
   }));
 }

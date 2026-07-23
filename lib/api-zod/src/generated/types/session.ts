@@ -13,6 +13,8 @@ export interface Session {
   playerToken: string;
   /** @nullable */
   claimedByPlayerId?: string | null;
+  /** Catalog game id this session is bound to */
+  gameId: string;
   appName: string;
   /** One of pending, active, ended */
   status: string;

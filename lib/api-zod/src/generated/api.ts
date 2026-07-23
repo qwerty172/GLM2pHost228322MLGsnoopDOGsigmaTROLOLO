@@ -316,6 +316,7 @@ export const ListHostSessionsResponseItem = zod.object({
   hostId: zod.string(),
   playerToken: zod.string(),
   claimedByPlayerId: zod.string().nullish(),
+  gameId: zod.string().describe("Catalog game id this session is bound to"),
   appName: zod.string(),
   status: zod.string().describe("One of pending, active, ended"),
   resolution: zod.string(),
@@ -705,6 +706,7 @@ export const GetSessionResponse = zod.object({
   hostId: zod.string(),
   playerToken: zod.string(),
   claimedByPlayerId: zod.string().nullish(),
+  gameId: zod.string().describe("Catalog game id this session is bound to"),
   appName: zod.string(),
   status: zod.string().describe("One of pending, active, ended"),
   resolution: zod.string(),
@@ -755,6 +757,7 @@ export const GetSessionByPlayerTokenResponse = zod.object({
   hostId: zod.string(),
   playerToken: zod.string(),
   claimedByPlayerId: zod.string().nullish(),
+  gameId: zod.string().describe("Catalog game id this session is bound to"),
   appName: zod.string(),
   status: zod.string().describe("One of pending, active, ended"),
   resolution: zod.string(),
@@ -823,6 +826,7 @@ export const ClaimSessionResponse = zod.object({
   hostId: zod.string(),
   playerToken: zod.string(),
   claimedByPlayerId: zod.string().nullish(),
+  gameId: zod.string().describe("Catalog game id this session is bound to"),
   appName: zod.string(),
   status: zod.string().describe("One of pending, active, ended"),
   resolution: zod.string(),
@@ -877,6 +881,7 @@ export const EndSessionResponse = zod.object({
   hostId: zod.string(),
   playerToken: zod.string(),
   claimedByPlayerId: zod.string().nullish(),
+  gameId: zod.string().describe("Catalog game id this session is bound to"),
   appName: zod.string(),
   status: zod.string().describe("One of pending, active, ended"),
   resolution: zod.string(),
@@ -913,6 +918,59 @@ export const EndSessionResponse = zod.object({
     .boolean()
     .optional()
     .describe("Host self-test session — completely free, skipped by billing."),
+});
+
+/**
+ * @summary Get a presigned download URL for a player's cloud save (host-authenticated)
+ */
+export const GetSaveDownloadUrlQueryParams = zod.object({
+  sessionId: zod.coerce.string().uuid(),
+});
+
+export const GetSaveDownloadUrlHeader = zod.object({
+  "X-Host-Token": zod.string(),
+});
+
+export const GetSaveDownloadUrlResponse = zod.object({
+  downloadURL: zod.string(),
+  objectPath: zod.string(),
+});
+
+/**
+ * @summary Request a presigned upload URL for a player's cloud save (host-authenticated)
+ */
+export const RequestSaveUploadUrlHeader = zod.object({
+  "X-Host-Token": zod.string(),
+});
+
+export const RequestSaveUploadUrlBody = zod.object({
+  sessionId: zod.string().uuid(),
+  sizeBytes: zod.number().describe("Save archive size in bytes (max 500 MB)"),
+});
+
+export const RequestSaveUploadUrlResponse = zod.object({
+  uploadURL: zod.string(),
+  objectPath: zod.string(),
+});
+
+/**
+ * @summary Confirm a successful save upload and upsert metadata (host-authenticated)
+ */
+export const ConfirmSaveUploadHeader = zod.object({
+  "X-Host-Token": zod.string(),
+});
+
+export const ConfirmSaveUploadBody = zod.object({
+  sessionId: zod.string().uuid(),
+  contentHash: zod
+    .string()
+    .describe("SHA-256 hex digest of the uploaded archive"),
+  sizeBytes: zod.number(),
+});
+
+export const ConfirmSaveUploadResponse = zod.object({
+  saved: zod.boolean(),
+  objectPath: zod.string(),
 });
 
 /**

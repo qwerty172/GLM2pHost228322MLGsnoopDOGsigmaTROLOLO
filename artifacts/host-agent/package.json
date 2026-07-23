@@ -14,11 +14,14 @@
     "test": "pnpm run build:main && node --test test/ping-server.test.mjs",
     "package:win": "pnpm run build && electron-builder --win --x64 --config electron-builder.yml"
   },
-  "dependencies": {
+    "dependencies": {
+    "adm-zip": "^0.5.16",
     "koffi": "^2.15.0",
-    "ws": "^8.21.0"
+    "ws": "^8.21.0",
+    "yaml": "^2.8.0"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
     "@types/node": "catalog:",
     "@types/ws": "^8.5.13",
     "electron": "^39.8.5",

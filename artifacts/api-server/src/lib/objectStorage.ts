@@ -146,6 +146,48 @@ export class ObjectStorageService {
     });
   }
 
+  /** Deterministic object path for a player/game save archive. */
+  getSaveStoragePath(playerId: string, gameId: string): string {
+    const privateObjectDir = this.getPrivateObjectDir();
+    return `${privateObjectDir}/saves/${playerId}/${gameId}/save.zip`;
+  }
+
+  /** API-facing path returned to clients (served via /api/storage/objects/…). */
+  getSaveObjectPath(playerId: string, gameId: string): string {
+    return `/objects/saves/${playerId}/${gameId}/save.zip`;
+  }
+
+  async getSaveFile(playerId: string, gameId: string): Promise<File | null> {
+    const fullPath = this.getSaveStoragePath(playerId, gameId);
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    const bucket = objectStorageClient.bucket(bucketName);
+    const file = bucket.file(objectName);
+    const [exists] = await file.exists();
+    return exists ? file : null;
+  }
+
+  async getSaveDownloadURL(playerId: string, gameId: string): Promise<string> {
+    const fullPath = this.getSaveStoragePath(playerId, gameId);
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    return signObjectURL({
+      bucketName,
+      objectName,
+      method: "GET",
+      ttlSec: 900,
+    });
+  }
+
+  async getSaveUploadURL(playerId: string, gameId: string): Promise<string> {
+    const fullPath = this.getSaveStoragePath(playerId, gameId);
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    return signObjectURL({
+      bucketName,
+      objectName,
+      method: "PUT",
+      ttlSec: 900,
+    });
+  }
+
   async getObjectEntityFile(objectPath: string): Promise<File> {
     if (!objectPath.startsWith("/objects/")) {
       throw new ObjectNotFoundError();

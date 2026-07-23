@@ -10,10 +10,11 @@ import { createPingServer, PING_PORT } from "./ping-server";
 import { launchApp, launchEntry, killApp, setExitCallback } from "./app-launcher";
 import { fetchLibrary, fetchHostSchedule, patchLocalAvailability, sendHeartbeat } from "./api-client";
 import { syncWakeTasks } from "./wake-scheduler";
+import { pullSave, pushSave } from "./save-sync";
 import { scanSteam, loadScanState, saveScanState } from "./steam-scanner";
 import { loadOrGenerateKeyPair, signChallenge } from "./crypto-key";
 import { log } from "./logger";
-import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry, SteamScanResult, QuotaStatusEvent } from "../shared/messages";
+import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry, SteamScanResult, QuotaStatusEvent, SaveSyncRequest, SaveSyncResult } from "../shared/messages";
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -370,6 +371,36 @@ async function startAgent(): Promise<void> {
       const state = await loadScanState();
       const merged = Array.from(new Set([...state.addedAppIds, ...appIds]));
       await saveScanState({ ...state, addedAppIds: merged });
+    },
+  );
+
+  ipcMain.handle(
+    "save-sync:pull",
+    async (_e, req: SaveSyncRequest): Promise<SaveSyncResult> => {
+      return pullSave({
+        hostToken: req.hostToken,
+        apiBaseUrl: req.apiBaseUrl,
+        sessionId: req.sessionId,
+        saveOpts: {
+          steamAppId: req.steamAppId,
+          appPath: req.appPath,
+        },
+      });
+    },
+  );
+
+  ipcMain.handle(
+    "save-sync:push",
+    async (_e, req: SaveSyncRequest): Promise<SaveSyncResult> => {
+      return pushSave({
+        hostToken: req.hostToken,
+        apiBaseUrl: req.apiBaseUrl,
+        sessionId: req.sessionId,
+        saveOpts: {
+          steamAppId: req.steamAppId,
+          appPath: req.appPath,
+        },
+      });
     },
   );
 

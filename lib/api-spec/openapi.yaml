@@ -16,6 +16,8 @@ tags:
     description: Player registration and wallet identity
   - name: sessions
     description: Session lifecycle and discovery
+  - name: saves
+    description: Player game save sync for cloud gaming hosts
   - name: wallet
     description: Crypto wallet, balances, deposits, withdrawals
   - name: games
@@ -556,6 +558,105 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /saves/download-url:
+    get:
+      operationId: getSaveDownloadUrl
+      tags: [saves]
+      summary: Get a presigned download URL for a player's cloud save (host-authenticated)
+      parameters:
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: sessionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Presigned download URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveDownloadUrlResponse"
+        "404":
+          description: Save not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Object storage unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /saves/upload-url:
+    post:
+      operationId: requestSaveUploadUrl
+      tags: [saves]
+      summary: Request a presigned upload URL for a player's cloud save (host-authenticated)
+      parameters:
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveUploadUrlBody"
+      responses:
+        "200":
+          description: Presigned upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveUploadUrlResponse"
+        "503":
+          description: Object storage unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /saves/confirm:
+    post:
+      operationId: confirmSaveUpload
+      tags: [saves]
+      summary: Confirm a successful save upload and upsert metadata (host-authenticated)
+      parameters:
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveConfirmBody"
+      responses:
+        "200":
+          description: Save metadata recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveConfirmResponse"
+        "503":
+          description: Object storage unavailable
           content:
             application/json:
               schema:
@@ -1891,6 +1992,9 @@ components:
           type: string
         claimedByPlayerId:
           type: ["string", "null"]
+        gameId:
+          type: string
+          description: Catalog game id this session is bound to
         appName:
           type: string
         status:
@@ -1933,6 +2037,7 @@ components:
         - id
         - hostId
         - playerToken
+        - gameId
         - appName
         - status
         - resolution
@@ -1947,6 +2052,68 @@ components:
           type: string
       required:
         - hostToken
+
+    SaveUploadUrlBody:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        sizeBytes:
+          type: integer
+          description: Save archive size in bytes (max 500 MB)
+      required:
+        - sessionId
+        - sizeBytes
+
+    SaveUploadUrlResponse:
+      type: object
+      properties:
+        uploadURL:
+          type: string
+        objectPath:
+          type: string
+      required:
+        - uploadURL
+        - objectPath
+
+    SaveDownloadUrlResponse:
+      type: object
+      properties:
+        downloadURL:
+          type: string
+        objectPath:
+          type: string
+      required:
+        - downloadURL
+        - objectPath
+
+    SaveConfirmBody:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        contentHash:
+          type: string
+          description: SHA-256 hex digest of the uploaded archive
+        sizeBytes:
+          type: integer
+      required:
+        - sessionId
+        - contentHash
+        - sizeBytes
+
+    SaveConfirmResponse:
+      type: object
+      properties:
+        saved:
+          type: boolean
+        objectPath:
+          type: string
+      required:
+        - saved
+        - objectPath
 
     ClaimSessionBody:
       type: object

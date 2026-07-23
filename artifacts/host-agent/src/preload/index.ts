@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry, SteamScanResult, QuotaStatusEvent } from "../shared/messages";
+import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry, SteamScanResult, QuotaStatusEvent, SaveSyncRequest, SaveSyncResult } from "../shared/messages";
 
 const api = {
   getConfig: (): Promise<HostConfig> => ipcRenderer.invoke("config:get"),
@@ -119,6 +119,11 @@ const api = {
   // Get the current quota state snapshot (for renderer re-init on window open).
   quotaGetState: (): Promise<QuotaStatusEvent> =>
     ipcRenderer.invoke("quota:get-state"),
+
+  saveSyncPull: (req: SaveSyncRequest): Promise<SaveSyncResult> =>
+    ipcRenderer.invoke("save-sync:pull", req),
+  saveSyncPush: (req: SaveSyncRequest): Promise<SaveSyncResult> =>
+    ipcRenderer.invoke("save-sync:push", req),
 };
 
 contextBridge.exposeInMainWorld("agent", api);
