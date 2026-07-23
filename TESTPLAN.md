@@ -2,7 +2,29 @@
 
 > Задача: поднять весь сервис локально, прогнать каждый узел, найти и починить всё сломанное.
 > Исходное допущение: **~80% функционала может не работать** — проверяй всё, ничему не доверяй.
-> Порядок фаз важен: каждая следующая зависит от предыдущей. Одна фаза = один Composer-план.
+> Порядок фаз важен: каждая следующая зависит от предыдущей. Одна фаза = один Composer-pлан.
+
+---
+
+## Где запускать: Cloud Agent vs твой ПК
+
+| Что | Cloud Agent (Cursor) | Твой ПК (Windows) |
+|---|---|---|
+| Фазы 0–1 (install, API smoke) | ✅ Agent может сам: `./scripts/cloud-setup.sh` + `./scripts/dev-local.sh` | ✅ `scripts\setup-local.bat` |
+| Фаза 2 (обход страниц в браузере) | ⚠️ Частично (нет GUI) | ✅ Полностью |
+| Фаза 3 (P2P browser-host, WebRTC) | ❌ Нужен браузер с getDisplayMedia | ✅ Два окна браузера |
+| Фаза 4 (Windows-агент, SendInput) | ❌ Нет Windows/Electron | ✅ Только Windows |
+| Фазы 5–6 (экономика, квоты) | ⚠️ API/БД — да, UI — на ПК | ✅ Полностью |
+
+**Cloud Agent одной командой:**
+```bash
+chmod +x scripts/*.sh
+./scripts/cloud-setup.sh    # PostgreSQL + .env + install + db push
+./scripts/dev-local.sh      # API :8080 + Web :5000
+./scripts/smoke-api.sh      # фаза 1
+```
+
+**Твой ПК:** см. [LOCAL_SETUP.md](./LOCAL_SETUP.md) — `scripts\setup-local.bat` + `scripts\dev-local.bat`
 
 ---
 

@@ -14,7 +14,7 @@ import {
   type Quota,
 } from "@workspace/db";
 import { CreateQuotaBody, UpdateQuotaBody, AiSuggestQuotaSpecsBody } from "@workspace/api-zod";
-import { anthropic } from "@workspace/integrations-anthropic-ai";
+import { getAnthropicClient } from "@workspace/integrations-anthropic-ai";
 
 // Orval splits each endpoint's body into a unique generated symbol; we use a
 // single local schema for the simple owner-only POST bodies.
@@ -247,6 +247,15 @@ router.post("/quotas/ai-suggest-specs", async (req, res): Promise<void> => {
     prompt = `Какие минимальные и рекомендуемые требования к ПК для комфортного стриминга игры ${resolvedTitle}${resolvedGenre ? ` (жанр: ${resolvedGenre})` : ""} в 1080p60? Ответь ТОЛЬКО JSON объектом без комментариев и markdown, вот пример формата: {"minGpuVram": 6, "minCpuCores": 6, "minRamGb": 16, "minDownloadMbps": 50, "minUploadMbps": 10, "recGpuVram": 10, "recCpuCores": 8, "recRamGb": 32, "recDownloadMbps": 100, "recUploadMbps": 20}. Поля min* — минимальные требования, rec* — рекомендуемые (должны быть строго выше min*). *GpuVram — видеопамять GPU в ГБ, *CpuCores — количество ядер CPU, *RamGb — ОЗУ в ГБ, *DownloadMbps — скорость скачивания в Мбит/с, *UploadMbps — скорость аплоада в Мбит/с (критично для стрима!).`;
   } else {
     prompt = `Верни универсальные минимальные и рекомендуемые требования к ПК для стриминга игр в 1080p60. Ответь ТОЛЬКО JSON объектом без комментариев и markdown, вот пример формата: {"minGpuVram": 6, "minCpuCores": 4, "minRamGb": 16, "minDownloadMbps": 50, "minUploadMbps": 10, "recGpuVram": 10, "recCpuCores": 8, "recRamGb": 32, "recDownloadMbps": 100, "recUploadMbps": 20}.`;
+  }
+
+  const anthropic = getAnthropicClient();
+  if (!anthropic) {
+    res.status(503).json({
+      error: "ai_unavailable",
+      message: "ИИ-подсказки временно недоступны — интеграция Anthropic не настроена",
+    });
+    return;
   }
 
   try {

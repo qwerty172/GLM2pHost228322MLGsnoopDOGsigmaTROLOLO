@@ -8,9 +8,10 @@ check() {
   local method="$1"
   local path="$2"
   local expected="${3:-200}"
+  local body="${4:-}"
   local code
   if [[ "$method" == "POST" ]]; then
-    code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE$path" -H 'content-type: application/json' -d '{}')
+    code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE$path" -H 'content-type: application/json' -d "$body")
   else
     code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE$path")
   fi
@@ -29,5 +30,5 @@ check GET  /api/games/rogue-fable-3
 check GET  /api/hosts
 check GET  /api/quotas
 check GET  /api/loans/requests
-check POST /api/players/register 2xx
+check POST /api/players/register 201 '{"guest":true}'
 echo "Done."

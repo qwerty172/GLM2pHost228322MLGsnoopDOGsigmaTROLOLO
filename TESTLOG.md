@@ -6,7 +6,7 @@
 
 | # | Где | Симптом | Причина | Фикс | Статус |
 |---|-----|---------|---------|------|--------|
-| | | | | | |
+| 1 | `lib/integrations-anthropic-ai/src/client.ts` | API падает при старте без Anthropic-ключей | Eager throw при import | Lazy `getAnthropicClient()`, 503 в quotas | fixed |
 
 ## SQL-проверки
 
