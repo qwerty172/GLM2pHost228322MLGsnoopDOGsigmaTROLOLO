@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "vtnnl9E9APbzvxVnlesK_"
@@ -30,3 +29,9 @@ id = "DY_Lpv8a52ATf1RHyND96"
 uri = "file://artifacts/mockup-sandbox/public/lan-party-hero.png"
 type = "image"
 title = "warm LAN party hero background"
+
+[[outputs]]
+id = "gcgJTX4RTXskBqSDs9rAU"
+uri = "file://PLAN.md"
+type = "text"
+title = "План разработки — 30 задач в 3 фазы"
