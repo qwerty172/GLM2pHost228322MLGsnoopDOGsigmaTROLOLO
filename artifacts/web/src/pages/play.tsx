@@ -1903,53 +1903,6 @@ export default function Play() {
             </button>
           )}
 
-          {/* Keyboard key overlay toggle */}
-          <button
-            onClick={() => {
-              setKeyboardOverlay((v) => {
-                if (v) setKeyboardEditMode(false);
-                return !v;
-              });
-            }}
-            className="pointer-events-auto"
-            title="Клавиши на экране"
-            style={{
-              background: keyboardOverlay ? "rgba(234,179,8,0.22)" : "rgba(255,255,255,0.08)",
-              border: keyboardOverlay ? "1px solid rgba(234,179,8,0.6)" : "1px solid rgba(255,255,255,0.15)",
-              borderRadius: 8,
-              padding: "5px 8px",
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-              color: keyboardOverlay ? "#fde047" : "#94a3b8",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            ⌨
-          </button>
-
-          {/* Keyboard edit toggle */}
-          {keyboardOverlay && (
-            <button
-              onClick={() => setKeyboardEditMode((v) => !v)}
-              className="pointer-events-auto"
-              title="Настроить клавиши"
-              style={{
-                background: keyboardEditMode ? "rgba(234,179,8,0.25)" : "rgba(255,255,255,0.06)",
-                border: keyboardEditMode ? "1px solid rgba(234,179,8,0.7)" : "1px solid rgba(255,255,255,0.12)",
-                borderRadius: 8,
-                padding: "5px 8px",
-                color: keyboardEditMode ? "#fde047" : "#64748b",
-                fontSize: 11,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              {keyboardEditMode ? "✓ Готово" : "✎"}
-            </button>
-          )}
 
           {/* Shader toggle button */}
           <button
@@ -2326,6 +2279,73 @@ export default function Play() {
         {/* Keyboard key overlay */}
         {isPlaying && keyboardOverlay && (
           <KeyboardOverlay onKeyInput={sendKeyboardInput} editMode={keyboardEditMode} />
+        )}
+
+        {/* Floating keyboard toggle — bottom-right, thumb-reachable on mobile */}
+        {isPlaying && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: 72,
+              right: 12,
+              zIndex: 30,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              gap: 6,
+              pointerEvents: "auto",
+            }}
+          >
+            {keyboardOverlay && (
+              <button
+                onClick={() => setKeyboardEditMode((v) => !v)}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: "50%",
+                  background: keyboardEditMode ? "rgba(234,179,8,0.35)" : "rgba(255,255,255,0.10)",
+                  border: keyboardEditMode ? "2px solid rgba(234,179,8,0.8)" : "2px solid rgba(255,255,255,0.22)",
+                  color: keyboardEditMode ? "#fde047" : "#94a3b8",
+                  fontSize: 17,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  backdropFilter: "blur(6px)",
+                  touchAction: "none",
+                }}
+                title="Настроить клавиши"
+              >
+                {keyboardEditMode ? "✓" : "✎"}
+              </button>
+            )}
+            <button
+              onClick={() => {
+                setKeyboardOverlay((v) => {
+                  if (v) setKeyboardEditMode(false);
+                  return !v;
+                });
+              }}
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: "50%",
+                background: keyboardOverlay ? "rgba(234,179,8,0.28)" : "rgba(255,255,255,0.10)",
+                border: keyboardOverlay ? "2px solid rgba(234,179,8,0.7)" : "2px solid rgba(255,255,255,0.22)",
+                color: keyboardOverlay ? "#fde047" : "#94a3b8",
+                fontSize: 22,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                backdropFilter: "blur(6px)",
+                touchAction: "none",
+              }}
+              title="Клавиши на экране"
+            >
+              ⌨
+            </button>
+          </div>
         )}
 
         {showAudioPrompt && (
