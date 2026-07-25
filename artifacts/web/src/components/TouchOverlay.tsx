@@ -22,6 +22,7 @@ interface Pos { x: number; y: number }
 
 interface LayoutState {
   stickLeft: Pos;
+  stickRight: Pos;
   btnA: Pos;
   btnB: Pos;
   btnX: Pos;
@@ -36,6 +37,7 @@ interface LayoutState {
 
 const DEFAULT_LAYOUT: LayoutState = {
   stickLeft: { x: 5, y: 58 },
+  stickRight: { x: 75, y: 58 },
   btnA:      { x: 82, y: 75 },
   btnB:      { x: 88, y: 68 },
   btnX:      { x: 76, y: 68 },
@@ -401,6 +403,15 @@ export function TouchOverlay({ onGamepadInput, editMode = false }: Props) {
           axisX={gs.current.axes[0] ?? 0}
           axisY={gs.current.axes[1] ?? 0}
           onChange={(x, y) => { setAxis(0, x); setAxis(1, y); }}
+        />
+      </DraggableControl>
+
+      {/* Right analog stick (camera) */}
+      <DraggableControl posKey="stickRight" layout={layout} setLayout={setLayout} editMode={editMode}>
+        <AnalogStick
+          axisX={gs.current.axes[2] ?? 0}
+          axisY={gs.current.axes[3] ?? 0}
+          onChange={(x, y) => { setAxis(2, x); setAxis(3, y); }}
         />
       </DraggableControl>
 

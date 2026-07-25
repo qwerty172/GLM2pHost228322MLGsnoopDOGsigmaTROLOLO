@@ -860,6 +860,68 @@ export async function drawFromSystemAccount(
 
 export { adjustUserBucket, adjustSystem, writeLedger };
 
+/** Returns true if block reserve was already debited for this session. */
+export async function hasBlockReserveLedger(
+  tx: DbTx,
+  sessionId: string,
+): Promise<boolean> {
+  const [row] = await tx
+    .select({ id: ledgerTable.id })
+    .from(ledgerTable)
+    .where(
+      and(
+        eq(ledgerTable.kind, "block_reserve"),
+        eq(ledgerTable.refType, "session"),
+        eq(ledgerTable.refId, sessionId),
+      ),
+    )
+    .limit(1);
+  return !!row;
+}
+
+/**
+ * Debit the player's bucket for a prepaid block session.
+ * Idempotent per sessionId — safe on reclaim/reconnect.
+ */
+export async function debitBlockReserve(
+  tx: DbTx,
+  args: {
+    playerId: string;
+    sessionId: string;
+    amountLzt: number;
+    bucket: UserBucket;
+  },
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  if (await hasBlockReserveLedger(tx, args.sessionId)) {
+    return { ok: true };
+  }
+  const amt = Math.floor(args.amountLzt);
+  if (amt <= 0) return { ok: true };
+  const debited = await adjustUserBucket(
+    tx,
+    "player",
+    args.playerId,
+    args.bucket,
+    -amt,
+  );
+  if (!debited) return { ok: false, reason: "insufficient balance for block reserve" };
+  const groupId = randomUUID();
+  await writeLedger(tx, [
+    {
+      groupId,
+      kind: "block_reserve",
+      ownerType: "player",
+      ownerId: args.playerId,
+      bucket: args.bucket,
+      deltaLzt: -amt,
+      refType: "session",
+      refId: args.sessionId,
+      note: `block reserve ${amt} LZT`,
+    },
+  ]);
+  return { ok: true };
+}
+
 // Pledger limit on P2P loan request size: max(largest_deposit, largest_withdrawal).
 export function pledgerLimitLzt(args: {
   maxDepositUsdtCents: number;

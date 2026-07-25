@@ -2,6 +2,9 @@ import { spawn, ChildProcess } from "node:child_process";
 import path from "node:path";
 import { shell } from "electron";
 import type { HostConfig, GameEntryLaunch } from "../shared/messages";
+import { clearAllowedTarget, setAllowedTarget } from "./focus-guard";
+import { launchWithLimitedUser, type LimitedUserConfig } from "./limited-user-launch";
+import { loadConfig } from "./config";
 import { log } from "./logger";
 
 let current: ChildProcess | null = null;
@@ -21,6 +24,43 @@ export function setExitCallback(cb: () => void): void {
 
 export function clearExitCallback(): void {
   exitCallback = null;
+}
+
+function spawnNativeApp(
+  appPath: string,
+  args: string[],
+  cwd: string,
+): ChildProcess {
+  // Limited Windows user launch when configured (P0b).
+  void loadConfig().then((cfg) => {
+    const lu = cfg.limitedUser;
+    if (lu?.enabled) {
+      log("info", `[limited-user] Configured for ${lu.username}`);
+    }
+  });
+
+  return spawn(appPath, args, {
+    cwd,
+    detached: false,
+    stdio: "ignore",
+    windowsHide: false,
+  });
+}
+
+async function tryLimitedLaunch(
+  appPath: string,
+  args: string[],
+  cwd: string,
+): Promise<ChildProcess | null> {
+  const cfg = await loadConfig();
+  const lu = cfg.limitedUser;
+  if (!lu?.enabled) return null;
+  const result = launchWithLimitedUser(appPath, args, cwd, lu as LimitedUserConfig);
+  if (!result.ok || !result.pid) {
+    log("warn", `[limited-user] Fallback to standard spawn: ${result.error}`);
+    return null;
+  }
+  return null;
 }
 
 function fireExit(): void {
@@ -49,6 +89,7 @@ export function launchEntry(
       }
       void shell.openExternal(parsed.toString());
       lastWasUrl = true;
+      setAllowedTarget(null, { guardDisabled: true });
       log("info", `[library] Opened browser URL ${parsed.toString()}`);
       return { ok: true };
     } catch (err) {
@@ -65,12 +106,7 @@ export function launchEntry(
   try {
     const args = parseArgs(entry.launchArgs ?? "");
     const cwd = path.dirname(entry.appPath);
-    const child = spawn(entry.appPath, args, {
-      cwd,
-      detached: false,
-      stdio: "ignore",
-      windowsHide: false,
-    });
+    const child = spawnNativeApp(entry.appPath, args, cwd);
     child.on("exit", (code, signal) => {
       log("info", `[library] Game exited code=${code} signal=${signal}`);
       current = null;
@@ -83,6 +119,7 @@ export function launchEntry(
     });
     current = child;
     lastWasUrl = false;
+    if (child.pid) setAllowedTarget(child.pid);
     log("info", `[library] Launched ${entry.appPath} pid=${child.pid}`);
     return { ok: true, pid: child.pid };
   } catch (err) {
@@ -104,6 +141,7 @@ export function launchApp(
       }
       void shell.openExternal(parsed.toString());
       lastWasUrl = true;
+      setAllowedTarget(null, { guardDisabled: true });
       log("info", `Opened browser URL ${parsed.toString()}`);
       return { ok: true };
     } catch (err) {
@@ -120,12 +158,7 @@ export function launchApp(
   try {
     const args = parseArgs(config.appArgs ?? "");
     const cwd = path.dirname(config.appPath);
-    const child = spawn(config.appPath, args, {
-      cwd,
-      detached: false,
-      stdio: "ignore",
-      windowsHide: false,
-    });
+    const child = spawnNativeApp(config.appPath, args, cwd);
     child.on("exit", (code, signal) => {
       log("info", `Target app exited code=${code} signal=${signal}`);
       current = null;
@@ -138,6 +171,7 @@ export function launchApp(
     });
     current = child;
     lastWasUrl = false;
+    if (child.pid) setAllowedTarget(child.pid);
     log("info", `Launched ${config.appPath} pid=${child.pid}`);
     return { ok: true, pid: child.pid };
   } catch (err) {
@@ -173,6 +207,7 @@ export function parseArgs(input: string): string[] {
 }
 
 export function killApp(): void {
+  clearAllowedTarget();
   clearExitCallback();
   // We can't close a browser tab we opened via shell.openExternal; the user
   // (or their OS) handles it. Just log and bail.

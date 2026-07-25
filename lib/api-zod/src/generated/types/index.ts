@@ -31,6 +31,7 @@ export * from "./detachQuotaFromSession200";
 export * from "./detachQuotaFromSessionBody";
 export * from "./endSessionBody";
 export * from "./errorResponse";
+export * from "./exchangeJoinCodeResponse";
 export * from "./fundLoanRequestBody";
 export * from "./fundLoanRequestBodyPayoutMode";
 export * from "./fundLoanRequestBodySource";

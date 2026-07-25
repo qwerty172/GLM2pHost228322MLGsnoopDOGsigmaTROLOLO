@@ -48,6 +48,7 @@ export default function SetupSession() {
   const [createdSession, setCreatedSession] = useState<{
     appName: string;
     playerToken: string;
+    joinCode?: string | null;
   } | null>(null);
   const [selectedQuotaId, setSelectedQuotaId] = useState<string | null>(null);
   const [accessCode, setAccessCode] = useState<string>("");
@@ -96,6 +97,7 @@ export default function SetupSession() {
           setCreatedSession({
             appName: session.appName,
             playerToken: session.playerToken,
+            joinCode: (session as { joinCode?: string | null }).joinCode,
           });
         },
         onError: () => {
@@ -106,7 +108,8 @@ export default function SetupSession() {
   };
 
   if (createdSession) {
-    const shareLink = `${window.location.origin}${import.meta.env.BASE_URL}play/${createdSession.playerToken}`;
+    const slug = createdSession.joinCode ?? createdSession.playerToken;
+    const shareLink = `${window.location.origin}${import.meta.env.BASE_URL}play/${slug}`.replace(/([^:]\/)\/+/g, "$1");
     const handleCopy = async () => {
       await navigator.clipboard.writeText(shareLink);
       toast.success("Ссылка скопирована");

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry, SteamScanResult, QuotaStatusEvent, SaveSyncRequest, SaveSyncResult } from "../shared/messages";
+import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, GamepadState, LibraryEntry, SteamScanResult, QuotaStatusEvent, SaveSyncRequest, SaveSyncResult } from "../shared/messages";
 
 const api = {
   getConfig: (): Promise<HostConfig> => ipcRenderer.invoke("config:get"),
@@ -10,6 +10,47 @@ const api = {
   },
   injectInput: (event: InputEvent): void => {
     ipcRenderer.send("input:inject", event);
+  },
+  setInputGuard: (
+    pid: number | null,
+    guardDisabled?: boolean,
+  ): Promise<{
+    active: boolean;
+    allowedPid: number | null;
+    guardDisabled: boolean;
+    foregroundAllowed: boolean;
+    inputBlocked: boolean;
+  }> => ipcRenderer.invoke("input:set-guard", pid, guardDisabled),
+  clearInputGuard: (): Promise<{
+    active: boolean;
+    allowedPid: number | null;
+    guardDisabled: boolean;
+    foregroundAllowed: boolean;
+    inputBlocked: boolean;
+  }> => ipcRenderer.invoke("input:clear-guard"),
+  getInputGuardStatus: (): Promise<{
+    active: boolean;
+    allowedPid: number | null;
+    guardDisabled: boolean;
+    foregroundAllowed: boolean;
+    inputBlocked: boolean;
+  }> => ipcRenderer.invoke("input:get-guard-status"),
+  clearInputBlock: (): void => {
+    ipcRenderer.send("input:clear-block");
+  },
+  onInputPanic: (cb: () => void): (() => void) => {
+    const handler = () => cb();
+    ipcRenderer.on("input:panic", handler);
+    return () => ipcRenderer.removeListener("input:panic", handler);
+  },
+  injectGamepad: (state: GamepadState): void => {
+    ipcRenderer.send("gamepad:inject", state);
+  },
+  connectGamepad: (): void => {
+    ipcRenderer.send("gamepad:connect");
+  },
+  disconnectGamepad: (): void => {
+    ipcRenderer.send("gamepad:disconnect");
   },
   // Legacy single-game launch via HostConfig stored in config file.
   launchApp: (): Promise<{ ok: boolean; pid?: number; error?: string }> =>
@@ -99,6 +140,8 @@ const api = {
   // Input injector (koffi/SendInput) health — for the diagnostics panel.
   getInjectorStatus: (): Promise<{ ok: boolean; error: string; platform: string }> =>
     ipcRenderer.invoke("agent:get-injector-status"),
+  getGamepadInjectorStatus: (): Promise<{ ok: boolean; error: string; platform: string; connected: boolean }> =>
+    ipcRenderer.invoke("agent:get-gamepad-injector-status"),
 
   // ── Auto-quota (main-process scheduler) ──────────────────────────────────
   // Register a listener that fires every time the main process emits a
@@ -124,6 +167,16 @@ const api = {
     ipcRenderer.invoke("save-sync:pull", req),
   saveSyncPush: (req: SaveSyncRequest): Promise<SaveSyncResult> =>
     ipcRenderer.invoke("save-sync:push", req),
+  savesRestore: (
+    manifest: { label: string; pathTemplate: string; provider: "steam" | "custom" }[],
+    downloadUrl: string,
+  ): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke("saves:restore", manifest, downloadUrl),
+  savesBackup: (
+    manifest: { label: string; pathTemplate: string; provider: "steam" | "custom" }[],
+    uploadUrl: string,
+  ): Promise<{ ok: boolean; sizeBytes?: number; error?: string }> =>
+    ipcRenderer.invoke("saves:backup", manifest, uploadUrl),
 };
 
 contextBridge.exposeInMainWorld("agent", api);

@@ -32,6 +32,9 @@ import type { ScheduleSlot } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { SiteNav } from "@/components/site-nav";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { useBrowserPingMs } from "@/hooks/use-browser-ping";
+import { playJoinPath } from "@/lib/play-link";
+import { prewarmIce } from "@/lib/ice-prewarm";
 
 const LZT_PER_USD = 200;
 const DEFAULT_CREDIT_LZT = 3000;
@@ -88,6 +91,7 @@ type LibraryHost = {
   pricePerMinuteUsd: number;
   status: "online" | "available" | "scheduled";
   playerToken: string | null;
+  joinCode?: string | null;
   scheduleMode: string;
   pingMs: number | null;
   hostTier?: "meets_min" | "above_rec";
@@ -103,29 +107,9 @@ function useLibraryHosts(slug: string) {
       return res.json();
     },
     enabled: !!slug,
-    refetchInterval: 20_000,
+    refetchInterval: 60_000,
     staleTime: 10_000,
   });
-}
-
-function useBrowserPingMs(): number | null {
-  const [pingMs, setPingMs] = useState<number | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    async function probe() {
-      try {
-        const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
-        const t0 = Date.now();
-        await fetch(`${base}/api/public/ping`, { cache: "no-store" });
-        if (!cancelled) setPingMs(Date.now() - t0);
-      } catch {
-        // ignore — just leave null
-      }
-    }
-    void probe();
-    return () => { cancelled = true; };
-  }, []);
-  return pingMs;
 }
 
 function sortHostsByLatency(hosts: LibraryHost[], browserRtt: number | null): LibraryHost[] {
@@ -244,7 +228,8 @@ export default function GameDetailPage() {
             if (preSessionHost.playerToken) {
               setSelectedBlockMinutes(blockMins ?? null);
               const qs = blockMins ? `?block=${blockMins}` : "";
-              navigate(`/play/${preSessionHost.playerToken}${qs}`);
+              const slug = preSessionHost.joinCode ?? preSessionHost.playerToken;
+              navigate(`${playJoinPath(slug)}${qs}`);
             }
           }}
         />
@@ -318,6 +303,15 @@ export default function GameDetailPage() {
                 </h1>
                 {game.genre && (
                   <p className="text-sky-400 font-mono mt-1 text-sm">{game.genre}</p>
+                )}
+                {Array.isArray((game as { saveManifest?: unknown[] }).saveManifest) &&
+                  ((game as { saveManifest?: unknown[] }).saveManifest?.length ?? 0) > 0 && (
+                  <span
+                    className="inline-flex items-center gap-1 mt-2 text-[11px] px-2 py-0.5 rounded-md"
+                    style={{ background: "rgba(16,185,129,0.12)", color: "#6ee7b7", border: "1px solid rgba(16,185,129,0.25)" }}
+                  >
+                    ☁ Облачное сохранение
+                  </span>
                 )}
                 {(game as GameEnriched).steamAppId && (
                   <SteamPlayerCount steamAppId={(game as GameEnriched).steamAppId!} />
@@ -586,6 +580,7 @@ function LibraryHostRow({ host: h, browserRtt, onPlay, onPreview }: { host: Libr
               className="h-9 px-5 text-xs font-semibold rounded-md"
               style={{ background: "#0ea5e9", color: "#fff" }}
               data-testid={`button-join-${h.hostId}`}
+              onPointerEnter={() => void prewarmIce(h.hostId)}
               onClick={onPlay}
             >
               Играть
@@ -912,25 +907,46 @@ function PreSessionModal({
     },
   });
 
-  const [pingMs, setPingMs] = useState<number | null>(null);
-  const [pinging, setPinging] = useState(true);
-  const didPing = useRef(false);
-  const [blockChoice, setBlockChoice] = useState<"unlimited" | "10" | "15" | "25">("unlimited");
+  const browserRtt = useBrowserPingMs();
+  const totalPingMs =
+    browserRtt != null && host.pingMs != null
+      ? Math.round(browserRtt + host.pingMs)
+      : browserRtt;
+  const pinging = totalPingMs == null;
+
+  const [downloadMbps, setDownloadMbps] = useState<number | null>(null);
+  const [speedTesting, setSpeedTesting] = useState(false);
 
   useEffect(() => {
-    if (didPing.current) return;
-    didPing.current = true;
-    const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
-    const t0 = performance.now();
-    fetch(`${base}/api/public/ping`, { method: "GET", cache: "no-store" })
-      .then(() => {
-        setPingMs(Math.round(performance.now() - t0));
+    void prewarmIce(host.hostId);
+  }, [host.hostId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSpeedTesting(true);
+    const started = performance.now();
+    void fetch(`${import.meta.env.BASE_URL}api/public/speedtest/download`)
+      .then((r) => r.arrayBuffer())
+      .then((buf) => {
+        if (cancelled) return;
+        const elapsed = Math.max(performance.now() - started, 1);
+        const mbps = Math.round(((buf.byteLength * 8) / elapsed) / 1000);
+        setDownloadMbps(mbps);
       })
       .catch(() => {
-        setPingMs(null);
+        if (!cancelled) setDownloadMbps(null);
       })
-      .finally(() => setPinging(false));
+      .finally(() => {
+        if (!cancelled) setSpeedTesting(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const bandwidthOk = downloadMbps === null || downloadMbps >= 5;
+
+  const [blockChoice, setBlockChoice] = useState<"unlimited" | "10" | "15" | "25">("unlimited");
 
   const balanceLzt = (wallet?.internalBalanceLzt ?? 0) + (wallet?.withdrawableBalanceLzt ?? 0);
   const creditLimit = (wallet as any)?.creditLimitLzt ?? DEFAULT_CREDIT_LZT;
@@ -949,18 +965,18 @@ function PreSessionModal({
   const selectedBlockMins = blockChoice === "unlimited" ? null : (Number(blockChoice) as 10 | 15 | 25);
   const blockCost = selectedBlockMins ? selectedBlockMins * host.pricePerMinuteLzt : null;
   const canAffordBlock = blockCost === null || totalAvailableLzt >= blockCost;
-  const canStart = minsAvailable >= 1 && canAffordBlock;
+  const canStart = minsAvailable >= 1 && canAffordBlock && bandwidthOk;
 
   const pingColor =
-    pingMs === null ? "#64748b"
-    : pingMs < 60 ? "#2dd4bf"
-    : pingMs < 120 ? "#eab308"
+    totalPingMs === null ? "#64748b"
+    : totalPingMs < 60 ? "#2dd4bf"
+    : totalPingMs < 120 ? "#eab308"
     : "#ef4444";
 
   const pingLabel =
-    pingMs === null ? "нет данных"
-    : pingMs < 60 ? "отлично"
-    : pingMs < 120 ? "нормально"
+    totalPingMs === null ? "нет данных"
+    : totalPingMs < 60 ? "отлично"
+    : totalPingMs < 120 ? "нормально"
     : "высокий";
 
   return (
@@ -1004,7 +1020,7 @@ function PreSessionModal({
               ) : (
                 <>
                   <p className="text-lg font-bold font-mono" style={{ color: pingColor }}>
-                    {pingMs !== null ? `${pingMs} мс` : "—"}
+                    {totalPingMs !== null ? `${totalPingMs} мс` : "—"}
                   </p>
                   <p className="text-[10px] mt-0.5" style={{ color: pingColor, opacity: 0.75 }}>
                     {pingLabel}
@@ -1027,6 +1043,33 @@ function PreSessionModal({
                 в минуту · {host.pricePerMinuteLzt * 60} LZT/час
               </p>
             </div>
+          </div>
+
+          <div
+            className="rounded-xl p-3"
+            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+          >
+            <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+              <Activity className="h-3 w-3" /> Скорость загрузки
+            </p>
+            {speedTesting ? (
+              <Loader2 className="h-4 w-4 text-slate-500 animate-spin" />
+            ) : (
+              <>
+                <p className="text-lg font-bold font-mono" style={{ color: bandwidthOk ? "#2dd4bf" : "#ef4444" }}>
+                  {downloadMbps != null ? `${downloadMbps} Мбит/с` : "—"}
+                </p>
+                <p className="text-[10px] mt-0.5 text-slate-500">
+                  {downloadMbps == null
+                    ? "не удалось измерить"
+                    : downloadMbps >= 15
+                      ? "1080p60 OK"
+                      : downloadMbps >= 5
+                        ? "рекомендуем 720p"
+                        : "низкая скорость — возможны лаги"}
+                </p>
+              </>
+            )}
           </div>
 
           <div

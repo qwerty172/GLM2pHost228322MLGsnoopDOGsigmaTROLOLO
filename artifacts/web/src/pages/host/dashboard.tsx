@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { usePlatformEvents } from "@/hooks/use-platform-events";
 import { useAuth } from "@/hooks/use-auth";
 import {
   useGetHostStats,
@@ -664,9 +666,43 @@ interface PcSpecs {
 
 export default function Dashboard() {
   const { hostToken } = useAuth();
+  const queryClient = useQueryClient();
   const [agent, setAgent] = useState<AgentState>({ status: "checking" });
   const [heartbeat, setHeartbeat] = useState<HeartbeatState>({ status: "unknown" });
   const [pcSpecs, setPcSpecs] = useState<PcSpecs | null>(null);
+
+  const refreshHostMe = useCallback(() => {
+    if (!hostToken) return;
+    fetch(`/api/hosts/@me`, { headers: { "X-User-Token": hostToken } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { pcSpecs?: PcSpecs | null; lastSeenAt?: string | null } | null) => {
+        if (!data) return;
+        if (data.pcSpecs) setPcSpecs(data.pcSpecs);
+        if (!data.lastSeenAt) {
+          setHeartbeat({ status: "never" });
+        } else if (Date.now() - new Date(data.lastSeenAt).getTime() < HEARTBEAT_FRESH_MS) {
+          setHeartbeat({ status: "fresh", lastSeenAt: data.lastSeenAt });
+        } else {
+          setHeartbeat({ status: "stale", lastSeenAt: data.lastSeenAt });
+        }
+      })
+      .catch(() => {});
+  }, [hostToken]);
+
+  usePlatformEvents(
+    useCallback(
+      (ev) => {
+        if (ev.type === "host_last_seen") refreshHostMe();
+        if (ev.type === "session_status") {
+          void queryClient.invalidateQueries({
+            queryKey: getListHostSessionsQueryKey(hostToken || ""),
+          });
+        }
+      },
+      [refreshHostMe, queryClient, hostToken],
+    ),
+    !!hostToken,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -676,36 +712,13 @@ export default function Dashboard() {
     return () => { cancelled = true; };
   }, []);
 
-  // Server-side heartbeat: the agent POSTs a heartbeat every 15s, so polling
-  // /api/hosts/@me every 15s keeps lastSeenAt at most ~30s stale.
+  // Fallback poll when SSE unavailable — NOTIFY pushes host_last_seen in normal operation.
   useEffect(() => {
     if (!hostToken) return;
-    let cancelled = false;
-
-    const check = () => {
-      fetch(`/api/hosts/@me`, { headers: { "X-User-Token": hostToken } })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((data: { pcSpecs?: PcSpecs | null; lastSeenAt?: string | null } | null) => {
-          if (cancelled || !data) return;
-          if (data.pcSpecs) setPcSpecs(data.pcSpecs);
-          if (!data.lastSeenAt) {
-            setHeartbeat({ status: "never" });
-          } else if (Date.now() - new Date(data.lastSeenAt).getTime() < HEARTBEAT_FRESH_MS) {
-            setHeartbeat({ status: "fresh", lastSeenAt: data.lastSeenAt });
-          } else {
-            setHeartbeat({ status: "stale", lastSeenAt: data.lastSeenAt });
-          }
-        })
-        .catch(() => {});
-    };
-
-    check();
-    const timer = setInterval(check, 15_000);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [hostToken]);
+    refreshHostMe();
+    const timer = setInterval(refreshHostMe, 60_000);
+    return () => clearInterval(timer);
+  }, [hostToken, refreshHostMe]);
 
   const { data: stats, isLoading: statsLoading } = useGetHostStats(
     hostToken || "",

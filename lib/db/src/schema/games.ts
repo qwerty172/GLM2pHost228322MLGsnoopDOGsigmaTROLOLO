@@ -19,6 +19,17 @@ export const gamesTable = pgTable("games", {
     .default(false),
   hasQuests: boolean("has_quests").notNull().default(false),
   browserHostUrl: text("browser_host_url").notNull().default(""),
+  /** Cloud save path templates for this game (Steam/custom). */
+  saveManifest: jsonb("save_manifest")
+    .$type<
+      Array<{
+        label: string;
+        pathTemplate: string;
+        provider: "steam" | "custom";
+      }>
+    >()
+    .notNull()
+    .default([]),
   // Admin-controlled visibility flag. Hidden games are excluded from the
   // public catalog but stay in the DB so host_games / session FKs remain valid.
   isHidden: boolean("is_hidden").notNull().default(false),

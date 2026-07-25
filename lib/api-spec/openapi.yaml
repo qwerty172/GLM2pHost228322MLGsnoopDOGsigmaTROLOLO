@@ -526,6 +526,32 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /join-codes/{code}/exchange:
+    post:
+      operationId: exchangeJoinCode
+      tags: [sessions]
+      summary: Exchange a short-lived join code for a session playerToken
+      parameters:
+        - in: path
+          name: code
+          required: true
+          schema:
+            type: string
+            description: Short join code from the share link (6–8 chars)
+      responses:
+        "200":
+          description: Exchange successful — playerToken is returned once, not for URLs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExchangeJoinCodeResponse"
+        "404":
+          description: Join code invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /sessions/{id}/end:
     patch:
       operationId: endSession
@@ -1585,6 +1611,75 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /players/me/saves/{gameId}:
+    get:
+      operationId: getPlayerGameSave
+      tags: [players]
+      summary: Get latest cloud save metadata for a game
+      parameters:
+        - in: path
+          name: gameId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Save metadata or null
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerGameSaveResponse"
+
+  /players/me/saves/{gameId}/upload-url:
+    post:
+      operationId: requestPlayerGameSaveUploadUrl
+      tags: [players]
+      summary: Request presigned upload URL for a cloud save archive
+      parameters:
+        - in: path
+          name: gameId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerGameSaveUploadUrlBody"
+      responses:
+        "200":
+          description: Presigned upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerGameSaveUploadUrlResponse"
+
+  /players/me/saves/{gameId}/commit:
+    post:
+      operationId: commitPlayerGameSave
+      tags: [players]
+      summary: Finalize cloud save after upload
+      parameters:
+        - in: path
+          name: gameId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerGameSaveCommitBody"
+      responses:
+        "200":
+          description: Save committed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerGameSaveCommitResponse"
+
 components:
   schemas:
     AdminPatchGameBody:
@@ -1891,6 +1986,20 @@ components:
         isHidden:
           type: boolean
           description: When true the game is excluded from the public catalog (admin-only flag).
+        saveManifest:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              pathTemplate:
+                type: string
+              provider:
+                type: string
+                enum: [steam, custom]
+            required: [label, pathTemplate, provider]
+          description: Cloud save path templates for this game.
       required:
         - id
         - slug
@@ -2030,6 +2139,12 @@ components:
         blockReservedLzt:
           type: ["integer", "null"]
           description: Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.
+        blockMinsRemaining:
+          type: ["integer", "null"]
+          description: Server-authoritative minutes left in a prepaid block session (null when not block-billed).
+        joinCode:
+          type: ["string", "null"]
+          description: Short-lived code for share links (/play/:joinCode). Reusable until expiry.
         isTest:
           type: boolean
           description: Host self-test session — completely free, skipped by billing.
@@ -2115,6 +2230,54 @@ components:
         - saved
         - objectPath
 
+    PlayerGameSaveUploadUrlBody:
+      type: object
+      properties:
+        sizeBytes:
+          type: integer
+      required: [sizeBytes]
+
+    PlayerGameSaveUploadUrlResponse:
+      type: object
+      properties:
+        uploadURL:
+          type: string
+        storageKey:
+          type: string
+        sizeBytes:
+          type: integer
+      required: [uploadURL, storageKey, sizeBytes]
+
+    PlayerGameSaveCommitBody:
+      type: object
+      properties:
+        storageKey:
+          type: string
+        sizeBytes:
+          type: integer
+        version:
+          type: integer
+      required: [storageKey, sizeBytes]
+
+    PlayerGameSaveCommitResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        save:
+          type: object
+          additionalProperties: true
+      required: [ok]
+
+    PlayerGameSaveResponse:
+      type: object
+      properties:
+        save:
+          type: ["object", "null"]
+          additionalProperties: true
+      required: [save]
+
+
     ClaimSessionBody:
       type: object
       properties:
@@ -2132,6 +2295,19 @@ components:
           description: Block size in minutes chosen at session start (10, 15, or 25). Omit/null for unlimited per-minute billing.
       required:
         - playerWalletToken
+
+    ExchangeJoinCodeResponse:
+      type: object
+      properties:
+        playerToken:
+          type: string
+          description: Long-lived session token — store in memory, never put back in the URL
+        sessionId:
+          type: string
+          format: uuid
+      required:
+        - playerToken
+        - sessionId
 
     CreateBrowserHostSessionBody:
       type: object
@@ -2411,6 +2587,9 @@ components:
         playerToken:
           type: string
           description: Share token so anonymous visitors can join the open session.
+        joinCode:
+          type: ["string", "null"]
+          description: Short join code for share links (preferred over playerToken in URLs).
         hostTier:
           type: string
           enum: [meets_min, above_rec]

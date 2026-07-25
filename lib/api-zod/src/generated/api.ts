@@ -349,6 +349,18 @@ export const ListHostSessionsResponseItem = zod.object({
     .describe(
       "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
     ),
+  blockMinsRemaining: zod
+    .number()
+    .nullish()
+    .describe(
+      "Server-authoritative minutes left in a prepaid block session (null when not block-billed).",
+    ),
+  joinCode: zod
+    .string()
+    .nullish()
+    .describe(
+      "Short-lived code for share links (\/play\/:joinCode). Reusable until expiry.",
+    ),
   isTest: zod
     .boolean()
     .optional()
@@ -413,6 +425,12 @@ export const ListPublicHostsResponseItem = zod
     playerToken: zod
       .string()
       .describe("Share token so anonymous visitors can join the open session."),
+    joinCode: zod
+      .string()
+      .nullish()
+      .describe(
+        "Short join code for share links (preferred over playerToken in URLs).",
+      ),
     hostTier: zod
       .enum(["meets_min", "above_rec"])
       .optional()
@@ -739,6 +757,18 @@ export const GetSessionResponse = zod.object({
     .describe(
       "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
     ),
+  blockMinsRemaining: zod
+    .number()
+    .nullish()
+    .describe(
+      "Server-authoritative minutes left in a prepaid block session (null when not block-billed).",
+    ),
+  joinCode: zod
+    .string()
+    .nullish()
+    .describe(
+      "Short-lived code for share links (\/play\/:joinCode). Reusable until expiry.",
+    ),
   isTest: zod
     .boolean()
     .optional()
@@ -789,6 +819,18 @@ export const GetSessionByPlayerTokenResponse = zod.object({
     .nullish()
     .describe(
       "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
+    ),
+  blockMinsRemaining: zod
+    .number()
+    .nullish()
+    .describe(
+      "Server-authoritative minutes left in a prepaid block session (null when not block-billed).",
+    ),
+  joinCode: zod
+    .string()
+    .nullish()
+    .describe(
+      "Short-lived code for share links (\/play\/:joinCode). Reusable until expiry.",
     ),
   isTest: zod
     .boolean()
@@ -859,10 +901,38 @@ export const ClaimSessionResponse = zod.object({
     .describe(
       "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
     ),
+  blockMinsRemaining: zod
+    .number()
+    .nullish()
+    .describe(
+      "Server-authoritative minutes left in a prepaid block session (null when not block-billed).",
+    ),
+  joinCode: zod
+    .string()
+    .nullish()
+    .describe(
+      "Short-lived code for share links (\/play\/:joinCode). Reusable until expiry.",
+    ),
   isTest: zod
     .boolean()
     .optional()
     .describe("Host self-test session — completely free, skipped by billing."),
+});
+
+/**
+ * @summary Exchange a short-lived join code for a session playerToken
+ */
+export const ExchangeJoinCodeParams = zod.object({
+  code: zod.coerce.string(),
+});
+
+export const ExchangeJoinCodeResponse = zod.object({
+  playerToken: zod
+    .string()
+    .describe(
+      "Long-lived session token — store in memory, never put back in the URL",
+    ),
+  sessionId: zod.string().uuid(),
 });
 
 /**
@@ -913,6 +983,18 @@ export const EndSessionResponse = zod.object({
     .nullish()
     .describe(
       "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
+    ),
+  blockMinsRemaining: zod
+    .number()
+    .nullish()
+    .describe(
+      "Server-authoritative minutes left in a prepaid block session (null when not block-billed).",
+    ),
+  joinCode: zod
+    .string()
+    .nullish()
+    .describe(
+      "Short-lived code for share links (\/play\/:joinCode). Reusable until expiry.",
     ),
   isTest: zod
     .boolean()

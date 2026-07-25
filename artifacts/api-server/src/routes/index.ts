@@ -6,6 +6,7 @@ import hostsRouter from "./hosts";
 import playersRouter from "./players";
 import publicRouter from "./public";
 import sessionsRouter from "./sessions";
+import joinCodesRouter from "./joinCodes";
 import walletRouter from "./wallet";
 import quotasRouter from "./quotas";
 import adminRouter from "./admin";
@@ -19,8 +20,9 @@ import quotaAiChatRouter from "./quotaAiChat";
 import enrichRouter from "./enrich";
 import vtRouter from "./vt";
 import devKeysRouter from "./devKeys";
-import embedRouter from "./embed";
 import savesRouter from "./saves";
+import eventsRouter from "./events";
+import embedRouter from "./embed";
 
 const router: IRouter = Router();
 
@@ -35,6 +37,7 @@ router.use(publicRouter);
 router.use(hostsRouter);
 router.use(playersRouter);
 router.use(sessionsRouter);
+router.use(joinCodesRouter);
 router.use(walletRouter);
 router.use(quotasRouter);
 router.use(adminRouter);
@@ -46,7 +49,8 @@ router.use(vdsRouter);
 router.use(quotaAiChatRouter);
 router.use(vtRouter);
 router.use(devKeysRouter);
-router.use(embedRouter);
 router.use(savesRouter);
+router.use(eventsRouter);
+router.use(embedRouter);
 
 export default router;

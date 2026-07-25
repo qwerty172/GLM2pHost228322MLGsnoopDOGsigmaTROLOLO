@@ -44,6 +44,13 @@ export interface HostConfig {
   // standard — Opus ~32 kbps (balanced quality)
   // quality  — Opus ~64 kbps (high fidelity)
   audioMode?: "off" | "voice" | "standard" | "quality";
+  /** Optional isolated Windows user for game launches. */
+  limitedUser?: {
+    enabled: boolean;
+    username: string;
+    password: string;
+    domain?: string;
+  };
 }
 
 export type InputEvent =
@@ -62,6 +69,14 @@ export type InputEvent =
   | { kind: "wheel"; deltaY: number }
   | { kind: "keydown"; code: string; key: string }
   | { kind: "keyup"; code: string; key: string };
+
+/** Virtual gamepad state from the mobile touch overlay (XInput layout). */
+export interface GamepadState {
+  /** Normalized stick axes in [-1, 1]: LX, LY, RX, RY. */
+  axes: number[];
+  /** Digital buttons 0–9: A, B, X, Y, LB, RB, LT, RT, Select, Start. */
+  buttons: number[];
+}
 
 // A single entry from the host's multi-game library as returned by
 // GET /api/hosts/:hostToken/library. Mirrors the server-side LibraryEntry type.
@@ -157,6 +172,9 @@ export interface IpcChannels {
   "config:set": (config: HostConfig) => HostConfig;
   "status:set": (status: AgentStatus, message?: string) => void;
   "input:inject": (event: InputEvent) => void;
+  "gamepad:inject": (state: GamepadState) => void;
+  "gamepad:connect": () => void;
+  "gamepad:disconnect": () => void;
   "app:launch": () => { ok: boolean; pid?: number; error?: string };
   "app:launch-entry": (entry: GameEntryLaunch) => { ok: boolean; pid?: number; error?: string };
   "app:kill": () => void;

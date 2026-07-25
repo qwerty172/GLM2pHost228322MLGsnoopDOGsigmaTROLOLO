@@ -10,6 +10,35 @@ declare global {
       setConfig: (next: HostConfig) => Promise<HostConfig>;
       setStatus: (status: AgentStatus, message?: string) => void;
       injectInput: (event: InputEvent) => void;
+      setInputGuard: (
+        pid: number | null,
+        guardDisabled?: boolean,
+      ) => Promise<{
+        active: boolean;
+        allowedPid: number | null;
+        guardDisabled: boolean;
+        foregroundAllowed: boolean;
+        inputBlocked: boolean;
+      }>;
+      clearInputGuard: () => Promise<{
+        active: boolean;
+        allowedPid: number | null;
+        guardDisabled: boolean;
+        foregroundAllowed: boolean;
+        inputBlocked: boolean;
+      }>;
+      getInputGuardStatus: () => Promise<{
+        active: boolean;
+        allowedPid: number | null;
+        guardDisabled: boolean;
+        foregroundAllowed: boolean;
+        inputBlocked: boolean;
+      }>;
+      clearInputBlock: () => void;
+      onInputPanic: (cb: () => void) => () => void;
+      injectGamepad: (state: { axes: number[]; buttons: number[] }) => void;
+      connectGamepad: () => void;
+      disconnectGamepad: () => void;
       launchApp: () => Promise<{ ok: boolean; pid?: number; error?: string }>;
       launchEntry: (entry: {
         appPath: string;
@@ -42,6 +71,7 @@ declare global {
       updatePcSpecs: (hostToken: string, apiBaseUrl: string) => Promise<{ ok: boolean; error?: string; pcSpecs?: { gpu: string; cpu: string; ramGb: number } }>;
       getPcSpecs: () => Promise<{ gpu: string; cpu: string; ramGb: number }>;
       getInjectorStatus: () => Promise<{ ok: boolean; error: string; platform: string }>;
+      getGamepadInjectorStatus: () => Promise<{ ok: boolean; error: string; platform: string; connected: boolean }>;
       // Auto-quota IPC (main-process scheduler)
       onQuotaStatus: (cb: (ev: { statusText: string; attachedQuotaId: string | null; attachedQuotaTitle: string | null; hasAttached: boolean }) => void) => () => void;
       quotaRunCycle: () => void;
@@ -102,6 +132,61 @@ let previewPc: RTCPeerConnection | null = null;
 // When preview reuses captureStream we do NOT stop it on preview teardown.
 let previewOwnStream: MediaStream | null = null;
 const previewIndicator = document.getElementById("preview-indicator") as HTMLSpanElement | null;
+const inputGuardBadge = document.getElementById("input-guard-badge") as HTMLSpanElement | null;
+
+let guardPollTimer: ReturnType<typeof setInterval> | null = null;
+
+function updateInputGuardBadge(
+  st: {
+    foregroundAllowed: boolean;
+    inputBlocked: boolean;
+    guardDisabled: boolean;
+    active: boolean;
+  },
+): void {
+  if (!inputGuardBadge) return;
+  if (!st.active && !isStreaming) {
+    inputGuardBadge.hidden = true;
+    return;
+  }
+  inputGuardBadge.hidden = false;
+  if (st.inputBlocked) {
+    inputGuardBadge.textContent = "Ввод заблокирован — паника";
+    inputGuardBadge.style.background = "rgba(239,68,68,0.15)";
+    inputGuardBadge.style.color = "#fca5a5";
+    inputGuardBadge.style.borderColor = "rgba(239,68,68,0.35)";
+  } else if (st.guardDisabled) {
+    inputGuardBadge.textContent = "Ввод активен (браузер)";
+    inputGuardBadge.style.background = "rgba(34,197,94,0.15)";
+    inputGuardBadge.style.color = "#86efac";
+    inputGuardBadge.style.borderColor = "rgba(34,197,94,0.35)";
+  } else if (st.foregroundAllowed) {
+    inputGuardBadge.textContent = "Ввод активен";
+    inputGuardBadge.style.background = "rgba(34,197,94,0.15)";
+    inputGuardBadge.style.color = "#86efac";
+    inputGuardBadge.style.borderColor = "rgba(34,197,94,0.35)";
+  } else {
+    inputGuardBadge.textContent = "Игра не в фокусе — ввод заблокирован";
+    inputGuardBadge.style.background = "rgba(234,179,8,0.15)";
+    inputGuardBadge.style.color = "#fde047";
+    inputGuardBadge.style.borderColor = "rgba(234,179,8,0.35)";
+  }
+}
+
+function startGuardPolling(): void {
+  stopGuardPolling();
+  guardPollTimer = setInterval(() => {
+    void window.agent.getInputGuardStatus().then(updateInputGuardBadge).catch(() => {});
+  }, 500);
+}
+
+function stopGuardPolling(): void {
+  if (guardPollTimer) {
+    clearInterval(guardPollTimer);
+    guardPollTimer = null;
+  }
+  if (inputGuardBadge) inputGuardBadge.hidden = true;
+}
 
 // Library state
 let libraryEntries: LibraryEntry[] = [];
@@ -772,9 +857,7 @@ async function connect(cfg: HostConfig, gameId: string | null): Promise<void> {
       }
     } else if (msg.type === "input") {
       try {
-        const fallback = msg["event"] as InputEvent | undefined;
-        const event = fallback ?? mapPlayerInput(msg);
-        if (event) window.agent.injectInput(event);
+        injectPlayerInput(msg as Record<string, unknown>);
       } catch {
         /* ignore */
       }
@@ -960,6 +1043,14 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     return;
   }
   isStreaming = true;
+  window.agent.connectGamepad();
+  startGuardPolling();
+  void window.agent.getGamepadInjectorStatus().then((st) => {
+    if (!st.ok && !gamepadWarnedOnce) {
+      gamepadWarnedOnce = true;
+      log(`[gamepad] ${st.error}`);
+    }
+  });
 
   setStatus("connecting", "Player joined — preparing stream…");
   resetPipeline(true);
@@ -1222,27 +1313,20 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
             Math.max(-1, Math.min(1, typeof v === "number" ? v : 0)),
           );
           const buttons = rawBtns.map((v) => (v ? 1 : 0));
-          // Forward to ViGEm/XInput injection layer when the IPC method is
-          // available (added in a future task). Until then, warn once and skip.
-          if (typeof (window.agent as Record<string, unknown>)["injectGamepad"] === "function") {
-            (window.agent as unknown as { injectGamepad: (s: { axes: number[]; buttons: number[] }) => void }).injectGamepad({ axes, buttons });
-          } else if (!gamepadWarnedOnce) {
-            gamepadWarnedOnce = true;
-            log("[gamepad] ViGEm/XInput backend not connected — overlay input received but not injected.");
-          }
+          window.agent.injectGamepad({ axes, buttons });
           return;
         }
-        const event =
-          typeof raw["kind"] === "string" &&
+        if (typeof raw["kind"] === "string" &&
           (raw["kind"] === "mousemove" ||
             raw["kind"] === "mousedown" ||
             raw["kind"] === "mouseup" ||
             raw["kind"] === "wheel" ||
             raw["kind"] === "keydown" ||
-            raw["kind"] === "keyup")
-            ? (raw as unknown as InputEvent)
-            : mapPlayerInput(raw);
-        if (event) window.agent.injectInput(event);
+            raw["kind"] === "keyup")) {
+          window.agent.injectInput(raw as unknown as InputEvent);
+        } else if (raw["type"] === "input") {
+          injectPlayerInput(raw);
+        }
       } catch {
         /* ignore */
       }
@@ -1321,7 +1405,7 @@ function mapPlayerInput(raw: Record<string, unknown>): InputEvent | null {
   const kind = raw["kind"];
   const action = raw["action"];
   if (kind === "key" && (action === "down" || action === "up")) {
-    const code = String(raw["key"] ?? "");
+    const code = String(raw["key"] ?? raw["code"] ?? "");
     return action === "down"
       ? { kind: "keydown", code, key: code }
       : { kind: "keyup", code, key: code };
@@ -1330,9 +1414,9 @@ function mapPlayerInput(raw: Record<string, unknown>): InputEvent | null {
     if (action === "move") {
       return {
         kind: "mousemove",
-        x: Number(raw["movementX"] ?? 0),
-        y: Number(raw["movementY"] ?? 0),
-        mode: "relative",
+        x: Number(raw["x"] ?? 0.5),
+        y: Number(raw["y"] ?? 0.5),
+        mode: "absolute",
       };
     }
     if (action === "down" || action === "up") {
@@ -1348,6 +1432,21 @@ function mapPlayerInput(raw: Record<string, unknown>): InputEvent | null {
     return { kind: "wheel", deltaY: Number(raw["deltaY"] ?? 0) };
   }
   return null;
+}
+
+function injectPlayerInput(raw: Record<string, unknown>): void {
+  const fallback = raw["event"] as InputEvent | undefined;
+  if (fallback) {
+    window.agent.injectInput(fallback);
+    return;
+  }
+  if (raw["kind"] === "mouse" && raw["action"] === "down") {
+    const x = Number(raw["x"] ?? 0.5);
+    const y = Number(raw["y"] ?? 0.5);
+    window.agent.injectInput({ kind: "mousemove", x, y, mode: "absolute" });
+  }
+  const event = mapPlayerInput(raw);
+  if (event) window.agent.injectInput(event);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1511,6 +1610,10 @@ async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
 
 function teardownPeer(cfg: HostConfig): void {
   isStreaming = false;
+  stopGuardPolling();
+  void window.agent.clearInputGuard();
+  window.agent.disconnectGamepad();
+  gamepadWarnedOnce = false;
   try { dataChannel?.close(); } catch { /* */ }
   dataChannel = null;
   try { pc?.close(); } catch { /* */ }
@@ -1550,6 +1653,9 @@ function teardown(reason: string): Promise<void> {
 async function teardownAsync(reason: string): Promise<void> {
   cancelDeferredTeardown();
   isStreaming = false;
+  stopGuardPolling();
+  void window.agent.clearInputGuard();
+  window.agent.clearInputBlock();
   log(reason);
 
   const saveCtx = activeSaveSyncContext;
@@ -2351,6 +2457,11 @@ updatePcSpecsBtn.addEventListener("click", async () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 void loadFormFromConfig().then(async (cfg) => {
+  window.agent.onInputPanic(() => {
+    log("[panic] Ввод заблокирован — завершаем сессию");
+    window.agent.killApp();
+    teardown("Паника: ввод заблокирован хостом");
+  });
   log("Agent UI loaded.");
   void initAgentKey();
   // Input injector health — warn the host up-front if player control won't work.

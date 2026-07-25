@@ -6,9 +6,12 @@ import {
   integer,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { playersTable } from "./players";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod/v4";
 import { gamesTable } from "./games";
+import { playersTable } from "./players";
 
+/** Per-player cloud save metadata for a game. */
 export const playerGameSavesTable = pgTable(
   "player_game_saves",
   {
@@ -19,19 +22,28 @@ export const playerGameSavesTable = pgTable(
     gameId: uuid("game_id")
       .notNull()
       .references(() => gamesTable.id, { onDelete: "cascade" }),
-    objectPath: text("object_path").notNull(),
-    sizeBytes: integer("size_bytes").notNull(),
-    contentHash: text("content_hash").notNull(),
+    objectPath: text("object_path").notNull().default(""),
+    storageKey: text("storage_key").notNull().default(""),
+    version: integer("version").notNull().default(1),
+    sizeBytes: integer("size_bytes").notNull().default(0),
+    contentHash: text("content_hash").notNull().default(""),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
-  (t) => ({
-    playerGameUnique: uniqueIndex("player_game_saves_player_game_idx").on(
-      t.playerId,
-      t.gameId,
-    ),
-  }),
+  (t) => [
+    uniqueIndex("player_game_saves_player_game_idx").on(t.playerId, t.gameId),
+  ],
 );
 
+export const insertPlayerGameSaveSchema = createInsertSchema(
+  playerGameSavesTable,
+).omit({ id: true, updatedAt: true });
+export type InsertPlayerGameSave = z.infer<typeof insertPlayerGameSaveSchema>;
 export type PlayerGameSave = typeof playerGameSavesTable.$inferSelect;
+
+export type SaveManifestEntry = {
+  label: string;
+  pathTemplate: string;
+  provider: "steam" | "custom";
+};

@@ -1,16 +1,31 @@
-import { app, BrowserWindow, desktopCapturer, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, desktopCapturer, dialog, globalShortcut, ipcMain, shell } from "electron";
 import path from "node:path";
+import { initSentryMain } from "./sentry";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import { execSync } from "node:child_process";
 import { loadConfig, saveConfig } from "./config";
 import { createTray, setStatus } from "./tray";
 import { initInputInjector, injectInput, getInjectorStatus } from "./input-injection";
+import {
+  initGamepadInjector,
+  injectGamepad,
+  connectGamepad,
+  disconnectGamepad,
+  destroyGamepadInjector,
+  getGamepadInjectorStatus,
+} from "./gamepad-injection";
 import { createPingServer, PING_PORT } from "./ping-server";
 import { launchApp, launchEntry, killApp, setExitCallback } from "./app-launcher";
+import {
+  clearAllowedTarget,
+  getFocusGuardStatus,
+  setAllowedTarget,
+  setInputBlocked,
+} from "./focus-guard";
 import { fetchLibrary, fetchHostSchedule, patchLocalAvailability, sendHeartbeat } from "./api-client";
 import { syncWakeTasks } from "./wake-scheduler";
-import { pullSave, pushSave } from "./save-sync";
+import { pullSave, pushSave, restoreSave, backupSave, type SaveManifestEntry } from "./save-sync";
 import { scanSteam, loadScanState, saveScanState } from "./steam-scanner";
 import { loadOrGenerateKeyPair, signChallenge } from "./crypto-key";
 import { log } from "./logger";
@@ -128,7 +143,9 @@ void app.whenReady().then(() =>
 );
 
 async function startAgent(): Promise<void> {
+  initSentryMain();
   initInputInjector();
+  initGamepadInjector();
   const config = await loadConfig();
   applyAutoLaunch(config);
   void syncScheduleFromServer();
@@ -168,6 +185,31 @@ async function startAgent(): Promise<void> {
   ipcMain.on("input:inject", (_e, event: InputEvent) => {
     injectInput(event);
   });
+
+  ipcMain.handle("input:set-guard", (_e, pid: number | null, guardDisabled?: boolean) => {
+    setAllowedTarget(pid, { guardDisabled: guardDisabled ?? false });
+    return getFocusGuardStatus();
+  });
+  ipcMain.handle("input:clear-guard", () => {
+    clearAllowedTarget();
+    return getFocusGuardStatus();
+  });
+  ipcMain.handle("input:get-guard-status", () => getFocusGuardStatus());
+  ipcMain.on("input:clear-block", () => {
+    setInputBlocked(false);
+  });
+
+  ipcMain.on("gamepad:inject", (_e, state: { axes: number[]; buttons: number[] }) => {
+    injectGamepad(state);
+  });
+  ipcMain.on("gamepad:connect", () => {
+    connectGamepad();
+  });
+  ipcMain.on("gamepad:disconnect", () => {
+    disconnectGamepad();
+  });
+
+  ipcMain.handle("agent:get-gamepad-injector-status", () => getGamepadInjectorStatus());
 
   ipcMain.handle(
     "capture:get-sources",
@@ -432,6 +474,23 @@ async function startAgent(): Promise<void> {
 
   // Injector status for the renderer's diagnostics panel.
   ipcMain.handle("agent:get-injector-status", () => getInjectorStatus());
+
+  ipcMain.handle(
+    "saves:restore",
+    async (
+      _e,
+      manifest: SaveManifestEntry[],
+      downloadUrl: string,
+    ) => restoreSave(manifest, downloadUrl),
+  );
+  ipcMain.handle(
+    "saves:backup",
+    async (
+      _e,
+      manifest: SaveManifestEntry[],
+      uploadUrl: string,
+    ) => backupSave(manifest, uploadUrl),
+  );
 
   // ── Crypto key & PC binding ───────────────────────────────────────────────
   // Load (or generate) the Ed25519 key pair on startup.
@@ -801,6 +860,18 @@ async function startAgent(): Promise<void> {
 
   setStatus("idle");
   log("info", "Host agent ready.");
+
+  // Panic hotkey — instantly block all player input and notify renderer.
+  const PANIC_ACCEL = "Control+Shift+End";
+  const panicRegistered = globalShortcut.register(PANIC_ACCEL, () => {
+    log("warn", "[panic] Hotkey pressed — blocking input");
+    setInputBlocked(true);
+    disconnectGamepad();
+    mainWindow?.webContents.send("input:panic");
+  });
+  if (!panicRegistered) {
+    log("warn", `[panic] Failed to register global shortcut ${PANIC_ACCEL}`);
+  }
 }
 
 app.on("second-instance", () => {
@@ -814,5 +885,7 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   (app as unknown as { isQuitting?: boolean }).isQuitting = true;
+  globalShortcut.unregisterAll();
+  destroyGamepadInjector();
   killApp();
 });

@@ -6,6 +6,7 @@
 // no-op so the agent can still be developed/tested.
 
 import type { InputEvent } from "../shared/messages";
+import { guardInput } from "./focus-guard";
 import { log } from "./logger";
 
 type Injector = (event: InputEvent) => void;
@@ -232,7 +233,7 @@ export function initInputInjector(): void {
 }
 
 export function injectInput(event: InputEvent): void {
-  injector(event);
+  guardInput(() => injector(event));
 }
 
 // Minimal subset mapping from KeyboardEvent.code/key to Windows VK codes.
