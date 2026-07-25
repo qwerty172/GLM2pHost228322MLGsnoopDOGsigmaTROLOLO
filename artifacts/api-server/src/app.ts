@@ -87,7 +87,24 @@ function buildAllowedOrigins(): Set<string> {
       /* ignore invalid */
     }
   }
+  // Auto-allow all Replit-assigned domains (REPLIT_DOMAINS covers both the
+  // dev *.replit.dev preview and the prod *.replit.app deployment domain).
+  for (const d of parseOriginList(process.env.REPLIT_DOMAINS)) {
+    origins.add(`https://${d}`);
+    origins.add(`http://${d}`);
+  }
   return origins;
+}
+
+/** True for any *.replit.dev or *.replit.app origin — catches domains that
+ *  weren't listed in REPLIT_DOMAINS at startup (e.g. custom subdomains). */
+function isReplitOrigin(origin: string): boolean {
+  try {
+    const { hostname } = new URL(origin);
+    return hostname.endsWith(".replit.dev") || hostname.endsWith(".replit.app");
+  } catch {
+    return false;
+  }
 }
 
 const allowedOrigins = buildAllowedOrigins();
@@ -100,7 +117,7 @@ app.use(
         callback(null, true);
         return;
       }
-      if (allowedOrigins.has(origin)) {
+      if (allowedOrigins.has(origin) || isReplitOrigin(origin)) {
         callback(null, true);
         return;
       }
