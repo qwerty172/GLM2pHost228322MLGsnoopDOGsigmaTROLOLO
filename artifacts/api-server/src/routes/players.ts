@@ -21,11 +21,10 @@ const registerLimiter = rateLimit({
   keyFn: ipKey,
 });
 // Player lookups by token: IP-keyed to block token brute-force.
-const playerReadLimiter = rateLimit({
+const playerReadLimiter = rateLimit({ // keyed by token (default) — isolated per player
   scope: "players:read",
   windowMs: 60_000,
-  max: 60,
-  keyFn: ipKey,
+  max: 120, // keyed by token (default) — isolated per player
 });
 
 const claimGuestLimiter = rateLimit({

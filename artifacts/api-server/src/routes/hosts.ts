@@ -38,7 +38,7 @@ import {
 } from "../lib/hostLibrary";
 import { generalHostTier, computeHostTier, specsFromPcSpecs, BASELINE_REC, BASELINE_MIN, type TierThresholds } from "../lib/hostTier";
 import { isQuotaActiveNow } from "../lib/quotaEngine";
-import { rateLimit, ipKey, failedAttemptGuard } from "../lib/rateLimit";
+import { rateLimit, ipKey, failedAttemptGuard, guardAndTrackFailures } from "../lib/rateLimit";
 import type { Request, Response } from "express";
 
 const router: IRouter = Router();
@@ -55,8 +55,7 @@ const hostRegisterLimiter = rateLimit({
 const hostReadLimiter = rateLimit({
   scope: "hosts:read",
   windowMs: 60_000,
-  max: 60,
-  keyFn: ipKey,
+  max: 120, // keyed by token — each host gets its own bucket
 });
 
 // Hosts can declare any rate, including negative ("loss-leader" promos), but
@@ -137,7 +136,7 @@ router.post("/hosts/register", hostRegisterLimiter, async (req, res): Promise<vo
   res.status(201).json(GetHostResponse.parse(serializeHost(host)));
 });
 
-router.get("/hosts/:hostToken", hostReadLimiter, failedAttemptGuard("hosts:read"), async (req, res): Promise<void> => {
+router.get("/hosts/:hostToken", hostReadLimiter, guardAndTrackFailures("hosts:read"), async (req, res): Promise<void> => {
   const params = GetHostParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

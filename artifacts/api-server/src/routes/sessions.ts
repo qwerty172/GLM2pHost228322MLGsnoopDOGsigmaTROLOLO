@@ -53,8 +53,7 @@ const router: IRouter = Router();
 const claimLimiter = rateLimit({
   scope: "sessions:claim",
   windowMs: 60_000,
-  max: 15,
-  keyFn: ipKey,
+  max: 30, // keyed by token (default) — each player gets their own bucket
 });
 
 /** OpenAPI CreateSessionBody includes requestedGameId (uuid). */

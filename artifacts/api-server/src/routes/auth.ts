@@ -28,7 +28,7 @@ const router: IRouter = Router();
 const refreshLimiter = rateLimit({
   scope: "auth:refresh",
   windowMs: 60_000,
-  max: 30,
+  max: 120, // IP-keyed (security), raised from 30: many users share one Replit proxy IP
   keyFn: ipKey,
 });
 

@@ -1137,7 +1137,7 @@ export default function Dashboard() {
     query: {
       enabled: !!hostToken,
       queryKey: getGetHostQueryKey(hostToken || ""),
-      refetchInterval: 15_000,
+      refetchInterval: 30_000, // heartbeat badge only — 30s is plenty
     },
   });
 

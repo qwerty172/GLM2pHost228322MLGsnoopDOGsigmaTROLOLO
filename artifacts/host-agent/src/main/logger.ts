@@ -6,7 +6,11 @@ let logFile: string | null = null;
 
 function ensureFile(): string {
   if (logFile) return logFile;
-  const dir = path.join(app.getPath("userData"), "logs");
+  // Write agent.log next to start.bat (the extracted zip root) so users can
+  // find it without digging through %APPDATA%. app.getAppPath() returns the
+  // directory that contains package.json, which is the zip root when launched
+  // via "electron ." from start.bat.
+  const dir = path.join(app.getAppPath(), "logs");
   mkdirSync(dir, { recursive: true });
   logFile = path.join(dir, "agent.log");
   return logFile;

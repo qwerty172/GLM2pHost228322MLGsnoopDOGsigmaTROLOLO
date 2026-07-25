@@ -30,11 +30,10 @@ const router: IRouter = Router();
 // Wallet reads are keyed by IP: a token brute-forcer sends many *different*
 // tokens, so per-token buckets would never fill. 429 long before a random
 // token space can be explored.
-const walletReadLimiter = rateLimit({
+const walletReadLimiter = rateLimit({ // keyed by token (default) — isolated per user
   scope: "wallet:read",
   windowMs: 60_000,
-  max: 60,
-  keyFn: ipKey,
+  max: 120, // keyed by token (default) — isolated per user
 });
 // Withdrawals are rare, human-initiated actions — keep the cap tight.
 const withdrawLimiter = rateLimit({

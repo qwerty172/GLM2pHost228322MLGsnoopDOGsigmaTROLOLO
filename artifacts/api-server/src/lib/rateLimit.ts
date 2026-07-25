@@ -293,6 +293,68 @@ export function failedAttemptGuard(scope: string): RequestHandler {
   };
 }
 
+/**
+ * Check-only: returns blocked state WITHOUT incrementing the failure counter.
+ * Use with guardAndTrackFailures so the counter only moves on auth failures.
+ */
+async function checkFailedAttempts(
+  scope: string,
+  req: Request,
+): Promise<{ blocked: boolean; retryAfterSec: number }> {
+  const key = `${scope}:fail:${ipKey(req)}`;
+  const now = Date.now();
+  const state = await getFailureState(key);
+  if (state.lockedUntil > now) {
+    return {
+      blocked: true,
+      retryAfterSec: Math.ceil((state.lockedUntil - now) / 1000),
+    };
+  }
+  return { blocked: false, retryAfterSec: 0 };
+}
+
+/**
+ * Middleware that gates on the failure counter WITHOUT incrementing it on every
+ * call. Instead it installs a response interceptor:
+ *   - 401 / 404  → recordFailedAttempt (bad token, brute-force protection)
+ *   - 2xx        → clearFailedAttempts  (good auth, reset streak)
+ *
+ * Use this instead of failedAttemptGuard on polling/read endpoints where
+ * legitimate clients send many requests with a valid token. The old guard
+ * incremented on *every* request, locking the IP after 10 polls.
+ */
+export function guardAndTrackFailures(scope: string): RequestHandler {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    // Only check — don't increment yet.
+    const { blocked, retryAfterSec } = await checkFailedAttempts(scope, req);
+    if (blocked) {
+      res.setHeader("Retry-After", String(Math.max(1, retryAfterSec)));
+      res.status(429).json({ error: "Too many failed attempts" });
+      return;
+    }
+
+    // Wrap res.status + res.json to track outcome after the handler runs.
+    const origStatus = res.status.bind(res);
+    let statusCode = 200;
+    res.status = ((code: number) => {
+      statusCode = code;
+      return origStatus(code);
+    }) as typeof res.status;
+
+    const origJson = res.json.bind(res);
+    res.json = ((body: unknown) => {
+      if (statusCode === 401 || statusCode === 404) {
+        void recordFailedAttempt(scope, req);
+      } else if (statusCode >= 200 && statusCode < 300) {
+        void clearFailedAttempts(scope, req);
+      }
+      return origJson(body);
+    }) as typeof res.json;
+
+    next();
+  };
+}
+
 /** Wrap a handler: on 401/404 from invalid token, record failure. */
 export function withTokenFailureTracking(
   scope: string,
