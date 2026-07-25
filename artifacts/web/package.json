@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "dotenv -e ../../.env -- cross-env PORT=5000 BASE_PATH=/ vite --config vite.config.ts --host 0.0.0.0",
-    "build": "dotenv -e ../../.env -- cross-env PORT=5000 BASE_PATH=/ vite build --config vite.config.ts",
+    "dev": "dotenv -e ../../.env -- cross-env BASE_PATH=/ vite --config vite.config.ts --host 0.0.0.0",
+    "build": "dotenv -e ../../.env -- cross-env BASE_PATH=/ vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
