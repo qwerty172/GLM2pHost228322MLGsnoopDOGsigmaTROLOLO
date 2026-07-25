@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -23,6 +24,7 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { useGetWallet, getGetWalletQueryKey } from "@workspace/api-client-react";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { toast } from "sonner";
 
 type NavKey =
   | "/"
@@ -38,9 +40,9 @@ interface Props {
   activePath?: NavKey | string;
 }
 
-function BalanceChip({ hostToken }: { hostToken: string }) {
-  const { data: wallet } = useGetWallet(hostToken, {
-    query: { retry: false, staleTime: 30_000, queryKey: getGetWalletQueryKey(hostToken) },
+function BalanceChip({ walletToken }: { walletToken: string }) {
+  const { data: wallet } = useGetWallet(walletToken, {
+    query: { retry: false, staleTime: 30_000, queryKey: getGetWalletQueryKey(walletToken) },
   });
 
   const blueLzt = wallet?.internalBalanceLzt ?? null;
@@ -65,11 +67,18 @@ function BalanceChip({ hostToken }: { hostToken: string }) {
 
 export function SiteNav({ activePath }: Props) {
   const { hostToken, logout } = useAuth();
-  const { playerWalletToken, isGuest } = usePlayerWallet();
+  const { playerWalletToken, isGuest, upgradeGuest } = usePlayerWallet();
+  const [guestExpanded, setGuestExpanded] = useState(false);
+  const [guestName, setGuestName] = useState("");
+  const [upgrading, setUpgrading] = useState(false);
+  const walletToken = playerWalletToken ?? hostToken ?? null;
   const [, navigate] = useLocation();
 
   const isActive = (path: string) => activePath === path;
   const isHostActive = activePath === "/host" || activePath === "/wallet";
+  const hideGuestBanner =
+    typeof activePath === "string" &&
+    (activePath.startsWith("/play") || activePath.startsWith("/host/play"));
 
   return (
     <nav
@@ -98,12 +107,12 @@ export function SiteNav({ activePath }: Props) {
 
         {/* Primary nav — desktop */}
         <div className="hidden md:flex items-center gap-1 flex-1">
-          <Link href="/games">
+          <Link href="/hosts">
             <span
               className="flex items-center gap-1.5 text-[13px] font-semibold transition-colors cursor-pointer px-3 py-1.5 rounded-md"
               style={{
-                color: isActive("/games") ? "#38bdf8" : "#e2e8f0",
-                background: isActive("/games") ? "rgba(14,165,233,0.08)" : "transparent",
+                color: isActive("/hosts") ? "#38bdf8" : "#e2e8f0",
+                background: isActive("/hosts") ? "rgba(14,165,233,0.08)" : "transparent",
               }}
               data-testid="link-nav-games"
             >
@@ -134,6 +143,7 @@ export function SiteNav({ activePath }: Props) {
               className="w-8 h-8 flex items-center justify-center rounded-md transition-colors hover:bg-white/5"
               style={{ color: "#64748b" }}
               title="Поиск игр"
+              aria-label="Поиск игр"
               data-testid="button-nav-search"
             >
               <Search className="w-4 h-4" />
@@ -147,9 +157,9 @@ export function SiteNav({ activePath }: Props) {
           </div>
 
           {/* Balance chip — clickable link to wallet */}
-          {hostToken && (
+          {walletToken && (
             <Link href="/wallet" data-testid="link-nav-balance">
-              <BalanceChip hostToken={hostToken} />
+              <BalanceChip walletToken={walletToken} />
             </Link>
           )}
 
@@ -164,6 +174,7 @@ export function SiteNav({ activePath }: Props) {
                   border: isActive("/profile") ? "1px solid rgba(14,165,233,0.3)" : "1px solid rgba(255,255,255,0.1)",
                   color: isActive("/profile") ? "#38bdf8" : "#94a3b8",
                 }}
+                aria-label="Профиль"
                 data-testid="button-nav-avatar"
               >
                 <UserCircle2 className="w-4.5 h-4.5" />
@@ -240,21 +251,61 @@ export function SiteNav({ activePath }: Props) {
       {/* Mobile primary nav */}
       <MobileMenu activePath={activePath} />
 
-      {/* Guest banner */}
-      {playerWalletToken && isGuest && (
+      {/* Guest banner — скрыт на странице игры; компактный на остальных */}
+      {playerWalletToken && isGuest && !hideGuestBanner && (
         <div
-          className="px-6 py-1.5 flex items-center justify-center gap-2 text-[11px]"
+          className="px-4 py-1.5 flex items-center justify-center gap-3 text-xs border-b"
           style={{
-            background: "rgba(245,158,11,0.08)",
-            borderBottom: "1px solid rgba(245,158,11,0.15)",
+            background: "rgba(245,158,11,0.06)",
+            borderColor: "rgba(245,158,11,0.12)",
             color: "#fbbf24",
           }}
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block shrink-0" />
-          Гостевой аккаунт — зарегистрируйся, чтобы пополнить баланс и сохранить историю.
-          <Link href="/host">
-            <span className="underline cursor-pointer hover:text-amber-300 transition-colors">Войти / создать аккаунт</span>
-          </Link>
+          <span>Гостевой режим</span>
+          {!guestExpanded ? (
+            <button
+              type="button"
+              className="underline hover:text-amber-200"
+              onClick={() => setGuestExpanded(true)}
+            >
+              Сохранить аккаунт
+            </button>
+          ) : (
+            <>
+              <input
+                type="text"
+                placeholder="Имя"
+                value={guestName}
+                onChange={(e) => setGuestName(e.target.value)}
+                className="h-7 px-2 rounded bg-black/30 border border-amber-500/30 text-amber-100 w-28"
+              />
+              <button
+                type="button"
+                disabled={upgrading || guestName.trim().length < 2}
+                className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 disabled:opacity-50"
+                onClick={() => {
+                  setUpgrading(true);
+                  void upgradeGuest(guestName.trim()).then((ok) => {
+                    setUpgrading(false);
+                    if (ok) {
+                      toast.success("Аккаунт создан");
+                      setGuestExpanded(false);
+                    } else toast.error("Не удалось создать аккаунт");
+                  });
+                }}
+              >
+                {upgrading ? "…" : "Готово"}
+              </button>
+              <button
+                type="button"
+                className="text-slate-500 hover:text-slate-300"
+                aria-label="Закрыть"
+                onClick={() => setGuestExpanded(false)}
+              >
+                ✕
+              </button>
+            </>
+          )}
         </div>
       )}
     </nav>

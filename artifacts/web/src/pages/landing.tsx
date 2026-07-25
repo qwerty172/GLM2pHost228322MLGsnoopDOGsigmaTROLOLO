@@ -48,7 +48,7 @@ type LiveHost = {
   pricePerHourUsd: number;
   minutePriceUsd: number;
   status: string;
-  playerToken: string | null;
+  inviteCode: string | null;
   tags: string[];
   games: Array<{ slug: string; title: string; coverImageUrl: string; genre: string; pricePerMinuteLzt: number }>;
 };
@@ -92,25 +92,47 @@ export default function Landing() {
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (shareLink) {
-      const token = shareLink.split("/play/").pop() || shareLink;
-      if (token) {
-        window.location.href = `${import.meta.env.BASE_URL}play/${token}`;
+    const raw = shareLink.trim();
+    if (!raw) return;
+
+    const extractAfter = (haystack: string, marker: string): string | null => {
+      const idx = haystack.indexOf(marker);
+      if (idx < 0) return null;
+      const rest = haystack.slice(idx + marker.length).split(/[/?#]/)[0];
+      return rest || null;
+    };
+
+    try {
+      const path =
+        raw.includes("://") || raw.startsWith("/")
+          ? new URL(raw, window.location.origin).pathname + new URL(raw, window.location.origin).search
+          : raw;
+      const inviteCode = extractAfter(path, "/play/i/") ?? extractAfter(raw, "/play/i/");
+      if (inviteCode) {
+        window.location.href = `${import.meta.env.BASE_URL}play/i/${inviteCode}`;
+        return;
       }
+      const playerToken = extractAfter(path, "/play/") ?? extractAfter(raw, "/play/");
+      if (playerToken) {
+        window.location.href = `${import.meta.env.BASE_URL}play/${playerToken}`;
+        return;
+      }
+    } catch {
+      /* fall through to bare token */
     }
+
+    window.location.href = `${import.meta.env.BASE_URL}play/${raw}`;
   };
 
-  const handlePlayNow = async (host: LiveHost) => {
-    if (!host.playerToken) return;
-    let token = playerWalletToken;
-    if (!token) {
-      token = await registerGuest();
-    }
-    navigate(`/play/${host.playerToken}`);
+  const handlePlayNow = (host: LiveHost) => {
+    if (!host.inviteCode) return;
+    // Guest wallet создаётся на /play — не блокируем навигацию.
+    if (!playerWalletToken) void registerGuest();
+    navigate(`/play/i/${host.inviteCode}`);
   };
 
   const playableHosts = (liveHosts ?? [])
-    .filter((h) => h.status === "online" && h.playerToken)
+    .filter((h) => h.status === "online" && h.inviteCode)
     .slice(0, 6);
 
   const statItems: { num: string; label: string; icon: React.ReactNode; testid: string }[] = [
@@ -167,7 +189,7 @@ export default function Landing() {
               border: "1px solid rgba(14,165,233,0.18)",
             }}
           >
-            <Activity className="w-3 h-3" /> WebRTC · P2P · без дата-центров
+            <Activity className="w-3 h-3" /> Облачный гейминг · P2P · без дата-центров
           </div>
 
           <h1 className="text-4xl font-extrabold text-white leading-tight tracking-tight mb-4">
@@ -181,7 +203,7 @@ export default function Landing() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-start gap-3">
-            <Link href="/games">
+            <Link href="/hosts">
               <Button
                 className="h-9 px-5 text-sm font-semibold rounded-md"
                 style={{ background: "#0ea5e9", color: "#fff" }}
@@ -342,8 +364,8 @@ export default function Landing() {
           </Link>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {catalogGames && catalogGames.length > 0
-            ? catalogGames.slice(0, 3).map((g) => {
+          {catalogGames && catalogGames.length > 0 ? (
+            catalogGames.slice(0, 3).map((g) => {
                 const src = coverSrc((g as any).coverImageUrl);
                 const isLive = ((g as any).liveHostsCount ?? 0) > 0;
                 const genre = (g as any).genre ?? (g as any).genres?.[0] ?? "";
@@ -391,40 +413,15 @@ export default function Landing() {
                   </Link>
                 );
               })
-            : [
-                { title: "Cyberpunk 2077", genre: "RPG · Open World", live: true },
-                { title: "Elden Ring", genre: "Action RPG · Souls-like", live: false },
-                { title: "Helldivers 2", genre: "Co-op · Shooter", live: true },
-              ].map((g) => (
-                <Link key={g.title} href="/games">
-                  <div className="game-card cursor-pointer">
-                    <div className="aspect-[3/4] relative flex items-end"
-                      style={{ background: "linear-gradient(160deg,#0d1a26,#06090e)" }}>
-                      <div
-                        className="absolute inset-0 flex items-center justify-center"
-                        style={{ opacity: 0.06 }}
-                      >
-                        <Gamepad2 className="w-16 h-16 text-sky-400" />
-                      </div>
-                      {g.live && (
-                        <div className="absolute top-2 right-2">
-                          <span
-                            className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded"
-                            style={{ background: "rgba(20,184,166,0.85)", color: "#fff" }}
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full bg-white opacity-80" />
-                            В эфире
-                          </span>
-                        </div>
-                      )}
-                      <div className="relative p-3 w-full">
-                        <div className="text-sm font-bold text-white leading-tight">{g.title}</div>
-                        <div className="text-[10px] text-sky-400 font-mono mt-0.5">{g.genre}</div>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              ))}
+          ) : (
+            <div
+              className="sm:col-span-3 surface-card p-8 text-center"
+            >
+              <Gamepad2 className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+              <p className="text-sm text-slate-400">Каталог пока пуст</p>
+              <p className="text-xs text-slate-600 mt-1">Загляни позже или стань хостом и добавь первую игру.</p>
+            </div>
+          )}
         </div>
       </section>
 

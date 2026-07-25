@@ -7,12 +7,14 @@ import {
   boolean,
   index,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { hostsTable } from "./hosts";
 import { playersTable } from "./players";
 import { gamesTable } from "./games";
 import { devKeysTable } from "./devKeys";
+import { quotasTable } from "./quotas";
 
 export const sessionsTable = pgTable("sessions", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -28,6 +30,9 @@ export const sessionsTable = pgTable("sessions", {
     .notNull()
     .references(() => gamesTable.id, { onDelete: "restrict" }),
   playerToken: text("player_token").notNull().unique(),
+  // Short invite code for share links (expires independently of playerToken).
+  inviteCode: text("invite_code").unique(),
+  inviteExpiresAt: timestamp("invite_expires_at", { withTimezone: true }),
   claimedByPlayerId: uuid("claimed_by_player_id").references(
     () => playersTable.id,
     { onDelete: "set null" },
@@ -43,6 +48,8 @@ export const sessionsTable = pgTable("sessions", {
   status: text("status").notNull().default("pending"),
   resolution: text("resolution").notNull().default("1920x1080"),
   bitrateKbps: integer("bitrate_kbps").notNull().default(6000),
+  // Stored as text for backward compatibility with existing rows (numeric
+  // migration needs an explicit USING cast — deferred to a reviewed SQL migration).
   ratePerMinute: text("rate_per_minute").notNull().default("0.04"),
   // Which LZT bucket the player wants to be billed from:
   //   "green" → only зелёный (withdrawable)
@@ -51,7 +58,9 @@ export const sessionsTable = pgTable("sessions", {
   paymentSource: text("payment_source").notNull().default("auto"),
   // Optional quota preset-contract attached to this session. The billing
   // worker reads it on every tick to apply royalty/sponsor adjustments.
-  quotaId: uuid("quota_id"),
+  quotaId: uuid("quota_id").references(() => quotasTable.id, {
+    onDelete: "set null",
+  }),
   // Block-time billing: player pre-purchases a fixed block of minutes (10/15/25).
   // blockMinutes: the block size chosen at session start (null = unlimited/per-minute).
   // blockReservedLzt: total LZT reserved for the block (blockMinutes × ratePerMinuteLzt).
@@ -69,10 +78,19 @@ export const sessionsTable = pgTable("sessions", {
   endedAt: timestamp("ended_at", { withTimezone: true }),
   lastBilledAt: timestamp("last_billed_at", { withTimezone: true }),
   endReason: text("end_reason"),
+  // Aggregated stream quality (computed by metrics worker from session_metrics).
+  qualityScore: integer("quality_score"),
+  avgRttMs: integer("avg_rtt_ms"),
+  avgLossPct: integer("avg_loss_pct"),
 }, (t) => ({
   hostStatusIdx: index("sessions_host_status_idx").on(t.hostId, t.status),
   statusIdx: index("sessions_status_idx").on(t.status),
   quotaIdx: index("sessions_quota_idx").on(t.quotaId),
+  gameStatusIdx: index("sessions_game_status_idx").on(t.gameId, t.status),
+  // Hot path for billing worker: non-ended sessions ordered/scanned by lastBilledAt.
+  activeBillingIdx: index("sessions_active_billing_idx")
+    .on(t.status, t.lastBilledAt)
+    .where(sql`${t.status} <> 'ended'`),
 }));
 
 export const insertSessionSchema = createInsertSchema(sessionsTable).omit({

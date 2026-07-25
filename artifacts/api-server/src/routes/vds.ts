@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { db, quotaVdsTable, quotasTable, hostsTable } from "@workspace/db";
 import { resolveOwnerByToken } from "../lib/walletOwner";
 import { encryptSshKey, decryptSshKey } from "../lib/sshKey";
+import { isWalletCryptoEnabled } from "../lib/encryption";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -160,7 +161,24 @@ router.post("/quotas/:quotaId/vds", async (req, res): Promise<void> => {
     return;
   }
 
-  const sshKeyEncrypted = encryptSshKey(sshKey);
+  if (!isWalletCryptoEnabled()) {
+    res.status(503).json({
+      error: "encryption_unavailable",
+      message: "Шифрование не настроено (WALLET_ENCRYPTION_KEY)",
+    });
+    return;
+  }
+
+  let sshKeyEncrypted: string;
+  try {
+    sshKeyEncrypted = encryptSshKey(sshKey);
+  } catch {
+    res.status(503).json({
+      error: "encryption_unavailable",
+      message: "Шифрование не настроено (WALLET_ENCRYPTION_KEY)",
+    });
+    return;
+  }
 
   const [existing] = await db
     .select()

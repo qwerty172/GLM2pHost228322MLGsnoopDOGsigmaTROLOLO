@@ -28,6 +28,13 @@ const playerReadLimiter = rateLimit({
   keyFn: ipKey,
 });
 
+const claimGuestLimiter = rateLimit({
+  scope: "players:claim-guest",
+  windowMs: 60 * 60_000,
+  max: 10,
+  keyFn: ipKey,
+});
+
 const GUEST_CREDIT_LIMIT_LZT = 500;
 const DEFAULT_CREDIT_LIMIT_LZT = 3000;
 
@@ -119,7 +126,7 @@ router.get("/players/:playerToken", playerReadLimiter, async (req, res): Promise
 // POST /players/claim-guest
 // Called by the desktop agent when a host registers: transfers guest balance +
 // session history to the host account, then deactivates the guest token.
-router.post("/players/claim-guest", async (req, res): Promise<void> => {
+router.post("/players/claim-guest", claimGuestLimiter, async (req, res): Promise<void> => {
   const guestToken = (req.body?.guestToken as string | undefined)?.trim() ?? "";
   const hostToken = (req.body?.hostToken as string | undefined)?.trim() ?? "";
 
@@ -206,6 +213,61 @@ router.post("/players/claim-guest", async (req, res): Promise<void> => {
     transferredInternalLzt: guest.internalBalanceLzt,
     transferredWithdrawableLzt: guest.withdrawableBalanceLzt,
   });
+});
+
+const upgradeGuestLimiter = rateLimit({
+  scope: "players:upgrade-guest",
+  windowMs: 60 * 60_000,
+  max: 10,
+  keyFn: ipKey,
+});
+
+router.post("/players/upgrade-guest", upgradeGuestLimiter, async (req, res): Promise<void> => {
+  const guestToken = String(req.body?.guestToken ?? "").trim();
+  const displayName = String(req.body?.displayName ?? "").trim();
+  if (!guestToken) {
+    res.status(400).json({ error: "guestToken required" });
+    return;
+  }
+  if (displayName.length < 2 || displayName.length > 32) {
+    res.status(400).json({ error: "displayName must be 2–32 characters" });
+    return;
+  }
+
+  const [guest] = await db
+    .select()
+    .from(playersTable)
+    .where(eq(playersTable.playerToken, guestToken));
+  if (!guest) {
+    res.status(404).json({ error: "Guest not found" });
+    return;
+  }
+  if (!guest.isGuest) {
+    res.status(400).json({ error: "Account is not a guest" });
+    return;
+  }
+
+  const newToken = generateToken();
+  const [upgraded] = await db
+    .update(playersTable)
+    .set({
+      playerToken: newToken,
+      displayName,
+      isGuest: false,
+      creditLimitLzt: DEFAULT_CREDIT_LIMIT_LZT,
+    })
+    .where(and(eq(playersTable.id, guest.id), eq(playersTable.isGuest, true)))
+    .returning();
+
+  if (!upgraded) {
+    res.status(500).json({ error: "Upgrade failed" });
+    return;
+  }
+
+  await ensureDepositAddressesForOwner("player", upgraded.id);
+
+  req.log.info({ playerId: upgraded.id }, "Guest upgraded to full account");
+  res.status(200).json(serialize(upgraded));
 });
 
 export default router;

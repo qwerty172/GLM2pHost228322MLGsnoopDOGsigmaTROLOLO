@@ -3,7 +3,7 @@
 // `now` and the current `premiumUntil`.
 
 import { Router, type IRouter } from "express";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db, hostsTable, playersTable } from "@workspace/db";
 import { resolveOwnerByToken } from "../lib/walletOwner";
 import {
@@ -43,20 +43,24 @@ router.post("/premium/purchase", purchaseLimiter, async (req, res): Promise<void
   try {
     const result = await db.transaction(async (tx) => {
       const tbl = userTbl(owner.type);
+      // Atomic debit: WHERE balance >= cost closes the TOCTOU window between
+      // a balance read and the write (concurrent purchases / billing ticks).
       const debited = await tx
         .update(tbl)
         .set({
           internalBalanceLzt: sql`${tbl.internalBalanceLzt} - ${cost}`,
         })
         .where(
-          eq(tbl.id, owner.id),
+          and(
+            eq(tbl.id, owner.id),
+            sql`${tbl.internalBalanceLzt} >= ${cost}`,
+          ),
         )
         .returning({
           balance: tbl.internalBalanceLzt,
           premiumUntil: tbl.premiumUntil,
         });
-      // Re-check post-update; if it went negative, abort the tx.
-      if (!debited[0] || debited[0].balance < 0) {
+      if (!debited[0]) {
         throw new Error("Insufficient balance");
       }
       const now = new Date();

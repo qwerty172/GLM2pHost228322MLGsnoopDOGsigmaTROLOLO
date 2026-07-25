@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import {
   DndContext,
@@ -58,6 +58,17 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  useListHostLibrary,
+  useAddHostLibraryEntry,
+  useUpdateHostLibraryEntry,
+  useRemoveHostLibraryEntry,
+  useListGames,
+  getListHostLibraryQueryKey,
+  getListGamesQueryKey,
+  type HostLibraryEntry,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 const cardStyle = {
   background: "#0a1018",
@@ -87,31 +98,7 @@ interface CatalogGame {
   browserHostUrl?: string | null;
 }
 
-interface LibraryEntry {
-  id: string;
-  hostId: string;
-  gameId: string;
-  pricePerMinuteLzt: number;
-  appPath: string;
-  boundUrl: string;
-  launchArgs: string;
-  enabled: boolean;
-  sortOrder: number;
-  localAvailable: boolean;
-  lastError: string;
-  addedAt: string;
-  hasActiveSession: boolean;
-  game: {
-    id: string;
-    slug: string;
-    title: string;
-    coverImageUrl: string | null;
-    genre: string | null;
-    browserHostUrl: string | null;
-    hasMods: boolean;
-    isMultiplayer: boolean;
-  };
-}
+type LibraryEntry = HostLibraryEntry;
 
 function entryKind(e: LibraryEntry): "native" | "browser" {
   return e.boundUrl || e.game.browserHostUrl ? "browser" : "native";
@@ -253,7 +240,7 @@ function SortableRow({
             }}
           >
             {isBrowser ? <Globe className="h-2.5 w-2.5 mr-0.5" /> : <Monitor className="h-2.5 w-2.5 mr-0.5" />}
-            {isBrowser ? "browser" : "native"}
+            {isBrowser ? "браузер" : "нативная"}
           </Badge>
         </div>
         <div className="flex items-center gap-2 mt-0.5">
@@ -330,24 +317,27 @@ function CatalogSearch({
   onSuggestNew: () => void;
 }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<CatalogGame[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const doSearch = useCallback(async (q: string) => {
-    setLoading(true);
-    const r = await apiFetch<CatalogGame[]>(`/api/public/games?search=${encodeURIComponent(q)}`);
-    setLoading(false);
-    if (r.ok) setResults(r.data);
-  }, []);
 
   useEffect(() => {
     if (debounce.current) clearTimeout(debounce.current);
-    debounce.current = setTimeout(() => doSearch(query), 300);
-    return () => { if (debounce.current) clearTimeout(debounce.current); };
-  }, [query, doSearch]);
+    debounce.current = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => {
+      if (debounce.current) clearTimeout(debounce.current);
+    };
+  }, [query]);
 
-  useEffect(() => { doSearch(""); }, [doSearch]);
+  const listParams = useMemo(
+    () => ({ search: debouncedQuery.trim() || undefined }),
+    [debouncedQuery],
+  );
+  const { data: games, isLoading: loading } = useListGames(listParams, {
+    query: {
+      queryKey: getListGamesQueryKey(listParams),
+    },
+  });
+  const results = (games ?? []) as CatalogGame[];
 
   return (
     <div className="space-y-4">
@@ -408,7 +398,7 @@ function CatalogSearch({
                   className="text-[10px] h-4 flex-shrink-0"
                   style={{ color: "#34d399", border: "1px solid rgba(16,185,129,0.3)" }}
                 >
-                  browser
+                  браузер
                 </Badge>
               )}
             </button>
@@ -1011,6 +1001,7 @@ function AddGameModal({
   const [selectedGame, setSelectedGame] = useState<CatalogGame | null>(null);
   const [pendingSubmissionId, setPendingSubmissionId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const addEntry = useAddHostLibraryEntry();
 
   const handleClose = () => {
     setStep("search");
@@ -1036,16 +1027,19 @@ function AddGameModal({
       return;
     }
 
-    // Real catalog game: add to library immediately.
-    const r = await apiFetch(`/api/hosts/@me/library`, {
-      method: "POST",
-      body: JSON.stringify({ gameId: selectedGame.id, ...v }),
-    });
-    setSubmitting(false);
-    if (!r.ok) { toast.error(r.error); return; }
-    toast.success(`«${selectedGame.title}» добавлена в библиотеку`);
-    handleClose();
-    onAdded();
+    try {
+      await addEntry.mutateAsync({
+        hostToken,
+        data: { gameId: selectedGame.id, ...v },
+      });
+      toast.success(`«${selectedGame.title}» добавлена в библиотеку`);
+      handleClose();
+      onAdded();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Не удалось добавить игру");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleSubmitted = (submissionId: string, game: CatalogGame) => {
@@ -1105,86 +1099,138 @@ function AddGameModal({
 // --------------------------------------------------------------------------
 export default function HostLibrary() {
   const { hostToken } = useAuth();
-  const [entries, setEntries] = useState<LibraryEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const [localEntries, setLocalEntries] = useState<LibraryEntry[] | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [editEntry, setEditEntry] = useState<LibraryEntry | null>(null);
   const [deleteEntry, setDeleteEntry] = useState<LibraryEntry | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
+
+  const {
+    data: remoteEntries,
+    isLoading: loading,
+    isError,
+    refetch,
+  } = useListHostLibrary(hostToken ?? "", {
+    query: {
+      enabled: !!hostToken,
+      queryKey: getListHostLibraryQueryKey(hostToken ?? ""),
+    },
+  });
+
+  const updateEntry = useUpdateHostLibraryEntry();
+  const removeEntry = useRemoveHostLibraryEntry();
+
+  const sortedRemote = useMemo(() => {
+    if (!remoteEntries) return [];
+    return [...remoteEntries].sort((a, b) => a.sortOrder - b.sortOrder);
+  }, [remoteEntries]);
+
+  // Prefer optimistic local order while drag/reorder is in flight.
+  const entries = localEntries ?? sortedRemote;
+
+  useEffect(() => {
+    setLocalEntries(null);
+  }, [sortedRemote]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const loadLibrary = useCallback(async () => {
+  const invalidateLibrary = useCallback(() => {
     if (!hostToken) return;
-    setLoading(true);
-    const r = await apiFetch<LibraryEntry[]>(`/api/hosts/@me/library`);
-    setLoading(false);
-    if (r.ok) {
-      const sorted = [...r.data].sort((a, b) => a.sortOrder - b.sortOrder);
-      setEntries(sorted);
-    }
-  }, [hostToken]);
-
-  useEffect(() => { loadLibrary(); }, [loadLibrary]);
+    void queryClient.invalidateQueries({
+      queryKey: getListHostLibraryQueryKey(hostToken),
+    });
+  }, [hostToken, queryClient]);
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
+    if (!over || active.id === over.id || !hostToken) return;
 
     const oldIndex = entries.findIndex((e) => e.id === active.id);
     const newIndex = entries.findIndex((e) => e.id === over.id);
-    const reordered = arrayMove(entries, oldIndex, newIndex);
-    setEntries(reordered);
+    if (oldIndex < 0 || newIndex < 0) return;
 
-    // Persist new sortOrder values for each moved item
-    await Promise.all(
-      reordered.map((entry, idx) =>
-        apiFetch(`/api/hosts/@me/library/${entry.gameId}`, {
-          method: "PATCH",
-          body: JSON.stringify({ sortOrder: idx }),
-        }),
-      ),
-    );
+    const previous = entries;
+    const reordered = arrayMove(entries, oldIndex, newIndex);
+    setLocalEntries(reordered);
+
+    try {
+      await Promise.all(
+        reordered.map((entry, idx) =>
+          updateEntry.mutateAsync({
+            hostToken,
+            gameId: entry.gameId,
+            data: { sortOrder: idx },
+          }),
+        ),
+      );
+      invalidateLibrary();
+    } catch {
+      setLocalEntries(previous);
+      toast.error("Не удалось сохранить порядок — изменения отменены");
+      void refetch();
+    }
   };
 
   const handleToggle = async (entry: LibraryEntry) => {
+    if (!hostToken) return;
     setToggling(entry.id);
-    const r = await apiFetch(`/api/hosts/@me/library/${entry.gameId}`, {
-      method: "PATCH",
-      body: JSON.stringify({ enabled: !entry.enabled }),
-    });
-    setToggling(null);
-    if (!r.ok) { toast.error(r.error); return; }
-    setEntries((prev) => prev.map((e) => e.id === entry.id ? { ...e, enabled: !e.enabled } : e));
+    try {
+      await updateEntry.mutateAsync({
+        hostToken,
+        gameId: entry.gameId,
+        data: { enabled: !entry.enabled },
+      });
+      setLocalEntries((prev) => {
+        const base = prev ?? entries;
+        return base.map((e) =>
+          e.id === entry.id ? { ...e, enabled: !e.enabled } : e,
+        );
+      });
+      invalidateLibrary();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Не удалось переключить");
+    } finally {
+      setToggling(null);
+    }
   };
 
-  const handleEdit = async (gameId: string, v: { pricePerMinuteLzt: number; appPath: string; boundUrl: string; launchArgs: string }) => {
-    const r = await apiFetch(`/api/hosts/@me/library/${gameId}`, {
-      method: "PATCH",
-      body: JSON.stringify(v),
-    });
-    if (!r.ok) { toast.error(r.error); return; }
-    toast.success("Сохранено");
-    setEditEntry(null);
-    loadLibrary();
+  const handleEdit = async (
+    gameId: string,
+    v: { pricePerMinuteLzt: number; appPath: string; boundUrl: string; launchArgs: string },
+  ) => {
+    if (!hostToken) return;
+    try {
+      await updateEntry.mutateAsync({ hostToken, gameId, data: v });
+      toast.success("Сохранено");
+      setEditEntry(null);
+      invalidateLibrary();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Не удалось сохранить");
+    }
   };
 
   const handleDelete = async () => {
-    if (!deleteEntry) return;
-    const r = await apiFetch(`/api/hosts/@me/library/${deleteEntry.gameId}`, {
-      method: "DELETE",
-    });
-    if (!r.ok) {
-      if (r.status === 409) toast.error("Нельзя удалить: идёт активная сессия");
-      else toast.error(r.error);
-      return;
+    if (!deleteEntry || !hostToken) return;
+    try {
+      await removeEntry.mutateAsync({
+        hostToken,
+        gameId: deleteEntry.gameId,
+      });
+      toast.success(`«${deleteEntry.game.title}» удалена из библиотеки`);
+      setDeleteEntry(null);
+      invalidateLibrary();
+    } catch (err) {
+      const status =
+        err && typeof err === "object" && "status" in err
+          ? (err as { status: number }).status
+          : 0;
+      if (status === 409) toast.error("Нельзя удалить: идёт активная сессия");
+      else toast.error(err instanceof Error ? err.message : "Не удалось удалить");
     }
-    toast.success(`«${deleteEntry.game.title}» удалена из библиотеки`);
-    setDeleteEntry(null);
-    setEntries((prev) => prev.filter((e) => e.id !== deleteEntry.id));
   };
 
   return (
@@ -1224,6 +1270,13 @@ export default function HostLibrary() {
           {loading ? (
             <div className="space-y-3">
               {[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
+            </div>
+          ) : isError ? (
+            <div className="py-10 text-center space-y-3">
+              <p className="text-sm text-slate-400">Не удалось загрузить библиотеку</p>
+              <Button size="sm" variant="outline" onClick={() => void refetch()}>
+                Повторить
+              </Button>
             </div>
           ) : entries.length === 0 ? (
             <div
@@ -1277,7 +1330,7 @@ export default function HostLibrary() {
         hostToken={hostToken ?? ""}
         open={addOpen}
         onClose={() => setAddOpen(false)}
-        onAdded={loadLibrary}
+        onAdded={invalidateLibrary}
       />
       <EditModal
         entry={editEntry}

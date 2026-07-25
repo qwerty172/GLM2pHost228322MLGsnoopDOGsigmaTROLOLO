@@ -53,6 +53,7 @@ async function buildAll() {
       "isolated-vm",
       "lightningcss",
       "pg-native",
+      "redis",
       "oracledb",
       "mongodb-client-encryption",
       "nodemailer",

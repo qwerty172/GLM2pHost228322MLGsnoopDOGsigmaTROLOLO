@@ -23,7 +23,10 @@ export function HostAuthGuard({ children }: { children: React.ReactNode }) {
       {
         onSuccess: (data) => {
           setHostToken(data.hostToken);
-          toast.success("Узел зарегистрирован!");
+          void navigator.clipboard.writeText(data.hostToken).then(
+            () => toast.success("Узел создан — токен скопирован"),
+            () => toast.success("Узел зарегистрирован!"),
+          );
         },
         onError: () => {
           toast.error("Не удалось зарегистрировать хост");

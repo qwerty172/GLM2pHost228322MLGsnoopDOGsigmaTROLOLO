@@ -1,21 +1,83 @@
-import { app, BrowserWindow, desktopCapturer, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, clipboard, desktopCapturer, dialog, globalShortcut, ipcMain, Notification, shell } from "electron";
+import { autoUpdater } from "electron-updater";
 import path from "node:path";
+import { initSentryMain } from "./sentry";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import { execSync } from "node:child_process";
-import { loadConfig, saveConfig } from "./config";
+import type http from "node:http";
+import { loadConfig, saveConfig, getCachedConfig } from "./config";
 import { createTray, setStatus } from "./tray";
 import { initInputInjector, injectInput, getInjectorStatus } from "./input-injection";
-import { createPingServer, PING_PORT } from "./ping-server";
+import {
+  initGamepadInjector,
+  injectGamepad,
+  connectGamepad,
+  disconnectGamepad,
+  destroyGamepadInjector,
+  getGamepadInjectorStatus,
+} from "./gamepad-injection";
+import {
+  startRtmpRelay,
+  stopRtmpRelay,
+  fetchStreamRelayConfig,
+} from "./rtmp-relay";
+import { createPingServer, PING_PORT, PING_PORT_FALLBACKS, LOCAL_INPUT_SECRET } from "./ping-server";
 import { launchApp, launchEntry, killApp, setExitCallback } from "./app-launcher";
+import {
+  clearAllowedTarget,
+  getFocusGuardStatus,
+  setAllowedTarget,
+  setInputBlocked,
+} from "./focus-guard";
 import { fetchLibrary, fetchHostSchedule, patchLocalAvailability, sendHeartbeat } from "./api-client";
 import { syncWakeTasks } from "./wake-scheduler";
+import { pullSave, pushSave, restoreSave, backupSave, type SaveManifestEntry } from "./save-sync";
 import { scanSteam, loadScanState, saveScanState } from "./steam-scanner";
 import { loadOrGenerateKeyPair, signChallenge } from "./crypto-key";
 import { log } from "./logger";
-import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry, SteamScanResult, QuotaStatusEvent } from "../shared/messages";
+import { parseInputEvent, parseGamepadState } from "../shared/input";
+import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry, SteamScanResult, QuotaStatusEvent, SaveSyncRequest, SaveSyncResult } from "../shared/messages";
 
 let mainWindow: BrowserWindow | null = null;
+let pingServer: http.Server | null = null;
+let pingPortInUse = PING_PORT;
+/** Window title currently captured by WebRTC — used to sync RTMP gdigrab. */
+let currentCaptureTitle = "";
+const lifetimeIntervals: ReturnType<typeof setInterval>[] = [];
+
+function trackInterval(handle: ReturnType<typeof setInterval>): void {
+  lifetimeIntervals.push(handle);
+}
+
+function isHostConfig(raw: unknown): raw is HostConfig {
+  if (typeof raw !== "object" || raw === null) return false;
+  const o = raw as Record<string, unknown>;
+  return typeof o["hostToken"] === "string" && typeof o["apiBaseUrl"] === "string";
+}
+
+function isGameEntryLaunch(raw: unknown): raw is GameEntryLaunch {
+  if (typeof raw !== "object" || raw === null) return false;
+  const o = raw as Record<string, unknown>;
+  return (
+    typeof o["appPath"] === "string" &&
+    typeof o["boundUrl"] === "string" &&
+    typeof o["launchArgs"] === "string"
+  );
+}
+
+function allowedCorsOriginsFromConfig(cfg: HostConfig | null): string[] {
+  const out: string[] = [];
+  const base = cfg?.apiBaseUrl?.trim();
+  if (base) {
+    try {
+      out.push(new URL(base).origin);
+    } catch {
+      /* ignore */
+    }
+  }
+  return out;
+}
 
 const singleInstance = app.requestSingleInstanceLock();
 if (!singleInstance) {
@@ -70,7 +132,7 @@ function createWindow(): void {
       preload: path.join(__dirname, "..", "preload", "index.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
     },
   });
   // dist layout:
@@ -126,8 +188,23 @@ void app.whenReady().then(() =>
   }),
 );
 
+let pendingBindCode: string | null = null;
+
+function parseBindCodeFromArgv(): string | null {
+  for (const arg of process.argv) {
+    if (arg.startsWith("--bind-code=")) {
+      const code = arg.slice("--bind-code=".length).trim();
+      return code || null;
+    }
+  }
+  return null;
+}
+
 async function startAgent(): Promise<void> {
+  initSentryMain();
   initInputInjector();
+  initGamepadInjector();
+  pendingBindCode = parseBindCodeFromArgv();
   const config = await loadConfig();
   applyAutoLaunch(config);
   void syncScheduleFromServer();
@@ -136,9 +213,17 @@ async function startAgent(): Promise<void> {
     createWindow();
   });
 
-  // Don't show the window automatically when launched at startup with --hidden.
-  if (!process.argv.includes("--hidden")) {
+  // After first bind (hostToken saved): start in tray. Window only on tray click.
+  // Fresh install (no token) still shows the window for setup.
+  const startHidden =
+    process.argv.includes("--hidden") || Boolean(config.hostToken?.trim());
+  if (!startHidden) {
     createWindow();
+  } else if (Notification.isSupported() && config.hostToken?.trim()) {
+    new Notification({
+      title: "Агент DecentralHub",
+      body: "Работает в трее. Кликни по иконке, чтобы открыть настройки.",
+    }).show();
   }
 
   // koffi failed to load on Windows → the player would see the stream but be
@@ -149,24 +234,104 @@ async function startAgent(): Promise<void> {
     dialog.showErrorBox("Модуль управления не загрузился", injStatus.error);
   }
 
+  initAutoUpdater();
+
   ipcMain.handle("config:get", async () => {
     return loadConfig();
   });
 
-  ipcMain.handle("config:set", async (_e, next: HostConfig) => {
+  ipcMain.handle("agent:consume-pending-bind-code", (): string | null => {
+    const code = pendingBindCode;
+    pendingBindCode = null;
+    return code;
+  });
+
+  ipcMain.handle("config:set", async (_e, next: unknown) => {
+    if (!isHostConfig(next)) {
+      throw new Error("Invalid HostConfig payload");
+    }
     const saved = await saveConfig(next);
     applyAutoLaunch(saved);
     void syncScheduleFromServer();
     return saved;
   });
 
-  ipcMain.on("status:set", (_e, status: AgentStatus, message?: string) => {
-    setStatus(status, message);
+  ipcMain.on("input:inject", (_e, event: unknown) => {
+    const parsed = parseInputEvent(event);
+    if (!parsed) {
+      log("warn", "[ipc] Rejected malformed input:inject payload");
+      return;
+    }
+    injectInput(parsed);
   });
 
-  ipcMain.on("input:inject", (_e, event: InputEvent) => {
-    injectInput(event);
+  ipcMain.on("gamepad:inject", (_e, state: unknown) => {
+    const parsed = parseGamepadState(state);
+    if (!parsed) {
+      log("warn", "[ipc] Rejected malformed gamepad:inject payload");
+      return;
+    }
+    injectGamepad(parsed);
   });
+
+  ipcMain.handle("agent:get-gamepad-status", () => getGamepadInjectorStatus());
+
+  ipcMain.on("capture:set-source", (_e, title: unknown) => {
+    currentCaptureTitle = typeof title === "string" ? title : "";
+  });
+
+  ipcMain.on("status:set", (_e, status: unknown, message?: unknown) => {
+    if (
+      status !== "idle" &&
+      status !== "connecting" &&
+      status !== "streaming" &&
+      status !== "error"
+    ) {
+      return;
+    }
+    const msg = typeof message === "string" ? message : undefined;
+    setStatus(status, msg);
+    void (async () => {
+      const cfg = await loadConfig();
+      if (status === "streaming" && cfg.hostToken && cfg.apiBaseUrl) {
+        const relay = await fetchStreamRelayConfig(cfg.hostToken, cfg.apiBaseUrl);
+        if (relay) {
+          const result = startRtmpRelay(relay, {
+            windowTitle: currentCaptureTitle || undefined,
+          });
+          if (!result.ok) log("warn", `[rtmp] ${result.error ?? "start failed"}`);
+        }
+      } else if (status === "idle" || status === "error") {
+        stopRtmpRelay();
+        currentCaptureTitle = "";
+      }
+    })();
+  });
+
+  ipcMain.handle("input:set-guard", (_e, pid: number | null, guardDisabled?: boolean) => {
+    setAllowedTarget(pid, { guardDisabled: guardDisabled ?? false });
+    return getFocusGuardStatus();
+  });
+  ipcMain.handle("input:clear-guard", () => {
+    clearAllowedTarget();
+    return getFocusGuardStatus();
+  });
+  ipcMain.handle("input:get-guard-status", () => getFocusGuardStatus());
+  ipcMain.on("input:clear-block", () => {
+    setInputBlocked(false);
+  });
+
+  ipcMain.on("gamepad:inject", (_e, state: { axes: number[]; buttons: number[] }) => {
+    injectGamepad(state);
+  });
+  ipcMain.on("gamepad:connect", () => {
+    connectGamepad();
+  });
+  ipcMain.on("gamepad:disconnect", () => {
+    disconnectGamepad();
+  });
+
+  ipcMain.handle("agent:get-gamepad-injector-status", () => getGamepadInjectorStatus());
 
   ipcMain.handle(
     "capture:get-sources",
@@ -191,7 +356,10 @@ async function startAgent(): Promise<void> {
   // Library-based launch: renderer passes the specific entry to launch.
   // On exit the main process sends "app:game-exited" to the renderer so the
   // active session can be ended automatically and billing stopped.
-  ipcMain.handle("app:launch-entry", async (_e, entry: GameEntryLaunch) => {
+  ipcMain.handle("app:launch-entry", async (_e, entry: unknown) => {
+    if (!isGameEntryLaunch(entry)) {
+      return { ok: false, error: "Invalid launch entry" };
+    }
     setExitCallback(() => {
       mainWindow?.webContents.send("app:game-exited");
     });
@@ -373,6 +541,36 @@ async function startAgent(): Promise<void> {
     },
   );
 
+  ipcMain.handle(
+    "save-sync:pull",
+    async (_e, req: SaveSyncRequest): Promise<SaveSyncResult> => {
+      return pullSave({
+        hostToken: req.hostToken,
+        apiBaseUrl: req.apiBaseUrl,
+        sessionId: req.sessionId,
+        saveOpts: {
+          steamAppId: req.steamAppId,
+          appPath: req.appPath,
+        },
+      });
+    },
+  );
+
+  ipcMain.handle(
+    "save-sync:push",
+    async (_e, req: SaveSyncRequest): Promise<SaveSyncResult> => {
+      return pushSave({
+        hostToken: req.hostToken,
+        apiBaseUrl: req.apiBaseUrl,
+        sessionId: req.sessionId,
+        saveOpts: {
+          steamAppId: req.steamAppId,
+          appPath: req.appPath,
+        },
+      });
+    },
+  );
+
   ipcMain.on(
     "log",
     (_e, level: "info" | "warn" | "error", message: string) => {
@@ -382,25 +580,94 @@ async function startAgent(): Promise<void> {
 
   // ── Local HTTP ping server ────────────────────────────────────────────────
   // The web dashboard pings http://localhost:18080/ping to detect whether the
-  // agent is running. Implementation lives in ping-server.ts (unit-tested).
-  const pingServer = createPingServer({
+  // agent is running. POST /input requires X-Agent-Input-Secret.
+  const makePingDeps = () => ({
     getInfo: async () => {
       const cfg = await loadConfig().catch(() => null);
-      return { version: "0.1.0", audioMode: cfg?.audioMode ?? "off" };
+      return {
+        version: "0.1.0",
+        audioMode: cfg?.audioMode ?? "off",
+        port: pingPortInUse,
+      };
     },
     injectInput,
     log,
+    getInputSecret: () => LOCAL_INPUT_SECRET,
+    getAllowedOrigins: () => allowedCorsOriginsFromConfig(getCachedConfig()),
   });
-  pingServer.listen(PING_PORT, "127.0.0.1", () => {
-    log("info", `Ping server listening on http://127.0.0.1:${PING_PORT}`);
-  });
-  pingServer.on("error", (err: NodeJS.ErrnoException) => {
-    // EADDRINUSE: another agent instance already running — harmless.
-    log("warn", `Ping server error: ${err.message}`);
-  });
+
+  async function bindPingServer(): Promise<void> {
+    const ports = [PING_PORT, ...PING_PORT_FALLBACKS];
+    for (const port of ports) {
+      pingServer = createPingServer(makePingDeps());
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const onError = (err: NodeJS.ErrnoException) => {
+            pingServer?.off("listening", onListening);
+            reject(err);
+          };
+          const onListening = () => {
+            pingServer?.off("error", onError);
+            resolve();
+          };
+          pingServer!.once("error", onError);
+          pingServer!.once("listening", onListening);
+          pingServer!.listen(port, "127.0.0.1");
+        });
+        pingPortInUse = port;
+        log("info", `Ping server listening on http://127.0.0.1:${pingPortInUse}`);
+        if (port !== PING_PORT) {
+          const msg =
+            `Порт ${PING_PORT} занят — агент слушает ${pingPortInUse}. ` +
+            `Проверь, что не запущен второй экземпляр.`;
+          log("warn", msg);
+          if (Notification.isSupported()) {
+            new Notification({ title: "Порт агента занят", body: msg }).show();
+          }
+        }
+        return;
+      } catch (err) {
+        const e = err as NodeJS.ErrnoException;
+        log("warn", `Ping server port ${port} failed: ${e.message}`);
+        try {
+          pingServer.close();
+        } catch {
+          /* ignore */
+        }
+        pingServer = null;
+        if (e.code !== "EADDRINUSE") break;
+      }
+    }
+    const msg =
+      `Не удалось занять порты ${ports.join(", ")} — ` +
+      `дашборд не увидит агент, управление browser-play недоступно.`;
+    log("error", msg);
+    if (Notification.isSupported()) {
+      new Notification({ title: "Агент: порт занят", body: msg }).show();
+    }
+  }
+
+  await bindPingServer();
 
   // Injector status for the renderer's diagnostics panel.
   ipcMain.handle("agent:get-injector-status", () => getInjectorStatus());
+
+  ipcMain.handle(
+    "saves:restore",
+    async (
+      _e,
+      manifest: SaveManifestEntry[],
+      downloadUrl: string,
+    ) => restoreSave(manifest, downloadUrl),
+  );
+  ipcMain.handle(
+    "saves:backup",
+    async (
+      _e,
+      manifest: SaveManifestEntry[],
+      uploadUrl: string,
+    ) => backupSave(manifest, uploadUrl),
+  );
 
   // ── Crypto key & PC binding ───────────────────────────────────────────────
   // Load (or generate) the Ed25519 key pair on startup.
@@ -450,9 +717,17 @@ async function startAgent(): Promise<void> {
       _e,
       hostToken: string,
       apiBaseUrl: string,
+      bindCode?: string,
     ): Promise<{ ok: boolean; error?: string }> => {
       if (!keyStore) return { ok: false, error: "Key pair not available" };
       const base = apiBaseUrl.replace(/\/$/, "");
+      const code =
+        typeof bindCode === "string" && bindCode.trim() ? bindCode.trim() : "";
+      const token =
+        typeof hostToken === "string" && hostToken.trim() ? hostToken.trim() : "";
+      if (!code && !token) {
+        return { ok: false, error: "Нужен код привязки или host token" };
+      }
       try {
         const challengeResp = await fetch(`${base}/api/auth/agent-challenge`);
         if (!challengeResp.ok) {
@@ -460,19 +735,21 @@ async function startAgent(): Promise<void> {
         }
         const { challenge } = (await challengeResp.json()) as { challenge: string };
         const signature = signChallenge(keyStore.privateKeyHex, challenge);
+        const body: Record<string, string> = {
+          pubkey: keyStore.publicKeyHex,
+          challenge,
+          signature,
+        };
+        if (code) body.bindCode = code;
+        else body.hostToken = token;
         const bindResp = await fetch(`${base}/api/auth/bind-agent-key`, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            hostToken,
-            pubkey: keyStore.publicKeyHex,
-            challenge,
-            signature,
-          }),
+          body: JSON.stringify(body),
         });
         if (!bindResp.ok) {
-          const body = (await bindResp.json()) as { error?: string };
-          return { ok: false, error: body.error ?? `HTTP ${bindResp.status}` };
+          const errBody = (await bindResp.json()) as { error?: string };
+          return { ok: false, error: errBody.error ?? `HTTP ${bindResp.status}` };
         }
         log("info", "[agent-key] Key bound to account successfully");
         return { ok: true };
@@ -482,15 +759,19 @@ async function startAgent(): Promise<void> {
     },
   );
 
-  // Fetches a challenge, signs it, and calls agent-login to get a hostToken,
-  // then opens the browser with /host/dashboard pre-authenticated.
+  // Fetches a challenge, signs it, and calls agent-login to get a hostToken.
+  // Does NOT put the long-lived token in the browser URL (history/Referer leak).
+  // Instead: save into agent config, copy to clipboard, open dashboard cleanly.
   ipcMain.handle(
     "agent:login",
     async (
       _e,
-      apiBaseUrl: string,
+      apiBaseUrl: unknown,
     ): Promise<{ ok: boolean; error?: string }> => {
       if (!keyStore) return { ok: false, error: "Key pair not available" };
+      if (typeof apiBaseUrl !== "string" || !apiBaseUrl.trim()) {
+        return { ok: false, error: "apiBaseUrl required" };
+      }
       const base = apiBaseUrl.replace(/\/$/, "");
       try {
         const challengeResp = await fetch(`${base}/api/auth/agent-challenge`);
@@ -513,9 +794,24 @@ async function startAgent(): Promise<void> {
           return { ok: false, error: body.error ?? `HTTP ${loginResp.status}` };
         }
         const { hostToken } = (await loginResp.json()) as { hostToken: string };
-        const dashboardUrl = `${base}/host/dashboard?token=${encodeURIComponent(hostToken)}`;
+        const cfg = await loadConfig();
+        await saveConfig({ ...cfg, hostToken, apiBaseUrl: base });
+        try {
+          clipboard.writeText(hostToken);
+        } catch (err) {
+          log("warn", `[agent-login] clipboard write failed: ${String(err)}`);
+        }
+        const dashboardUrl = `${base}/host/dashboard`;
         await shell.openExternal(dashboardUrl);
-        log("info", "[agent-key] Opened dashboard in browser via agent login");
+        if (Notification.isSupported()) {
+          new Notification({
+            title: "Вход через агент",
+            body:
+              "Токен хоста скопирован в буфер обмена. " +
+              "Вставь его в настройках сайта, если дашборд попросит авторизацию.",
+          }).show();
+        }
+        log("info", "[agent-key] Opened dashboard without token in URL; token copied to clipboard");
         return { ok: true };
       } catch (err) {
         return { ok: false, error: String(err) };
@@ -561,21 +857,25 @@ async function startAgent(): Promise<void> {
   // and auto-terminate ghost sessions. Fire every 15s; silently skipped
   // when config lacks hostToken or apiBaseUrl.
   const HEARTBEAT_INTERVAL_MS = 15_000;
-  setInterval(() => {
-    void loadConfig().then((cfg) => {
-      if (cfg.hostToken && cfg.apiBaseUrl) {
-        void sendHeartbeat(cfg.hostToken, cfg.apiBaseUrl);
-      }
-    });
-  }, HEARTBEAT_INTERVAL_MS);
+  trackInterval(
+    setInterval(() => {
+      void loadConfig().then((cfg) => {
+        if (cfg.hostToken && cfg.apiBaseUrl) {
+          void sendHeartbeat(cfg.hostToken, cfg.apiBaseUrl);
+        }
+      });
+    }, HEARTBEAT_INTERVAL_MS),
+  );
 
   // ── Schedule sync (auto-launch + wake tasks) ────────────────────────────
   // Re-pull the schedule periodically so changes saved on the web dashboard
   // take effect on this PC even without an agent restart or manual save.
   const SCHEDULE_SYNC_INTERVAL_MS = 5 * 60_000;
-  setInterval(() => {
-    void syncScheduleFromServer();
-  }, SCHEDULE_SYNC_INTERVAL_MS);
+  trackInterval(
+    setInterval(() => {
+      void syncScheduleFromServer();
+    }, SCHEDULE_SYNC_INTERVAL_MS),
+  );
 
   // ── Auto-quota scheduler ──────────────────────────────────────────────────
   // Runs in the main process (survives renderer reloads) so the 60s polling
@@ -764,12 +1064,26 @@ async function startAgent(): Promise<void> {
 
   // 60-second polling loop — same pattern as the heartbeat.
   const AUTO_QUOTA_INTERVAL_MS = 60_000;
-  setInterval(() => {
-    void runAutoQuotaCycle();
-  }, AUTO_QUOTA_INTERVAL_MS);
+  trackInterval(
+    setInterval(() => {
+      void runAutoQuotaCycle();
+    }, AUTO_QUOTA_INTERVAL_MS),
+  );
 
   setStatus("idle");
   log("info", "Host agent ready.");
+
+  // Panic hotkey — instantly block all player input and notify renderer.
+  const PANIC_ACCEL = "Control+Shift+End";
+  const panicRegistered = globalShortcut.register(PANIC_ACCEL, () => {
+    log("warn", "[panic] Hotkey pressed — blocking input");
+    setInputBlocked(true);
+    disconnectGamepad();
+    mainWindow?.webContents.send("input:panic");
+  });
+  if (!panicRegistered) {
+    log("warn", `[panic] Failed to register global shortcut ${PANIC_ACCEL}`);
+  }
 }
 
 app.on("second-instance", () => {
@@ -783,5 +1097,47 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   (app as unknown as { isQuitting?: boolean }).isQuitting = true;
+  globalShortcut.unregisterAll();
+  destroyGamepadInjector();
+  for (const handle of lifetimeIntervals) {
+    clearInterval(handle);
+  }
+  lifetimeIntervals.length = 0;
+  stopRtmpRelay();
   killApp();
+  if (pingServer) {
+    try {
+      pingServer.close();
+    } catch {
+      /* ignore */
+    }
+    pingServer = null;
+  }
+});
+
+function initAutoUpdater(): void {
+  if (!app.isPackaged) return;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on("update-downloaded", () => {
+    log("info", "Update downloaded — notifying renderer");
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("agent:update-ready");
+    }
+  });
+
+  autoUpdater.on("error", (err: Error) => {
+    log("warn", `Auto-updater error: ${String(err)}`);
+  });
+
+  setTimeout(() => {
+    void autoUpdater.checkForUpdatesAndNotify().catch((err: unknown) => {
+      log("warn", `Update check failed: ${String(err)}`);
+    });
+  }, 30_000).unref();
+}
+
+ipcMain.handle("agent:install-update", () => {
+  autoUpdater.quitAndInstall(false, true);
 });

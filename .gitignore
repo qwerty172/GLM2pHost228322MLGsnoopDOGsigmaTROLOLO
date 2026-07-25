@@ -28,7 +28,9 @@ node_modules
 !.vscode/extensions.json
 
 # misc
-/.sass-cache
+.env
+.env.local
+.tmp-agent-smoke-body.json
 /connect.lock
 /coverage
 /libpeerconnection.log
@@ -36,6 +38,11 @@ npm-debug.log
 yarn-error.log
 testem.log
 /typings
+
+# Local portable Postgres (Windows lab)
+/tools/pgsql/
+/tools/pgdata/
+/tools/installers/
 
 # System Files
 .DS_Store

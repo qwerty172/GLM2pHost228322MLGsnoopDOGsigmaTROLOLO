@@ -12,7 +12,7 @@ export interface FundLoanRequestBody {
   userToken: string;
   /** Amount to fund in LZT. Omit to fund the entire remaining unfunded portion. */
   amountLzt?: number;
-  /** cash | balance — which bucket the lender pays from */
+  /** cash | balance вЂ” which bucket the lender pays from */
   source?: FundLoanRequestBodySource;
   /** cash_on_close | balance_streaming */
   payoutMode?: FundLoanRequestBodyPayoutMode;

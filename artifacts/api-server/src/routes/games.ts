@@ -37,6 +37,7 @@ const ListGamesQuery = z.object({
   isMultiplayer: strictBool,
   hostSpectatesPlayer: strictBool,
   hasQuests: strictBool,
+  vdsOnly: strictBool,
   liveOnly: strictBool,
   search: z.string().optional(),
   tag: z.string().optional(),
@@ -60,9 +61,12 @@ type GameRow = typeof gamesTable.$inferSelect;
 // Per-game aggregates from the host_games junction table.
 type GameAggregates = {
   liveHostsCount: number;
+  vdsHostsCount: number;
   minPricePerMinuteLzt: number | null;
 };
 
+// Extra catalog fields now covered by OpenAPI GameListItem (category, genres,
+// liveHostsCount, minPricePerMinuteLzt, createdAt).
 function shapeGame(
   g: GameRow,
   liveSessionCount: number,
@@ -75,7 +79,6 @@ function shapeGame(
     coverImageUrl: g.coverImageUrl,
     description: g.description,
     genre: g.genre,
-    // Extra catalog fields (not in generated Zod schema; bypass strict parse below).
     category: g.category,
     genres: g.genres,
     createdAt: g.createdAt,
@@ -84,8 +87,11 @@ function shapeGame(
     hostSpectatesPlayer: g.hostSpectatesPlayer,
     hasQuests: g.hasQuests,
     browserHostUrl: g.browserHostUrl,
+    saveManifest: g.saveManifest ?? [],
     liveSessionCount,
     liveHostsCount: agg?.liveHostsCount ?? 0,
+    vdsHostsCount: agg?.vdsHostsCount ?? 0,
+    hasVdsHosts: (agg?.vdsHostsCount ?? 0) > 0,
     minPricePerMinuteLzt: agg?.minPricePerMinuteLzt ?? null,
   };
 }
@@ -131,8 +137,10 @@ async function gameAggregates(
       gameId: hostGamesTable.gameId,
       hostId: hostGamesTable.hostId,
       pricePerMinuteLzt: hostGamesTable.pricePerMinuteLzt,
+      isVds: hostsTable.isVds,
     })
     .from(hostGamesTable)
+    .innerJoin(hostsTable, eq(hostGamesTable.hostId, hostsTable.id))
     .where(
       and(
         eq(hostGamesTable.enabled, true),
@@ -143,8 +151,14 @@ async function gameAggregates(
   const map = new Map<string, GameAggregates>();
   for (const row of hgRows) {
     const isLive = activeHostIds.has(row.hostId);
-    const cur = map.get(row.gameId) ?? { liveHostsCount: 0, minPricePerMinuteLzt: null };
+    const isVds = row.isVds === 1;
+    const cur = map.get(row.gameId) ?? {
+      liveHostsCount: 0,
+      vdsHostsCount: 0,
+      minPricePerMinuteLzt: null,
+    };
     if (isLive) cur.liveHostsCount += 1;
+    if (isVds && isLive) cur.vdsHostsCount += 1;
     if (
       cur.minPricePerMinuteLzt === null ||
       row.pricePerMinuteLzt < cur.minPricePerMinuteLzt
@@ -219,6 +233,9 @@ router.get("/games", async (req, res): Promise<void> => {
       (g) => g.liveSessionCount > 0 || g.liveHostsCount > 0,
     );
   }
+  if (q.vdsOnly === true) {
+    shaped = shaped.filter((g) => g.hasVdsHosts);
+  }
 
   // Tag filter: keep only games that have at least one currently-available
   // host (active session, host-tags @>= [tag] case-insensitively, and host
@@ -250,10 +267,8 @@ router.get("/games", async (req, res): Promise<void> => {
     );
   }
 
-  // Bypass strict Zod parse — we've added liveHostsCount and
-  // minPricePerMinuteLzt which aren't in the generated schema yet.
-  // Returning raw shaped preserves the new fields for the UI.
-  res.json(shaped);
+  // Validate response shape against OpenAPI-generated schema.
+  res.json(ListGamesResponse.parse(shaped));
 });
 
 router.get("/games/:slug", async (req, res): Promise<void> => {
@@ -349,9 +364,10 @@ router.get("/games/:slug", async (req, res): Promise<void> => {
       scheduleMode: h.scheduleMode,
       scheduleJson: h.scheduleJson ?? [],
       streamPlatform: h.streamPlatform,
-      // Placeholders — ping and rating system land in a later task.
-      pingMs: null as number | null,
-      ratingScore: null as number | null,
+      pingMs: h.pingMs ?? null,
+      ratingScore:
+        h.ratingAvg != null ? Number(h.ratingAvg) : null,
+      ratingCount: h.ratingCount ?? 0,
     }));
 
   // Per-game aggregates from host_games for this single game.
@@ -363,8 +379,7 @@ router.get("/games/:slug", async (req, res): Promise<void> => {
     liveSessions: shapedSessions,
   };
 
-  // Bypass strict Zod parse to preserve liveHostsCount / minPricePerMinuteLzt.
-  res.json(detail);
+  res.json(GetGameBySlugResponse.parse(detail));
 });
 
 export default router;

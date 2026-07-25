@@ -46,7 +46,7 @@ function queryRegistry(key: string, value: string): string | null {
   }
 }
 
-function findSteamRootSync(): string | null {
+export function findSteamRootSync(): string | null {
   if (process.platform !== "win32") return null;
 
   // Try 64-bit and 32-bit registry hives.
@@ -327,6 +327,48 @@ export async function scanSteam(): Promise<{
   unique.sort((a, b) => a.name.localeCompare(b.name));
   log("info", `[steam-scanner] Total unique games: ${unique.length}`);
   return { games: unique, steamRoot };
+}
+
+// ─── App path → Steam metadata ────────────────────────────────────────────────
+
+export async function resolveSteamGameFromAppPath(appPath: string): Promise<{
+  appId: string | null;
+  installDir: string | null;
+  steamRoot: string | null;
+}> {
+  if (process.platform !== "win32") {
+    return { appId: null, installDir: null, steamRoot: null };
+  }
+
+  const steamRoot = findSteamRootSync();
+  if (!steamRoot) {
+    return { appId: null, installDir: null, steamRoot: null };
+  }
+
+  const normalizedApp = path.normalize(appPath).toLowerCase();
+  const libraryFolders = await findLibraryFolders(steamRoot);
+  for (const folder of libraryFolders) {
+    const games = await scanLibraryFolder(folder);
+    for (const game of games) {
+      const normalizedInstall = path.normalize(game.fullInstallPath).toLowerCase();
+      const normalizedExe = game.bestExePath
+        ? path.normalize(game.bestExePath).toLowerCase()
+        : null;
+      if (
+        normalizedApp === normalizedInstall ||
+        normalizedApp.startsWith(`${normalizedInstall}${path.sep}`) ||
+        (normalizedExe && normalizedApp === normalizedExe)
+      ) {
+        return {
+          appId: game.appId,
+          installDir: game.fullInstallPath,
+          steamRoot,
+        };
+      }
+    }
+  }
+
+  return { appId: null, installDir: null, steamRoot };
 }
 
 // ─── Scan state persistence ───────────────────────────────────────────────────

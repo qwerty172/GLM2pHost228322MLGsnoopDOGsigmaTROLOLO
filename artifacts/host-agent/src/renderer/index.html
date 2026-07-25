@@ -15,6 +15,9 @@
           <span id="preview-indicator" hidden style="margin-left:10px;padding:2px 8px;border-radius:4px;font-size:11px;background:rgba(14,165,233,0.18);color:#7dd3fc;border:1px solid rgba(14,165,233,0.3);">
             📺 Идёт превью
           </span>
+          <span id="input-guard-badge" hidden style="margin-left:10px;padding:2px 8px;border-radius:4px;font-size:11px;background:rgba(34,197,94,0.15);color:#86efac;border:1px solid rgba(34,197,94,0.35);">
+            Ввод активен
+          </span>
         </div>
       </header>
 
@@ -22,6 +25,7 @@
       <section class="card" id="pipeline-card" hidden>
         <h2>Статус сессии</h2>
         <ol id="pipeline-steps" class="pipeline">
+          <li id="step-saves" data-state="pending"><span class="step-icon"></span>Сейв синхронизирован<span class="step-note muted"></span></li>
           <li id="step-launch" data-state="pending"><span class="step-icon"></span>Игра запущена<span class="step-note muted"></span></li>
           <li id="step-window" data-state="pending"><span class="step-icon"></span>Окно найдено<span class="step-note muted"></span></li>
           <li id="step-stream" data-state="pending"><span class="step-icon"></span>Стрим начат<span class="step-note muted"></span></li>
@@ -43,6 +47,7 @@
           <ul id="window-picker-list" class="library-list" style="max-height:280px;overflow-y:auto"></ul>
           <div class="modal-actions" style="margin-top:12px">
             <button type="button" id="window-picker-refresh">Обновить список</button>
+            <button type="button" id="window-picker-cancel">Отмена</button>
             <button type="button" id="window-picker-screen" style="margin-left:auto">Стримить весь экран</button>
           </div>
         </div>
@@ -90,14 +95,34 @@
 
       <!-- Agent key & PC binding -->
       <section class="card" id="agent-key-card">
-        <h2>Agent Key &amp; PC Binding</h2>
-        <p class="muted" id="agent-key-status">Checking key…</p>
+        <h2>Привязка агента</h2>
+        <p class="muted" id="agent-key-status">Проверяем ключ…</p>
+        <label style="margin-top:8px;display:block">
+          <span>Код привязки (из дашборда)</span>
+          <input
+            id="agentBindCode"
+            type="text"
+            placeholder="Одноразовый код — предпочтительнее токена"
+            autocomplete="off"
+          />
+        </label>
         <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px">
           <button type="button" id="bind-agent-key" disabled>Привязать к аккаунту</button>
           <button type="button" id="agent-login" disabled>Войти на сайте</button>
           <button type="button" id="update-pc-specs" disabled>Обновить характеристики ПК</button>
         </div>
         <p class="muted" id="pc-specs-info" style="margin-top:6px;font-size:12px"></p>
+      </section>
+
+      <!-- Steam recommendations — filled after auto/manual Steam scan -->
+      <section class="card" id="steam-recommend-card" hidden>
+        <h2>Рекомендации из Steam</h2>
+        <p class="muted" id="steam-recommend-status">Сканируем библиотеку Steam…</p>
+        <ul id="steam-recommend-list" class="library-list"></ul>
+        <div class="actions" style="margin-top:8px">
+          <button type="button" id="steam-recommend-add" hidden>Добавить выбранные в библиотеку</button>
+          <button type="button" id="steam-recommend-open">Открыть полный скан</button>
+        </div>
       </section>
 
       <!-- My Library — populated from GET /api/hosts/:token/library -->
@@ -107,7 +132,7 @@
         <ul id="library-list" class="library-list"></ul>
         <div class="actions" style="margin-top:8px">
           <button type="button" id="refresh-library">Refresh library</button>
-          <button type="button" id="scan-steam" hidden>🎮 Scan Steam</button>
+          <button type="button" id="scan-steam" hidden>Сканировать Steam</button>
         </div>
       </section>
 
@@ -174,21 +199,45 @@
 
       <!-- Game picker — shown when going online with a multi-game library -->
       <section class="card" id="game-picker-card" hidden>
-        <h2>Select game to stream</h2>
-        <p class="muted">
-          Pick which game from your library you want to host this session.
+        <h2>Что хостить сейчас</h2>
+        <p class="muted" id="game-picker-hint">
+          Выбери игру из библиотеки для этой сессии.
         </p>
         <div class="row share" style="flex-wrap:wrap;gap:8px">
           <select id="selected-game-id" style="flex:1;min-width:180px">
-            <option value="">— choose a game —</option>
+            <option value="">— выбери игру —</option>
           </select>
-          <button type="button" id="confirm-game">Go online with this game</button>
-          <button type="button" id="cancel-game-picker">Cancel</button>
+          <button type="button" id="confirm-game">Выйти в онлайн с этой игрой</button>
+          <button type="button" id="cancel-game-picker">Отмена</button>
         </div>
+        <div id="game-picker-steam" hidden style="margin-top:14px;border-top:1px solid rgba(255,255,255,0.08);padding-top:12px">
+          <p class="muted" style="margin:0 0 8px" id="game-picker-steam-title">
+            Быстро из Steam (есть в каталоге платформы)
+          </p>
+          <ul id="game-picker-steam-list" class="library-list" style="max-height:180px;overflow-y:auto"></ul>
+        </div>
+      </section>
+
+      <section class="card" id="pairing-card">
+        <h2>Подключение к платформе</h2>
+        <p class="muted">Введи 6-значный код с Host Dashboard на сайте</p>
+        <div class="row share" style="gap:8px">
+          <input id="pairing-code" type="text" maxlength="6" pattern="[0-9]{6}" placeholder="000000" style="font-size:20px;letter-spacing:4px;text-align:center;max-width:140px" />
+          <button type="button" id="pairing-submit">Подключиться</button>
+        </div>
+        <p class="muted" id="pairing-status" style="margin-top:8px;font-size:12px"></p>
+      </section>
+
+      <section class="card" id="auto-steam-card" hidden>
+        <h2>Быстро выложить из Steam</h2>
+        <p class="muted" id="auto-steam-status">Сканируй Steam-библиотеку, чтобы увидеть подходящие игры</p>
+        <button type="button" id="auto-steam-publish" hidden>Добавить в библиотеку</button>
       </section>
 
       <section class="card">
         <h2>Settings</h2>
+        <details id="advanced-settings">
+          <summary style="cursor:pointer;margin-bottom:8px;color:#888">Расширенные настройки (токен вручную)</summary>
         <form id="settings-form">
           <label>
             <span>Host token</span>
@@ -196,7 +245,6 @@
               id="hostToken"
               type="text"
               placeholder="Paste from web dashboard"
-              required
             />
           </label>
           <label>
@@ -219,7 +267,7 @@
 
           <details id="legacy-settings">
             <summary style="cursor:pointer;margin-bottom:8px;color:#888">
-              Legacy single-game settings (use library above for multi-game)
+              Устаревшее — одна игра (лучше используй библиотеку выше)
             </summary>
             <label>
               <span>Executable path on this PC</span>
@@ -318,14 +366,15 @@
             <span>Allow 30-second free preview stream for players (no billing, view-only)</span>
           </label>
           <div class="actions">
-            <button type="submit" id="save">Save</button>
-            <button type="button" id="pull-from-server" title="Fetch the offer (game / .exe / pricing) configured on the web dashboard">
-              Pull from server
+            <button type="submit" id="save">Сохранить</button>
+            <button type="button" id="pull-from-server" title="Подтянуть офер с веб-дашборда">
+              Подтянуть с сервера
             </button>
-            <button type="button" id="connect">Go online &amp; create session</button>
-            <button type="button" id="disconnect" disabled>Disconnect</button>
+            <button type="button" id="connect">Выйти в онлайн</button>
+            <button type="button" id="disconnect" disabled>Отключиться</button>
           </div>
         </form>
+        </details>
       </section>
 
       <section class="card log">

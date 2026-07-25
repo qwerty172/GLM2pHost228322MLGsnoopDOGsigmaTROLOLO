@@ -24,6 +24,14 @@ tags:
     description: Quota preset-contracts (royalty / sponsor) attachable to sessions
   - name: loans
     description: P2P loan marketplace (request, fund, repay)
+  - name: public
+    description: Public catalog, preview, and ICE helpers
+  - name: embed
+    description: Embeddable widget sessions funded by developer API keys
+  - name: auth
+    description: Host-agent Ed25519 challenge / bind / login
+  - name: storage
+    description: Object storage upload URLs and public assets
 paths:
   /healthz:
     get:
@@ -82,17 +90,14 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /hosts/{hostToken}/config:
+  /hosts/me/config:
     patch:
       operationId: updateHostConfig
       tags: [hosts]
       summary: Update the host's offer config (binding, pricing, schedule, restream)
-      parameters:
-        - in: path
-          name: hostToken
-          required: true
-          schema:
-            type: string
+      description: >
+        Authenticate with Authorization Bearer, X-Host-Token, or X-User-Token
+        (host token). Do not put the host token in the URL.
       requestBody:
         required: true
         content:
@@ -112,8 +117,62 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Host auth required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /hosts/me/debtors:
+    get:
+      operationId: getHostDebtors
+      tags: [hosts]
+      summary: List players who owe this host (negative balance loans)
+      description: Authenticate with Authorization Bearer / X-Host-Token / X-User-Token.
+      responses:
+        "200":
+          description: Debtors list
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Host auth required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /hosts/me/stream-relay:
+    get:
+      operationId: getHostStreamRelay
+      tags: [hosts]
+      summary: RTMP restream credentials for the authenticated host
+      description: Authenticate with Authorization Bearer / X-Host-Token / X-User-Token.
+      responses:
+        "200":
+          description: Stream relay config
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  streamPlatform:
+                    type: string
+                  streamUrl:
+                    type: string
+                  streamKey:
+                    type: string
+        "401":
+          description: Host auth required
           content:
             application/json:
               schema:
@@ -203,7 +262,7 @@ paths:
       operationId: listPublicHosts
       tags: [hosts]
       summary: Public list of currently-available hosts
-      description: Returns hosts that have an open session and are within their availability schedule. Safe for anonymous visitors — never exposes hostToken or wallet/balance.
+      description: Returns hosts that have an open session and are within their availability schedule. Safe for anonymous visitors вЂ” never exposes hostToken or wallet/balance.
       responses:
         "200":
           description: Live hosts
@@ -397,7 +456,7 @@ paths:
       tags: [sessions]
       summary: |
         Create a session whose host is the calling browser (no desktop agent).
-        Returns both the session and the freshly minted hostToken — the caller
+        Returns both the session and the freshly minted hostToken вЂ” the caller
         is responsible for storing the hostToken locally and using it to
         connect to /signal as role=host and to end the session.
       requestBody:
@@ -487,6 +546,78 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /sessions/by-invite/{inviteCode}:
+    get:
+      operationId: getSessionByInvite
+      tags: [sessions]
+      summary: Resolve a public invite code to session details (player play link)
+      parameters:
+        - in: path
+          name: inviteCode
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session resolved from invite
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionByInviteResponse"
+        "404":
+          description: Invite not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: Invite expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions/test:
+    post:
+      operationId: createTestSession
+      tags: [sessions]
+      summary: Create a free host self-test session
+      parameters:
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                overrideUrl:
+                  type: string
+                  description: One-shot browser URL override for this test
+      responses:
+        "201":
+          description: Test session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateTestSessionResponse"
+        "401":
+          description: Missing host token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Host busy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /sessions/by-player-token/{playerToken}/claim:
     post:
       operationId: claimSession
@@ -561,55 +692,132 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /sessions/preview:
+  /join-codes/{code}/exchange:
     post:
-      operationId: createPreviewSession
+      operationId: exchangeJoinCode
       tags: [sessions]
-      summary: |
-        Mint a short-lived preview token (60-second TTL) for a 30-second
-        free muted live stream from the given host. No session record is
-        created and no billing occurs.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [hostId]
-              properties:
-                hostId:
-                  type: string
-                  description: UUID of the host to preview
+      summary: Exchange a short-lived join code for a session playerToken
+      parameters:
+        - in: path
+          name: code
+          required: true
+          schema:
+            type: string
+            description: Short join code from the share link (6-8 chars)
       responses:
         "200":
-          description: Preview token minted
+          description: Exchange successful — playerToken is returned once, not for URLs
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  previewToken:
-                    type: string
-                  hostId:
-                    type: string
-        "400":
-          description: hostId missing
+                $ref: "#/components/schemas/ExchangeJoinCodeResponse"
+        "404":
+          description: Join code invalid or expired
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+
+  /saves/download-url:
+    get:
+      operationId: getSaveDownloadUrl
+      tags: [saves]
+      summary: Get a presigned download URL for a player's cloud save (host-authenticated)
+      parameters:
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: sessionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Presigned download URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveDownloadUrlResponse"
         "404":
-          description: Host not found
+          description: Save not found
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
-          description: Host offline
+          description: Object storage unavailable
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /saves/upload-url:
+    post:
+      operationId: requestSaveUploadUrl
+      tags: [saves]
+      summary: Request a presigned upload URL for a player's cloud save (host-authenticated)
+      parameters:
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveUploadUrlBody"
+      responses:
+        "200":
+          description: Presigned upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveUploadUrlResponse"
+        "503":
+          description: Object storage unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /saves/confirm:
+    post:
+      operationId: confirmSaveUpload
+      tags: [saves]
+      summary: Confirm a successful save upload and upsert metadata (host-authenticated)
+      parameters:
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveConfirmBody"
+      responses:
+        "200":
+          description: Save metadata recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveConfirmResponse"
+        "503":
+          description: Object storage unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 
   /quotas:
     get:
@@ -972,7 +1180,7 @@ paths:
     post:
       operationId: publishQuota
       tags: [quotas]
-      summary: Move draft → active (locks sponsor escrow)
+      summary: Move draft в†’ active (locks sponsor escrow)
       parameters:
         - in: path
           name: id
@@ -1128,7 +1336,7 @@ paths:
     get:
       operationId: getWallet
       tags: [wallet]
-      summary: Wallet overview — balance, deposit addresses, withdrawal history
+      summary: Wallet overview вЂ” balance, deposit addresses, withdrawal history
       parameters:
         - in: path
           name: userToken
@@ -1218,7 +1426,7 @@ paths:
     get:
       operationId: adminListGames
       tags: [games]
-      summary: Admin — list all games including hidden ones
+      summary: Admin вЂ” list all games including hidden ones
       parameters:
         - in: header
           name: X-Host-Token
@@ -1382,7 +1590,7 @@ paths:
     patch:
       operationId: adminPatchGame
       tags: [games]
-      summary: Admin — edit game metadata and/or toggle is_hidden flag
+      summary: Admin вЂ” edit game metadata and/or toggle is_hidden flag
       parameters:
         - in: path
           name: id
@@ -1434,7 +1642,7 @@ paths:
     delete:
       operationId: adminDeleteGame
       tags: [games]
-      summary: Admin — permanently delete a game with no session history
+      summary: Admin вЂ” permanently delete a game with no session history
       parameters:
         - in: path
           name: id
@@ -1478,14 +1686,828 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
-          description: Cannot delete — sessions exist
+          description: Cannot delete вЂ” sessions exist
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /hosts/heartbeat:
+    post:
+      operationId: hostHeartbeat
+      tags: [hosts]
+      summary: Agent heartbeat вЂ” refresh lastSeenAt (and optional pingMs)
+      security:
+        - HostToken: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hostToken:
+                  type: string
+                  description: Fallback when X-Host-Token header is absent
+                pingMs:
+                  type: number
+                  description: RTT from agent to API in milliseconds
+      responses:
+        "200":
+          description: Heartbeat accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+        "401":
+          description: Missing host token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /hosts/{hostToken}/library:
+    get:
+      operationId: listHostLibrary
+      tags: [hosts]
+      summary: List games in the host's multi-game library
+      parameters:
+        - in: path
+          name: hostToken
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Library entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HostLibraryEntry"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: addHostLibraryEntry
+      tags: [hosts]
+      summary: Add a catalog game to the host library
+      parameters:
+        - in: path
+          name: hostToken
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddHostLibraryEntryBody"
+      responses:
+        "201":
+          description: Entry created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HostLibraryEntry"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Host or game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Already in library
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /hosts/{hostToken}/library/{gameId}:
+    patch:
+      operationId: updateHostLibraryEntry
+      tags: [hosts]
+      summary: Update a host library entry (price, path, enabled, sort)
+      parameters:
+        - in: path
+          name: hostToken
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: gameId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateHostLibraryEntryBody"
+      responses:
+        "200":
+          description: Updated entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HostLibraryEntry"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Host or entry not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: removeHostLibraryEntry
+      tags: [hosts]
+      summary: Remove a game from the host library
+      parameters:
+        - in: path
+          name: hostToken
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: gameId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Removed
+        "404":
+          description: Host or entry not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Cannot remove while session active
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /public/sessions:
+    post:
+      operationId: createPublicSession
+      tags: [public]
+      summary: Request a play invite for an online host (returns inviteCode, not playerToken)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hostId]
+              properties:
+                hostId:
+                  type: string
+                  format: uuid
+                gameId:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: Invite issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatePublicSessionResponse"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Host busy for requested game
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Host offline
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /public/preview-session:
+    post:
+      operationId: createPreviewSession
+      tags: [public]
+      summary: |
+        Mint a short-lived preview token (60-second TTL) for a 30-second
+        free muted live stream from the given host. No session record is
+        created and no billing occurs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hostId]
+              properties:
+                hostId:
+                  type: string
+                  description: UUID of the host to preview
+      responses:
+        "200":
+          description: Preview token minted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [previewToken, hostId]
+                properties:
+                  previewToken:
+                    type: string
+                  hostId:
+                    type: string
+        "400":
+          description: hostId missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Host offline
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /public/ping:
+    get:
+      operationId: publicPing
+      tags: [public]
+      summary: Latency probe for browser-side RTT measurement
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+
+  /public/ice-config:
+    get:
+      operationId: getPublicIceConfig
+      tags: [public]
+      summary: ICE server config for WebRTC (STUN + optional TURN)
+      responses:
+        "200":
+          description: ICE servers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  iceServers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        urls:
+                          type: string
+                        username:
+                          type: string
+                        credential:
+                          type: string
+                      required: [urls]
+                required: [iceServers]
+
+  /embed/sessions:
+    post:
+      operationId: createEmbedSession
+      tags: [embed]
+      summary: Create a session funded by a developer API key (embed widget)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEmbedSessionBody"
+      responses:
+        "201":
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateEmbedSessionResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "402":
+          description: API key balance exhausted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Invalid or disabled API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Game or eligible host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: No free host / quota mismatch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/agent-challenge:
+    get:
+      operationId: getAgentChallenge
+      tags: [auth]
+      summary: Issue a one-time challenge for agent key bind/login
+      responses:
+        "200":
+          description: Challenge
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [challenge, expiresAt]
+                properties:
+                  challenge:
+                    type: string
+                  expiresAt:
+                    type: integer
+                    description: Unix epoch ms when the challenge expires
+
+  /auth/agent-bind-code:
+    post:
+      operationId: issueAgentBindCode
+      tags: [auth]
+      summary: Issue a short-lived bind code for pairing the desktop agent
+      parameters:
+        - in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+          description: Bearer host token
+      responses:
+        "200":
+          description: Bind code issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IssueAgentBindCodeResponse"
+        "401":
+          description: Host auth required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/ws-ticket:
+    post:
+      operationId: issueWsTicket
+      tags: [auth]
+      summary: Mint a short-lived WebSocket ticket (requires JWT_SECRET)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role, sessionId]
+              properties:
+                role:
+                  type: string
+                  enum: [host, player]
+                sessionId:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: WS ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IssueWsTicketResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: JWT not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/bind-agent-key:
+    post:
+      operationId: bindAgentKey
+      tags: [auth]
+      summary: Bind an Ed25519 public key to a host account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hostToken, pubkey, challenge, signature]
+              properties:
+                hostToken:
+                  type: string
+                pubkey:
+                  type: string
+                  description: Hex-encoded Ed25519 SubjectPublicKeyInfo
+                challenge:
+                  type: string
+                signature:
+                  type: string
+      responses:
+        "200":
+          description: Key bound
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+        "400":
+          description: Invalid challenge or body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid signature
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Different key already bound
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/agent-login:
+    post:
+      operationId: agentLogin
+      tags: [auth]
+      summary: Verify agent signature and return hostToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pubkey, challenge, signature]
+              properties:
+                pubkey:
+                  type: string
+                challenge:
+                  type: string
+                signature:
+                  type: string
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [hostToken]
+                properties:
+                  hostToken:
+                    type: string
+        "400":
+          description: Invalid challenge or body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid signature
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No host bound to this key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /storage/uploads/request-url:
+    post:
+      operationId: requestUploadUrl
+      tags: [storage]
+      summary: Request a presigned URL for object upload
+      security:
+        - HostToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestUploadUrlBody"
+      responses:
+        "200":
+          description: Upload URL issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequestUploadUrlResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or unknown host token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /players/me/saves/{gameId}:
+    get:
+      operationId: getPlayerGameSave
+      tags: [players]
+      summary: Get latest cloud save metadata for a game
+      parameters:
+        - in: path
+          name: gameId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Save metadata or null
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerGameSaveResponse"
+
+  /players/me/saves/{gameId}/upload-url:
+    post:
+      operationId: requestPlayerGameSaveUploadUrl
+      tags: [players]
+      summary: Request presigned upload URL for a cloud save archive
+      parameters:
+        - in: path
+          name: gameId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerGameSaveUploadUrlBody"
+      responses:
+        "200":
+          description: Presigned upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerGameSaveUploadUrlResponse"
+
+  /players/me/saves/{gameId}/commit:
+    post:
+      operationId: commitPlayerGameSave
+      tags: [players]
+      summary: Finalize cloud save after upload
+      parameters:
+        - in: path
+          name: gameId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerGameSaveCommitBody"
+      responses:
+        "200":
+          description: Save committed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerGameSaveCommitResponse"
+
+
 components:
+  securitySchemes:
+    HostToken:
+      type: apiKey
+      in: header
+      name: X-Host-Token
+      description: Host authentication token
+    UserToken:
+      type: apiKey
+      in: header
+      name: X-User-Token
+      description: Unified host-or-player wallet token (loans, premium, quotas)
+    PlayerToken:
+      type: apiKey
+      in: header
+      name: X-Player-Token
+      description: Player authentication token
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Host bearer token (Authorization header)
   schemas:
+    SaveUploadUrlBody:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        sizeBytes:
+          type: integer
+          description: Save archive size in bytes (max 500 MB)
+      required:
+        - sessionId
+        - sizeBytes
+
+    SaveUploadUrlResponse:
+      type: object
+      properties:
+        uploadURL:
+          type: string
+        objectPath:
+          type: string
+      required:
+        - uploadURL
+        - objectPath
+
+    SaveDownloadUrlResponse:
+      type: object
+      properties:
+        downloadURL:
+          type: string
+        objectPath:
+          type: string
+      required:
+        - downloadURL
+        - objectPath
+
+    SaveConfirmBody:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        contentHash:
+          type: string
+          description: SHA-256 hex digest of the uploaded archive
+        sizeBytes:
+          type: integer
+      required:
+        - sessionId
+        - contentHash
+        - sizeBytes
+
+    SaveConfirmResponse:
+      type: object
+      properties:
+        saved:
+          type: boolean
+        objectPath:
+          type: string
+      required:
+        - saved
+        - objectPath
+
+    PlayerGameSaveUploadUrlBody:
+      type: object
+      properties:
+        sizeBytes:
+          type: integer
+      required: [sizeBytes]
+
+    PlayerGameSaveUploadUrlResponse:
+      type: object
+      properties:
+        uploadURL:
+          type: string
+        storageKey:
+          type: string
+        sizeBytes:
+          type: integer
+      required: [uploadURL, storageKey, sizeBytes]
+
+    PlayerGameSaveCommitBody:
+      type: object
+      properties:
+        storageKey:
+          type: string
+        sizeBytes:
+          type: integer
+        version:
+          type: integer
+      required: [storageKey, sizeBytes]
+
+    PlayerGameSaveCommitResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        save:
+          type: object
+          additionalProperties: true
+      required: [ok]
+
+    PlayerGameSaveResponse:
+      type: object
+      properties:
+        save:
+          type: ["object", "null"]
+          additionalProperties: true
+      required: [save]
+
+
+
+    ExchangeJoinCodeResponse:
+      type: object
+      properties:
+        playerToken:
+          type: string
+          description: Long-lived session token — store in memory, never put back in the URL
+        sessionId:
+          type: string
+          format: uuid
+      required:
+        - playerToken
+        - sessionId
+
+
     AdminPatchGameBody:
       type: object
       properties:
@@ -1542,7 +2564,7 @@ components:
           type: integer
           minimum: 0
           maximum: 6
-          description: 0 = Sunday … 6 = Saturday
+          description: 0 = Sunday вЂ¦ 6 = Saturday
         startMin:
           type: integer
           minimum: 0
@@ -1567,10 +2589,10 @@ components:
           type: string
         internalBalanceLzt:
           type: integer
-          description: Синий — internal LZT, cannot be withdrawn
+          description: РЎРёРЅРёР№ вЂ” internal LZT, cannot be withdrawn
         withdrawableBalanceLzt:
           type: integer
-          description: Зелёный — LZT convertible back to crypto at 200:1
+          description: Р—РµР»С‘РЅС‹Р№ вЂ” LZT convertible back to crypto at 200:1
         gameId:
           type: ["string", "null"]
           description: Catalog game this host is bound to
@@ -1613,7 +2635,7 @@ components:
           description: True if a stream key is stored. The key itself is never returned.
         creditMinutesPerNewPlayer:
           type: integer
-          description: Host service credit policy — minutes of play extended on credit to new players who run out mid-session. 0 disables auto-credit.
+          description: Host service credit policy вЂ” minutes of play extended on credit to new players who run out mid-session. 0 disables auto-credit.
         creditMaxLztPerPlayer:
           type: integer
           description: Per-borrower cap on host service credit, in LZT.
@@ -1633,6 +2655,44 @@ components:
         scheduleAutoDisabledAt:
           type: ["string", "null"]
           format: date-time
+        lastSubmissionStatus:
+          type: ["string", "null"]
+          description: Latest game submission outcome (pending / approved / rejected)
+        lastSubmissionNote:
+          type: string
+          description: Human-readable note about the last submission outcome
+        gamesContributed:
+          type: integer
+          description: Count of approved catalog submissions from this host
+        isAdmin:
+          type: boolean
+          description: Platform administrator flag
+        agentKeyBound:
+          type: boolean
+          description: True when an Ed25519 agent public key is bound (key itself is never returned)
+        pcSpecs:
+          type: ["object", "null"]
+          description: PC hardware specs reported by the host agent
+          properties:
+            gpu:
+              type: string
+            cpu:
+              type: string
+            ramGb:
+              type: number
+            cpuCores:
+              type: number
+            downloadMbps:
+              type: number
+            uploadMbps:
+              type: number
+        pingMs:
+          type: ["integer", "null"]
+          description: RTT from host agent to API (ms), null until first measured heartbeat
+        ratingAvg:
+          type: ["number", "null"]
+        ratingCount:
+          type: integer
       required:
         - id
         - hostToken
@@ -1659,10 +2719,16 @@ components:
         - hostTier
         - scheduleAutoDisabledReason
         - scheduleAutoDisabledAt
+        - lastSubmissionStatus
+        - lastSubmissionNote
+        - gamesContributed
+        - isAdmin
+        - agentKeyBound
+        - pcSpecs
 
     UpdateHostConfigBody:
       type: object
-      description: Partial update — omit a field to leave it unchanged.
+      description: Partial update вЂ” omit a field to leave it unchanged.
       properties:
         gameId:
           type: ["string", "null"]
@@ -1720,10 +2786,10 @@ components:
           type: string
         internalBalanceLzt:
           type: integer
-          description: Синий — internal LZT, cannot be withdrawn
+          description: РЎРёРЅРёР№ вЂ” internal LZT, cannot be withdrawn
         withdrawableBalanceLzt:
           type: integer
-          description: Зелёный — LZT convertible back to crypto at 200:1
+          description: Р—РµР»С‘РЅС‹Р№ вЂ” LZT convertible back to crypto at 200:1
         createdAt:
           type: string
           format: date-time
@@ -1770,6 +2836,17 @@ components:
           type: string
         genre:
           type: string
+        category:
+          type: string
+          description: Primary catalog category (e.g. action, rpg)
+        genres:
+          type: array
+          items:
+            type: string
+          description: Additional genre tags
+        createdAt:
+          type: string
+          format: date-time
         hasMods:
           type: boolean
         isMultiplayer:
@@ -1781,6 +2858,18 @@ components:
         liveSessionCount:
           type: integer
           description: Number of pending or active sessions matching this game right now
+        liveHostsCount:
+          type: integer
+          description: Hosts with this game enabled that currently have a live session
+        vdsHostsCount:
+          type: integer
+          description: Number of always-on VDS hosts offering this game
+        hasVdsHosts:
+          type: boolean
+          description: True when at least one VDS host offers this game
+        minPricePerMinuteLzt:
+          type: ["integer", "null"]
+          description: Cheapest enabled library price for this game across hosts, in LZT
         browserHostUrl:
           type: string
           description: |
@@ -1797,23 +2886,34 @@ components:
         - coverImageUrl
         - description
         - genre
+        - category
+        - genres
+        - createdAt
         - hasMods
         - isMultiplayer
         - hostSpectatesPlayer
         - hasQuests
         - liveSessionCount
+        - liveHostsCount
+        - minPricePerMinuteLzt
         - browserHostUrl
 
     GameLiveSession:
       type: object
       properties:
+        hostId:
+          type: string
+          description: Host UUID offering this live session
         playerToken:
           type: string
-          description: Player share token — visit /play/{playerToken} to join
+          description: Player share token вЂ” visit /play/{playerToken} to join
         appName:
           type: string
         ratePerMinute:
           type: number
+        pricePerMinuteLzt:
+          type: integer
+          description: Per-minute price in integer LZT
         resolution:
           type: string
         bitrateKbps:
@@ -1849,10 +2949,18 @@ components:
             $ref: "#/components/schemas/ScheduleSlot"
         streamPlatform:
           type: string
+        pingMs:
+          type: ["integer", "null"]
+        ratingScore:
+          type: ["number", "null"]
+        ratingCount:
+          type: integer
       required:
+        - hostId
         - playerToken
         - appName
         - ratePerMinute
+        - pricePerMinuteLzt
         - resolution
         - bitrateKbps
         - status
@@ -1867,6 +2975,9 @@ components:
         - scheduleMode
         - scheduleJson
         - streamPlatform
+        - pingMs
+        - ratingScore
+        - ratingCount
 
     GameDetail:
       allOf:
@@ -1887,8 +2998,17 @@ components:
           type: string
         hostId:
           type: string
+        gameId:
+          type: string
+          description: Catalog game this session is bound to
         playerToken:
           type: string
+        inviteCode:
+          type: ["string", "null"]
+          description: Short invite code for share links
+        inviteExpiresAt:
+          type: ["string", "null"]
+          format: date-time
         claimedByPlayerId:
           type: ["string", "null"]
         appName:
@@ -1928,10 +3048,11 @@ components:
           description: Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.
         isTest:
           type: boolean
-          description: Host self-test session — completely free, skipped by billing.
+          description: Host self-test session вЂ” completely free, skipped by billing.
       required:
         - id
         - hostId
+        - gameId
         - playerToken
         - appName
         - status
@@ -1939,6 +3060,60 @@ components:
         - bitrateKbps
         - ratePerMinute
         - createdAt
+
+    SessionByInviteResponse:
+      allOf:
+        - $ref: "#/components/schemas/Session"
+        - type: object
+          properties:
+            gameSlug:
+              type: ["string", "null"]
+            gameCoverImageUrl:
+              type: ["string", "null"]
+            gameTitle:
+              type: ["string", "null"]
+            gameBrowserHostUrl:
+              type: ["string", "null"]
+
+    CreatePublicSessionResponse:
+      type: object
+      required: [inviteCode, playPath]
+      properties:
+        inviteCode:
+          type: string
+        playPath:
+          type: string
+          description: Frontend path e.g. /play/i/{inviteCode}
+
+    CreateTestSessionResponse:
+      type: object
+      required: [session]
+      properties:
+        session:
+          $ref: "#/components/schemas/Session"
+        hostBoundUrl:
+          type: ["string", "null"]
+        isExternalUrl:
+          type: boolean
+
+    IssueAgentBindCodeResponse:
+      type: object
+      required: [bindCode, expiresAt]
+      properties:
+        bindCode:
+          type: string
+        expiresAt:
+          type: integer
+          description: Unix epoch ms
+
+    IssueWsTicketResponse:
+      type: object
+      required: [wsTicket, expiresInSec]
+      properties:
+        wsTicket:
+          type: string
+        expiresInSec:
+          type: integer
 
     EndSessionBody:
       type: object
@@ -1959,7 +3134,7 @@ components:
           enum: [blue, green, auto]
           description: |
             Which LZT bucket the player wants to pay from. "auto" prefers
-            зелёный (withdrawable) and falls back to синий (internal).
+            Р·РµР»С‘РЅС‹Р№ (withdrawable) and falls back to СЃРёРЅРёР№ (internal).
         blockMinutes:
           type: ["integer", "null"]
           description: Block size in minutes chosen at session start (10, 15, or 25). Omit/null for unlimited per-minute billing.
@@ -2020,6 +3195,10 @@ components:
         quotaAccessCode:
           type: string
           description: Required when attaching a private quota the host does not own.
+        requestedGameId:
+          type: string
+          format: uuid
+          description: Optional game from the host's library; when set, pricing comes from that library entry.
       required:
         - hostToken
         - appName
@@ -2141,7 +3320,7 @@ components:
           type: string
         amountLzt:
           type: integer
-          description: Amount in LZT (must be a multiple of 200 — i.e. whole USDT)
+          description: Amount in LZT (must be a multiple of 200 вЂ” i.e. whole USDT)
       required:
         - currency
         - address
@@ -2159,16 +3338,16 @@ components:
           type: string
         internalBalanceLzt:
           type: integer
-          description: Legacy alias of balanceLzt (синий, internal LZT).
+          description: Legacy alias of balanceLzt (СЃРёРЅРёР№, internal LZT).
         withdrawableBalanceLzt:
           type: integer
-          description: Legacy alias of cashLzt (зелёный, withdrawable LZT).
+          description: Legacy alias of cashLzt (Р·РµР»С‘РЅС‹Р№, withdrawable LZT).
         balanceLzt:
           type: integer
-          description: Синий — internal LZT, earns weekly interest, pays internal services & premium.
+          description: РЎРёРЅРёР№ вЂ” internal LZT, earns weekly interest, pays internal services & premium.
         cashLzt:
           type: integer
-          description: Зелёный — convertible to crypto at 200:1 and withdrawable.
+          description: Р—РµР»С‘РЅС‹Р№ вЂ” convertible to crypto at 200:1 and withdrawable.
         creditLimitLzt:
           type: integer
           description: Gaming credit line in LZT (default 3000 = $15). Player can play past zero balance up to this limit.
@@ -2184,7 +3363,7 @@ components:
           description: Premium subscription end (ISO 8601). null when no premium.
         lifetimeDepositUsdtCents:
           type: integer
-          description: Lifetime deposit volume in USDT cents — drives the tariff tier.
+          description: Lifetime deposit volume in USDT cents вЂ” drives the tariff tier.
         pendingWithdrawalsLzt:
           type: integer
         lztPerUsdt:
@@ -2241,9 +3420,11 @@ components:
         status:
           type: string
           description: "online | offline | scheduled"
-        playerToken:
-          type: string
-          description: Share token so anonymous visitors can join the open session.
+        inviteCode:
+          type: ["string", "null"]
+          description: >
+            Capability invite code for /play/i/{inviteCode}. Raw playerToken is
+            never exposed on public host lists.
         hostTier:
           type: string
           enum: [meets_min, above_rec]
@@ -2258,7 +3439,7 @@ components:
         - launchPriceUsd
         - minutePriceUsd
         - status
-        - playerToken
+        - inviteCode
 
     PublicStats:
       type: object
@@ -2292,7 +3473,7 @@ components:
           description: True when an API (dev) key is linked to this quota.
         apiKeyMasked:
           type: ["string", "null"]
-          description: Masked hint of the linked API key (e.g. "abcd••••wxyz"), never the raw key.
+          description: Masked hint of the linked API key (e.g. "abcdвЂўвЂўвЂўвЂўwxyz"), never the raw key.
         kind:
           type: string
           enum: [royalty, sponsor]
@@ -2527,7 +3708,7 @@ components:
           enum: [min, recommended, null]
         apiKey:
           type: ["string", "null"]
-          description: Link this quota to a dev/API key — sessions launched via that key auto-apply the quota and it becomes unusable via any other path.
+          description: Link this quota to a dev/API key вЂ” sessions launched via that key auto-apply the quota and it becomes unusable via any other path.
       required:
         - ownerToken
         - kind
@@ -2601,7 +3782,7 @@ components:
       properties:
         gameId:
           type: ["string", "null"]
-          description: Optional game ID — the server will resolve its title and genre
+          description: Optional game ID вЂ” the server will resolve its title and genre
         gameTitle:
           type: ["string", "null"]
         genre:
@@ -2776,7 +3957,7 @@ components:
           type: string
         kind:
           type: string
-          description: "ledger kind (deposit_credit, deposit_fee, session_tick, loan_disburse_*, loan_repay_*, interest_payout, premium_purchase, withdrawal, …)"
+          description: "ledger kind (deposit_credit, deposit_fee, session_tick, loan_disburse_*, loan_repay_*, interest_payout, premium_purchase, withdrawal, вЂ¦)"
         currency:
           type: ["string", "null"]
         amountLzt:
@@ -2859,7 +4040,7 @@ components:
           description: Loan duration in days (minimum 60)
         rateBps:
           type: integer
-          description: Annual interest rate in basis points (0–5000)
+          description: Annual interest rate in basis points (0вЂ“5000)
       required:
         - userToken
         - amountLzt
@@ -2875,7 +4056,7 @@ components:
           description: Amount to fund in LZT. Omit to fund the entire remaining unfunded portion.
         source:
           type: string
-          description: "cash | balance — which bucket the lender pays from"
+          description: "cash | balance вЂ” which bucket the lender pays from"
           enum: [cash, balance]
         payoutMode:
           type: string
@@ -3006,3 +4187,195 @@ components:
           type: integer
       required:
         - repaidLzt
+
+    HostLibraryGame:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        title:
+          type: string
+        coverImageUrl:
+          type: string
+        genre:
+          type: string
+        browserHostUrl:
+          type: string
+        hasMods:
+          type: boolean
+        isMultiplayer:
+          type: boolean
+      required:
+        - id
+        - slug
+        - title
+        - coverImageUrl
+        - genre
+        - browserHostUrl
+        - hasMods
+        - isMultiplayer
+
+    HostLibraryEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        hostId:
+          type: string
+        gameId:
+          type: string
+        pricePerMinuteLzt:
+          type: integer
+        appPath:
+          type: string
+        boundUrl:
+          type: string
+        launchArgs:
+          type: string
+        enabled:
+          type: boolean
+        sortOrder:
+          type: integer
+        localAvailable:
+          type: boolean
+        lastError:
+          type: string
+        addedAt:
+          type: string
+          format: date-time
+        hasActiveSession:
+          type: boolean
+        game:
+          $ref: "#/components/schemas/HostLibraryGame"
+      required:
+        - id
+        - hostId
+        - gameId
+        - pricePerMinuteLzt
+        - appPath
+        - boundUrl
+        - launchArgs
+        - enabled
+        - sortOrder
+        - localAvailable
+        - lastError
+        - addedAt
+        - hasActiveSession
+        - game
+
+    AddHostLibraryEntryBody:
+      type: object
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        pricePerMinuteLzt:
+          type: integer
+        appPath:
+          type: string
+        boundUrl:
+          type: string
+        launchArgs:
+          type: string
+      required:
+        - gameId
+
+    UpdateHostLibraryEntryBody:
+      type: object
+      properties:
+        pricePerMinuteLzt:
+          type: integer
+        appPath:
+          type: string
+        boundUrl:
+          type: string
+        launchArgs:
+          type: string
+        enabled:
+          type: boolean
+        sortOrder:
+          type: integer
+        localAvailable:
+          type: boolean
+        lastError:
+          type: string
+
+    CreateEmbedSessionBody:
+      type: object
+      properties:
+        apiKey:
+          type: string
+        gameSlug:
+          type: string
+        resolution:
+          type: string
+        bitrateKbps:
+          type: integer
+      required:
+        - apiKey
+        - gameSlug
+
+    CreateEmbedSessionResponse:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        playerToken:
+          type: string
+        gameSlug:
+          type: string
+        gameTitle:
+          type: string
+        hostDisplayName:
+          type: string
+        ratePerMinuteLzt:
+          type: integer
+        keyBalanceLzt:
+          type: integer
+      required:
+        - sessionId
+        - playerToken
+        - gameSlug
+        - gameTitle
+        - hostDisplayName
+        - ratePerMinuteLzt
+        - keyBalanceLzt
+
+    RequestUploadUrlBody:
+      type: object
+      properties:
+        name:
+          type: string
+        size:
+          type: integer
+        contentType:
+          type: string
+          enum: [image/jpeg, image/png, image/webp]
+      required:
+        - name
+        - size
+        - contentType
+
+    RequestUploadUrlResponse:
+      type: object
+      properties:
+        uploadURL:
+          type: string
+        objectPath:
+          type: string
+        metadata:
+          type: object
+          properties:
+            name:
+              type: string
+            size:
+              type: integer
+            contentType:
+              type: string
+          required: [name, size, contentType]
+      required:
+        - uploadURL
+        - objectPath
+        - metadata

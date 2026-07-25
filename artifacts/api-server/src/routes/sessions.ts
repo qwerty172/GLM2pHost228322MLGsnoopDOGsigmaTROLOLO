@@ -7,9 +7,9 @@ import {
   hostGamesTable,
   playersTable,
   sessionsTable,
-  billingEventsTable,
   quotasTable,
   quotaSessionsTable,
+  sessionMetricsTable,
 } from "@workspace/db";
 import { isQuotaActiveNow } from "../lib/quotaEngine";
 import {
@@ -29,12 +29,22 @@ import {
 } from "@workspace/api-zod";
 
 import { generateToken } from "../lib/tokens";
+import { generateInviteCode, defaultInviteExpiresAt, isInviteExpired } from "../lib/invites";
 import { applyLaunchFee } from "../lib/launchFee";
 import { pickPlayerBucket } from "../lib/lzt";
 import { isHostAvailableNow } from "../lib/schedule";
 import { checkQuotaAttachment } from "../lib/quotaAttach";
 import { headerUserToken } from "../lib/requestToken";
 import { rateLimit, ipKey } from "../lib/rateLimit";
+import {
+  countSessionMinutesUsed,
+  refundBlockRemainder,
+} from "../lib/sessionBilling";
+import { sendSignalingMessage } from "../lib/signaling";
+import { submitSessionRating, recordBlockReserveLedger } from "../lib/ratings";
+import { writeLedger } from "../lib/economy";
+import { randomUUID } from "node:crypto";
+import { z } from "zod/v4";
 
 const router: IRouter = Router();
 
@@ -47,10 +57,18 @@ const claimLimiter = rateLimit({
   keyFn: ipKey,
 });
 
+/** OpenAPI CreateSessionBody includes requestedGameId (uuid). */
 function serialize(s: typeof sessionsTable.$inferSelect) {
   return {
     ...s,
     ratePerMinute: Number(s.ratePerMinute),
+  };
+}
+
+function inviteFields() {
+  return {
+    inviteCode: generateInviteCode(),
+    inviteExpiresAt: defaultInviteExpiresAt(),
   };
 }
 
@@ -84,33 +102,13 @@ router.post("/sessions", async (req, res): Promise<void> => {
     return;
   }
 
-  // One active session per host machine — the host agent can only stream one
-  // game at a time (hardware constraint). Reject creation if a non-ended
-  // session already exists for this host.
-  const [existingActive] = await db
-    .select({ id: sessionsTable.id })
-    .from(sessionsTable)
-    .where(
-      and(
-        eq(sessionsTable.hostId, host.id),
-        ne(sessionsTable.status, "ended"),
-      ),
-    )
-    .limit(1);
-  if (existingActive) {
-    res.status(409).json({ error: "host_busy" });
-    return;
-  }
-
   const playerToken = generateToken();
 
   // Optional: caller may specify which game from the host's multi-game
   // library this session is for. When provided we use that entry's
   // pricePerMinuteLzt; otherwise we fall back to the host's legacy
   // minutePriceUsd field.
-  const requestedGameId =
-    (req.body as { requestedGameId?: string } | undefined)?.requestedGameId ??
-    null;
+  const requestedGameId = parsed.data.requestedGameId ?? null;
   let resolvedGameId: string | null = null;
   let ratePerMinute: number;
 
@@ -174,11 +172,8 @@ router.post("/sessions", async (req, res): Promise<void> => {
   // Optional quota attachment. The host can pre-pick a quota in /host/setup
   // or by passing an access code; we validate it before creating the session.
   let resolvedQuotaId: string | null = null;
-  const requestedQuotaId =
-    (req.body as { quotaId?: string | null } | undefined)?.quotaId ?? null;
-  const accessCode =
-    (req.body as { quotaAccessCode?: string } | undefined)
-      ?.quotaAccessCode ?? "";
+  const requestedQuotaId = parsed.data.quotaId ?? null;
+  const accessCode = parsed.data.quotaAccessCode ?? "";
   if (requestedQuotaId) {
     const [quota] = await db
       .select()
@@ -216,30 +211,67 @@ router.post("/sessions", async (req, res): Promise<void> => {
     resolvedQuotaId = quota.id;
   }
 
-  const [session] = await db
-    .insert(sessionsTable)
-    .values({
-      hostId: host.id,
-      gameId: resolvedGameId,
-      playerToken,
-      appName: parsed.data.appName,
-      resolution: parsed.data.resolution ?? "1920x1080",
-      bitrateKbps: parsed.data.bitrateKbps ?? 6000,
-      ratePerMinute: String(ratePerMinute),
-      paymentSource: parsed.data.paymentSource ?? "auto",
-      quotaId: resolvedQuotaId,
-    })
-    .returning();
+  // Serialize session creation per host: lock the host row then re-check busy.
+  let session: typeof sessionsTable.$inferSelect | undefined;
+  try {
+    session = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT id FROM hosts WHERE id = ${host.id} FOR UPDATE`,
+      );
+      const [existingActive] = await tx
+        .select({ id: sessionsTable.id })
+        .from(sessionsTable)
+        .where(
+          and(
+            eq(sessionsTable.hostId, host.id),
+            ne(sessionsTable.status, "ended"),
+          ),
+        )
+        .limit(1);
+      if (existingActive) {
+        throw Object.assign(new Error("host_busy"), { code: "host_busy" });
+      }
+      const [created] = await tx
+        .insert(sessionsTable)
+        .values({
+          hostId: host.id,
+          gameId: resolvedGameId!,
+          playerToken,
+          ...inviteFields(),
+          appName: parsed.data.appName,
+          resolution: parsed.data.resolution ?? "1920x1080",
+          bitrateKbps: parsed.data.bitrateKbps ?? 6000,
+          ratePerMinute: String(ratePerMinute),
+          paymentSource: parsed.data.paymentSource ?? "auto",
+          quotaId: resolvedQuotaId,
+        })
+        .returning();
+      if (!created) {
+        throw new Error("Failed to create session");
+      }
+      if (resolvedQuotaId) {
+        await tx
+          .insert(quotaSessionsTable)
+          .values({ quotaId: resolvedQuotaId, sessionId: created.id });
+      }
+      return created;
+    });
+  } catch (err) {
+    if (
+      err &&
+      typeof err === "object" &&
+      "code" in err &&
+      (err as { code: string }).code === "host_busy"
+    ) {
+      res.status(409).json({ error: "host_busy" });
+      return;
+    }
+    throw err;
+  }
 
   if (!session) {
     res.status(500).json({ error: "Failed to create session" });
     return;
-  }
-
-  if (resolvedQuotaId) {
-    await db
-      .insert(quotaSessionsTable)
-      .values({ quotaId: resolvedQuotaId, sessionId: session.id });
   }
 
   req.log.info(
@@ -313,6 +345,7 @@ router.post("/sessions/browser-host", async (req, res): Promise<void> => {
       hostId: host.id,
       gameId: game.id,
       playerToken,
+      ...inviteFields(),
       appName: game.title,
       resolution: "1280x720",
       bitrateKbps: 4000,
@@ -453,6 +486,7 @@ router.post("/sessions/test", testSessionLimiter, async (req, res): Promise<void
       hostId: host.id,
       gameId: game.id,
       playerToken,
+      ...inviteFields(),
       appName: game.title,
       resolution: "1280x720",
       bitrateKbps: 4000,
@@ -742,6 +776,14 @@ router.post(
         res.status(400).json({ error: "Insufficient balance to reserve the block" });
         return;
       }
+      const ledgerBucket = bucket === "green" ? "green" : "blue";
+      await recordBlockReserveLedger({
+        playerId: player.id,
+        sessionId: session.id,
+        amountLzt: blockReservedLzt,
+        bucket: ledgerBucket,
+        note: `block reserve: ${blockMinutes} мин`,
+      });
     }
 
     if (picked === null && minBalanceLzt > 0 && blockReservedLzt === null) {
@@ -882,7 +924,7 @@ router.patch("/sessions/:id/end", async (req, res): Promise<void> => {
 
   const now = new Date();
 
-  // Block session early-exit refund: count minutes used, refund remainder.
+  // Block session early-exit refund via shared billing helper (includes ledger).
   if (
     existing.blockMinutes &&
     existing.blockReservedLzt &&
@@ -890,28 +932,10 @@ router.patch("/sessions/:id/end", async (req, res): Promise<void> => {
     existing.status === "active"
   ) {
     try {
-      const ticksRow = await db
-        .select({ n: sql<number>`count(*)::int` })
-        .from(billingEventsTable)
-        .where(
-          and(
-            eq(billingEventsTable.sessionId, existing.id),
-            eq(billingEventsTable.kind, "session_tick"),
-            eq(billingEventsTable.bucket, "green"),
-          ),
-        );
-      const minutesUsed = Number(ticksRow[0]?.n ?? 0);
-      const costPerMinute = Math.round(existing.blockReservedLzt / existing.blockMinutes);
-      const costUsed = minutesUsed * costPerMinute;
-      const refundLzt = Math.max(0, existing.blockReservedLzt - costUsed);
-      if (refundLzt > 0) {
-        const bucket = existing.paymentSource === "blue" ? "internalBalanceLzt" : "withdrawableBalanceLzt";
-        await db
-          .update(playersTable)
-          .set({ [bucket]: sql`${playersTable[bucket as keyof typeof playersTable]} + ${refundLzt}` } as never)
-          .where(eq(playersTable.id, existing.claimedByPlayerId));
-        req.log.info({ sessionId: existing.id, refundLzt, minutesUsed }, "Block session early exit — refunded unused reserve");
-      }
+      await db.transaction(async (tx) => {
+        const minutesUsed = await countSessionMinutesUsed(tx, existing.id);
+        await refundBlockRemainder(tx, existing, minutesUsed);
+      });
     } catch (err) {
       req.log.error({ err, sessionId: existing.id }, "Block refund failed during session end");
     }
@@ -930,6 +954,293 @@ router.patch("/sessions/:id/end", async (req, res): Promise<void> => {
 
   req.log.info({ sessionId: session.id }, "Session ended");
   res.json(EndSessionResponse.parse(serialize(session)));
+});
+
+router.get("/sessions/by-invite/:inviteCode", async (req, res): Promise<void> => {
+  const inviteCode = String(req.params.inviteCode ?? "").trim();
+  if (!inviteCode) {
+    res.status(400).json({ error: "inviteCode required" });
+    return;
+  }
+  const [session] = await db
+    .select()
+    .from(sessionsTable)
+    .where(eq(sessionsTable.inviteCode, inviteCode));
+  if (!session) {
+    res.status(404).json({ error: "Invite not found" });
+    return;
+  }
+  if (isInviteExpired(session.inviteExpiresAt)) {
+    res.status(410).json({ error: "invite_expired", message: "Ссылка-приглашение истекла" });
+    return;
+  }
+
+  const [game] = await db
+    .select()
+    .from(gamesTable)
+    .where(eq(gamesTable.id, session.gameId));
+
+  res.json({
+    ...GetSessionByPlayerTokenResponse.parse(serialize(session)),
+    inviteCode: session.inviteCode,
+    gameSlug: game?.slug ?? null,
+    gameCoverImageUrl: game?.coverImageUrl ?? null,
+    gameTitle: session.isTest ? session.appName : game?.title ?? null,
+    gameBrowserHostUrl: game?.browserHostUrl ?? null,
+  });
+});
+
+router.post(
+  "/sessions/by-player-token/:playerToken/renew-block",
+  claimLimiter,
+  async (req, res): Promise<void> => {
+    const playerToken = String(req.params.playerToken ?? "").trim();
+    const playerWalletToken = String(req.body?.playerWalletToken ?? "").trim();
+    const blockMinutes = Number(req.body?.blockMinutes);
+    if (!playerToken || !playerWalletToken) {
+      res.status(400).json({ error: "playerWalletToken required" });
+      return;
+    }
+    if (![10, 15, 25].includes(blockMinutes)) {
+      res.status(400).json({ error: "blockMinutes must be 10, 15, or 25" });
+      return;
+    }
+
+    const [session] = await db
+      .select()
+      .from(sessionsTable)
+      .where(eq(sessionsTable.playerToken, playerToken));
+    if (!session || session.status !== "active") {
+      res.status(400).json({ error: "Session not active" });
+      return;
+    }
+    if (!session.claimedByPlayerId || !session.blockMinutes) {
+      res.status(400).json({ error: "Not a block session" });
+      return;
+    }
+
+    const [player] = await db
+      .select()
+      .from(playersTable)
+      .where(eq(playersTable.playerToken, playerWalletToken));
+    if (!player || player.id !== session.claimedByPlayerId) {
+      res.status(403).json({ error: "Wallet does not match session" });
+      return;
+    }
+
+    const ratePerMinuteLzt = Math.round(Number(session.ratePerMinute) * 200);
+    const addReserve = blockMinutes * ratePerMinuteLzt;
+    const picked = pickPlayerBucket(
+      session.paymentSource,
+      addReserve,
+      player.withdrawableBalanceLzt,
+      player.internalBalanceLzt,
+    );
+    if (picked === null && addReserve > 0) {
+      res.status(400).json({
+        error: `Insufficient LZT — need ${addReserve} LZT for ${blockMinutes} min block`,
+      });
+      return;
+    }
+
+    const bucket = picked ?? "green";
+    const playerCol =
+      bucket === "green"
+        ? playersTable.withdrawableBalanceLzt
+        : playersTable.internalBalanceLzt;
+
+    const updated = await db.transaction(async (tx) => {
+      if (addReserve > 0) {
+        const debited = await tx
+          .update(playersTable)
+          .set(
+            bucket === "green"
+              ? { withdrawableBalanceLzt: sql`${playersTable.withdrawableBalanceLzt} - ${addReserve}` }
+              : { internalBalanceLzt: sql`${playersTable.internalBalanceLzt} - ${addReserve}` },
+          )
+          .where(
+            and(
+              eq(playersTable.id, player.id),
+              sql`${playerCol} >= ${addReserve}`,
+            ),
+          )
+          .returning({ id: playersTable.id });
+        if (debited.length === 0) {
+          return null;
+        }
+        await writeLedger(tx, [
+          {
+            groupId: randomUUID(),
+            kind: "block_reserve",
+            ownerType: "player",
+            ownerId: player.id,
+            bucket: bucket === "green" ? "cash" : "balance",
+            deltaLzt: -addReserve,
+            refType: "session",
+            refId: session.id,
+            note: `block renew: +${blockMinutes} мин`,
+          },
+        ]);
+      }
+
+      const [row] = await tx
+        .update(sessionsTable)
+        .set({
+          blockMinutes: (session.blockMinutes ?? 0) + blockMinutes,
+          blockReservedLzt: (session.blockReservedLzt ?? 0) + addReserve,
+        })
+        .where(eq(sessionsTable.id, session.id))
+        .returning();
+      return row ?? null;
+    });
+
+    if (!updated) {
+      res.status(400).json({ error: "Insufficient balance to renew block" });
+      return;
+    }
+
+    sendSignalingMessage(session.id, {
+      type: "block-renewed",
+      blockMinutes: updated.blockMinutes,
+      addedMinutes: blockMinutes,
+    });
+
+    res.json(ClaimSessionResponse.parse(serialize(updated)));
+  },
+);
+
+router.post("/sessions/:id/rate", claimLimiter, async (req, res): Promise<void> => {
+  const sessionId = String(req.params.id ?? "").trim();
+  const playerWalletToken = String(req.body?.playerWalletToken ?? "").trim();
+  const score = Number(req.body?.score);
+  const comment = typeof req.body?.comment === "string" ? req.body.comment : "";
+
+  if (!sessionId || !playerWalletToken) {
+    res.status(400).json({ error: "playerWalletToken required" });
+    return;
+  }
+
+  const [session] = await db
+    .select()
+    .from(sessionsTable)
+    .where(eq(sessionsTable.id, sessionId));
+  if (!session) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+  if (session.status !== "ended") {
+    res.status(400).json({ error: "Session must be ended before rating" });
+    return;
+  }
+
+  const [player] = await db
+    .select()
+    .from(playersTable)
+    .where(eq(playersTable.playerToken, playerWalletToken));
+  if (!player || player.id !== session.claimedByPlayerId) {
+    res.status(403).json({ error: "Only the session player can rate" });
+    return;
+  }
+
+  const result = await submitSessionRating({
+    sessionId: session.id,
+    playerId: player.id,
+    hostId: session.hostId,
+    score,
+    comment,
+  });
+  if (!result.ok) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+
+  res.json({
+    ratingAvg: result.ratingAvg,
+    ratingCount: result.ratingCount,
+  });
+});
+
+const SessionMetricSample = z.object({
+  role: z.enum(["player", "host"]),
+  sampledAt: z.string().datetime().optional(),
+  rttMs: z.number().int().optional(),
+  bitrateKbps: z.number().int().optional(),
+  fps: z.number().int().optional(),
+  packetLossPct: z.number().optional(),
+  framesDropped: z.number().int().optional(),
+  iceCandidateType: z.string().optional(),
+  jitterMs: z.number().int().optional(),
+});
+
+const PostSessionMetricsBody = z.object({
+  samples: z.array(SessionMetricSample).min(1).max(50),
+});
+
+router.post("/sessions/:id/metrics", async (req, res): Promise<void> => {
+  const sessionId = (req.params.id ?? "").trim();
+  if (!sessionId) {
+    res.status(400).json({ error: "session id required" });
+    return;
+  }
+
+  const parsed = PostSessionMetricsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const authHeader = req.headers.authorization;
+  const bearerToken = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice("Bearer ".length).trim()
+    : undefined;
+  const hostToken =
+    bearerToken ??
+    (req.query.hostToken as string | undefined) ??
+    (req.body?.hostToken as string | undefined);
+  const playerToken =
+    (req.headers["x-player-token"] as string | undefined) ??
+    (req.body?.playerToken as string | undefined);
+
+  const [session] = await db
+    .select()
+    .from(sessionsTable)
+    .where(eq(sessionsTable.id, sessionId));
+
+  if (!session) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+
+  let authorized = false;
+  if (hostToken) {
+    const [host] = await db
+      .select({ id: hostsTable.id })
+      .from(hostsTable)
+      .where(eq(hostsTable.hostToken, hostToken));
+    authorized = host?.id === session.hostId;
+  } else if (playerToken) {
+    authorized = session.playerToken === playerToken;
+  }
+  if (!authorized) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  const rows = parsed.data.samples.map((s) => ({
+    sessionId,
+    role: s.role,
+    sampledAt: s.sampledAt ? new Date(s.sampledAt) : new Date(),
+    rttMs: s.rttMs ?? null,
+    bitrateKbps: s.bitrateKbps ?? null,
+    fps: s.fps ?? null,
+    packetLossPct: s.packetLossPct != null ? Math.round(s.packetLossPct) : null,
+    framesDropped: s.framesDropped ?? null,
+    iceCandidateType: s.iceCandidateType ?? null,
+    jitterMs: s.jitterMs ?? null,
+  }));
+
+  await db.insert(sessionMetricsTable).values(rows);
+  res.status(201).json({ inserted: rows.length });
 });
 
 export default router;

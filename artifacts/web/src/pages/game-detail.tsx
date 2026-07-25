@@ -87,7 +87,7 @@ type LibraryHost = {
   pricePerMinuteLzt: number;
   pricePerMinuteUsd: number;
   status: "online" | "available" | "scheduled";
-  playerToken: string | null;
+  inviteCode: string | null;
   scheduleMode: string;
   pingMs: number | null;
   hostTier?: "meets_min" | "above_rec";
@@ -192,12 +192,16 @@ export default function GameDetailPage() {
   const browserRtt = useBrowserPingMs();
   const { playerWalletToken, registerGuest } = usePlayerWallet();
 
-  async function handlePlay(host: LibraryHost) {
-    if (!host.playerToken) return;
-    let token = playerWalletToken;
-    if (!token) {
-      token = await registerGuest();
-    }
+  async function handlePlayDirect(host: LibraryHost) {
+    if (!host.inviteCode) return;
+    // Не блокируем навигацию — guest wallet создаётся на /play.
+    if (!playerWalletToken) void registerGuest();
+    navigate(`/play/i/${host.inviteCode}`);
+  }
+
+  function handlePlayConfigure(host: LibraryHost) {
+    if (!host.inviteCode) return;
+    if (!playerWalletToken) void registerGuest();
     setPreSessionHost(host);
   }
 
@@ -241,10 +245,10 @@ export default function GameDetailPage() {
             setSelectedBlockMinutes(null);
           }}
           onConfirm={(blockMins) => {
-            if (preSessionHost.playerToken) {
+            if (preSessionHost.inviteCode) {
               setSelectedBlockMinutes(blockMins ?? null);
               const qs = blockMins ? `?block=${blockMins}` : "";
-              navigate(`/play/${preSessionHost.playerToken}${qs}`);
+              navigate(`/play/i/${preSessionHost.inviteCode}${qs}`);
             }
           }}
         />
@@ -256,7 +260,7 @@ export default function GameDetailPage() {
           onClose={() => setPreviewHost(null)}
           onPlay={() => {
             setPreviewHost(null);
-            setPreSessionHost(previewHost);
+            void handlePlayDirect(previewHost);
           }}
         />
       )}
@@ -350,7 +354,7 @@ export default function GameDetailPage() {
                 </div>
 
                 {(libraryHosts ?? []).length > 0 && (
-                  <div className="mt-6 flex items-center gap-3">
+                  <div className="mt-6 flex flex-wrap items-center gap-3">
                     <div
                       className="px-3 py-2 rounded-lg text-sm font-semibold"
                       style={{ background: "rgba(14,165,233,0.08)", border: "1px solid rgba(14,165,233,0.15)" }}
@@ -371,6 +375,29 @@ export default function GameDetailPage() {
                         <span className="text-slate-600">{totalHostCount} хост{totalHostCount === 1 ? "" : "а"} в библиотеке</span>
                       )}
                     </div>
+                    {onlineHosts[0]?.inviteCode && (
+                      <div className="flex items-center gap-2 ml-auto">
+                        <Button
+                          size="sm"
+                          className="h-9 px-4 text-xs font-semibold"
+                          style={{ background: "#0ea5e9", color: "#fff" }}
+                          onClick={() => void handlePlayDirect(onlineHosts[0])}
+                          data-testid="button-play-now-hero"
+                        >
+                          Играть сейчас
+                          <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-9 px-3 text-xs border-white/15 text-slate-400"
+                          onClick={() => handlePlayConfigure(onlineHosts[0])}
+                          data-testid="button-configure-session-hero"
+                        >
+                          Настроить сессию
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -419,7 +446,8 @@ export default function GameDetailPage() {
                       key={h.hostId}
                       host={h}
                       browserRtt={browserRtt}
-                      onPlay={() => handlePlay(h)}
+                      onPlay={() => void handlePlayDirect(h)}
+                      onConfigure={() => handlePlayConfigure(h)}
                       onPreview={() => setPreviewHost(h)}
                     />
                   ))}
@@ -462,7 +490,19 @@ export default function GameDetailPage() {
   );
 }
 
-function LibraryHostRow({ host: h, browserRtt, onPlay, onPreview }: { host: LibraryHost; browserRtt: number | null; onPlay: () => void; onPreview: () => void }) {
+function LibraryHostRow({
+  host: h,
+  browserRtt,
+  onPlay,
+  onConfigure,
+  onPreview,
+}: {
+  host: LibraryHost;
+  browserRtt: number | null;
+  onPlay: () => void;
+  onConfigure: () => void;
+  onPreview: () => void;
+}) {
   const isOnline = h.status === "online";
   const isAvailable = h.status === "available";
 
@@ -580,17 +620,29 @@ function LibraryHostRow({ host: h, browserRtt, onPlay, onPreview }: { host: Libr
               Превью
             </button>
           )}
-          {isOnline && h.playerToken ? (
-            <Button
-              size="sm"
-              className="h-9 px-5 text-xs font-semibold rounded-md"
-              style={{ background: "#0ea5e9", color: "#fff" }}
-              data-testid={`button-join-${h.hostId}`}
-              onClick={onPlay}
-            >
-              Играть
-              <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-            </Button>
+          {isOnline && h.inviteCode ? (
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                className="h-9 px-5 text-xs font-semibold rounded-md"
+                style={{ background: "#0ea5e9", color: "#fff" }}
+                data-testid={`button-join-${h.hostId}`}
+                onClick={onPlay}
+              >
+                Играть
+                <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+              </Button>
+              <button
+                type="button"
+                className="h-9 px-3 text-[11px] font-medium rounded-md text-slate-500 hover:text-sky-400 transition-colors"
+                style={{ border: "1px solid rgba(255,255,255,0.08)" }}
+                onClick={onConfigure}
+                title="Выбрать блок минут и проверить пинг"
+                data-testid={`button-configure-${h.hostId}`}
+              >
+                Настроить
+              </button>
+            </div>
           ) : (
             <button
               disabled
@@ -871,7 +923,7 @@ function PreviewModal({
                 >
                   Закрыть
                 </button>
-                {host.playerToken && (
+                {host.inviteCode && (
                   <Button
                     size="sm"
                     className="h-9 px-5 text-xs font-semibold rounded-md"
@@ -922,7 +974,7 @@ function PreSessionModal({
     didPing.current = true;
     const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
     const t0 = performance.now();
-    fetch(`${base}/api/public/stats`, { method: "GET", cache: "no-store" })
+    fetch(`${base}/api/public/ping`, { method: "GET", cache: "no-store" })
       .then(() => {
         setPingMs(Math.round(performance.now() - t0));
       })
@@ -933,10 +985,11 @@ function PreSessionModal({
   }, []);
 
   const balanceLzt = (wallet?.internalBalanceLzt ?? 0) + (wallet?.withdrawableBalanceLzt ?? 0);
-  const creditLimit = (wallet as any)?.creditLimitLzt ?? DEFAULT_CREDIT_LZT;
+  // Claim не принимает кредитный лимит — показываем только реальные бакеты.
+  const totalAvailableLzt = balanceLzt;
+  const creditLimit = (wallet as { creditLimitLzt?: number } | undefined)?.creditLimitLzt ?? DEFAULT_CREDIT_LZT;
   const creditUsed = wallet?.creditDebtLzt ?? 0;
   const creditAvailable = Math.max(0, creditLimit - creditUsed);
-  const totalAvailableLzt = balanceLzt + creditAvailable;
   const minsAvailable = host.pricePerMinuteLzt > 0
     ? Math.floor(totalAvailableLzt / host.pricePerMinuteLzt)
     : 9999;
@@ -1051,15 +1104,15 @@ function PreSessionModal({
               </div>
               {creditAvailable > 0 && (
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-400">Кредитный лимит</span>
-                  <span className="font-mono text-amber-400">+{creditAvailable.toLocaleString("ru-RU")} LZT</span>
+                  <span className="text-slate-400">Кредит (не для claim)</span>
+                  <span className="font-mono text-slate-500">+{creditAvailable.toLocaleString("ru-RU")} LZT</span>
                 </div>
               )}
               <div
                 className="flex justify-between items-center pt-1.5 border-t"
                 style={{ borderColor: "rgba(14,165,233,0.15)" }}
               >
-                <span className="text-slate-300 font-medium">Итого</span>
+                <span className="text-slate-300 font-medium">Для старта сессии</span>
                 <span className="font-mono font-bold text-sky-300">{totalAvailableLzt.toLocaleString("ru-RU")} LZT</span>
               </div>
             </div>

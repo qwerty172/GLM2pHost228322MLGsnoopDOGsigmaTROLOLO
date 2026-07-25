@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { usePlayerWallet } from "@/hooks/use-player-wallet";
 import {
   useListLoanRequests,
   useCreateLoanRequest,
@@ -69,6 +70,16 @@ function serverErrorToRu(msg: string): string {
   return msg;
 }
 
+function loanRequestStatusRu(status: string): string {
+  const labels: Record<string, string> = {
+    open: "Открыта",
+    funded: "Собрана",
+    cancelled: "Отменена",
+    active: "Активна",
+  };
+  return labels[status] ?? status;
+}
+
 function LoanRequestCard({
   req,
   myToken,
@@ -101,7 +112,7 @@ function LoanRequestCard({
           variant="outline"
           className="shrink-0 text-emerald-400 border-emerald-500/30 bg-emerald-500/5 text-[11px]"
         >
-          {req.status}
+          {loanRequestStatusRu(req.status)}
         </Badge>
       </div>
 
@@ -405,8 +416,8 @@ function CreateRequestSection({ myToken }: { myToken: string | null }) {
     if (!amountLzt || !Number.isFinite(amt) || amt <= 0) {
       errs.amountLzt = "Укажи положительную сумму LZT";
     }
-    if (!termDays || !Number.isFinite(term) || term < 1) {
-      errs.termDays = "Минимум 1 день";
+    if (!termDays || !Number.isFinite(term) || term < MIN_TERM_DAYS) {
+      errs.termDays = `Минимум ${MIN_TERM_DAYS} дней`;
     } else if (term > 365) {
       errs.termDays = "Максимум 365 дней";
     }
@@ -515,9 +526,9 @@ function CreateRequestSection({ myToken }: { myToken: string | null }) {
                 id="loan-term"
                 type="number"
                 step="1"
-                min="1"
+                min={MIN_TERM_DAYS}
                 max="365"
-                placeholder="90"
+                placeholder={String(MIN_TERM_DAYS)}
                 value={termDays}
                 onChange={(e) => {
                   setTermDays(e.target.value);
@@ -596,6 +607,17 @@ function LoanStatusBadge({ status }: { status: string }) {
     active: { bg: "rgba(16,185,129,0.08)", text: "#34d399", border: "rgba(16,185,129,0.3)" },
     repaid: { bg: "rgba(14,165,233,0.08)", text: "#38bdf8", border: "rgba(14,165,233,0.3)" },
     defaulted: { bg: "rgba(239,68,68,0.08)", text: "#f87171", border: "rgba(239,68,68,0.3)" },
+    open: { bg: "rgba(245,158,11,0.08)", text: "#fbbf24", border: "rgba(245,158,11,0.3)" },
+    funded: { bg: "rgba(16,185,129,0.08)", text: "#34d399", border: "rgba(16,185,129,0.3)" },
+    cancelled: { bg: "rgba(148,163,184,0.08)", text: "#94a3b8", border: "rgba(148,163,184,0.3)" },
+  };
+  const labels: Record<string, string> = {
+    active: "Активен",
+    repaid: "Погашен",
+    defaulted: "Просрочен",
+    open: "Открыта",
+    funded: "Собрана",
+    cancelled: "Отменена",
   };
   const c = colors[status] ?? { bg: "rgba(255,255,255,0.04)", text: "#94a3b8", border: "rgba(255,255,255,0.1)" };
   return (
@@ -603,7 +625,7 @@ function LoanStatusBadge({ status }: { status: string }) {
       className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
       style={{ background: c.bg, color: c.text, border: `1px solid ${c.border}` }}
     >
-      {status}
+      {labels[status] ?? status}
     </span>
   );
 }
@@ -856,7 +878,8 @@ function MyDealsSection({ myToken }: { myToken: string | null }) {
 
 export default function ExchangePage() {
   const { hostToken } = useAuth();
-  const myToken = hostToken ?? null;
+  const { playerWalletToken } = usePlayerWallet();
+  const myToken = playerWalletToken ?? hostToken ?? null;
 
   return (
     <div

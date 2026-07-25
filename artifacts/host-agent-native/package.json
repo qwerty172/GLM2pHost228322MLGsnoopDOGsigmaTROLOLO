@@ -1,0 +1,10 @@
+{
+  "name": "@workspace/host-agent-native",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Rust napi-rs native module for DXGI capture and NVENC encoding (POC scaffold)",
+  "scripts": {
+    "build": "cargo build --release",
+    "typecheck": "echo 'native module — no TS typecheck'"
+  }
+}

@@ -43,10 +43,10 @@ export const GetHostResponse = zod.object({
   displayName: zod.string(),
   internalBalanceLzt: zod
     .number()
-    .describe("Синий — internal LZT, cannot be withdrawn"),
+    .describe("РЎРёРЅРёР№ вЂ” internal LZT, cannot be withdrawn"),
   withdrawableBalanceLzt: zod
     .number()
-    .describe("Зелёный — LZT convertible back to crypto at 200:1"),
+    .describe("Р—РµР»С‘РЅС‹Р№ вЂ” LZT convertible back to crypto at 200:1"),
   gameId: zod
     .string()
     .nullable()
@@ -80,7 +80,7 @@ export const GetHostResponse = zod.object({
           .number()
           .min(getHostResponseScheduleJsonItemDayMin)
           .max(getHostResponseScheduleJsonItemDayMax)
-          .describe("0 = Sunday … 6 = Saturday"),
+          .describe("0 = Sunday вЂ¦ 6 = Saturday"),
         startMin: zod
           .number()
           .min(getHostResponseScheduleJsonItemStartMinMin)
@@ -104,7 +104,7 @@ export const GetHostResponse = zod.object({
   creditMinutesPerNewPlayer: zod
     .number()
     .describe(
-      "Host service credit policy — minutes of play extended on credit to new players who run out mid-session. 0 disables auto-credit.",
+      "Host service credit policy вЂ” minutes of play extended on credit to new players who run out mid-session. 0 disables auto-credit.",
     ),
   creditMaxLztPerPlayer: zod
     .number()
@@ -123,15 +123,50 @@ export const GetHostResponse = zod.object({
       "Set by the schedule watchdog when it auto-deactivated this host's schedule due to a missed wake-up window. Null once cleared by the hoster saving config again.",
     ),
   scheduleAutoDisabledAt: zod.coerce.date().nullable(),
+  lastSubmissionStatus: zod
+    .string()
+    .nullable()
+    .describe(
+      "Latest game submission outcome (pending \/ approved \/ rejected)",
+    ),
+  lastSubmissionNote: zod
+    .string()
+    .describe("Human-readable note about the last submission outcome"),
+  gamesContributed: zod
+    .number()
+    .describe("Count of approved catalog submissions from this host"),
+  isAdmin: zod.boolean().describe("Platform administrator flag"),
+  agentKeyBound: zod
+    .boolean()
+    .describe(
+      "True when an Ed25519 agent public key is bound (key itself is never returned)",
+    ),
+  pcSpecs: zod
+    .object({
+      gpu: zod.string().optional(),
+      cpu: zod.string().optional(),
+      ramGb: zod.number().optional(),
+      cpuCores: zod.number().optional(),
+      downloadMbps: zod.number().optional(),
+      uploadMbps: zod.number().optional(),
+    })
+    .nullable()
+    .describe("PC hardware specs reported by the host agent"),
+  pingMs: zod
+    .number()
+    .nullish()
+    .describe(
+      "RTT from host agent to API (ms), null until first measured heartbeat",
+    ),
+  ratingAvg: zod.number().nullish(),
+  ratingCount: zod.number().optional(),
 });
 
 /**
+ * Authenticate with Authorization Bearer, X-Host-Token, or X-User-Token (host token). Do not put the host token in the URL.
+
  * @summary Update the host's offer config (binding, pricing, schedule, restream)
  */
-export const UpdateHostConfigParams = zod.object({
-  hostToken: zod.coerce.string(),
-});
-
 export const updateHostConfigBodyScheduleJsonItemDayMin = 0;
 export const updateHostConfigBodyScheduleJsonItemDayMax = 6;
 
@@ -170,7 +205,7 @@ export const UpdateHostConfigBody = zod
               .number()
               .min(updateHostConfigBodyScheduleJsonItemDayMin)
               .max(updateHostConfigBodyScheduleJsonItemDayMax)
-              .describe("0 = Sunday … 6 = Saturday"),
+              .describe("0 = Sunday вЂ¦ 6 = Saturday"),
             startMin: zod
               .number()
               .min(updateHostConfigBodyScheduleJsonItemStartMinMin)
@@ -205,7 +240,7 @@ export const UpdateHostConfigBody = zod
         "Maximum LZT this host will credit to any single borrower. Acts as a\nper-borrower cap on host service credit.\n",
       ),
   })
-  .describe("Partial update — omit a field to leave it unchanged.");
+  .describe("Partial update вЂ” omit a field to leave it unchanged.");
 
 export const updateHostConfigResponseScheduleJsonItemDayMin = 0;
 export const updateHostConfigResponseScheduleJsonItemDayMax = 6;
@@ -222,10 +257,10 @@ export const UpdateHostConfigResponse = zod.object({
   displayName: zod.string(),
   internalBalanceLzt: zod
     .number()
-    .describe("Синий — internal LZT, cannot be withdrawn"),
+    .describe("РЎРёРЅРёР№ вЂ” internal LZT, cannot be withdrawn"),
   withdrawableBalanceLzt: zod
     .number()
-    .describe("Зелёный — LZT convertible back to crypto at 200:1"),
+    .describe("Р—РµР»С‘РЅС‹Р№ вЂ” LZT convertible back to crypto at 200:1"),
   gameId: zod
     .string()
     .nullable()
@@ -259,7 +294,7 @@ export const UpdateHostConfigResponse = zod.object({
           .number()
           .min(updateHostConfigResponseScheduleJsonItemDayMin)
           .max(updateHostConfigResponseScheduleJsonItemDayMax)
-          .describe("0 = Sunday … 6 = Saturday"),
+          .describe("0 = Sunday вЂ¦ 6 = Saturday"),
         startMin: zod
           .number()
           .min(updateHostConfigResponseScheduleJsonItemStartMinMin)
@@ -283,7 +318,7 @@ export const UpdateHostConfigResponse = zod.object({
   creditMinutesPerNewPlayer: zod
     .number()
     .describe(
-      "Host service credit policy — minutes of play extended on credit to new players who run out mid-session. 0 disables auto-credit.",
+      "Host service credit policy вЂ” minutes of play extended on credit to new players who run out mid-session. 0 disables auto-credit.",
     ),
   creditMaxLztPerPlayer: zod
     .number()
@@ -302,6 +337,59 @@ export const UpdateHostConfigResponse = zod.object({
       "Set by the schedule watchdog when it auto-deactivated this host's schedule due to a missed wake-up window. Null once cleared by the hoster saving config again.",
     ),
   scheduleAutoDisabledAt: zod.coerce.date().nullable(),
+  lastSubmissionStatus: zod
+    .string()
+    .nullable()
+    .describe(
+      "Latest game submission outcome (pending \/ approved \/ rejected)",
+    ),
+  lastSubmissionNote: zod
+    .string()
+    .describe("Human-readable note about the last submission outcome"),
+  gamesContributed: zod
+    .number()
+    .describe("Count of approved catalog submissions from this host"),
+  isAdmin: zod.boolean().describe("Platform administrator flag"),
+  agentKeyBound: zod
+    .boolean()
+    .describe(
+      "True when an Ed25519 agent public key is bound (key itself is never returned)",
+    ),
+  pcSpecs: zod
+    .object({
+      gpu: zod.string().optional(),
+      cpu: zod.string().optional(),
+      ramGb: zod.number().optional(),
+      cpuCores: zod.number().optional(),
+      downloadMbps: zod.number().optional(),
+      uploadMbps: zod.number().optional(),
+    })
+    .nullable()
+    .describe("PC hardware specs reported by the host agent"),
+  pingMs: zod
+    .number()
+    .nullish()
+    .describe(
+      "RTT from host agent to API (ms), null until first measured heartbeat",
+    ),
+  ratingAvg: zod.number().nullish(),
+  ratingCount: zod.number().optional(),
+});
+
+/**
+ * Authenticate with Authorization Bearer / X-Host-Token / X-User-Token.
+ * @summary List players who owe this host (negative balance loans)
+ */
+export const GetHostDebtorsResponse = zod.record(zod.string(), zod.unknown());
+
+/**
+ * Authenticate with Authorization Bearer / X-Host-Token / X-User-Token.
+ * @summary RTMP restream credentials for the authenticated host
+ */
+export const GetHostStreamRelayResponse = zod.object({
+  streamPlatform: zod.string().optional(),
+  streamUrl: zod.string().optional(),
+  streamKey: zod.string().optional(),
 });
 
 /**
@@ -314,7 +402,13 @@ export const ListHostSessionsParams = zod.object({
 export const ListHostSessionsResponseItem = zod.object({
   id: zod.string(),
   hostId: zod.string(),
+  gameId: zod.string().describe("Catalog game this session is bound to"),
   playerToken: zod.string(),
+  inviteCode: zod
+    .string()
+    .nullish()
+    .describe("Short invite code for share links"),
+  inviteExpiresAt: zod.coerce.date().nullish(),
   claimedByPlayerId: zod.string().nullish(),
   appName: zod.string(),
   status: zod.string().describe("One of pending, active, ended"),
@@ -351,7 +445,9 @@ export const ListHostSessionsResponseItem = zod.object({
   isTest: zod
     .boolean()
     .optional()
-    .describe("Host self-test session — completely free, skipped by billing."),
+    .describe(
+      "Host self-test session вЂ” completely free, skipped by billing.",
+    ),
 });
 export const ListHostSessionsResponse = zod.array(ListHostSessionsResponseItem);
 
@@ -391,7 +487,7 @@ export const GetHostActivityResponseItem = zod.object({
 export const GetHostActivityResponse = zod.array(GetHostActivityResponseItem);
 
 /**
- * Returns hosts that have an open session and are within their availability schedule. Safe for anonymous visitors — never exposes hostToken or wallet/balance.
+ * Returns hosts that have an open session and are within their availability schedule. Safe for anonymous visitors вЂ” never exposes hostToken or wallet/balance.
  * @summary Public list of currently-available hosts
  */
 export const ListPublicHostsResponseItem = zod
@@ -409,9 +505,12 @@ export const ListPublicHostsResponseItem = zod
     launchPriceUsd: zod.number(),
     minutePriceUsd: zod.number(),
     status: zod.string().describe("online | offline | scheduled"),
-    playerToken: zod
+    inviteCode: zod
       .string()
-      .describe("Share token so anonymous visitors can join the open session."),
+      .nullable()
+      .describe(
+        "Capability invite code for \/play\/i\/{inviteCode}. Raw playerToken is never exposed on public host lists.\n",
+      ),
     hostTier: zod
       .enum(["meets_min", "above_rec"])
       .optional()
@@ -453,10 +552,10 @@ export const GetPlayerResponse = zod.object({
   displayName: zod.string(),
   internalBalanceLzt: zod
     .number()
-    .describe("Синий — internal LZT, cannot be withdrawn"),
+    .describe("РЎРёРЅРёР№ вЂ” internal LZT, cannot be withdrawn"),
   withdrawableBalanceLzt: zod
     .number()
-    .describe("Зелёный — LZT convertible back to crypto at 200:1"),
+    .describe("Р—РµР»С‘РЅС‹Р№ вЂ” LZT convertible back to crypto at 200:1"),
   createdAt: zod.coerce.date(),
   lastSeenAt: zod.coerce.date(),
 });
@@ -512,6 +611,11 @@ export const ListGamesResponseItem = zod.object({
   coverImageUrl: zod.string(),
   description: zod.string(),
   genre: zod.string(),
+  category: zod
+    .string()
+    .describe("Primary catalog category (e.g. action, rpg)"),
+  genres: zod.array(zod.string()).describe("Additional genre tags"),
+  createdAt: zod.coerce.date(),
   hasMods: zod.boolean(),
   isMultiplayer: zod.boolean(),
   hostSpectatesPlayer: zod.boolean(),
@@ -520,6 +624,25 @@ export const ListGamesResponseItem = zod.object({
     .number()
     .describe(
       "Number of pending or active sessions matching this game right now",
+    ),
+  liveHostsCount: zod
+    .number()
+    .describe(
+      "Hosts with this game enabled that currently have a live session",
+    ),
+  vdsHostsCount: zod
+    .number()
+    .optional()
+    .describe("Number of always-on VDS hosts offering this game"),
+  hasVdsHosts: zod
+    .boolean()
+    .optional()
+    .describe("True when at least one VDS host offers this game"),
+  minPricePerMinuteLzt: zod
+    .number()
+    .nullable()
+    .describe(
+      "Cheapest enabled library price for this game across hosts, in LZT",
     ),
   browserHostUrl: zod
     .string()
@@ -568,6 +691,11 @@ export const GetGameBySlugResponse = zod
     coverImageUrl: zod.string(),
     description: zod.string(),
     genre: zod.string(),
+    category: zod
+      .string()
+      .describe("Primary catalog category (e.g. action, rpg)"),
+    genres: zod.array(zod.string()).describe("Additional genre tags"),
+    createdAt: zod.coerce.date(),
     hasMods: zod.boolean(),
     isMultiplayer: zod.boolean(),
     hostSpectatesPlayer: zod.boolean(),
@@ -576,6 +704,25 @@ export const GetGameBySlugResponse = zod
       .number()
       .describe(
         "Number of pending or active sessions matching this game right now",
+      ),
+    liveHostsCount: zod
+      .number()
+      .describe(
+        "Hosts with this game enabled that currently have a live session",
+      ),
+    vdsHostsCount: zod
+      .number()
+      .optional()
+      .describe("Number of always-on VDS hosts offering this game"),
+    hasVdsHosts: zod
+      .boolean()
+      .optional()
+      .describe("True when at least one VDS host offers this game"),
+    minPricePerMinuteLzt: zod
+      .number()
+      .nullable()
+      .describe(
+        "Cheapest enabled library price for this game across hosts, in LZT",
       ),
     browserHostUrl: zod
       .string()
@@ -593,13 +740,17 @@ export const GetGameBySlugResponse = zod
     zod.object({
       liveSessions: zod.array(
         zod.object({
+          hostId: zod.string().describe("Host UUID offering this live session"),
           playerToken: zod
             .string()
             .describe(
-              "Player share token — visit \/play\/{playerToken} to join",
+              "Player share token вЂ” visit \/play\/{playerToken} to join",
             ),
           appName: zod.string(),
           ratePerMinute: zod.number(),
+          pricePerMinuteLzt: zod
+            .number()
+            .describe("Per-minute price in integer LZT"),
           resolution: zod.string(),
           bitrateKbps: zod.number(),
           status: zod.string(),
@@ -627,7 +778,7 @@ export const GetGameBySlugResponse = zod
                   .max(
                     getGameBySlugResponseTwoLiveSessionsItemScheduleJsonItemDayMax,
                   )
-                  .describe("0 = Sunday … 6 = Saturday"),
+                  .describe("0 = Sunday вЂ¦ 6 = Saturday"),
                 startMin: zod
                   .number()
                   .min(
@@ -648,6 +799,9 @@ export const GetGameBySlugResponse = zod
               .describe("A single weekly availability window (UTC)."),
           ),
           streamPlatform: zod.string(),
+          pingMs: zod.number().nullable(),
+          ratingScore: zod.number().nullable(),
+          ratingCount: zod.number(),
         }),
       ),
     }),
@@ -671,11 +825,18 @@ export const CreateSessionBody = zod.object({
     .string()
     .optional()
     .describe("Required when attaching a private quota the host does not own."),
+  requestedGameId: zod
+    .string()
+    .uuid()
+    .optional()
+    .describe(
+      "Optional game from the host's library; when set, pricing comes from that library entry.",
+    ),
 });
 
 /**
  * @summary Create a session whose host is the calling browser (no desktop agent).
-Returns both the session and the freshly minted hostToken — the caller
+Returns both the session and the freshly minted hostToken вЂ” the caller
 is responsible for storing the hostToken locally and using it to
 connect to /signal as role=host and to end the session.
 
@@ -703,7 +864,13 @@ export const GetSessionQueryParams = zod.object({
 export const GetSessionResponse = zod.object({
   id: zod.string(),
   hostId: zod.string(),
+  gameId: zod.string().describe("Catalog game this session is bound to"),
   playerToken: zod.string(),
+  inviteCode: zod
+    .string()
+    .nullish()
+    .describe("Short invite code for share links"),
+  inviteExpiresAt: zod.coerce.date().nullish(),
   claimedByPlayerId: zod.string().nullish(),
   appName: zod.string(),
   status: zod.string().describe("One of pending, active, ended"),
@@ -740,7 +907,9 @@ export const GetSessionResponse = zod.object({
   isTest: zod
     .boolean()
     .optional()
-    .describe("Host self-test session — completely free, skipped by billing."),
+    .describe(
+      "Host self-test session вЂ” completely free, skipped by billing.",
+    ),
 });
 
 /**
@@ -753,7 +922,13 @@ export const GetSessionByPlayerTokenParams = zod.object({
 export const GetSessionByPlayerTokenResponse = zod.object({
   id: zod.string(),
   hostId: zod.string(),
+  gameId: zod.string().describe("Catalog game this session is bound to"),
   playerToken: zod.string(),
+  inviteCode: zod
+    .string()
+    .nullish()
+    .describe("Short invite code for share links"),
+  inviteExpiresAt: zod.coerce.date().nullish(),
   claimedByPlayerId: zod.string().nullish(),
   appName: zod.string(),
   status: zod.string().describe("One of pending, active, ended"),
@@ -790,7 +965,90 @@ export const GetSessionByPlayerTokenResponse = zod.object({
   isTest: zod
     .boolean()
     .optional()
-    .describe("Host self-test session — completely free, skipped by billing."),
+    .describe(
+      "Host self-test session вЂ” completely free, skipped by billing.",
+    ),
+});
+
+/**
+ * @summary Resolve a public invite code to session details (player play link)
+ */
+export const GetSessionByInviteParams = zod.object({
+  inviteCode: zod.coerce.string(),
+});
+
+export const GetSessionByInviteResponse = zod
+  .object({
+    id: zod.string(),
+    hostId: zod.string(),
+    gameId: zod.string().describe("Catalog game this session is bound to"),
+    playerToken: zod.string(),
+    inviteCode: zod
+      .string()
+      .nullish()
+      .describe("Short invite code for share links"),
+    inviteExpiresAt: zod.coerce.date().nullish(),
+    claimedByPlayerId: zod.string().nullish(),
+    appName: zod.string(),
+    status: zod.string().describe("One of pending, active, ended"),
+    resolution: zod.string(),
+    bitrateKbps: zod.number(),
+    ratePerMinute: zod
+      .number()
+      .describe(
+        "Player credits charged per minute (host receives net of commission)",
+      ),
+    paymentSource: zod.enum(["blue", "green", "auto"]).optional(),
+    quotaId: zod.string().nullish(),
+    createdAt: zod.coerce.date(),
+    startedAt: zod.coerce.date().nullish(),
+    endedAt: zod.coerce.date().nullish(),
+    endReason: zod
+      .string()
+      .nullish()
+      .describe(
+        "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline, block_expired.",
+      ),
+    blockMinutes: zod
+      .number()
+      .nullish()
+      .describe(
+        "Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.",
+      ),
+    blockReservedLzt: zod
+      .number()
+      .nullish()
+      .describe(
+        "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
+      ),
+    isTest: zod
+      .boolean()
+      .optional()
+      .describe(
+        "Host self-test session вЂ” completely free, skipped by billing.",
+      ),
+  })
+  .and(
+    zod.object({
+      gameSlug: zod.string().nullish(),
+      gameCoverImageUrl: zod.string().nullish(),
+      gameTitle: zod.string().nullish(),
+      gameBrowserHostUrl: zod.string().nullish(),
+    }),
+  );
+
+/**
+ * @summary Create a free host self-test session
+ */
+export const CreateTestSessionHeader = zod.object({
+  "X-Host-Token": zod.string(),
+});
+
+export const CreateTestSessionBody = zod.object({
+  overrideUrl: zod
+    .string()
+    .optional()
+    .describe("One-shot browser URL override for this test"),
 });
 
 /**
@@ -808,7 +1066,7 @@ export const ClaimSessionBody = zod.object({
     .enum(["blue", "green", "auto"])
     .optional()
     .describe(
-      'Which LZT bucket the player wants to pay from. \"auto\" prefers\nзелёный (withdrawable) and falls back to синий (internal).\n',
+      'Which LZT bucket the player wants to pay from. \"auto\" prefers\nР·РµР»С‘РЅС‹Р№ (withdrawable) and falls back to СЃРёРЅРёР№ (internal).\n',
     ),
   blockMinutes: zod
     .number()
@@ -821,7 +1079,13 @@ export const ClaimSessionBody = zod.object({
 export const ClaimSessionResponse = zod.object({
   id: zod.string(),
   hostId: zod.string(),
+  gameId: zod.string().describe("Catalog game this session is bound to"),
   playerToken: zod.string(),
+  inviteCode: zod
+    .string()
+    .nullish()
+    .describe("Short invite code for share links"),
+  inviteExpiresAt: zod.coerce.date().nullish(),
   claimedByPlayerId: zod.string().nullish(),
   appName: zod.string(),
   status: zod.string().describe("One of pending, active, ended"),
@@ -858,7 +1122,9 @@ export const ClaimSessionResponse = zod.object({
   isTest: zod
     .boolean()
     .optional()
-    .describe("Host self-test session — completely free, skipped by billing."),
+    .describe(
+      "Host self-test session вЂ” completely free, skipped by billing.",
+    ),
 });
 
 /**
@@ -875,7 +1141,13 @@ export const EndSessionBody = zod.object({
 export const EndSessionResponse = zod.object({
   id: zod.string(),
   hostId: zod.string(),
+  gameId: zod.string().describe("Catalog game this session is bound to"),
   playerToken: zod.string(),
+  inviteCode: zod
+    .string()
+    .nullish()
+    .describe("Short invite code for share links"),
+  inviteExpiresAt: zod.coerce.date().nullish(),
   claimedByPlayerId: zod.string().nullish(),
   appName: zod.string(),
   status: zod.string().describe("One of pending, active, ended"),
@@ -912,22 +1184,78 @@ export const EndSessionResponse = zod.object({
   isTest: zod
     .boolean()
     .optional()
-    .describe("Host self-test session — completely free, skipped by billing."),
+    .describe(
+      "Host self-test session вЂ” completely free, skipped by billing.",
+    ),
 });
 
 /**
- * @summary Mint a short-lived preview token (60-second TTL) for a 30-second
-free muted live stream from the given host. No session record is
-created and no billing occurs.
-
+ * @summary Exchange a short-lived join code for a session playerToken
  */
-export const CreatePreviewSessionBody = zod.object({
-  hostId: zod.string().describe("UUID of the host to preview"),
+export const ExchangeJoinCodeParams = zod.object({
+  code: zod.coerce.string(),
 });
 
-export const CreatePreviewSessionResponse = zod.object({
-  previewToken: zod.string().optional(),
-  hostId: zod.string().optional(),
+export const ExchangeJoinCodeResponse = zod.object({
+  playerToken: zod
+    .string()
+    .describe(
+      "Long-lived session token — store in memory, never put back in the URL",
+    ),
+  sessionId: zod.string().uuid(),
+});
+
+/**
+ * @summary Get a presigned download URL for a player's cloud save (host-authenticated)
+ */
+export const GetSaveDownloadUrlQueryParams = zod.object({
+  sessionId: zod.coerce.string().uuid(),
+});
+
+export const GetSaveDownloadUrlHeader = zod.object({
+  "X-Host-Token": zod.string(),
+});
+
+export const GetSaveDownloadUrlResponse = zod.object({
+  downloadURL: zod.string(),
+  objectPath: zod.string(),
+});
+
+/**
+ * @summary Request a presigned upload URL for a player's cloud save (host-authenticated)
+ */
+export const RequestSaveUploadUrlHeader = zod.object({
+  "X-Host-Token": zod.string(),
+});
+
+export const RequestSaveUploadUrlBody = zod.object({
+  sessionId: zod.string().uuid(),
+  sizeBytes: zod.number().describe("Save archive size in bytes (max 500 MB)"),
+});
+
+export const RequestSaveUploadUrlResponse = zod.object({
+  uploadURL: zod.string(),
+  objectPath: zod.string(),
+});
+
+/**
+ * @summary Confirm a successful save upload and upsert metadata (host-authenticated)
+ */
+export const ConfirmSaveUploadHeader = zod.object({
+  "X-Host-Token": zod.string(),
+});
+
+export const ConfirmSaveUploadBody = zod.object({
+  sessionId: zod.string().uuid(),
+  contentHash: zod
+    .string()
+    .describe("SHA-256 hex digest of the uploaded archive"),
+  sizeBytes: zod.number(),
+});
+
+export const ConfirmSaveUploadResponse = zod.object({
+  saved: zod.boolean(),
+  objectPath: zod.string(),
 });
 
 /**
@@ -950,7 +1278,7 @@ export const ListPublicQuotasResponseItem = zod.object({
     .string()
     .nullable()
     .describe(
-      'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+      'Masked hint of the linked API key (e.g. \"abcdвЂўвЂўвЂўвЂўwxyz\"), never the raw key.',
     ),
   kind: zod.enum(["royalty", "sponsor"]),
   status: zod.enum([
@@ -1072,7 +1400,7 @@ export const CreateQuotaBody = zod.object({
     .string()
     .nullish()
     .describe(
-      "Link this quota to a dev\/API key — sessions launched via that key auto-apply the quota and it becomes unusable via any other path.",
+      "Link this quota to a dev\/API key вЂ” sessions launched via that key auto-apply the quota and it becomes unusable via any other path.",
     ),
 });
 
@@ -1095,7 +1423,7 @@ export const ListMyQuotasResponseItem = zod.object({
     .string()
     .nullable()
     .describe(
-      'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+      'Masked hint of the linked API key (e.g. \"abcdвЂўвЂўвЂўвЂўwxyz\"), never the raw key.',
     ),
   kind: zod.enum(["royalty", "sponsor"]),
   status: zod.enum([
@@ -1199,7 +1527,7 @@ export const ListAppliedQuotasResponseItem = zod.object({
     .string()
     .nullable()
     .describe(
-      'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+      'Masked hint of the linked API key (e.g. \"abcdвЂўвЂўвЂўвЂўwxyz\"), never the raw key.',
     ),
   kind: zod.enum(["royalty", "sponsor"]),
   status: zod.enum([
@@ -1305,7 +1633,7 @@ export const MatchQuotasForHostResponseItem = zod.object({
     .string()
     .nullable()
     .describe(
-      'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+      'Masked hint of the linked API key (e.g. \"abcdвЂўвЂўвЂўвЂўwxyz\"), never the raw key.',
     ),
   kind: zod.enum(["royalty", "sponsor"]),
   status: zod.enum([
@@ -1413,7 +1741,7 @@ export const GetHostCurrentQuotaResponse = zod.object({
         .string()
         .nullable()
         .describe(
-          'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+          'Masked hint of the linked API key (e.g. \"abcdвЂўвЂўвЂўвЂўwxyz\"), never the raw key.',
         ),
       kind: zod.enum(["royalty", "sponsor"]),
       status: zod.enum([
@@ -1547,7 +1875,7 @@ export const ListApplicableQuotasResponseItem = zod.object({
     .string()
     .nullable()
     .describe(
-      'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+      'Masked hint of the linked API key (e.g. \"abcdвЂўвЂўвЂўвЂўwxyz\"), never the raw key.',
     ),
   kind: zod.enum(["royalty", "sponsor"]),
   status: zod.enum([
@@ -1658,7 +1986,7 @@ export const GetQuotaResponse = zod
       .string()
       .nullable()
       .describe(
-        'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+        'Masked hint of the linked API key (e.g. \"abcdвЂўвЂўвЂўвЂўwxyz\"), never the raw key.',
       ),
     kind: zod.enum(["royalty", "sponsor"]),
     status: zod.enum([
@@ -1816,7 +2144,7 @@ export const UpdateQuotaResponse = zod.object({
     .string()
     .nullable()
     .describe(
-      'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+      'Masked hint of the linked API key (e.g. \"abcdвЂўвЂўвЂўвЂўwxyz\"), never the raw key.',
     ),
   kind: zod.enum(["royalty", "sponsor"]),
   status: zod.enum([
@@ -1901,7 +2229,7 @@ export const UpdateQuotaResponse = zod.object({
 });
 
 /**
- * @summary Move draft → active (locks sponsor escrow)
+ * @summary Move draft в†’ active (locks sponsor escrow)
  */
 export const PublishQuotaParams = zod.object({
   id: zod.coerce.string(),
@@ -1923,7 +2251,7 @@ export const PublishQuotaResponse = zod.object({
     .string()
     .nullable()
     .describe(
-      'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+      'Masked hint of the linked API key (e.g. \"abcdвЂўвЂўвЂўвЂўwxyz\"), never the raw key.',
     ),
   kind: zod.enum(["royalty", "sponsor"]),
   status: zod.enum([
@@ -2030,7 +2358,7 @@ export const PauseQuotaResponse = zod.object({
     .string()
     .nullable()
     .describe(
-      'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+      'Masked hint of the linked API key (e.g. \"abcdвЂўвЂўвЂўвЂўwxyz\"), never the raw key.',
     ),
   kind: zod.enum(["royalty", "sponsor"]),
   status: zod.enum([
@@ -2137,7 +2465,7 @@ export const CloseQuotaResponse = zod.object({
     .string()
     .nullable()
     .describe(
-      'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+      'Masked hint of the linked API key (e.g. \"abcdвЂўвЂўвЂўвЂўwxyz\"), never the raw key.',
     ),
   kind: zod.enum(["royalty", "sponsor"]),
   status: zod.enum([
@@ -2228,7 +2556,9 @@ export const AiSuggestQuotaSpecsBody = zod.object({
   gameId: zod
     .string()
     .nullish()
-    .describe("Optional game ID — the server will resolve its title and genre"),
+    .describe(
+      "Optional game ID вЂ” the server will resolve its title and genre",
+    ),
   gameTitle: zod.string().nullish(),
   genre: zod.string().nullish(),
 });
@@ -2269,7 +2599,7 @@ export const RegenerateQuotaCodeResponse = zod.object({
     .string()
     .nullable()
     .describe(
-      'Masked hint of the linked API key (e.g. \"abcd••••wxyz\"), never the raw key.',
+      'Masked hint of the linked API key (e.g. \"abcdвЂўвЂўвЂўвЂўwxyz\"), never the raw key.',
     ),
   kind: zod.enum(["royalty", "sponsor"]),
   status: zod.enum([
@@ -2415,7 +2745,7 @@ export const QuotaAiChatResponse = zod.object({
 });
 
 /**
- * @summary Wallet overview — balance, deposit addresses, withdrawal history
+ * @summary Wallet overview вЂ” balance, deposit addresses, withdrawal history
  */
 export const GetWalletParams = zod.object({
   userToken: zod.coerce
@@ -2429,18 +2759,20 @@ export const GetWalletResponse = zod.object({
   displayName: zod.string(),
   internalBalanceLzt: zod
     .number()
-    .describe("Legacy alias of balanceLzt (синий, internal LZT)."),
+    .describe("Legacy alias of balanceLzt (СЃРёРЅРёР№, internal LZT)."),
   withdrawableBalanceLzt: zod
     .number()
-    .describe("Legacy alias of cashLzt (зелёный, withdrawable LZT)."),
+    .describe("Legacy alias of cashLzt (Р·РµР»С‘РЅС‹Р№, withdrawable LZT)."),
   balanceLzt: zod
     .number()
     .describe(
-      "Синий — internal LZT, earns weekly interest, pays internal services & premium.",
+      "РЎРёРЅРёР№ вЂ” internal LZT, earns weekly interest, pays internal services & premium.",
     ),
   cashLzt: zod
     .number()
-    .describe("Зелёный — convertible to crypto at 200:1 and withdrawable."),
+    .describe(
+      "Р—РµР»С‘РЅС‹Р№ вЂ” convertible to crypto at 200:1 and withdrawable.",
+    ),
   creditLimitLzt: zod
     .number()
     .describe(
@@ -2463,7 +2795,7 @@ export const GetWalletResponse = zod.object({
   lifetimeDepositUsdtCents: zod
     .number()
     .describe(
-      "Lifetime deposit volume in USDT cents — drives the tariff tier.",
+      "Lifetime deposit volume in USDT cents вЂ” drives the tariff tier.",
     ),
   pendingWithdrawalsLzt: zod.number(),
   lztPerUsdt: zod.number(),
@@ -2506,7 +2838,7 @@ export const ListWalletTransactionsResponseItem = zod.object({
   kind: zod
     .string()
     .describe(
-      "ledger kind (deposit_credit, deposit_fee, session_tick, loan_disburse_\*, loan_repay_\*, interest_payout, premium_purchase, withdrawal, …)",
+      "ledger kind (deposit_credit, deposit_fee, session_tick, loan_disburse_\*, loan_repay_\*, interest_payout, premium_purchase, withdrawal, вЂ¦)",
     ),
   currency: zod.string().nullish(),
   amountLzt: zod
@@ -2536,11 +2868,11 @@ export const RequestWithdrawalBody = zod.object({
   address: zod.string(),
   amountLzt: zod
     .number()
-    .describe("Amount in LZT (must be a multiple of 200 — i.e. whole USDT)"),
+    .describe("Amount in LZT (must be a multiple of 200 вЂ” i.e. whole USDT)"),
 });
 
 /**
- * @summary Admin — list all games including hidden ones
+ * @summary Admin вЂ” list all games including hidden ones
  */
 export const AdminListGamesHeader = zod.object({
   "X-Host-Token": zod.string(),
@@ -2553,6 +2885,11 @@ export const AdminListGamesResponseItem = zod.object({
   coverImageUrl: zod.string(),
   description: zod.string(),
   genre: zod.string(),
+  category: zod
+    .string()
+    .describe("Primary catalog category (e.g. action, rpg)"),
+  genres: zod.array(zod.string()).describe("Additional genre tags"),
+  createdAt: zod.coerce.date(),
   hasMods: zod.boolean(),
   isMultiplayer: zod.boolean(),
   hostSpectatesPlayer: zod.boolean(),
@@ -2561,6 +2898,25 @@ export const AdminListGamesResponseItem = zod.object({
     .number()
     .describe(
       "Number of pending or active sessions matching this game right now",
+    ),
+  liveHostsCount: zod
+    .number()
+    .describe(
+      "Hosts with this game enabled that currently have a live session",
+    ),
+  vdsHostsCount: zod
+    .number()
+    .optional()
+    .describe("Number of always-on VDS hosts offering this game"),
+  hasVdsHosts: zod
+    .boolean()
+    .optional()
+    .describe("True when at least one VDS host offers this game"),
+  minPricePerMinuteLzt: zod
+    .number()
+    .nullable()
+    .describe(
+      "Cheapest enabled library price for this game across hosts, in LZT",
     ),
   browserHostUrl: zod
     .string()
@@ -2614,7 +2970,7 @@ export const CreateLoanRequestBody = zod.object({
   rateBps: zod
     .number()
     .optional()
-    .describe("Annual interest rate in basis points (0–5000)"),
+    .describe("Annual interest rate in basis points (0вЂ“5000)"),
 });
 
 /**
@@ -2635,7 +2991,7 @@ export const FundLoanRequestBody = zod.object({
   source: zod
     .enum(["cash", "balance"])
     .optional()
-    .describe("cash | balance — which bucket the lender pays from"),
+    .describe("cash | balance вЂ” which bucket the lender pays from"),
   payoutMode: zod
     .enum(["cash_on_close", "balance_streaming"])
     .optional()
@@ -2720,7 +3076,7 @@ export const RepayLoanResponse = zod.object({
 });
 
 /**
- * @summary Admin — edit game metadata and/or toggle is_hidden flag
+ * @summary Admin вЂ” edit game metadata and/or toggle is_hidden flag
  */
 export const AdminPatchGameParams = zod.object({
   id: zod.coerce.string(),
@@ -2757,6 +3113,11 @@ export const AdminPatchGameResponse = zod.object({
   coverImageUrl: zod.string(),
   description: zod.string(),
   genre: zod.string(),
+  category: zod
+    .string()
+    .describe("Primary catalog category (e.g. action, rpg)"),
+  genres: zod.array(zod.string()).describe("Additional genre tags"),
+  createdAt: zod.coerce.date(),
   hasMods: zod.boolean(),
   isMultiplayer: zod.boolean(),
   hostSpectatesPlayer: zod.boolean(),
@@ -2765,6 +3126,25 @@ export const AdminPatchGameResponse = zod.object({
     .number()
     .describe(
       "Number of pending or active sessions matching this game right now",
+    ),
+  liveHostsCount: zod
+    .number()
+    .describe(
+      "Hosts with this game enabled that currently have a live session",
+    ),
+  vdsHostsCount: zod
+    .number()
+    .optional()
+    .describe("Number of always-on VDS hosts offering this game"),
+  hasVdsHosts: zod
+    .boolean()
+    .optional()
+    .describe("True when at least one VDS host offers this game"),
+  minPricePerMinuteLzt: zod
+    .number()
+    .nullable()
+    .describe(
+      "Cheapest enabled library price for this game across hosts, in LZT",
     ),
   browserHostUrl: zod
     .string()
@@ -2780,7 +3160,7 @@ export const AdminPatchGameResponse = zod.object({
 });
 
 /**
- * @summary Admin — permanently delete a game with no session history
+ * @summary Admin вЂ” permanently delete a game with no session history
  */
 export const AdminDeleteGameParams = zod.object({
   id: zod.coerce.string(),
@@ -2793,4 +3173,307 @@ export const AdminDeleteGameHeader = zod.object({
 export const AdminDeleteGameResponse = zod.object({
   deleted: zod.boolean(),
   id: zod.string(),
+});
+
+/**
+ * @summary Agent heartbeat вЂ” refresh lastSeenAt (and optional pingMs)
+ */
+export const HostHeartbeatBody = zod.object({
+  hostToken: zod
+    .string()
+    .optional()
+    .describe("Fallback when X-Host-Token header is absent"),
+  pingMs: zod
+    .number()
+    .optional()
+    .describe("RTT from agent to API in milliseconds"),
+});
+
+export const HostHeartbeatResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary List games in the host's multi-game library
+ */
+export const ListHostLibraryParams = zod.object({
+  hostToken: zod.coerce.string(),
+});
+
+export const ListHostLibraryResponseItem = zod.object({
+  id: zod.string(),
+  hostId: zod.string(),
+  gameId: zod.string(),
+  pricePerMinuteLzt: zod.number(),
+  appPath: zod.string(),
+  boundUrl: zod.string(),
+  launchArgs: zod.string(),
+  enabled: zod.boolean(),
+  sortOrder: zod.number(),
+  localAvailable: zod.boolean(),
+  lastError: zod.string(),
+  addedAt: zod.coerce.date(),
+  hasActiveSession: zod.boolean(),
+  game: zod.object({
+    id: zod.string(),
+    slug: zod.string(),
+    title: zod.string(),
+    coverImageUrl: zod.string(),
+    genre: zod.string(),
+    browserHostUrl: zod.string(),
+    hasMods: zod.boolean(),
+    isMultiplayer: zod.boolean(),
+  }),
+});
+export const ListHostLibraryResponse = zod.array(ListHostLibraryResponseItem);
+
+/**
+ * @summary Add a catalog game to the host library
+ */
+export const AddHostLibraryEntryParams = zod.object({
+  hostToken: zod.coerce.string(),
+});
+
+export const AddHostLibraryEntryBody = zod.object({
+  gameId: zod.string().uuid(),
+  pricePerMinuteLzt: zod.number().optional(),
+  appPath: zod.string().optional(),
+  boundUrl: zod.string().optional(),
+  launchArgs: zod.string().optional(),
+});
+
+/**
+ * @summary Update a host library entry (price, path, enabled, sort)
+ */
+export const UpdateHostLibraryEntryParams = zod.object({
+  hostToken: zod.coerce.string(),
+  gameId: zod.coerce.string().uuid(),
+});
+
+export const UpdateHostLibraryEntryBody = zod.object({
+  pricePerMinuteLzt: zod.number().optional(),
+  appPath: zod.string().optional(),
+  boundUrl: zod.string().optional(),
+  launchArgs: zod.string().optional(),
+  enabled: zod.boolean().optional(),
+  sortOrder: zod.number().optional(),
+  localAvailable: zod.boolean().optional(),
+  lastError: zod.string().optional(),
+});
+
+export const UpdateHostLibraryEntryResponse = zod.object({
+  id: zod.string(),
+  hostId: zod.string(),
+  gameId: zod.string(),
+  pricePerMinuteLzt: zod.number(),
+  appPath: zod.string(),
+  boundUrl: zod.string(),
+  launchArgs: zod.string(),
+  enabled: zod.boolean(),
+  sortOrder: zod.number(),
+  localAvailable: zod.boolean(),
+  lastError: zod.string(),
+  addedAt: zod.coerce.date(),
+  hasActiveSession: zod.boolean(),
+  game: zod.object({
+    id: zod.string(),
+    slug: zod.string(),
+    title: zod.string(),
+    coverImageUrl: zod.string(),
+    genre: zod.string(),
+    browserHostUrl: zod.string(),
+    hasMods: zod.boolean(),
+    isMultiplayer: zod.boolean(),
+  }),
+});
+
+/**
+ * @summary Remove a game from the host library
+ */
+export const RemoveHostLibraryEntryParams = zod.object({
+  hostToken: zod.coerce.string(),
+  gameId: zod.coerce.string().uuid(),
+});
+
+/**
+ * @summary Request a play invite for an online host (returns inviteCode, not playerToken)
+ */
+export const CreatePublicSessionBody = zod.object({
+  hostId: zod.string().uuid(),
+  gameId: zod.string().uuid().optional(),
+});
+
+export const CreatePublicSessionResponse = zod.object({
+  inviteCode: zod.string(),
+  playPath: zod.string().describe("Frontend path e.g. \/play\/i\/{inviteCode}"),
+});
+
+/**
+ * @summary Mint a short-lived preview token (60-second TTL) for a 30-second
+free muted live stream from the given host. No session record is
+created and no billing occurs.
+
+ */
+export const CreatePreviewSessionBody = zod.object({
+  hostId: zod.string().describe("UUID of the host to preview"),
+});
+
+export const CreatePreviewSessionResponse = zod.object({
+  previewToken: zod.string(),
+  hostId: zod.string(),
+});
+
+/**
+ * @summary Latency probe for browser-side RTT measurement
+ */
+export const PublicPingResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary ICE server config for WebRTC (STUN + optional TURN)
+ */
+export const GetPublicIceConfigResponse = zod.object({
+  iceServers: zod.array(
+    zod.object({
+      urls: zod.string(),
+      username: zod.string().optional(),
+      credential: zod.string().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create a session funded by a developer API key (embed widget)
+ */
+export const CreateEmbedSessionBody = zod.object({
+  apiKey: zod.string(),
+  gameSlug: zod.string(),
+  resolution: zod.string().optional(),
+  bitrateKbps: zod.number().optional(),
+});
+
+/**
+ * @summary Issue a one-time challenge for agent key bind/login
+ */
+export const GetAgentChallengeResponse = zod.object({
+  challenge: zod.string(),
+  expiresAt: zod.number().describe("Unix epoch ms when the challenge expires"),
+});
+
+/**
+ * @summary Issue a short-lived bind code for pairing the desktop agent
+ */
+export const IssueAgentBindCodeHeader = zod.object({
+  Authorization: zod.string().describe("Bearer host token"),
+});
+
+export const IssueAgentBindCodeResponse = zod.object({
+  bindCode: zod.string(),
+  expiresAt: zod.number().describe("Unix epoch ms"),
+});
+
+/**
+ * @summary Mint a short-lived WebSocket ticket (requires JWT_SECRET)
+ */
+export const IssueWsTicketBody = zod.object({
+  role: zod.enum(["host", "player"]),
+  sessionId: zod.string().uuid(),
+});
+
+export const IssueWsTicketResponse = zod.object({
+  wsTicket: zod.string(),
+  expiresInSec: zod.number(),
+});
+
+/**
+ * @summary Bind an Ed25519 public key to a host account
+ */
+export const BindAgentKeyBody = zod.object({
+  hostToken: zod.string(),
+  pubkey: zod.string().describe("Hex-encoded Ed25519 SubjectPublicKeyInfo"),
+  challenge: zod.string(),
+  signature: zod.string(),
+});
+
+export const BindAgentKeyResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Verify agent signature and return hostToken
+ */
+export const AgentLoginBody = zod.object({
+  pubkey: zod.string(),
+  challenge: zod.string(),
+  signature: zod.string(),
+});
+
+export const AgentLoginResponse = zod.object({
+  hostToken: zod.string(),
+});
+
+/**
+ * @summary Request a presigned URL for object upload
+ */
+export const RequestUploadUrlBody = zod.object({
+  name: zod.string(),
+  size: zod.number(),
+  contentType: zod.enum(["image/jpeg", "image/png", "image/webp"]),
+});
+
+export const RequestUploadUrlResponse = zod.object({
+  uploadURL: zod.string(),
+  objectPath: zod.string(),
+  metadata: zod.object({
+    name: zod.string(),
+    size: zod.number(),
+    contentType: zod.string(),
+  }),
+});
+
+/**
+ * @summary Get latest cloud save metadata for a game
+ */
+export const GetPlayerGameSaveParams = zod.object({
+  gameId: zod.coerce.string(),
+});
+
+export const GetPlayerGameSaveResponse = zod.object({
+  save: zod.record(zod.string(), zod.unknown()).nullable(),
+});
+
+/**
+ * @summary Request presigned upload URL for a cloud save archive
+ */
+export const RequestPlayerGameSaveUploadUrlParams = zod.object({
+  gameId: zod.coerce.string(),
+});
+
+export const RequestPlayerGameSaveUploadUrlBody = zod.object({
+  sizeBytes: zod.number(),
+});
+
+export const RequestPlayerGameSaveUploadUrlResponse = zod.object({
+  uploadURL: zod.string(),
+  storageKey: zod.string(),
+  sizeBytes: zod.number(),
+});
+
+/**
+ * @summary Finalize cloud save after upload
+ */
+export const CommitPlayerGameSaveParams = zod.object({
+  gameId: zod.coerce.string(),
+});
+
+export const CommitPlayerGameSaveBody = zod.object({
+  storageKey: zod.string(),
+  sizeBytes: zod.number(),
+  version: zod.number().optional(),
+});
+
+export const CommitPlayerGameSaveResponse = zod.object({
+  ok: zod.boolean(),
+  save: zod.record(zod.string(), zod.unknown()).optional(),
 });

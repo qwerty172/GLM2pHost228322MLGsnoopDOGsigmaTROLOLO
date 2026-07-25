@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { LayoutDashboard, Gamepad2, Wallet, LogOut, Library } from "lucide-react";
+import { LayoutDashboard, Wallet, LogOut, Library } from "lucide-react";
 import { SiteNav } from "@/components/site-nav";
 
 export function HostLayout({ children }: { children: React.ReactNode }) {
@@ -10,7 +10,6 @@ export function HostLayout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: "/host", label: "Дашборд", icon: LayoutDashboard },
     { href: "/host/library", label: "Моя библиотека", icon: Library },
-    { href: "/host/setup", label: "Новая сессия", icon: Gamepad2 },
     { href: "/wallet", label: "Кошелёк", icon: Wallet },
   ];
 

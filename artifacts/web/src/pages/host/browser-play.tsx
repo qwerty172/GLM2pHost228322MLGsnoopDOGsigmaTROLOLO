@@ -17,10 +17,20 @@ import {
   useGetSession,
   getGetSessionQueryKey,
   endSession,
+  hostHeartbeat,
 } from "@workspace/api-client-react";
+import { postAgentInput } from "@/lib/agent-local";
 
 const HOST_TOKEN_STORAGE_PREFIX = "streamline.browserHostToken:";
 const BROWSER_HOST_URL_STORAGE_PREFIX = "streamline.browserHostUrl:";
+
+const isDev = import.meta.env.DEV;
+const devWarn = (...args: unknown[]) => {
+  if (isDev) console.warn(...args);
+};
+const devError = (...args: unknown[]) => {
+  if (isDev) console.error(...args);
+};
 
 function getStoredHostToken(sessionId: string): string | null {
   try {
@@ -77,6 +87,9 @@ export default function BrowserPlay() {
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const externalStreamRef = useRef<MediaStream | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const wsReconnectDelayRef = useRef(1000);
+  const wsReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const teardownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputDcRef = useRef<RTCDataChannel | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamingStartedRef = useRef(false);
@@ -96,9 +109,33 @@ export default function BrowserPlay() {
     const origin = window.location.origin;
     const base = import.meta.env.BASE_URL;
     setShareUrl(
-      `${origin}${base.replace(/\/$/, "")}/play/${session.playerToken}`,
+      (session as typeof session & { inviteCode?: string | null }).inviteCode
+        ? `${origin}${base.replace(/\/$/, "")}/play/i/${(session as typeof session & { inviteCode?: string }).inviteCode}`
+        : `${origin}${base.replace(/\/$/, "")}/play/${session.playerToken}`,
     );
   }, [session]);
+
+  // Keep host lastSeenAt fresh so hostHealthWorker does not end the session
+  // after ~60s (browser-host has no Electron agent heartbeat).
+  useEffect(() => {
+    if (!hostToken) return;
+    if (session?.status === "ended") return;
+    let cancelled = false;
+    const beat = async () => {
+      if (cancelled) return;
+      try {
+        await hostHeartbeat({ hostToken });
+      } catch {
+        // ignore — next tick retries
+      }
+    };
+    void beat();
+    const id = window.setInterval(beat, 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [hostToken, session?.status]);
 
   // Find the game's main canvas inside the iframe once it has loaded.
   useEffect(() => {
@@ -130,6 +167,14 @@ export default function BrowserPlay() {
     inputDcRef.current = null;
     wsRef.current?.close();
     wsRef.current = null;
+    if (wsReconnectTimerRef.current) {
+      clearTimeout(wsReconnectTimerRef.current);
+      wsReconnectTimerRef.current = null;
+    }
+    if (teardownTimerRef.current) {
+      clearTimeout(teardownTimerRef.current);
+      teardownTimerRef.current = null;
+    }
     if (pcRef.current) {
       const poll = (pcRef.current as unknown as { __audioPoll?: number })
         .__audioPoll;
@@ -170,7 +215,7 @@ export default function BrowserPlay() {
         }
       }
     } catch {
-      console.warn("[ice] Failed to fetch ICE config, using default STUN only");
+      devWarn("[ice] Failed to fetch ICE config, using default STUN only");
     }
 
     const pc = new RTCPeerConnection({ iceServers });
@@ -231,8 +276,17 @@ export default function BrowserPlay() {
         }
       }
     } catch (err) {
-      console.warn("Browser host: audio capture unavailable", err);
+      devWarn("Browser host: audio capture unavailable", err);
     }
+
+    pc.onicecandidate = (event) => {
+      const ws = wsRef.current;
+      if (event.candidate && ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({ type: "ice-candidate", candidate: event.candidate }),
+        );
+      }
+    };
 
     pc.onconnectionstatechange = () => {
       setConnectionState(pc.connectionState);
@@ -251,43 +305,77 @@ export default function BrowserPlay() {
       `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal` +
       `?role=host&sessionId=${encodeURIComponent(sessionId)}` +
       `&hostToken=${encodeURIComponent(hostToken)}`;
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
 
-    pc.onicecandidate = (event) => {
-      if (event.candidate && ws.readyState === WebSocket.OPEN) {
-        ws.send(
-          JSON.stringify({ type: "ice-candidate", candidate: event.candidate }),
-        );
+    const cancelDeferredTeardown = () => {
+      if (teardownTimerRef.current) {
+        clearTimeout(teardownTimerRef.current);
+        teardownTimerRef.current = null;
       }
     };
 
-    ws.onmessage = async (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === "answer") {
-          await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
-        } else if (msg.type === "ice-candidate") {
-          await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
-        } else if (msg.type === "peer-joined" && msg.role === "player") {
-          // Renegotiate from the host side once the player is in the room.
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          ws.send(JSON.stringify({ type: "offer", sdp: offer }));
+    const scheduleDeferredTeardown = (reason: string, ms: number) => {
+      cancelDeferredTeardown();
+      teardownTimerRef.current = setTimeout(() => {
+        devWarn("[browser-host] teardown:", reason);
+        cleanup();
+        setConnectionState("closed");
+        toast.error("Игрок отключился — сессия завершена");
+      }, ms);
+    };
+
+    const connectWs = (url: string) => {
+      if (!streamingStartedRef.current) return;
+      const ws = new WebSocket(url);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        wsReconnectDelayRef.current = 1000;
+        cancelDeferredTeardown();
+      };
+
+      ws.onmessage = async (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === "answer") {
+            await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+          } else if (msg.type === "offer") {
+            await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            ws.send(JSON.stringify({ type: "answer", sdp: answer }));
+          } else if (msg.type === "ice-candidate") {
+            await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+          } else if (msg.type === "peer-joined" && msg.role === "player") {
+            cancelDeferredTeardown();
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            ws.send(JSON.stringify({ type: "offer", sdp: offer }));
+          } else if (msg.type === "peer-left" && msg.role === "player") {
+            scheduleDeferredTeardown("player left signaling", 20_000);
+          }
+        } catch (err) {
+          devError("Browser host: signaling error", err);
         }
-      } catch (err) {
-        console.error("Browser host: signaling error", err);
-      }
+      };
+
+      ws.onerror = () => {
+        toast.error("Сигнальный сервер недоступен");
+      };
+
+      ws.onclose = () => {
+        if (!streamingStartedRef.current) return;
+        const delay = wsReconnectDelayRef.current;
+        wsReconnectDelayRef.current = Math.min(delay * 2, 8000);
+        wsReconnectTimerRef.current = setTimeout(() => connectWs(url), delay);
+      };
     };
 
-    ws.onerror = () => {
-      toast.error("Сигнальный сервер недоступен");
-    };
+    connectWs(wsUrl);
     } catch (err) {
       // Any hard setup failure (e.g. RTCPeerConnection rejecting a bad ICE
       // config) must not leave the page in a dead state — reset so the host
       // can retry.
-      console.error("Browser host: failed to start streaming", err);
+      devError("Browser host: failed to start streaming", err);
       cleanup();
       streamingStartedRef.current = false;
       setConnectionState("closed");
@@ -320,10 +408,8 @@ export default function BrowserPlay() {
     }
     if (msg.type !== "input") return;
 
-    // External URL (tab capture) mode: relay input events to the local
-    // host-agent at localhost:18080/input so Win32 SendInput can replay them
-    // at the OS level. This makes the player's mouse/keyboard affect whatever
-    // the host has focused on their screen (typically the captured tab).
+    // External URL (tab capture) mode: relay input to the local host-agent
+    // (/input on 18080–18083) so Win32 SendInput can replay them at OS level.
     if (isExternal) {
       const x = msg.x ?? 0.5;
       const y = msg.y ?? 0.5;
@@ -341,11 +427,7 @@ export default function BrowserPlay() {
           event = { kind: "mousemove", x, y, mode: "absolute" };
         } else if (msg.action === "down") {
           // Send move first so the cursor is in the right spot before the click.
-          void fetch("http://127.0.0.1:18080/input", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ kind: "mousemove", x, y, mode: "absolute" }),
-          }).catch(() => {
+          void postAgentInput({ kind: "mousemove", x, y, mode: "absolute" }).catch(() => {
             if (!agentWarningShownRef.current) {
               agentWarningShownRef.current = true;
               toast.warning("Агент не запущен — управление недоступно");
@@ -359,11 +441,7 @@ export default function BrowserPlay() {
         event = { kind: "wheel", deltaY: msg.deltaY ?? 0 };
       }
       if (event) {
-        void fetch("http://127.0.0.1:18080/input", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(event),
-        }).catch(() => {
+        void postAgentInput(event).catch(() => {
           if (!agentWarningShownRef.current) {
             agentWarningShownRef.current = true;
             toast.warning("Агент не запущен — управление недоступно");

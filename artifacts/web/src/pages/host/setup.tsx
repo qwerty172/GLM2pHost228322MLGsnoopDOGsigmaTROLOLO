@@ -48,6 +48,7 @@ export default function SetupSession() {
   const [createdSession, setCreatedSession] = useState<{
     appName: string;
     playerToken: string;
+    inviteCode?: string | null;
   } | null>(null);
   const [selectedQuotaId, setSelectedQuotaId] = useState<string | null>(null);
   const [accessCode, setAccessCode] = useState<string>("");
@@ -96,6 +97,7 @@ export default function SetupSession() {
           setCreatedSession({
             appName: session.appName,
             playerToken: session.playerToken,
+            inviteCode: session.inviteCode,
           });
         },
         onError: () => {
@@ -106,10 +108,16 @@ export default function SetupSession() {
   };
 
   if (createdSession) {
-    const shareLink = `${window.location.origin}${import.meta.env.BASE_URL}play/${createdSession.playerToken}`;
+    const shareLink = createdSession.inviteCode
+      ? `${window.location.origin}${import.meta.env.BASE_URL}play/i/${createdSession.inviteCode}`
+      : `${window.location.origin}${import.meta.env.BASE_URL}play/${createdSession.playerToken}`;
     const handleCopy = async () => {
-      await navigator.clipboard.writeText(shareLink);
-      toast.success("Ссылка скопирована");
+      try {
+        await navigator.clipboard.writeText(shareLink);
+        toast.success("Ссылка скопирована");
+      } catch {
+        toast.error("Не удалось скопировать ссылку");
+      }
     };
     return (
       <div className="max-w-2xl mx-auto space-y-6">
@@ -183,6 +191,20 @@ export default function SetupSession() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
+      <div
+        className="rounded-lg px-4 py-3 text-sm"
+        style={{
+          background: "rgba(14,165,233,0.08)",
+          border: "1px solid rgba(14,165,233,0.25)",
+          color: "#94a3b8",
+        }}
+      >
+        Расширенная настройка сессии — для опытных хостов. Быстрый старт:{" "}
+        <Link href="/host" className="text-sky-400 underline-offset-2 hover:underline">
+          дашборд
+        </Link>
+        .
+      </div>
       <div>
         <h1 className="text-3xl font-extrabold tracking-tight text-white">
           Новая сессия

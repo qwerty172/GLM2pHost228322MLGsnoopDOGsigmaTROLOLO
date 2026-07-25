@@ -10,7 +10,16 @@ import type { SessionPaymentSource } from "./sessionPaymentSource";
 export interface Session {
   id: string;
   hostId: string;
+  /** Catalog game this session is bound to */
+  gameId: string;
   playerToken: string;
+  /**
+   * Short invite code for share links
+   * @nullable
+   */
+  inviteCode?: string | null;
+  /** @nullable */
+  inviteExpiresAt?: Date | null;
   /** @nullable */
   claimedByPlayerId?: string | null;
   appName: string;
@@ -43,6 +52,6 @@ export interface Session {
    * @nullable
    */
   blockReservedLzt?: number | null;
-  /** Host self-test session — completely free, skipped by billing. */
+  /** Host self-test session вЂ” completely free, skipped by billing. */
   isTest?: boolean;
 }

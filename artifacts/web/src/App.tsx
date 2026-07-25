@@ -27,7 +27,14 @@ import { HostAuthGuard } from "@/components/host-auth-guard";
 import ProfilePage from "@/pages/profile";
 import Embed from "@/pages/embed";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function HostRoutes() {
   return (
@@ -83,6 +90,8 @@ function Router() {
       <Route path="/quotas/:id" component={QuotaDetailPage} />
       {/* Standalone wallet — accessible to any user, no auth guard */}
       <Route path="/wallet" component={StandaloneWallet} />
+      {/* Invite resolve живёт внутри Play — один loader «Подключаемся…». */}
+      <Route path="/play/i/:inviteCode" component={Play} />
       <Route path="/play/:playerToken" component={Play} />
       {/* Embeddable third-party widget (task-125) — no auth guard, standalone. */}
       <Route path="/embed" component={Embed} />

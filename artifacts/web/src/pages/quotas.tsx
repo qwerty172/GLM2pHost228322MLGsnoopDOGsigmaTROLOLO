@@ -163,7 +163,7 @@ export default function QuotasPage() {
     ? rows.filter(
         (q) =>
           q.title.toLowerCase().includes(search.toLowerCase()) ||
-          q.description.toLowerCase().includes(search.toLowerCase()),
+          (q.description ?? "").toLowerCase().includes(search.toLowerCase()),
       )
     : rows;
   const loading =

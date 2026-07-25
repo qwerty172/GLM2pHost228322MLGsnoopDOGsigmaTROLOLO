@@ -1,6 +1,10 @@
-import { lt, eq, and, inArray, isNotNull } from "drizzle-orm";
+import { lt, eq, and, inArray, isNotNull, or } from "drizzle-orm";
 import { db, sessionsTable, hostsTable } from "@workspace/db";
 import { logger } from "./logger";
+import {
+  countSessionMinutesUsed,
+  refundBlockRemainder,
+} from "./sessionBilling";
 
 const HEALTH_INTERVAL_MS = 30_000;
 const HOST_TIMEOUT_MS = 60_000;
@@ -21,26 +25,63 @@ async function healthCheck(): Promise<void> {
 async function healthCheckInner(): Promise<void> {
   const cutoff = new Date(Date.now() - HOST_TIMEOUT_MS);
 
+  // Include embed/dev-key sessions — they have no claimedByPlayerId but still
+  // burn the host while the agent is offline.
   const staleSessions = await db
-    .select({ id: sessionsTable.id })
+    .select({ session: sessionsTable })
     .from(sessionsTable)
     .innerJoin(hostsTable, eq(sessionsTable.hostId, hostsTable.id))
     .where(
       and(
         eq(sessionsTable.status, "active"),
-        isNotNull(sessionsTable.claimedByPlayerId),
+        or(
+          isNotNull(sessionsTable.claimedByPlayerId),
+          isNotNull(sessionsTable.devKeyId),
+        ),
         lt(hostsTable.lastSeenAt, cutoff),
       ),
     );
 
   if (staleSessions.length === 0) return;
 
-  const ids = staleSessions.map((s) => s.id);
   const now = new Date();
-  await db
-    .update(sessionsTable)
-    .set({ status: "ended", endedAt: now, endReason: "host_offline" })
-    .where(inArray(sessionsTable.id, ids));
+  const ids: string[] = [];
+
+  for (const { session } of staleSessions) {
+    try {
+      await db.transaction(async (tx) => {
+        // Claim end: only transition active → ended once.
+        const ended = await tx
+          .update(sessionsTable)
+          .set({ status: "ended", endedAt: now, endReason: "host_offline" })
+          .where(
+            and(
+              eq(sessionsTable.id, session.id),
+              eq(sessionsTable.status, "active"),
+            ),
+          )
+          .returning({ id: sessionsTable.id });
+        if (ended.length === 0) return;
+
+        if (
+          session.blockMinutes &&
+          session.blockReservedLzt &&
+          session.claimedByPlayerId
+        ) {
+          const minutesUsed = await countSessionMinutesUsed(tx, session.id);
+          await refundBlockRemainder(tx, session, minutesUsed);
+        }
+      });
+      ids.push(session.id);
+    } catch (err) {
+      logger.error(
+        { err, sessionId: session.id },
+        "Failed to end stale session / refund block",
+      );
+    }
+  }
+
+  if (ids.length === 0) return;
 
   logger.warn(
     { count: ids.length, sessionIds: ids },

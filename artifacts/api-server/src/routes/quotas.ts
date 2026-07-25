@@ -14,7 +14,7 @@ import {
   type Quota,
 } from "@workspace/db";
 import { CreateQuotaBody, UpdateQuotaBody, AiSuggestQuotaSpecsBody } from "@workspace/api-zod";
-import { anthropic } from "@workspace/integrations-anthropic-ai";
+import Anthropic from "@anthropic-ai/sdk";
 
 // Orval splits each endpoint's body into a unique generated symbol; we use a
 // single local schema for the simple owner-only POST bodies.
@@ -29,6 +29,13 @@ import {
 import { computeHostTier, specsFromPcSpecs } from "../lib/hostTier";
 
 const router: IRouter = Router();
+
+function getAnthropicClient(): Anthropic | null {
+  const baseURL = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+  const apiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+  if (!baseURL || !apiKey) return null;
+  return new Anthropic({ apiKey, baseURL });
+}
 
 // Postgres unique-violation error code, used to detect a race on the
 // partial unique index over quotas.devKeyId.
@@ -249,13 +256,23 @@ router.post("/quotas/ai-suggest-specs", async (req, res): Promise<void> => {
     prompt = `Верни универсальные минимальные и рекомендуемые требования к ПК для стриминга игр в 1080p60. Ответь ТОЛЬКО JSON объектом без комментариев и markdown, вот пример формата: {"minGpuVram": 6, "minCpuCores": 4, "minRamGb": 16, "minDownloadMbps": 50, "minUploadMbps": 10, "recGpuVram": 10, "recCpuCores": 8, "recRamGb": 32, "recDownloadMbps": 100, "recUploadMbps": 20}.`;
   }
 
+  const anthropic = getAnthropicClient();
+  if (!anthropic) {
+    res.status(503).json({
+      error: "ai_unavailable",
+      message: "ИИ-подсказки временно недоступны — интеграция Anthropic не настроена",
+    });
+    return;
+  }
+
   try {
     const message = await anthropic.messages.create({
       model: "claude-haiku-4-5",
       max_tokens: 256,
       messages: [{ role: "user", content: prompt }],
     });
-    const text = message.content.find((b) => b.type === "text")?.text ?? "";
+    const textBlock = message.content.find((b) => b.type === "text");
+    const text = textBlock && textBlock.type === "text" ? textBlock.text : "";
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       res.status(500).json({ error: "AI returned unexpected format" });

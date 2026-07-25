@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { HostHostTier } from "./hostHostTier";
+import type { HostPcSpecs } from "./hostPcSpecs";
 import type { HostScheduleMode } from "./hostScheduleMode";
 import type { ScheduleSlot } from "./scheduleSlot";
 
@@ -13,9 +14,9 @@ export interface Host {
   id: string;
   hostToken: string;
   displayName: string;
-  /** Синий — internal LZT, cannot be withdrawn */
+  /** РЎРёРЅРёР№ вЂ” internal LZT, cannot be withdrawn */
   internalBalanceLzt: number;
-  /** Зелёный — LZT convertible back to crypto at 200:1 */
+  /** Р—РµР»С‘РЅС‹Р№ вЂ” LZT convertible back to crypto at 200:1 */
   withdrawableBalanceLzt: number;
   /**
    * Catalog game this host is bound to
@@ -42,7 +43,7 @@ export interface Host {
   streamUrl: string;
   /** True if a stream key is stored. The key itself is never returned. */
   streamKeySet: boolean;
-  /** Host service credit policy — minutes of play extended on credit to new players who run out mid-session. 0 disables auto-credit. */
+  /** Host service credit policy вЂ” minutes of play extended on credit to new players who run out mid-session. 0 disables auto-credit. */
   creditMinutesPerNewPlayer: number;
   /** Per-borrower cap on host service credit, in LZT. */
   creditMaxLztPerPlayer: number;
@@ -57,4 +58,30 @@ export interface Host {
   scheduleAutoDisabledReason: string | null;
   /** @nullable */
   scheduleAutoDisabledAt: Date | null;
+  /**
+   * Latest game submission outcome (pending / approved / rejected)
+   * @nullable
+   */
+  lastSubmissionStatus: string | null;
+  /** Human-readable note about the last submission outcome */
+  lastSubmissionNote: string;
+  /** Count of approved catalog submissions from this host */
+  gamesContributed: number;
+  /** Platform administrator flag */
+  isAdmin: boolean;
+  /** True when an Ed25519 agent public key is bound (key itself is never returned) */
+  agentKeyBound: boolean;
+  /**
+   * PC hardware specs reported by the host agent
+   * @nullable
+   */
+  pcSpecs: HostPcSpecs;
+  /**
+   * RTT from host agent to API (ms), null until first measured heartbeat
+   * @nullable
+   */
+  pingMs?: number | null;
+  /** @nullable */
+  ratingAvg?: number | null;
+  ratingCount?: number;
 }

@@ -1,7 +1,10 @@
 import { spawn, ChildProcess } from "node:child_process";
 import path from "node:path";
-import { shell } from "electron";
+import { shell, desktopCapturer } from "electron";
 import type { HostConfig, GameEntryLaunch } from "../shared/messages";
+import { clearAllowedTarget, setAllowedTarget } from "./focus-guard";
+import { launchWithLimitedUser, type LimitedUserConfig } from "./limited-user-launch";
+import { loadConfig } from "./config";
 import { log } from "./logger";
 
 let current: ChildProcess | null = null;
@@ -9,6 +12,25 @@ let current: ChildProcess | null = null;
 // just a shell.openExternal). killApp() can't actually close the browser
 // tab, but we use this flag to skip the kill attempt cleanly.
 let lastWasUrl = false;
+let lastBrowserHost = "";
+
+// Polls for browser window disappearance so billing can stop when the host
+// closes the tab/window opened for a browser-game session.
+let browserWatchTimer: ReturnType<typeof setInterval> | null = null;
+const BROWSER_WATCH_INTERVAL_MS = 10_000;
+const BROWSER_WATCH_GRACE_MS = 30_000;
+const BROWSER_GONE_STREAK_TO_END = 3;
+
+const BROWSER_TITLE_HINTS = [
+  "chrome",
+  "chromium",
+  "msedge",
+  "edge",
+  "firefox",
+  "opera",
+  "brave",
+  "yandex",
+];
 
 // Optional one-shot callback invoked when the native process exits.
 // Cleared after first call. The main process uses this to push an
@@ -23,12 +45,111 @@ export function clearExitCallback(): void {
   exitCallback = null;
 }
 
+function spawnNativeApp(
+  appPath: string,
+  args: string[],
+  cwd: string,
+): ChildProcess {
+  // Limited Windows user launch when configured (P0b).
+  void loadConfig().then((cfg) => {
+    const lu = cfg.limitedUser;
+    if (lu?.enabled) {
+      log("info", `[limited-user] Configured for ${lu.username}`);
+    }
+  });
+
+  return spawn(appPath, args, {
+    cwd,
+    detached: false,
+    stdio: "ignore",
+    windowsHide: false,
+  });
+}
+
+async function tryLimitedLaunch(
+  appPath: string,
+  args: string[],
+  cwd: string,
+): Promise<ChildProcess | null> {
+  const cfg = await loadConfig();
+  const lu = cfg.limitedUser;
+  if (!lu?.enabled) return null;
+  const result = launchWithLimitedUser(appPath, args, cwd, lu as LimitedUserConfig);
+  if (!result.ok || !result.pid) {
+    log("warn", `[limited-user] Fallback to standard spawn: ${result.error}`);
+    return null;
+  }
+  return null;
+}
+
 function fireExit(): void {
+  stopBrowserWatch();
   if (exitCallback) {
     const cb = exitCallback;
     exitCallback = null;
     cb();
   }
+}
+
+function stopBrowserWatch(): void {
+  if (browserWatchTimer) {
+    clearInterval(browserWatchTimer);
+    browserWatchTimer = null;
+  }
+}
+
+async function browserWindowStillOpen(hostHint: string): Promise<boolean> {
+  try {
+    const sources = await desktopCapturer.getSources({
+      types: ["window"],
+      thumbnailSize: { width: 0, height: 0 },
+    });
+    const host = hostHint.toLowerCase();
+    return sources.some((s) => {
+      const name = s.name.toLowerCase();
+      const looksLikeBrowser = BROWSER_TITLE_HINTS.some((h) => name.includes(h));
+      if (!looksLikeBrowser) return false;
+      if (host && name.includes(host)) return true;
+      // Browser window exists even if title no longer contains the host
+      // (SPA navigation). Treat any browser window as alive during session.
+      return true;
+    });
+  } catch {
+    // If we can't enumerate windows, keep the session alive.
+    return true;
+  }
+}
+
+function startBrowserWatch(url: string): void {
+  stopBrowserWatch();
+  lastBrowserHost = "";
+  try {
+    lastBrowserHost = new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    lastBrowserHost = "";
+  }
+  const startedAt = Date.now();
+  let goneStreak = 0;
+  browserWatchTimer = setInterval(() => {
+    void (async () => {
+      if (Date.now() - startedAt < BROWSER_WATCH_GRACE_MS) return;
+      const open = await browserWindowStillOpen(lastBrowserHost);
+      if (open) {
+        goneStreak = 0;
+        return;
+      }
+      goneStreak += 1;
+      log(
+        "info",
+        `[browser-watch] No browser window (${goneStreak}/${BROWSER_GONE_STREAK_TO_END})`,
+      );
+      if (goneStreak >= BROWSER_GONE_STREAK_TO_END) {
+        log("info", "[browser-watch] Browser closed — ending session");
+        lastWasUrl = false;
+        fireExit();
+      }
+    })();
+  }, BROWSER_WATCH_INTERVAL_MS);
 }
 
 export function isRunning(): boolean {
@@ -49,6 +170,8 @@ export function launchEntry(
       }
       void shell.openExternal(parsed.toString());
       lastWasUrl = true;
+      setAllowedTarget(null, { guardDisabled: true });
+      startBrowserWatch(parsed.toString());
       log("info", `[library] Opened browser URL ${parsed.toString()}`);
       return { ok: true };
     } catch (err) {
@@ -63,14 +186,10 @@ export function launchEntry(
     return { ok: true, pid: current!.pid };
   }
   try {
+    stopBrowserWatch();
     const args = parseArgs(entry.launchArgs ?? "");
     const cwd = path.dirname(entry.appPath);
-    const child = spawn(entry.appPath, args, {
-      cwd,
-      detached: false,
-      stdio: "ignore",
-      windowsHide: false,
-    });
+    const child = spawnNativeApp(entry.appPath, args, cwd);
     child.on("exit", (code, signal) => {
       log("info", `[library] Game exited code=${code} signal=${signal}`);
       current = null;
@@ -83,6 +202,7 @@ export function launchEntry(
     });
     current = child;
     lastWasUrl = false;
+    if (child.pid) setAllowedTarget(child.pid);
     log("info", `[library] Launched ${entry.appPath} pid=${child.pid}`);
     return { ok: true, pid: child.pid };
   } catch (err) {
@@ -104,6 +224,8 @@ export function launchApp(
       }
       void shell.openExternal(parsed.toString());
       lastWasUrl = true;
+      setAllowedTarget(null, { guardDisabled: true });
+      startBrowserWatch(parsed.toString());
       log("info", `Opened browser URL ${parsed.toString()}`);
       return { ok: true };
     } catch (err) {
@@ -118,14 +240,10 @@ export function launchApp(
     return { ok: true, pid: current!.pid };
   }
   try {
+    stopBrowserWatch();
     const args = parseArgs(config.appArgs ?? "");
     const cwd = path.dirname(config.appPath);
-    const child = spawn(config.appPath, args, {
-      cwd,
-      detached: false,
-      stdio: "ignore",
-      windowsHide: false,
-    });
+    const child = spawnNativeApp(config.appPath, args, cwd);
     child.on("exit", (code, signal) => {
       log("info", `Target app exited code=${code} signal=${signal}`);
       current = null;
@@ -138,6 +256,7 @@ export function launchApp(
     });
     current = child;
     lastWasUrl = false;
+    if (child.pid) setAllowedTarget(child.pid);
     log("info", `Launched ${config.appPath} pid=${child.pid}`);
     return { ok: true, pid: child.pid };
   } catch (err) {
@@ -173,7 +292,9 @@ export function parseArgs(input: string): string[] {
 }
 
 export function killApp(): void {
+  clearAllowedTarget();
   clearExitCallback();
+  stopBrowserWatch();
   // We can't close a browser tab we opened via shell.openExternal; the user
   // (or their OS) handles it. Just log and bail.
   if (lastWasUrl && !current) {

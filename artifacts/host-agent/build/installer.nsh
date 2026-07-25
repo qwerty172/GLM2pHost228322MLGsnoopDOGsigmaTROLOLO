@@ -8,6 +8,7 @@
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" \
     "CloudGamingHostAgent" '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" --hidden'
   DetailPrint "Cloud Gaming Host Agent registered for auto-launch at Windows login."
+  DetailPrint "Optional: create local user DecentralHubPlayer for isolated game launches (see INSTALL.txt)."
 !macroend
 
 !macro customUnInstall

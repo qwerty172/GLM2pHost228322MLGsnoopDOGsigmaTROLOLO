@@ -1,7 +1,13 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import { z } from "zod/v4";
-import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import { ObjectStorageService, ObjectNotFoundError, ObjectStorageNotConfiguredError } from "../lib/objectStorage";
+import { ObjectPermission, getObjectAclPolicy } from "../lib/objectAcl";
+import {
+  handleStorageError,
+  respondStorageUnavailable,
+  resolveCallerUserId,
+} from "../lib/storageRouteHelpers";
 import multer from "multer";
 
 const ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -84,8 +90,7 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
       }),
     );
   } catch (error) {
-    req.log.error({ err: error }, "Error generating upload URL");
-    res.status(500).json({ error: "Failed to generate upload URL" });
+    handleStorageError(req, res, error, "Failed to generate upload URL");
   }
 });
 
@@ -118,17 +123,17 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
       res.end();
     }
   } catch (error) {
-    req.log.error({ err: error }, "Error serving public object");
-    res.status(500).json({ error: "Failed to serve public object" });
+    handleStorageError(req, res, error, "Failed to serve public object");
   }
 });
 
 /**
  * GET /storage/objects/*
  *
- * Serve object entities from PRIVATE_OBJECT_DIR.
- * These are served from a separate path from /public-objects and can optionally
- * be protected with authentication or ACL checks based on the use case.
+ * Serve object entities from PRIVATE_OBJECT_DIR with ACL enforcement.
+ * - visibility=public → anyone can READ
+ * - visibility=private → owner only
+ * - no ACL metadata (legacy covers) → public READ
  */
 router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {
@@ -137,20 +142,21 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     const objectPath = `/objects/${wildcardPath}`;
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
 
-    // --- Protected route example (uncomment when using replit-auth) ---
-    // if (!req.isAuthenticated()) {
-    //   res.status(401).json({ error: "Unauthorized" });
-    //   return;
-    // }
-    // const canAccess = await objectStorageService.canAccessObjectEntity({
-    //   userId: req.user.id,
-    //   objectFile,
-    //   requestedPermission: ObjectPermission.READ,
-    // });
-    // if (!canAccess) {
-    //   res.status(403).json({ error: "Forbidden" });
-    //   return;
-    // }
+    const policy = await getObjectAclPolicy(objectFile);
+    if (policy) {
+      const userId = await resolveCallerUserId(req);
+      const canAccess = await objectStorageService.canAccessObjectEntity({
+        userId,
+        objectFile,
+        requestedPermission: ObjectPermission.READ,
+      });
+      if (!canAccess) {
+        res.status(userId ? 403 : 401).json({
+          error: userId ? "Forbidden" : "Unauthorized",
+        });
+        return;
+      }
+    }
 
     const response = await objectStorageService.downloadObject(objectFile);
 
@@ -164,13 +170,7 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
       res.end();
     }
   } catch (error) {
-    if (error instanceof ObjectNotFoundError) {
-      req.log.warn({ err: error }, "Object not found");
-      res.status(404).json({ error: "Object not found" });
-      return;
-    }
-    req.log.error({ err: error }, "Error serving object");
-    res.status(500).json({ error: "Failed to serve object" });
+    handleStorageError(req, res, error, "Failed to serve object");
   }
 });
 
@@ -225,11 +225,19 @@ router.post(
         return;
       }
 
+      try {
+        await objectStorageService.trySetObjectEntityAclPolicy(rawPath, {
+          owner: `player:${player.id}`,
+          visibility: "private",
+        });
+      } catch (aclErr) {
+        req.log.warn({ err: aclErr }, "Failed to set clip ACL (object still stored)");
+      }
+
       const objectPath = `/api/storage${rawPath}`;
       res.json({ objectPath, size: req.file.size });
     } catch (error) {
-      req.log.error({ err: error }, "Error uploading clip");
-      res.status(500).json({ error: "Failed to upload clip" });
+      handleStorageError(req, res, error, "Failed to upload clip");
     }
   },
 );

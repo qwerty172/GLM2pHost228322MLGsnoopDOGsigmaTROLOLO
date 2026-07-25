@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, lt, or, isNull } from "drizzle-orm";
 import { db, hostsTable } from "@workspace/db";
 import { minutesSinceWindowStart } from "./schedule";
 import { logger } from "./logger";
@@ -34,10 +34,9 @@ async function checkTickInner(): Promise<void> {
     const cutoff = new Date(now.getTime() - GRACE_PERIOD_MIN * 60_000);
     if (host.lastSeenAt && host.lastSeenAt >= cutoff) continue;
 
-    // Host's schedule window started >= 10 minutes ago and the agent hasn't
-    // phoned home since then — deactivate the schedule so the catalog stops
-    // advertising this host as "available by schedule".
-    await db
+    // Conditional update — skip if another worker already flipped the mode or
+    // the agent heartbeated since we read the row (TOCTOU).
+    const updated = await db
       .update(hostsTable)
       .set({
         scheduleMode: "always",
@@ -46,7 +45,19 @@ async function checkTickInner(): Promise<void> {
           "Расписание было автоматически отключено: агент не выходил на связь в течение 10 минут после начала окна. Настрой расписание заново, когда агент снова будет запущен.",
         scheduleAutoDisabledAt: now,
       })
-      .where(and(eq(hostsTable.id, host.id)));
+      .where(
+        and(
+          eq(hostsTable.id, host.id),
+          eq(hostsTable.scheduleMode, "scheduled"),
+          or(
+            isNull(hostsTable.lastSeenAt),
+            lt(hostsTable.lastSeenAt, cutoff),
+          ),
+        ),
+      )
+      .returning({ id: hostsTable.id });
+
+    if (updated.length === 0) continue;
 
     logger.warn(
       { hostId: host.id, elapsedMin: elapsed },

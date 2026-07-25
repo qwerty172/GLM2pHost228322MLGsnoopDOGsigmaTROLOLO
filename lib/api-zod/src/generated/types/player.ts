@@ -10,9 +10,9 @@ export interface Player {
   id: string;
   playerToken: string;
   displayName: string;
-  /** Синий — internal LZT, cannot be withdrawn */
+  /** РЎРёРЅРёР№ вЂ” internal LZT, cannot be withdrawn */
   internalBalanceLzt: number;
-  /** Зелёный — LZT convertible back to crypto at 200:1 */
+  /** Р—РµР»С‘РЅС‹Р№ вЂ” LZT convertible back to crypto at 200:1 */
   withdrawableBalanceLzt: number;
   createdAt: Date;
   lastSeenAt: Date;

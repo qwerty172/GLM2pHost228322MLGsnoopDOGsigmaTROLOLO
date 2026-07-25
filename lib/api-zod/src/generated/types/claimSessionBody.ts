@@ -11,7 +11,7 @@ export interface ClaimSessionBody {
   /** The player's wallet token (issued via /players/register) */
   playerWalletToken: string;
   /** Which LZT bucket the player wants to pay from. "auto" prefers
-зелёный (withdrawable) and falls back to синий (internal).
+Р·РµР»С‘РЅС‹Р№ (withdrawable) and falls back to СЃРёРЅРёР№ (internal).
  */
   paymentSource?: ClaimSessionBodyPaymentSource;
   /**

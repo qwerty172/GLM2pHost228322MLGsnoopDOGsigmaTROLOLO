@@ -6,6 +6,7 @@
 // no-op so the agent can still be developed/tested.
 
 import type { InputEvent } from "../shared/messages";
+import { guardInput } from "./focus-guard";
 import { log } from "./logger";
 
 type Injector = (event: InputEvent) => void;
@@ -13,6 +14,8 @@ type Injector = (event: InputEvent) => void;
 let injector: Injector = () => {
   /* no-op fallback */
 };
+
+let rawInputEnabled = false;
 
 export interface InjectorStatus {
   ok: boolean;
@@ -34,6 +37,7 @@ export function getInjectorStatus(): InjectorStatus {
 }
 
 export function initInputInjector(): void {
+  rawInputEnabled = process.env["USE_RAW_INPUT"] === "1";
   if (process.platform !== "win32") {
     log("info", "Input injection disabled (non-Windows platform).");
     return;
@@ -82,6 +86,32 @@ export function initInputInjector(): void {
       "int GetSystemMetrics(int nIndex)",
     );
 
+    // Optional Raw Input registration — some games block SendInput but accept
+    // raw HID events. Enabled via USE_RAW_INPUT=1; falls back to SendInput.
+    if (rawInputEnabled) {
+      try {
+        const RegisterRawInputDevices = user32.func(
+          "bool RegisterRawInputDevices(void *pRawInputDevices, uint32 uiNumDevices, uint32 cbSize)",
+        );
+        const RAWINPUTDEVICE = koffi.struct("RAWINPUTDEVICE", {
+          usUsagePage: "uint16",
+          usUsage: "uint16",
+          dwFlags: "uint32",
+          hwndTarget: "uintptr_t",
+        });
+        const RIDEV_INPUTSINK = 0x00000100;
+        const devices = [
+          { usUsagePage: 0x01, usUsage: 0x02, dwFlags: RIDEV_INPUTSINK, hwndTarget: 0 },
+          { usUsagePage: 0x01, usUsage: 0x06, dwFlags: RIDEV_INPUTSINK, hwndTarget: 0 },
+        ];
+        RegisterRawInputDevices(devices, devices.length, koffi.sizeof(RAWINPUTDEVICE));
+        log("info", "Raw Input API registered (USE_RAW_INPUT=1).");
+      } catch (rawErr) {
+        log("warn", `Raw Input registration failed, using SendInput only: ${String(rawErr)}`);
+        rawInputEnabled = false;
+      }
+    }
+
     const INPUT_MOUSE = 0;
     const INPUT_KEYBOARD = 1;
 
@@ -93,6 +123,8 @@ export function initInputInjector(): void {
     const MOUSEEVENTF_MIDDLEDOWN = 0x0020;
     const MOUSEEVENTF_MIDDLEUP = 0x0040;
     const MOUSEEVENTF_WHEEL = 0x0800;
+    // Map absolute coords across the entire virtual desktop (multi-monitor).
+    const MOUSEEVENTF_VIRTUALDESK = 0x4000;
     const MOUSEEVENTF_ABSOLUTE = 0x8000;
 
     const KEYEVENTF_KEYUP = 0x0002;
@@ -181,13 +213,16 @@ export function initInputInjector(): void {
           } else {
             // Default contract: normalized [0..1] coordinates relative to the
             // streamed video area. Windows SendInput with MOUSEEVENTF_ABSOLUTE
-            // expects [0..65535] over the primary screen (or virtual desktop
-            // with MOUSEEVENTF_VIRTUALDESK).
+            // expects [0..65535]; MOUSEEVENTF_VIRTUALDESK covers multi-monitor.
             const nx = Math.max(0, Math.min(1, event.x));
             const ny = Math.max(0, Math.min(1, event.y));
             const dx = Math.round(nx * 65535);
             const dy = Math.round(ny * 65535);
-            sendMouse(MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE, dx, dy);
+            sendMouse(
+              MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK,
+              dx,
+              dy,
+            );
           }
         } else if (event.kind === "mousedown" || event.kind === "mouseup") {
           const down = event.kind === "mousedown";
@@ -216,7 +251,7 @@ export function initInputInjector(): void {
         log("error", `Input injection failed: ${String(err)}`);
       }
     };
-    log("info", "Input injector ready.");
+    log("info", `Input injector ready${rawInputEnabled ? " (Raw Input + SendInput)" : ""}.`);
   } catch (err) {
     log("error", `Failed to initialize input injector: ${String(err)}`);
     injectorStatus = {
@@ -232,18 +267,19 @@ export function initInputInjector(): void {
 }
 
 export function injectInput(event: InputEvent): void {
-  injector(event);
+  guardInput(() => injector(event));
 }
 
-// Minimal subset mapping from KeyboardEvent.code/key to Windows VK codes.
-// Real-world deployment would use a comprehensive table or a scancode-based
-// path with KEYEVENTF_SCANCODE for non-US layouts.
+// KeyboardEvent.code / key → Windows VK codes.
+// Prefer `code` (physical key) so Cyrillic/layout remaps still hit the right VK.
 function mapKeyToVk(code: string, key: string): number {
   if (/^Key[A-Z]$/.test(code)) return code.charCodeAt(3); // KeyA -> 0x41
   if (/^Digit[0-9]$/.test(code)) return code.charCodeAt(5); // Digit0 -> 0x30
+  if (/^Numpad[0-9]$/.test(code)) return 0x60 + (code.charCodeAt(6) - 0x30); // Numpad0 → VK_NUMPAD0
   const table: Record<string, number> = {
     Escape: 0x1b,
     Enter: 0x0d,
+    NumpadEnter: 0x0d,
     Tab: 0x09,
     Backspace: 0x08,
     Space: 0x20,
@@ -257,6 +293,37 @@ function mapKeyToVk(code: string, key: string): number {
     ControlRight: 0xa3,
     AltLeft: 0xa4,
     AltRight: 0xa5,
+    MetaLeft: 0x5b,
+    MetaRight: 0x5c,
+    ContextMenu: 0x5d,
+    CapsLock: 0x14,
+    NumLock: 0x90,
+    ScrollLock: 0x91,
+    Pause: 0x13,
+    PrintScreen: 0x2c,
+    Insert: 0x2d,
+    Delete: 0x2e,
+    Home: 0x24,
+    End: 0x23,
+    PageUp: 0x21,
+    PageDown: 0x22,
+    NumpadAdd: 0x6b,
+    NumpadSubtract: 0x6d,
+    NumpadMultiply: 0x6a,
+    NumpadDivide: 0x6f,
+    NumpadDecimal: 0x6e,
+    NumpadEqual: 0x0d,
+    Minus: 0xbd,
+    Equal: 0xbb,
+    BracketLeft: 0xdb,
+    BracketRight: 0xdd,
+    Backslash: 0xdc,
+    Semicolon: 0xba,
+    Quote: 0xde,
+    Backquote: 0xc0,
+    Comma: 0xbc,
+    Period: 0xbe,
+    Slash: 0xbf,
     F1: 0x70,
     F2: 0x71,
     F3: 0x72,
@@ -270,10 +337,14 @@ function mapKeyToVk(code: string, key: string): number {
     F11: 0x7a,
     F12: 0x7b,
   };
-  if (table[code]) return table[code];
+  if (table[code]) return table[code]!;
+  // Latin single-char fallback (ASCII).
   if (key.length === 1) {
     const c = key.toUpperCase().charCodeAt(0);
+    if (c >= 0x41 && c <= 0x5a) return c; // A-Z
+    if (c >= 0x30 && c <= 0x39) return c; // 0-9
     if (c >= 0x20 && c <= 0x7e) return c;
   }
+  // Cyrillic / other layouts: `code` already handled Key* above; nothing left.
   return 0;
 }

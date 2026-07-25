@@ -37,6 +37,24 @@ export class ObjectNotFoundError extends Error {
   }
 }
 
+export class ObjectStorageNotConfiguredError extends Error {
+  constructor(message = "Object storage is not configured") {
+    super(message);
+    this.name = "ObjectStorageNotConfiguredError";
+    Object.setPrototypeOf(this, ObjectStorageNotConfiguredError.prototype);
+  }
+}
+
+/** True when both PUBLIC_OBJECT_SEARCH_PATHS and PRIVATE_OBJECT_DIR are non-empty. */
+export function isObjectStorageConfigured(): boolean {
+  const paths = (process.env.PUBLIC_OBJECT_SEARCH_PATHS ?? "")
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const privateDir = (process.env.PRIVATE_OBJECT_DIR ?? "").trim();
+  return paths.length > 0 && privateDir.length > 0;
+}
+
 export class ObjectStorageService {
   constructor() {}
 
@@ -51,9 +69,9 @@ export class ObjectStorageService {
       )
     );
     if (paths.length === 0) {
-      throw new Error(
+      throw new ObjectStorageNotConfiguredError(
         "PUBLIC_OBJECT_SEARCH_PATHS not set. Create a bucket in 'Object Storage' " +
-          "tool and set PUBLIC_OBJECT_SEARCH_PATHS env var (comma-separated paths)."
+          "tool and set PUBLIC_OBJECT_SEARCH_PATHS env var (comma-separated paths).",
       );
     }
     return paths;
@@ -62,9 +80,9 @@ export class ObjectStorageService {
   getPrivateObjectDir(): string {
     const dir = process.env.PRIVATE_OBJECT_DIR || "";
     if (!dir) {
-      throw new Error(
+      throw new ObjectStorageNotConfiguredError(
         "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' " +
-          "tool and set PRIVATE_OBJECT_DIR env var."
+          "tool and set PRIVATE_OBJECT_DIR env var.",
       );
     }
     return dir;
@@ -124,6 +142,75 @@ export class ObjectStorageService {
       bucketName,
       objectName,
       method: "PUT",
+      ttlSec: 900,
+    });
+  }
+
+  /** Deterministic object path for a player/game save archive. */
+  getSaveStoragePath(playerId: string, gameId: string): string {
+    const privateObjectDir = this.getPrivateObjectDir();
+    return `${privateObjectDir}/saves/${playerId}/${gameId}/save.zip`;
+  }
+
+  /** API-facing path returned to clients (served via /api/storage/objects/…). */
+  getSaveObjectPath(playerId: string, gameId: string): string {
+    return `/objects/saves/${playerId}/${gameId}/save.zip`;
+  }
+
+  async getSaveFile(playerId: string, gameId: string): Promise<File | null> {
+    const fullPath = this.getSaveStoragePath(playerId, gameId);
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    const bucket = objectStorageClient.bucket(bucketName);
+    const file = bucket.file(objectName);
+    const [exists] = await file.exists();
+    return exists ? file : null;
+  }
+
+  async getSaveDownloadURL(playerId: string, gameId: string): Promise<string> {
+    const fullPath = this.getSaveStoragePath(playerId, gameId);
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    return signObjectURL({
+      bucketName,
+      objectName,
+      method: "GET",
+      ttlSec: 900,
+    });
+  }
+
+  async getSaveUploadURL(playerId: string, gameId: string): Promise<string> {
+    const fullPath = this.getSaveStoragePath(playerId, gameId);
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    return signObjectURL({
+      bucketName,
+      objectName,
+      method: "PUT",
+      ttlSec: 900,
+    });
+  }
+
+
+  /** Presigned PUT for a namespaced object key (e.g. saves/player/game/uuid.zip). */
+  async getObjectUploadURLForKey(relativeKey: string): Promise<string> {
+    const privateObjectDir = this.getPrivateObjectDir();
+    const fullPath = `${privateObjectDir}/${relativeKey}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    return signObjectURL({
+      bucketName,
+      objectName,
+      method: "PUT",
+      ttlSec: 900,
+    });
+  }
+
+  /** Presigned GET for a namespaced object key. */
+  async getObjectDownloadURL(relativeKey: string): Promise<string> {
+    const privateObjectDir = this.getPrivateObjectDir();
+    const fullPath = `${privateObjectDir}/${relativeKey}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    return signObjectURL({
+      bucketName,
+      objectName,
+      method: "GET",
       ttlSec: 900,
     });
   }

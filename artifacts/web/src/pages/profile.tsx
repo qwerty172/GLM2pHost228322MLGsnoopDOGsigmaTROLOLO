@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useSearch } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { Switch } from "@/components/ui/switch";
 import {
   useGetHost,
   useGetHostStats,
@@ -193,35 +195,35 @@ function StatsTab({ hostToken }: { hostToken: string }) {
   );
 }
 
-function HistoryTab({ hostToken }: { hostToken: string | null }) {
+function HistoryTab({ walletToken }: { walletToken: string | null }) {
   const [page, setPage] = useState(0);
 
   const { data: txs, isLoading: txLoading } = useListWalletTransactions(
-    hostToken ?? "",
+    walletToken ?? "",
     {
       query: {
-        enabled: !!hostToken,
-        queryKey: getListWalletTransactionsQueryKey(hostToken ?? ""),
+        enabled: !!walletToken,
+        queryKey: getListWalletTransactionsQueryKey(walletToken ?? ""),
         staleTime: 30_000,
       },
     },
   );
 
-  const { data: wallet } = useGetWallet(hostToken ?? "", {
+  const { data: wallet } = useGetWallet(walletToken ?? "", {
     query: {
-      enabled: !!hostToken,
-      queryKey: getGetWalletQueryKey(hostToken ?? ""),
+      enabled: !!walletToken,
+      queryKey: getGetWalletQueryKey(walletToken ?? ""),
       staleTime: 30_000,
     },
   });
 
-  if (!hostToken) {
+  if (!walletToken) {
     return (
       <div className="mt-10 flex flex-col items-center gap-2 text-slate-500">
         <History className="w-8 h-8 opacity-40" />
         <p className="text-sm">История транзакций пуста.</p>
         <p className="text-xs text-slate-600">
-          Зарегистрируйтесь как хост, чтобы начать пополнять историю.
+          Зайдите в каталог игр или на главную — кошелёк создастся автоматически.
         </p>
       </div>
     );
@@ -619,6 +621,79 @@ function MyVdsTab({ hostToken }: { hostToken: string | null }) {
   );
 }
 
+function PlayerCreditCard() {
+  const { playerWalletToken } = usePlayerWallet();
+  const { data: wallet, refetch } = useGetWallet(playerWalletToken ?? "", {
+    query: {
+      enabled: !!playerWalletToken,
+      queryKey: getGetWalletQueryKey(playerWalletToken ?? ""),
+    },
+  });
+  const [saving, setSaving] = useState(false);
+
+  if (!playerWalletToken) return null;
+
+  const creditLimit = wallet?.creditLimitLzt ?? 0;
+  const creditDebt = wallet?.creditDebtLzt ?? 0;
+  const creditEnabled = creditLimit > 0;
+
+  const toggleCredit = async (enabled: boolean) => {
+    setSaving(true);
+    try {
+      await fetch("/api/players/me/credit-settings", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Token": playerWalletToken,
+        },
+        body: JSON.stringify({ creditEnabled: enabled }),
+      });
+      await refetch();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card style={cardStyle}>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-semibold text-slate-200">
+          Игра в кредит
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm text-slate-300">Разрешить играть в кредит</p>
+            <p className="text-xs text-slate-500">По умолчанию включено для новичков</p>
+          </div>
+          <Switch
+            checked={creditEnabled}
+            disabled={saving}
+            onCheckedChange={(v) => void toggleCredit(v)}
+          />
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+          <div className="rounded-lg p-2" style={{ background: "rgba(255,255,255,0.02)" }}>
+            <p className="text-slate-500">Лимит</p>
+            <p className="text-white font-semibold">{formatLzt(creditLimit)} LZT</p>
+          </div>
+          <div className="rounded-lg p-2" style={{ background: "rgba(255,255,255,0.02)" }}>
+            <p className="text-slate-500">Долг</p>
+            <p className="text-amber-400 font-semibold">{formatLzt(creditDebt)} LZT</p>
+          </div>
+          <div className="rounded-lg p-2" style={{ background: "rgba(255,255,255,0.02)" }}>
+            <p className="text-slate-500">Доступно</p>
+            <p className="text-emerald-400 font-semibold">
+              {formatLzt(Math.max(0, creditLimit - creditDebt))} LZT
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function AccountTab({ hostToken }: { hostToken: string | null }) {
   const { data: host, isLoading } = useGetHost(hostToken ?? "", {
     query: {
@@ -710,6 +785,8 @@ function AccountTab({ hostToken }: { hostToken: string | null }) {
         </CardContent>
       </Card>
 
+      <PlayerCreditCard />
+
       {/* Agent / PC specs card */}
       <Card style={cardStyle}>
         <CardHeader className="pb-3">
@@ -718,23 +795,111 @@ function AccountTab({ hostToken }: { hostToken: string | null }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Unbound state — agent binding is handled by a separate task */}
-          <div className="flex items-center gap-3 py-2">
-            <div
-              className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-              style={{ background: "rgba(248,113,113,0.1)" }}
-            >
-              <WifiOff className="w-4 h-4 text-red-400" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-300">
-                Агент не привязан
-              </p>
-              <p className="text-xs text-slate-500">
-                Привяжите десктопный агент, чтобы здесь отображались спецификации вашего ПК.
-              </p>
-            </div>
-          </div>
+          {(() => {
+            const lastSeenAt = host?.lastSeenAt ?? null;
+            const pcSpecs = (host as { pcSpecs?: { cpu?: string; gpu?: string; ramGb?: number } | null } | undefined)?.pcSpecs;
+            const fresh =
+              lastSeenAt != null &&
+              Date.now() - new Date(lastSeenAt).getTime() < 2 * 60_000;
+            const seenOnce = Boolean(lastSeenAt);
+
+            if (!hostToken) {
+              return (
+                <div className="flex items-center gap-3 py-2">
+                  <div
+                    className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ background: "rgba(148,163,184,0.1)" }}
+                  >
+                    <WifiOff className="w-4 h-4 text-slate-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-300">Нет аккаунта хоста</p>
+                    <p className="text-xs text-slate-500">
+                      Зарегистрируйтесь как хост, чтобы привязать агент и видеть спецификации ПК.
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+
+            if (isLoading) {
+              return (
+                <Skeleton
+                  className="h-14 w-full"
+                  style={{ background: "rgba(255,255,255,0.04)" }}
+                />
+              );
+            }
+
+            if (fresh) {
+              return (
+                <div className="space-y-3 py-1">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                      style={{ background: "rgba(16,185,129,0.12)" }}
+                    >
+                      <Wifi className="w-4 h-4 text-emerald-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-emerald-300">Агент онлайн</p>
+                      <p className="text-xs text-slate-500">
+                        Последний heartbeat{" "}
+                        {new Date(lastSeenAt!).toLocaleString("ru-RU")}
+                      </p>
+                    </div>
+                  </div>
+                  {pcSpecs && (pcSpecs.cpu || pcSpecs.gpu || pcSpecs.ramGb) && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-slate-400">
+                      {pcSpecs.cpu && <div>CPU: <span className="text-slate-300">{pcSpecs.cpu}</span></div>}
+                      {pcSpecs.gpu && <div>GPU: <span className="text-slate-300">{pcSpecs.gpu}</span></div>}
+                      {pcSpecs.ramGb != null && (
+                        <div>RAM: <span className="text-slate-300">{pcSpecs.ramGb} ГБ</span></div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            if (seenOnce) {
+              return (
+                <div className="flex items-center gap-3 py-2">
+                  <div
+                    className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ background: "rgba(245,158,11,0.1)" }}
+                  >
+                    <WifiOff className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-300">Агент офлайн</p>
+                    <p className="text-xs text-slate-500">
+                      Был на связи {new Date(lastSeenAt!).toLocaleString("ru-RU")}. Запустите десктопный агент.
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div className="flex items-center gap-3 py-2">
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: "rgba(248,113,113,0.1)" }}
+                >
+                  <WifiOff className="w-4 h-4 text-red-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-300">
+                    Агент не привязан
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Привяжите десктопный агент, чтобы здесь отображались спецификации вашего ПК.
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 
@@ -761,6 +926,8 @@ function AccountTab({ hostToken }: { hostToken: string | null }) {
 
 export default function ProfilePage() {
   const { hostToken } = useAuth();
+  const { playerWalletToken } = usePlayerWallet();
+  const walletToken = playerWalletToken ?? hostToken ?? null;
   const isHost = !!hostToken;
   const search = useSearch();
   const params = new URLSearchParams(search);
@@ -850,7 +1017,7 @@ export default function ProfilePage() {
           )}
 
           <TabsContent value="history">
-            <HistoryTab hostToken={hostToken} />
+            <HistoryTab walletToken={walletToken} />
           </TabsContent>
 
           <TabsContent value="account">

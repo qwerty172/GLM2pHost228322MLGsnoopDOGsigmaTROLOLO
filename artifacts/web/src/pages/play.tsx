@@ -6,11 +6,12 @@ import {
   useClaimSession,
   useGetWallet,
   getGetWalletQueryKey,
+  getSessionByInvite,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Gamepad2, AlertCircle, ArrowLeft, Loader2, Wifi, WifiOff, VolumeX, Wallet, Banknote, Coins, Clock, TrendingDown, Activity, RefreshCw, Clapperboard, Settings2, X, Layers, ExternalLink, FlaskConical } from "lucide-react";
+import { Gamepad2, AlertCircle, Loader2, Wifi, WifiOff, VolumeX, Clock, TrendingDown, Activity, RefreshCw, Clapperboard, Settings2, X, Layers, ExternalLink, FlaskConical } from "lucide-react";
 import { WebGLVideoShader, SHADER_PRESETS, type PresetKey } from "@/components/webgl-video-shader";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -20,6 +21,43 @@ import { usePlayerWallet } from "@/hooks/use-player-wallet";
 
 const LZT_PER_USDT = 200;
 type PaymentSource = "auto" | "blue" | "green";
+
+const isDev = import.meta.env.DEV;
+const devLog = (...args: unknown[]) => {
+  if (isDev) console.log(...args);
+};
+const devWarn = (...args: unknown[]) => {
+  if (isDev) console.warn(...args);
+};
+
+function mapClaimError(err: unknown): string {
+  const raw =
+    err instanceof Error
+      ? err.message
+      : typeof err === "string"
+        ? err
+        : typeof err === "object" && err && "message" in err
+          ? String((err as { message: unknown }).message)
+          : "";
+  const lower = raw.toLowerCase();
+  if (/insufficient|balance|недостаточно|exhausted/i.test(raw) || lower.includes("balance")) {
+    return "Недостаточно средств на кошельке. Пополни баланс и попробуй снова.";
+  }
+  if (/already.?claimed|уже занят|claimed/i.test(raw)) {
+    return "Сессия уже занята другим игроком.";
+  }
+  if (/host.?offline|host_offline|хост оффлайн/i.test(raw)) {
+    return "Хост сейчас офлайн. Выбери другого или попробуй позже.";
+  }
+  if (/not.?found|404|не найден/i.test(raw)) {
+    return "Сессия не найдена или уже завершена.";
+  }
+  if (/rate.?limit|too many/i.test(raw)) {
+    return "Слишком много попыток. Подожди немного и попробуй снова.";
+  }
+  if (raw.trim()) return raw;
+  return "Не удалось занять сессию. Попробуй ещё раз.";
+}
 
 // ---------------------------------------------------------------------------
 // IframeTestSession — renders a browser-hosted game URL inside an iframe.
@@ -106,6 +144,8 @@ function IframeTestSession({ iframeUrl, gameTitle }: { iframeUrl: string; gameTi
         className="flex-1 w-full border-0"
         style={{ minHeight: "100vh" }}
         allow="autoplay; fullscreen; keyboard-map"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"
+        referrerPolicy="no-referrer"
         title={`Тест: ${gameTitle}`}
       />
     </div>
@@ -113,8 +153,55 @@ function IframeTestSession({ iframeUrl, gameTitle }: { iframeUrl: string; gameTi
 }
 
 export default function Play() {
-  const [, params] = useRoute("/play/:playerToken");
-  const playerToken = params?.playerToken || "";
+  const [isInviteRoute, inviteParams] = useRoute("/play/i/:inviteCode");
+  const [, tokenParams] = useRoute("/play/:playerToken");
+  const inviteCode = isInviteRoute ? (inviteParams?.inviteCode ?? "") : "";
+  const [resolvedToken, setResolvedToken] = useState("");
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(!!inviteCode);
+
+  // Resolve invite → playerToken in-place (no separate spinner page).
+  useEffect(() => {
+    if (!inviteCode) {
+      setInviteLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setInviteLoading(true);
+    setInviteError(null);
+    void (async () => {
+      try {
+        const data = await getSessionByInvite(inviteCode);
+        if (cancelled) return;
+        if (!data.playerToken) {
+          setInviteError("В ответе нет токена игрока — приглашение повреждено");
+          setInviteLoading(false);
+          return;
+        }
+        setResolvedToken(data.playerToken);
+        setInviteLoading(false);
+      } catch (err) {
+        if (cancelled) return;
+        const apiErr = err as { status?: number; data?: { error?: string; message?: string } };
+        setInviteError(
+          apiErr.data?.message ||
+            (apiErr.data?.error === "invite_expired"
+              ? "Ссылка-приглашение истекла"
+              : apiErr.status === 404
+                ? "Приглашение не найдено"
+                : "Ошибка сети"),
+        );
+        setInviteLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [inviteCode]);
+
+  const playerToken = inviteCode
+    ? resolvedToken
+    : (tokenParams?.playerToken || "");
   const search$ = useSearch();
   const blockMinutesParam = (() => {
     const sp = new URLSearchParams(search$);
@@ -126,7 +213,7 @@ export default function Play() {
     query: {
       enabled: !!playerToken,
       queryKey: getGetSessionByPlayerTokenQueryKey(playerToken),
-      refetchInterval: 8000,
+      refetchInterval: 20_000,
     }
   });
 
@@ -138,8 +225,7 @@ export default function Play() {
 
   const { playerWalletToken, registerGuest } = usePlayerWallet();
 
-  // Auto-register a guest account when a user lands directly on /play/:playerToken
-  // without having gone through the landing page or game-detail "Play" button.
+  // Auto-register a guest account when a user lands directly on /play without a wallet.
   useEffect(() => {
     if (!playerWalletToken) {
       void registerGuest();
@@ -157,13 +243,13 @@ export default function Play() {
   const [claimError, setClaimError] = useState<string | null>(null);
   const [hasClaimed, setHasClaimed] = useState(false);
   const [paymentSource, setPaymentSource] = useState<PaymentSource>("auto");
+  const [showPaymentOptions, setShowPaymentOptions] = useState(false);
 
   const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>("new");
   const [isPlaying, setIsPlaying] = useState(false);
   const [showAudioPrompt, setShowAudioPrompt] = useState(false);
   const [iceType, setIceType] = useState<"relay" | "srflx" | "host" | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
-  const [longDisconnect, setLongDisconnect] = useState(false);
   const [e2eRtt, setE2eRtt] = useState<number | null>(null);
   const [dataChannelOpen, setDataChannelOpen] = useState(false);
   const [isSavingClip, setIsSavingClip] = useState(false);
@@ -214,8 +300,14 @@ export default function Play() {
 
   // Block-time billing state
   const [blockMinsLeft, setBlockMinsLeft] = useState<number | null>(null);
-  const [showBlockExpiredModal, setShowBlockExpiredModal] = useState(false);
+  const [renewBlockLoading, setRenewBlockLoading] = useState(false);
   const blockWarningShownRef = useRef(false);
+  /** Нижняя панель — без полноэкранных оверлеев, игра остаётся кликабельной. */
+  type PlayDock = "none" | "block_hint" | "block_end" | "rating" | "host_offline" | "balance" | "disconnect";
+  const [playDock, setPlayDock] = useState<PlayDock>("none");
+  const [ratingScore, setRatingScore] = useState(5);
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
+  const ratingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -250,33 +342,50 @@ export default function Play() {
     ratePerSecLztRef.current = rateLztPerMin / 60;
   }, [wallet, session]);
 
-  // Tick every second to drain the estimated balance
+  // Tick balance estimate every 5s (was 1s — лишние ре-рендеры)
   useEffect(() => {
     if (!isPlaying) return;
     const id = setInterval(() => {
       setEstimatedBalanceLzt((prev) => {
         if (prev === null) return prev;
-        return Math.max(0, prev - ratePerSecLztRef.current);
+        return Math.max(0, prev - ratePerSecLztRef.current * 5);
       });
-    }, 1000);
+    }, 5000);
     return () => clearInterval(id);
   }, [isPlaying]);
 
-  // Detect host_offline, balance_exhausted, and block_expired end reasons
+  // Подсказки по завершению сессии — только нижняя панель, без блокирующих модалок
   useEffect(() => {
     if (!session) return;
     const reason = (session as typeof session & { endReason?: string | null }).endReason ?? null;
     sessionEndReasonRef.current = reason;
+
     if (session.status === "ended" && isPlaying) {
       if (reason === "host_offline") {
-        toast.error("Хост отключился. Списания остановлены.");
+        toast.error("Хост отключился");
+        setPlayDock("host_offline");
       } else if (reason === "balance_exhausted") {
-        toast.error("Баланс исчерпан. Сессия завершена.");
+        toast.error("Баланс исчерпан");
+        setPlayDock("balance");
       } else if (reason === "block_expired") {
-        setShowBlockExpiredModal(true);
+        setPlayDock("block_end");
       }
     }
-  }, [session?.status, (session as typeof session & { endReason?: string | null })?.endReason, isPlaying]);
+
+    if (session.status === "ended" && hasClaimed && !ratingSubmitted && reason !== "host_offline") {
+      if (ratingTimerRef.current) clearTimeout(ratingTimerRef.current);
+      ratingTimerRef.current = setTimeout(() => {
+        setPlayDock((d) => (d === "none" ? "rating" : d));
+      }, 5000);
+    }
+
+    return () => {
+      if (ratingTimerRef.current) {
+        clearTimeout(ratingTimerRef.current);
+        ratingTimerRef.current = null;
+      }
+    };
+  }, [session?.status, (session as typeof session & { endReason?: string | null })?.endReason, isPlaying, ratingSubmitted, hasClaimed]);
 
   // Initialize block countdown from session data when session loads
   useEffect(() => {
@@ -300,6 +409,16 @@ export default function Play() {
     }, 60_000);
     return () => clearInterval(id);
   }, [blockMinsLeft === null, isPlaying]);
+
+  // Низкий остаток блока — компактная панель снизу (не перекрывает экран)
+  useEffect(() => {
+    if (!isPlaying || session?.status === "ended") return;
+    if (blockMinsLeft !== null && blockMinsLeft <= 5 && blockMinsLeft > 0) {
+      setPlayDock((d) => (d === "none" || d === "block_hint" ? "block_hint" : d));
+    } else if (blockMinsLeft !== null && blockMinsLeft > 5) {
+      setPlayDock((d) => (d === "block_hint" ? "none" : d));
+    }
+  }, [blockMinsLeft, isPlaying, session?.status]);
 
   const cleanupConnection = useCallback(() => {
     if (iceRestartTimerRef.current) { clearTimeout(iceRestartTimerRef.current); iceRestartTimerRef.current = null; }
@@ -331,7 +450,7 @@ export default function Play() {
     setIsPlaying(false);
     setConnectionState("closed");
     setReconnecting(false);
-    setLongDisconnect(false);
+    setPlayDock((d) => (d === "disconnect" ? "none" : d));
     setE2eRtt(null);
     setDataChannelOpen(false);
   }, []);
@@ -433,9 +552,9 @@ export default function Play() {
       };
       recorder.start(1000);
       mediaRecorderRef.current = recorder;
-      console.log("[clip] Recorder started, mimeType:", mimeType);
+      devLog("[clip] Recorder started, mimeType:", mimeType);
     } catch (err) {
-      console.warn("[clip] MediaRecorder init failed:", err);
+      devWarn("[clip] MediaRecorder init failed:", err);
     }
   }, []);
 
@@ -452,7 +571,7 @@ export default function Play() {
           body: formData,
         });
         if (res.ok) {
-          console.log("[clip] Uploaded to platform storage");
+          devLog("[clip] Uploaded to platform storage");
           return;
         }
       } catch {
@@ -471,9 +590,9 @@ export default function Play() {
       const s3Key = localStorage.getItem("clipS3Key");
       if (s3Key) headers["x-api-key"] = s3Key;
       await fetch(uploadUrl, { method: "PUT", headers, body: blob });
-      console.log("[clip] Uploaded to custom S3:", uploadUrl);
+      devLog("[clip] Uploaded to custom S3:", uploadUrl);
     } catch (err) {
-      console.warn("[clip] Custom S3 upload failed:", err);
+      devWarn("[clip] Custom S3 upload failed:", err);
     }
   }, [playerWalletToken]);
 
@@ -506,7 +625,7 @@ export default function Play() {
 
       toast.success(`Клип сохранён (${Math.round(blob.size / 1024)} KB)`);
     } catch (err) {
-      console.error("[clip] Save failed:", err);
+      if (isDev) console.error("[clip] Save failed:", err);
       toast.error("Не удалось сохранить клип");
     } finally {
       setIsSavingClip(false);
@@ -522,9 +641,9 @@ export default function Play() {
       const offer = await pc.createOffer({ iceRestart: true });
       await pc.setLocalDescription(offer);
       ws.send(JSON.stringify({ type: "offer", sdp: { type: offer.type, sdp: offer.sdp } }));
-      console.log("[ice-restart] Sent re-offer to host");
+      devLog("[ice-restart] Sent re-offer to host");
     } catch (err) {
-      console.warn("[ice-restart] Failed to create re-offer:", err);
+      devWarn("[ice-restart] Failed to create re-offer:", err);
     }
   }, []);
 
@@ -600,10 +719,18 @@ export default function Play() {
           }
         } else if (type === "block-expired") {
           setBlockMinsLeft(0);
-          setShowBlockExpiredModal(true);
+          toast.info("Время блока закончилось");
+          // Полноэкранную панель покажем когда API подтвердит status=ended
+        } else if (type === "block-renewed") {
+          const total = (msg["blockMinutes"] as number) ?? null;
+          const added = (msg["addedMinutes"] as number) ?? 0;
+          if (total != null) setBlockMinsLeft(total);
+          blockWarningShownRef.current = false;
+          setPlayDock("none");
+          toast.success(`Блок продлён на ${added} мин`);
         }
       } catch (err) {
-        console.error("Error handling WS message", err);
+        if (isDev) console.error("Error handling WS message", err);
       }
     };
 
@@ -616,7 +743,7 @@ export default function Play() {
       // Exponential backoff: 1s → 2s → 4s → 8s (cap).
       const delay = wsReconnectDelayRef.current;
       wsReconnectDelayRef.current = Math.min(delay * 2, 8000);
-      console.log(`[ws] Disconnected — reconnecting in ${delay}ms`);
+      devLog(`[ws] Disconnected — reconnecting in ${delay}ms`);
       wsReconnectTimerRef.current = setTimeout(() => {
         connectWs(url, pc);
       }, delay);
@@ -624,15 +751,19 @@ export default function Play() {
   }, [cleanupConnection, setupDataChannel, triggerIceRestart]);
 
   const startConnection = useCallback(async () => {
-    if (!playerToken || startedRef.current) return;
+    // Wallet must be ready before we latch startedRef — otherwise a missing
+    // token permanently blocks WebRTC for this page load.
+    if (!playerToken || !playerWalletToken || startedRef.current) return;
     startedRef.current = true;
 
     setIsPlaying(true);
     setConnectionState("connecting");
 
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    if (!playerWalletToken) return;
-    const wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&playerToken=${playerToken}&playerWalletToken=${playerWalletToken}`;
+    // NOTE (P0 #21): signaling still authenticates via query-string tokens.
+    // Prefer a short-lived HTTP ticket / post-upgrade auth once the API supports
+    // it — do not move tokens out of the query until then, or signaling breaks.
+    const wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&playerToken=${encodeURIComponent(playerToken)}&playerWalletToken=${encodeURIComponent(playerWalletToken)}`;
     wsUrlRef.current = wsUrl;
 
     // Fetch ICE server config (STUN + optional TURN) from the API.
@@ -646,7 +777,7 @@ export default function Play() {
         }
       }
     } catch {
-      console.warn("[ice] Failed to fetch ICE config, using default STUN only");
+      devWarn("[ice] Failed to fetch ICE config, using default STUN only");
     }
 
     const pc = new RTCPeerConnection({ iceServers });
@@ -658,7 +789,6 @@ export default function Play() {
         // Cleared reconnecting state on successful reconnect.
         setReconnecting(false);
         if (longDisconnectTimerRef.current) { clearTimeout(longDisconnectTimerRef.current); longDisconnectTimerRef.current = null; }
-        setLongDisconnect(false);
         // Log the ICE candidate type for diagnostics.
         void pc.getStats().then((stats) => {
           stats.forEach((report) => {
@@ -668,7 +798,7 @@ export default function Play() {
                 if (r.id === localId && r.type === "local-candidate") {
                   const t = r.candidateType as string;
                   const mapped = t === "relay" ? "relay" : t === "srflx" ? "srflx" : "host";
-                  console.log(`[ice] connection type: ${mapped}`);
+                  devLog(`[ice] connection type: ${mapped}`);
                   setIceType(mapped as "relay" | "srflx" | "host");
                 }
               });
@@ -683,7 +813,7 @@ export default function Play() {
     // ICE-level disconnect handling: wait 3s then attempt restart.
     pc.oniceconnectionstatechange = () => {
       const state = pc.iceConnectionState;
-      console.log(`[ice] iceConnectionState: ${state}`);
+      devLog(`[ice] iceConnectionState: ${state}`);
 
       if (state === "disconnected") {
         setReconnecting(true);
@@ -697,7 +827,7 @@ export default function Play() {
         // Show "Переподключиться" modal after 30 seconds of no recovery.
         if (longDisconnectTimerRef.current) clearTimeout(longDisconnectTimerRef.current);
         longDisconnectTimerRef.current = setTimeout(() => {
-          setLongDisconnect(true);
+          setPlayDock((d) => (d === "none" || d === "block_hint" ? "disconnect" : d));
         }, 30000);
       } else if (state === "failed") {
         // Immediate restart attempt on failed (more severe than disconnected).
@@ -707,14 +837,14 @@ export default function Play() {
 
         if (longDisconnectTimerRef.current) clearTimeout(longDisconnectTimerRef.current);
         longDisconnectTimerRef.current = setTimeout(() => {
-          setLongDisconnect(true);
+          setPlayDock((d) => (d === "none" || d === "block_hint" ? "disconnect" : d));
         }, 30000);
       } else if (state === "connected" || state === "completed") {
         // Clear reconnect state on recovery.
         if (iceRestartTimerRef.current) { clearTimeout(iceRestartTimerRef.current); iceRestartTimerRef.current = null; }
         if (longDisconnectTimerRef.current) { clearTimeout(longDisconnectTimerRef.current); longDisconnectTimerRef.current = null; }
         setReconnecting(false);
-        setLongDisconnect(false);
+        setPlayDock((d) => (d === "disconnect" ? "none" : d));
       }
     };
 
@@ -765,13 +895,8 @@ export default function Play() {
           setClaimError(null);
         },
         onError: (err: unknown) => {
-          const msg =
-            err instanceof Error
-              ? err.message
-              : typeof err === "string"
-                ? err
-                : "Failed to claim session";
-          setClaimError(msg);
+          setClaimError(mapClaimError(err));
+          setShowPaymentOptions(true);
         },
       },
     );
@@ -783,6 +908,7 @@ export default function Play() {
       session &&
       session.status !== "ended" &&
       hasClaimed &&
+      playerWalletToken &&
       !startedRef.current &&
       !isTestBrowserSession
     ) {
@@ -792,16 +918,79 @@ export default function Play() {
       cleanupConnection();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.id, hasClaimed, isTestBrowserSession]);
+  }, [session?.id, hasClaimed, isTestBrowserSession, playerWalletToken]);
 
   const handleEnableAudio = () => {
     if (videoRef.current) {
       videoRef.current.muted = false;
       videoRef.current.play().then(() => {
         setShowAudioPrompt(false);
-      }).catch(console.error);
+      }).catch(() => {
+        /* autoplay still blocked */
+      });
     }
   };
+
+  const renewBlock = useCallback(
+    async (minutes: 10 | 15 | 25) => {
+      if (!playerToken || !playerWalletToken || renewBlockLoading) return;
+      setRenewBlockLoading(true);
+      try {
+        const res = await fetch(
+          `${import.meta.env.BASE_URL}api/sessions/by-player-token/${encodeURIComponent(playerToken)}/renew-block`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ playerWalletToken, blockMinutes: minutes }),
+          },
+        );
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast.error(data.error || "Не удалось продлить блок");
+          return;
+        }
+        const bm = data.blockMinutes as number | undefined;
+        if (bm != null) setBlockMinsLeft(bm);
+        setPlayDock("none");
+        blockWarningShownRef.current = false;
+        toast.success(`Блок продлён на ${minutes} мин`);
+      } catch {
+        toast.error("Ошибка сети");
+      } finally {
+        setRenewBlockLoading(false);
+      }
+    },
+    [playerToken, playerWalletToken, renewBlockLoading],
+  );
+
+  const submitRating = useCallback(async () => {
+    if (!session?.id || !playerWalletToken || ratingSubmitted) return;
+    try {
+      const res = await fetch(
+        `${import.meta.env.BASE_URL}api/sessions/${session.id}/rate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            playerWalletToken,
+            score: ratingScore,
+          }),
+        },
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.error !== "already_rated") {
+          toast.error("Не удалось отправить оценку");
+          return;
+        }
+      }
+      setRatingSubmitted(true);
+      setPlayDock((d) => (d === "rating" ? "none" : d));
+      toast.success("Спасибо за оценку!");
+    } catch {
+      toast.error("Ошибка сети");
+    }
+  }, [session?.id, playerWalletToken, ratingScore, ratingSubmitted]);
 
   // Input Capture
   useEffect(() => {
@@ -1013,13 +1202,44 @@ export default function Play() {
     return () => clearInterval(id);
   }, [isPlaying, adaptiveBitrate, showStatsOverlay, dataChannelOpen]);
 
-  if (isLoading) {
+  if (inviteError) {
     return (
       <div
-        className="min-h-screen flex items-center justify-center"
+        className="min-h-screen flex items-center justify-center p-4"
+        style={{ background: "#06090e" }}
+      >
+        <Card
+          className="w-full max-w-md"
+          style={{
+            background: "rgba(239,68,68,0.05)",
+            border: "1px solid rgba(239,68,68,0.3)",
+          }}
+        >
+          <CardHeader className="text-center">
+            <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
+            <CardTitle className="text-white">Приглашение недоступно</CardTitle>
+            <CardDescription className="text-slate-500">{inviteError}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <Link href="/hosts">
+              <Button variant="outline" className="border-white/15 text-slate-300">
+                К хостам
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (inviteLoading || !playerToken || isLoading) {
+    return (
+      <div
+        className="min-h-screen flex flex-col items-center justify-center gap-3"
         style={{ background: "#06090e" }}
       >
         <Loader2 className="h-8 w-8 animate-spin text-sky-400" />
+        <p className="text-sm text-slate-400">Подключаемся…</p>
       </div>
     );
   }
@@ -1068,6 +1288,7 @@ export default function Play() {
   if (!isPlaying) {
     const greenLzt = wallet?.withdrawableBalanceLzt ?? 0;
     const blueLzt = wallet?.internalBalanceLzt ?? 0;
+    // Claim принимает только green/blue — не суммируем с кредитным лимитом.
     const totalLzt = greenLzt + blueLzt;
     const ratePerMinUsd = session.ratePerMinute;
     const ratePerMinLzt = Math.round(ratePerMinUsd * LZT_PER_USDT);
@@ -1079,11 +1300,65 @@ export default function Play() {
           : totalLzt;
     const minutesAffordable =
       ratePerMinLzt > 0 ? Math.floor(sourceBalance / ratePerMinLzt) : 0;
-    const sourceLabel: Record<PaymentSource, string> = {
-      auto: "Авто (сначала «К выводу», потом игровой)",
-      green: "Баланс «К выводу»",
-      blue: "Игровой баланс",
+    const needsTopUp =
+      ratePerMinLzt > 0 && sourceBalance < ratePerMinLzt && !hasClaimed;
+    const connecting =
+      !needsTopUp &&
+      !claimError &&
+      (!playerWalletToken || claimSession.isPending || hasClaimed || session.status !== "ended");
+
+    const s = session as typeof session & {
+      gameCoverImageUrl?: string | null;
+      gameTitle?: string | null;
     };
+    const cover = s.gameCoverImageUrl
+      ? s.gameCoverImageUrl.startsWith("http")
+        ? s.gameCoverImageUrl
+        : `${import.meta.env.BASE_URL}${s.gameCoverImageUrl.replace(/^\//, "")}`
+      : null;
+
+    // Happy path: fullscreen «Подключаемся…» without payment radios.
+    if (connecting && !showPaymentOptions) {
+      return (
+        <div
+          className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 relative overflow-hidden"
+          style={{ background: "#06090e" }}
+        >
+          <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_center,rgba(14,165,233,0.12),transparent_55%)]" />
+          {cover && (
+            <div
+              className="relative z-10 w-24 h-32 rounded-xl overflow-hidden mb-2"
+              style={{ border: "1px solid rgba(255,255,255,0.08)" }}
+            >
+              <img
+                src={cover}
+                alt={s.gameTitle || session.appName}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+          <h1 className="relative z-10 text-xl font-bold text-white text-center">
+            {s.gameTitle || session.appName}
+          </h1>
+          <div className="relative z-10 flex items-center gap-2 text-sky-400">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-sm font-medium">
+              {!playerWalletToken
+                ? "Создаём кошелёк…"
+                : claimSession.isPending || !hasClaimed
+                  ? "Занимаем сессию…"
+                  : "Подключаемся…"}
+            </span>
+          </div>
+          {ratePerMinLzt > 0 && (
+            <p className="relative z-10 text-xs text-slate-500">
+              {ratePerMinLzt} LZT/мин · {session.resolution} · {session.bitrateKbps} кбит/с
+            </p>
+          )}
+        </div>
+      );
+    }
+
     return (
       <div
         className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
@@ -1097,48 +1372,26 @@ export default function Play() {
             border: "1px solid rgba(14,165,233,0.2)",
           }}
         >
-          <CardHeader className="text-center pb-6">
-            {(() => {
-              const s = session as typeof session & { gameSlug?: string | null; gameCoverImageUrl?: string | null; gameTitle?: string | null };
-              const cover = s.gameCoverImageUrl
-                ? s.gameCoverImageUrl.startsWith("http")
-                  ? s.gameCoverImageUrl
-                  : `${import.meta.env.BASE_URL}${s.gameCoverImageUrl.replace(/^\//, "")}`
-                : null;
-              return cover ? (
-                <div className="w-28 h-36 mx-auto mb-4 rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <img src={cover} alt={s.appName} className="w-full h-full object-cover" />
-                </div>
-              ) : (
-                <Gamepad2 className="h-16 w-16 text-sky-400 mx-auto mb-6" />
-              );
-            })()}
-            {(() => {
-              const s = session as typeof session & { gameSlug?: string | null };
-              return s.gameSlug ? (
-                <Link href={`/games/${s.gameSlug}`}>
-                  <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-sky-400 transition-colors cursor-pointer mb-2">
-                    <ArrowLeft className="h-3 w-3" />
-                    К игре
-                  </span>
-                </Link>
-              ) : null;
-            })()}
-            <CardTitle className="text-3xl font-bold tracking-tight mb-2 text-white">
-              {(session as any).gameTitle || session.appName}
+          <CardHeader className="text-center pb-4">
+            {cover ? (
+              <div
+                className="w-28 h-36 mx-auto mb-4 rounded-xl overflow-hidden"
+                style={{ border: "1px solid rgba(255,255,255,0.08)" }}
+              >
+                <img src={cover} alt={s.appName} className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <Gamepad2 className="h-16 w-16 text-sky-400 mx-auto mb-6" />
+            )}
+            <CardTitle className="text-2xl font-bold tracking-tight mb-2 text-white">
+              {s.gameTitle || session.appName}
             </CardTitle>
             <div className="flex items-center justify-center gap-2 text-xs text-slate-500 font-mono flex-wrap">
-              <Badge
-                variant="outline"
-                className="border-white/10 text-slate-400"
-              >
+              <Badge variant="outline" className="border-white/10 text-slate-400">
                 {session.resolution}
               </Badge>
-              <Badge
-                variant="outline"
-                className="border-white/10 text-slate-400"
-              >
-                {session.bitrateKbps} kbps
+              <Badge variant="outline" className="border-white/10 text-slate-400">
+                {session.bitrateKbps} кбит/с
               </Badge>
               {(session as any).isTest ? (
                 <Badge
@@ -1149,131 +1402,66 @@ export default function Play() {
                   Тест-сессия · бесплатно
                 </Badge>
               ) : (
-                <>
-                  <Badge
-                    variant="outline"
-                    className="border-sky-400/30 text-sky-300"
-                  >
-                    {ratePerMinLzt} LZT/мин
-                  </Badge>
-                  <Badge
-                    variant="outline"
-                    className="border-white/10 text-slate-500 text-[10px]"
-                  >
-                    ≈ ${ratePerMinUsd.toFixed(4)}/мин
-                  </Badge>
-                </>
+                <Badge variant="outline" className="border-sky-400/30 text-sky-300">
+                  {ratePerMinLzt} LZT/мин
+                </Badge>
               )}
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-2">
-              <div
-                className="rounded-lg p-3"
-                style={{
-                  background: "rgba(14,165,233,0.1)",
-                  border: "1px solid rgba(14,165,233,0.3)",
-                }}
-              >
-                <div className="text-[10px] uppercase text-sky-300 flex items-center gap-1">
-                  <Wallet className="h-3 w-3" /> Игровой
-                </div>
-                <div className="font-bold font-mono text-sky-300">
-                  {blueLzt.toLocaleString("ru-RU")} LZT
-                </div>
-                <div className="text-[10px] text-slate-500">
-                  ≈ ${(blueLzt / LZT_PER_USDT).toFixed(2)}
-                </div>
-              </div>
-              <div
-                className="rounded-lg p-3"
-                style={{
-                  background: "rgba(16,185,129,0.1)",
-                  border: "1px solid rgba(16,185,129,0.3)",
-                }}
-              >
-                <div className="text-[10px] uppercase text-emerald-300 flex items-center gap-1">
-                  <Banknote className="h-3 w-3" /> К выводу
-                </div>
-                <div className="font-bold font-mono text-emerald-300">
-                  {greenLzt.toLocaleString("ru-RU")} LZT
-                </div>
-                <div className="text-[10px] text-slate-500">
-                  ≈ ${(greenLzt / LZT_PER_USDT).toFixed(2)}
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                <Coins className="h-3 w-3" /> Источник оплаты
-              </Label>
-              <RadioGroup
-                value={paymentSource}
-                onValueChange={(v) => setPaymentSource(v as PaymentSource)}
-                className="grid grid-cols-3 gap-2"
-                disabled={hasClaimed}
-              >
-                {(["auto", "green", "blue"] as PaymentSource[]).map((s) => (
-                  <div key={s}>
-                    <RadioGroupItem value={s} id={`src-${s}`} className="peer sr-only" />
-                    <Label
-                      htmlFor={`src-${s}`}
-                      className="flex flex-col items-center justify-center rounded-md p-2 cursor-pointer transition-all text-center text-xs text-slate-300"
-                      style={{
-                        background:
-                          paymentSource === s
-                            ? "rgba(14,165,233,0.12)"
-                            : "rgba(255,255,255,0.02)",
-                        border:
-                          paymentSource === s
-                            ? "2px solid #0ea5e9"
-                            : "2px solid rgba(255,255,255,0.06)",
-                      }}
-                    >
-                      <span className="font-bold capitalize">
-                        {s === "auto" ? "Авто" : s === "green" ? "К выводу" : "Игровой"}
-                      </span>
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
-              <p className="text-[10px] text-slate-500">
-                {sourceLabel[paymentSource]} · ~{minutesAffordable} мин игры
+            <div className="rounded-lg p-3 text-center" style={{ background: "rgba(255,255,255,0.03)" }}>
+              <p className="text-xs text-slate-500 mb-1">Доступно (игровой + к выводу)</p>
+              <p className="text-lg font-mono font-bold text-white">
+                {totalLzt.toLocaleString("ru-RU")} LZT
               </p>
+              {ratePerMinLzt > 0 && (
+                <p className="text-[11px] text-slate-500 mt-1">~{minutesAffordable} мин игры</p>
+              )}
             </div>
 
-            <div
-              className="flex items-center justify-between p-4 rounded-lg"
-              style={{
-                background: "rgba(255,255,255,0.02)",
-                border: "1px solid rgba(255,255,255,0.06)",
-              }}
-            >
-              <div className="text-sm font-medium text-slate-400">
-                Статус хоста
+            {(claimError || showPaymentOptions) && (
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  className="text-xs text-sky-400 hover:text-sky-300"
+                  onClick={() => setShowPaymentOptions((v) => !v)}
+                >
+                  {showPaymentOptions ? "Скрыть способ оплаты" : "Выбрать способ оплаты"}
+                </button>
+                {showPaymentOptions && (
+                  <RadioGroup
+                    value={paymentSource}
+                    onValueChange={(v) => setPaymentSource(v as PaymentSource)}
+                    className="grid grid-cols-3 gap-2"
+                    disabled={hasClaimed}
+                  >
+                    {(["auto", "green", "blue"] as PaymentSource[]).map((src) => (
+                      <div key={src}>
+                        <RadioGroupItem value={src} id={`src-${src}`} className="peer sr-only" />
+                        <Label
+                          htmlFor={`src-${src}`}
+                          className="flex flex-col items-center justify-center rounded-md p-2 cursor-pointer text-xs text-slate-300"
+                          style={{
+                            background:
+                              paymentSource === src
+                                ? "rgba(14,165,233,0.12)"
+                                : "rgba(255,255,255,0.02)",
+                            border:
+                              paymentSource === src
+                                ? "2px solid #0ea5e9"
+                                : "2px solid rgba(255,255,255,0.06)",
+                          }}
+                        >
+                          <span className="font-bold">
+                            {src === "auto" ? "Авто" : src === "green" ? "К выводу" : "Игровой"}
+                          </span>
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                )}
               </div>
-              <Badge
-                variant="outline"
-                style={{
-                  background:
-                    session.status === "active"
-                      ? "rgba(20,184,166,0.15)"
-                      : "rgba(255,255,255,0.04)",
-                  color: session.status === "active" ? "#2dd4bf" : "#94a3b8",
-                  border:
-                    session.status === "active"
-                      ? "1px solid rgba(20,184,166,0.3)"
-                      : "1px solid rgba(255,255,255,0.08)",
-                }}
-              >
-                {session.status === "active"
-                  ? "АКТИВЕН"
-                  : session.status === "pending"
-                    ? "ОЖИДАНИЕ"
-                    : "ЗАВЕРШЁН"}
-              </Badge>
-            </div>
+            )}
 
             {claimError && (
               <div
@@ -1287,21 +1475,11 @@ export default function Play() {
                 {claimError}
               </div>
             )}
-            {!playerWalletToken || claimSession.isPending ? (
-              <Button
-                className="w-full h-14 text-base font-bold"
-                disabled
-                style={{ background: "rgba(14,165,233,0.2)", color: "#fff" }}
-              >
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                {playerWalletToken
-                  ? "Подключаемся к сессии…"
-                  : "Создаём кошелёк…"}
-              </Button>
-            ) : sourceBalance < ratePerMinLzt && !hasClaimed ? (
+
+            {needsTopUp ? (
               <Link href="/wallet" className="block">
                 <Button
-                  className="w-full h-14 text-base font-bold"
+                  className="w-full h-12 text-base font-bold"
                   style={{ background: "#0ea5e9", color: "#fff" }}
                 >
                   Пополнить кошелёк
@@ -1309,14 +1487,25 @@ export default function Play() {
               </Link>
             ) : (
               <Button
-                className="w-full h-14 text-base font-bold"
+                className="w-full h-12 text-base font-bold"
                 style={{ background: "#0ea5e9", color: "#fff" }}
-                onClick={() => void startConnection()}
-                disabled={session.status === "ended"}
+                onClick={() => {
+                  setClaimError(null);
+                  setShowPaymentOptions(false);
+                  void startConnection();
+                }}
+                disabled={session.status === "ended" || claimSession.isPending}
               >
-                {session.status === "ended"
-                  ? "Сессия завершена"
-                  : "Подключиться и играть"}
+                {claimSession.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Подключаемся…
+                  </>
+                ) : session.status === "ended" ? (
+                  "Сессия завершена"
+                ) : (
+                  "Подключиться и играть"
+                )}
               </Button>
             )}
           </CardContent>
@@ -1327,107 +1516,149 @@ export default function Play() {
 
   return (
     <div className="min-h-screen bg-black flex flex-col relative overflow-hidden select-none">
-      {/* Host offline modal */}
-      {session?.status === "ended" && (session as typeof session & { endReason?: string | null }).endReason === "host_offline" && (
-        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <Card className="w-full max-w-sm mx-4" style={{ background: "#0a1018", border: "1px solid rgba(239,68,68,0.4)" }}>
-            <CardHeader className="text-center pb-2">
-              <WifiOff className="h-10 w-10 text-red-400 mx-auto mb-3" />
-              <CardTitle className="text-white">Хост отключился</CardTitle>
-              <CardDescription className="text-slate-400">
-                Сессия завершена автоматически. Деньги не списывались с момента пропажи связи.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Link href="/games">
-                <Button className="w-full" style={{ background: "#0ea5e9", color: "#fff" }}>
-                  <ArrowLeft className="h-4 w-4 mr-2" /> Назад в каталог
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Компактная нижняя панель — не блокирует игру и клики по экрану */}
+      {playDock !== "none" && (
+        <div
+          className="fixed bottom-0 left-0 right-0 z-[60] px-3 pb-3 pt-2 pointer-events-auto"
+          style={{ background: "linear-gradient(transparent, rgba(0,0,0,0.85) 24%)" }}
+        >
+          <div
+            className="max-w-lg mx-auto rounded-xl border px-4 py-3 shadow-lg"
+            style={{ background: "#0c1420", borderColor: "rgba(255,255,255,0.1)" }}
+          >
+            {playDock === "block_hint" && (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-amber-200">Скоро конец блока</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Осталось ~{blockMinsLeft ?? "?"} мин — продли, чтобы не обрывалось
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    disabled={renewBlockLoading}
+                    style={{ background: "#0ea5e9", color: "#fff" }}
+                    onClick={() => void renewBlock(15)}
+                  >
+                    +15 мин
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-white/15 text-slate-300"
+                    onClick={() => setPlayDock("none")}
+                  >
+                    Ок
+                  </Button>
+                </div>
+              </div>
+            )}
 
-      {/* Block expired modal */}
-      {showBlockExpiredModal && (
-        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <Card className="w-full max-w-sm mx-4" style={{ background: "#0a1018", border: "1px solid rgba(14,165,233,0.4)" }}>
-            <CardHeader className="text-center pb-2">
-              <Clock className="h-10 w-10 text-sky-400 mx-auto mb-3" />
-              <CardTitle className="text-white">Время блока истекло</CardTitle>
-              <CardDescription className="text-slate-400">
-                Оплаченный блок игрового времени использован. Неиспользованные LZT возвращены на баланс.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              <Link href="/games">
-                <Button className="w-full" style={{ background: "#0ea5e9", color: "#fff" }}>
-                  <ArrowLeft className="h-4 w-4 mr-2" /> В каталог
-                </Button>
-              </Link>
-              <Button variant="outline" className="w-full border-white/10 text-slate-300" onClick={() => setShowBlockExpiredModal(false)}>
-                Закрыть
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            {playDock === "block_end" && (
+              <div className="flex flex-col gap-2">
+                <p className="text-sm text-slate-200">Время блока закончилось</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    disabled={renewBlockLoading}
+                    style={{ background: "#0ea5e9", color: "#fff" }}
+                    onClick={() => void renewBlock(15)}
+                  >
+                    Продлить 15 мин
+                  </Button>
+                  <Link href="/games">
+                    <Button size="sm" variant="outline" className="border-white/15 text-slate-300">
+                      В каталог
+                    </Button>
+                  </Link>
+                  <Button size="sm" variant="ghost" className="text-slate-500" onClick={() => setPlayDock("none")}>
+                    Закрыть
+                  </Button>
+                </div>
+              </div>
+            )}
 
-      {/* Balance exhausted modal */}
-      {session?.status === "ended" && (session as typeof session & { endReason?: string | null }).endReason === "balance_exhausted" && (
-        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <Card className="w-full max-w-sm mx-4" style={{ background: "#0a1018", border: "1px solid rgba(234,179,8,0.4)" }}>
-            <CardHeader className="text-center pb-2">
-              <Coins className="h-10 w-10 text-yellow-400 mx-auto mb-3" />
-              <CardTitle className="text-white">Баланс исчерпан</CardTitle>
-              <CardDescription className="text-slate-400">
-                Сессия завершена — на балансе не хватило LZT для следующей минуты.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              <Link href="/wallet">
-                <Button className="w-full" style={{ background: "#0ea5e9", color: "#fff" }}>
-                  Пополнить кошелёк
-                </Button>
-              </Link>
-              <Link href="/games">
-                <Button variant="outline" className="w-full border-white/10 text-slate-300">
-                  <ArrowLeft className="h-4 w-4 mr-2" /> В каталог
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            {playDock === "host_offline" && (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <p className="text-sm text-red-300 flex-1">Хост отключился — списания остановлены</p>
+                <Link href="/games">
+                  <Button size="sm" style={{ background: "#0ea5e9", color: "#fff" }}>В каталог</Button>
+                </Link>
+              </div>
+            )}
 
-      {/* Long disconnect modal — shown after >30s of failed reconnect */}
-      {longDisconnect && (
-        <div className="absolute inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <Card className="w-full max-w-sm mx-4" style={{ background: "#0a1018", border: "1px solid rgba(234,179,8,0.4)" }}>
-            <CardHeader className="text-center pb-2">
-              <WifiOff className="h-10 w-10 text-yellow-400 mx-auto mb-3" />
-              <CardTitle className="text-white">Соединение потеряно</CardTitle>
-              <CardDescription className="text-slate-400">
-                Не удаётся восстановить связь с хостом. Попробуй переподключиться.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              <Button
-                className="w-full"
-                style={{ background: "#0ea5e9", color: "#fff" }}
-                onClick={() => {
-                  setLongDisconnect(false);
-                  if (pcRef.current) void triggerIceRestart(pcRef.current);
-                }}
-              >
-                <RefreshCw className="h-4 w-4 mr-2" /> Переподключиться
-              </Button>
-              <Button variant="outline" className="w-full border-white/10 text-slate-300" onClick={cleanupConnection}>
-                <ArrowLeft className="h-4 w-4 mr-2" /> Завершить сессию
-              </Button>
-            </CardContent>
-          </Card>
+            {playDock === "balance" && (
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm text-yellow-200 flex-1 min-w-[140px]">Баланс исчерпан</p>
+                <Link href="/wallet">
+                  <Button size="sm" style={{ background: "#0ea5e9", color: "#fff" }}>Пополнить</Button>
+                </Link>
+                <Link href="/games">
+                  <Button size="sm" variant="outline" className="border-white/15 text-slate-300">Каталог</Button>
+                </Link>
+              </div>
+            )}
+
+            {playDock === "disconnect" && (
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm text-yellow-200 flex-1 min-w-[140px]">Связь с хостом пропала</p>
+                <Button
+                  size="sm"
+                  style={{ background: "#0ea5e9", color: "#fff" }}
+                  onClick={() => {
+                    setPlayDock("none");
+                    if (pcRef.current) void triggerIceRestart(pcRef.current);
+                  }}
+                >
+                  <RefreshCw className="h-3.5 w-3.5 mr-1 inline" />
+                  Переподключить
+                </Button>
+                <Button size="sm" variant="ghost" className="text-slate-400" onClick={cleanupConnection}>
+                  Выйти
+                </Button>
+              </div>
+            )}
+
+            {playDock === "rating" && (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm text-slate-200">Оцени сессию</p>
+                  <button
+                    type="button"
+                    className="text-slate-500 hover:text-slate-300 text-xs"
+                    onClick={() => {
+                      setRatingSubmitted(true);
+                      setPlayDock("none");
+                    }}
+                  >
+                    Пропустить
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1.5 flex-1">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        className={`w-9 h-9 rounded-lg border text-sm font-medium ${
+                          ratingScore === n
+                            ? "border-sky-400 bg-sky-500/25 text-white"
+                            : "border-white/10 text-slate-400 hover:border-white/25"
+                        }`}
+                        onClick={() => setRatingScore(n)}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                  <Button size="sm" style={{ background: "#0ea5e9", color: "#fff" }} onClick={() => void submitRating()}>
+                    Отправить
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1504,7 +1735,7 @@ export default function Play() {
           const blockBorder = isDanger ? "rgba(239,68,68,0.4)" : isWarning ? "rgba(234,179,8,0.35)" : "rgba(34,197,94,0.3)";
           return (
             <div
-              className="flex items-center gap-2 rounded-lg px-3 py-1.5 pointer-events-none"
+              className="flex items-center gap-2 rounded-lg px-3 py-1.5 pointer-events-auto"
               style={{ background: blockBg, border: `1px solid ${blockBorder}` }}
             >
               {isDanger && <TrendingDown className="w-3.5 h-3.5 animate-pulse" style={{ color: blockColor }} />}
@@ -2008,15 +2239,18 @@ export default function Play() {
         )}
 
         {showAudioPrompt && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-30 pointer-events-auto">
+          <div className="fixed bottom-20 left-0 right-0 z-40 flex justify-center pointer-events-none px-4">
             <Button
-              size="lg"
-              onClick={handleEnableAudio}
-              className="font-bold gap-2 shadow-xl hover:scale-105 transition-transform"
+              size="sm"
+              onClick={() => {
+                handleEnableAudio();
+                toast.message("Звук включён");
+              }}
+              className="pointer-events-auto font-medium gap-2 shadow-lg"
               style={{ background: "#0ea5e9", color: "#fff" }}
             >
-              <VolumeX className="h-5 w-5" />
-              Включить звук
+              <VolumeX className="h-4 w-4" />
+              Нажмите для звука
             </Button>
           </div>
         )}

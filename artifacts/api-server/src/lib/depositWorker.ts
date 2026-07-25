@@ -5,6 +5,7 @@ import {
   depositsTable,
 } from "@workspace/db";
 import { logger } from "./logger";
+import { isWalletCryptoEnabled } from "./encryption";
 import { applyDepositCents, creditDevKeyDeposit } from "./economy";
 
 const POLL_INTERVAL_MS = Number(
@@ -23,8 +24,14 @@ let interval: NodeJS.Timeout | null = null;
 // Guard against overlapping runs: if a poll is still in flight when the next
 // tick fires, skip it instead of stacking concurrent external calls.
 let isPolling = false;
-// Per-network cooldown: timestamp (ms) until which a network is paused.
-const networkCooldownUntil: Record<string, number> = {};
+// Per-address cooldown: timestamp (ms) until which a specific deposit address
+// is paused after a 429. Keyed by `${network}:${address}` so one SOL wallet's
+// rate-limit does not block every other SOL address.
+const addressCooldownUntil: Record<string, number> = {};
+
+function cooldownKey(network: string, address: string): string {
+  return `${network}:${address}`;
+}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -248,8 +255,9 @@ async function pollOnce(): Promise<void> {
       )
         continue;
 
-      // Honour per-network cooldown after a 429.
-      const cooldown = networkCooldownUntil[addr.currency] ?? 0;
+      // Honour per-address cooldown after a 429 (not whole-currency).
+      const key = cooldownKey(addr.network, addr.address);
+      const cooldown = addressCooldownUntil[key] ?? 0;
       if (Date.now() < cooldown) continue;
 
       // Throttle: space out external calls (skip the delay before the first).
@@ -264,10 +272,15 @@ async function pollOnce(): Promise<void> {
       madeRequest = true;
 
       if (result.rateLimited) {
-        networkCooldownUntil[addr.currency] = Date.now() + RATE_LIMIT_COOLDOWN_MS;
+        addressCooldownUntil[key] = Date.now() + RATE_LIMIT_COOLDOWN_MS;
         logger.warn(
-          { currency: addr.currency, cooldownMs: RATE_LIMIT_COOLDOWN_MS },
-          "Deposit RPC rate-limited — backing off network",
+          {
+            currency: addr.currency,
+            network: addr.network,
+            address: addr.address,
+            cooldownMs: RATE_LIMIT_COOLDOWN_MS,
+          },
+          "Deposit RPC rate-limited — backing off address",
         );
         continue;
       }
@@ -294,13 +307,25 @@ export function startDepositWorker(): void {
     logger.info("Deposit worker disabled (WALLET_DEPOSIT_POLLING=off)");
     return;
   }
+  if (!isWalletCryptoEnabled()) {
+    logger.info(
+      "Deposit worker disabled (WALLET_ENCRYPTION_KEY not configured)",
+    );
+    return;
+  }
   logger.info({ intervalMs: POLL_INTERVAL_MS }, "Starting deposit worker");
   interval = setInterval(() => {
     void pollOnce().catch((err) => {
       logger.error({ err }, "Deposit poll loop crashed");
     });
   }, POLL_INTERVAL_MS);
-  setTimeout(() => void pollOnce().catch(() => {}), 10_000);
+  setTimeout(
+    () =>
+      void pollOnce().catch((err) => {
+        logger.error({ err }, "Initial deposit poll failed");
+      }),
+    10_000,
+  );
 }
 
 export function stopDepositWorker(): void {

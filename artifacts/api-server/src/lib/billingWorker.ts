@@ -15,7 +15,6 @@ import { usdtToLztRound, pickPlayerBucket } from "./lzt";
 import { sendSignalingMessage } from "./signaling";
 import {
   computeQuotaEffect,
-  creditOwnerGreen,
   decrementEscrow,
   recordQuotaMovement,
   bumpQuotaSessionTotals,
@@ -26,7 +25,10 @@ import {
   creditPayoutToUser,
   writeLedger,
 } from "./economy";
+import { countSessionMinutesUsed, refundBlockRemainder } from "./sessionBilling";
 import { randomUUID } from "node:crypto";
+
+export { refundBlockRemainder, countSessionMinutesUsed };
 
 const BILLING_INTERVAL_MS = 60_000;
 let interval: NodeJS.Timeout | null = null;
@@ -54,45 +56,28 @@ async function outstandingHostServiceLzt(
   return Number(rows[0]?.s ?? 0);
 }
 
-// Refund unused block reserve back to the player's bucket.
-// Called when a block session ends early (player exits before blockMinutes exhausted).
-async function refundBlockRemainder(
+/** Atomically claim a billing slot so multi-instance workers cannot double-bill. */
+async function claimBillingSlot(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
-  session: typeof sessionsTable.$inferSelect,
-  minutesUsed: number,
-): Promise<void> {
-  if (!session.blockMinutes || !session.blockReservedLzt || !session.claimedByPlayerId) return;
-  const costPerMinute = Math.round(session.blockReservedLzt / session.blockMinutes);
-  const costUsed = minutesUsed * costPerMinute;
-  const refundLzt = Math.max(0, session.blockReservedLzt - costUsed);
-  if (refundLzt <= 0) return;
-
-  // Determine which bucket was used (based on paymentSource). On "auto" we
-  // prefer green, matching the claim-time reservation logic.
-  const bucket = session.paymentSource === "blue" ? "balance" : "green";
-  const col = bucket === "green" ? playersTable.withdrawableBalanceLzt : playersTable.internalBalanceLzt;
-  await tx
-    .update(playersTable)
-    .set(
-      bucket === "green"
-        ? { withdrawableBalanceLzt: sql`${col} + ${refundLzt}` }
-        : { internalBalanceLzt: sql`${col} + ${refundLzt}` },
+  sessionId: string,
+  cutoff: Date,
+  now: Date,
+): Promise<boolean> {
+  const claimed = await tx
+    .update(sessionsTable)
+    .set({ lastBilledAt: now })
+    .where(
+      and(
+        eq(sessionsTable.id, sessionId),
+        eq(sessionsTable.status, "active"),
+        or(
+          isNull(sessionsTable.lastBilledAt),
+          lte(sessionsTable.lastBilledAt, cutoff),
+        ),
+      ),
     )
-    .where(eq(playersTable.id, session.claimedByPlayerId));
-  await writeLedger(tx, [
-    {
-      groupId: randomUUID(),
-      kind: "block_refund",
-      ownerType: "player",
-      ownerId: session.claimedByPlayerId,
-      bucket: bucket === "green" ? "cash" : "balance",
-      deltaLzt: refundLzt,
-      refType: "session",
-      refId: session.id,
-      note: `block refund: ${minutesUsed}/${session.blockMinutes} мин использовано`,
-    },
-  ]);
-  logger.info({ sessionId: session.id, refundLzt, minutesUsed }, "Block remainder refunded");
+    .returning({ id: sessionsTable.id });
+  return claimed.length > 0;
 }
 
 // Overlap guard: a billing cycle that runs long (DB contention) must not stack
@@ -147,6 +132,11 @@ async function billOnceInner(): Promise<void> {
     if (session.devKeyId) {
       try {
         const ended = await db.transaction(async (tx) => {
+          // Claim first so another API instance cannot bill the same tick.
+          if (!(await claimBillingSlot(tx, session.id, cutoff, now))) {
+            return false;
+          }
+
           const [key] = await tx
             .select({
               blue: devKeysTable.internalBalanceLzt,
@@ -232,10 +222,6 @@ async function billOnceInner(): Promise<void> {
             },
           ]);
 
-          await tx
-            .update(sessionsTable)
-            .set({ lastBilledAt: now })
-            .where(eq(sessionsTable.id, session.id));
           return false;
         });
 
@@ -255,6 +241,11 @@ async function billOnceInner(): Promise<void> {
 
     try {
       const ended = await db.transaction(async (tx) => {
+        // Claim first so another API instance cannot bill the same tick.
+        if (!(await claimBillingSlot(tx, session.id, cutoff, now))) {
+          return false;
+        }
+
         const quota = session.quotaId
           ? (
               await tx
@@ -264,17 +255,8 @@ async function billOnceInner(): Promise<void> {
             )[0] ?? null
           : null;
 
-        const ticksRow = await tx
-          .select({ n: sql<number>`count(*)::int` })
-          .from(billingEventsTable)
-          .where(
-            and(
-              eq(billingEventsTable.sessionId, session.id),
-              eq(billingEventsTable.kind, "session_tick"),
-              eq(billingEventsTable.bucket, "green"),
-            ),
-          );
-        const minutesInto = Number(ticksRow[0]?.n ?? 0) + 1;
+        // +1 for the tick we are about to record (includes credit ticks).
+        const minutesInto = (await countSessionMinutesUsed(tx, session.id)) + 1;
 
         const quotaActive = quota && isQuotaActiveNow(quota, now);
         const effect = quotaActive
@@ -292,6 +274,63 @@ async function billOnceInner(): Promise<void> {
 
         const playerDebitLzt = costLzt + royaltyFromPlayer;
         const hostNetLzt = Math.max(0, costLzt - royaltyFromHost);
+
+        // ---------- Prepaid block sessions ----------
+        // Player was debited blockReservedLzt at claim; pay the host each tick
+        // from that reserve without further player balance debits.
+        if (session.blockMinutes && session.blockReservedLzt) {
+          if (minutesInto >= session.blockMinutes) {
+            await tx
+              .update(sessionsTable)
+              .set({
+                status: "ended",
+                endedAt: now,
+                endReason: "block_expired",
+                lastBilledAt: now,
+              })
+              .where(eq(sessionsTable.id, session.id));
+            return "block_expired";
+          }
+
+          const payoutSplit = await creditPayoutToUser(tx, {
+            ownerType: "host",
+            ownerId: session.hostId,
+            amountLzt: hostNetLzt,
+            kind: "session_tick",
+            refType: "session",
+            refId: session.id,
+          });
+
+          await tx.insert(billingEventsTable).values([
+            {
+              sessionId: session.id,
+              hostId: session.hostId,
+              playerId: session.claimedByPlayerId!,
+              minutes: 1,
+              bucket: "green",
+              playerDebitLzt: 0,
+              hostCreditLzt: payoutSplit.cash,
+              kind: "session_tick",
+            },
+            {
+              sessionId: session.id,
+              hostId: session.hostId,
+              playerId: session.claimedByPlayerId!,
+              minutes: 1,
+              bucket: "blue",
+              playerDebitLzt: 0,
+              hostCreditLzt: payoutSplit.balance,
+              kind: "session_tick",
+            },
+          ]);
+
+          const minsLeft = session.blockMinutes - minutesInto;
+          await tx
+            .update(sessionsTable)
+            .set({ lastBilledAt: now })
+            .where(eq(sessionsTable.id, session.id));
+          return { blockWarning: minsLeft === 2 };
+        }
 
         const [player] = await tx
           .select({
@@ -435,10 +474,18 @@ async function billOnceInner(): Promise<void> {
                 hostCreditLzt: 0,
                 kind: "session_tick_credit",
               });
-              await tx
-                .update(sessionsTable)
-                .set({ lastBilledAt: now })
-                .where(eq(sessionsTable.id, session.id));
+              // Block sessions on credit still consume reserved minutes.
+              if (session.blockMinutes && minutesInto >= session.blockMinutes) {
+                await tx
+                  .update(sessionsTable)
+                  .set({
+                    status: "ended",
+                    endedAt: now,
+                    endReason: "block_expired",
+                  })
+                  .where(eq(sessionsTable.id, session.id));
+                return "block_expired";
+              }
               return false;
             }
           }
@@ -634,6 +681,11 @@ async function billOnceInner(): Promise<void> {
           }
         }
 
+        await tx
+          .update(sessionsTable)
+          .set({ lastBilledAt: now })
+          .where(eq(sessionsTable.id, session.id));
+
         // ---------- Block expiry check ----------
         // For block sessions: check if minutesInto >= blockMinutes.
         // If yes, end the session (block exhausted, reserve already fully used).
@@ -643,23 +695,15 @@ async function billOnceInner(): Promise<void> {
             // Block fully consumed. End the session; no refund needed (all minutes used).
             await tx
               .update(sessionsTable)
-              .set({ status: "ended", endedAt: now, endReason: "block_expired", lastBilledAt: now })
+              .set({ status: "ended", endedAt: now, endReason: "block_expired" })
               .where(eq(sessionsTable.id, session.id));
             return "block_expired";
           }
           // Send 2-minute warning to the player via signaling room.
           const minsLeft = session.blockMinutes - minutesInto;
-          await tx
-            .update(sessionsTable)
-            .set({ lastBilledAt: now })
-            .where(eq(sessionsTable.id, session.id));
           return { blockWarning: minsLeft === 2 };
         }
 
-        await tx
-          .update(sessionsTable)
-          .set({ lastBilledAt: now })
-          .where(eq(sessionsTable.id, session.id));
         return false;
       });
 
@@ -667,12 +711,11 @@ async function billOnceInner(): Promise<void> {
         logger.info({ sessionId: session.id }, "Block session expired — block time exhausted");
         // Notify the player via signaling
         sendSignalingMessage(session.id, { type: "block-expired" });
-      } else if (ended && typeof ended === "object" && "lastBilledAt" in ended) {
-        // Normal tick — update lastBilledAt outside the transaction (already done above)
-        if ((ended as any).blockWarning) {
+      } else if (ended && typeof ended === "object" && "blockWarning" in ended) {
+        if ((ended as { blockWarning?: boolean }).blockWarning) {
           sendSignalingMessage(session.id, { type: "block-warning", minsLeft: 2 });
         }
-      } else if (ended) {
+      } else if (ended === true) {
         logger.info(
           { sessionId: session.id },
           "Session ended — player out of LZT and no host-service credit available",
@@ -705,7 +748,13 @@ export function startBillingWorker(): void {
       logger.error({ err }, "Billing loop crashed");
     });
   }, BILLING_INTERVAL_MS);
-  setTimeout(() => void billOnce().catch(() => {}), 5_000);
+  setTimeout(
+    () =>
+      void billOnce().catch((err) => {
+        logger.error({ err }, "Initial billing tick failed");
+      }),
+    5_000,
+  );
 }
 
 export function stopBillingWorker(): void {

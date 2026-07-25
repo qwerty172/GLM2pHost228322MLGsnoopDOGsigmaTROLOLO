@@ -13,13 +13,13 @@ export interface Wallet {
   ownerType: string;
   ownerId: string;
   displayName: string;
-  /** Legacy alias of balanceLzt (синий, internal LZT). */
+  /** Legacy alias of balanceLzt (СЃРёРЅРёР№, internal LZT). */
   internalBalanceLzt: number;
-  /** Legacy alias of cashLzt (зелёный, withdrawable LZT). */
+  /** Legacy alias of cashLzt (Р·РµР»С‘РЅС‹Р№, withdrawable LZT). */
   withdrawableBalanceLzt: number;
-  /** Синий — internal LZT, earns weekly interest, pays internal services & premium. */
+  /** РЎРёРЅРёР№ вЂ” internal LZT, earns weekly interest, pays internal services & premium. */
   balanceLzt: number;
-  /** Зелёный — convertible to crypto at 200:1 and withdrawable. */
+  /** Р—РµР»С‘РЅС‹Р№ вЂ” convertible to crypto at 200:1 and withdrawable. */
   cashLzt: number;
   /** Gaming credit line in LZT (default 3000 = $15). Player can play past zero balance up to this limit. */
   creditLimitLzt: number;
@@ -32,7 +32,7 @@ export interface Wallet {
    * @nullable
    */
   premiumUntil?: Date | null;
-  /** Lifetime deposit volume in USDT cents — drives the tariff tier. */
+  /** Lifetime deposit volume in USDT cents вЂ” drives the tariff tier. */
   lifetimeDepositUsdtCents: number;
   pendingWithdrawalsLzt: number;
   lztPerUsdt: number;

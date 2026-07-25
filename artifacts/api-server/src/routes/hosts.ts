@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and, sql, isNull as drizzleIsNull } from "drizzle-orm";
+import { eq, desc, and, sql, isNull as drizzleIsNull, inArray } from "drizzle-orm";
 import { z } from "zod/v4";
 import {
   db,
@@ -27,17 +27,19 @@ import {
 } from "@workspace/api-zod";
 import { generateToken } from "../lib/tokens";
 import { ensureDepositAddressesForOwner } from "../lib/walletOwner";
-import { encryptSecret } from "../lib/encryption";
+import { encryptSecret, decryptSecret, isWalletCryptoEnabled } from "../lib/encryption";
 import { headerUserToken } from "../lib/requestToken";
+import { hostTokenFromRequest, requireHost } from "../lib/hostAuth";
 import {
   listLibrary,
   addToLibrary,
   updateEntry,
   removeFromLibrary,
 } from "../lib/hostLibrary";
-import { generalHostTier } from "../lib/hostTier";
+import { generalHostTier, computeHostTier, specsFromPcSpecs, BASELINE_REC, BASELINE_MIN, type TierThresholds } from "../lib/hostTier";
 import { isQuotaActiveNow } from "../lib/quotaEngine";
-import { rateLimit, ipKey } from "../lib/rateLimit";
+import { rateLimit, ipKey, failedAttemptGuard } from "../lib/rateLimit";
+import type { Request, Response } from "express";
 
 const router: IRouter = Router();
 
@@ -47,6 +49,13 @@ const hostRegisterLimiter = rateLimit({
   scope: "hosts:register",
   windowMs: 60 * 60_000,
   max: 10,
+  keyFn: ipKey,
+});
+
+const hostReadLimiter = rateLimit({
+  scope: "hosts:read",
+  windowMs: 60_000,
+  max: 60,
   keyFn: ipKey,
 });
 
@@ -125,11 +134,10 @@ router.post("/hosts/register", hostRegisterLimiter, async (req, res): Promise<vo
     req.log.error({ err, hostId: host.id }, "Failed to provision host deposit addresses");
   }
   req.log.info({ hostId: host.id }, "Host registered");
-  // Bypass strict Zod parse — serializeHost includes extra fields not yet in the generated schema.
-  res.status(201).json(serializeHost(host));
+  res.status(201).json(GetHostResponse.parse(serializeHost(host)));
 });
 
-router.get("/hosts/:hostToken", async (req, res): Promise<void> => {
+router.get("/hosts/:hostToken", hostReadLimiter, failedAttemptGuard("hosts:read"), async (req, res): Promise<void> => {
   const params = GetHostParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -146,16 +154,14 @@ router.get("/hosts/:hostToken", async (req, res): Promise<void> => {
     return;
   }
 
-  // Bypass strict Zod parse — serializeHost includes extra fields not yet in the generated schema.
-  res.json(serializeHost(host));
+  res.json(GetHostResponse.parse(serializeHost(host)));
 });
 
-router.patch("/hosts/:hostToken/config", async (req, res): Promise<void> => {
-  const params = GetHostParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
+async function applyHostConfigUpdate(
+  req: Request,
+  res: Response,
+  existing: typeof hostsTable.$inferSelect,
+): Promise<void> {
   const parsed = UpdateHostConfigBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -208,14 +214,14 @@ router.patch("/hosts/:hostToken/config", async (req, res): Promise<void> => {
   if (body.boundUrl !== undefined) {
     const trimmed = body.boundUrl.trim();
     if (trimmed.length > 0) {
-      let parsed: URL;
+      let parsedUrl: URL;
       try {
-        parsed = new URL(trimmed);
+        parsedUrl = new URL(trimmed);
       } catch {
         res.status(400).json({ error: "boundUrl must be a valid http(s) URL" });
         return;
       }
-      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
         res.status(400).json({ error: "boundUrl must use http or https" });
         return;
       }
@@ -223,7 +229,7 @@ router.patch("/hosts/:hostToken/config", async (req, res): Promise<void> => {
         res.status(400).json({ error: "boundUrl too long" });
         return;
       }
-      normalizedBoundUrl = parsed.toString();
+      normalizedBoundUrl = parsedUrl.toString();
     } else {
       normalizedBoundUrl = "";
     }
@@ -260,15 +266,6 @@ router.patch("/hosts/:hostToken/config", async (req, res): Promise<void> => {
     normalizedTags = out;
   }
 
-  const [existing] = await db
-    .select()
-    .from(hostsTable)
-    .where(eq(hostsTable.hostToken, params.data.hostToken));
-  if (!existing) {
-    res.status(404).json({ error: "Host not found" });
-    return;
-  }
-
   // Validate gameId references a real catalog entry when provided.
   if (body.gameId) {
     const [game] = await db
@@ -303,6 +300,13 @@ router.patch("/hosts/:hostToken/config", async (req, res): Promise<void> => {
   if (body.streamPlatform !== undefined) update.streamPlatform = body.streamPlatform;
   if (body.streamUrl !== undefined) update.streamUrl = body.streamUrl;
   if (body.streamKey !== undefined) {
+    if (body.streamKey !== "" && !isWalletCryptoEnabled()) {
+      res.status(503).json({
+        error: "encryption_unavailable",
+        message: "Шифрование не настроено (WALLET_ENCRYPTION_KEY)",
+      });
+      return;
+    }
     update.streamKey = body.streamKey === "" ? "" : encryptSecret(body.streamKey);
   }
   // Host service credit policy.
@@ -328,7 +332,7 @@ router.patch("/hosts/:hostToken/config", async (req, res): Promise<void> => {
   }
 
   if (Object.keys(update).length === 0) {
-    res.json(serializeHost(existing));
+    res.json(GetHostResponse.parse(serializeHost(existing)));
     return;
   }
 
@@ -344,8 +348,43 @@ router.patch("/hosts/:hostToken/config", async (req, res): Promise<void> => {
   }
 
   req.log.info({ hostId: updated.id, fields: Object.keys(update) }, "Host config updated");
-  // Bypass strict Zod parse — serializeHost includes extra fields not yet in the generated schema.
-  res.json(serializeHost(updated));
+  res.json(GetHostResponse.parse(serializeHost(updated)));
+}
+
+// Preferred path: token stays in Authorization / X-Host-Token, never in the URL.
+router.patch("/hosts/me/config", async (req, res): Promise<void> => {
+  const auth = await requireHost(req);
+  if (!auth.ok) {
+    res.status(auth.status).json({ error: auth.error });
+    return;
+  }
+  await applyHostConfigUpdate(req, res, auth.host);
+});
+
+// Legacy path: still accepted, but header auth is mandatory and must match the path token.
+router.patch("/hosts/:hostToken/config", async (req, res): Promise<void> => {
+  const params = GetHostParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const headerTok = hostTokenFromRequest(req);
+  if (!headerTok || headerTok !== params.data.hostToken) {
+    res.status(401).json({
+      error: "host_auth_required",
+      message: "Use PATCH /hosts/me/config with Authorization: Bearer <hostToken>",
+    });
+    return;
+  }
+  const [existing] = await db
+    .select()
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, params.data.hostToken));
+  if (!existing) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+  await applyHostConfigUpdate(req, res, existing);
 });
 
 router.get(
@@ -374,12 +413,10 @@ router.get(
       .orderBy(desc(sessionsTable.createdAt));
 
     res.json(
-      sessions.map((s) =>
-        ListHostSessionsResponseItem.parse({
-          ...s,
-          ratePerMinute: Number(s.ratePerMinute),
-        }),
-      ),
+      sessions.map((s) => ({
+        ...s,
+        ratePerMinute: Number(s.ratePerMinute),
+      })),
     );
   },
 );
@@ -1055,17 +1092,17 @@ router.post("/hosts/me/speedtest", async (req, res): Promise<void> => {
   res.json({ ok: true, uploadMbps });
 });
 
-// List players who have an open host_service debt to this host.
-// Returns each debtor with their current outstanding amount and
-// how much has already been streamed back.
-router.get("/hosts/:hostToken/debtors", async (req, res): Promise<void> => {
-  const hostToken = req.params.hostToken;
+// GET /hosts/me/speedtest/download — agent measures download throughput.
+router.get("/hosts/me/speedtest/download", async (req, res): Promise<void> => {
+  const hostToken =
+    (req.headers["x-host-token"] as string | undefined) ??
+    (req.headers["x-token"] as string | undefined);
   if (!hostToken) {
-    res.status(400).json({ error: "hostToken required" });
+    res.status(400).json({ error: "X-Host-Token header required" });
     return;
   }
   const [host] = await db
-    .select({ id: hostsTable.id })
+    .select()
     .from(hostsTable)
     .where(eq(hostsTable.hostToken, hostToken));
   if (!host) {
@@ -1073,6 +1110,33 @@ router.get("/hosts/:hostToken/debtors", async (req, res): Promise<void> => {
     return;
   }
 
+  const bytesParam = Number(req.query.bytes ?? 512 * 1024);
+  const bytes = Number.isFinite(bytesParam)
+    ? Math.min(Math.max(bytesParam, 64 * 1024), 2 * 1024 * 1024)
+    : 512 * 1024;
+
+  const started = Date.now();
+  const payload = Buffer.alloc(bytes, 0x5a);
+  res.setHeader("Content-Type", "application/octet-stream");
+  res.setHeader("Content-Length", String(bytes));
+  res.send(payload);
+
+  const elapsedMs = Date.now() - started;
+  const downloadMbps =
+    elapsedMs > 0 ? Math.round((bytes * 8) / elapsedMs / 1000) : null;
+  if (downloadMbps !== null && downloadMbps > 0) {
+    const existing = (host.pcSpecs ?? {}) as Record<string, unknown>;
+    void db
+      .update(hostsTable)
+      .set({ pcSpecs: { ...existing, downloadMbps } as typeof host.pcSpecs })
+      .where(eq(hostsTable.id, host.id));
+  }
+});
+
+async function listHostDebtors(
+  res: Response,
+  hostId: string,
+): Promise<void> {
   const loans = await db
     .select({
       loanId: loansTable.id,
@@ -1083,7 +1147,6 @@ router.get("/hosts/:hostToken/debtors", async (req, res): Promise<void> => {
       status: loansTable.status,
       startedAt: loansTable.startedAt,
       dueAt: loansTable.dueAt,
-      // Player display info
       playerDisplayName: playersTable.displayName,
     })
     .from(loansTable)
@@ -1092,7 +1155,7 @@ router.get("/hosts/:hostToken/debtors", async (req, res): Promise<void> => {
       and(
         eq(loansTable.loanType, "host_service"),
         eq(loansTable.lenderType, "host"),
-        eq(loansTable.lenderId, host.id),
+        eq(loansTable.lenderId, hostId),
         sql`${loansTable.status} in ('active', 'defaulted')`,
       ),
     )
@@ -1112,6 +1175,97 @@ router.get("/hosts/:hostToken/debtors", async (req, res): Promise<void> => {
     })),
     totalOutstandingLzt: loans.reduce((s, l) => s + l.outstandingLzt, 0),
   });
+}
+
+// List players who have an open host_service debt — host auth required (PII).
+router.get("/hosts/me/debtors", async (req, res): Promise<void> => {
+  const auth = await requireHost(req);
+  if (!auth.ok) {
+    res.status(auth.status).json({ error: auth.error });
+    return;
+  }
+  await listHostDebtors(res, auth.host.id);
+});
+
+// Legacy path: header must match path token (token-in-URL alone is rejected).
+router.get("/hosts/:hostToken/debtors", async (req, res): Promise<void> => {
+  const hostToken = req.params.hostToken;
+  if (!hostToken) {
+    res.status(400).json({ error: "hostToken required" });
+    return;
+  }
+  const headerTok = hostTokenFromRequest(req);
+  if (!headerTok || headerTok !== hostToken) {
+    res.status(401).json({
+      error: "host_auth_required",
+      message: "Use GET /hosts/me/debtors with Authorization: Bearer <hostToken>",
+    });
+    return;
+  }
+  const [host] = await db
+    .select({ id: hostsTable.id })
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, hostToken));
+  if (!host) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+  await listHostDebtors(res, host.id);
+});
+
+async function serveStreamRelay(
+  res: Response,
+  host: typeof hostsTable.$inferSelect,
+): Promise<void> {
+  if (!(host.streamUrl ?? "").trim() || !(host.streamKey ?? "").trim()) {
+    res.status(404).json({ error: "Stream relay not configured" });
+    return;
+  }
+  if (!isWalletCryptoEnabled()) {
+    res.status(503).json({ error: "encryption_unavailable" });
+    return;
+  }
+  try {
+    res.json({
+      streamPlatform: host.streamPlatform,
+      streamUrl: host.streamUrl,
+      streamKey: decryptSecret(host.streamKey),
+    });
+  } catch {
+    res.status(500).json({ error: "Failed to decrypt stream key" });
+  }
+}
+
+// Agent-only: decrypted stream credentials — header auth only (never URL token).
+router.get("/hosts/me/stream-relay", async (req, res): Promise<void> => {
+  const auth = await requireHost(req);
+  if (!auth.ok) {
+    res.status(auth.status).json({ error: auth.error });
+    return;
+  }
+  await serveStreamRelay(res, auth.host);
+});
+
+// Legacy path: X-Host-Token / Bearer required and must match path token.
+router.get("/hosts/:hostToken/stream-relay", async (req, res): Promise<void> => {
+  const headerTok = hostTokenFromRequest(req);
+  const pathTok = String(req.params.hostToken ?? "");
+  if (!headerTok || !pathTok || headerTok !== pathTok) {
+    res.status(401).json({
+      error: "host_auth_required",
+      message: "Use GET /hosts/me/stream-relay with X-Host-Token header",
+    });
+    return;
+  }
+  const [host] = await db
+    .select()
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, headerTok));
+  if (!host) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+  await serveStreamRelay(res, host);
 });
 
 router.post("/hosts/heartbeat", async (req, res): Promise<void> => {
@@ -1141,7 +1295,152 @@ router.post("/hosts/heartbeat", async (req, res): Promise<void> => {
     .update(hostsTable)
     .set(update)
     .where(eq(hostsTable.id, host.id));
+  const { emitPlatformEvent } = await import("../lib/pgNotify");
+  void emitPlatformEvent("host_last_seen", { hostId: host.id });
   res.json({ ok: true });
+});
+
+const SteamGameInput = z.object({
+  appId: z.string().regex(/^\d+$/),
+  name: z.string(),
+  bestExePath: z.string().nullable().optional(),
+});
+
+const SteamAutoHostableBody = z.object({
+  steamGames: z.array(SteamGameInput).min(1).max(500),
+});
+
+router.post("/hosts/me/steam-auto-hostable", async (req, res): Promise<void> => {
+  const hostToken = headerUserToken(req) ?? String(req.body?.hostToken ?? "");
+  if (!hostToken) {
+    res.status(401).json({ error: "hostToken required" });
+    return;
+  }
+  const parsed = SteamAutoHostableBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const [host] = await db
+    .select({ id: hostsTable.id, pcSpecs: hostsTable.pcSpecs })
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, hostToken));
+  if (!host) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+
+  const hostSpecs = specsFromPcSpecs(host.pcSpecs);
+  const appIds = parsed.data.steamGames.map((g) => g.appId);
+  const catalogGames = await db
+    .select()
+    .from(gamesTable)
+    .where(inArray(gamesTable.steamAppId, appIds));
+
+  const byAppId = new Map(
+    catalogGames.filter((g) => g.steamAppId).map((g) => [g.steamAppId!, g]),
+  );
+
+  const eligible: Array<{
+    gameId: string;
+    title: string;
+    coverImageUrl: string;
+    appPath: string | null;
+    tier: string;
+    steamAppId: string;
+  }> = [];
+  const skipped: Array<{ appId: string; name: string; reason: string }> = [];
+
+  for (const sg of parsed.data.steamGames) {
+    const game = byAppId.get(sg.appId);
+    if (!game) {
+      skipped.push({ appId: sg.appId, name: sg.name, reason: "not_in_catalog" });
+      continue;
+    }
+
+    const rec = (game.recSpecs ?? BASELINE_REC) as TierThresholds;
+    const min = BASELINE_MIN;
+    const tier = computeHostTier(hostSpecs, min, rec);
+    if (tier !== "above_rec") {
+      skipped.push({
+        appId: sg.appId,
+        name: sg.name,
+        reason: tier === "below_min" ? "below_min" : "meets_min_only",
+      });
+      continue;
+    }
+
+    eligible.push({
+      gameId: game.id,
+      title: game.title,
+      coverImageUrl: game.coverImageUrl,
+      appPath: sg.bestExePath ?? null,
+      tier,
+      steamAppId: sg.appId,
+    });
+  }
+
+  res.json({ eligible, skipped });
+});
+
+const BulkPublishBody = z.object({
+  items: z
+    .array(
+      z.object({
+        gameId: z.string().uuid(),
+        appPath: z.string().optional(),
+        pricePerMinuteLzt: z.number().int().min(0).optional(),
+      }),
+    )
+    .min(1)
+    .max(100),
+});
+
+router.post("/hosts/me/library/bulk-publish", async (req, res): Promise<void> => {
+  const hostToken = headerUserToken(req) ?? String(req.body?.hostToken ?? "");
+  if (!hostToken) {
+    res.status(401).json({ error: "hostToken required" });
+    return;
+  }
+  const parsed = BulkPublishBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const [host] = await db
+    .select({ id: hostsTable.id })
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, hostToken));
+  if (!host) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+
+  const DEFAULT_PRICE_LZT = 10;
+  const added: string[] = [];
+  const skipped: string[] = [];
+
+  for (const item of parsed.data.items) {
+    const price = item.pricePerMinuteLzt ?? DEFAULT_PRICE_LZT;
+    const result = await addToLibrary(host.id, item.gameId, {
+      pricePerMinuteLzt: price,
+      appPath: item.appPath,
+    });
+    if (result.ok) {
+      await updateEntry(host.id, item.gameId, { enabled: true });
+      added.push(item.gameId);
+    } else if (result.status === 409) {
+      await updateEntry(host.id, item.gameId, {
+        enabled: true,
+        ...(item.appPath ? { appPath: item.appPath } : {}),
+      });
+      skipped.push(item.gameId);
+    }
+  }
+
+  res.json({ added, updated: skipped, total: added.length + skipped.length });
 });
 
 export default router;

@@ -12,6 +12,7 @@ import {
 } from "@workspace/db";
 import { addToLibrary } from "../lib/hostLibrary";
 import { rateLimit, ipKey } from "../lib/rateLimit";
+import { timingSafeEqualString } from "../lib/timingSafe";
 
 const router: IRouter = Router();
 
@@ -53,7 +54,7 @@ const requireAdmin: RequestHandler = async (req, res, next) => {
   const providedSecret = Array.isArray(providedSecretRaw)
     ? providedSecretRaw[0]
     : providedSecretRaw;
-  if (!providedSecret || providedSecret !== adminSecret) {
+  if (!providedSecret || !timingSafeEqualString(providedSecret, adminSecret)) {
     res.status(403).json({
       error: "admin_secret_required",
       message: "Missing or invalid X-Admin-Secret header",

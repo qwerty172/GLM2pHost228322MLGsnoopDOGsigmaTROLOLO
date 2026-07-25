@@ -7,6 +7,7 @@ import {
   integer,
   boolean,
   jsonb,
+  index,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -137,6 +138,9 @@ export const hostsTable = pgTable("hosts", {
   // RTT from host agent to the API server, measured during heartbeat (ms).
   // Null until the first heartbeat that includes a ping measurement.
   pingMs: integer("ping_ms"),
+  // Aggregated player ratings (updated when a session is rated).
+  ratingAvg: numeric("rating_avg", { precision: 4, scale: 2 }),
+  ratingCount: integer("rating_count").notNull().default(0),
 
   // Set by the schedule watchdog when it auto-deactivates a "scheduled" host
   // that didn't come online within 10 minutes of its window start. Cleared
@@ -153,7 +157,10 @@ export const hostsTable = pgTable("hosts", {
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (t) => ({
+  // Online-filter / heartbeat scans: hosts lastSeenAt within N minutes.
+  lastSeenAtIdx: index("hosts_last_seen_at_idx").on(t.lastSeenAt),
+}));
 
 export const insertHostSchema = createInsertSchema(hostsTable).omit({
   id: true,

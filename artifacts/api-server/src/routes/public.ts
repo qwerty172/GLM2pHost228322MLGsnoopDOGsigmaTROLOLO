@@ -16,8 +16,28 @@ import {
 import { isHostAvailableNow } from "../lib/schedule";
 import { generalHostTier } from "../lib/hostTier";
 import { mintPreviewToken } from "../lib/signaling";
+import { generateInviteCode, defaultInviteExpiresAt } from "../lib/invites";
+import { rateLimit, ipKey } from "../lib/rateLimit";
 
 const router: IRouter = Router();
+
+const publicSessionsLimiter = rateLimit({
+  scope: "public:sessions",
+  windowMs: 60_000,
+  max: 30,
+  keyFn: ipKey,
+});
+
+const previewSessionLimiter = rateLimit({
+  scope: "public:preview-session",
+  windowMs: 60_000,
+  max: 20,
+  keyFn: ipKey,
+});
+
+/** Per-host cooldown for preview minting (in-memory). */
+const previewHostCooldown = new Map<string, number>();
+const PREVIEW_HOST_COOLDOWN_MS = 5_000;
 
 function urlHostname(url: string | null | undefined): string {
   if (!url) return "";
@@ -196,7 +216,8 @@ router.get("/hosts", async (_req, res): Promise<void> => {
       status: available ? "online" : "scheduled",
       // True when the agent sent a heartbeat within the last 2 minutes.
       isOnline,
-      playerToken: s.playerToken,
+      // Capability URL code — never expose raw playerToken on public lists.
+      inviteCode: s.inviteCode,
       // New: multi-game library entries for this host.
       games,
       // Host-to-server RTT measured at last heartbeat (null until first measurement).
@@ -262,7 +283,7 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
   const sessionRows = await db
     .select({
       hostId: sessionsTable.hostId,
-      playerToken: sessionsTable.playerToken,
+      inviteCode: sessionsTable.inviteCode,
       status: sessionsTable.status,
     })
     .from(sessionsTable)
@@ -274,15 +295,15 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
       ),
     );
 
-  const sessionByHost = new Map<string, string>();
+  const sessionByHost = new Map<string, string | null>();
   for (const s of sessionRows) {
-    if (!sessionByHost.has(s.hostId)) sessionByHost.set(s.hostId, s.playerToken);
+    if (!sessionByHost.has(s.hostId)) sessionByHost.set(s.hostId, s.inviteCode);
   }
 
   const now = new Date();
   const result = libraryRows
     .map(({ hg, host: h }) => {
-      const playerToken = sessionByHost.get(h.id) ?? null;
+      const inviteCode = sessionByHost.get(h.id) ?? null;
       const available = isHostAvailableNow(
         h.scheduleMode,
         h.scheduleJson ?? [],
@@ -295,8 +316,8 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
         description: h.description,
         pricePerMinuteLzt: hg.pricePerMinuteLzt,
         pricePerMinuteUsd: hg.pricePerMinuteLzt / 200,
-        status: playerToken ? "online" : (available ? "available" : "scheduled"),
-        playerToken,
+        status: inviteCode ? "online" : (available ? "available" : "scheduled"),
+        inviteCode,
         scheduleMode: h.scheduleMode,
         // Host-to-server RTT measured at last heartbeat (null until first measurement).
         pingMs: h.pingMs ?? null,
@@ -325,20 +346,11 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
 // ---------------------------------------------------------------------------
 // POST /public/sessions — player-side session request.
 //
-// The player supplies { hostId, gameId? }. We look up the host's active
-// non-ended session (optionally filtered by gameId) and return its
-// playerToken so the caller can navigate to /play/:playerToken.
-//
-// Error codes:
-//   409 — host_busy: host has an active session but it's already occupied
-//         by another player (playerToken is being actively used). Currently
-//         we surface this as the signaling-layer rejection; here we optimise
-//         for returning 503 "not online for this game" until we track
-//         occupancy at the DB layer.
-//   503 — host not online for the requested game (no matching session).
-//   404 — hostId not found.
+// Returns a short-lived inviteCode (not the raw playerToken) so the caller
+// navigates to /play/i/:inviteCode. The invite is exchanged for playerToken
+// via GET /sessions/by-invite/:inviteCode.
 // ---------------------------------------------------------------------------
-router.post("/public/sessions", async (req, res): Promise<void> => {
+router.post("/public/sessions", publicSessionsLimiter, async (req, res): Promise<void> => {
   const hostId = (req.body?.hostId as string | undefined)?.trim() ?? "";
   const gameId = (req.body?.gameId as string | undefined)?.trim() ?? "";
 
@@ -370,7 +382,8 @@ router.post("/public/sessions", async (req, res): Promise<void> => {
 
   const sessions = await db
     .select({
-      playerToken: sessionsTable.playerToken,
+      id: sessionsTable.id,
+      inviteCode: sessionsTable.inviteCode,
       status: sessionsTable.status,
     })
     .from(sessionsTable)
@@ -382,7 +395,7 @@ router.post("/public/sessions", async (req, res): Promise<void> => {
     if (gameId) {
       // Try without game filter — maybe host is online for a different game.
       const fallbackSessions = await db
-        .select({ playerToken: sessionsTable.playerToken })
+        .select({ id: sessionsTable.id })
         .from(sessionsTable)
         .where(
           and(
@@ -403,7 +416,20 @@ router.post("/public/sessions", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json({ playerToken: sessions[0].playerToken });
+  let inviteCode = sessions[0].inviteCode;
+  if (!inviteCode) {
+    // Backfill invite for legacy sessions that predate invite codes.
+    inviteCode = generateInviteCode();
+    await db
+      .update(sessionsTable)
+      .set({
+        inviteCode,
+        inviteExpiresAt: defaultInviteExpiresAt(),
+      })
+      .where(eq(sessionsTable.id, sessions[0].id));
+  }
+
+  res.json({ inviteCode, playPath: `/play/i/${inviteCode}` });
 });
 
 // ---------------------------------------------------------------------------
@@ -416,7 +442,7 @@ router.post("/public/sessions", async (req, res): Promise<void> => {
 //
 // No session record is created — preview is free, muted, view-only.
 // ---------------------------------------------------------------------------
-router.post("/public/preview-session", async (req, res): Promise<void> => {
+router.post("/public/preview-session", previewSessionLimiter, async (req, res): Promise<void> => {
   const hostId = (req.body?.hostId as string | undefined)?.trim() ?? "";
 
   if (!hostId) {
@@ -443,6 +469,18 @@ router.post("/public/preview-session", async (req, res): Promise<void> => {
     res.status(503).json({ error: "host_offline", reason: "Host agent not recently active" });
     return;
   }
+
+  const now = Date.now();
+  const cooledUntil = previewHostCooldown.get(host.id) ?? 0;
+  if (cooledUntil > now) {
+    res.setHeader("Retry-After", String(Math.ceil((cooledUntil - now) / 1000)));
+    res.status(429).json({
+      error: "too_many_requests",
+      message: "Preview cooldown for this host — try again shortly",
+    });
+    return;
+  }
+  previewHostCooldown.set(host.id, now + PREVIEW_HOST_COOLDOWN_MS);
 
   const previewToken = mintPreviewToken(host.id);
   res.json({ previewToken, hostId: host.id });

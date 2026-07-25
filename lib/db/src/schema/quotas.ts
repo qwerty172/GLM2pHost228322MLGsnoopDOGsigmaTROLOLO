@@ -136,34 +136,3 @@ export const quotasTable = pgTable(
 );
 
 export type Quota = typeof quotasTable.$inferSelect;
-
-// Per-session attachment row, keeps running totals so the quota's "stats"
-// page is a single query.
-export const quotaSessionsTable = pgTable(
-  "quota_sessions",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    quotaId: uuid("quota_id")
-      .notNull()
-      .references(() => quotasTable.id, { onDelete: "cascade" }),
-    sessionId: uuid("session_id").notNull(),
-    attachedAt: timestamp("attached_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    detachedAt: timestamp("detached_at", { withTimezone: true }),
-    totalRoyaltyLzt: integer("total_royalty_lzt").notNull().default(0),
-    totalSponsorHostLzt: integer("total_sponsor_host_lzt")
-      .notNull()
-      .default(0),
-    totalSponsorPlayerLzt: integer("total_sponsor_player_lzt")
-      .notNull()
-      .default(0),
-    minutesBilled: integer("minutes_billed").notNull().default(0),
-  },
-  (t) => [
-    index("quota_sessions_quota_idx").on(t.quotaId),
-    index("quota_sessions_session_idx").on(t.sessionId),
-  ],
-);
-
-export type QuotaSession = typeof quotaSessionsTable.$inferSelect;

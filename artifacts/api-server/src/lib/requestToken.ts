@@ -21,3 +21,16 @@ export function headerUserToken(req: Request): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
 }
+
+/** Host token from Authorization: Bearer / X-Host-Token / X-User-Token. */
+export function hostTokenFromRequest(req: Request): string | null {
+  const auth = req.headers.authorization;
+  if (typeof auth === "string" && auth.toLowerCase().startsWith("bearer ")) {
+    const tok = auth.slice(7).trim();
+    if (tok) return tok;
+  }
+  const xHost = req.headers["x-host-token"];
+  if (typeof xHost === "string" && xHost.trim()) return xHost.trim();
+  if (Array.isArray(xHost) && xHost[0]?.trim()) return xHost[0].trim();
+  return headerUserToken(req);
+}

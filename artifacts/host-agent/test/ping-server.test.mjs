@@ -4,9 +4,12 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
-const { createPingServer, parseInputEvent } = await import(
-  "../dist/main/main/ping-server.js"
-);
+const {
+  createPingServer,
+  parseInputEvent,
+  LOCAL_INPUT_SECRET,
+  INPUT_SECRET_HEADER,
+} = await import("../dist/main/main/ping-server.js");
 
 // ─── parseInputEvent validation ──────────────────────────────────────────────
 
@@ -52,6 +55,8 @@ before(async () => {
     getInfo: async () => ({ version: "test-1", audioMode: "off" }),
     injectInput: (ev) => injected.push(ev),
     log: () => {},
+    getInputSecret: () => LOCAL_INPUT_SECRET,
+    getAllowedOrigins: () => ["http://localhost:5173"],
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   baseUrl = `http://127.0.0.1:${server.address().port}`;
@@ -59,17 +64,29 @@ before(async () => {
 
 after(() => server.close());
 
-test("GET /ping returns status + version with CORS header", async () => {
-  const res = await fetch(`${baseUrl}/ping`);
+test("GET /ping returns status + version with CORS for allowed origin", async () => {
+  const res = await fetch(`${baseUrl}/ping`, {
+    headers: { Origin: "http://localhost:5173" },
+  });
   assert.equal(res.status, 200);
-  assert.equal(res.headers.get("access-control-allow-origin"), "*");
+  assert.equal(res.headers.get("access-control-allow-origin"), "http://localhost:5173");
   const body = await res.json();
   assert.equal(body.status, "ok");
   assert.equal(body.version, "test-1");
 });
 
+test("GET /ping rejects disallowed origin", async () => {
+  const res = await fetch(`${baseUrl}/ping`, {
+    headers: { Origin: "https://evil.example" },
+  });
+  assert.equal(res.status, 403);
+});
+
 test("OPTIONS preflight returns 204 with CORS methods", async () => {
-  const res = await fetch(`${baseUrl}/input`, { method: "OPTIONS" });
+  const res = await fetch(`${baseUrl}/input`, {
+    method: "OPTIONS",
+    headers: { Origin: "http://localhost:5173" },
+  });
   assert.equal(res.status, 204);
   assert.match(
     res.headers.get("access-control-allow-methods") ?? "",
@@ -77,10 +94,26 @@ test("OPTIONS preflight returns 204 with CORS methods", async () => {
   );
 });
 
+test("POST /input without secret returns 401", async () => {
+  const res = await fetch(`${baseUrl}/input`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: "http://localhost:5173",
+    },
+    body: JSON.stringify({ kind: "keydown", code: "KeyW", key: "w" }),
+  });
+  assert.equal(res.status, 401);
+});
+
 test("POST /input with valid event injects and returns 204", async () => {
   const res = await fetch(`${baseUrl}/input`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Origin: "http://localhost:5173",
+      [INPUT_SECRET_HEADER]: LOCAL_INPUT_SECRET,
+    },
     body: JSON.stringify({ kind: "keydown", code: "KeyW", key: "w" }),
   });
   assert.equal(res.status, 204);
@@ -91,6 +124,10 @@ test("POST /input with valid event injects and returns 204", async () => {
 test("POST /input with invalid JSON returns 400", async () => {
   const res = await fetch(`${baseUrl}/input`, {
     method: "POST",
+    headers: {
+      Origin: "http://localhost:5173",
+      [INPUT_SECRET_HEADER]: LOCAL_INPUT_SECRET,
+    },
     body: "not-json{",
   });
   assert.equal(res.status, 400);
@@ -100,7 +137,11 @@ test("POST /input with unknown kind returns 400 and injects nothing", async () =
   const count = injected.length;
   const res = await fetch(`${baseUrl}/input`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Origin: "http://localhost:5173",
+      [INPUT_SECRET_HEADER]: LOCAL_INPUT_SECRET,
+    },
     body: JSON.stringify({ kind: "explode" }),
   });
   assert.equal(res.status, 400);

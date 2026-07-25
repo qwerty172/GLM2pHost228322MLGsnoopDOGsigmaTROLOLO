@@ -38,6 +38,11 @@ nsis:
   include: build/installer.nsh
   runAfterFinish: true
 
+publish:
+  provider: github
+  owner: qwerty172
+  repo: GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
+
 # Auto-launch at Windows startup is registered programmatically via
 # app.setLoginItemSettings() on first run, so no extra registry hook is needed
 # in the installer itself.

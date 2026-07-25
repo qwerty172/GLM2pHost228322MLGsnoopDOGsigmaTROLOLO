@@ -21,4 +21,6 @@ export interface CreateSessionBody {
   quotaId?: string | null;
   /** Required when attaching a private quota the host does not own. */
   quotaAccessCode?: string;
+  /** Optional game from the host's library; when set, pricing comes from that library entry. */
+  requestedGameId?: string;
 }

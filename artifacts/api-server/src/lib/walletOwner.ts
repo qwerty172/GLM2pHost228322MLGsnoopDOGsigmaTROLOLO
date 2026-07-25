@@ -7,7 +7,10 @@ import {
   depositAddressesTable,
 } from "@workspace/db";
 import { generateAllDepositAddresses } from "./walletAddresses";
+import { isWalletCryptoEnabled } from "./encryption";
 import { logger } from "./logger";
+
+let depositAddressGenWarned = false;
 
 export type OwnerType = "host" | "player" | "dev_key";
 
@@ -105,11 +108,23 @@ export async function ensureDepositAddressesForOwner(
     return existingForOwner;
   }
   const haveCurrencies = new Set(existingForOwner.map((e) => e.currency));
+  if (!isWalletCryptoEnabled()) {
+    if (!depositAddressGenWarned) {
+      depositAddressGenWarned = true;
+      logger.info(
+        "Skipping deposit address generation (WALLET_ENCRYPTION_KEY not configured)",
+      );
+    }
+    return existingForOwner;
+  }
   let generated;
   try {
     generated = await generateAllDepositAddresses();
   } catch (err) {
-    logger.error({ err }, "Failed to generate deposit addresses");
+    if (!depositAddressGenWarned) {
+      depositAddressGenWarned = true;
+      logger.warn({ err }, "Failed to generate deposit addresses");
+    }
     return existingForOwner;
   }
   const toCreate = generated.filter((g) => !haveCurrencies.has(g.currency));

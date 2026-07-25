@@ -1,21 +1,33 @@
-import { db, hostsTable, quotaVdsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
-import { decryptSshKey } from "./sshKey";
+import { db, hostsTable, quotaVdsTable, quotasTable, hostGamesTable } from "@workspace/db";
+import { and, eq, sql } from "drizzle-orm";import { decryptSshKey } from "./sshKey";
 import { logger } from "./logger";
 import { randomBytes } from "node:crypto";
 
 const PROVISION_INTERVAL_MS = 15_000;
 const HEALTH_CHECK_INTERVAL_MS = 60_000;
 
+export type VdsProvider = "ssh" | "firecracker";
+
+export interface VdsProvisionContext {
+  vds: typeof quotaVdsTable.$inferSelect;
+  provider: VdsProvider;
+}
+
+function resolveProvider(vds: typeof quotaVdsTable.$inferSelect): VdsProvider {
+  return vds.provider === "firecracker" ? "firecracker" : "ssh";
+}
+
 let provisionTimer: ReturnType<typeof setInterval> | null = null;
 let healthTimer: ReturnType<typeof setInterval> | null = null;
 
 async function appendLog(id: string, line: string) {
   const ts = new Date().toISOString();
+  const entry = `${ts} ${line}\n`;
+  // Append via SQL concatenation — a plain SET would overwrite prior lines.
   await db
     .update(quotaVdsTable)
     .set({
-      provisionLog: `${ts} ${line}\n`,
+      provisionLog: sql`${quotaVdsTable.provisionLog} || ${entry}`,
       updatedAt: new Date(),
     })
     .where(eq(quotaVdsTable.id, id));
@@ -32,13 +44,30 @@ async function setStatus(
     .where(eq(quotaVdsTable.id, id));
 }
 
+/** Atomically claim a pending VDS so two workers cannot provision the same row. */
+async function claimPendingVds(
+  id: string,
+): Promise<typeof quotaVdsTable.$inferSelect | null> {
+  const claimed = await db
+    .update(quotaVdsTable)
+    .set({ status: "provisioning", updatedAt: new Date() })
+    .where(
+      and(eq(quotaVdsTable.id, id), eq(quotaVdsTable.status, "pending")),
+    )
+    .returning();
+  return claimed[0] ?? null;
+}
+
 async function tryConnectSsh(
   host: string,
   port: number,
   user: string,
   privateKey: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const ssh2Mod = await import("ssh2").catch(() => null);
+  const ssh2Mod = await import("ssh2").catch((err) => {
+    logger.error({ err }, "Failed to load ssh2 module");
+    return null;
+  });
   if (!ssh2Mod) {
     return { ok: false, error: "ssh2 module not available" };
   }
@@ -86,7 +115,10 @@ async function runRemoteCommand(
   privateKey: string,
   command: string,
 ): Promise<{ ok: boolean; stdout: string; stderr: string; error?: string }> {
-  const ssh2Mod = await import("ssh2").catch(() => null);
+  const ssh2Mod = await import("ssh2").catch((err) => {
+    logger.error({ err }, "Failed to load ssh2 module");
+    return null;
+  });
   if (!ssh2Mod) {
     return {
       ok: false,
@@ -143,8 +175,16 @@ async function runRemoteCommand(
 }
 
 async function provisionVds(vds: typeof quotaVdsTable.$inferSelect) {
+  const ctx: VdsProvisionContext = { vds, provider: resolveProvider(vds) };
+  if (ctx.provider === "firecracker") {
+    logger.info({ vdsId: vds.id }, "Firecracker provider not implemented — spike only");
+    await appendLog(vds.id, "[SKIP] Firecracker provider is research-only in Phase 4");
+    await setStatus(vds.id, "error");
+    return;
+  }
+
   logger.info({ vdsId: vds.id, sshHost: vds.sshHost }, "Starting VDS provisioning");
-  await setStatus(vds.id, "provisioning");
+  // Status already flipped to "provisioning" by claimPendingVds.
 
   let privateKey: string;
   try {
@@ -167,69 +207,30 @@ async function provisionVds(vds: typeof quotaVdsTable.$inferSelect) {
   const hostToken = `vds-${randomBytes(24).toString("hex")}`;
 
   // Fetch API URL from env or use a sensible default
-  const apiBase = process.env["API_BASE_URL"] ?? "https://localhost/api";
+  void (process.env["API_BASE_URL"] ?? "https://localhost/api");
 
-  // Build the agent installation script
-  const installScript = [
-    "#!/bin/bash",
-    "set -e",
-    "# Install Node.js if missing",
-    "which node || (curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt-get install -y nodejs)",
-    "# Create service directory",
-    "sudo mkdir -p /opt/lzt-agent",
-    `sudo tee /opt/lzt-agent/.env <<'ENVEOF'`,
-    `HOST_TOKEN=${hostToken}`,
-    `API_BASE=${apiBase}`,
-    `HEADLESS=true`,
-    `ENVEOF`,
-    "# Create systemd service",
-    `sudo tee /etc/systemd/system/lzt-agent.service <<'SVCEOF'`,
-    "[Unit]",
-    "Description=LZT Host Agent (VDS headless)",
-    "After=network.target",
-    "[Service]",
-    "Type=simple",
-    "WorkingDirectory=/opt/lzt-agent",
-    "EnvironmentFile=/opt/lzt-agent/.env",
-    "ExecStart=/usr/bin/node /opt/lzt-agent/agent.js",
-    "Restart=always",
-    "RestartSec=10",
-    "[Install]",
-    "WantedBy=multi-user.target",
-    "SVCEOF",
-    "sudo systemctl daemon-reload",
-    "sudo systemctl enable lzt-agent",
-    "echo PROVISION_DONE",
-  ].join("\n");
-
-  const setupRes = await runRemoteCommand(
+  // DecentralHub host agent is a Windows Electron app (SendInput + desktopCapturer).
+  // Linux VDS cannot run the full agent yet — verify SSH, register the host row,
+  // and surface manual setup instructions instead of a broken headless stub.
+  const verifyRes = await runRemoteCommand(
     vds.sshHost,
     vds.sshPort,
     vds.sshUser,
     privateKey,
-    `bash -s <<'SCRIPT'\n${installScript}\nSCRIPT`,
+    "uname -a && echo SSH_OK",
   );
-
-  if (!setupRes.ok || !setupRes.stdout.includes("PROVISION_DONE")) {
-    await appendLog(vds.id, `[ERROR] Provisioning script failed: ${setupRes.error ?? ""}\n${setupRes.stderr}`);
+  if (!verifyRes.ok || !verifyRes.stdout.includes("SSH_OK")) {
+    await appendLog(vds.id, `[ERROR] SSH verify failed: ${verifyRes.error ?? verifyRes.stderr}`);
     await setStatus(vds.id, "error");
     return;
   }
-  await appendLog(vds.id, "[OK] Agent installed and service enabled");
+  await appendLog(vds.id, "[OK] SSH verified — VDS reachable");
 
-  // Start the agent service
-  const startRes = await runRemoteCommand(
-    vds.sshHost,
-    vds.sshPort,
-    vds.sshUser,
-    privateKey,
-    "sudo systemctl start lzt-agent && echo STARTED",
+  await appendLog(
+    vds.id,
+    "[INFO] Авто-установка Linux-агента отключена: используйте Windows Electron host-agent. " +
+      "Скопируйте hostToken из дашборда квоты и запустите агент на Windows-ПК с игрой.",
   );
-  if (!startRes.ok || !startRes.stdout.includes("STARTED")) {
-    await appendLog(vds.id, `[WARN] Service start may have failed: ${startRes.stderr}`);
-  } else {
-    await appendLog(vds.id, "[OK] Agent service started");
-  }
 
   // Register the VDS host in the DB
   const displayName = `VDS ${vds.sshHost}`;
@@ -249,6 +250,25 @@ async function provisionVds(vds: typeof quotaVdsTable.$inferSelect) {
   }
 
   await appendLog(vds.id, `[OK] Host registered: ${newHost.id}`);
+
+  // Link quota game to VDS host library when quota specifies a game.
+  const [quota] = await db
+    .select({ gameId: quotasTable.gameId })
+    .from(quotasTable)
+    .where(eq(quotasTable.id, vds.quotaId));
+  if (quota?.gameId) {
+    await db
+      .insert(hostGamesTable)
+      .values({
+        hostId: newHost.id,
+        gameId: quota.gameId,
+        pricePerMinuteLzt: 10,
+        enabled: true,
+      })
+      .onConflictDoNothing({ target: [hostGamesTable.hostId, hostGamesTable.gameId] });
+    await appendLog(vds.id, `[OK] Game ${quota.gameId} added to VDS host library`);
+  }
+
   await db
     .update(quotaVdsTable)
     .set({
@@ -277,10 +297,23 @@ async function runProvisionCycle() {
       .where(eq(quotaVdsTable.status, "pending"))
       .limit(5);
 
+    // Sequential claim+provision: claim is atomic; awaiting avoids unbounded SSH.
     for (const vds of pending) {
-      provisionVds(vds).catch((err) => {
-        logger.error({ err, vdsId: vds.id }, "VDS provision error");
-      });
+      const claimed = await claimPendingVds(vds.id);
+      if (!claimed) continue;
+      try {
+        await provisionVds(claimed);
+      } catch (err) {
+        logger.error({ err, vdsId: claimed.id }, "VDS provision error");
+        try {
+          await setStatus(claimed.id, "error");
+        } catch (statusErr) {
+          logger.error(
+            { err: statusErr, vdsId: claimed.id },
+            "Failed to mark VDS as error after provision failure",
+          );
+        }
+      }
     }
   } catch (err) {
     logger.error({ err }, "VDS provision cycle error");
@@ -299,7 +332,8 @@ async function checkVdsHealth(
   let privateKey: string;
   try {
     privateKey = decryptSshKey(vds.sshKeyEncrypted);
-  } catch {
+  } catch (err) {
+    logger.error({ err, vdsId: vds.id }, "VDS health: cannot decrypt SSH key");
     return;
   }
   try {
@@ -356,6 +390,19 @@ export function startVdsProvisionWorker() {
   if (provisionTimer || healthTimer) return;
   provisionTimer = setInterval(runProvisionCycle, PROVISION_INTERVAL_MS);
   healthTimer = setInterval(runHealthCycle, HEALTH_CHECK_INTERVAL_MS);
-  runProvisionCycle().catch(() => {});
+  void runProvisionCycle().catch((err) => {
+    logger.error({ err }, "Initial VDS provision cycle failed");
+  });
   logger.info("VDS provision worker started");
+}
+
+export function stopVdsProvisionWorker() {
+  if (provisionTimer) {
+    clearInterval(provisionTimer);
+    provisionTimer = null;
+  }
+  if (healthTimer) {
+    clearInterval(healthTimer);
+    healthTimer = null;
+  }
 }

@@ -1,299 +1,347 @@
-# DecentralHub — План тестирования и отладки (для Cursor)
+# DecentralHub — План тестирования и отладки (локальный ПК)
 
-> Задача: поднять весь сервис локально, прогнать каждый узел, найти и починить всё сломанное.
+> Задача: поднять сервис локально на **вашем Windows-ПК**, прогнать каждый узел, найти и починить всё сломанное.
 > Исходное допущение: **~80% функционала может не работать** — проверяй всё, ничему не доверяй.
-> Порядок фаз важен: каждая следующая зависит от предыдущей. Одна фаза = один Composer-план.
+> Порядок фаз важен. Одна фаза = один PR / сессия с Cursor Agent.
 
 ---
 
-## Правила отладки (читать перед началом)
+## Текущий прогресс
 
-1. **Веди журнал**: создай `TESTLOG.md`, каждую найденную проблему записывай строкой:
-   `| # | Где | Симптом | Причина | Фикс | Статус |`
-2. **Чини корневую причину**, а не симптом. Никаких «молчаливых» fallback'ов — если что-то падает, пользователь должен видеть понятную ошибку на русском.
-3. После каждого фикса — **повтори упавшую проверку** и прогони `pnpm run typecheck`.
-4. Не меняй формат API-ответов и сообщений DataChannel без крайней необходимости — на них завязаны web, агент и биллинг.
-5. UI-тексты — на русском. Код, логи, комментарии — на английском.
-6. Если функция требует внешнего сервиса, которого локально нет (Replit Object Storage, Anthropic AI, крипто-ноды) — она должна **деградировать с внятной ошибкой**, а не ронять сервер. Это тоже баг, если роняет.
+| Фаза | Что | Статус | Критерий «готово» |
+|---|---|---|---|
+| 0–1 | Окружение + API smoke | ✅ **DONE** | `http://localhost:8080/api/healthz` → `{"status":"ok"}` |
+| 2 | Обход страниц в браузере | ✅ **verified (Windows)** | 11 URL + регистрация игрока/хоста |
+| 3 | P2P browser-host ↔ player | ✅ **verified (Windows)** | signaling + lifecycle + billing + P2P HUD |
+| 4 | Windows-агент (Electron) | ✅ **verified (Windows)** | test/build/zip + Electron start; Steam E2E manual |
+| 5 | Экономика, биллинг | in progress | Леджер сходится, нет ghost-billing |
+| 6 | Квоты, VDS, embed | pending | Форма без AI, деградация внешних сервисов |
+| 7 | Регресс + отчёт | pending | TESTLOG итог |
+| **post-merge** | CI + unit smoke | ✅ **2026-07-25** | `pnpm typecheck`, api/host-agent tests, unified `.github/workflows/ci.yml` |
 
----
+**Если `healthz` ok и `:5000` открывается — фазы 0–1 пройдены, начинайте фазу 2.**
 
-## ФАЗА 0 — Окружение и сборка
-
-### 0.1 Установка
-```bash
-pnpm install
-```
-- Ошибки peer-deps / отсутствующие пакеты — чинить сразу.
-
-### 0.2 Переменные окружения
-```bash
-cp .env.example .env
-```
-Заполнить в `.env`:
-- `DATABASE_URL` — локальный PostgreSQL 16 (создай базу `decentral_hub`)
-- `PORT=8080` — для API-сервера
-- `WALLET_ENCRYPTION_KEY` — сгенерируй: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
-- `ADMIN_SECRET` — придумай строку (нужен для админ-роутов в фазе 5; его нет в `.env.example` — добавь и туда)
-- `DEFAULT_OBJECT_STORAGE_BUCKET_ID`, `PRIVATE_OBJECT_DIR`, `PUBLIC_OBJECT_SEARCH_PATHS` — можно оставить пустыми (Replit-специфика), но проверь фазой 1, что сервер без них **не падает**
-- `VIRUSTOTAL_API_KEY` — опционально
-
-⚠️ **В проекте НЕТ dotenv** — никто автоматически `.env` не читает (на Replit переменные даёт платформа). Локально перед каждой командой загружай их сам:
-```bash
-set -a; source .env; set +a        # bash/zsh — после этого команды видят переменные
-```
-Либо используй `node --env-file=.env` / `dotenv-cli`. Без этого `db push` и API-сервер сразу упадут с «DATABASE_URL/PORT is required».
-
-⚠️ Windows: dev-скрипт api-server использует `export NODE_ENV=...` — в cmd/PowerShell это не работает. Запускай из Git Bash/WSL или временно поправь скрипт.
-
-⚠️ Vite-конфиг web-а требует свои переменные: `PORT` и `BASE_PATH`. Запускать web так:
-```bash
-PORT=5000 BASE_PATH=/ pnpm --filter @workspace/web run dev
-```
-
-### 0.3 Схема БД
-```bash
-pnpm --filter @workspace/db run push
-```
-- Должны создаться таблицы: hosts, players, sessions, games, hostGames, ledger, deposits, withdrawals, loans, quotas, quotaVds, billingEvents и др. (см. `lib/db/src/schema/`).
-- Ошибки drizzle-kit — чинить схему, НЕ использовать `push-force` пока не понял, что он снесёт.
-
-### 0.4 Сборка и типы
-```bash
-pnpm run typecheck
-pnpm --filter @workspace/api-server run build
-pnpm --filter @workspace/web run build   # с PORT и BASE_PATH
-```
-- Все ошибки типов — в журнал и чинить.
-
-**Критерий фазы**: install, push, typecheck, обе сборки — зелёные.
+Журнал багов: [TESTLOG.md](./TESTLOG.md). Инструкция запуска: [LOCAL_SETUP.md](./LOCAL_SETUP.md).
 
 ---
 
-## ФАЗА 1 — API-сервер: запуск и smoke-тест всех роутов
+## Локальный Windows — быстрый старт
 
-### 1.1 Запуск
-```bash
-pnpm --filter @workspace/api-server run dev
+```bat
+git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
+cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
+git checkout cursor/local-test-prep-9755
+
+copy .env.example .env
+notepad .env
+scripts\setup-local.bat
+scripts\dev-local.bat
 ```
-Смотри лог запуска. Должно быть: `Server listening` на 8080, воркеры стартуют (billing, deposit, quotaExpiry, interest, loanDefault, hostHealth, scheduleWatchdog, vdsProvision), `seedGames` сидирует каталог.
 
-Типовые падения, которые надо чинить:
-- Падение из-за пустых storage-переменных → сделать ленивую инициализацию + внятный лог
-- Крипто-воркеры (tronweb / solana / nano) без ключей спамят ошибками каждые N секунд → перевести в «выключен, причина X» один раз в лог
-- `quotaAiChat` без Anthropic-ключа → роут должен отвечать 503 с текстом, не крашить
+| Сервис | URL |
+|---|---|
+| Web | http://localhost:5000 |
+| API | http://localhost:8080/api/healthz |
+| Smoke-тест API | `scripts\smoke-api.bat` |
+| Invite-flow smoke | `pnpm smoke:invite` (API + Postgres) |
+| Features smoke (invite/rating/guest) | `pnpm smoke:features` |
 
-### 1.2 Smoke-тест роутов (curl)
-Все роуты под префиксом `/api` (см. `artifacts/api-server/src/routes/index.ts`). Прогони и запиши код ответа каждого:
-```bash
-curl -s localhost:8080/api/healthz                  # 200 {"ok":...}
-curl -s localhost:8080/api/games                    # 200, массив игр (после seedGames — не пустой)
-curl -s localhost:8080/api/games/rogue-fable-3      # 200, детали игры
-curl -s localhost:8080/api/hosts                    # 200, список хостов (может быть пуст)
-curl -s localhost:8080/api/quotas                   # 200
-curl -s localhost:8080/api/loans/requests           # 200, заявки на кредиты
-curl -s -X POST localhost:8080/api/players/register -H 'content-type: application/json' -d '{}'  # регистрация игрока — контракт в routes/players.ts:47
+**Уже настроено в репозитории:** `dotenv-cli`, Vite-прокси `/api` → `:8080` (с `ws: true`), `cross-env` для Windows, lazy Anthropic (баг #1 в TESTLOG — fixed).
+
+**Разделение ролей:**
+- **Вы на ПК** — браузер, WebRTC (2 окна), Electron-агент, описание багов
+- **Cursor Agent** — правки кода, обновление TESTPLAN/TESTLOG
+- **Не нужно** — заново clone/setup, если healthz ok и `dev-local.bat` уже запущен
+
+---
+
+## Правила отладки
+
+1. **Веди журнал** в [TESTLOG.md](./TESTLOG.md): `| # | Где | Симптом | Причина | Фикс | Статус |`
+2. **Чини корневую причину**, не симптом. Ошибки пользователю — на русском.
+3. После фикса — повтори проверку и `pnpm run typecheck`.
+4. Не меняй формат API-ответов и DataChannel без крайней необходимости.
+5. UI — русский; код, логи, комментарии — английский.
+6. Внешние сервисы (Replit Storage, Anthropic, крипто) — **деградируют с ошибкой**, не роняют сервер.
+
+---
+
+## ФАЗА 0–1 — Окружение и API (✅ пропустить, если healthz ok)
+
+> **Быстрая проверка:** открой http://localhost:8080/api/healthz — если `{"status":"ok"}`, эта фаза пройдена.
+
+### Что уже должно работать
+
+- `scripts\setup-local.bat` — install + db push
+- `scripts\dev-local.bat` — API :8080 + Web :5000
+- `scripts\smoke-api.bat` (Windows) или `./scripts/smoke-api.sh` (Git Bash)
+
+### Smoke-тест (фаза 1.2)
+
+```bat
+scripts\smoke-api.bat
 ```
-- Любой 500 — баг, разбирать стек в логе сервера.
-- 404 на существующий роут — проверь имя пути в файле роута.
 
-### 1.3 Негативные проверки
+Ожидаемые коды:
+
 ```bash
-curl -s localhost:8080/api/wallet/НЕСУЩЕСТВУЮЩИЙ_ТОКЕН   # должен быть 404/401, НЕ 500
-curl -s localhost:8080/api/sessions/xxx                  # аналогично
+GET  /api/healthz              → 200  {"status":"ok"}
+GET  /api/games                → 200  (не пустой после seedGames)
+GET  /api/games/rogue-fable-3  → 200
+GET  /api/hosts                → 200
+GET  /api/quotas               → 200
+GET  /api/loans/requests       → 200
+POST /api/players/register     → 201  body: {"guest":true}
 ```
-- Rate-limit кошелька: 60 запросов/мин с одного IP. Прогони **61+ запросов за минуту** (`for i in $(seq 65); do curl -s -o /dev/null -w "%{http_code}\n" localhost:8080/api/wallet/badtoken; done`) — последние должны дать 429. Если 429 нет вообще — баг (см. `lib/rateLimit.ts`).
 
-### 1.4 Сигналинг WebSocket
+### Опционально (добивание фазы 1)
+
+**1.3 Негативные проверки:**
 ```bash
-# должен апгрейдиться только на /api/signal
+curl -s localhost:8080/api/wallet/badtoken   # 404/401, не 500
+curl -s localhost:8080/api/sessions/xxx      # аналогично
+```
+
+**1.4 WebSocket (ожидаем 401 на невалидный токен):**
+```bash
 npx wscat -c "ws://localhost:8080/api/signal?role=player&playerToken=test"
 ```
-- Ожидаемо: сервер **отклоняет upgrade с HTTP 401** (невалидный токен) — wscat напечатает «Unexpected server response: 401». Это правильное поведение. Баг — если сервер крашится или соединение висит.
-- С валидным токеном (создай сессию через UI в фазе 3) соединение должно открываться.
 
-**Критерий фазы**: сервер стабильно работает ≥5 минут без крашей и спама ошибок; все роуты отвечают осмысленными кодами.
+**1.1 Стабильность:** API ≥5 мин без крашей; крипто-воркеры не спамят лог каждые N сек.
 
----
+### Полная установка (если healthz не ok)
 
-## ФАЗА 2 — Web-приложение: запуск и обход всех страниц
+<details>
+<summary>Фаза 0 — детали</summary>
 
-### 2.1 ⚠️ Прокси /api (главная ловушка локального запуска)
-Web ходит на API **относительными путями** (`/api/...`, включая WebSocket `/api/signal`). На Replit это маршрутизирует платформа; **локально прокси нет** — в `artifacts/web/vite.config.ts` в `server` нужно добавить:
-```ts
-proxy: {
-  "/api": {
-    target: "http://localhost:8080",
-    changeOrigin: true,
-    ws: true,   // обязательно — сигналинг идёт по WS
-  },
-},
-```
-Без этого не будет работать ВООБЩЕ ничего, что ходит в API.
-
-### 2.2 Запуск
 ```bash
-PORT=5000 BASE_PATH=/ pnpm --filter @workspace/web run dev
+pnpm install
+cp .env.example .env   # Windows: copy .env.example .env
 ```
-Открой `http://localhost:5000`.
 
-### 2.3 Обход страниц (все — из `artifacts/web/src/pages/`)
-Пройди каждую, смотри консоль браузера (ошибки JS) и network (красные запросы):
+Заполнить `.env`: `DATABASE_URL`, `WALLET_ENCRYPTION_KEY`, `ADMIN_SECRET`, `API_PROXY_TARGET=http://localhost:8080`.
 
-| Страница | Путь | Что проверить |
-|---|---|---|
-| Лендинг | `/` | Рендер, живые цифры, кнопки ведут куда надо |
-| Каталог игр | `/games` | Игры из seedGames видны, поиск/фильтры |
-| Игра | `/games/rogue-fable-3` | Детали, пинг-бейдж, кнопка «Играть» |
-| Хосты | `/hosts` | Список, специфика GPU/CPU, пинг |
-| Кошелёк | `/wallet` | Балансы (синий/зелёный), история, пополнение |
-| Профиль | `/profile` | Статистика, история транзакций |
-| Биржа | `/exchange` | Каркас, кредиты |
-| Квоты | `/quotas`, `/quota-new` | Список, создание (ИИ-чат может быть 503 — но форма руками должна работать) |
-| Панель хоста | `/host/setup`, `/host/dashboard`, `/host/library` | Онбординг, подключение агента, библиотека |
-| Плеер | `/play?...` | Откроется в фазе 3 |
+```bash
+pnpm --filter @workspace/db run push
+pnpm run typecheck
+pnpm --filter @workspace/api-server run build
+pnpm --filter @workspace/web run build
+```
 
-- Каждая белая страница / бесконечный спиннер / ошибка в консоли — в журнал и чинить.
-- Проверь редиректы навигации после реорганизации меню — все пункты меню должны вести на живые страницы.
-
-### 2.4 Регистрация игрока и хоста
-1. Пройди путь нового игрока: с лендинга до каталога, кошелёк создался (токен в localStorage).
-2. Пройди путь нового хоста: `/host/setup` → создание хоста → дашборд показывает статус агента «не подключен» (пингует `http://localhost:18080/ping`). Токен хоста — в localStorage `streamline.hostToken`.
-
-**Критерий фазы**: все страницы открываются без ошибок консоли; игрок и хост создаются; данные с API реально приходят.
+</details>
 
 ---
 
-## ФАЗА 3 — P2P стрим в браузере (без Windows-ПК)
+## ФАЗА 2 — Web: обход всех страниц (→ СЕЙЧАС)
 
-Это ключевой тест стриминга, доступный прямо из браузера: страница браузерного хоста `/host/browser-play` захватывает вкладку/экран и стримит игроку. Референс-игра: **Rogue Fable III** (slug `rogue-fable-3`).
+### 2.1 Предусловия
+
+- API и Web запущены (`scripts\dev-local.bat`)
+- http://localhost:5000 открывается
+- http://localhost:8080/api/healthz → ok
+- F12 → **Console** + **Network** — смотреть ошибки
+
+### 2.2 Обход страниц
+
+| # | Страница | Путь | Что проверить |
+|---|---|---|---|
+| 1 | Лендинг | `/` | Рендер, цифры, кнопки |
+| 2 | Каталог | `/games` | Rogue Fable III из seedGames, поиск |
+| 3 | Игра | `/games/rogue-fable-3` | Детали, пинг, «Играть» |
+| 4 | Хосты | `/hosts` | Список, GPU/CPU, пинг |
+| 5 | Кошелёк | `/wallet` | Балансы, история |
+| 6 | Профиль | `/profile` | Статистика, транзакции |
+| 7 | Биржа | `/exchange` | Каркас, кредиты |
+| 8 | Квоты | `/quotas`, `/quotas/new` | Список, форма (AI может 503 — ок) |
+| 9 | Хост | `/host/setup`, `/host`, `/host/library` | Онбординг, дашборд, библиотека |
+| 10 | Embed | `/embed` | Виджет открывается |
+| 11 | Плеер | `/play/:playerToken` | Фаза 3 |
+
+Белая страница / спиннер / красные `/api` в Network → в TESTLOG.
+
+### 2.3 Регистрация
+
+1. **Игрок:** с лендинга → каталог; токен в localStorage
+2. **Хост:** `/host/setup` → создание → дашборд `/host` показывает «агент не подключен» (ping `http://localhost:18080/ping`); токен в `streamline.hostToken`
+
+**Критерий:** все страницы без ошибок консоли; игрок и хост создаются; данные с API приходят.
+
+---
+
+## ФАЗА 3 — P2P в браузере (без Windows-агента)
+
+Браузерный хост: [`/host/play/:sessionId`](artifacts/web/src/pages/host/browser-play.tsx). Референс-игра: **Rogue Fable III** (`rogue-fable-3`).
 
 ### 3.1 Подготовка
-- Два окна браузера (или обычное + инкогнито): окно А — хост, окно Б — игрок.
-- В окне А: залогинься как хост, открой браузерный хостинг (`/host/browser-play`), выбери игру, начни захват экрана/вкладки.
 
-### 3.2 Проверка сигналинга
-- В network обоих окон: WS-соединение `/api/signal?role=host...` и `role=player...` установлено, ICE-кандидаты ходят.
-- В окне Б (игрок): открой игру из каталога, нажми «Играть», выбери хоста из окна А.
+- Два окна: A — хост, B — игрок (или обычное + инкогнито)
+- Окно A: хост → browser-play → захват экрана/вкладки
 
-### 3.3 Что должно работать
-1. Видео появляется у игрока ≤10 секунд.
-2. HUD игрока: пинг/латенси, баланс.
-3. Ввод: клики и клавиши игрока доходят до хоста (в браузерном режиме — видно в логах DataChannel; формат `{type:"input",kind,action,button,x,y}`).
-4. Разрыв: закрой окно А — игрок должен получить понятное «Хост отключился», а не вечный спиннер.
-5. Reconnect: обнови страницу игрока — сессия переподключается (или честно завершается), двойного списания нет (проверь в `/wallet` историю).
+### 3.2 Сигналинг
 
-### 3.4 Типовые баги, которые искать
-- ICE не сходится локально → проверь, что при отсутствии TURN-креденшалов используется прямое соединение (localhost всегда сходится)
-- Токены в URL плеера → они там есть, известная проблема (задача 1.4 в PLAN.md), пока не блокер
-- Сессия не закрывается на сервере после ухода обеих сторон → смотри ghost-сессии в БД: `SELECT * FROM sessions WHERE status='active';`
+- Network: WS `/api/signal?role=host...` и `role=player...`, ICE-кандидаты
+- Окно B: `/games/rogue-fable-3` → «Играть» → выбрать хоста из A
 
-**Критерий фазы**: полный цикл игрок↔браузерный хост работает: видео, ввод, биллинг тикает, разрыв обрабатывается.
+### 3.3 Чеклист
 
----
+1. Видео у игрока ≤10 сек
+2. HUD: пинг, баланс
+3. Ввод доходит до хоста (`{type:"input",kind,action,button,x,y}`)
+4. Закрыть окно A → «Хост отключился»
+5. Reconnect без двойного списания (проверить `/wallet`)
 
-## ФАЗА 4 — Windows-агент E2E (нужен реальный Windows-ПК)
+### 3.4 Типовые баги
 
-### 4.1 Сборка и юнит-тесты
+- ICE локально → прямое соединение без TURN
+- Ghost-сессии: `SELECT * FROM sessions WHERE status='active';`
+- Токены в URL плеера — известно, не блокер
+
+**Критерий:** полный цикл видео + ввод + биллинг + disconnect.
+
+### 3.5 Автономные проверки (cloud Linux)
+
+API и Web должны быть запущены (`./scripts/dev-local.sh`).
+
 ```bash
-pnpm --filter @workspace/host-agent run typecheck
-pnpm --filter @workspace/host-agent run test     # ping-server тесты
-pnpm --filter @workspace/host-agent run dev      # запуск Electron (на Windows)
+node scripts/signaling-smoke.mjs      # WS host+player, offer/answer/ICE relay
+./scripts/session-lifecycle.sh        # create → active → end, SQL ghost check
+BILLING_SMOKE=1 ./scripts/session-lifecycle.sh   # + billing_events после ~70с
 ```
 
-### 4.2 Подключение агента
-1. В агенте укажи адрес API (`http://localhost:8080` или адрес сервера) и токен хоста с дашборда.
-2. Дашборд хоста в браузере должен показать «Агент подключен» (дашборд пингует `http://localhost:18080/ping` — агент поднимает локальный ping-сервер).
-3. Если статус не меняется — проверь CORS на ping-сервере и что порт 18080 не занят.
+| Проверка | Скрипт | Cloud |
+|---|---|---|
+| Signaling relay | `signaling-smoke.mjs` | ✅ |
+| Session end, no ghost | `session-lifecycle.sh` | ✅ |
+| Billing tick | `BILLING_SMOKE=1 session-lifecycle.sh` | ✅ |
+| WebRTC video | — | **blocked** |
+| DataChannel input / browser UX | — | **blocked** |
+| getDisplayMedia | — | **blocked** |
 
-### 4.3 Полный игровой цикл через агент
-1. Автоскан Steam-библиотеки находит игры (или добавь вручную).
-2. Игрок (другой ПК или другой браузер) запускает игру → агент получает сессию, запускает игру, захватывает окно.
-3. Если авто-матч окна не сработал → должен появиться ручной пикер окон (fallback уже реализован).
-4. Видео у игрока, **ввод работает**: мышь двигается, клавиатура нажимается (koffi → SendInput). Это самое частое место поломки — отлаживай через логи агента (renderer console: Ctrl+Shift+I).
-5. Тач-геймпад с телефона: сообщения `{type:"gamepad",axes,buttons}` доходят до агента, но инжект пока не реализован (лог «ViGEm backend not connected») — это известное ограничение, НЕ чинить в рамках тест-плана.
-6. Завершение: игрок выходит → агент сворачивает стрим, сессия закрывается, биллинг останавливается.
+### 3.6 Ручные проверки (Windows / браузер)
 
-### 4.4 Устойчивость
-- Убей агент во время сессии → игрок получает «Хост отключился» ≤30 сек, сессия в БД закрывается (hostHealthWorker), списания останавливаются.
-- Перезапусти агент → автологин из сохранённого конфига работает, статус на дашборде снова зелёный ≤2 мин (online = lastSeenAt < 2 мин).
-
-**Критерий фазы**: игрок реально играет в игру с Windows-ПК хоста: видео + мышь + клавиатура; обрывы обрабатываются без ghost-сессий и лишних списаний.
+Только пункты **blocked** выше — два окна браузера, захват экрана, disconnect UX.
 
 ---
 
-## ФАЗА 5 — Экономика: кошелёк, биллинг, кредиты
+## ФАЗА 4 — Windows-агент E2E
 
-### 5.1 Балансы и леджер
-- Начисли себе тестовый баланс. Основной способ — напрямую SQL в БД (запиши запрос в TESTLOG). Admin-роуты (`routes/admin.ts`) требуют И хоста с `isAdmin=true`, И заголовок `X-Admin-Secret` = env `ADMIN_SECRET` (без него — 503), так что SQL проще.
-- Проверь инвариант леджера: сумма всех проводок по системным + пользовательским счетам сходится (см. `lib/economy.ts`). Напиши SQL-проверку и добавь её в журнал:
+```bat
+pnpm --filter @workspace/host-agent run test
+pnpm --filter @workspace/host-agent run dev
+```
+
+1. API `http://localhost:8080` + токен хоста с дашборда
+2. Дашборд → «Агент подключен» (ping :18080)
+3. Полный цикл: Steam-скан → сессия → видео + SendInput
+4. Kill агента → игрок «Хост отключился» ≤30 сек, сессия закрыта
+
+ViGEm/gamepad inject — **не чинить** (известное ограничение).
+
+### 4.1 Автономные проверки (cloud Linux)
+
+```bash
+pnpm --filter @workspace/host-agent run typecheck
+pnpm --filter @workspace/host-agent run test      # ping-server 11 tests
+pnpm --filter @workspace/host-agent run build
+./scripts/agent-api-smoke.sh   # heartbeat, agent-auth, ice-config, zip, ping :18080
+```
+
+| Проверка | Скрипт / команда | Cloud |
+|---|---|---|
+| host-agent unit tests | `pnpm … run test` | ✅ |
+| ping-server :18080 | `ping-server-smoke.mjs` (via agent-api-smoke) | ✅ |
+| agent-auth Ed25519 | `agent-auth-smoke.mjs` | ✅ |
+| host-agent.zip download | `agent-api-smoke.sh` | ✅ |
+| Electron tray / Go online UI | — | **blocked** |
+| SendInput в реальной игре | — | **blocked** |
+| desktopCapturer / exe launch | — | **blocked** |
+
+### 4.2 Ручные проверки (Windows)
+
+Дашборд «Агент онлайн», полный цикл Steam → сессия → SendInput — только на Windows-ПК.
+
+---
+
+## ФАЗА 5 — Экономика
+
+- Тестовый баланс через SQL (запиши в TESTLOG)
+- Сессия 3+ мин → списания в `/wallet`; stop → нет ghost-billing
+- Блочные тарифы: F5, reconnect без двойного списания
+- Крипто без нод → «временно недоступно» по-русски
+
 ```sql
 SELECT account, SUM(amount) FROM ledger GROUP BY account;
 ```
 
-### 5.2 Поминутный биллинг
-- Запусти сессию (фаза 3), играй 3+ минуты → в истории кошелька появляются списания, у хоста — начисления, у платформы — комиссия.
-- Останови сессию → списания прекращаются. Проверь: нет списаний после закрытия сессии (ghost-billing).
+---
 
-### 5.3 Блочные тарифы (10/15/25 мин)
-- Купи блок → одно списание на всю сумму блока.
-- F5 в середине блока → таймер продолжается корректно (известная зона риска).
-- Reconnect → второго списания за тот же блок нет. Если есть — критический баг, чинить немедленно (идемпотентность по sessionId+block).
+## ФАЗА 6 — Квоты, VDS, embed
 
-### 5.4 Кредит и биржа
-- Оформи заявку на кредит на бирже → профинансируй вторым аккаунтом → погаси.
-- Проценты начисляются (interestWorker), просрочка обрабатывается (loanDefaultWorker) — для теста можно временно сократить интервалы.
-
-### 5.5 Депозиты/выводы (крипта)
-- Без реальных нод/ключей воркеры должны быть «выключены с причиной», роуты — отвечать «временно недоступно». Проверь, что UI кошелька это показывает по-русски, а не падает.
-
-**Критерий фазы**: деньги двигаются только когда должны; леджер сходится; двойных списаний нет.
+1. Квота вручную через `/quotas/new` (без AI)
+2. minSpecs-фильтр хостов
+3. VDS без SSH → ошибка, не краш
+4. `/embed` + devKeys
+5. Битая обложка → внятная ошибка
 
 ---
 
-## ФАЗА 6 — Квоты, VDS, второстепенное
+## ФАЗА 7 — Регресс и отчёт
 
-1. Создай квоту вручную через `/quota-new` (ИИ-чат может быть недоступен — форма должна работать без него).
-2. Прикрепи квоту к хосту (minSpecs-фильтр: хост со слабым железом не должен проходить).
-3. Сессия под квотой → выплата идёт по ставке квоты, квота истекает по сроку (quotaExpiryWorker).
-4. VDS-провижининг без реальных SSH-креденшалов → статус «ошибка подключения», не краш (vdsProvisionWorker, ssh2).
-5. Виджет/embed (`/embed`, routes/embed.ts + devKeys) — открывается, API-ключ создаётся.
-6. Загрузка обложки игры при заявке в каталог: битый файл → внятная ошибка (если валидации нет — записать в журнал, это задача 2.7 из PLAN.md).
-
-**Критерий фазы**: квоты работают на счастливом пути; всё внешнее деградирует внятно.
+1. `scripts\smoke-api.bat` — все коды как в фазе 1
+2. Повтор P2P (фаза 3)
+3. Повтор обхода страниц (фаза 2)
+4. `pnpm --filter @workspace/host-agent run test`
+5. Итог в [TESTLOG.md](./TESTLOG.md)
 
 ---
 
-## ФАЗА 7 — Финальный регресс и отчёт
-
-1. `pnpm run typecheck` — зелёный.
-2. `pnpm --filter @workspace/host-agent run test` — зелёный.
-3. Повтори smoke-тест роутов из 1.2 — все коды прежние.
-4. Повтори браузерный P2P цикл из фазы 3 — работает.
-5. Пройди все страницы из 2.3 ещё раз — консоль чистая.
-6. В `TESTLOG.md` подведи итог:
-   - Сколько багов найдено / починено / отложено (с причиной)
-   - Что работает подтверждённо end-to-end
-   - Что требует Windows-ПК / внешних сервисов и не проверено
-   - Топ-5 рисков, которые остались
-
----
-
-## Карта кодовой базы (шпаргалка)
+## Карта кодовой базы
 
 | Узел | Где |
 |---|---|
-| API-сервер (Express, порт из PORT) | `artifacts/api-server/src/` — роуты в `routes/`, префикс `/api` |
-| Сигналинг (WS) | `artifacts/api-server/src/lib/signaling.ts`, путь `/api/signal` |
-| Воркеры (биллинг, депозиты, проценты, здоровье хостов) | `artifacts/api-server/src/lib/*Worker.ts` |
-| Экономика/леджер | `artifacts/api-server/src/lib/economy.ts`, схема `lib/db/src/schema/ledger.ts` |
-| Web (Vite+React) | `artifacts/web/src/pages/` |
+| API-сервер | `artifacts/api-server/src/routes/` |
+| Сигналинг WS | `artifacts/api-server/src/lib/signaling.ts` → `/api/signal` |
+| Воркеры | `artifacts/api-server/src/lib/*Worker.ts` |
+| Экономика | `artifacts/api-server/src/lib/economy.ts` |
+| Web | `artifacts/web/src/pages/` |
 | Плеер | `artifacts/web/src/pages/play.tsx` |
-| Браузерный хост | `artifacts/web/src/pages/host/browser-play.tsx` |
-| Windows-агент (Electron) | `artifacts/host-agent/src/` — main (Node) + renderer |
-| Инжект ввода | `artifacts/host-agent/src/main/input-injection.ts` (koffi → user32 SendInput) |
-| Ping-сервер агента | `artifacts/host-agent/src/main/ping-server.ts` (127.0.0.1:18080) |
-| Схема БД (drizzle) | `lib/db/src/schema/` |
-| Токен хоста в браузере | localStorage `streamline.hostToken` |
-| Формат ввода (DataChannel) | `{type:"input",kind,action,button,x,y}` / `{type:"gamepad",axes,buttons}` |
-| Хост «онлайн» | `lastSeenAt` < 2 минут |
+| Browser-host | `artifacts/web/src/pages/host/browser-play.tsx` |
+| Windows-агент | `artifacts/host-agent/src/` |
+| Ping агента | `127.0.0.1:18080` |
+| Токен хоста | localStorage `streamline.hostToken` |
+
+---
+
+## Приложение: Cloud Agent (автономные фазы 2–4)
+
+Agent может прогнать API/WS/SQL/build в Linux без браузера и Windows:
+
+```bash
+chmod +x scripts/*.sh scripts/*.mjs
+./scripts/cloud-setup.sh
+./scripts/dev-local.sh          # в отдельном терминале
+./scripts/smoke-api.sh
+./scripts/pages-api-smoke.sh    # фаза 2 API + web shell
+node scripts/signaling-smoke.mjs
+./scripts/session-lifecycle.sh
+./scripts/agent-api-smoke.sh
+pnpm --filter @workspace/host-agent run test
+```
+
+| Что | Cloud Agent | Windows / браузер |
+|---|---|---|
+| Install, API smoke, pages API | ✅ | ✅ |
+| Signaling WS, session lifecycle | ✅ | ✅ |
+| host-agent test/build/zip | ✅ | ✅ |
+| Браузер, WebRTC video | **blocked** | ✅ |
+| Windows-агент GUI, SendInput | **blocked** | ✅ |
+
+Фазы 2–4 API — **прогнаны автономно** (см. [TESTLOG.md](./TESTLOG.md)). WebRTC/Electron — только на ПК.
+
+---
+
+## Pre-existing (не блокируют фазу 2)
+
+- `pnpm run typecheck` — ошибки в автогене `lib/api-client-react`
+- Object storage без Replit — upload может 500
+- Крипто-воркеры — проверить спам в логе API ≥5 мин
