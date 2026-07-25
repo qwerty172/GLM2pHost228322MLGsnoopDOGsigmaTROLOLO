@@ -16,6 +16,7 @@ import { WebGLVideoShader, SHADER_PRESETS, type PresetKey } from "@/components/w
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { TouchOverlay } from "@/components/TouchOverlay";
+import { KeyboardOverlay } from "@/components/KeyboardOverlay";
 import { toast } from "sonner";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
 
@@ -292,6 +293,10 @@ export default function Play() {
   );
   // Layout edit mode: lets players drag-to-reposition each control
   const [gamepadEditMode, setGamepadEditMode] = useState(false);
+
+  // Keyboard key overlay — auto-enabled on touch devices
+  const [keyboardOverlay, setKeyboardOverlay] = useState(false);
+  const [keyboardEditMode, setKeyboardEditMode] = useState(false);
 
   // Live HUD: client-side ticking balance estimate between API syncs
   const [estimatedBalanceLzt, setEstimatedBalanceLzt] = useState<number | null>(null);
@@ -1151,6 +1156,13 @@ export default function Play() {
     }
   }, []);
 
+  const sendKeyboardInput = useCallback((key: string, code: string, action: "down" | "up") => {
+    const dc = dcRef.current;
+    if (dc && dc.readyState === "open") {
+      dc.send(JSON.stringify({ type: "input", kind: "key", action, key, code }));
+    }
+  }, []);
+
   // Send a live FPS cap hint to the host whenever it changes.
   useEffect(() => {
     localStorage.setItem("fpsCapHint", String(fpsCapHint));
@@ -1891,6 +1903,54 @@ export default function Play() {
             </button>
           )}
 
+          {/* Keyboard key overlay toggle */}
+          <button
+            onClick={() => {
+              setKeyboardOverlay((v) => {
+                if (v) setKeyboardEditMode(false);
+                return !v;
+              });
+            }}
+            className="pointer-events-auto"
+            title="Клавиши на экране"
+            style={{
+              background: keyboardOverlay ? "rgba(234,179,8,0.22)" : "rgba(255,255,255,0.08)",
+              border: keyboardOverlay ? "1px solid rgba(234,179,8,0.6)" : "1px solid rgba(255,255,255,0.15)",
+              borderRadius: 8,
+              padding: "5px 8px",
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              color: keyboardOverlay ? "#fde047" : "#94a3b8",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            ⌨
+          </button>
+
+          {/* Keyboard edit toggle */}
+          {keyboardOverlay && (
+            <button
+              onClick={() => setKeyboardEditMode((v) => !v)}
+              className="pointer-events-auto"
+              title="Настроить клавиши"
+              style={{
+                background: keyboardEditMode ? "rgba(234,179,8,0.25)" : "rgba(255,255,255,0.06)",
+                border: keyboardEditMode ? "1px solid rgba(234,179,8,0.7)" : "1px solid rgba(255,255,255,0.12)",
+                borderRadius: 8,
+                padding: "5px 8px",
+                color: keyboardEditMode ? "#fde047" : "#64748b",
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              {keyboardEditMode ? "✓ Готово" : "✎"}
+            </button>
+          )}
+
           {/* Shader toggle button */}
           <button
             onClick={() => setShowShaderPanel((v) => !v)}
@@ -2261,6 +2321,11 @@ export default function Play() {
         {/* Virtual gamepad overlay */}
         {isPlaying && gamepadOverlay && (
           <TouchOverlay onGamepadInput={sendGamepadInput} editMode={gamepadEditMode} />
+        )}
+
+        {/* Keyboard key overlay */}
+        {isPlaying && keyboardOverlay && (
+          <KeyboardOverlay onKeyInput={sendKeyboardInput} editMode={keyboardEditMode} />
         )}
 
         {showAudioPrompt && (
