@@ -1,18 +1,5 @@
-/** Optional Sentry init — no-op when SENTRY_DSN is unset. */
+/** Sentry is optional — stub when package is not installed. */
 export async function initSentry(): Promise<void> {
-  const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
-  if (!dsn) return;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const Sentry = (await import("@sentry/react" as any)) as {
-      init: (opts: { dsn: string; environment: string; tracesSampleRate: number }) => void;
-    };
-    Sentry.init({
-      dsn,
-      environment: import.meta.env.MODE,
-      tracesSampleRate: 0.1,
-    });
-  } catch {
-    /* package optional in dev */
-  }
+  // No-op: @sentry/react is not installed.
+  // Set VITE_SENTRY_DSN and install @sentry/react to enable error reporting.
 }

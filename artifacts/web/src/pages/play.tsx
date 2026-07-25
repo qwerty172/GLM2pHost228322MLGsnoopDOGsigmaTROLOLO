@@ -760,10 +760,35 @@ export default function Play() {
     setConnectionState("connecting");
 
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    // NOTE (P0 #21): signaling still authenticates via query-string tokens.
-    // Prefer a short-lived HTTP ticket / post-upgrade auth once the API supports
-    // it — do not move tokens out of the query until then, or signaling breaks.
-    const wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&playerToken=${encodeURIComponent(playerToken)}&playerWalletToken=${encodeURIComponent(playerWalletToken)}`;
+
+    // Prefer a short-lived WS ticket so long-lived tokens never appear in URLs
+    // (server logs, browser history, referrer headers). Falls back to the
+    // legacy query-string path when JWT auth is not yet configured on the server.
+    let wsUrl: string;
+    const wsSessionId = session?.id;
+    if (wsSessionId) {
+      try {
+        const ticketRes = await fetch(`${import.meta.env.BASE_URL}api/auth/ws-ticket`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-player-wallet-token": playerWalletToken,
+          },
+          body: JSON.stringify({ role: "player", sessionId: wsSessionId }),
+        });
+        if (ticketRes.ok) {
+          const { wsTicket } = await ticketRes.json() as { wsTicket: string };
+          wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&wsTicket=${encodeURIComponent(wsTicket)}&sessionId=${encodeURIComponent(wsSessionId)}`;
+        } else {
+          // JWT not configured on server — fall back to legacy token path.
+          wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&playerToken=${encodeURIComponent(playerToken)}&playerWalletToken=${encodeURIComponent(playerWalletToken)}`;
+        }
+      } catch {
+        wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&playerToken=${encodeURIComponent(playerToken)}&playerWalletToken=${encodeURIComponent(playerWalletToken)}`;
+      }
+    } else {
+      wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&playerToken=${encodeURIComponent(playerToken)}&playerWalletToken=${encodeURIComponent(playerWalletToken)}`;
+    }
     wsUrlRef.current = wsUrl;
 
     // Fetch ICE server config (STUN + optional TURN) from the API.
@@ -867,7 +892,7 @@ export default function Play() {
     };
 
     connectWs(wsUrl, pc);
-  }, [playerToken, playerWalletToken, cleanupConnection, connectWs, triggerIceRestart, initClipRecorder]);
+  }, [session?.id, playerToken, playerWalletToken, cleanupConnection, connectWs, triggerIceRestart, initClipRecorder]);
 
   useEffect(() => {
     if (
