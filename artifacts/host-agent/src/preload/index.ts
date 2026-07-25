@@ -177,6 +177,13 @@ const api = {
     uploadUrl: string,
   ): Promise<{ ok: boolean; sizeBytes?: number; error?: string }> =>
     ipcRenderer.invoke("saves:backup", manifest, uploadUrl),
+
+  onUpdateReady: (cb: () => void): (() => void) => {
+    const handler = () => cb();
+    ipcRenderer.on("agent:update-ready", handler);
+    return () => ipcRenderer.off("agent:update-ready", handler);
+  },
+  installUpdate: (): Promise<void> => ipcRenderer.invoke("agent:install-update"),
 };
 
 contextBridge.exposeInMainWorld("agent", api);

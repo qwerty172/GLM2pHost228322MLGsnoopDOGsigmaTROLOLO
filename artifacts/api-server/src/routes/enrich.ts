@@ -1,5 +1,8 @@
 import { Router } from "express";
+import { eq } from "drizzle-orm";
 import { z } from "zod/v4";
+import { db, gamesTable } from "@workspace/db";
+import { parseSteamPcRequirements, recSpecsToJson } from "../lib/steamSpecs";
 
 const router = Router();
 
@@ -133,6 +136,7 @@ router.get("/games/steam-lookup", async (req, res): Promise<void> => {
           categories?: Array<{ description: string }>;
           is_free: boolean;
           metacritic?: { score: number };
+          pc_requirements?: { minimum?: string; recommended?: string };
         }}
       >;
 
@@ -146,6 +150,25 @@ router.get("/games/steam-lookup", async (req, res): Promise<void> => {
         currentPlayers = pj?.response?.player_count ?? null;
       }
 
+      const parsedSpecs = parseSteamPcRequirements(d);
+      const recSpecs = recSpecsToJson(parsedSpecs.rec);
+
+      // Cache specs on catalog game if it exists.
+      const [catalogGame] = await db
+        .select({ id: gamesTable.id })
+        .from(gamesTable)
+        .where(eq(gamesTable.steamAppId, id));
+      if (catalogGame) {
+        await db
+          .update(gamesTable)
+          .set({
+            recSpecs,
+            specsSource: "steam",
+            specsFetchedAt: new Date(),
+          })
+          .where(eq(gamesTable.id, catalogGame.id));
+      }
+
       return {
         steamAppId: id,
         title: d.name,
@@ -154,6 +177,8 @@ router.get("/games/steam-lookup", async (req, res): Promise<void> => {
         genres: (d.genres ?? []).map((g) => g.description),
         metacritic: d.metacritic?.score ?? null,
         currentPlayers,
+        recSpecs,
+        minSpecs: recSpecsToJson(parsedSpecs.min),
       };
     });
 

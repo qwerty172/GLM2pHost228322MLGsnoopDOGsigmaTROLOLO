@@ -51,6 +51,8 @@ export interface HostConfig {
     password: string;
     domain?: string;
   };
+  // Capture pipeline: "chromium" (desktopCapturer) or "native" (DXGI/NVENC addon).
+  captureMode?: "chromium" | "native";
 }
 
 export type InputEvent =

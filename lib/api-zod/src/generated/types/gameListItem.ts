@@ -19,6 +19,10 @@ export interface GameListItem {
   hasQuests: boolean;
   /** Number of pending or active sessions matching this game right now */
   liveSessionCount: number;
+  /** Number of always-on VDS hosts offering this game */
+  vdsHostsCount?: number;
+  /** True when at least one VDS host offers this game */
+  hasVdsHosts?: boolean;
   /** Same-origin URL of a vendored browser build that a player can host
 directly from their browser tab (no desktop agent). Empty when only
 native-app hosting is supported.

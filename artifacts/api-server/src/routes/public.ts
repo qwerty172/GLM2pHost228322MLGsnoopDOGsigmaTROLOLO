@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, desc, eq, gt, ilike, inArray, ne, sql } from "drizzle-orm";
+import crypto from "node:crypto";
 import {
   db,
   gamesTable,
@@ -17,8 +18,25 @@ import { ensureJoinCodeForSession } from "../lib/joinCodes";
 import { isHostAvailableNow } from "../lib/schedule";
 import { generalHostTier } from "../lib/hostTier";
 import { mintPreviewToken } from "../lib/signaling";
+import { getRedis } from "../lib/redis";
 
 const router: IRouter = Router();
+
+const TURN_TTL_SEC = 24 * 60 * 60;
+
+function generateTurnCredentials(
+  userId: string,
+  secret: string,
+  ttlSec: number,
+): { username: string; credential: string } {
+  const expiry = Math.floor(Date.now() / 1000) + ttlSec;
+  const username = `${expiry}:${userId}`;
+  const credential = crypto
+    .createHmac("sha1", secret)
+    .update(username)
+    .digest("base64");
+  return { username, credential };
+}
 
 function urlHostname(url: string | null | undefined): string {
   if (!url) return "";
@@ -38,6 +56,16 @@ router.get("/public/games", async (req, res): Promise<void> => {
   const category = (req.query.category as string | undefined)?.trim() ?? "";
   const search = (req.query.search as string | undefined)?.trim() ?? "";
   const liveOnly = req.query.liveOnly === "true" || req.query.liveOnly === "1";
+  const cacheKey = `games:catalog:${category}:${search}:${liveOnly}`;
+
+  const redis = getRedis();
+  if (redis) {
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      res.json(JSON.parse(cached));
+      return;
+    }
+  }
 
   const conds: ReturnType<typeof eq>[] = [];
   if (category) conds.push(eq(gamesTable.category, category) as any);
@@ -79,6 +107,10 @@ router.get("/public/games", async (req, res): Promise<void> => {
       liveSessionCount: liveMap.get(g.title.toLowerCase()) ?? 0,
     }))
     .filter((g) => (liveOnly ? g.liveSessionCount > 0 : true));
+
+  if (redis) {
+    await redis.setex(cacheKey, 60, JSON.stringify(shaped));
+  }
 
   res.json(shaped);
 });
@@ -467,36 +499,54 @@ router.post("/public/preview-session", async (req, res): Promise<void> => {
 // GET /public/ice-config — ICE server config for WebRTC (STUN + optional TURN)
 // TURN credentials are read from env vars so they never appear in client code.
 // ---------------------------------------------------------------------------
-router.get("/public/ice-config", (_req, res): void => {
-  type IceServer = { urls: string; username?: string; credential?: string };
+router.get("/public/ice-config", (req, res): void => {
+  type IceServer = { urls: string | string[]; username?: string; credential?: string };
   const iceServers: IceServer[] = [
     { urls: "stun:stun.l.google.com:19302" },
   ];
 
-  const turnUrl = process.env["TURN_URL"];
-  const turnUsername = process.env["TURN_USERNAME"];
-  const turnCredential = process.env["TURN_CREDENTIAL"];
+  const turnSecret = process.env["TURN_SECRET"];
+  const turnUrlsRaw = process.env["TURN_URLS"] ?? process.env["TURN_URL"] ?? "";
+  const turnUrls = turnUrlsRaw
+    .split(",")
+    .map((u) => u.trim())
+    .filter(Boolean);
 
-  // Validate that TURN_URL looks like a proper ICE URI (turn:/turns:/stun: prefix).
-  // If the env vars are misconfigured (e.g. URL and credential swapped), skip
-  // the TURN entry rather than serving a URI that crashes RTCPeerConnection.
   const isValidIceUri = (url: string) =>
     /^(turn|turns|stun|stuns):/.test(url);
 
-  if (turnUrl && turnUsername && turnCredential && isValidIceUri(turnUrl)) {
-    iceServers.push({
-      urls: turnUrl,
-      username: turnUsername,
-      credential: turnCredential,
-    });
-  } else if (turnCredential && isValidIceUri(turnCredential)) {
-    // Common misconfiguration: TURN_URL and TURN_CREDENTIAL are swapped.
-    // Silently correct by using the credential field as the URL.
-    iceServers.push({
-      urls: turnCredential,
-      username: turnUsername ?? "",
-      credential: turnUrl ?? "",
-    });
+  if (turnSecret && turnUrls.length > 0 && turnUrls.every(isValidIceUri)) {
+    const userId =
+      (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ??
+      req.ip ??
+      "anon";
+    const { username, credential } = generateTurnCredentials(
+      userId,
+      turnSecret,
+      TURN_TTL_SEC,
+    );
+    for (const url of turnUrls) {
+      iceServers.push({ urls: url, username, credential });
+    }
+  } else {
+    // Legacy static credentials fallback.
+    const turnUrl = process.env["TURN_URL"];
+    const turnUsername = process.env["TURN_USERNAME"];
+    const turnCredential = process.env["TURN_CREDENTIAL"];
+
+    if (turnUrl && turnUsername && turnCredential && isValidIceUri(turnUrl)) {
+      iceServers.push({
+        urls: turnUrl,
+        username: turnUsername,
+        credential: turnCredential,
+      });
+    } else if (turnCredential && isValidIceUri(turnCredential)) {
+      iceServers.push({
+        urls: turnCredential,
+        username: turnUsername ?? "",
+        credential: turnUrl ?? "",
+      });
+    }
   }
 
   res.json({ iceServers });

@@ -729,6 +729,8 @@ async function billOnceInner(): Promise<void> {
     );
 }
 
+export { refundBlockRemainder };
+
 export function startBillingWorker(): void {
   if (interval) return;
   logger.info(

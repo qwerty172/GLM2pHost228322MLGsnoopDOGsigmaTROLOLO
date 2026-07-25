@@ -8,7 +8,9 @@ import {
 } from "@workspace/api-zod";
 import { generateToken } from "../lib/tokens";
 import { ensureDepositAddressesForOwner } from "../lib/walletOwner";
-import { rateLimit, ipKey } from "../lib/rateLimit";
+import { rateLimit, ipKey, failedAttemptGuard } from "../lib/rateLimit";
+import { headerUserToken } from "../lib/requestToken";
+import { z } from "zod/v4";
 
 const router: IRouter = Router();
 
@@ -96,7 +98,7 @@ router.post("/players/register", registerLimiter, async (req, res): Promise<void
   res.status(201).json(GetPlayerResponse.parse(serialize(player)));
 });
 
-router.get("/players/:playerToken", playerReadLimiter, async (req, res): Promise<void> => {
+router.get("/players/:playerToken", playerReadLimiter, failedAttemptGuard("players:read"), async (req, res): Promise<void> => {
   const params = GetPlayerParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -205,6 +207,44 @@ router.post("/players/claim-guest", async (req, res): Promise<void> => {
     playerToken: fullPlayer.playerToken,
     transferredInternalLzt: guest.internalBalanceLzt,
     transferredWithdrawableLzt: guest.withdrawableBalanceLzt,
+  });
+});
+
+const CreditSettingsBody = z.object({
+  creditEnabled: z.boolean(),
+});
+
+const DEFAULT_CREDIT_LIMIT = 3000;
+
+router.patch("/players/me/credit-settings", async (req, res): Promise<void> => {
+  const playerToken = headerUserToken(req);
+  if (!playerToken) {
+    res.status(401).json({ error: "Player token required" });
+    return;
+  }
+  const parsed = CreditSettingsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const [player] = await db
+    .update(playersTable)
+    .set({
+      creditLimitLzt: parsed.data.creditEnabled ? DEFAULT_CREDIT_LIMIT : 0,
+    })
+    .where(eq(playersTable.playerToken, playerToken))
+    .returning();
+
+  if (!player) {
+    res.status(404).json({ error: "Player not found" });
+    return;
+  }
+
+  res.json({
+    creditLimitLzt: player.creditLimitLzt,
+    creditDebtLzt: player.creditDebtLzt,
+    creditEnabled: player.creditLimitLzt > 0,
   });
 });
 

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and, sql, isNull as drizzleIsNull } from "drizzle-orm";
+import { eq, desc, and, sql, isNull as drizzleIsNull, inArray } from "drizzle-orm";
 import { z } from "zod/v4";
 import {
   db,
@@ -35,9 +35,9 @@ import {
   updateEntry,
   removeFromLibrary,
 } from "../lib/hostLibrary";
-import { generalHostTier } from "../lib/hostTier";
+import { generalHostTier, computeHostTier, specsFromPcSpecs, BASELINE_REC, BASELINE_MIN, type TierThresholds } from "../lib/hostTier";
 import { isQuotaActiveNow } from "../lib/quotaEngine";
-import { rateLimit, ipKey } from "../lib/rateLimit";
+import { rateLimit, ipKey, failedAttemptGuard } from "../lib/rateLimit";
 
 const router: IRouter = Router();
 
@@ -129,7 +129,14 @@ router.post("/hosts/register", hostRegisterLimiter, async (req, res): Promise<vo
   res.status(201).json(serializeHost(host));
 });
 
-router.get("/hosts/:hostToken", async (req, res): Promise<void> => {
+const hostReadLimiter = rateLimit({
+  scope: "hosts:read",
+  windowMs: 60_000,
+  max: 60,
+  keyFn: ipKey,
+});
+
+router.get("/hosts/:hostToken", hostReadLimiter, failedAttemptGuard("hosts:read"), async (req, res): Promise<void> => {
   const params = GetHostParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -1192,6 +1199,151 @@ router.post("/hosts/heartbeat", async (req, res): Promise<void> => {
   const { emitPlatformEvent } = await import("../lib/pgNotify");
   void emitPlatformEvent("host_last_seen", { hostId: host.id });
   res.json({ ok: true });
+});
+
+// ── Steam auto-host ─────────────────────────────────────────────────────────
+
+const SteamGameInput = z.object({
+  appId: z.string().regex(/^\d+$/),
+  name: z.string(),
+  bestExePath: z.string().nullable().optional(),
+});
+
+const SteamAutoHostableBody = z.object({
+  steamGames: z.array(SteamGameInput).min(1).max(500),
+});
+
+router.post("/hosts/me/steam-auto-hostable", async (req, res): Promise<void> => {
+  const hostToken = headerUserToken(req) ?? String(req.body?.hostToken ?? "");
+  if (!hostToken) {
+    res.status(401).json({ error: "hostToken required" });
+    return;
+  }
+  const parsed = SteamAutoHostableBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const [host] = await db
+    .select({ id: hostsTable.id, pcSpecs: hostsTable.pcSpecs })
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, hostToken));
+  if (!host) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+
+  const hostSpecs = specsFromPcSpecs(host.pcSpecs);
+  const appIds = parsed.data.steamGames.map((g) => g.appId);
+  const catalogGames = await db
+    .select()
+    .from(gamesTable)
+    .where(inArray(gamesTable.steamAppId, appIds));
+
+  const byAppId = new Map(
+    catalogGames.filter((g) => g.steamAppId).map((g) => [g.steamAppId!, g]),
+  );
+
+  const eligible: Array<{
+    gameId: string;
+    title: string;
+    coverImageUrl: string;
+    appPath: string | null;
+    tier: string;
+    steamAppId: string;
+  }> = [];
+  const skipped: Array<{ appId: string; name: string; reason: string }> = [];
+
+  for (const sg of parsed.data.steamGames) {
+    const game = byAppId.get(sg.appId);
+    if (!game) {
+      skipped.push({ appId: sg.appId, name: sg.name, reason: "not_in_catalog" });
+      continue;
+    }
+
+    const rec = (game.recSpecs ?? BASELINE_REC) as TierThresholds;
+    const min = BASELINE_MIN;
+    const tier = computeHostTier(hostSpecs, min, rec);
+    if (tier !== "above_rec") {
+      skipped.push({
+        appId: sg.appId,
+        name: sg.name,
+        reason: tier === "below_min" ? "below_min" : "meets_min_only",
+      });
+      continue;
+    }
+
+    eligible.push({
+      gameId: game.id,
+      title: game.title,
+      coverImageUrl: game.coverImageUrl,
+      appPath: sg.bestExePath ?? null,
+      tier,
+      steamAppId: sg.appId,
+    });
+  }
+
+  res.json({ eligible, skipped });
+});
+
+const BulkPublishBody = z.object({
+  items: z
+    .array(
+      z.object({
+        gameId: z.string().uuid(),
+        appPath: z.string().optional(),
+        pricePerMinuteLzt: z.number().int().min(0).optional(),
+      }),
+    )
+    .min(1)
+    .max(100),
+});
+
+router.post("/hosts/me/library/bulk-publish", async (req, res): Promise<void> => {
+  const hostToken = headerUserToken(req) ?? String(req.body?.hostToken ?? "");
+  if (!hostToken) {
+    res.status(401).json({ error: "hostToken required" });
+    return;
+  }
+  const parsed = BulkPublishBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const [host] = await db
+    .select({ id: hostsTable.id })
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, hostToken));
+  if (!host) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+
+  const DEFAULT_PRICE_LZT = 10;
+  const added: string[] = [];
+  const skipped: string[] = [];
+
+  for (const item of parsed.data.items) {
+    const price = item.pricePerMinuteLzt ?? DEFAULT_PRICE_LZT;
+    const result = await addToLibrary(host.id, item.gameId, {
+      pricePerMinuteLzt: price,
+      appPath: item.appPath,
+    });
+    if (result.ok) {
+      await updateEntry(host.id, item.gameId, { enabled: true });
+      added.push(item.gameId);
+    } else if (result.status === 409) {
+      await updateEntry(host.id, item.gameId, {
+        enabled: true,
+        ...(item.appPath ? { appPath: item.appPath } : {}),
+      });
+      skipped.push(item.gameId);
+    }
+  }
+
+  res.json({ added, updated: skipped, total: added.length + skipped.length });
 });
 
 export default router;

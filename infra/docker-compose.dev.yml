@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: decentral_hub
+      POSTGRES_PASSWORD: decentral_hub
+      POSTGRES_DB: decentral_hub
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+
+  coturn:
+    image: coturn/coturn:4.6.2
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    command: ["-c", "/etc/coturn/turnserver.conf"]
+
+volumes:
+  pgdata:
+  redisdata:

@@ -135,6 +135,86 @@ function AgentTroubleshootChecklist() {
   );
 }
 
+function AgentPairingCode() {
+  const { hostToken } = useAuth();
+  const [code, setCode] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<number | null>(null);
+  const [status, setStatus] = useState<"idle" | "pending" | "paired">("idle");
+  const [loading, setLoading] = useState(false);
+
+  const generateCode = async () => {
+    if (!hostToken) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/agent-pairing-code", {
+        method: "POST",
+        headers: { "X-User-Token": hostToken },
+      });
+      if (!res.ok) throw new Error("failed");
+      const data = (await res.json()) as { code: string; expiresAt: string };
+      setCode(data.code);
+      setExpiresAt(new Date(data.expiresAt).getTime());
+      setStatus("pending");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (status !== "pending" || !hostToken) return;
+    const t = setInterval(async () => {
+      const res = await fetch("/api/auth/agent-pairing-status", {
+        headers: { "X-User-Token": hostToken },
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as { status: string };
+      if (data.status === "paired") {
+        setStatus("paired");
+        setCode(null);
+      }
+    }, 3000);
+    return () => clearInterval(t);
+  }, [status, hostToken]);
+
+  const secondsLeft =
+    expiresAt != null ? Math.max(0, Math.floor((expiresAt - Date.now()) / 1000)) : 0;
+
+  return (
+    <Card
+      style={{
+        background: "rgba(34,197,94,0.05)",
+        border: "1px solid rgba(34,197,94,0.2)",
+      }}
+    >
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base text-white">Подключить агент</CardTitle>
+        <CardDescription className="text-xs text-slate-400">
+          Сгенерируй код и введи его в окне агента на Windows-ПК
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {status === "paired" ? (
+          <p className="text-sm text-emerald-400">Агент подключён ✓</p>
+        ) : code ? (
+          <div className="flex items-center gap-4">
+            <span className="text-3xl font-mono font-bold tracking-[0.3em] text-white">
+              {code}
+            </span>
+            <span className="text-xs text-slate-500">
+              {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, "0")}
+            </span>
+          </div>
+        ) : (
+          <Button size="sm" onClick={() => void generateCode()} disabled={loading} className="gap-2">
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            Подключить агент
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: HeartbeatState }) {
   // A fresh server-side heartbeat means the agent is running (possibly on
   // another PC) even if the local ping to localhost:18080 fails.
@@ -249,33 +329,34 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
               Агент не запущен
             </CardTitle>
             <CardDescription className="text-slate-400 text-xs">
-              Скачай архив, распакуй и запусти{" "}
-              <span className="font-mono text-sky-400">start.bat</span> на своём Windows-ПК.
+              Скачай установщик (.exe) или ZIP-fallback на Windows-ПК.
             </CardDescription>
           </div>
-          <a
-            href="/api/downloads/host-agent.zip"
-            download="cloud-gaming-host-agent.zip"
-            data-testid="link-download-host-agent"
-          >
-            <Button
-              size="sm"
-              className="gap-2 h-8 text-xs font-semibold shrink-0"
-              style={{ background: "#0ea5e9", color: "#fff" }}
-            >
-              <Download className="h-3.5 w-3.5" />
-              Скачать агент
-            </Button>
-          </a>
+          <div className="flex flex-wrap gap-2 shrink-0">
+            <a href="/api/downloads/host-agent.exe">
+              <Button
+                size="sm"
+                className="gap-2 h-8 text-xs font-semibold"
+                style={{ background: "#0ea5e9", color: "#fff" }}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Установщик (.exe)
+              </Button>
+            </a>
+            <a href="/api/downloads/host-agent.zip" download="cloud-gaming-host-agent.zip">
+              <Button size="sm" variant="outline" className="gap-2 h-8 text-xs">
+                ZIP (fallback)
+              </Button>
+            </a>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
         <ol className="space-y-1.5 text-xs text-slate-400">
           {[
-            { n: "1", text: "Скачай ZIP и распакуй в любую папку (например C:\\CloudAgent)" },
-            { n: "2", text: "Дважды кликни start.bat — при первом запуске установит Node.js зависимости (~2 мин)" },
-            { n: "3", text: "В окне агента вставь токен хоста (скопируй ниже) и нажми Сохранить" },
-            { n: "4", text: "Выбери игру и нажми Выйти в онлайн — эта страница покажет «Агент онлайн ✓»" },
+            { n: "1", text: "Скачай установщик .exe (или ZIP + start.bat)" },
+            { n: "2", text: "Нажми «Подключить агент» ниже и введи 6-значный код в агенте" },
+            { n: "3", text: "Выбери игру и выйди в онлайн — здесь появится «Агент онлайн ✓»" },
           ].map((s) => (
             <li key={s.n} className="flex items-start gap-2">
               <span
@@ -868,8 +949,51 @@ export default function Dashboard() {
 
       {/* Agent status */}
       <AgentStatusCard agent={agent} heartbeat={heartbeat} />
+      <AgentPairingCode />
 
       {hostToken && <BindingForm hostToken={hostToken} />}
+
+      {/* Stream quality summary from recent sessions */}
+      {sessions && sessions.length > 0 && (
+        <Card style={cardStyle}>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-white text-base">
+              <Activity className="h-4 w-4 text-emerald-400" />
+              Качество последних сессий
+            </CardTitle>
+            <CardDescription className="text-slate-500">
+              Агрегированные метрики WebRTC (RTT, потери, score).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {sessions
+                .filter((s) => (s as { qualityScore?: number | null }).qualityScore != null)
+                .slice(0, 5)
+                .map((s) => {
+                  const q = s as typeof s & { qualityScore?: number; avgRttMs?: number; avgLossPct?: number };
+                  return (
+                    <div
+                      key={s.id}
+                      className="flex items-center justify-between p-3 rounded-lg text-sm"
+                      style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
+                    >
+                      <span className="text-white font-medium truncate">{s.appName}</span>
+                      <div className="flex gap-4 text-slate-400 font-mono text-xs shrink-0">
+                        <span>score: {q.qualityScore ?? "—"}</span>
+                        <span>RTT: {q.avgRttMs != null ? `${q.avgRttMs} мс` : "—"}</span>
+                        <span>loss: {q.avgLossPct != null ? `${q.avgLossPct}%` : "—"}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              {sessions.every((s) => (s as { qualityScore?: number | null }).qualityScore == null) && (
+                <p className="text-sm text-slate-500">Метрики появятся после первых стримов с активным плеером.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* PC Specs card — shown only when the agent has reported specs */}
       {pcSpecs && (

@@ -1977,6 +1977,12 @@ components:
         liveSessionCount:
           type: integer
           description: Number of pending or active sessions matching this game right now
+        vdsHostsCount:
+          type: integer
+          description: Number of always-on VDS hosts offering this game
+        hasVdsHosts:
+          type: boolean
+          description: True when at least one VDS host offers this game
         browserHostUrl:
           type: string
           description: |

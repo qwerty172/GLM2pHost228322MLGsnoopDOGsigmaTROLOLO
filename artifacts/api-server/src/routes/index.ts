@@ -23,9 +23,11 @@ import devKeysRouter from "./devKeys";
 import savesRouter from "./saves";
 import eventsRouter from "./events";
 import embedRouter from "./embed";
+import authRouter from "./auth";
 
 const router: IRouter = Router();
 
+router.use(authRouter);
 router.use(agentAuthRouter);
 router.use(downloadsRouter);
 router.use(enrichRouter);

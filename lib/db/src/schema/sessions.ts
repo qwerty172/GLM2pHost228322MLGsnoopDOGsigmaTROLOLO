@@ -69,6 +69,10 @@ export const sessionsTable = pgTable("sessions", {
   endedAt: timestamp("ended_at", { withTimezone: true }),
   lastBilledAt: timestamp("last_billed_at", { withTimezone: true }),
   endReason: text("end_reason"),
+  // Aggregated stream quality (computed by metrics worker from session_metrics).
+  qualityScore: integer("quality_score"),
+  avgRttMs: integer("avg_rtt_ms"),
+  avgLossPct: integer("avg_loss_pct"),
 }, (t) => ({
   hostStatusIdx: index("sessions_host_status_idx").on(t.hostId, t.status),
   statusIdx: index("sessions_status_idx").on(t.status),

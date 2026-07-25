@@ -191,8 +191,26 @@
         </div>
       </section>
 
+      <section class="card" id="pairing-card">
+        <h2>Подключение к платформе</h2>
+        <p class="muted">Введи 6-значный код с Host Dashboard на сайте</p>
+        <div class="row share" style="gap:8px">
+          <input id="pairing-code" type="text" maxlength="6" pattern="[0-9]{6}" placeholder="000000" style="font-size:20px;letter-spacing:4px;text-align:center;max-width:140px" />
+          <button type="button" id="pairing-submit">Подключиться</button>
+        </div>
+        <p class="muted" id="pairing-status" style="margin-top:8px;font-size:12px"></p>
+      </section>
+
+      <section class="card" id="auto-steam-card" hidden>
+        <h2>Быстро выложить из Steam</h2>
+        <p class="muted" id="auto-steam-status">Сканируй Steam-библиотеку, чтобы увидеть подходящие игры</p>
+        <button type="button" id="auto-steam-publish" hidden>Добавить в библиотеку</button>
+      </section>
+
       <section class="card">
         <h2>Settings</h2>
+        <details id="advanced-settings">
+          <summary style="cursor:pointer;margin-bottom:8px;color:#888">Расширенные настройки (токен вручную)</summary>
         <form id="settings-form">
           <label>
             <span>Host token</span>
@@ -200,7 +218,6 @@
               id="hostToken"
               type="text"
               placeholder="Paste from web dashboard"
-              required
             />
           </label>
           <label>
@@ -330,6 +347,7 @@
             <button type="button" id="disconnect" disabled>Disconnect</button>
           </div>
         </form>
+        </details>
       </section>
 
       <section class="card log">

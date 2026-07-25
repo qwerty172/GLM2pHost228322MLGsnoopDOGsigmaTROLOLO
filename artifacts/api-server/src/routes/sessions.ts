@@ -38,6 +38,9 @@ import { rateLimit, ipKey } from "../lib/rateLimit";
 import { ensureJoinCodeForSession } from "../lib/joinCodes";
 import { enrichSession } from "../lib/sessionSerialize";
 import { debitBlockReserve, type UserBucket } from "../lib/economy";
+import { refundBlockRemainder } from "../lib/billingWorker";
+import { z } from "zod/v4";
+import { sessionMetricsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -721,13 +724,19 @@ router.post(
         : picked;
 
     if (effectivePicked === null && effectiveMinLzt > 0) {
-      const need = blockReservedLzt !== null
-        ? `${effectiveMinLzt} LZT (блок ${blockMinutes} мин × ${ratePerMinuteLzt} LZT + запуск)`
-        : `${effectiveMinLzt} LZT`;
-      res.status(400).json({
-        error: `Insufficient LZT — need at least ${need} in a single ${session.paymentSource === "auto" ? "(green or blue)" : session.paymentSource} bucket to start`,
-      });
-      return;
+      const creditAvailable = Math.max(
+        0,
+        player.creditLimitLzt - player.creditDebtLzt,
+      );
+      if (creditAvailable < effectiveMinLzt) {
+        const need = blockReservedLzt !== null
+          ? `${effectiveMinLzt} LZT (блок ${blockMinutes} мин × ${ratePerMinuteLzt} LZT + запуск)`
+          : `${effectiveMinLzt} LZT`;
+        res.status(400).json({
+          error: `Insufficient LZT — need at least ${need} in balance or credit`,
+        });
+        return;
+      }
     }
 
     // Reserve the block amount via ledger (idempotent on reclaim).
@@ -905,17 +914,9 @@ router.patch("/sessions/:id/end", async (req, res): Promise<void> => {
           ),
         );
       const minutesUsed = Number(ticksRow[0]?.n ?? 0);
-      const costPerMinute = Math.round(existing.blockReservedLzt / existing.blockMinutes);
-      const costUsed = minutesUsed * costPerMinute;
-      const refundLzt = Math.max(0, existing.blockReservedLzt - costUsed);
-      if (refundLzt > 0) {
-        const bucket = existing.paymentSource === "blue" ? "internalBalanceLzt" : "withdrawableBalanceLzt";
-        await db
-          .update(playersTable)
-          .set({ [bucket]: sql`${playersTable[bucket as keyof typeof playersTable]} + ${refundLzt}` } as never)
-          .where(eq(playersTable.id, existing.claimedByPlayerId));
-        req.log.info({ sessionId: existing.id, refundLzt, minutesUsed }, "Block session early exit — refunded unused reserve");
-      }
+      await db.transaction(async (tx) => {
+        await refundBlockRemainder(tx, existing, minutesUsed);
+      });
     } catch (err) {
       req.log.error({ err, sessionId: existing.id }, "Block refund failed during session end");
     }
@@ -941,6 +942,89 @@ router.patch("/sessions/:id/end", async (req, res): Promise<void> => {
     playerToken: session.playerToken,
   });
   res.json(EndSessionResponse.parse(await enrichSession(session)));
+});
+
+const SessionMetricSample = z.object({
+  role: z.enum(["player", "host"]),
+  sampledAt: z.string().datetime().optional(),
+  rttMs: z.number().int().optional(),
+  bitrateKbps: z.number().int().optional(),
+  fps: z.number().int().optional(),
+  packetLossPct: z.number().optional(),
+  framesDropped: z.number().int().optional(),
+  iceCandidateType: z.string().optional(),
+  jitterMs: z.number().int().optional(),
+});
+
+const PostSessionMetricsBody = z.object({
+  samples: z.array(SessionMetricSample).min(1).max(50),
+});
+
+router.post("/sessions/:id/metrics", async (req, res): Promise<void> => {
+  const sessionId = (req.params.id ?? "").trim();
+  if (!sessionId) {
+    res.status(400).json({ error: "session id required" });
+    return;
+  }
+
+  const parsed = PostSessionMetricsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const authHeader = req.headers.authorization;
+  const bearerToken = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice("Bearer ".length).trim()
+    : undefined;
+  const hostToken =
+    bearerToken ??
+    (req.query.hostToken as string | undefined) ??
+    (req.body?.hostToken as string | undefined);
+  const playerToken =
+    (req.headers["x-player-token"] as string | undefined) ??
+    (req.body?.playerToken as string | undefined);
+
+  const [session] = await db
+    .select()
+    .from(sessionsTable)
+    .where(eq(sessionsTable.id, sessionId));
+
+  if (!session) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+
+  let authorized = false;
+  if (hostToken) {
+    const [host] = await db
+      .select({ id: hostsTable.id })
+      .from(hostsTable)
+      .where(eq(hostsTable.hostToken, hostToken));
+    authorized = host?.id === session.hostId;
+  } else if (playerToken) {
+    authorized = session.playerToken === playerToken;
+  }
+  if (!authorized) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  const rows = parsed.data.samples.map((s) => ({
+    sessionId,
+    role: s.role,
+    sampledAt: s.sampledAt ? new Date(s.sampledAt) : new Date(),
+    rttMs: s.rttMs ?? null,
+    bitrateKbps: s.bitrateKbps ?? null,
+    fps: s.fps ?? null,
+    packetLossPct: s.packetLossPct != null ? Math.round(s.packetLossPct) : null,
+    framesDropped: s.framesDropped ?? null,
+    iceCandidateType: s.iceCandidateType ?? null,
+    jitterMs: s.jitterMs ?? null,
+  }));
+
+  await db.insert(sessionMetricsTable).values(rows);
+  res.status(201).json({ inserted: rows.length });
 });
 
 export default router;

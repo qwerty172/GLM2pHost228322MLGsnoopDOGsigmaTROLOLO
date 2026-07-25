@@ -1,4 +1,5 @@
 import { app, BrowserWindow, desktopCapturer, dialog, globalShortcut, ipcMain, shell } from "electron";
+import { autoUpdater } from "electron-updater";
 import path from "node:path";
 import { initSentryMain } from "./sentry";
 import { promises as fs } from "node:fs";
@@ -166,6 +167,8 @@ async function startAgent(): Promise<void> {
   if (!injStatus.ok) {
     dialog.showErrorBox("Модуль управления не загрузился", injStatus.error);
   }
+
+  initAutoUpdater();
 
   ipcMain.handle("config:get", async () => {
     return loadConfig();
@@ -888,4 +891,31 @@ app.on("before-quit", () => {
   globalShortcut.unregisterAll();
   destroyGamepadInjector();
   killApp();
+});
+
+function initAutoUpdater(): void {
+  if (!app.isPackaged) return;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on("update-downloaded", () => {
+    log("info", "Update downloaded — notifying renderer");
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("agent:update-ready");
+    }
+  });
+
+  autoUpdater.on("error", (err: Error) => {
+    log("warn", `Auto-updater error: ${String(err)}`);
+  });
+
+  setTimeout(() => {
+    void autoUpdater.checkForUpdatesAndNotify().catch((err: unknown) => {
+      log("warn", `Update check failed: ${String(err)}`);
+    });
+  }, 30_000).unref();
+}
+
+ipcMain.handle("agent:install-update", () => {
+  autoUpdater.quitAndInstall(false, true);
 });

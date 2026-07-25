@@ -15,6 +15,8 @@ let injector: Injector = () => {
   /* no-op fallback */
 };
 
+let rawInputEnabled = false;
+
 export interface InjectorStatus {
   ok: boolean;
   // Human-readable (Russian) reason when ok === false. Empty when ok.
@@ -35,6 +37,7 @@ export function getInjectorStatus(): InjectorStatus {
 }
 
 export function initInputInjector(): void {
+  rawInputEnabled = process.env["USE_RAW_INPUT"] === "1";
   if (process.platform !== "win32") {
     log("info", "Input injection disabled (non-Windows platform).");
     return;
@@ -82,6 +85,32 @@ export function initInputInjector(): void {
     const GetSystemMetrics = user32.func(
       "int GetSystemMetrics(int nIndex)",
     );
+
+    // Optional Raw Input registration — some games block SendInput but accept
+    // raw HID events. Enabled via USE_RAW_INPUT=1; falls back to SendInput.
+    if (rawInputEnabled) {
+      try {
+        const RegisterRawInputDevices = user32.func(
+          "bool RegisterRawInputDevices(void *pRawInputDevices, uint32 uiNumDevices, uint32 cbSize)",
+        );
+        const RAWINPUTDEVICE = koffi.struct("RAWINPUTDEVICE", {
+          usUsagePage: "uint16",
+          usUsage: "uint16",
+          dwFlags: "uint32",
+          hwndTarget: "uintptr_t",
+        });
+        const RIDEV_INPUTSINK = 0x00000100;
+        const devices = [
+          { usUsagePage: 0x01, usUsage: 0x02, dwFlags: RIDEV_INPUTSINK, hwndTarget: 0 },
+          { usUsagePage: 0x01, usUsage: 0x06, dwFlags: RIDEV_INPUTSINK, hwndTarget: 0 },
+        ];
+        RegisterRawInputDevices(devices, devices.length, koffi.sizeof(RAWINPUTDEVICE));
+        log("info", "Raw Input API registered (USE_RAW_INPUT=1).");
+      } catch (rawErr) {
+        log("warn", `Raw Input registration failed, using SendInput only: ${String(rawErr)}`);
+        rawInputEnabled = false;
+      }
+    }
 
     const INPUT_MOUSE = 0;
     const INPUT_KEYBOARD = 1;
@@ -217,7 +246,7 @@ export function initInputInjector(): void {
         log("error", `Input injection failed: ${String(err)}`);
       }
     };
-    log("info", "Input injector ready.");
+    log("info", `Input injector ready${rawInputEnabled ? " (Raw Input + SendInput)" : ""}.`);
   } catch (err) {
     log("error", `Failed to initialize input injector: ${String(err)}`);
     injectorStatus = {

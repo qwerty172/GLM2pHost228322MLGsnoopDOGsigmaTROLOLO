@@ -267,6 +267,18 @@ router.get("/downloads/host-agent.zip", (req, res): void => {
   });
 });
 
+// Redirect to latest GitHub Release installer when configured, else 503.
+router.get("/downloads/host-agent.exe", (_req, res): void => {
+  const releaseUrl = process.env.HOST_AGENT_EXE_URL;
+  if (releaseUrl) {
+    res.redirect(302, releaseUrl);
+    return;
+  }
+  res.status(503).json({
+    error: "Installer not available. Use /api/downloads/host-agent.zip or build via CI.",
+  });
+});
+
 function loadPnpmCatalog(agentDir: string): Record<string, string> {
   // Walk up to the workspace root looking for pnpm-workspace.yaml. We only
   // need the `catalog:` mapping, so a tiny regex parser is enough — adding a

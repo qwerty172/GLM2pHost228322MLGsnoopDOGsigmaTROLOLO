@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearch } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { Switch } from "@/components/ui/switch";
 import {
   useGetHost,
   useGetHostStats,
@@ -620,6 +621,79 @@ function MyVdsTab({ hostToken }: { hostToken: string | null }) {
   );
 }
 
+function PlayerCreditCard() {
+  const { playerWalletToken } = usePlayerWallet();
+  const { data: wallet, refetch } = useGetWallet(playerWalletToken ?? "", {
+    query: {
+      enabled: !!playerWalletToken,
+      queryKey: getGetWalletQueryKey(playerWalletToken ?? ""),
+    },
+  });
+  const [saving, setSaving] = useState(false);
+
+  if (!playerWalletToken) return null;
+
+  const creditLimit = wallet?.creditLimitLzt ?? 0;
+  const creditDebt = wallet?.creditDebtLzt ?? 0;
+  const creditEnabled = creditLimit > 0;
+
+  const toggleCredit = async (enabled: boolean) => {
+    setSaving(true);
+    try {
+      await fetch("/api/players/me/credit-settings", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Token": playerWalletToken,
+        },
+        body: JSON.stringify({ creditEnabled: enabled }),
+      });
+      await refetch();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card style={cardStyle}>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-semibold text-slate-200">
+          Игра в кредит
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm text-slate-300">Разрешить играть в кредит</p>
+            <p className="text-xs text-slate-500">По умолчанию включено для новичков</p>
+          </div>
+          <Switch
+            checked={creditEnabled}
+            disabled={saving}
+            onCheckedChange={(v) => void toggleCredit(v)}
+          />
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+          <div className="rounded-lg p-2" style={{ background: "rgba(255,255,255,0.02)" }}>
+            <p className="text-slate-500">Лимит</p>
+            <p className="text-white font-semibold">{formatLzt(creditLimit)} LZT</p>
+          </div>
+          <div className="rounded-lg p-2" style={{ background: "rgba(255,255,255,0.02)" }}>
+            <p className="text-slate-500">Долг</p>
+            <p className="text-amber-400 font-semibold">{formatLzt(creditDebt)} LZT</p>
+          </div>
+          <div className="rounded-lg p-2" style={{ background: "rgba(255,255,255,0.02)" }}>
+            <p className="text-slate-500">Доступно</p>
+            <p className="text-emerald-400 font-semibold">
+              {formatLzt(Math.max(0, creditLimit - creditDebt))} LZT
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function AccountTab({ hostToken }: { hostToken: string | null }) {
   const { data: host, isLoading } = useGetHost(hostToken ?? "", {
     query: {
@@ -710,6 +784,8 @@ function AccountTab({ hostToken }: { hostToken: string | null }) {
           )}
         </CardContent>
       </Card>
+
+      <PlayerCreditCard />
 
       {/* Agent / PC specs card */}
       <Card style={cardStyle}>

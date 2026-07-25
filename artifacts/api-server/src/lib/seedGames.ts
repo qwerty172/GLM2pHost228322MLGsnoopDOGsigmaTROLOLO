@@ -72,7 +72,10 @@ export async function seedGames(): Promise<void> {
         })
         .where(eq(gamesTable.id, existing.id));
     } else {
-      await db.insert(gamesTable).values(g);
+      await db.insert(gamesTable).values({
+        ...g,
+        recSpecs: (g.recSpecs ?? null) as typeof gamesTable.$inferInsert["recSpecs"],
+      });
     }
   }
   logger.info({ count: SEED.length }, "Games catalog seeded");

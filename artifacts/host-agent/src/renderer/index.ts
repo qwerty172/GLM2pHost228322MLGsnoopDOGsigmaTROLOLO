@@ -111,6 +111,9 @@ let pc: RTCPeerConnection | null = null;
 let ws: WebSocket | null = null;
 let captureStream: MediaStream | null = null;
 let dataChannel: RTCDataChannel | null = null;
+let captureWidth = 1920;
+let captureHeight = 1080;
+let hostStatsTimer: ReturnType<typeof setInterval> | null = null;
 let currentSessionId: string | null = null;
 let currentConfig: HostConfig | null = null;
 // gameId of the session currently being streamed (from library or legacy).
@@ -1197,6 +1200,8 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     return;
   }
   setPipelineStep("stream", "active", "устанавливаем WebRTC-соединение…");
+  const captureMode = cfg.captureMode ?? "chromium";
+  log(`[capture] mode=${captureMode}${captureMode === "native" ? " (fallback to chromium if native unavailable)" : ""}`);
 
   // Fetch ICE server config (STUN + optional TURN) from the API.
   let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
@@ -1230,6 +1235,10 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
       setStatus("streaming", "Streaming to player");
       setPipelineStep("stream", "done");
       setPipelineStep("player", "done");
+      if (hostStatsTimer) clearInterval(hostStatsTimer);
+      hostStatsTimer = setInterval(() => {
+        void uploadHostStats(cfg);
+      }, 10_000);
       // Log the ICE candidate type (relay / srflx / host) for diagnostics.
       void pc.getStats().then((stats) => {
         stats.forEach((report) => {
@@ -1302,6 +1311,16 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
           }
           return;
         }
+        if (raw["type"] === "set-resolution") {
+          const width = Number(raw["width"]);
+          const height = Number(raw["height"]);
+          if (Number.isFinite(width) && Number.isFinite(height) && width >= 640 && height >= 360) {
+            captureWidth = Math.round(width);
+            captureHeight = Math.round(height);
+            log(`[adaptive] capture resolution → ${captureWidth}x${captureHeight}`);
+          }
+          return;
+        }
         // Gamepad input from the virtual touch overlay on mobile.
         if (raw["type"] === "gamepad") {
           // Validate payload shape and clamp to expected ranges.
@@ -1342,6 +1361,7 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     const params = videoSender.getParameters();
     params.encodings = params.encodings ?? [{}];
     params.encodings[0]!.maxBitrate = cfg.bitrateKbps * 1000;
+    params.degradationPreference = "maintain-framerate";
     await videoSender.setParameters(params).catch(() => undefined);
   }
 
@@ -1386,6 +1406,10 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
   }
 
   const offer = await pc.createOffer();
+  const sdp = offer.sdp ?? "";
+  if (/a=rtcp-fb:.* nack/i.test(sdp)) {
+    log("[webrtc] RTX/NACK feedback present in SDP");
+  }
   await pc.setLocalDescription(offer);
   ws?.send(
     JSON.stringify({
@@ -1411,7 +1435,16 @@ function mapPlayerInput(raw: Record<string, unknown>): InputEvent | null {
       : { kind: "keyup", code, key: code };
   }
   if (kind === "mouse") {
+    const mode = raw["mode"] === "relative" ? "relative" : "absolute";
     if (action === "move") {
+      if (mode === "relative") {
+        return {
+          kind: "mousemove",
+          x: Number(raw["movementX"] ?? 0),
+          y: Number(raw["movementY"] ?? 0),
+          mode: "relative",
+        };
+      }
       return {
         kind: "mousemove",
         x: Number(raw["x"] ?? 0.5),
@@ -1589,8 +1622,8 @@ async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
       mandatory: {
         chromeMediaSource: "desktop",
         chromeMediaSourceId: sourceId,
-        maxWidth: cfg.resolution.width,
-        maxHeight: cfg.resolution.height,
+        maxWidth: captureWidth || cfg.resolution.width,
+        maxHeight: captureHeight || cfg.resolution.height,
         maxFrameRate: 60,
       },
     },
@@ -1605,6 +1638,71 @@ async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Host-side stream stats upload
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function uploadHostStats(cfg: HostConfig): Promise<void> {
+  if (!pc || !currentSessionId || !cfg.hostToken) return;
+  try {
+    const stats = await pc.getStats();
+    let kbps = 0;
+    let fps = 0;
+    let packetsLost = 0;
+    let packetsSent = 0;
+    let framesDropped = 0;
+    let iceType = "host";
+    stats.forEach((r) => {
+      if (r.type === "outbound-rtp" && (r as { kind?: string }).kind === "video") {
+        const rr = r as unknown as Record<string, number>;
+        kbps = Math.round(((rr["bytesSent"] ?? 0) * 8) / 10_000);
+        fps = Math.round(rr["framesPerSecond"] ?? 0);
+        packetsLost = rr["packetsLost"] ?? 0;
+        packetsSent = rr["packetsSent"] ?? 0;
+        framesDropped = rr["framesDropped"] ?? 0;
+      }
+      if (r.type === "candidate-pair" && (r as { state?: string }).state === "succeeded") {
+        const localId = (r as unknown as Record<string, string>)["localCandidateId"];
+        stats.forEach((c) => {
+          if (c.id === localId && c.type === "local-candidate") {
+            iceType = (c as unknown as Record<string, string>)["candidateType"] ?? "host";
+          }
+        });
+      }
+    });
+    const lossPct = packetsSent > 0 ? Math.round((packetsLost / (packetsSent + packetsLost)) * 1000) / 10 : 0;
+    if (dataChannel?.readyState === "open") {
+      dataChannel.send(JSON.stringify({
+        type: "host-stats",
+        kbps,
+        fps,
+        lossPct,
+        framesDropped,
+        iceCandidateType: iceType,
+      }));
+    }
+    await fetch(`${cfg.apiBaseUrl.replace(/\/$/, "")}/api/sessions/${currentSessionId}/metrics`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${cfg.hostToken}`,
+      },
+      body: JSON.stringify({
+        samples: [{
+          role: "host",
+          bitrateKbps: kbps,
+          fps,
+          packetLossPct: lossPct,
+          framesDropped,
+          iceCandidateType: iceType,
+        }],
+      }),
+    });
+  } catch {
+    /* stats not ready */
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Teardown
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1614,6 +1712,10 @@ function teardownPeer(cfg: HostConfig): void {
   void window.agent.clearInputGuard();
   window.agent.disconnectGamepad();
   gamepadWarnedOnce = false;
+  if (hostStatsTimer) {
+    clearInterval(hostStatsTimer);
+    hostStatsTimer = null;
+  }
   try { dataChannel?.close(); } catch { /* */ }
   dataChannel = null;
   try { pc?.close(); } catch { /* */ }
@@ -2121,6 +2223,7 @@ scanSteamBtn.addEventListener("click", async () => {
     const startTab: SteamTab = inCatalog > 0 ? "catalog" : isNew > 0 ? "new" : "added";
     renderSteamTab(startTab);
     log(`Steam scan: ${steamGames.length} game(s) found.`);
+    void refreshSteamAutoHost(cfg);
   } catch (err) {
     steamScanProgress.hidden = true;
     steamScanError.hidden = false;
@@ -2453,6 +2556,133 @@ updatePcSpecsBtn.addEventListener("click", async () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Pairing code login
+// ─────────────────────────────────────────────────────────────────────────────
+
+const pairingCodeInput = document.getElementById("pairing-code") as HTMLInputElement;
+const pairingSubmitBtn = document.getElementById("pairing-submit") as HTMLButtonElement;
+const pairingStatusEl = document.getElementById("pairing-status") as HTMLParagraphElement;
+const pairingCard = document.getElementById("pairing-card") as HTMLElement;
+
+async function submitPairingCode(): Promise<void> {
+  const code = pairingCodeInput.value.trim();
+  const cfg = await window.agent.getConfig();
+  const apiBaseUrl = ($("apiBaseUrl") as HTMLInputElement).value.trim() || cfg.apiBaseUrl;
+  if (!/^\d{6}$/.test(code)) {
+    pairingStatusEl.textContent = "Введи 6 цифр с сайта";
+    return;
+  }
+  if (!apiBaseUrl) {
+    pairingStatusEl.textContent = "Сначала укажи Platform URL в расширенных настройках";
+    return;
+  }
+  pairingSubmitBtn.disabled = true;
+  pairingStatusEl.textContent = "Подключаем…";
+  try {
+    const resp = await fetch(`${apiBaseUrl.replace(/\/$/, "")}/api/auth/agent-pair`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    const data = (await resp.json()) as { hostToken?: string; displayName?: string; error?: string };
+    if (!resp.ok || !data.hostToken) {
+      pairingStatusEl.textContent = data.error ?? "Неверный или просроченный код";
+      return;
+    }
+    const newCfg = { ...cfg, hostToken: data.hostToken, apiBaseUrl };
+    await window.agent.setConfig(newCfg);
+    ($("hostToken") as HTMLInputElement).value = data.hostToken;
+    ($("apiBaseUrl") as HTMLInputElement).value = apiBaseUrl;
+    pairingStatusEl.textContent = `Подключено: ${data.displayName ?? "хост"}`;
+    pairingCard.hidden = true;
+    if (data.displayName) showSigninBanner(data.displayName, apiBaseUrl);
+    log(`Вход по коду выполнен: ${data.displayName ?? data.hostToken.slice(0, 8)}…`);
+    await loadLibrary(newCfg);
+    startLibraryPolling(newCfg);
+    showAutoQuotaCard();
+  } catch {
+    pairingStatusEl.textContent = "Ошибка сети — проверь Platform URL";
+  } finally {
+    pairingSubmitBtn.disabled = false;
+  }
+}
+
+pairingSubmitBtn.addEventListener("click", () => void submitPairingCode());
+pairingCodeInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") void submitPairingCode();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Steam auto-host (above recommended specs)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const autoSteamCard = document.getElementById("auto-steam-card") as HTMLElement;
+const autoSteamStatus = document.getElementById("auto-steam-status") as HTMLParagraphElement;
+const autoSteamPublishBtn = document.getElementById("auto-steam-publish") as HTMLButtonElement;
+let steamEligibleItems: Array<{ gameId: string; title: string; appPath: string | null }> = [];
+
+async function refreshSteamAutoHost(cfg: HostConfig): Promise<void> {
+  if (!cfg.hostToken || !cfg.apiBaseUrl || steamGames.length === 0) return;
+  const payload = {
+    steamGames: steamGames.map((g) => ({
+      appId: g.appId,
+      name: g.name,
+      bestExePath: g.bestExePath,
+    })),
+  };
+  try {
+    const resp = await fetch(`${cfg.apiBaseUrl.replace(/\/$/, "")}/api/hosts/me/steam-auto-hostable`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Token": cfg.hostToken,
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) return;
+    const data = (await resp.json()) as {
+      eligible: Array<{ gameId: string; title: string; appPath: string | null }>;
+    };
+    steamEligibleItems = data.eligible ?? [];
+    if (steamEligibleItems.length > 0) {
+      autoSteamCard.hidden = false;
+      autoSteamStatus.textContent = `${steamEligibleItems.length} игр подходят под ваш ПК (выше рекомендуемых)`;
+      autoSteamPublishBtn.hidden = false;
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+autoSteamPublishBtn.addEventListener("click", async () => {
+  const cfg = await window.agent.getConfig();
+  if (!cfg.hostToken || !cfg.apiBaseUrl || steamEligibleItems.length === 0) return;
+  autoSteamPublishBtn.disabled = true;
+  try {
+    const resp = await fetch(`${cfg.apiBaseUrl.replace(/\/$/, "")}/api/hosts/me/library/bulk-publish`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Token": cfg.hostToken,
+      },
+      body: JSON.stringify({
+        items: steamEligibleItems.map((g) => ({
+          gameId: g.gameId,
+          appPath: g.appPath ?? undefined,
+        })),
+      }),
+    });
+    const data = (await resp.json()) as { added?: string[]; updated?: string[] };
+    log(`Добавлено в библиотеку: ${(data.added?.length ?? 0) + (data.updated?.length ?? 0)} игр`);
+    await loadLibrary(cfg);
+  } catch {
+    log("Ошибка bulk-publish");
+  } finally {
+    autoSteamPublishBtn.disabled = false;
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2464,6 +2694,20 @@ void loadFormFromConfig().then(async (cfg) => {
   });
   log("Agent UI loaded.");
   void initAgentKey();
+  if (typeof (window.agent as { onUpdateReady?: (cb: () => void) => () => void }).onUpdateReady === "function") {
+    (window.agent as unknown as { onUpdateReady: (cb: () => void) => () => void }).onUpdateReady(() => {
+      const banner = document.createElement("div");
+      banner.style.cssText =
+        "position:fixed;bottom:16px;right:16px;z-index:9999;padding:12px 16px;" +
+        "background:#065f46;color:#fff;border-radius:8px;font-size:13px;cursor:pointer;" +
+        "box-shadow:0 4px 12px rgba(0,0,0,0.4);";
+      banner.textContent = "Обновление готово — нажми, чтобы перезапустить";
+      banner.onclick = () => {
+        void (window.agent as unknown as { installUpdate?: () => Promise<void> }).installUpdate?.();
+      };
+      document.body.appendChild(banner);
+    });
+  }
   // Input injector health — warn the host up-front if player control won't work.
   void window.agent.getInjectorStatus().then((st) => {
     if (!st.ok && st.platform === "win32") {
@@ -2479,6 +2723,7 @@ void loadFormFromConfig().then(async (cfg) => {
     if (displayName) {
       showSigninBanner(displayName, cfg.apiBaseUrl);
       log(`Вход выполнен как: ${displayName}`);
+      pairingCard.hidden = true;
     } else {
       // Token is stale or platform unreachable — show the form so user can fix it.
       log("Не удалось проверить токен. Введи заново или проверь Platform URL.");

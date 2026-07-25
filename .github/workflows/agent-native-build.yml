@@ -1,0 +1,33 @@
+name: Host Agent Native Build
+
+on:
+  pull_request:
+    paths:
+      - "artifacts/host-agent-native/**"
+      - ".github/workflows/agent-native-build.yml"
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - run: pnpm install --frozen-lockfile
+      - name: Build native module (POC)
+        working-directory: artifacts/host-agent-native
+        run: cargo build --release
+      - name: Upload native artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: host-agent-native-win64
+          path: artifacts/host-agent-native/target/release/*.dll
+          if-no-files-found: warn

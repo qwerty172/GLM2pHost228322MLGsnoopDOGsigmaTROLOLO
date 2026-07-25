@@ -1,0 +1,53 @@
+name: API Server Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "artifacts/api-server/**"
+      - "lib/db/**"
+      - ".github/workflows/api-test.yml"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: decentralhub_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d decentralhub_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL_TEST: postgresql://test:test@localhost:5432/decentralhub_test
+      RATE_LIMIT_STORAGE: memory
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build api-server
+        run: pnpm --filter @workspace/api-server run build
+
+      - name: Run tests
+        run: pnpm --filter @workspace/api-server run test

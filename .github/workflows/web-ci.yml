@@ -1,0 +1,29 @@
+name: Web CI
+
+on:
+  pull_request:
+    paths:
+      - "artifacts/web/**"
+      - "lib/api-client-react/**"
+      - "lib/api-zod/**"
+      - ".github/workflows/web-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "artifacts/web/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @workspace/web run typecheck
+      - run: pnpm --filter @workspace/web run build
