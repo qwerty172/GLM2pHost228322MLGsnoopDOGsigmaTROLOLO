@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   useListPublicHosts,
   getListPublicHostsQueryKey,
+  createPublicSession,
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import {
@@ -158,23 +159,17 @@ async function requestSession(
   hostId: string,
   gameId?: string,
 ): Promise<SessionResult> {
-  const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
   try {
-    const resp = await fetch(`${base}/api/public/sessions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ hostId, ...(gameId ? { gameId } : {}) }),
+    const data = await createPublicSession({
+      hostId,
+      ...(gameId ? { gameId } : {}),
     });
-    if (resp.ok) {
-      const data = (await resp.json()) as { inviteCode: string };
-      if (!data.inviteCode) return { ok: false, reason: "error" };
-      return { ok: true, inviteCode: data.inviteCode };
-    }
-    if (resp.status === 409) {
-      return { ok: false, reason: "game_unavailable" };
-    }
-    return { ok: false, reason: "host_offline" };
-  } catch {
+    if (!data.inviteCode) return { ok: false, reason: "error" };
+    return { ok: true, inviteCode: data.inviteCode };
+  } catch (err) {
+    const status = (err as { status?: number }).status;
+    if (status === 409) return { ok: false, reason: "game_unavailable" };
+    if (status === 503 || status === 404) return { ok: false, reason: "host_offline" };
     return { ok: false, reason: "error" };
   }
 }

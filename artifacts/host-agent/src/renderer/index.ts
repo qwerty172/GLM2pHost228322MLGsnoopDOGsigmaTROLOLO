@@ -73,6 +73,7 @@ declare global {
         apiBaseUrl: string,
         bindCode?: string,
       ) => Promise<{ ok: boolean; error?: string }>;
+      consumePendingBindCode: () => Promise<string | null>;
       agentLogin: (apiBaseUrl: string) => Promise<{ ok: boolean; error?: string }>;
       updatePcSpecs: (hostToken: string, apiBaseUrl: string) => Promise<{ ok: boolean; error?: string; pcSpecs?: { gpu: string; cpu: string; ramGb: number } }>;
       getPcSpecs: () => Promise<{ gpu: string; cpu: string; ramGb: number }>;
@@ -2917,6 +2918,20 @@ async function initAgentKey(): Promise<void> {
   bindKeyBtn.disabled = false;
   agentLoginBtn.disabled = false;
   updatePcSpecsBtn.disabled = false;
+
+  const bindCodeInput = document.getElementById("agentBindCode") as HTMLInputElement | null;
+  if (bindCodeInput && !bindCodeInput.value.trim()) {
+    try {
+      const pending = await window.agent.consumePendingBindCode();
+      if (pending) bindCodeInput.value = pending;
+    } catch {
+      /* ignore */
+    }
+    if (!bindCodeInput.value.trim()) {
+      const hash = window.location.hash.match(/[#&]bind=([^&]+)/);
+      if (hash?.[1]) bindCodeInput.value = decodeURIComponent(hash[1]);
+    }
+  }
 
   // Run upload speed test silently in the background on every startup so that
   // pcSpecs.uploadMbps is always up-to-date for quota matching.

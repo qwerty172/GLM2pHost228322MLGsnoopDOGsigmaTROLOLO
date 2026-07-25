@@ -7,7 +7,9 @@
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
-    "test": "pnpm --filter @workspace/api-server test"
+    "test": "pnpm --filter @workspace/api-server test",
+    "smoke:invite": "node scripts/invite-flow-smoke.mjs",
+    "smoke:features": "node scripts/features-smoke.mjs"
   },
   "private": true,
   "devDependencies": {

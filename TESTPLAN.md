@@ -14,9 +14,10 @@
 | 2 | Обход страниц в браузере | ✅ **verified (Windows)** | 11 URL + регистрация игрока/хоста |
 | 3 | P2P browser-host ↔ player | ✅ **verified (Windows)** | signaling + lifecycle + billing + P2P HUD |
 | 4 | Windows-агент (Electron) | ✅ **verified (Windows)** | test/build/zip + Electron start; Steam E2E manual |
-| 5 | Экономика, биллинг | pending | Леджер сходится, нет ghost-billing |
+| 5 | Экономика, биллинг | in progress | Леджер сходится, нет ghost-billing |
 | 6 | Квоты, VDS, embed | pending | Форма без AI, деградация внешних сервисов |
 | 7 | Регресс + отчёт | pending | TESTLOG итог |
+| **post-merge** | CI + unit smoke | ✅ **2026-07-25** | `pnpm typecheck`, api/host-agent tests, unified `.github/workflows/ci.yml` |
 
 **Если `healthz` ok и `:5000` открывается — фазы 0–1 пройдены, начинайте фазу 2.**
 
@@ -42,6 +43,8 @@ scripts\dev-local.bat
 | Web | http://localhost:5000 |
 | API | http://localhost:8080/api/healthz |
 | Smoke-тест API | `scripts\smoke-api.bat` |
+| Invite-flow smoke | `pnpm smoke:invite` (API + Postgres) |
+| Features smoke (invite/rating/guest) | `pnpm smoke:features` |
 
 **Уже настроено в репозитории:** `dotenv-cli`, Vite-прокси `/api` → `:8080` (с `ws: true`), `cross-env` для Windows, lazy Anthropic (баг #1 в TESTLOG — fixed).
 

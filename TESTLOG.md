@@ -10,9 +10,10 @@
 | 2 | **verified (Windows browser)** | обход 11 URL + регистрация игрока/хоста |
 | 3 | **verified (Windows P2P)** | signaling + lifecycle + billing; browser-host ↔ player P2P |
 | 4 | **verified (Windows agent)** | unit/test/build/zip, ping :18080, Electron UI стартует, SendInput injector ready |
-| 5 | pending | Экономика, биллинг (расширенный) |
+| 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | pending | Квоты, VDS, embed |
 | 7 | pending | Регресс + итог |
+| **post-merge** | **2026-07-25** | typecheck green; CI unified; vitest smoke expanded; invite-flow script |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -38,6 +39,12 @@
 | **browser-host WS reconnect** | **verified** | CDP offline 4с на host tab → CONNECTING, сессия не ended |
 | **play dock UX** (без z-[100] overlay) | **verified** | DOM: inset-0 fixed = 0, z-[100] = 0 на `/play` |
 | **stream-relay API** | **verified** | PATCH config + GET decrypt streamKey |
+| **post-merge typecheck** | **verified** | `pnpm typecheck` — api-server, web, host-agent |
+| **post-merge CI** | **verified** | `.github/workflows/ci.yml` (typecheck + tests + builds) |
+| **invite-flow smoke script** | **added** | `pnpm smoke:invite` |
+| **marathon W3 dedup** | **done** | inviteCode канон, joinCode deprecated, OpenAPI+hooks, ws-ticket route |
+| **marathon W4 UX** | **done** | agent --bind-code, setup advanced banner, agent port discovery |
+| **marathon W5 infra** | **done** | .env.example Redis/JWT/Sentry/migrations docs, worker math tests |
 
 ## Баги
 

@@ -12,7 +12,28 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: decentralhub_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d decentralhub_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL_TEST: postgresql://test:test@localhost:5432/decentralhub_test
+      RATE_LIMIT_STORAGE: memory
+      PORT: "5000"
+      BASE_PATH: /
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,8 +49,6 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      # Workspace root install is the supported path for this pnpm monorepo
-      # (pnpm-workspace.yaml + root package.json scripts).
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -39,11 +58,11 @@ jobs:
       - name: Unit tests (api-server)
         run: pnpm --filter @workspace/api-server test
 
+      - name: Unit tests (host-agent)
+        run: pnpm --filter @workspace/host-agent test
+
       - name: Build api-server
         run: pnpm --filter @workspace/api-server build
 
       - name: Build web
-        env:
-          PORT: "5000"
-          BASE_PATH: /
         run: pnpm --filter @workspace/web exec vite build --config vite.config.ts

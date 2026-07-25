@@ -7,16 +7,20 @@ import {
   hostsTable,
   playersTable,
   refreshTokensTable,
+  sessionsTable,
 } from "@workspace/db";
 import {
   generateRefreshToken,
   hashRefreshToken,
   signAccessJwt,
+  signWsTicket,
   REFRESH_TTL_SEC,
+  WS_TICKET_TTL_SEC,
   verifyAccessJwt,
   type UserType,
 } from "../lib/jwt";
 import { headerUserToken } from "../lib/requestToken";
+import { requireHost } from "../lib/hostAuth";
 import { rateLimit, ipKey } from "../lib/rateLimit";
 
 const router: IRouter = Router();
@@ -150,6 +154,69 @@ router.post("/auth/logout", async (req, res): Promise<void> => {
   }
   clearRefreshCookie(res);
   res.json({ ok: true });
+});
+
+const WsTicketBody = z.object({
+  role: z.enum(["host", "player"]),
+  sessionId: z.string().uuid(),
+});
+
+router.post("/auth/ws-ticket", refreshLimiter, async (req, res): Promise<void> => {
+  if (!process.env["JWT_SECRET"]?.trim()) {
+    res.status(503).json({ error: "JWT auth not configured" });
+    return;
+  }
+  const parsed = WsTicketBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  let userId: string | null = null;
+  if (parsed.data.role === "host") {
+    const auth = await requireHost(req);
+    if (!auth.ok) {
+      res.status(auth.status).json({ error: auth.error });
+      return;
+    }
+    userId = auth.host.id;
+  } else {
+    const walletTokRaw = req.headers["x-player-wallet-token"];
+    const walletTok = Array.isArray(walletTokRaw) ? walletTokRaw[0] : walletTokRaw;
+    if (!walletTok?.trim()) {
+      res.status(401).json({ error: "X-Player-Wallet-Token required" });
+      return;
+    }
+    const [player] = await db
+      .select({ id: playersTable.id })
+      .from(playersTable)
+      .where(eq(playersTable.playerToken, walletTok.trim()));
+    if (!player) {
+      res.status(401).json({ error: "Invalid player wallet token" });
+      return;
+    }
+    userId = player.id;
+  }
+
+  const [session] = await db
+    .select({ id: sessionsTable.id, hostId: sessionsTable.hostId, claimedByPlayerId: sessionsTable.claimedByPlayerId })
+    .from(sessionsTable)
+    .where(eq(sessionsTable.id, parsed.data.sessionId));
+  if (!session) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+  if (parsed.data.role === "host" && session.hostId !== userId) {
+    res.status(403).json({ error: "Not your session" });
+    return;
+  }
+  if (parsed.data.role === "player" && session.claimedByPlayerId !== userId) {
+    res.status(403).json({ error: "Session not claimed by this player" });
+    return;
+  }
+
+  const wsTicket = await signWsTicket(userId, parsed.data.role, parsed.data.sessionId);
+  res.json({ wsTicket, expiresInSec: WS_TICKET_TTL_SEC });
 });
 
 /** Dual-mode: verify Bearer JWT or fall back to legacy opaque token header. */

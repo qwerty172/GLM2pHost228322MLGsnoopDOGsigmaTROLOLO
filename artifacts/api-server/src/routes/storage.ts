@@ -3,7 +3,11 @@ import { Readable } from "stream";
 import { z } from "zod/v4";
 import { ObjectStorageService, ObjectNotFoundError, ObjectStorageNotConfiguredError } from "../lib/objectStorage";
 import { ObjectPermission, getObjectAclPolicy } from "../lib/objectAcl";
-import { hostTokenFromRequest } from "../lib/hostAuth";
+import {
+  handleStorageError,
+  respondStorageUnavailable,
+  resolveCallerUserId,
+} from "../lib/storageRouteHelpers";
 import multer from "multer";
 
 const ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -36,53 +40,6 @@ const RequestUploadUrlResponse = z.object({
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
-
-function respondStorageUnavailable(res: Response): void {
-  res.status(503).json({
-    error: "storage_unavailable",
-    message: "Хранилище объектов не настроено в этой среде",
-  });
-}
-
-function handleStorageError(req: Request, res: Response, error: unknown, fallbackMessage: string): void {
-  if (error instanceof ObjectStorageNotConfiguredError) {
-    respondStorageUnavailable(res);
-    return;
-  }
-  if (error instanceof ObjectNotFoundError) {
-    req.log.warn({ err: error }, "Object not found");
-    res.status(404).json({ error: "Object not found" });
-    return;
-  }
-  req.log.error({ err: error }, fallbackMessage);
-  res.status(500).json({ error: fallbackMessage });
-}
-
-async function resolveCallerUserId(req: Request): Promise<string | undefined> {
-  const hostTok = hostTokenFromRequest(req);
-  if (hostTok) {
-    const { db, hostsTable } = await import("@workspace/db");
-    const { eq } = await import("drizzle-orm");
-    const [host] = await db
-      .select({ id: hostsTable.id })
-      .from(hostsTable)
-      .where(eq(hostsTable.hostToken, hostTok));
-    if (host) return `host:${host.id}`;
-  }
-  const playerTokRaw =
-    req.headers["x-player-wallet-token"] ?? req.headers["x-player-token"];
-  const playerTok = Array.isArray(playerTokRaw) ? playerTokRaw[0] : playerTokRaw;
-  if (playerTok) {
-    const { db, playersTable } = await import("@workspace/db");
-    const { eq } = await import("drizzle-orm");
-    const [player] = await db
-      .select({ id: playersTable.id })
-      .from(playersTable)
-      .where(eq(playersTable.playerToken, playerTok));
-    if (player) return `player:${player.id}`;
-  }
-  return undefined;
-}
 
 /**
  * POST /storage/uploads/request-url

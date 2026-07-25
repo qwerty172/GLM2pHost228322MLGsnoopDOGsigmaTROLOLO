@@ -5,9 +5,9 @@
  * P2P Cloud Gaming signaling, session, and wallet API
  * OpenAPI spec version: 0.1.0
  */
+import type { IssueWsTicketBodyRole } from "./issueWsTicketBodyRole";
 
-export interface ExchangeJoinCodeResponse {
-  /** Long-lived session token — store in memory, never put back in the URL */
-  playerToken: string;
+export type IssueWsTicketBody = {
+  role: IssueWsTicketBodyRole;
   sessionId: string;
-}
+};

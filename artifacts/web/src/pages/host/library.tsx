@@ -63,7 +63,9 @@ import {
   useAddHostLibraryEntry,
   useUpdateHostLibraryEntry,
   useRemoveHostLibraryEntry,
+  useListGames,
   getListHostLibraryQueryKey,
+  getListGamesQueryKey,
   type HostLibraryEntry,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -315,24 +317,27 @@ function CatalogSearch({
   onSuggestNew: () => void;
 }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<CatalogGame[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const doSearch = useCallback(async (q: string) => {
-    setLoading(true);
-    const r = await apiFetch<CatalogGame[]>(`/api/public/games?search=${encodeURIComponent(q)}`);
-    setLoading(false);
-    if (r.ok) setResults(r.data);
-  }, []);
 
   useEffect(() => {
     if (debounce.current) clearTimeout(debounce.current);
-    debounce.current = setTimeout(() => doSearch(query), 300);
-    return () => { if (debounce.current) clearTimeout(debounce.current); };
-  }, [query, doSearch]);
+    debounce.current = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => {
+      if (debounce.current) clearTimeout(debounce.current);
+    };
+  }, [query]);
 
-  useEffect(() => { doSearch(""); }, [doSearch]);
+  const listParams = useMemo(
+    () => ({ search: debouncedQuery.trim() || undefined }),
+    [debouncedQuery],
+  );
+  const { data: games, isLoading: loading } = useListGames(listParams, {
+    query: {
+      queryKey: getListGamesQueryKey(listParams),
+    },
+  });
+  const results = (games ?? []) as CatalogGame[];
 
   return (
     <div className="space-y-4">

@@ -37,8 +37,12 @@ import type {
   CreateLoanRequestBody,
   CreatePreviewSession200,
   CreatePreviewSessionBody,
+  CreatePublicSessionBody,
+  CreatePublicSessionResponse,
   CreateQuotaBody,
   CreateSessionBody,
+  CreateTestSessionBody,
+  CreateTestSessionResponse,
   DetachQuotaFromSession200,
   DetachQuotaFromSessionBody,
   EndSessionBody,
@@ -64,6 +68,9 @@ import type {
   HostHeartbeatBody,
   HostLibraryEntry,
   HostStats,
+  IssueAgentBindCodeResponse,
+  IssueWsTicketBody,
+  IssueWsTicketResponse,
   ListApplicableQuotasParams,
   ListAppliedQuotasParams,
   ListGamesParams,
@@ -100,6 +107,7 @@ import type {
   SaveUploadUrlBody,
   SaveUploadUrlResponse,
   Session,
+  SessionByInviteResponse,
   UpdateHostConfigBody,
   UpdateHostLibraryEntryBody,
   UpdateQuotaBody,
@@ -1764,6 +1772,184 @@ export function useGetSessionByPlayerToken<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Resolve a public invite code to session details (player play link)
+ */
+export const getGetSessionByInviteUrl = (inviteCode: string) => {
+  return `/api/sessions/by-invite/${inviteCode}`;
+};
+
+export const getSessionByInvite = async (
+  inviteCode: string,
+  options?: RequestInit,
+): Promise<SessionByInviteResponse> => {
+  return customFetch<SessionByInviteResponse>(
+    getGetSessionByInviteUrl(inviteCode),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetSessionByInviteQueryKey = (inviteCode: string) => {
+  return [`/api/sessions/by-invite/${inviteCode}`] as const;
+};
+
+export const getGetSessionByInviteQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSessionByInvite>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  inviteCode: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSessionByInvite>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSessionByInviteQueryKey(inviteCode);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSessionByInvite>>
+  > = ({ signal }) =>
+    getSessionByInvite(inviteCode, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!inviteCode,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSessionByInvite>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSessionByInviteQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSessionByInvite>>
+>;
+export type GetSessionByInviteQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Resolve a public invite code to session details (player play link)
+ */
+
+export function useGetSessionByInvite<
+  TData = Awaited<ReturnType<typeof getSessionByInvite>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  inviteCode: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSessionByInvite>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSessionByInviteQueryOptions(inviteCode, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a free host self-test session
+ */
+export const getCreateTestSessionUrl = () => {
+  return `/api/sessions/test`;
+};
+
+export const createTestSession = async (
+  createTestSessionBody?: CreateTestSessionBody,
+  options?: RequestInit,
+): Promise<CreateTestSessionResponse> => {
+  return customFetch<CreateTestSessionResponse>(getCreateTestSessionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createTestSessionBody),
+  });
+};
+
+export const getCreateTestSessionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTestSession>>,
+    TError,
+    { data: BodyType<CreateTestSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createTestSession>>,
+  TError,
+  { data: BodyType<CreateTestSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["createTestSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createTestSession>>,
+    { data: BodyType<CreateTestSessionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createTestSession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateTestSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createTestSession>>
+>;
+export type CreateTestSessionMutationBody = BodyType<CreateTestSessionBody>;
+export type CreateTestSessionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a free host self-test session
+ */
+export const useCreateTestSession = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTestSession>>,
+    TError,
+    { data: BodyType<CreateTestSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createTestSession>>,
+  TError,
+  { data: BodyType<CreateTestSessionBody> },
+  TContext
+> => {
+  return useMutation(getCreateTestSessionMutationOptions(options));
+};
 
 /**
  * @summary Claim a session by linking it to a player's wallet (enables billing)
@@ -5260,6 +5446,92 @@ export const useRemoveHostLibraryEntry = <
 };
 
 /**
+ * @summary Request a play invite for an online host (returns inviteCode, not playerToken)
+ */
+export const getCreatePublicSessionUrl = () => {
+  return `/api/public/sessions`;
+};
+
+export const createPublicSession = async (
+  createPublicSessionBody: CreatePublicSessionBody,
+  options?: RequestInit,
+): Promise<CreatePublicSessionResponse> => {
+  return customFetch<CreatePublicSessionResponse>(getCreatePublicSessionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createPublicSessionBody),
+  });
+};
+
+export const getCreatePublicSessionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPublicSession>>,
+    TError,
+    { data: BodyType<CreatePublicSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createPublicSession>>,
+  TError,
+  { data: BodyType<CreatePublicSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["createPublicSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createPublicSession>>,
+    { data: BodyType<CreatePublicSessionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createPublicSession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreatePublicSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPublicSession>>
+>;
+export type CreatePublicSessionMutationBody = BodyType<CreatePublicSessionBody>;
+export type CreatePublicSessionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Request a play invite for an online host (returns inviteCode, not playerToken)
+ */
+export const useCreatePublicSession = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPublicSession>>,
+    TError,
+    { data: BodyType<CreatePublicSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createPublicSession>>,
+  TError,
+  { data: BodyType<CreatePublicSessionBody> },
+  TContext
+> => {
+  return useMutation(getCreatePublicSessionMutationOptions(options));
+};
+
+/**
  * @summary Mint a short-lived preview token (60-second TTL) for a 30-second
 free muted live stream from the given host. No session record is
 created and no billing occurs.
@@ -5662,6 +5934,173 @@ export function useGetAgentChallenge<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Issue a short-lived bind code for pairing the desktop agent
+ */
+export const getIssueAgentBindCodeUrl = () => {
+  return `/api/auth/agent-bind-code`;
+};
+
+export const issueAgentBindCode = async (
+  options?: RequestInit,
+): Promise<IssueAgentBindCodeResponse> => {
+  return customFetch<IssueAgentBindCodeResponse>(getIssueAgentBindCodeUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getIssueAgentBindCodeMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof issueAgentBindCode>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof issueAgentBindCode>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["issueAgentBindCode"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof issueAgentBindCode>>,
+    void
+  > = () => {
+    return issueAgentBindCode(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type IssueAgentBindCodeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof issueAgentBindCode>>
+>;
+
+export type IssueAgentBindCodeMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Issue a short-lived bind code for pairing the desktop agent
+ */
+export const useIssueAgentBindCode = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof issueAgentBindCode>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof issueAgentBindCode>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getIssueAgentBindCodeMutationOptions(options));
+};
+
+/**
+ * @summary Mint a short-lived WebSocket ticket (requires JWT_SECRET)
+ */
+export const getIssueWsTicketUrl = () => {
+  return `/api/auth/ws-ticket`;
+};
+
+export const issueWsTicket = async (
+  issueWsTicketBody: IssueWsTicketBody,
+  options?: RequestInit,
+): Promise<IssueWsTicketResponse> => {
+  return customFetch<IssueWsTicketResponse>(getIssueWsTicketUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(issueWsTicketBody),
+  });
+};
+
+export const getIssueWsTicketMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof issueWsTicket>>,
+    TError,
+    { data: BodyType<IssueWsTicketBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof issueWsTicket>>,
+  TError,
+  { data: BodyType<IssueWsTicketBody> },
+  TContext
+> => {
+  const mutationKey = ["issueWsTicket"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof issueWsTicket>>,
+    { data: BodyType<IssueWsTicketBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return issueWsTicket(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type IssueWsTicketMutationResult = NonNullable<
+  Awaited<ReturnType<typeof issueWsTicket>>
+>;
+export type IssueWsTicketMutationBody = BodyType<IssueWsTicketBody>;
+export type IssueWsTicketMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Mint a short-lived WebSocket ticket (requires JWT_SECRET)
+ */
+export const useIssueWsTicket = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof issueWsTicket>>,
+    TError,
+    { data: BodyType<IssueWsTicketBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof issueWsTicket>>,
+  TError,
+  { data: BodyType<IssueWsTicketBody> },
+  TContext
+> => {
+  return useMutation(getIssueWsTicketMutationOptions(options));
+};
 
 /**
  * @summary Bind an Ed25519 public key to a host account

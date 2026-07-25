@@ -971,6 +971,87 @@ export const GetSessionByPlayerTokenResponse = zod.object({
 });
 
 /**
+ * @summary Resolve a public invite code to session details (player play link)
+ */
+export const GetSessionByInviteParams = zod.object({
+  inviteCode: zod.coerce.string(),
+});
+
+export const GetSessionByInviteResponse = zod
+  .object({
+    id: zod.string(),
+    hostId: zod.string(),
+    gameId: zod.string().describe("Catalog game this session is bound to"),
+    playerToken: zod.string(),
+    inviteCode: zod
+      .string()
+      .nullish()
+      .describe("Short invite code for share links"),
+    inviteExpiresAt: zod.coerce.date().nullish(),
+    claimedByPlayerId: zod.string().nullish(),
+    appName: zod.string(),
+    status: zod.string().describe("One of pending, active, ended"),
+    resolution: zod.string(),
+    bitrateKbps: zod.number(),
+    ratePerMinute: zod
+      .number()
+      .describe(
+        "Player credits charged per minute (host receives net of commission)",
+      ),
+    paymentSource: zod.enum(["blue", "green", "auto"]).optional(),
+    quotaId: zod.string().nullish(),
+    createdAt: zod.coerce.date(),
+    startedAt: zod.coerce.date().nullish(),
+    endedAt: zod.coerce.date().nullish(),
+    endReason: zod
+      .string()
+      .nullish()
+      .describe(
+        "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline, block_expired.",
+      ),
+    blockMinutes: zod
+      .number()
+      .nullish()
+      .describe(
+        "Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.",
+      ),
+    blockReservedLzt: zod
+      .number()
+      .nullish()
+      .describe(
+        "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
+      ),
+    isTest: zod
+      .boolean()
+      .optional()
+      .describe(
+        "Host self-test session вЂ” completely free, skipped by billing.",
+      ),
+  })
+  .and(
+    zod.object({
+      gameSlug: zod.string().nullish(),
+      gameCoverImageUrl: zod.string().nullish(),
+      gameTitle: zod.string().nullish(),
+      gameBrowserHostUrl: zod.string().nullish(),
+    }),
+  );
+
+/**
+ * @summary Create a free host self-test session
+ */
+export const CreateTestSessionHeader = zod.object({
+  "X-Host-Token": zod.string(),
+});
+
+export const CreateTestSessionBody = zod.object({
+  overrideUrl: zod
+    .string()
+    .optional()
+    .describe("One-shot browser URL override for this test"),
+});
+
+/**
  * @summary Claim a session by linking it to a player's wallet (enables billing)
  */
 export const ClaimSessionParams = zod.object({
@@ -1119,7 +1200,7 @@ export const ExchangeJoinCodeResponse = zod.object({
   playerToken: zod
     .string()
     .describe(
-      "Long-lived session token тАФ store in memory, never put back in the URL",
+      "Long-lived session token — store in memory, never put back in the URL",
     ),
   sessionId: zod.string().uuid(),
 });
@@ -3215,6 +3296,19 @@ export const RemoveHostLibraryEntryParams = zod.object({
 });
 
 /**
+ * @summary Request a play invite for an online host (returns inviteCode, not playerToken)
+ */
+export const CreatePublicSessionBody = zod.object({
+  hostId: zod.string().uuid(),
+  gameId: zod.string().uuid().optional(),
+});
+
+export const CreatePublicSessionResponse = zod.object({
+  inviteCode: zod.string(),
+  playPath: zod.string().describe("Frontend path e.g. \/play\/i\/{inviteCode}"),
+});
+
+/**
  * @summary Mint a short-lived preview token (60-second TTL) for a 30-second
 free muted live stream from the given host. No session record is
 created and no billing occurs.
@@ -3265,6 +3359,31 @@ export const CreateEmbedSessionBody = zod.object({
 export const GetAgentChallengeResponse = zod.object({
   challenge: zod.string(),
   expiresAt: zod.number().describe("Unix epoch ms when the challenge expires"),
+});
+
+/**
+ * @summary Issue a short-lived bind code for pairing the desktop agent
+ */
+export const IssueAgentBindCodeHeader = zod.object({
+  Authorization: zod.string().describe("Bearer host token"),
+});
+
+export const IssueAgentBindCodeResponse = zod.object({
+  bindCode: zod.string(),
+  expiresAt: zod.number().describe("Unix epoch ms"),
+});
+
+/**
+ * @summary Mint a short-lived WebSocket ticket (requires JWT_SECRET)
+ */
+export const IssueWsTicketBody = zod.object({
+  role: zod.enum(["host", "player"]),
+  sessionId: zod.string().uuid(),
+});
+
+export const IssueWsTicketResponse = zod.object({
+  wsTicket: zod.string(),
+  expiresInSec: zod.number(),
 });
 
 /**

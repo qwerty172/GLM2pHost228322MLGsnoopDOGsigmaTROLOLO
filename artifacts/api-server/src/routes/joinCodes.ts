@@ -16,6 +16,10 @@ router.post(
   "/join-codes/:code/exchange",
   exchangeLimiter,
   async (req, res): Promise<void> => {
+    res.setHeader(
+      "Deprecation",
+      'true; date="2026-08-01"; link="</api/sessions/by-invite/{inviteCode}>"; msg="Use inviteCode via GET /sessions/by-invite/:inviteCode"',
+    );
     const params = ExchangeJoinCodeParams.safeParse(req.params);
     if (!params.success) {
       res.status(400).json({ error: params.error.message });

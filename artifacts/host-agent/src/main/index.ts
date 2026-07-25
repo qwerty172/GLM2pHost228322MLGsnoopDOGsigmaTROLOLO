@@ -188,10 +188,23 @@ void app.whenReady().then(() =>
   }),
 );
 
+let pendingBindCode: string | null = null;
+
+function parseBindCodeFromArgv(): string | null {
+  for (const arg of process.argv) {
+    if (arg.startsWith("--bind-code=")) {
+      const code = arg.slice("--bind-code=".length).trim();
+      return code || null;
+    }
+  }
+  return null;
+}
+
 async function startAgent(): Promise<void> {
   initSentryMain();
   initInputInjector();
   initGamepadInjector();
+  pendingBindCode = parseBindCodeFromArgv();
   const config = await loadConfig();
   applyAutoLaunch(config);
   void syncScheduleFromServer();
@@ -225,6 +238,12 @@ async function startAgent(): Promise<void> {
 
   ipcMain.handle("config:get", async () => {
     return loadConfig();
+  });
+
+  ipcMain.handle("agent:consume-pending-bind-code", (): string | null => {
+    const code = pendingBindCode;
+    pendingBindCode = null;
+    return code;
   });
 
   ipcMain.handle("config:set", async (_e, next: unknown) => {

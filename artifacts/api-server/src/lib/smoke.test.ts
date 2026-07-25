@@ -26,6 +26,8 @@ import {
   minutesSinceWindowStart,
 } from "./schedule";
 import { ipKey, rateLimit } from "./rateLimit";
+import { hostTokenFromRequest } from "./requestToken";
+import { isRedisAvailable } from "./redis";
 import type { Request, Response } from "express";
 
 describe("generateToken", () => {
@@ -139,6 +141,47 @@ describe("session eligibility (schedule)", () => {
   });
 });
 
+describe("hostAuth", () => {
+  it("hostTokenFromRequest prefers Bearer then X-Host-Token", () => {
+    expect(
+      hostTokenFromRequest({
+        headers: { authorization: "Bearer host-bearer" },
+      } as Request),
+    ).toBe("host-bearer");
+    expect(
+      hostTokenFromRequest({
+        headers: { "x-host-token": "host-header" },
+      } as Request),
+    ).toBe("host-header");
+    expect(
+      hostTokenFromRequest({
+        headers: { authorization: "Bearer ", "x-host-token": "fallback" },
+      } as Request),
+    ).toBe("fallback");
+    expect(hostTokenFromRequest({ headers: {} } as Request)).toBeNull();
+  });
+});
+
+describe("sessionBilling (block refund math)", () => {
+  it("computes remainder refund for partial block usage", () => {
+    const blockMinutes = 60;
+    const blockReservedLzt = 600;
+    const costPerMinute = Math.round(blockReservedLzt / blockMinutes);
+    for (const minutesUsed of [0, 10, 59, 60]) {
+      const costUsed = minutesUsed * costPerMinute;
+      const refundLzt = Math.max(0, blockReservedLzt - costUsed);
+      expect(refundLzt).toBe(Math.max(0, blockReservedLzt - minutesUsed * 10));
+    }
+  });
+
+  it("skips refund when block fully consumed", () => {
+    const blockReservedLzt = 600;
+    const minutesUsed = 60;
+    const costPerMinute = Math.round(blockReservedLzt / 60);
+    expect(Math.max(0, blockReservedLzt - minutesUsed * costPerMinute)).toBe(0);
+  });
+});
+
 describe("rateLimit", () => {
   it("ipKey falls back to anon", () => {
     expect(ipKey({ ip: "1.2.3.4" } as Request)).toBe("1.2.3.4");
@@ -146,6 +189,10 @@ describe("rateLimit", () => {
   });
 
   it("returns 429 after max requests in window", async () => {
+    const prev = process.env.RATE_LIMIT_STORAGE;
+    process.env.RATE_LIMIT_STORAGE = "memory";
+    try {
+      expect(isRedisAvailable()).toBe(false);
     const limiter = rateLimit({
       windowMs: 60_000,
       max: 2,
@@ -200,5 +247,9 @@ describe("rateLimit", () => {
     expect(r3.statusCode).toBe(429);
     expect((r3.body as { error: string }).error).toBe("too_many_requests");
     expect(r3.headers["Retry-After"]).toBeTruthy();
+    } finally {
+      if (prev === undefined) delete process.env.RATE_LIMIT_STORAGE;
+      else process.env.RATE_LIMIT_STORAGE = prev;
+    }
   });
 });

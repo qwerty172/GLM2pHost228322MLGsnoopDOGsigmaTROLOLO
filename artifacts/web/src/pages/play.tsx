@@ -6,6 +6,7 @@ import {
   useClaimSession,
   useGetWallet,
   getGetWalletQueryKey,
+  getSessionByInvite,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -170,26 +171,8 @@ export default function Play() {
     setInviteError(null);
     void (async () => {
       try {
-        const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
-        const res = await fetch(
-          `${base}/api/sessions/by-invite/${encodeURIComponent(inviteCode)}`,
-        );
-        const data = (await res.json().catch(() => ({}))) as {
-          playerToken?: string;
-          message?: string;
-          error?: string;
-        };
+        const data = await getSessionByInvite(inviteCode);
         if (cancelled) return;
-        if (!res.ok) {
-          setInviteError(
-            data.message ||
-              (data.error === "invite_expired"
-                ? "Ссылка-приглашение истекла"
-                : "Приглашение не найдено"),
-          );
-          setInviteLoading(false);
-          return;
-        }
         if (!data.playerToken) {
           setInviteError("В ответе нет токена игрока — приглашение повреждено");
           setInviteLoading(false);
@@ -197,11 +180,18 @@ export default function Play() {
         }
         setResolvedToken(data.playerToken);
         setInviteLoading(false);
-      } catch {
-        if (!cancelled) {
-          setInviteError("Ошибка сети");
-          setInviteLoading(false);
-        }
+      } catch (err) {
+        if (cancelled) return;
+        const apiErr = err as { status?: number; data?: { error?: string; message?: string } };
+        setInviteError(
+          apiErr.data?.message ||
+            (apiErr.data?.error === "invite_expired"
+              ? "Ссылка-приглашение истекла"
+              : apiErr.status === 404
+                ? "Приглашение не найдено"
+                : "Ошибка сети"),
+        );
+        setInviteLoading(false);
       }
     })();
     return () => {

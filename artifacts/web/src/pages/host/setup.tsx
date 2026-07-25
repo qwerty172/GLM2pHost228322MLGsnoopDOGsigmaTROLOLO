@@ -191,6 +191,20 @@ export default function SetupSession() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
+      <div
+        className="rounded-lg px-4 py-3 text-sm"
+        style={{
+          background: "rgba(14,165,233,0.08)",
+          border: "1px solid rgba(14,165,233,0.25)",
+          color: "#94a3b8",
+        }}
+      >
+        Расширенная настройка сессии — для опытных хостов. Быстрый старт:{" "}
+        <Link href="/host" className="text-sky-400 underline-offset-2 hover:underline">
+          дашборд
+        </Link>
+        .
+      </div>
       <div>
         <h1 className="text-3xl font-extrabold tracking-tight text-white">
           Новая сессия

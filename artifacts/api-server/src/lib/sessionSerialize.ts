@@ -1,6 +1,5 @@
 import { eq, and, sql } from "drizzle-orm";
 import { db, billingEventsTable, sessionsTable } from "@workspace/db";
-import { ensureJoinCodeForSession } from "./joinCodes";
 
 export function baseSerialize(s: typeof sessionsTable.$inferSelect) {
   return {
@@ -30,15 +29,7 @@ export async function enrichSession(s: typeof sessionsTable.$inferSelect) {
     const used = await countBlockMinutesUsed(s.id);
     blockMinsRemaining = Math.max(0, s.blockMinutes - used);
   }
-  let joinCode: string | null = null;
-  if (s.status !== "ended") {
-    try {
-      joinCode = await ensureJoinCodeForSession(s.id);
-    } catch {
-      joinCode = null;
-    }
-  }
-  return { ...base, blockMinsRemaining, joinCode };
+  return { ...base, blockMinsRemaining };
 }
 
 export async function enrichSessionBatch(

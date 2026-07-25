@@ -67,7 +67,7 @@ export interface PlayerGameSaveResponse {
 }
 
 export interface ExchangeJoinCodeResponse {
-  /** Long-lived session token тАФ store in memory, never put back in the URL */
+  /** Long-lived session token — store in memory, never put back in the URL */
   playerToken: string;
   sessionId: string;
 }
@@ -428,6 +428,41 @@ export interface Session {
   blockReservedLzt?: number | null;
   /** Host self-test session вЂ” completely free, skipped by billing. */
   isTest?: boolean;
+}
+
+export type SessionByInviteResponse = Session & {
+  /** @nullable */
+  gameSlug?: string | null;
+  /** @nullable */
+  gameCoverImageUrl?: string | null;
+  /** @nullable */
+  gameTitle?: string | null;
+  /** @nullable */
+  gameBrowserHostUrl?: string | null;
+};
+
+export interface CreatePublicSessionResponse {
+  inviteCode: string;
+  /** Frontend path e.g. /play/i/{inviteCode} */
+  playPath: string;
+}
+
+export interface CreateTestSessionResponse {
+  session: Session;
+  /** @nullable */
+  hostBoundUrl?: string | null;
+  isExternalUrl?: boolean;
+}
+
+export interface IssueAgentBindCodeResponse {
+  bindCode: string;
+  /** Unix epoch ms */
+  expiresAt: number;
+}
+
+export interface IssueWsTicketResponse {
+  wsTicket: string;
+  expiresInSec: number;
 }
 
 export interface EndSessionBody {
@@ -1354,6 +1389,11 @@ export type GetSessionParams = {
   hostToken: string;
 };
 
+export type CreateTestSessionBody = {
+  /** One-shot browser URL override for this test */
+  overrideUrl?: string;
+};
+
 export type GetSaveDownloadUrlParams = {
   sessionId: string;
 };
@@ -1442,6 +1482,11 @@ export type HostHeartbeat200 = {
   ok: boolean;
 };
 
+export type CreatePublicSessionBody = {
+  hostId: string;
+  gameId?: string;
+};
+
 export type CreatePreviewSessionBody = {
   /** UUID of the host to preview */
   hostId: string;
@@ -1470,6 +1515,19 @@ export type GetAgentChallenge200 = {
   challenge: string;
   /** Unix epoch ms when the challenge expires */
   expiresAt: number;
+};
+
+export type IssueWsTicketBodyRole =
+  (typeof IssueWsTicketBodyRole)[keyof typeof IssueWsTicketBodyRole];
+
+export const IssueWsTicketBodyRole = {
+  host: "host",
+  player: "player",
+} as const;
+
+export type IssueWsTicketBody = {
+  role: IssueWsTicketBodyRole;
+  sessionId: string;
 };
 
 export type BindAgentKeyBody = {

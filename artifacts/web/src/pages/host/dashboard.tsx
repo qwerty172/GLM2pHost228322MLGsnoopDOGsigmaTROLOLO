@@ -20,6 +20,8 @@ import {
   getGetHostCurrentQuotaQueryKey,
   getListHostLibraryQueryKey,
   getListGamesQueryKey,
+  issueAgentBindCode,
+  createTestSession,
   type HostLibraryEntry,
 } from "@workspace/api-client-react";
 import BindingForm from "./binding-form";
@@ -1011,28 +1013,22 @@ function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
   const issueCode = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/agent-bind-code", {
-        method: "POST",
+      const json = await issueAgentBindCode({
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${hostToken}`,
           "X-User-Token": hostToken,
         },
       });
-      const json = (await res.json()) as {
-        bindCode?: string;
-        expiresAt?: number;
-        error?: string;
-      };
-      if (!res.ok || !json.bindCode) {
-        toast.error(json.error ?? "Не удалось выдать код");
+      if (!json.bindCode) {
+        toast.error("Не удалось выдать код");
         return;
       }
       setBindCode(json.bindCode);
       setExpiresAt(json.expiresAt ?? null);
-      toast.success("Код привязки создан");
-    } catch {
-      toast.error("Нет соединения");
+      toast.success("Код привязки создан — вставь в агент или запусти с --bind-code=…");
+    } catch (err) {
+      const msg = (err as { data?: { error?: string } }).data?.error;
+      toast.error(msg ?? "Нет соединения");
     } finally {
       setLoading(false);
     }
@@ -1222,19 +1218,17 @@ export default function Dashboard() {
     if (!hostToken) return;
     setTestLoading(true);
     try {
-      const body: Record<string, string> = { hostToken };
       const trimmedUrl = testUrl.trim();
-      if (trimmedUrl) body.overrideUrl = trimmedUrl;
-      const res = await fetch(`/api/sessions/test`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data?.error || "Не удалось создать тест-сессию");
-        return;
-      }
+      const data = await createTestSession(
+        trimmedUrl ? { overrideUrl: trimmedUrl } : undefined,
+        {
+          headers: {
+            "X-Host-Token": hostToken,
+            Authorization: `Bearer ${hostToken}`,
+            "X-User-Token": hostToken,
+          },
+        },
+      );
       refetchSessions();
       if (data.isExternalUrl && data.hostBoundUrl) {
         // Arbitrary external site: iframes are blocked by most sites, so the
@@ -1267,8 +1261,11 @@ export default function Dashboard() {
           "_blank",
         );
       }
-    } catch {
-      toast.error("Ошибка сети при создании тест-сессии");
+    } catch (err) {
+      const msg =
+        (err as { data?: { error?: string; message?: string } }).data?.message ??
+        (err as { data?: { error?: string } }).data?.error;
+      toast.error(msg ?? "Ошибка сети при создании тест-сессии");
     } finally {
       setTestLoading(false);
     }

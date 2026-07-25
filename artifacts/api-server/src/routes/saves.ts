@@ -13,6 +13,12 @@ import {
   ObjectStorageService,
   ObjectStorageNotConfiguredError,
 } from "../lib/objectStorage";
+import {
+  handleStorageError,
+  respondStorageUnavailable,
+  resolveHostIdFromRequest,
+  resolvePlayerIdFromRequest,
+} from "../lib/storageRouteHelpers";
 import { randomUUID } from "node:crypto";
 
 const MAX_SAVE_SIZE_BYTES = 500 * 1024 * 1024;
@@ -59,39 +65,10 @@ const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 const storage = objectStorageService;
 
-function respondStorageUnavailable(res: Response): void {
-  res.status(503).json({
-    error: "storage_unavailable",
-    message: "Хранилище объектов не настроено в этой среде",
-  });
-}
-
-function handleStorageError(
-  req: Request,
-  res: Response,
-  error: unknown,
-  fallbackMessage: string,
-): void {
-  if (error instanceof ObjectStorageNotConfiguredError) {
-    respondStorageUnavailable(res);
-    return;
-  }
-  req.log.error({ err: error }, fallbackMessage);
-  res.status(500).json({ error: fallbackMessage });
-}
-
 async function resolveHostSession(req: Request, sessionId: string) {
-  const token = req.headers["x-host-token"] as string | undefined;
-  if (!token) {
+  const hostId = await resolveHostIdFromRequest(req);
+  if (!hostId) {
     return { ok: false as const, status: 401, message: "Missing X-Host-Token header" };
-  }
-
-  const [host] = await db
-    .select({ id: hostsTable.id })
-    .from(hostsTable)
-    .where(eq(hostsTable.hostToken, token));
-  if (!host) {
-    return { ok: false as const, status: 401, message: "Unknown host token" };
   }
 
   const [session] = await db
@@ -101,7 +78,7 @@ async function resolveHostSession(req: Request, sessionId: string) {
   if (!session) {
     return { ok: false as const, status: 404, message: "Session not found" };
   }
-  if (session.hostId !== host.id) {
+  if (session.hostId !== hostId) {
     return { ok: false as const, status: 403, message: "Not your session" };
   }
   if (!session.claimedByPlayerId) {
@@ -327,7 +304,7 @@ router.get("/players/me/saves/:gameId", async (req, res): Promise<void> => {
   });
 });
 
-const UploadUrlBody = z.object({
+const PlayerSaveUploadUrlBody = z.object({
   sizeBytes: z.number().int().positive().max(512 * 1024 * 1024),
 });
 
@@ -341,7 +318,7 @@ router.post(
       return;
     }
     const gameId = String(req.params.gameId ?? "");
-    const parsed = UploadUrlBody.safeParse(req.body);
+    const parsed = PlayerSaveUploadUrlBody.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: parsed.error.message });
       return;

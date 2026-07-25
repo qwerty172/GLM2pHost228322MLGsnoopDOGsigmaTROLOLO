@@ -4,19 +4,9 @@
 import type { Request } from "express";
 import { eq } from "drizzle-orm";
 import { db, hostsTable } from "@workspace/db";
-import { headerUserToken } from "./requestToken";
+import { hostTokenFromRequest } from "./requestToken";
 
-export function hostTokenFromRequest(req: Request): string | null {
-  const auth = req.headers.authorization;
-  if (typeof auth === "string" && auth.toLowerCase().startsWith("bearer ")) {
-    const tok = auth.slice(7).trim();
-    if (tok) return tok;
-  }
-  const xHost = req.headers["x-host-token"];
-  if (typeof xHost === "string" && xHost.trim()) return xHost.trim();
-  if (Array.isArray(xHost) && xHost[0]?.trim()) return xHost[0].trim();
-  return headerUserToken(req);
-}
+export { hostTokenFromRequest };
 
 export async function requireHost(req: Request): Promise<
   | { ok: true; host: typeof hostsTable.$inferSelect }

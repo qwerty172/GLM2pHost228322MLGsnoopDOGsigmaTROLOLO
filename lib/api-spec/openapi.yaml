@@ -546,6 +546,78 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /sessions/by-invite/{inviteCode}:
+    get:
+      operationId: getSessionByInvite
+      tags: [sessions]
+      summary: Resolve a public invite code to session details (player play link)
+      parameters:
+        - in: path
+          name: inviteCode
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session resolved from invite
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionByInviteResponse"
+        "404":
+          description: Invite not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: Invite expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions/test:
+    post:
+      operationId: createTestSession
+      tags: [sessions]
+      summary: Create a free host self-test session
+      parameters:
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                overrideUrl:
+                  type: string
+                  description: One-shot browser URL override for this test
+      responses:
+        "201":
+          description: Test session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateTestSessionResponse"
+        "401":
+          description: Missing host token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Host busy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /sessions/by-player-token/{playerToken}/claim:
     post:
       operationId: claimSession
@@ -1805,6 +1877,51 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /public/sessions:
+    post:
+      operationId: createPublicSession
+      tags: [public]
+      summary: Request a play invite for an online host (returns inviteCode, not playerToken)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hostId]
+              properties:
+                hostId:
+                  type: string
+                  format: uuid
+                gameId:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: Invite issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatePublicSessionResponse"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Host busy for requested game
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Host offline
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /public/preview-session:
     post:
       operationId: createPreviewSession
@@ -1968,6 +2085,71 @@ paths:
                   expiresAt:
                     type: integer
                     description: Unix epoch ms when the challenge expires
+
+  /auth/agent-bind-code:
+    post:
+      operationId: issueAgentBindCode
+      tags: [auth]
+      summary: Issue a short-lived bind code for pairing the desktop agent
+      parameters:
+        - in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+          description: Bearer host token
+      responses:
+        "200":
+          description: Bind code issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IssueAgentBindCodeResponse"
+        "401":
+          description: Host auth required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/ws-ticket:
+    post:
+      operationId: issueWsTicket
+      tags: [auth]
+      summary: Mint a short-lived WebSocket ticket (requires JWT_SECRET)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role, sessionId]
+              properties:
+                role:
+                  type: string
+                  enum: [host, player]
+                sessionId:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: WS ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IssueWsTicketResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: JWT not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /auth/bind-agent-key:
     post:
@@ -2878,6 +3060,60 @@ components:
         - bitrateKbps
         - ratePerMinute
         - createdAt
+
+    SessionByInviteResponse:
+      allOf:
+        - $ref: "#/components/schemas/Session"
+        - type: object
+          properties:
+            gameSlug:
+              type: ["string", "null"]
+            gameCoverImageUrl:
+              type: ["string", "null"]
+            gameTitle:
+              type: ["string", "null"]
+            gameBrowserHostUrl:
+              type: ["string", "null"]
+
+    CreatePublicSessionResponse:
+      type: object
+      required: [inviteCode, playPath]
+      properties:
+        inviteCode:
+          type: string
+        playPath:
+          type: string
+          description: Frontend path e.g. /play/i/{inviteCode}
+
+    CreateTestSessionResponse:
+      type: object
+      required: [session]
+      properties:
+        session:
+          $ref: "#/components/schemas/Session"
+        hostBoundUrl:
+          type: ["string", "null"]
+        isExternalUrl:
+          type: boolean
+
+    IssueAgentBindCodeResponse:
+      type: object
+      required: [bindCode, expiresAt]
+      properties:
+        bindCode:
+          type: string
+        expiresAt:
+          type: integer
+          description: Unix epoch ms
+
+    IssueWsTicketResponse:
+      type: object
+      required: [wsTicket, expiresInSec]
+      properties:
+        wsTicket:
+          type: string
+        expiresInSec:
+          type: integer
 
     EndSessionBody:
       type: object

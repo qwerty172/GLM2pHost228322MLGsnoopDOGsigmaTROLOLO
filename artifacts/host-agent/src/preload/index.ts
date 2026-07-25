@@ -131,6 +131,8 @@ const api = {
     bindCode?: string,
   ): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke("agent:bind-key", hostToken, apiBaseUrl, bindCode),
+  consumePendingBindCode: (): Promise<string | null> =>
+    ipcRenderer.invoke("agent:consume-pending-bind-code"),
   // Opens the web dashboard in the browser, authenticated via key signature.
   agentLogin: (
     apiBaseUrl: string,
