@@ -69,6 +69,8 @@ export const loansTable = pgTable(
     index("loans_borrower_idx").on(t.borrowerType, t.borrowerId),
     index("loans_lender_idx").on(t.lenderType, t.lenderId),
     index("loans_status_idx").on(t.status),
+    // Default worker: active loans ordered/scanned by due date.
+    index("loans_status_due_at_idx").on(t.status, t.dueAt),
   ],
 );
 

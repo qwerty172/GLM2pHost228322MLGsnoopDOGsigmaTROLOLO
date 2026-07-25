@@ -9,7 +9,7 @@ import type { ScheduleSlot } from "./scheduleSlot";
 import type { UpdateHostConfigBodyScheduleMode } from "./updateHostConfigBodyScheduleMode";
 
 /**
- * Partial update — omit a field to leave it unchanged.
+ * Partial update вЂ” omit a field to leave it unchanged.
  */
 export interface UpdateHostConfigBody {
   /** @nullable */

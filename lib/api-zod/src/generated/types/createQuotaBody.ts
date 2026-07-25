@@ -60,7 +60,7 @@ export interface CreateQuotaBody {
   /** @nullable */
   requiredTier?: CreateQuotaBodyRequiredTier;
   /**
-   * Link this quota to a dev/API key — sessions launched via that key auto-apply the quota and it becomes unusable via any other path.
+   * Link this quota to a dev/API key вЂ” sessions launched via that key auto-apply the quota and it becomes unusable via any other path.
    * @nullable
    */
   apiKey?: string | null;

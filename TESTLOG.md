@@ -6,31 +6,38 @@
 
 | Фаза | Статус | Примечание |
 |---|---|---|
-| 0–1 | done | healthz ok, smoke-api зелёный, storage → 503 |
-| 2 | verified (cloud) | `pages-api-smoke.sh` — API + web shell 200 |
-| 3 | verified (cloud API) | signaling + lifecycle + billing; video/input blocked |
-| 4 | verified (cloud API) | host-agent test/build/zip, agent-auth, ping :18080; Electron blocked |
+| 0–1 | done | healthz ok, smoke-api зелёный (Windows 2026-07-24) |
+| 2 | **verified (Windows browser)** | обход 11 URL + регистрация игрока/хоста |
+| 3 | **verified (Windows P2P)** | signaling + lifecycle + billing; browser-host ↔ player P2P |
+| 4 | **verified (Windows agent)** | unit/test/build/zip, ping :18080, Electron UI стартует, SendInput injector ready |
 | 5 | pending | Экономика, биллинг (расширенный) |
 | 6 | pending | Квоты, VDS, embed |
 | 7 | pending | Регресс + итог |
 
-## Матрица автономных проверок (cloud)
+## Матрица проверок (Windows 2026-07-24)
 
-| Проверка | Статус | Скрипт |
+| Проверка | Статус | Скрипт / как |
 |---|---|---|
 | signaling-smoke | verified | `node scripts/signaling-smoke.mjs` |
-| session end, no ghost | verified | `./scripts/session-lifecycle.sh` |
-| billing tick | verified | `BILLING_SMOKE=1 ./scripts/session-lifecycle.sh` |
-| pages API + web shell | verified | `./scripts/pages-api-smoke.sh` |
-| host-agent test | verified | `pnpm --filter @workspace/host-agent run test` |
-| ping :18080 | verified | `scripts/ping-server-smoke.mjs` (в agent-api-smoke) |
+| session end, no ghost | verified | `./scripts/session-lifecycle.sh` (+ `scripts/sql-query.mjs`) |
+| billing tick | verified | `BILLING_SMOKE=1 ./scripts/session-lifecycle.sh` (heartbeats) |
+| pages walkthrough | verified | browser MCP :5000 |
+| host-agent test | verified | `pnpm --filter @workspace/host-agent run test` (10/10) |
+| ping :18080 | verified | `scripts/ping-server-smoke.mjs` / agent-api-smoke |
 | agent-auth Ed25519 | verified | `scripts/agent-auth-smoke.mjs` |
 | host-agent.zip | verified | `./scripts/agent-api-smoke.sh` |
-| WebRTC video | **blocked** | нужен браузер + 2 окна |
-| getDisplayMedia / desktopCapturer | **blocked** | Windows / браузер |
-| SendInput в игре | **blocked** | Windows + Electron |
-| Electron tray / dashboard UI | **blocked** | Windows GUI |
+| WebRTC P2P connect | verified | 2 вкладки browser-host + player → ПОДКЛЮЧЕНО / P2P |
+| browser-host heartbeat | fixed | сессии больше не мрут через ~60с |
+| Electron UI start | verified | `pnpm --filter @workspace/host-agent run dev` |
+| SendInput injector init | verified | лог `Input injector ready` |
+| Steam scan → full game E2E | **manual** | нужен Steam + реальная игра |
 | ViGEm gamepad | skipped | known limitation |
+| **invite links** (`/play/i/:code`, by-invite API) | **verified** | `node scripts/features-smoke.mjs` + browser `/play/i/…` → redirect |
+| **session rating** (POST rate, host rating_avg) | **verified** | `node scripts/features-smoke.mjs` |
+| **guest upgrade** (API + UI баннер) | **verified** | smoke: баланс 777+123 сохранён; browser: «BrowserGuest», баннер исчез |
+| **browser-host WS reconnect** | **verified** | CDP offline 4с на host tab → CONNECTING, сессия не ended |
+| **play dock UX** (без z-[100] overlay) | **verified** | DOM: inset-0 fixed = 0, z-[100] = 0 на `/play` |
+| **stream-relay API** | **verified** | PATCH config + GET decrypt streamKey |
 
 ## Баги
 
@@ -46,6 +53,10 @@
 | 8 | `routes/hosts.ts`, `routes/vds.ts` | streamKey/SSH без crypto key → 500 | Uncaught encrypt | 503 на русском | fixed |
 | 9 | `lib/signaling.ts` | WS player 401 на test session после claim | Balance gate для `isTest` | Skip balance check для `isTest` | fixed |
 | 10 | `lib/signaling.ts` | Player не видит `peer-joined(host)` если хост подключился первым | Только broadcast новому peer | Отправка `peer-joined` newcomer о существующих peers | fixed |
+| 11 | `lib/db/drizzle.config.ts` | `drizzle-kit push` не видит schema на Windows | Absolute path через `path.join(__dirname)` | Relative `./src/schema/index.ts` | fixed |
+| 12 | `browser-play.tsx` | Browser-host сессия умирает ~60с (`host_offline`) | Нет heartbeat, health worker режет | Heartbeat каждые 15с | fixed |
+| 13 | `scripts/session-lifecycle.sh` | Billing smoke = 0 events на Windows | Health worker vs sleep 70с; `psql` URI ломается | `sql-query.mjs` + heartbeats в smoke | fixed |
+| 14 | `scripts/agent-api-smoke.sh` | Node не читает `/tmp/...` на Windows | Git Bash `/tmp` ≠ Windows path | `.tmp-agent-smoke-body.json` в root | fixed |
 
 ## SQL-проверки
 
@@ -62,7 +73,7 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 
 ## Итог (фаза 7)
 
-- **Найдено / починено / отложено:**
-- **Работает end-to-end (cloud):** signaling relay, session lifecycle, billing tick, agent-auth, ping-server, host-agent.zip
-- **Не проверено (Windows / браузер):** WebRTC video, SendInput, Electron UI
-- **Топ-5 рисков:**
+- **Найдено / починено / отложено:** #11–14 fixed на Windows; Steam full E2E и ViGEm отложены
+- **Работает end-to-end (Windows):** pages UI, signaling, session lifecycle, billing tick, browser-host P2P, agent ping/auth/zip, Electron start + SendInput init
+- **Осталось вручную:** полный цикл Steam → сессия → SendInput в реальной игре; kill Electron → disconnect ≤30с на живом стриме
+- **Топ рисков:** Electron `EADDRINUSE` если уже крутится ping-server; video frames в headless/automation иногда 0×0 (в UI HUD P2P ок)

@@ -2,6 +2,8 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import { z } from "zod/v4";
 import { ObjectStorageService, ObjectNotFoundError, ObjectStorageNotConfiguredError } from "../lib/objectStorage";
+import { ObjectPermission, getObjectAclPolicy } from "../lib/objectAcl";
+import { hostTokenFromRequest } from "../lib/hostAuth";
 import multer from "multer";
 
 const ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -54,6 +56,32 @@ function handleStorageError(req: Request, res: Response, error: unknown, fallbac
   }
   req.log.error({ err: error }, fallbackMessage);
   res.status(500).json({ error: fallbackMessage });
+}
+
+async function resolveCallerUserId(req: Request): Promise<string | undefined> {
+  const hostTok = hostTokenFromRequest(req);
+  if (hostTok) {
+    const { db, hostsTable } = await import("@workspace/db");
+    const { eq } = await import("drizzle-orm");
+    const [host] = await db
+      .select({ id: hostsTable.id })
+      .from(hostsTable)
+      .where(eq(hostsTable.hostToken, hostTok));
+    if (host) return `host:${host.id}`;
+  }
+  const playerTokRaw =
+    req.headers["x-player-wallet-token"] ?? req.headers["x-player-token"];
+  const playerTok = Array.isArray(playerTokRaw) ? playerTokRaw[0] : playerTokRaw;
+  if (playerTok) {
+    const { db, playersTable } = await import("@workspace/db");
+    const { eq } = await import("drizzle-orm");
+    const [player] = await db
+      .select({ id: playersTable.id })
+      .from(playersTable)
+      .where(eq(playersTable.playerToken, playerTok));
+    if (player) return `player:${player.id}`;
+  }
+  return undefined;
 }
 
 /**
@@ -145,9 +173,10 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
 /**
  * GET /storage/objects/*
  *
- * Serve object entities from PRIVATE_OBJECT_DIR.
- * These are served from a separate path from /public-objects and can optionally
- * be protected with authentication or ACL checks based on the use case.
+ * Serve object entities from PRIVATE_OBJECT_DIR with ACL enforcement.
+ * - visibility=public → anyone can READ
+ * - visibility=private → owner only
+ * - no ACL metadata (legacy covers) → public READ
  */
 router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {
@@ -156,20 +185,21 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     const objectPath = `/objects/${wildcardPath}`;
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
 
-    // --- Protected route example (uncomment when using replit-auth) ---
-    // if (!req.isAuthenticated()) {
-    //   res.status(401).json({ error: "Unauthorized" });
-    //   return;
-    // }
-    // const canAccess = await objectStorageService.canAccessObjectEntity({
-    //   userId: req.user.id,
-    //   objectFile,
-    //   requestedPermission: ObjectPermission.READ,
-    // });
-    // if (!canAccess) {
-    //   res.status(403).json({ error: "Forbidden" });
-    //   return;
-    // }
+    const policy = await getObjectAclPolicy(objectFile);
+    if (policy) {
+      const userId = await resolveCallerUserId(req);
+      const canAccess = await objectStorageService.canAccessObjectEntity({
+        userId,
+        objectFile,
+        requestedPermission: ObjectPermission.READ,
+      });
+      if (!canAccess) {
+        res.status(userId ? 403 : 401).json({
+          error: userId ? "Forbidden" : "Unauthorized",
+        });
+        return;
+      }
+    }
 
     const response = await objectStorageService.downloadObject(objectFile);
 
@@ -236,6 +266,15 @@ router.post(
         req.log.error({ status: uploadRes.status }, "Object storage PUT failed");
         res.status(502).json({ error: "Failed to store clip" });
         return;
+      }
+
+      try {
+        await objectStorageService.trySetObjectEntityAclPolicy(rawPath, {
+          owner: `player:${player.id}`,
+          visibility: "private",
+        });
+      } catch (aclErr) {
+        req.log.warn({ err: aclErr }, "Failed to set clip ACL (object still stored)");
       }
 
       const objectPath = `/api/storage${rawPath}`;

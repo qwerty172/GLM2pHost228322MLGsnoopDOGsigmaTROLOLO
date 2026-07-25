@@ -7,6 +7,6 @@
  */
 
 export type CreatePreviewSession200 = {
-  previewToken?: string;
-  hostId?: string;
+  previewToken: string;
+  hostId: string;
 };

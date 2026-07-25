@@ -12,6 +12,6 @@ export interface CreateLoanRequestBody {
   amountLzt: number;
   /** Loan duration in days (minimum 60) */
   termDays: number;
-  /** Annual interest rate in basis points (0–5000) */
+  /** Annual interest rate in basis points (0вЂ“5000) */
   rateBps?: number;
 }

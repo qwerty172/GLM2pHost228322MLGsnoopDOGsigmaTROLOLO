@@ -11,18 +11,18 @@ import type { AgentStatus } from "../shared/messages";
 
 let tray: Tray | null = null;
 let lastStatus: AgentStatus = "idle";
-let lastMessage = "Idle";
+let lastMessage = "Ожидание игрока";
 
 function statusLabel(s: AgentStatus): string {
   switch (s) {
     case "idle":
-      return "Idle — waiting for player";
+      return "Ожидание игрока";
     case "connecting":
-      return "Connecting…";
+      return "Подключение…";
     case "streaming":
-      return "Streaming";
+      return "Стрим идёт";
     case "error":
-      return "Error";
+      return "Ошибка";
   }
 }
 
@@ -36,7 +36,7 @@ export function createTray(openSettings: () => void): Tray {
     .createFromPath(iconPath)
     .resize({ width: 16, height: 16 });
   tray = new Tray(image.isEmpty() ? nativeImage.createEmpty() : image);
-  tray.setToolTip("Cloud Gaming Host Agent");
+  tray.setToolTip("Агент DecentralHub");
   rebuildMenu(openSettings);
   tray.on("click", () => openSettings());
   return tray;
@@ -46,15 +46,15 @@ export function setStatus(status: AgentStatus, message?: string): void {
   lastStatus = status;
   lastMessage = message ?? statusLabel(status);
   if (!tray) return;
-  tray.setToolTip(`Cloud Gaming Host Agent — ${lastMessage}`);
+  tray.setToolTip(`Агент DecentralHub — ${lastMessage}`);
   rebuildMenu(() => {
     const win = BrowserWindow.getAllWindows()[0];
     if (win) win.show();
   });
   if (status === "error" && Notification.isSupported()) {
     new Notification({
-      title: "Host Agent error",
-      body: message ?? "An error occurred.",
+      title: "Ошибка агента",
+      body: message ?? "Произошла ошибка.",
     }).show();
   }
 }
@@ -62,13 +62,13 @@ export function setStatus(status: AgentStatus, message?: string): void {
 function rebuildMenu(openSettings: () => void): void {
   if (!tray) return;
   const menu = Menu.buildFromTemplate([
-    { label: `Status: ${statusLabel(lastStatus)}`, enabled: false },
+    { label: `Статус: ${statusLabel(lastStatus)}`, enabled: false },
     { label: lastMessage, enabled: false },
     { type: "separator" },
-    { label: "Open settings", click: openSettings },
+    { label: "Открыть настройки", click: openSettings },
     { type: "separator" },
     {
-      label: "Quit",
+      label: "Выход",
       click: () => {
         app.quit();
       },

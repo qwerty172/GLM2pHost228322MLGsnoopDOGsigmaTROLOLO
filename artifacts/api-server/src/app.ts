@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
@@ -58,11 +58,110 @@ app.use(
     },
   }),
 );
-app.use(cors());
+function parseOriginList(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** Allowed browser origins: CORS_ORIGINS env + optional embed allowlist. */
+function buildAllowedOrigins(): Set<string> {
+  const origins = new Set<string>([
+    ...parseOriginList(process.env.CORS_ORIGINS),
+    ...parseOriginList(process.env.EMBED_ALLOWED_ORIGINS),
+  ]);
+  // Common local / Replit defaults when env is unset (dev convenience).
+  if (origins.size === 0 && process.env.NODE_ENV !== "production") {
+    origins.add("http://localhost:5173");
+    origins.add("http://127.0.0.1:5173");
+    origins.add("http://localhost:5000");
+    origins.add("http://127.0.0.1:5000");
+  }
+  const appUrl = process.env.APP_URL ?? process.env.PUBLIC_WEB_URL;
+  if (appUrl) {
+    try {
+      origins.add(new URL(appUrl).origin);
+    } catch {
+      /* ignore invalid */
+    }
+  }
+  return origins;
+}
+
+const allowedOrigins = buildAllowedOrigins();
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Non-browser clients (curl, host-agent, server-to-server) send no Origin.
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      if (allowedOrigins.has(origin)) {
+        callback(null, true);
+        return;
+      }
+      // In production with an empty whitelist, fail closed for browser Origins.
+      if (process.env.NODE_ENV === "production" && allowedOrigins.size === 0) {
+        callback(new Error(`CORS origin not allowed: ${origin}`));
+        return;
+      }
+      if (allowedOrigins.size === 0) {
+        // Dev with no configured list: allow (dev defaults already seeded above).
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`CORS origin not allowed: ${origin}`));
+    },
+    credentials: true,
+  }),
+);
 app.use(cookieParser());
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+
+// 404 — no route matched
+app.use((req: Request, res: Response) => {
+  res.status(404).json({
+    error: "not_found",
+    message: `No route for ${req.method} ${req.path}`,
+  });
+});
+
+// Global error handler — Express 5 forwards rejected promises here.
+app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
+  const status =
+    typeof err === "object" &&
+    err !== null &&
+    "status" in err &&
+    typeof (err as { status: unknown }).status === "number"
+      ? (err as { status: number }).status
+      : typeof err === "object" &&
+          err !== null &&
+          "statusCode" in err &&
+          typeof (err as { statusCode: unknown }).statusCode === "number"
+        ? (err as { statusCode: number }).statusCode
+        : 500;
+
+  // CORS errors from the cors package
+  const message =
+    err instanceof Error ? err.message : "Internal server error";
+  if (message.startsWith("CORS origin not allowed")) {
+    res.status(403).json({ error: "cors_forbidden", message });
+    return;
+  }
+
+  req.log?.error({ err }, "Unhandled request error");
+  if (res.headersSent) return;
+  res.status(status >= 400 && status < 600 ? status : 500).json({
+    error: status === 500 ? "internal_error" : "request_error",
+    message: status === 500 ? "Internal server error" : message,
+  });
+});
 
 export default app;

@@ -18,15 +18,22 @@ import type {
 
 import type {
   ActivityItem,
+  AddHostLibraryEntryBody,
   AdminDeleteGame200,
   AdminPatchGameBody,
+  AgentLogin200,
+  AgentLoginBody,
   AiSuggestQuotaSpecsBody,
   AiSuggestQuotaSpecsResponse,
   AttachQuotaToSession200,
   AttachQuotaToSessionBody,
+  BindAgentKey200,
+  BindAgentKeyBody,
   ClaimSessionBody,
   CreateBrowserHostSessionBody,
   CreateBrowserHostSessionResponse,
+  CreateEmbedSessionBody,
+  CreateEmbedSessionResponse,
   CreateLoanRequestBody,
   CreatePreviewSession200,
   CreatePreviewSessionBody,
@@ -41,14 +48,21 @@ import type {
   FundLoanResponse,
   GameDetail,
   GameListItem,
+  GetAgentChallenge200,
   GetGameBySlugParams,
   GetHostCurrentQuota200,
   GetHostCurrentQuotaParams,
+  GetHostDebtors200,
+  GetHostStreamRelay200,
+  GetPublicIceConfig200,
   GetQuotaParams,
   GetSaveDownloadUrlParams,
   GetSessionParams,
   HealthStatus,
   Host,
+  HostHeartbeat200,
+  HostHeartbeatBody,
+  HostLibraryEntry,
   HostStats,
   ListApplicableQuotasParams,
   ListAppliedQuotasParams,
@@ -60,7 +74,13 @@ import type {
   MatchQuotasForHostParams,
   MyLoans,
   Player,
+  PlayerGameSaveCommitBody,
+  PlayerGameSaveCommitResponse,
+  PlayerGameSaveResponse,
+  PlayerGameSaveUploadUrlBody,
+  PlayerGameSaveUploadUrlResponse,
   PublicHostListItem,
+  PublicPing200,
   PublicStats,
   Quota,
   QuotaAiChatBody,
@@ -71,6 +91,8 @@ import type {
   RegisterPlayerBody,
   RepayLoanBody,
   RepayLoanResponse,
+  RequestUploadUrlBody,
+  RequestUploadUrlResponse,
   RequestWithdrawalBody,
   SaveConfirmBody,
   SaveConfirmResponse,
@@ -79,6 +101,7 @@ import type {
   SaveUploadUrlResponse,
   Session,
   UpdateHostConfigBody,
+  UpdateHostLibraryEntryBody,
   UpdateQuotaBody,
   Wallet,
   WalletTransaction,
@@ -333,18 +356,19 @@ export function useGetHost<
 }
 
 /**
+ * Authenticate with Authorization Bearer, X-Host-Token, or X-User-Token (host token). Do not put the host token in the URL.
+
  * @summary Update the host's offer config (binding, pricing, schedule, restream)
  */
-export const getUpdateHostConfigUrl = (hostToken: string) => {
-  return `/api/hosts/${hostToken}/config`;
+export const getUpdateHostConfigUrl = () => {
+  return `/api/hosts/me/config`;
 };
 
 export const updateHostConfig = async (
-  hostToken: string,
   updateHostConfigBody: UpdateHostConfigBody,
   options?: RequestInit,
 ): Promise<Host> => {
-  return customFetch<Host>(getUpdateHostConfigUrl(hostToken), {
+  return customFetch<Host>(getUpdateHostConfigUrl(), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -359,14 +383,14 @@ export const getUpdateHostConfigMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof updateHostConfig>>,
     TError,
-    { hostToken: string; data: BodyType<UpdateHostConfigBody> },
+    { data: BodyType<UpdateHostConfigBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof updateHostConfig>>,
   TError,
-  { hostToken: string; data: BodyType<UpdateHostConfigBody> },
+  { data: BodyType<UpdateHostConfigBody> },
   TContext
 > => {
   const mutationKey = ["updateHostConfig"];
@@ -380,11 +404,11 @@ export const getUpdateHostConfigMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof updateHostConfig>>,
-    { hostToken: string; data: BodyType<UpdateHostConfigBody> }
+    { data: BodyType<UpdateHostConfigBody> }
   > = (props) => {
-    const { hostToken, data } = props ?? {};
+    const { data } = props ?? {};
 
-    return updateHostConfig(hostToken, data, requestOptions);
+    return updateHostConfig(data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -406,18 +430,170 @@ export const useUpdateHostConfig = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof updateHostConfig>>,
     TError,
-    { hostToken: string; data: BodyType<UpdateHostConfigBody> },
+    { data: BodyType<UpdateHostConfigBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof updateHostConfig>>,
   TError,
-  { hostToken: string; data: BodyType<UpdateHostConfigBody> },
+  { data: BodyType<UpdateHostConfigBody> },
   TContext
 > => {
   return useMutation(getUpdateHostConfigMutationOptions(options));
 };
+
+/**
+ * Authenticate with Authorization Bearer / X-Host-Token / X-User-Token.
+ * @summary List players who owe this host (negative balance loans)
+ */
+export const getGetHostDebtorsUrl = () => {
+  return `/api/hosts/me/debtors`;
+};
+
+export const getHostDebtors = async (
+  options?: RequestInit,
+): Promise<GetHostDebtors200> => {
+  return customFetch<GetHostDebtors200>(getGetHostDebtorsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetHostDebtorsQueryKey = () => {
+  return [`/api/hosts/me/debtors`] as const;
+};
+
+export const getGetHostDebtorsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getHostDebtors>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getHostDebtors>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetHostDebtorsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getHostDebtors>>> = ({
+    signal,
+  }) => getHostDebtors({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getHostDebtors>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetHostDebtorsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getHostDebtors>>
+>;
+export type GetHostDebtorsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List players who owe this host (negative balance loans)
+ */
+
+export function useGetHostDebtors<
+  TData = Awaited<ReturnType<typeof getHostDebtors>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getHostDebtors>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetHostDebtorsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Authenticate with Authorization Bearer / X-Host-Token / X-User-Token.
+ * @summary RTMP restream credentials for the authenticated host
+ */
+export const getGetHostStreamRelayUrl = () => {
+  return `/api/hosts/me/stream-relay`;
+};
+
+export const getHostStreamRelay = async (
+  options?: RequestInit,
+): Promise<GetHostStreamRelay200> => {
+  return customFetch<GetHostStreamRelay200>(getGetHostStreamRelayUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetHostStreamRelayQueryKey = () => {
+  return [`/api/hosts/me/stream-relay`] as const;
+};
+
+export const getGetHostStreamRelayQueryOptions = <
+  TData = Awaited<ReturnType<typeof getHostStreamRelay>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getHostStreamRelay>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetHostStreamRelayQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getHostStreamRelay>>
+  > = ({ signal }) => getHostStreamRelay({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getHostStreamRelay>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetHostStreamRelayQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getHostStreamRelay>>
+>;
+export type GetHostStreamRelayQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary RTMP restream credentials for the authenticated host
+ */
+
+export function useGetHostStreamRelay<
+  TData = Awaited<ReturnType<typeof getHostStreamRelay>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getHostStreamRelay>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetHostStreamRelayQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary List sessions for a host
@@ -684,7 +860,7 @@ export function useGetHostActivity<
 }
 
 /**
- * Returns hosts that have an open session and are within their availability schedule. Safe for anonymous visitors — never exposes hostToken or wallet/balance.
+ * Returns hosts that have an open session and are within their availability schedule. Safe for anonymous visitors вЂ” never exposes hostToken or wallet/balance.
  * @summary Public list of currently-available hosts
  */
 export const getListPublicHostsUrl = () => {
@@ -1296,7 +1472,7 @@ export const useCreateSession = <
 
 /**
  * @summary Create a session whose host is the calling browser (no desktop agent).
-Returns both the session and the freshly minted hostToken — the caller
+Returns both the session and the freshly minted hostToken вЂ” the caller
 is responsible for storing the hostToken locally and using it to
 connect to /signal as role=host and to end the session.
 
@@ -1367,7 +1543,7 @@ export type CreateBrowserHostSessionMutationError = ErrorType<ErrorResponse>;
 
 /**
  * @summary Create a session whose host is the calling browser (no desktop agent).
-Returns both the session and the freshly minted hostToken — the caller
+Returns both the session and the freshly minted hostToken вЂ” the caller
 is responsible for storing the hostToken locally and using it to
 connect to /signal as role=host and to end the session.
 
@@ -1677,90 +1853,6 @@ export const useClaimSession = <
 };
 
 /**
- * @summary Exchange a short-lived join code for a session playerToken
- */
-export const getExchangeJoinCodeUrl = (code: string) => {
-  return `/api/join-codes/${code}/exchange`;
-};
-
-export const exchangeJoinCode = async (
-  code: string,
-  options?: RequestInit,
-): Promise<ExchangeJoinCodeResponse> => {
-  return customFetch<ExchangeJoinCodeResponse>(getExchangeJoinCodeUrl(code), {
-    ...options,
-    method: "POST",
-  });
-};
-
-export const getExchangeJoinCodeMutationOptions = <
-  TError = ErrorType<ErrorResponse>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof exchangeJoinCode>>,
-    TError,
-    { code: string },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof exchangeJoinCode>>,
-  TError,
-  { code: string },
-  TContext
-> => {
-  const mutationKey = ["exchangeJoinCode"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof exchangeJoinCode>>,
-    { code: string }
-  > = (props) => {
-    const { code } = props ?? {};
-
-    return exchangeJoinCode(code, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type ExchangeJoinCodeMutationResult = NonNullable<
-  Awaited<ReturnType<typeof exchangeJoinCode>>
->;
-
-export type ExchangeJoinCodeMutationError = ErrorType<ErrorResponse>;
-
-/**
- * @summary Exchange a short-lived join code for a session playerToken
- */
-export const useExchangeJoinCode = <
-  TError = ErrorType<ErrorResponse>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof exchangeJoinCode>>,
-    TError,
-    { code: string },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof exchangeJoinCode>>,
-  TError,
-  { code: string },
-  TContext
-> => {
-  return useMutation(getExchangeJoinCodeMutationOptions(options));
-};
-
-/**
  * @summary End an active session (host-authenticated)
  */
 export const getEndSessionUrl = (id: string) => {
@@ -1845,6 +1937,90 @@ export const useEndSession = <
   TContext
 > => {
   return useMutation(getEndSessionMutationOptions(options));
+};
+
+/**
+ * @summary Exchange a short-lived join code for a session playerToken
+ */
+export const getExchangeJoinCodeUrl = (code: string) => {
+  return `/api/join-codes/${code}/exchange`;
+};
+
+export const exchangeJoinCode = async (
+  code: string,
+  options?: RequestInit,
+): Promise<ExchangeJoinCodeResponse> => {
+  return customFetch<ExchangeJoinCodeResponse>(getExchangeJoinCodeUrl(code), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getExchangeJoinCodeMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof exchangeJoinCode>>,
+    TError,
+    { code: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof exchangeJoinCode>>,
+  TError,
+  { code: string },
+  TContext
+> => {
+  const mutationKey = ["exchangeJoinCode"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof exchangeJoinCode>>,
+    { code: string }
+  > = (props) => {
+    const { code } = props ?? {};
+
+    return exchangeJoinCode(code, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ExchangeJoinCodeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof exchangeJoinCode>>
+>;
+
+export type ExchangeJoinCodeMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Exchange a short-lived join code for a session playerToken
+ */
+export const useExchangeJoinCode = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof exchangeJoinCode>>,
+    TError,
+    { code: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof exchangeJoinCode>>,
+  TError,
+  { code: string },
+  TContext
+> => {
+  return useMutation(getExchangeJoinCodeMutationOptions(options));
 };
 
 /**
@@ -2117,99 +2293,6 @@ export const useConfirmSaveUpload = <
   TContext
 > => {
   return useMutation(getConfirmSaveUploadMutationOptions(options));
-};
-
-/**
- * @summary Mint a short-lived preview token (60-second TTL) for a 30-second
-free muted live stream from the given host. No session record is
-created and no billing occurs.
-
- */
-export const getCreatePreviewSessionUrl = () => {
-  return `/api/sessions/preview`;
-};
-
-export const createPreviewSession = async (
-  createPreviewSessionBody: CreatePreviewSessionBody,
-  options?: RequestInit,
-): Promise<CreatePreviewSession200> => {
-  return customFetch<CreatePreviewSession200>(getCreatePreviewSessionUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(createPreviewSessionBody),
-  });
-};
-
-export const getCreatePreviewSessionMutationOptions = <
-  TError = ErrorType<ErrorResponse>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof createPreviewSession>>,
-    TError,
-    { data: BodyType<CreatePreviewSessionBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof createPreviewSession>>,
-  TError,
-  { data: BodyType<CreatePreviewSessionBody> },
-  TContext
-> => {
-  const mutationKey = ["createPreviewSession"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof createPreviewSession>>,
-    { data: BodyType<CreatePreviewSessionBody> }
-  > = (props) => {
-    const { data } = props ?? {};
-
-    return createPreviewSession(data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type CreatePreviewSessionMutationResult = NonNullable<
-  Awaited<ReturnType<typeof createPreviewSession>>
->;
-export type CreatePreviewSessionMutationBody =
-  BodyType<CreatePreviewSessionBody>;
-export type CreatePreviewSessionMutationError = ErrorType<ErrorResponse>;
-
-/**
- * @summary Mint a short-lived preview token (60-second TTL) for a 30-second
-free muted live stream from the given host. No session record is
-created and no billing occurs.
-
- */
-export const useCreatePreviewSession = <
-  TError = ErrorType<ErrorResponse>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof createPreviewSession>>,
-    TError,
-    { data: BodyType<CreatePreviewSessionBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof createPreviewSession>>,
-  TError,
-  { data: BodyType<CreatePreviewSessionBody> },
-  TContext
-> => {
-  return useMutation(getCreatePreviewSessionMutationOptions(options));
 };
 
 /**
@@ -3251,7 +3334,7 @@ export const useUpdateQuota = <
 };
 
 /**
- * @summary Move draft → active (locks sponsor escrow)
+ * @summary Move draft в†’ active (locks sponsor escrow)
  */
 export const getPublishQuotaUrl = (id: string) => {
   return `/api/quotas/${id}/publish`;
@@ -3315,7 +3398,7 @@ export type PublishQuotaMutationBody = BodyType<QuotaOwnerBody>;
 export type PublishQuotaMutationError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Move draft → active (locks sponsor escrow)
+ * @summary Move draft в†’ active (locks sponsor escrow)
  */
 export const usePublishQuota = <
   TError = ErrorType<ErrorResponse>,
@@ -3771,7 +3854,7 @@ export const useQuotaAiChat = <
 };
 
 /**
- * @summary Wallet overview — balance, deposit addresses, withdrawal history
+ * @summary Wallet overview вЂ” balance, deposit addresses, withdrawal history
  */
 export const getGetWalletUrl = (userToken: string) => {
   return `/api/wallet/${userToken}`;
@@ -3829,7 +3912,7 @@ export type GetWalletQueryResult = NonNullable<
 export type GetWalletQueryError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Wallet overview — balance, deposit addresses, withdrawal history
+ * @summary Wallet overview вЂ” balance, deposit addresses, withdrawal history
  */
 
 export function useGetWallet<
@@ -4038,7 +4121,7 @@ export const useRequestWithdrawal = <
 };
 
 /**
- * @summary Admin — list all games including hidden ones
+ * @summary Admin вЂ” list all games including hidden ones
  */
 export const getAdminListGamesUrl = () => {
   return `/api/admin/games`;
@@ -4089,7 +4172,7 @@ export type AdminListGamesQueryResult = NonNullable<
 export type AdminListGamesQueryError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Admin — list all games including hidden ones
+ * @summary Admin вЂ” list all games including hidden ones
  */
 
 export function useAdminListGames<
@@ -4542,7 +4625,7 @@ export const useRepayLoan = <
 };
 
 /**
- * @summary Admin — edit game metadata and/or toggle is_hidden flag
+ * @summary Admin вЂ” edit game metadata and/or toggle is_hidden flag
  */
 export const getAdminPatchGameUrl = (id: string) => {
   return `/api/admin/games/${id}`;
@@ -4606,7 +4689,7 @@ export type AdminPatchGameMutationBody = BodyType<AdminPatchGameBody>;
 export type AdminPatchGameMutationError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Admin — edit game metadata and/or toggle is_hidden flag
+ * @summary Admin вЂ” edit game metadata and/or toggle is_hidden flag
  */
 export const useAdminPatchGame = <
   TError = ErrorType<ErrorResponse>,
@@ -4629,7 +4712,7 @@ export const useAdminPatchGame = <
 };
 
 /**
- * @summary Admin — permanently delete a game with no session history
+ * @summary Admin вЂ” permanently delete a game with no session history
  */
 export const getAdminDeleteGameUrl = (id: string) => {
   return `/api/admin/games/${id}`;
@@ -4690,7 +4773,7 @@ export type AdminDeleteGameMutationResult = NonNullable<
 export type AdminDeleteGameMutationError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Admin — permanently delete a game with no session history
+ * @summary Admin вЂ” permanently delete a game with no session history
  */
 export const useAdminDeleteGame = <
   TError = ErrorType<ErrorResponse>,
@@ -4710,4 +4793,1400 @@ export const useAdminDeleteGame = <
   TContext
 > => {
   return useMutation(getAdminDeleteGameMutationOptions(options));
+};
+
+/**
+ * @summary Agent heartbeat вЂ” refresh lastSeenAt (and optional pingMs)
+ */
+export const getHostHeartbeatUrl = () => {
+  return `/api/hosts/heartbeat`;
+};
+
+export const hostHeartbeat = async (
+  hostHeartbeatBody: HostHeartbeatBody,
+  options?: RequestInit,
+): Promise<HostHeartbeat200> => {
+  return customFetch<HostHeartbeat200>(getHostHeartbeatUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(hostHeartbeatBody),
+  });
+};
+
+export const getHostHeartbeatMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof hostHeartbeat>>,
+    TError,
+    { data: BodyType<HostHeartbeatBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof hostHeartbeat>>,
+  TError,
+  { data: BodyType<HostHeartbeatBody> },
+  TContext
+> => {
+  const mutationKey = ["hostHeartbeat"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof hostHeartbeat>>,
+    { data: BodyType<HostHeartbeatBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return hostHeartbeat(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type HostHeartbeatMutationResult = NonNullable<
+  Awaited<ReturnType<typeof hostHeartbeat>>
+>;
+export type HostHeartbeatMutationBody = BodyType<HostHeartbeatBody>;
+export type HostHeartbeatMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Agent heartbeat вЂ” refresh lastSeenAt (and optional pingMs)
+ */
+export const useHostHeartbeat = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof hostHeartbeat>>,
+    TError,
+    { data: BodyType<HostHeartbeatBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof hostHeartbeat>>,
+  TError,
+  { data: BodyType<HostHeartbeatBody> },
+  TContext
+> => {
+  return useMutation(getHostHeartbeatMutationOptions(options));
+};
+
+/**
+ * @summary List games in the host's multi-game library
+ */
+export const getListHostLibraryUrl = (hostToken: string) => {
+  return `/api/hosts/${hostToken}/library`;
+};
+
+export const listHostLibrary = async (
+  hostToken: string,
+  options?: RequestInit,
+): Promise<HostLibraryEntry[]> => {
+  return customFetch<HostLibraryEntry[]>(getListHostLibraryUrl(hostToken), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListHostLibraryQueryKey = (hostToken: string) => {
+  return [`/api/hosts/${hostToken}/library`] as const;
+};
+
+export const getListHostLibraryQueryOptions = <
+  TData = Awaited<ReturnType<typeof listHostLibrary>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  hostToken: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listHostLibrary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListHostLibraryQueryKey(hostToken);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listHostLibrary>>> = ({
+    signal,
+  }) => listHostLibrary(hostToken, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!hostToken,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listHostLibrary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListHostLibraryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listHostLibrary>>
+>;
+export type ListHostLibraryQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List games in the host's multi-game library
+ */
+
+export function useListHostLibrary<
+  TData = Awaited<ReturnType<typeof listHostLibrary>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  hostToken: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listHostLibrary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListHostLibraryQueryOptions(hostToken, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add a catalog game to the host library
+ */
+export const getAddHostLibraryEntryUrl = (hostToken: string) => {
+  return `/api/hosts/${hostToken}/library`;
+};
+
+export const addHostLibraryEntry = async (
+  hostToken: string,
+  addHostLibraryEntryBody: AddHostLibraryEntryBody,
+  options?: RequestInit,
+): Promise<HostLibraryEntry> => {
+  return customFetch<HostLibraryEntry>(getAddHostLibraryEntryUrl(hostToken), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(addHostLibraryEntryBody),
+  });
+};
+
+export const getAddHostLibraryEntryMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addHostLibraryEntry>>,
+    TError,
+    { hostToken: string; data: BodyType<AddHostLibraryEntryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addHostLibraryEntry>>,
+  TError,
+  { hostToken: string; data: BodyType<AddHostLibraryEntryBody> },
+  TContext
+> => {
+  const mutationKey = ["addHostLibraryEntry"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addHostLibraryEntry>>,
+    { hostToken: string; data: BodyType<AddHostLibraryEntryBody> }
+  > = (props) => {
+    const { hostToken, data } = props ?? {};
+
+    return addHostLibraryEntry(hostToken, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddHostLibraryEntryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addHostLibraryEntry>>
+>;
+export type AddHostLibraryEntryMutationBody = BodyType<AddHostLibraryEntryBody>;
+export type AddHostLibraryEntryMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Add a catalog game to the host library
+ */
+export const useAddHostLibraryEntry = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addHostLibraryEntry>>,
+    TError,
+    { hostToken: string; data: BodyType<AddHostLibraryEntryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addHostLibraryEntry>>,
+  TError,
+  { hostToken: string; data: BodyType<AddHostLibraryEntryBody> },
+  TContext
+> => {
+  return useMutation(getAddHostLibraryEntryMutationOptions(options));
+};
+
+/**
+ * @summary Update a host library entry (price, path, enabled, sort)
+ */
+export const getUpdateHostLibraryEntryUrl = (
+  hostToken: string,
+  gameId: string,
+) => {
+  return `/api/hosts/${hostToken}/library/${gameId}`;
+};
+
+export const updateHostLibraryEntry = async (
+  hostToken: string,
+  gameId: string,
+  updateHostLibraryEntryBody: UpdateHostLibraryEntryBody,
+  options?: RequestInit,
+): Promise<HostLibraryEntry> => {
+  return customFetch<HostLibraryEntry>(
+    getUpdateHostLibraryEntryUrl(hostToken, gameId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateHostLibraryEntryBody),
+    },
+  );
+};
+
+export const getUpdateHostLibraryEntryMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateHostLibraryEntry>>,
+    TError,
+    {
+      hostToken: string;
+      gameId: string;
+      data: BodyType<UpdateHostLibraryEntryBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateHostLibraryEntry>>,
+  TError,
+  {
+    hostToken: string;
+    gameId: string;
+    data: BodyType<UpdateHostLibraryEntryBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateHostLibraryEntry"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateHostLibraryEntry>>,
+    {
+      hostToken: string;
+      gameId: string;
+      data: BodyType<UpdateHostLibraryEntryBody>;
+    }
+  > = (props) => {
+    const { hostToken, gameId, data } = props ?? {};
+
+    return updateHostLibraryEntry(hostToken, gameId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateHostLibraryEntryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateHostLibraryEntry>>
+>;
+export type UpdateHostLibraryEntryMutationBody =
+  BodyType<UpdateHostLibraryEntryBody>;
+export type UpdateHostLibraryEntryMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update a host library entry (price, path, enabled, sort)
+ */
+export const useUpdateHostLibraryEntry = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateHostLibraryEntry>>,
+    TError,
+    {
+      hostToken: string;
+      gameId: string;
+      data: BodyType<UpdateHostLibraryEntryBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateHostLibraryEntry>>,
+  TError,
+  {
+    hostToken: string;
+    gameId: string;
+    data: BodyType<UpdateHostLibraryEntryBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateHostLibraryEntryMutationOptions(options));
+};
+
+/**
+ * @summary Remove a game from the host library
+ */
+export const getRemoveHostLibraryEntryUrl = (
+  hostToken: string,
+  gameId: string,
+) => {
+  return `/api/hosts/${hostToken}/library/${gameId}`;
+};
+
+export const removeHostLibraryEntry = async (
+  hostToken: string,
+  gameId: string,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getRemoveHostLibraryEntryUrl(hostToken, gameId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getRemoveHostLibraryEntryMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeHostLibraryEntry>>,
+    TError,
+    { hostToken: string; gameId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeHostLibraryEntry>>,
+  TError,
+  { hostToken: string; gameId: string },
+  TContext
+> => {
+  const mutationKey = ["removeHostLibraryEntry"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeHostLibraryEntry>>,
+    { hostToken: string; gameId: string }
+  > = (props) => {
+    const { hostToken, gameId } = props ?? {};
+
+    return removeHostLibraryEntry(hostToken, gameId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveHostLibraryEntryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeHostLibraryEntry>>
+>;
+
+export type RemoveHostLibraryEntryMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Remove a game from the host library
+ */
+export const useRemoveHostLibraryEntry = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeHostLibraryEntry>>,
+    TError,
+    { hostToken: string; gameId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removeHostLibraryEntry>>,
+  TError,
+  { hostToken: string; gameId: string },
+  TContext
+> => {
+  return useMutation(getRemoveHostLibraryEntryMutationOptions(options));
+};
+
+/**
+ * @summary Mint a short-lived preview token (60-second TTL) for a 30-second
+free muted live stream from the given host. No session record is
+created and no billing occurs.
+
+ */
+export const getCreatePreviewSessionUrl = () => {
+  return `/api/public/preview-session`;
+};
+
+export const createPreviewSession = async (
+  createPreviewSessionBody: CreatePreviewSessionBody,
+  options?: RequestInit,
+): Promise<CreatePreviewSession200> => {
+  return customFetch<CreatePreviewSession200>(getCreatePreviewSessionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createPreviewSessionBody),
+  });
+};
+
+export const getCreatePreviewSessionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPreviewSession>>,
+    TError,
+    { data: BodyType<CreatePreviewSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createPreviewSession>>,
+  TError,
+  { data: BodyType<CreatePreviewSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["createPreviewSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createPreviewSession>>,
+    { data: BodyType<CreatePreviewSessionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createPreviewSession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreatePreviewSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPreviewSession>>
+>;
+export type CreatePreviewSessionMutationBody =
+  BodyType<CreatePreviewSessionBody>;
+export type CreatePreviewSessionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Mint a short-lived preview token (60-second TTL) for a 30-second
+free muted live stream from the given host. No session record is
+created and no billing occurs.
+
+ */
+export const useCreatePreviewSession = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPreviewSession>>,
+    TError,
+    { data: BodyType<CreatePreviewSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createPreviewSession>>,
+  TError,
+  { data: BodyType<CreatePreviewSessionBody> },
+  TContext
+> => {
+  return useMutation(getCreatePreviewSessionMutationOptions(options));
+};
+
+/**
+ * @summary Latency probe for browser-side RTT measurement
+ */
+export const getPublicPingUrl = () => {
+  return `/api/public/ping`;
+};
+
+export const publicPing = async (
+  options?: RequestInit,
+): Promise<PublicPing200> => {
+  return customFetch<PublicPing200>(getPublicPingUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getPublicPingQueryKey = () => {
+  return [`/api/public/ping`] as const;
+};
+
+export const getPublicPingQueryOptions = <
+  TData = Awaited<ReturnType<typeof publicPing>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof publicPing>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getPublicPingQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof publicPing>>> = ({
+    signal,
+  }) => publicPing({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof publicPing>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type PublicPingQueryResult = NonNullable<
+  Awaited<ReturnType<typeof publicPing>>
+>;
+export type PublicPingQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Latency probe for browser-side RTT measurement
+ */
+
+export function usePublicPing<
+  TData = Awaited<ReturnType<typeof publicPing>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof publicPing>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getPublicPingQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary ICE server config for WebRTC (STUN + optional TURN)
+ */
+export const getGetPublicIceConfigUrl = () => {
+  return `/api/public/ice-config`;
+};
+
+export const getPublicIceConfig = async (
+  options?: RequestInit,
+): Promise<GetPublicIceConfig200> => {
+  return customFetch<GetPublicIceConfig200>(getGetPublicIceConfigUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPublicIceConfigQueryKey = () => {
+  return [`/api/public/ice-config`] as const;
+};
+
+export const getGetPublicIceConfigQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPublicIceConfig>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicIceConfig>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPublicIceConfigQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPublicIceConfig>>
+  > = ({ signal }) => getPublicIceConfig({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicIceConfig>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPublicIceConfigQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPublicIceConfig>>
+>;
+export type GetPublicIceConfigQueryError = ErrorType<unknown>;
+
+/**
+ * @summary ICE server config for WebRTC (STUN + optional TURN)
+ */
+
+export function useGetPublicIceConfig<
+  TData = Awaited<ReturnType<typeof getPublicIceConfig>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicIceConfig>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPublicIceConfigQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a session funded by a developer API key (embed widget)
+ */
+export const getCreateEmbedSessionUrl = () => {
+  return `/api/embed/sessions`;
+};
+
+export const createEmbedSession = async (
+  createEmbedSessionBody: CreateEmbedSessionBody,
+  options?: RequestInit,
+): Promise<CreateEmbedSessionResponse> => {
+  return customFetch<CreateEmbedSessionResponse>(getCreateEmbedSessionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createEmbedSessionBody),
+  });
+};
+
+export const getCreateEmbedSessionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createEmbedSession>>,
+    TError,
+    { data: BodyType<CreateEmbedSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createEmbedSession>>,
+  TError,
+  { data: BodyType<CreateEmbedSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["createEmbedSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createEmbedSession>>,
+    { data: BodyType<CreateEmbedSessionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createEmbedSession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateEmbedSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createEmbedSession>>
+>;
+export type CreateEmbedSessionMutationBody = BodyType<CreateEmbedSessionBody>;
+export type CreateEmbedSessionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a session funded by a developer API key (embed widget)
+ */
+export const useCreateEmbedSession = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createEmbedSession>>,
+    TError,
+    { data: BodyType<CreateEmbedSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createEmbedSession>>,
+  TError,
+  { data: BodyType<CreateEmbedSessionBody> },
+  TContext
+> => {
+  return useMutation(getCreateEmbedSessionMutationOptions(options));
+};
+
+/**
+ * @summary Issue a one-time challenge for agent key bind/login
+ */
+export const getGetAgentChallengeUrl = () => {
+  return `/api/auth/agent-challenge`;
+};
+
+export const getAgentChallenge = async (
+  options?: RequestInit,
+): Promise<GetAgentChallenge200> => {
+  return customFetch<GetAgentChallenge200>(getGetAgentChallengeUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAgentChallengeQueryKey = () => {
+  return [`/api/auth/agent-challenge`] as const;
+};
+
+export const getGetAgentChallengeQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAgentChallenge>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentChallenge>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAgentChallengeQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAgentChallenge>>
+  > = ({ signal }) => getAgentChallenge({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentChallenge>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAgentChallengeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAgentChallenge>>
+>;
+export type GetAgentChallengeQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Issue a one-time challenge for agent key bind/login
+ */
+
+export function useGetAgentChallenge<
+  TData = Awaited<ReturnType<typeof getAgentChallenge>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentChallenge>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAgentChallengeQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Bind an Ed25519 public key to a host account
+ */
+export const getBindAgentKeyUrl = () => {
+  return `/api/auth/bind-agent-key`;
+};
+
+export const bindAgentKey = async (
+  bindAgentKeyBody: BindAgentKeyBody,
+  options?: RequestInit,
+): Promise<BindAgentKey200> => {
+  return customFetch<BindAgentKey200>(getBindAgentKeyUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(bindAgentKeyBody),
+  });
+};
+
+export const getBindAgentKeyMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bindAgentKey>>,
+    TError,
+    { data: BodyType<BindAgentKeyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bindAgentKey>>,
+  TError,
+  { data: BodyType<BindAgentKeyBody> },
+  TContext
+> => {
+  const mutationKey = ["bindAgentKey"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bindAgentKey>>,
+    { data: BodyType<BindAgentKeyBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return bindAgentKey(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BindAgentKeyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bindAgentKey>>
+>;
+export type BindAgentKeyMutationBody = BodyType<BindAgentKeyBody>;
+export type BindAgentKeyMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Bind an Ed25519 public key to a host account
+ */
+export const useBindAgentKey = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bindAgentKey>>,
+    TError,
+    { data: BodyType<BindAgentKeyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof bindAgentKey>>,
+  TError,
+  { data: BodyType<BindAgentKeyBody> },
+  TContext
+> => {
+  return useMutation(getBindAgentKeyMutationOptions(options));
+};
+
+/**
+ * @summary Verify agent signature and return hostToken
+ */
+export const getAgentLoginUrl = () => {
+  return `/api/auth/agent-login`;
+};
+
+export const agentLogin = async (
+  agentLoginBody: AgentLoginBody,
+  options?: RequestInit,
+): Promise<AgentLogin200> => {
+  return customFetch<AgentLogin200>(getAgentLoginUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(agentLoginBody),
+  });
+};
+
+export const getAgentLoginMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof agentLogin>>,
+    TError,
+    { data: BodyType<AgentLoginBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof agentLogin>>,
+  TError,
+  { data: BodyType<AgentLoginBody> },
+  TContext
+> => {
+  const mutationKey = ["agentLogin"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof agentLogin>>,
+    { data: BodyType<AgentLoginBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return agentLogin(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AgentLoginMutationResult = NonNullable<
+  Awaited<ReturnType<typeof agentLogin>>
+>;
+export type AgentLoginMutationBody = BodyType<AgentLoginBody>;
+export type AgentLoginMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Verify agent signature and return hostToken
+ */
+export const useAgentLogin = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof agentLogin>>,
+    TError,
+    { data: BodyType<AgentLoginBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof agentLogin>>,
+  TError,
+  { data: BodyType<AgentLoginBody> },
+  TContext
+> => {
+  return useMutation(getAgentLoginMutationOptions(options));
+};
+
+/**
+ * @summary Request a presigned URL for object upload
+ */
+export const getRequestUploadUrlUrl = () => {
+  return `/api/storage/uploads/request-url`;
+};
+
+export const requestUploadUrl = async (
+  requestUploadUrlBody: RequestUploadUrlBody,
+  options?: RequestInit,
+): Promise<RequestUploadUrlResponse> => {
+  return customFetch<RequestUploadUrlResponse>(getRequestUploadUrlUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(requestUploadUrlBody),
+  });
+};
+
+export const getRequestUploadUrlMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestUploadUrl>>,
+    TError,
+    { data: BodyType<RequestUploadUrlBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof requestUploadUrl>>,
+  TError,
+  { data: BodyType<RequestUploadUrlBody> },
+  TContext
+> => {
+  const mutationKey = ["requestUploadUrl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof requestUploadUrl>>,
+    { data: BodyType<RequestUploadUrlBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return requestUploadUrl(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RequestUploadUrlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof requestUploadUrl>>
+>;
+export type RequestUploadUrlMutationBody = BodyType<RequestUploadUrlBody>;
+export type RequestUploadUrlMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Request a presigned URL for object upload
+ */
+export const useRequestUploadUrl = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestUploadUrl>>,
+    TError,
+    { data: BodyType<RequestUploadUrlBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof requestUploadUrl>>,
+  TError,
+  { data: BodyType<RequestUploadUrlBody> },
+  TContext
+> => {
+  return useMutation(getRequestUploadUrlMutationOptions(options));
+};
+
+/**
+ * @summary Get latest cloud save metadata for a game
+ */
+export const getGetPlayerGameSaveUrl = (gameId: string) => {
+  return `/api/players/me/saves/${gameId}`;
+};
+
+export const getPlayerGameSave = async (
+  gameId: string,
+  options?: RequestInit,
+): Promise<PlayerGameSaveResponse> => {
+  return customFetch<PlayerGameSaveResponse>(getGetPlayerGameSaveUrl(gameId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPlayerGameSaveQueryKey = (gameId: string) => {
+  return [`/api/players/me/saves/${gameId}`] as const;
+};
+
+export const getGetPlayerGameSaveQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPlayerGameSave>>,
+  TError = ErrorType<unknown>,
+>(
+  gameId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPlayerGameSave>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPlayerGameSaveQueryKey(gameId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPlayerGameSave>>
+  > = ({ signal }) => getPlayerGameSave(gameId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!gameId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPlayerGameSave>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPlayerGameSaveQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPlayerGameSave>>
+>;
+export type GetPlayerGameSaveQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get latest cloud save metadata for a game
+ */
+
+export function useGetPlayerGameSave<
+  TData = Awaited<ReturnType<typeof getPlayerGameSave>>,
+  TError = ErrorType<unknown>,
+>(
+  gameId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPlayerGameSave>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPlayerGameSaveQueryOptions(gameId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Request presigned upload URL for a cloud save archive
+ */
+export const getRequestPlayerGameSaveUploadUrlUrl = (gameId: string) => {
+  return `/api/players/me/saves/${gameId}/upload-url`;
+};
+
+export const requestPlayerGameSaveUploadUrl = async (
+  gameId: string,
+  playerGameSaveUploadUrlBody: PlayerGameSaveUploadUrlBody,
+  options?: RequestInit,
+): Promise<PlayerGameSaveUploadUrlResponse> => {
+  return customFetch<PlayerGameSaveUploadUrlResponse>(
+    getRequestPlayerGameSaveUploadUrlUrl(gameId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(playerGameSaveUploadUrlBody),
+    },
+  );
+};
+
+export const getRequestPlayerGameSaveUploadUrlMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestPlayerGameSaveUploadUrl>>,
+    TError,
+    { gameId: string; data: BodyType<PlayerGameSaveUploadUrlBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof requestPlayerGameSaveUploadUrl>>,
+  TError,
+  { gameId: string; data: BodyType<PlayerGameSaveUploadUrlBody> },
+  TContext
+> => {
+  const mutationKey = ["requestPlayerGameSaveUploadUrl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof requestPlayerGameSaveUploadUrl>>,
+    { gameId: string; data: BodyType<PlayerGameSaveUploadUrlBody> }
+  > = (props) => {
+    const { gameId, data } = props ?? {};
+
+    return requestPlayerGameSaveUploadUrl(gameId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RequestPlayerGameSaveUploadUrlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof requestPlayerGameSaveUploadUrl>>
+>;
+export type RequestPlayerGameSaveUploadUrlMutationBody =
+  BodyType<PlayerGameSaveUploadUrlBody>;
+export type RequestPlayerGameSaveUploadUrlMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Request presigned upload URL for a cloud save archive
+ */
+export const useRequestPlayerGameSaveUploadUrl = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestPlayerGameSaveUploadUrl>>,
+    TError,
+    { gameId: string; data: BodyType<PlayerGameSaveUploadUrlBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof requestPlayerGameSaveUploadUrl>>,
+  TError,
+  { gameId: string; data: BodyType<PlayerGameSaveUploadUrlBody> },
+  TContext
+> => {
+  return useMutation(getRequestPlayerGameSaveUploadUrlMutationOptions(options));
+};
+
+/**
+ * @summary Finalize cloud save after upload
+ */
+export const getCommitPlayerGameSaveUrl = (gameId: string) => {
+  return `/api/players/me/saves/${gameId}/commit`;
+};
+
+export const commitPlayerGameSave = async (
+  gameId: string,
+  playerGameSaveCommitBody: PlayerGameSaveCommitBody,
+  options?: RequestInit,
+): Promise<PlayerGameSaveCommitResponse> => {
+  return customFetch<PlayerGameSaveCommitResponse>(
+    getCommitPlayerGameSaveUrl(gameId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(playerGameSaveCommitBody),
+    },
+  );
+};
+
+export const getCommitPlayerGameSaveMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof commitPlayerGameSave>>,
+    TError,
+    { gameId: string; data: BodyType<PlayerGameSaveCommitBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof commitPlayerGameSave>>,
+  TError,
+  { gameId: string; data: BodyType<PlayerGameSaveCommitBody> },
+  TContext
+> => {
+  const mutationKey = ["commitPlayerGameSave"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof commitPlayerGameSave>>,
+    { gameId: string; data: BodyType<PlayerGameSaveCommitBody> }
+  > = (props) => {
+    const { gameId, data } = props ?? {};
+
+    return commitPlayerGameSave(gameId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CommitPlayerGameSaveMutationResult = NonNullable<
+  Awaited<ReturnType<typeof commitPlayerGameSave>>
+>;
+export type CommitPlayerGameSaveMutationBody =
+  BodyType<PlayerGameSaveCommitBody>;
+export type CommitPlayerGameSaveMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Finalize cloud save after upload
+ */
+export const useCommitPlayerGameSave = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof commitPlayerGameSave>>,
+    TError,
+    { gameId: string; data: BodyType<PlayerGameSaveCommitBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof commitPlayerGameSave>>,
+  TError,
+  { gameId: string; data: BodyType<PlayerGameSaveCommitBody> },
+  TContext
+> => {
+  return useMutation(getCommitPlayerGameSaveMutationOptions(options));
 };

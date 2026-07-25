@@ -5,6 +5,73 @@
  * P2P Cloud Gaming signaling, session, and wallet API
  * OpenAPI spec version: 0.1.0
  */
+export interface SaveUploadUrlBody {
+  sessionId: string;
+  /** Save archive size in bytes (max 500 MB) */
+  sizeBytes: number;
+}
+
+export interface SaveUploadUrlResponse {
+  uploadURL: string;
+  objectPath: string;
+}
+
+export interface SaveDownloadUrlResponse {
+  downloadURL: string;
+  objectPath: string;
+}
+
+export interface SaveConfirmBody {
+  sessionId: string;
+  /** SHA-256 hex digest of the uploaded archive */
+  contentHash: string;
+  sizeBytes: number;
+}
+
+export interface SaveConfirmResponse {
+  saved: boolean;
+  objectPath: string;
+}
+
+export interface PlayerGameSaveUploadUrlBody {
+  sizeBytes: number;
+}
+
+export interface PlayerGameSaveUploadUrlResponse {
+  uploadURL: string;
+  storageKey: string;
+  sizeBytes: number;
+}
+
+export interface PlayerGameSaveCommitBody {
+  storageKey: string;
+  sizeBytes: number;
+  version?: number;
+}
+
+export type PlayerGameSaveCommitResponseSave = { [key: string]: unknown };
+
+export interface PlayerGameSaveCommitResponse {
+  ok: boolean;
+  save?: PlayerGameSaveCommitResponseSave;
+}
+
+/**
+ * @nullable
+ */
+export type PlayerGameSaveResponseSave = { [key: string]: unknown } | null;
+
+export interface PlayerGameSaveResponse {
+  /** @nullable */
+  save: PlayerGameSaveResponseSave;
+}
+
+export interface ExchangeJoinCodeResponse {
+  /** Long-lived session token тАФ store in memory, never put back in the URL */
+  playerToken: string;
+  sessionId: string;
+}
+
 export interface AdminPatchGameBody {
   /** @minLength 1 */
   title?: string;
@@ -36,7 +103,7 @@ export interface ErrorResponse {
  */
 export interface ScheduleSlot {
   /**
-   * 0 = Sunday … 6 = Saturday
+   * 0 = Sunday вЂ¦ 6 = Saturday
    * @minimum 0
    * @maximum 6
    */
@@ -72,13 +139,26 @@ export const HostHostTier = {
   above_rec: "above_rec",
 } as const;
 
+/**
+ * PC hardware specs reported by the host agent
+ * @nullable
+ */
+export type HostPcSpecs = {
+  gpu?: string;
+  cpu?: string;
+  ramGb?: number;
+  cpuCores?: number;
+  downloadMbps?: number;
+  uploadMbps?: number;
+} | null;
+
 export interface Host {
   id: string;
   hostToken: string;
   displayName: string;
-  /** Синий — internal LZT, cannot be withdrawn */
+  /** РЎРёРЅРёР№ вЂ” internal LZT, cannot be withdrawn */
   internalBalanceLzt: number;
-  /** Зелёный — LZT convertible back to crypto at 200:1 */
+  /** Р—РµР»С‘РЅС‹Р№ вЂ” LZT convertible back to crypto at 200:1 */
   withdrawableBalanceLzt: number;
   /**
    * Catalog game this host is bound to
@@ -105,7 +185,7 @@ export interface Host {
   streamUrl: string;
   /** True if a stream key is stored. The key itself is never returned. */
   streamKeySet: boolean;
-  /** Host service credit policy — minutes of play extended on credit to new players who run out mid-session. 0 disables auto-credit. */
+  /** Host service credit policy вЂ” minutes of play extended on credit to new players who run out mid-session. 0 disables auto-credit. */
   creditMinutesPerNewPlayer: number;
   /** Per-borrower cap on host service credit, in LZT. */
   creditMaxLztPerPlayer: number;
@@ -120,6 +200,32 @@ export interface Host {
   scheduleAutoDisabledReason: string | null;
   /** @nullable */
   scheduleAutoDisabledAt: string | null;
+  /**
+   * Latest game submission outcome (pending / approved / rejected)
+   * @nullable
+   */
+  lastSubmissionStatus: string | null;
+  /** Human-readable note about the last submission outcome */
+  lastSubmissionNote: string;
+  /** Count of approved catalog submissions from this host */
+  gamesContributed: number;
+  /** Platform administrator flag */
+  isAdmin: boolean;
+  /** True when an Ed25519 agent public key is bound (key itself is never returned) */
+  agentKeyBound: boolean;
+  /**
+   * PC hardware specs reported by the host agent
+   * @nullable
+   */
+  pcSpecs: HostPcSpecs;
+  /**
+   * RTT from host agent to API (ms), null until first measured heartbeat
+   * @nullable
+   */
+  pingMs?: number | null;
+  /** @nullable */
+  ratingAvg?: number | null;
+  ratingCount?: number;
 }
 
 export type UpdateHostConfigBodyScheduleMode =
@@ -131,7 +237,7 @@ export const UpdateHostConfigBodyScheduleMode = {
 } as const;
 
 /**
- * Partial update — omit a field to leave it unchanged.
+ * Partial update вЂ” omit a field to leave it unchanged.
  */
 export interface UpdateHostConfigBody {
   /** @nullable */
@@ -169,9 +275,9 @@ export interface Player {
   id: string;
   playerToken: string;
   displayName: string;
-  /** Синий — internal LZT, cannot be withdrawn */
+  /** РЎРёРЅРёР№ вЂ” internal LZT, cannot be withdrawn */
   internalBalanceLzt: number;
-  /** Зелёный — LZT convertible back to crypto at 200:1 */
+  /** Р—РµР»С‘РЅС‹Р№ вЂ” LZT convertible back to crypto at 200:1 */
   withdrawableBalanceLzt: number;
   createdAt: string;
   lastSeenAt: string;
@@ -192,16 +298,28 @@ export interface GameListItem {
   coverImageUrl: string;
   description: string;
   genre: string;
+  /** Primary catalog category (e.g. action, rpg) */
+  category: string;
+  /** Additional genre tags */
+  genres: string[];
+  createdAt: string;
   hasMods: boolean;
   isMultiplayer: boolean;
   hostSpectatesPlayer: boolean;
   hasQuests: boolean;
   /** Number of pending or active sessions matching this game right now */
   liveSessionCount: number;
+  /** Hosts with this game enabled that currently have a live session */
+  liveHostsCount: number;
   /** Number of always-on VDS hosts offering this game */
   vdsHostsCount?: number;
   /** True when at least one VDS host offers this game */
   hasVdsHosts?: boolean;
+  /**
+   * Cheapest enabled library price for this game across hosts, in LZT
+   * @nullable
+   */
+  minPricePerMinuteLzt: number | null;
   /** Same-origin URL of a vendored browser build that a player can host
 directly from their browser tab (no desktop agent). Empty when only
 native-app hosting is supported.
@@ -220,10 +338,14 @@ export const GameLiveSessionScheduleMode = {
 } as const;
 
 export interface GameLiveSession {
-  /** Player share token — visit /play/{playerToken} to join */
+  /** Host UUID offering this live session */
+  hostId: string;
+  /** Player share token вЂ” visit /play/{playerToken} to join */
   playerToken: string;
   appName: string;
   ratePerMinute: number;
+  /** Per-minute price in integer LZT */
+  pricePerMinuteLzt: number;
   resolution: string;
   bitrateKbps: number;
   status: string;
@@ -239,6 +361,11 @@ export interface GameLiveSession {
   scheduleMode: GameLiveSessionScheduleMode;
   scheduleJson: ScheduleSlot[];
   streamPlatform: string;
+  /** @nullable */
+  pingMs: number | null;
+  /** @nullable */
+  ratingScore: number | null;
+  ratingCount: number;
 }
 
 export type GameDetail = GameListItem & {
@@ -257,11 +384,18 @@ export const SessionPaymentSource = {
 export interface Session {
   id: string;
   hostId: string;
+  /** Catalog game this session is bound to */
+  gameId: string;
   playerToken: string;
+  /**
+   * Short invite code for share links
+   * @nullable
+   */
+  inviteCode?: string | null;
+  /** @nullable */
+  inviteExpiresAt?: string | null;
   /** @nullable */
   claimedByPlayerId?: string | null;
-  /** Catalog game id this session is bound to */
-  gameId: string;
   appName: string;
   /** One of pending, active, ended */
   status: string;
@@ -292,17 +426,7 @@ export interface Session {
    * @nullable
    */
   blockReservedLzt?: number | null;
-  /**
-   * Server-authoritative minutes left in a prepaid block session (null when not block-billed).
-   * @nullable
-   */
-  blockMinsRemaining?: number | null;
-  /**
-   * Short-lived code for share links (/play/:joinCode). Reusable until expiry.
-   * @nullable
-   */
-  joinCode?: string | null;
-  /** Host self-test session — completely free, skipped by billing. */
+  /** Host self-test session вЂ” completely free, skipped by billing. */
   isTest?: boolean;
 }
 
@@ -310,37 +434,9 @@ export interface EndSessionBody {
   hostToken: string;
 }
 
-export interface SaveUploadUrlBody {
-  sessionId: string;
-  /** Save archive size in bytes (max 500 MB) */
-  sizeBytes: number;
-}
-
-export interface SaveUploadUrlResponse {
-  uploadURL: string;
-  objectPath: string;
-}
-
-export interface SaveDownloadUrlResponse {
-  downloadURL: string;
-  objectPath: string;
-}
-
-export interface SaveConfirmBody {
-  sessionId: string;
-  /** SHA-256 hex digest of the uploaded archive */
-  contentHash: string;
-  sizeBytes: number;
-}
-
-export interface SaveConfirmResponse {
-  saved: boolean;
-  objectPath: string;
-}
-
 /**
  * Which LZT bucket the player wants to pay from. "auto" prefers
-зелёный (withdrawable) and falls back to синий (internal).
+Р·РµР»С‘РЅС‹Р№ (withdrawable) and falls back to СЃРёРЅРёР№ (internal).
 
  */
 export type ClaimSessionBodyPaymentSource =
@@ -356,7 +452,7 @@ export interface ClaimSessionBody {
   /** The player's wallet token (issued via /players/register) */
   playerWalletToken: string;
   /** Which LZT bucket the player wants to pay from. "auto" prefers
-зелёный (withdrawable) and falls back to синий (internal).
+Р·РµР»С‘РЅС‹Р№ (withdrawable) and falls back to СЃРёРЅРёР№ (internal).
  */
   paymentSource?: ClaimSessionBodyPaymentSource;
   /**
@@ -364,12 +460,6 @@ export interface ClaimSessionBody {
    * @nullable
    */
   blockMinutes?: number | null;
-}
-
-export interface ExchangeJoinCodeResponse {
-  /** Long-lived session token — store in memory, never put back in the URL */
-  playerToken: string;
-  sessionId: string;
 }
 
 /**
@@ -415,6 +505,8 @@ export interface CreateSessionBody {
   quotaId?: string | null;
   /** Required when attaching a private quota the host does not own. */
   quotaAccessCode?: string;
+  /** Optional game from the host's library; when set, pricing comes from that library entry. */
+  requestedGameId?: string;
 }
 
 export interface HostStats {
@@ -467,7 +559,7 @@ export interface Withdrawal {
 export interface RequestWithdrawalBody {
   currency: string;
   address: string;
-  /** Amount in LZT (must be a multiple of 200 — i.e. whole USDT) */
+  /** Amount in LZT (must be a multiple of 200 вЂ” i.e. whole USDT) */
   amountLzt: number;
 }
 
@@ -476,13 +568,13 @@ export interface Wallet {
   ownerType: string;
   ownerId: string;
   displayName: string;
-  /** Legacy alias of balanceLzt (синий, internal LZT). */
+  /** Legacy alias of balanceLzt (СЃРёРЅРёР№, internal LZT). */
   internalBalanceLzt: number;
-  /** Legacy alias of cashLzt (зелёный, withdrawable LZT). */
+  /** Legacy alias of cashLzt (Р·РµР»С‘РЅС‹Р№, withdrawable LZT). */
   withdrawableBalanceLzt: number;
-  /** Синий — internal LZT, earns weekly interest, pays internal services & premium. */
+  /** РЎРёРЅРёР№ вЂ” internal LZT, earns weekly interest, pays internal services & premium. */
   balanceLzt: number;
-  /** Зелёный — convertible to crypto at 200:1 and withdrawable. */
+  /** Р—РµР»С‘РЅС‹Р№ вЂ” convertible to crypto at 200:1 and withdrawable. */
   cashLzt: number;
   /** Gaming credit line in LZT (default 3000 = $15). Player can play past zero balance up to this limit. */
   creditLimitLzt: number;
@@ -495,7 +587,7 @@ export interface Wallet {
    * @nullable
    */
   premiumUntil?: string | null;
-  /** Lifetime deposit volume in USDT cents — drives the tariff tier. */
+  /** Lifetime deposit volume in USDT cents вЂ” drives the tariff tier. */
   lifetimeDepositUsdtCents: number;
   pendingWithdrawalsLzt: number;
   lztPerUsdt: number;
@@ -530,13 +622,12 @@ export interface PublicHostListItem {
   minutePriceUsd: number;
   /** online | offline | scheduled */
   status: string;
-  /** Share token so anonymous visitors can join the open session. */
-  playerToken: string;
   /**
-   * Short join code for share links (preferred over playerToken in URLs).
+   * Capability invite code for /play/i/{inviteCode}. Raw playerToken is never exposed on public host lists.
+
    * @nullable
    */
-  joinCode?: string | null;
+  inviteCode: string | null;
   /** Strength badge vs the site-wide baseline. below_min hosts are excluded from this list entirely. */
   hostTier?: PublicHostListItemHostTier;
 }
@@ -601,7 +692,7 @@ export interface Quota {
   /** True when an API (dev) key is linked to this quota. */
   hasApiKey: boolean;
   /**
-   * Masked hint of the linked API key (e.g. "abcd••••wxyz"), never the raw key.
+   * Masked hint of the linked API key (e.g. "abcdвЂўвЂўвЂўвЂўwxyz"), never the raw key.
    * @nullable
    */
   apiKeyMasked: string | null;
@@ -792,7 +883,7 @@ export interface CreateQuotaBody {
   /** @nullable */
   requiredTier?: CreateQuotaBodyRequiredTier;
   /**
-   * Link this quota to a dev/API key — sessions launched via that key auto-apply the quota and it becomes unusable via any other path.
+   * Link this quota to a dev/API key вЂ” sessions launched via that key auto-apply the quota and it becomes unusable via any other path.
    * @nullable
    */
   apiKey?: string | null;
@@ -874,7 +965,7 @@ export interface UpdateQuotaBody {
 
 export interface AiSuggestQuotaSpecsBody {
   /**
-   * Optional game ID — the server will resolve its title and genre
+   * Optional game ID вЂ” the server will resolve its title and genre
    * @nullable
    */
   gameId?: string | null;
@@ -969,7 +1060,7 @@ export interface QuotaAiChatResponse {
 
 export interface WalletTransaction {
   id: string;
-  /** ledger kind (deposit_credit, deposit_fee, session_tick, loan_disburse_*, loan_repay_*, interest_payout, premium_purchase, withdrawal, …) */
+  /** ledger kind (deposit_credit, deposit_fee, session_tick, loan_disburse_*, loan_repay_*, interest_payout, premium_purchase, withdrawal, вЂ¦) */
   kind: string;
   /** @nullable */
   currency?: string | null;
@@ -1016,12 +1107,12 @@ export interface CreateLoanRequestBody {
   amountLzt: number;
   /** Loan duration in days (minimum 60) */
   termDays: number;
-  /** Annual interest rate in basis points (0–5000) */
+  /** Annual interest rate in basis points (0вЂ“5000) */
   rateBps?: number;
 }
 
 /**
- * cash | balance — which bucket the lender pays from
+ * cash | balance вЂ” which bucket the lender pays from
  */
 export type FundLoanRequestBodySource =
   (typeof FundLoanRequestBodySource)[keyof typeof FundLoanRequestBodySource];
@@ -1046,7 +1137,7 @@ export interface FundLoanRequestBody {
   userToken: string;
   /** Amount to fund in LZT. Omit to fund the entire remaining unfunded portion. */
   amountLzt?: number;
-  /** cash | balance — which bucket the lender pays from */
+  /** cash | balance вЂ” which bucket the lender pays from */
   source?: FundLoanRequestBodySource;
   /** cash_on_close | balance_streaming */
   payoutMode?: FundLoanRequestBodyPayoutMode;
@@ -1118,6 +1209,105 @@ export interface RepayLoanResponse {
   repaidLzt: number;
 }
 
+export interface HostLibraryGame {
+  id: string;
+  slug: string;
+  title: string;
+  coverImageUrl: string;
+  genre: string;
+  browserHostUrl: string;
+  hasMods: boolean;
+  isMultiplayer: boolean;
+}
+
+export interface HostLibraryEntry {
+  id: string;
+  hostId: string;
+  gameId: string;
+  pricePerMinuteLzt: number;
+  appPath: string;
+  boundUrl: string;
+  launchArgs: string;
+  enabled: boolean;
+  sortOrder: number;
+  localAvailable: boolean;
+  lastError: string;
+  addedAt: string;
+  hasActiveSession: boolean;
+  game: HostLibraryGame;
+}
+
+export interface AddHostLibraryEntryBody {
+  gameId: string;
+  pricePerMinuteLzt?: number;
+  appPath?: string;
+  boundUrl?: string;
+  launchArgs?: string;
+}
+
+export interface UpdateHostLibraryEntryBody {
+  pricePerMinuteLzt?: number;
+  appPath?: string;
+  boundUrl?: string;
+  launchArgs?: string;
+  enabled?: boolean;
+  sortOrder?: number;
+  localAvailable?: boolean;
+  lastError?: string;
+}
+
+export interface CreateEmbedSessionBody {
+  apiKey: string;
+  gameSlug: string;
+  resolution?: string;
+  bitrateKbps?: number;
+}
+
+export interface CreateEmbedSessionResponse {
+  sessionId: string;
+  playerToken: string;
+  gameSlug: string;
+  gameTitle: string;
+  hostDisplayName: string;
+  ratePerMinuteLzt: number;
+  keyBalanceLzt: number;
+}
+
+export type RequestUploadUrlBodyContentType =
+  (typeof RequestUploadUrlBodyContentType)[keyof typeof RequestUploadUrlBodyContentType];
+
+export const RequestUploadUrlBodyContentType = {
+  "image/jpeg": "image/jpeg",
+  "image/png": "image/png",
+  "image/webp": "image/webp",
+} as const;
+
+export interface RequestUploadUrlBody {
+  name: string;
+  size: number;
+  contentType: RequestUploadUrlBodyContentType;
+}
+
+export type RequestUploadUrlResponseMetadata = {
+  name: string;
+  size: number;
+  contentType: string;
+};
+
+export interface RequestUploadUrlResponse {
+  uploadURL: string;
+  objectPath: string;
+  metadata: RequestUploadUrlResponseMetadata;
+}
+
+export type GetHostDebtors200 = { [key: string]: unknown };
+
+export type GetHostStreamRelay200 = {
+  streamPlatform?: string;
+  streamUrl?: string;
+  streamKey?: string;
+};
+
 export type ListGamesParams = {
   /**
    * Only return games tagged as supporting mods
@@ -1166,16 +1356,6 @@ export type GetSessionParams = {
 
 export type GetSaveDownloadUrlParams = {
   sessionId: string;
-};
-
-export type CreatePreviewSessionBody = {
-  /** UUID of the host to preview */
-  hostId: string;
-};
-
-export type CreatePreviewSession200 = {
-  previewToken?: string;
-  hostId?: string;
 };
 
 export type ListPublicQuotasParams = {
@@ -1249,4 +1429,67 @@ export type ListMyLoansParams = {
 export type AdminDeleteGame200 = {
   deleted: boolean;
   id: string;
+};
+
+export type HostHeartbeatBody = {
+  /** Fallback when X-Host-Token header is absent */
+  hostToken?: string;
+  /** RTT from agent to API in milliseconds */
+  pingMs?: number;
+};
+
+export type HostHeartbeat200 = {
+  ok: boolean;
+};
+
+export type CreatePreviewSessionBody = {
+  /** UUID of the host to preview */
+  hostId: string;
+};
+
+export type CreatePreviewSession200 = {
+  previewToken: string;
+  hostId: string;
+};
+
+export type PublicPing200 = {
+  ok: boolean;
+};
+
+export type GetPublicIceConfig200IceServersItem = {
+  urls: string;
+  username?: string;
+  credential?: string;
+};
+
+export type GetPublicIceConfig200 = {
+  iceServers: GetPublicIceConfig200IceServersItem[];
+};
+
+export type GetAgentChallenge200 = {
+  challenge: string;
+  /** Unix epoch ms when the challenge expires */
+  expiresAt: number;
+};
+
+export type BindAgentKeyBody = {
+  hostToken: string;
+  /** Hex-encoded Ed25519 SubjectPublicKeyInfo */
+  pubkey: string;
+  challenge: string;
+  signature: string;
+};
+
+export type BindAgentKey200 = {
+  ok: boolean;
+};
+
+export type AgentLoginBody = {
+  pubkey: string;
+  challenge: string;
+  signature: string;
+};
+
+export type AgentLogin200 = {
+  hostToken: string;
 };

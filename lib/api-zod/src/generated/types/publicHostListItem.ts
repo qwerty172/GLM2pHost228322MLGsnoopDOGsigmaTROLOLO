@@ -23,13 +23,12 @@ export interface PublicHostListItem {
   minutePriceUsd: number;
   /** online | offline | scheduled */
   status: string;
-  /** Share token so anonymous visitors can join the open session. */
-  playerToken: string;
   /**
-   * Short join code for share links (preferred over playerToken in URLs).
+   * Capability invite code for /play/i/{inviteCode}. Raw playerToken is never exposed on public host lists.
+
    * @nullable
    */
-  joinCode?: string | null;
+  inviteCode: string | null;
   /** Strength badge vs the site-wide baseline. below_min hosts are excluded from this list entirely. */
   hostTier?: PublicHostListItemHostTier;
 }

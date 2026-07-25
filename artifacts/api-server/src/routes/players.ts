@@ -8,9 +8,7 @@ import {
 } from "@workspace/api-zod";
 import { generateToken } from "../lib/tokens";
 import { ensureDepositAddressesForOwner } from "../lib/walletOwner";
-import { rateLimit, ipKey, failedAttemptGuard } from "../lib/rateLimit";
-import { headerUserToken } from "../lib/requestToken";
-import { z } from "zod/v4";
+import { rateLimit, ipKey } from "../lib/rateLimit";
 
 const router: IRouter = Router();
 
@@ -27,6 +25,13 @@ const playerReadLimiter = rateLimit({
   scope: "players:read",
   windowMs: 60_000,
   max: 60,
+  keyFn: ipKey,
+});
+
+const claimGuestLimiter = rateLimit({
+  scope: "players:claim-guest",
+  windowMs: 60 * 60_000,
+  max: 10,
   keyFn: ipKey,
 });
 
@@ -98,7 +103,7 @@ router.post("/players/register", registerLimiter, async (req, res): Promise<void
   res.status(201).json(GetPlayerResponse.parse(serialize(player)));
 });
 
-router.get("/players/:playerToken", playerReadLimiter, failedAttemptGuard("players:read"), async (req, res): Promise<void> => {
+router.get("/players/:playerToken", playerReadLimiter, async (req, res): Promise<void> => {
   const params = GetPlayerParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -121,7 +126,7 @@ router.get("/players/:playerToken", playerReadLimiter, failedAttemptGuard("playe
 // POST /players/claim-guest
 // Called by the desktop agent when a host registers: transfers guest balance +
 // session history to the host account, then deactivates the guest token.
-router.post("/players/claim-guest", async (req, res): Promise<void> => {
+router.post("/players/claim-guest", claimGuestLimiter, async (req, res): Promise<void> => {
   const guestToken = (req.body?.guestToken as string | undefined)?.trim() ?? "";
   const hostToken = (req.body?.hostToken as string | undefined)?.trim() ?? "";
 
@@ -210,42 +215,59 @@ router.post("/players/claim-guest", async (req, res): Promise<void> => {
   });
 });
 
-const CreditSettingsBody = z.object({
-  creditEnabled: z.boolean(),
+const upgradeGuestLimiter = rateLimit({
+  scope: "players:upgrade-guest",
+  windowMs: 60 * 60_000,
+  max: 10,
+  keyFn: ipKey,
 });
 
-const DEFAULT_CREDIT_LIMIT = 3000;
-
-router.patch("/players/me/credit-settings", async (req, res): Promise<void> => {
-  const playerToken = headerUserToken(req);
-  if (!playerToken) {
-    res.status(401).json({ error: "Player token required" });
+router.post("/players/upgrade-guest", upgradeGuestLimiter, async (req, res): Promise<void> => {
+  const guestToken = String(req.body?.guestToken ?? "").trim();
+  const displayName = String(req.body?.displayName ?? "").trim();
+  if (!guestToken) {
+    res.status(400).json({ error: "guestToken required" });
     return;
   }
-  const parsed = CreditSettingsBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+  if (displayName.length < 2 || displayName.length > 32) {
+    res.status(400).json({ error: "displayName must be 2–32 characters" });
     return;
   }
 
-  const [player] = await db
+  const [guest] = await db
+    .select()
+    .from(playersTable)
+    .where(eq(playersTable.playerToken, guestToken));
+  if (!guest) {
+    res.status(404).json({ error: "Guest not found" });
+    return;
+  }
+  if (!guest.isGuest) {
+    res.status(400).json({ error: "Account is not a guest" });
+    return;
+  }
+
+  const newToken = generateToken();
+  const [upgraded] = await db
     .update(playersTable)
     .set({
-      creditLimitLzt: parsed.data.creditEnabled ? DEFAULT_CREDIT_LIMIT : 0,
+      playerToken: newToken,
+      displayName,
+      isGuest: false,
+      creditLimitLzt: DEFAULT_CREDIT_LIMIT_LZT,
     })
-    .where(eq(playersTable.playerToken, playerToken))
+    .where(and(eq(playersTable.id, guest.id), eq(playersTable.isGuest, true)))
     .returning();
 
-  if (!player) {
-    res.status(404).json({ error: "Player not found" });
+  if (!upgraded) {
+    res.status(500).json({ error: "Upgrade failed" });
     return;
   }
 
-  res.json({
-    creditLimitLzt: player.creditLimitLzt,
-    creditDebtLzt: player.creditDebtLzt,
-    creditEnabled: player.creditLimitLzt > 0,
-  });
+  await ensureDepositAddressesForOwner("player", upgraded.id);
+
+  req.log.info({ playerId: upgraded.id }, "Guest upgraded to full account");
+  res.status(200).json(serialize(upgraded));
 });
 
 export default router;

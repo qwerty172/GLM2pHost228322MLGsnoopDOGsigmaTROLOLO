@@ -10,6 +10,7 @@ import { usePlayerWallet } from "@/hooks/use-player-wallet";
 import { toast } from "sonner";
 import {
   Activity,
+  AlertCircle,
   ArrowRight,
   Gamepad2,
   Rocket,
@@ -77,7 +78,6 @@ export default function GamesPage() {
   });
   const [maxLzt, setMaxLzt] = useState<number>(9999);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
-  const [pingFilter, setPingFilter] = useState(false);
   const sliderInitRef = useRef(false);
 
   const apiParams = useMemo(() => {
@@ -89,7 +89,7 @@ export default function GamesPage() {
     return p;
   }, [boolFilters, liveOnly, debouncedSearch, category]);
 
-  const { data: rawGames, isLoading } = useListGames(apiParams, {
+  const { data: rawGames, isLoading, isError, refetch, isFetching } = useListGames(apiParams, {
     query: { queryKey: getListGamesQueryKey(apiParams) },
   });
 
@@ -336,27 +336,9 @@ export default function GamesPage() {
 
             <div>
               <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">Соединение</div>
-              <button
-                type="button"
-                onClick={() => setPingFilter((v) => !v)}
-                className="text-left text-xs px-2 py-1 rounded transition-colors flex items-center gap-1.5 w-full"
-                style={{
-                  background: pingFilter ? "rgba(14,165,233,0.12)" : "transparent",
-                  color: pingFilter ? "#38bdf8" : "#64748b",
-                }}
-                data-testid="filter-ping"
-              >
-                <span
-                  className="w-3 h-3 rounded border flex items-center justify-center flex-shrink-0"
-                  style={{
-                    borderColor: pingFilter ? "#0ea5e9" : "rgba(255,255,255,0.12)",
-                    background: pingFilter ? "#0ea5e9" : "transparent",
-                  }}
-                >
-                  {pingFilter && <span className="w-1.5 h-1.5 rounded-sm bg-white" />}
-                </span>
-                ≤50 мс пинг
-              </button>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Пинг до хоста смотри на странице «Хосты» — там живые карточки с задержкой.
+              </p>
             </div>
 
             {globalMaxLzt > 0 && (
@@ -467,6 +449,25 @@ export default function GamesPage() {
                     style={{ background: "#0a1018", border: "1px solid rgba(255,255,255,0.05)" }}
                   />
                 ))}
+              </div>
+            ) : isError ? (
+              <div
+                className="text-center py-20 rounded-xl"
+                style={{ background: "#0a1018", border: "1px dashed rgba(239,68,68,0.25)" }}
+              >
+                <AlertCircle className="h-12 w-12 text-red-400/70 mx-auto mb-4" />
+                <p className="text-lg font-medium text-slate-300">Не удалось загрузить каталог</p>
+                <p className="text-sm text-slate-500 mt-1">Проверьте соединение и попробуйте снова.</p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="mt-4 border-white/10 text-slate-300"
+                  disabled={isFetching}
+                  onClick={() => void refetch()}
+                >
+                  {isFetching ? "Загрузка…" : "Повторить"}
+                </Button>
               </div>
             ) : sorted.length === 0 ? (
               <div

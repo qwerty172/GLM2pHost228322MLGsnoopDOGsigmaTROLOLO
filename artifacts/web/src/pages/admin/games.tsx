@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SiteNav } from "@/components/site-nav";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
@@ -48,8 +48,31 @@ type CatalogGame = {
 
 const ADMIN_SECRET_KEY = "streamline.adminSecret";
 
+function readAdminSecret(): string {
+  try {
+    return sessionStorage.getItem(ADMIN_SECRET_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writeAdminSecret(value: string): void {
+  try {
+    if (value) sessionStorage.setItem(ADMIN_SECRET_KEY, value);
+    else sessionStorage.removeItem(ADMIN_SECRET_KEY);
+  } catch {
+    /* sessionStorage unavailable */
+  }
+  // Migrate away from the older localStorage copy (persists across sessions).
+  try {
+    localStorage.removeItem(ADMIN_SECRET_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 function adminHeaders(hostToken: string): Record<string, string> {
-  const secret = localStorage.getItem(ADMIN_SECRET_KEY) ?? "";
+  const secret = readAdminSecret();
   return {
     "X-Host-Token": hostToken,
     ...(secret ? { "X-Admin-Secret": secret } : {}),
@@ -511,17 +534,11 @@ export default function AdminGamesPage() {
   const { hostToken } = useAuth();
   const [tab, setTab] = useState<Tab>("catalog");
   const [statusFilter, setStatusFilter] = useState("pending");
-  const [adminSecret, setAdminSecret] = useState(
-    () => localStorage.getItem(ADMIN_SECRET_KEY) ?? "",
-  );
+  const [adminSecret, setAdminSecret] = useState(() => readAdminSecret());
 
   const handleSecretChange = (value: string) => {
     setAdminSecret(value);
-    if (value) {
-      localStorage.setItem(ADMIN_SECRET_KEY, value);
-    } else {
-      localStorage.removeItem(ADMIN_SECRET_KEY);
-    }
+    writeAdminSecret(value);
     setCatalogGames(null);
     setCatError(null);
     setSubmissions(null);
@@ -580,20 +597,20 @@ export default function AdminGamesPage() {
     }
   };
 
-  if (hostToken) {
-    if (tab === "catalog" && catalogGames === null && !catLoading && !catError) {
-      fetchCatalog(hostToken);
+  useEffect(() => {
+    if (!hostToken) return;
+    if (tab === "catalog") {
+      void fetchCatalog(hostToken);
+    } else {
+      void fetchSubmissions(hostToken, statusFilter);
     }
-    if (tab === "submissions" && submissions === null && !subLoading && !subError) {
-      fetchSubmissions(hostToken, statusFilter);
-    }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hostToken, tab, statusFilter, adminSecret]);
 
   const handleFilterChange = (s: string) => {
     setStatusFilter(s);
     setSubmissions(null);
     setSubError(null);
-    if (hostToken) fetchSubmissions(hostToken, s);
   };
 
   if (!hostToken) {
@@ -636,7 +653,7 @@ export default function AdminGamesPage() {
             }}
           />
           <p className="text-[11px] text-slate-600 mt-1">
-            Требуется для всех действий на этой странице. Хранится только в этом браузере.
+            Требуется для всех действий на этой странице. Хранится в sessionStorage до закрытия вкладки.
           </p>
         </div>
 

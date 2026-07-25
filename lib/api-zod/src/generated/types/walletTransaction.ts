@@ -8,7 +8,7 @@
 
 export interface WalletTransaction {
   id: string;
-  /** ledger kind (deposit_credit, deposit_fee, session_tick, loan_disburse_*, loan_repay_*, interest_payout, premium_purchase, withdrawal, …) */
+  /** ledger kind (deposit_credit, deposit_fee, session_tick, loan_disburse_*, loan_repay_*, interest_payout, premium_purchase, withdrawal, вЂ¦) */
   kind: string;
   /** @nullable */
   currency?: string | null;

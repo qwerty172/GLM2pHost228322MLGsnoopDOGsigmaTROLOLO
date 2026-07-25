@@ -31,6 +31,8 @@ export const ledgerTable = pgTable(
   },
   (t) => [
     index("ledger_owner_idx").on(t.ownerType, t.ownerId),
+    // Wallet history: newest-first by owner.
+    index("ledger_owner_created_idx").on(t.ownerType, t.ownerId, t.createdAt),
     index("ledger_group_idx").on(t.groupId),
     index("ledger_kind_idx").on(t.kind),
   ],

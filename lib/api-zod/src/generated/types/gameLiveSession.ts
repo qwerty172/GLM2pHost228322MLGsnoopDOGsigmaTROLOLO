@@ -9,10 +9,14 @@ import type { GameLiveSessionScheduleMode } from "./gameLiveSessionScheduleMode"
 import type { ScheduleSlot } from "./scheduleSlot";
 
 export interface GameLiveSession {
-  /** Player share token — visit /play/{playerToken} to join */
+  /** Host UUID offering this live session */
+  hostId: string;
+  /** Player share token вЂ” visit /play/{playerToken} to join */
   playerToken: string;
   appName: string;
   ratePerMinute: number;
+  /** Per-minute price in integer LZT */
+  pricePerMinuteLzt: number;
   resolution: string;
   bitrateKbps: number;
   status: string;
@@ -28,4 +32,9 @@ export interface GameLiveSession {
   scheduleMode: GameLiveSessionScheduleMode;
   scheduleJson: ScheduleSlot[];
   streamPlatform: string;
+  /** @nullable */
+  pingMs: number | null;
+  /** @nullable */
+  ratingScore: number | null;
+  ratingCount: number;
 }

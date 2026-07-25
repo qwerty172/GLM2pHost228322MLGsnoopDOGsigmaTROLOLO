@@ -10,11 +10,18 @@ import type { SessionPaymentSource } from "./sessionPaymentSource";
 export interface Session {
   id: string;
   hostId: string;
+  /** Catalog game this session is bound to */
+  gameId: string;
   playerToken: string;
+  /**
+   * Short invite code for share links
+   * @nullable
+   */
+  inviteCode?: string | null;
+  /** @nullable */
+  inviteExpiresAt?: Date | null;
   /** @nullable */
   claimedByPlayerId?: string | null;
-  /** Catalog game id this session is bound to */
-  gameId: string;
   appName: string;
   /** One of pending, active, ended */
   status: string;
@@ -45,16 +52,6 @@ export interface Session {
    * @nullable
    */
   blockReservedLzt?: number | null;
-  /**
-   * Server-authoritative minutes left in a prepaid block session (null when not block-billed).
-   * @nullable
-   */
-  blockMinsRemaining?: number | null;
-  /**
-   * Short-lived code for share links (/play/:joinCode). Reusable until expiry.
-   * @nullable
-   */
-  joinCode?: string | null;
-  /** Host self-test session — completely free, skipped by billing. */
+  /** Host self-test session вЂ” completely free, skipped by billing. */
   isTest?: boolean;
 }

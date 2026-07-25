@@ -25,6 +25,37 @@ type EmbedSession = {
 
 type EmbedApiError = { error: string; message: string };
 
+const isDev = import.meta.env.DEV;
+
+function mapEmbedError(error: EmbedApiError): { title: string; detail: string } {
+  switch (error.error) {
+    case "key_balance_exhausted":
+      return {
+        title: "Баланс API-ключа исчерпан",
+        detail: error.message || "Пополните кошелёк ключа, чтобы продолжить.",
+      };
+    case "invalid_api_key":
+      return { title: "Неверный API-ключ", detail: error.message };
+    case "key_disabled":
+      return { title: "API-ключ отключён", detail: error.message };
+    case "missing_params":
+      return {
+        title: "Не хватает параметров",
+        detail: "Укажите apiKey и game в query-параметрах.",
+      };
+    case "network_error":
+      return {
+        title: "Ошибка сети",
+        detail: error.message || "Не удалось связаться с сервером.",
+      };
+    default:
+      return {
+        title: "Не удалось начать сессию",
+        detail: error.message || error.error,
+      };
+  }
+}
+
 export default function Embed() {
   const search$ = useSearch();
   const params = new URLSearchParams(search$);
@@ -49,10 +80,17 @@ export default function Embed() {
   // 1. Create the session (host selection + balance check happen server-side).
   useEffect(() => {
     if (!apiKey || !gameSlug) {
-      setError({ error: "missing_params", message: "apiKey and game query params are required" });
+      setError({
+        error: "missing_params",
+        message: "Нужны query-параметры apiKey и game",
+      });
       return;
     }
     let cancelled = false;
+    setSession(null);
+    setError(null);
+    setEnded(null);
+    startedRef.current = false;
     void (async () => {
       try {
         const res = await fetch(`${import.meta.env.BASE_URL}api/embed/sessions`, {
@@ -69,26 +107,39 @@ export default function Embed() {
         setSession(json as EmbedSession);
       } catch {
         if (!cancelled) {
-          setError({ error: "network_error", message: "Could not reach the game server" });
+          setError({
+            error: "network_error",
+            message: "Не удалось связаться с игровым сервером",
+          });
         }
       }
     })();
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [apiKey, gameSlug, resolution, bitrateKbps]);
 
   const cleanupConnection = useCallback(() => {
-    if (wsReconnectTimerRef.current) { clearTimeout(wsReconnectTimerRef.current); wsReconnectTimerRef.current = null; }
-    if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
-    if (pcRef.current) { pcRef.current.close(); pcRef.current = null; }
+    if (wsReconnectTimerRef.current) {
+      clearTimeout(wsReconnectTimerRef.current);
+      wsReconnectTimerRef.current = null;
+    }
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    if (pcRef.current) {
+      pcRef.current.close();
+      pcRef.current = null;
+    }
     startedRef.current = false;
-    setConnectionState("closed");
   }, []);
 
   const connectWs = useCallback((url: string, pc: RTCPeerConnection) => {
-    if (!startedRef.current) return;
+    if (wsReconnectTimerRef.current) {
+      clearTimeout(wsReconnectTimerRef.current);
+      wsReconnectTimerRef.current = null;
+    }
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
@@ -96,23 +147,23 @@ export default function Embed() {
       wsReconnectDelayRef.current = 1000;
     };
 
-    ws.onmessage = async (event) => {
+    ws.onmessage = async (ev) => {
       try {
-        const msg = JSON.parse(event.data as string) as Record<string, unknown>;
-        const type = msg["type"] as string;
-        if (type === "offer") {
-          await pc.setRemoteDescription(new RTCSessionDescription(msg["sdp"] as RTCSessionDescriptionInit));
+        const msg = JSON.parse(String(ev.data)) as {
+          type: string;
+          sdp?: RTCSessionDescriptionInit;
+          candidate?: RTCIceCandidateInit;
+        };
+        if (msg.type === "offer" && msg.sdp) {
+          await pc.setRemoteDescription(msg.sdp);
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           ws.send(JSON.stringify({ type: "answer", sdp: answer }));
-        } else if (type === "ice-candidate") {
-          await pc.addIceCandidate(new RTCIceCandidate(msg["candidate"] as RTCIceCandidateInit));
-        } else if (type === "control" && msg["action"] === "reject") {
-          setEnded({ reason: (msg["reason"] as string) ?? "rejected" });
-          cleanupConnection();
+        } else if (msg.type === "ice-candidate" && msg.candidate) {
+          await pc.addIceCandidate(msg.candidate);
         }
       } catch (err) {
-        console.error("[embed] signaling message error", err);
+        if (isDev) console.error("[embed] signaling message error", err);
       }
     };
 
@@ -122,32 +173,23 @@ export default function Embed() {
       wsReconnectDelayRef.current = Math.min(delay * 2, 8000);
       wsReconnectTimerRef.current = setTimeout(() => connectWs(url, pc), delay);
     };
-  }, [cleanupConnection]);
+  }, []);
 
-  // 2. Once a session exists, connect via WebRTC signaling — no player wallet
-  // token is sent; the server recognizes this session as dev-key funded.
+  // 2. WebRTC once session exists.
   useEffect(() => {
     if (!session || startedRef.current) return;
     startedRef.current = true;
-    setConnectionState("connecting");
 
     void (async () => {
       const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&playerToken=${session.playerToken}`;
+      const wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&playerToken=${encodeURIComponent(session.playerToken)}`;
 
       let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
       try {
         const cfgRes = await fetch(`${import.meta.env.BASE_URL}api/public/ice-config`);
         if (cfgRes.ok) {
-          const cfgJson = (await cfgRes.json()) as { iceServers: RTCIceServer[] };
-          // Defensively validate each entry — malformed TURN config (e.g. a
-          // misconfigured `urls` value) must not crash the widget's
-          // RTCPeerConnection constructor inside a third-party iframe.
-          const isValidUrl = (u: string) => /^(stun|turn|turns):/.test(u);
-          const valid = (cfgJson.iceServers ?? []).filter((s) => {
-            const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
-            return urls.every((u) => typeof u === "string" && isValidUrl(u));
-          });
+          const cfgJson = (await cfgRes.json()) as { iceServers?: RTCIceServer[] };
+          const valid = (cfgJson.iceServers ?? []).filter((s) => s && s.urls);
           if (valid.length > 0) iceServers = valid;
         }
       } catch {
@@ -181,8 +223,7 @@ export default function Embed() {
     })();
 
     return () => cleanupConnection();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session]);
+  }, [session, cleanupConnection, connectWs]);
 
   // 3. Poll session status so we can surface "key balance exhausted" and
   // other end reasons explicitly, per task-125 requirements.
@@ -203,19 +244,12 @@ export default function Embed() {
   }, [session, ended, cleanupConnection]);
 
   if (error) {
+    const mapped = mapEmbedError(error);
     return (
       <EmbedMessage
         icon={<AlertCircle className="h-8 w-8 text-red-400" />}
-        title={
-          error.error === "key_balance_exhausted"
-            ? "API key balance exhausted"
-            : error.error === "invalid_api_key"
-              ? "Invalid API key"
-              : error.error === "key_disabled"
-                ? "API key disabled"
-                : "Could not start session"
-        }
-        detail={error.message}
+        title={mapped.title}
+        detail={mapped.detail}
       />
     );
   }
@@ -224,11 +258,15 @@ export default function Embed() {
     return (
       <EmbedMessage
         icon={<WifiOff className="h-8 w-8 text-amber-400" />}
-        title={ended.reason === "key_balance_exhausted" ? "API key balance exhausted" : "Session ended"}
+        title={
+          ended.reason === "key_balance_exhausted"
+            ? "Баланс API-ключа исчерпан"
+            : "Сессия завершена"
+        }
         detail={
           ended.reason === "key_balance_exhausted"
-            ? "The developer's API key ran out of balance. Top up the key's wallet to continue."
-            : `Reason: ${ended.reason}`
+            ? "У ключа разработчика закончился баланс. Пополните кошелёк ключа, чтобы продолжить."
+            : `Причина: ${ended.reason}`
         }
       />
     );
@@ -236,7 +274,10 @@ export default function Embed() {
 
   if (!session) {
     return (
-      <EmbedMessage icon={<Loader2 className="h-8 w-8 animate-spin text-white/70" />} title="Starting game session…" />
+      <EmbedMessage
+        icon={<Loader2 className="h-8 w-8 animate-spin text-white/70" />}
+        title="Запускаем игровую сессию…"
+      />
     );
   }
 
@@ -247,7 +288,7 @@ export default function Embed() {
         <div className="absolute inset-0 flex items-center justify-center bg-black/70">
           <div className="flex flex-col items-center gap-2 text-white/80">
             <Loader2 className="h-6 w-6 animate-spin" />
-            <span className="text-sm">Connecting to {session.hostDisplayName}…</span>
+            <span className="text-sm">Подключение к {session.hostDisplayName}…</span>
           </div>
         </div>
       )}

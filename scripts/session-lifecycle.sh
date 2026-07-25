@@ -59,8 +59,7 @@ await new Promise((resolve, reject) => {
 " "$WS_URL"
 echo "OK  player WS connected (session → active)"
 
-ACTIVE_COUNT=$(psql "$DATABASE_URL" -tAc \
-  "SELECT count(*) FROM sessions WHERE id='$SESSION_ID' AND status='active';")
+ACTIVE_COUNT=$(smoke_sql "SELECT count(*) FROM sessions WHERE id='$SESSION_ID' AND status='active'")
 if [[ "$ACTIVE_COUNT" != "1" ]]; then
   echo "FAIL session not active in DB (count=$ACTIVE_COUNT)"
   exit 1
@@ -72,8 +71,7 @@ curl -sf -X PATCH "$BASE/api/sessions/$SESSION_ID/end" \
   -d "{\"hostToken\":\"$HOST_TOKEN\",\"reason\":\"lifecycle_smoke\"}" >/dev/null
 echo "OK  session ended via API"
 
-GHOST_COUNT=$(psql "$DATABASE_URL" -tAc \
-  "SELECT count(*) FROM sessions WHERE id='$SESSION_ID' AND status='active';")
+GHOST_COUNT=$(smoke_sql "SELECT count(*) FROM sessions WHERE id='$SESSION_ID' AND status='active'")
 if [[ "$GHOST_COUNT" != "0" ]]; then
   echo "FAIL ghost active session after end (count=$GHOST_COUNT)"
   exit 1
@@ -82,8 +80,7 @@ echo "OK  no ghost session after end"
 
 if [[ "${BILLING_SMOKE:-0}" == "1" ]]; then
   echo "==> Billing tick smoke (≈70s)..."
-  psql "$DATABASE_URL" -c \
-    "UPDATE players SET internal_balance_lzt = 1000 WHERE player_token = '$PLAYER_WALLET';" >/dev/null
+  smoke_sql "UPDATE players SET internal_balance_lzt = 1000 WHERE player_token = '$PLAYER_WALLET'" >/dev/null
   echo "OK  player balance topped up via SQL"
   BILL_JSON=$(curl -sf -X POST "$BASE/api/sessions/browser-host" \
     -H 'content-type: application/json' \
@@ -114,11 +111,16 @@ await new Promise((resolve, reject) => {
   ws.on('error', reject);
 });
 " "$BILL_WS"
-  echo "OK  billing session active, waiting 70s for tick..."
-  sleep 70
+  echo "OK  billing session active, waiting 70s for tick (with host heartbeats)..."
+  # Host health worker ends sessions after ~60s without heartbeat — keep host alive.
+  for _i in $(seq 1 8); do
+    curl -sf -X POST "$BASE/api/hosts/heartbeat" \
+      -H 'content-type: application/json' \
+      -d "{\"hostToken\":\"$BILL_HOST_TOKEN\"}" >/dev/null || true
+    sleep 10
+  done
 
-  EVENTS=$(psql "$DATABASE_URL" -tAc \
-    "SELECT count(*) FROM billing_events WHERE session_id='$BILL_SESSION_ID';")
+  EVENTS=$(smoke_sql "SELECT count(*) FROM billing_events WHERE session_id='$BILL_SESSION_ID'")
   if [[ "$EVENTS" -lt 1 ]]; then
     echo "FAIL no billing_events after 70s (count=$EVENTS)"
     exit 1

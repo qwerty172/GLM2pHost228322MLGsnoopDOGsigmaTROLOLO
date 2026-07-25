@@ -1,3 +1,5 @@
+// Dead schema companion to conversations.ts — not exported from schema/index.ts.
+// See conversations.ts for the keep-vs-delete decision.
 import { integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";

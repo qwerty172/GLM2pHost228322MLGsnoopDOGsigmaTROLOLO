@@ -13,16 +13,28 @@ export interface GameListItem {
   coverImageUrl: string;
   description: string;
   genre: string;
+  /** Primary catalog category (e.g. action, rpg) */
+  category: string;
+  /** Additional genre tags */
+  genres: string[];
+  createdAt: Date;
   hasMods: boolean;
   isMultiplayer: boolean;
   hostSpectatesPlayer: boolean;
   hasQuests: boolean;
   /** Number of pending or active sessions matching this game right now */
   liveSessionCount: number;
+  /** Hosts with this game enabled that currently have a live session */
+  liveHostsCount: number;
   /** Number of always-on VDS hosts offering this game */
   vdsHostsCount?: number;
   /** True when at least one VDS host offers this game */
   hasVdsHosts?: boolean;
+  /**
+   * Cheapest enabled library price for this game across hosts, in LZT
+   * @nullable
+   */
+  minPricePerMinuteLzt: number | null;
   /** Same-origin URL of a vendored browser build that a player can host
 directly from their browser tab (no desktop agent). Empty when only
 native-app hosting is supported.

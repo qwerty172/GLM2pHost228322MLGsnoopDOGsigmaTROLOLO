@@ -1,9 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { ChevronDown, ChevronUp, Cpu, Gamepad2, MemoryStick, Monitor, Star, Wifi } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useBrowserPingMs } from "@/hooks/use-browser-ping";
-import { playJoinPath } from "@/lib/play-link";
-import { prewarmIce } from "@/lib/ice-prewarm";
 import { toast } from "sonner";
 import {
   useListPublicHosts,
@@ -25,6 +22,26 @@ type LibraryGame = {
   genre: string;
   pricePerMinuteLzt: number;
 };
+
+function useBrowserPingMs(): number | null {
+  const [pingMs, setPingMs] = useState<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    async function probe() {
+      try {
+        const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
+        const t0 = Date.now();
+        await fetch(`${base}/api/public/ping`, { cache: "no-store" });
+        if (!cancelled) setPingMs(Date.now() - t0);
+      } catch {
+        // ignore
+      }
+    }
+    void probe();
+    return () => { cancelled = true; };
+  }, []);
+  return pingMs;
+}
 
 function LatencyBadge({ totalMs }: { totalMs: number | null }) {
   if (totalMs == null) return null;
@@ -132,12 +149,11 @@ function GameChips({ games }: { games: LibraryGame[] }) {
 }
 
 type SessionResult =
-  | { ok: true; playerToken: string; joinCode?: string | null }
+  | { ok: true; inviteCode: string }
   | { ok: false; reason: "game_unavailable" | "host_offline" | "error" };
 
 // POST /api/public/sessions { hostId, gameId? }
-// Returns the playerToken for the host's active session for the requested game,
-// or an error reason so callers can handle host_busy / host_offline gracefully.
+// Returns inviteCode for /play/i/:inviteCode (raw playerToken is not public).
 async function requestSession(
   hostId: string,
   gameId?: string,
@@ -150,8 +166,9 @@ async function requestSession(
       body: JSON.stringify({ hostId, ...(gameId ? { gameId } : {}) }),
     });
     if (resp.ok) {
-      const data = (await resp.json()) as { playerToken: string; joinCode?: string | null };
-      return { ok: true, playerToken: data.playerToken, joinCode: data.joinCode };
+      const data = (await resp.json()) as { inviteCode: string };
+      if (!data.inviteCode) return { ok: false, reason: "error" };
+      return { ok: true, inviteCode: data.inviteCode };
     }
     if (resp.status === 409) {
       return { ok: false, reason: "game_unavailable" };
@@ -259,38 +276,33 @@ function GamePickerDialog({
 function PlayButton({
   hostId,
   games,
-  fallbackPlayerToken,
-  fallbackJoinCode,
+  fallbackInviteCode,
 }: {
   hostId: string;
   games: LibraryGame[];
-  fallbackPlayerToken: string;
-  fallbackJoinCode?: string | null;
+  fallbackInviteCode: string | null;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [, navigate] = useLocation();
 
   // Connect to the host for a specific game via POST /api/public/sessions.
-  // - On success → navigate to /play/:playerToken (game-specific session).
-  // - On game_unavailable → toast + fall back to generic fallbackPlayerToken
-  //   so the player still connects (host is online, just not for that game).
-  // - On host_offline / error → fall back to fallbackPlayerToken so a live
-  //   host's existing session is never blocked by a lookup failure.
+  // - On success → navigate to /play/i/:inviteCode.
+  // - On game_unavailable → toast + fall back to list inviteCode when present.
+  // - On host_offline / error → same fallback, else game detail page.
   const connectToGame = async (game: LibraryGame) => {
     setLoading(true);
     try {
       const result = await requestSession(hostId, game.gameId);
       if (result.ok) {
-        navigate(playJoinPath(result.joinCode ?? result.playerToken));
+        navigate(`/play/i/${result.inviteCode}`);
         return;
       }
       if (result.reason === "game_unavailable") {
         toast.warning(`Игра «${game.title}» сейчас недоступна у этого хоста`);
       }
-      // Fall back to the host's known session token (backward compat).
-      if (fallbackPlayerToken) {
-        navigate(playJoinPath(fallbackJoinCode ?? fallbackPlayerToken));
+      if (fallbackInviteCode) {
+        navigate(`/play/i/${fallbackInviteCode}`);
       } else {
         navigate(`/games/${game.slug}`);
       }
@@ -301,8 +313,13 @@ function PlayButton({
 
   const handlePlay = async () => {
     if (games.length === 0) {
-      // No library — connect directly via the session token we already have.
-      navigate(playJoinPath(fallbackJoinCode ?? fallbackPlayerToken));
+      if (fallbackInviteCode) {
+        navigate(`/play/i/${fallbackInviteCode}`);
+      } else {
+        const result = await requestSession(hostId);
+        if (result.ok) navigate(`/play/i/${result.inviteCode}`);
+        else toast.error("Хост сейчас недоступен");
+      }
     } else if (games.length === 1) {
       await connectToGame(games[0]);
     } else {
@@ -320,7 +337,6 @@ function PlayButton({
       <button
         type="button"
         onClick={() => void handlePlay()}
-        onPointerEnter={() => void prewarmIce(hostId)}
         disabled={loading}
         className="h-9 px-4 text-xs font-semibold rounded-md transition-colors disabled:opacity-60"
         style={{ background: "#0ea5e9", color: "#fff" }}
@@ -341,12 +357,11 @@ function PlayButton({
 }
 
 export default function HostsPage() {
-  const { data: hosts, isLoading } = useListPublicHosts({
+  const { data: hosts, isLoading, isError, refetch, isFetching } = useListPublicHosts({
     query: {
       queryKey: getListPublicHostsQueryKey(),
       refetchOnWindowFocus: true,
       staleTime: 15_000,
-      refetchInterval: 60_000,
     },
   });
 
@@ -437,10 +452,19 @@ export default function HostsPage() {
           </div>
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                role="switch"
+                aria-checked={onlineOnly}
+                aria-label="Только онлайн"
+                checked={onlineOnly}
+                onChange={(e) => setOnlineOnly(e.target.checked)}
+                className="sr-only"
+              />
               <div
                 className="relative w-9 h-5 rounded-full transition-colors"
                 style={{ background: onlineOnly ? "#22c55e" : "rgba(255,255,255,0.1)" }}
-                onClick={() => setOnlineOnly((v) => !v)}
+                aria-hidden="true"
               >
                 <div
                   className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform"
@@ -463,6 +487,24 @@ export default function HostsPage() {
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="h-28 rounded-lg surface-card animate-pulse" />
             ))}
+          </div>
+        ) : isError ? (
+          <div className="surface-card p-12 text-center">
+            <Cpu className="w-10 h-10 text-red-400/60 mx-auto mb-3" />
+            <p className="text-sm text-slate-300 font-medium">
+              Не удалось загрузить список хостов
+            </p>
+            <p className="text-xs text-slate-600 mt-1">
+              Проверьте соединение и попробуйте снова.
+            </p>
+            <button
+              type="button"
+              className="mt-4 text-xs text-sky-400 hover:text-sky-300 underline underline-offset-2"
+              disabled={isFetching}
+              onClick={() => void refetch()}
+            >
+              {isFetching ? "Загрузка…" : "Повторить"}
+            </button>
           </div>
         ) : !sortedHosts || sortedHosts.length === 0 ? (
           <div className="surface-card p-12 text-center">
@@ -583,8 +625,7 @@ export default function HostsPage() {
                       <PlayButton
                         hostId={h.id}
                         games={games}
-                        fallbackPlayerToken={h.playerToken}
-                        fallbackJoinCode={(h as { joinCode?: string | null }).joinCode}
+                        fallbackInviteCode={h.inviteCode ?? null}
                       />
                     </div>
                   </div>

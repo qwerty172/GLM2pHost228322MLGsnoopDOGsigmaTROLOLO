@@ -37,6 +37,7 @@ import {
   ChevronUp,
   CheckCircle2,
   ArrowLeftRight,
+  Wallet,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { QRCodeSVG } from "qrcode.react";
@@ -59,20 +60,20 @@ const formatLzt = (lzt: number) =>
   new Intl.NumberFormat("ru-RU").format(Math.trunc(lzt));
 const lztToUsdt = (lzt: number) => lzt / LZT_PER_USDT;
 
-const TRANSAK_API_KEY = import.meta.env.VITE_TRANSAK_API_KEY as
-  | string
-  | undefined;
-const TRANSAK_HOST = TRANSAK_API_KEY
-  ? "https://global.transak.com"
-  : "https://global-stg.transak.com";
+const TRANSAK_API_KEY = (import.meta.env.VITE_TRANSAK_API_KEY as string | undefined)?.trim();
+const TRANSAK_ENABLED = Boolean(TRANSAK_API_KEY);
+const TRANSAK_HOST = "https://global.transak.com";
 
 function buildTransakUrl(opts: {
   walletAddress: string;
   defaultFiatAmount?: number;
   email?: string;
 }) {
+  if (!TRANSAK_API_KEY) {
+    throw new Error("VITE_TRANSAK_API_KEY is not configured");
+  }
   const params = new URLSearchParams({
-    apiKey: TRANSAK_API_KEY || "4fcd6904-706b-4aff-bd9d-77422813bbb7",
+    apiKey: TRANSAK_API_KEY,
     walletAddress: opts.walletAddress,
     cryptoCurrencyCode: "USDT",
     network: "tron",
@@ -108,7 +109,6 @@ function CardTopUp({
   }
 
   const widgetUrl = buildTransakUrl({ walletAddress: usdtAddress });
-  const isStaging = !TRANSAK_API_KEY;
 
   if (!opened) {
     return (
@@ -139,12 +139,6 @@ function CardTopUp({
           <li>· Адрес кошелька подставлен автоматически</li>
           <li>· Сеть: USDT-TRC20 (Tron) — самые низкие комиссии</li>
           <li>· Минимальная покупка обычно $30</li>
-          {isStaging && (
-            <li className="text-amber-400">
-              · Сейчас включён тестовый режим (staging). Реальные платежи не
-              пройдут — добавь VITE_TRANSAK_API_KEY для прод-режима.
-            </li>
-          )}
         </ul>
 
         <Button
@@ -198,11 +192,6 @@ function CardTopUp({
           }}
         />
       </div>
-      {isStaging && (
-        <p className="text-[11px] text-amber-400 text-center">
-          Тестовый режим Transak — используй карты-заглушки из их доков.
-        </p>
-      )}
     </div>
   );
 }
@@ -235,7 +224,7 @@ function LeafIcon({ className }: { className?: string }) {
 
 export default function WalletPage() {
   const { hostToken } = useAuth();
-  const { playerWalletToken } = usePlayerWallet();
+  const { playerWalletToken, registerGuest } = usePlayerWallet();
   const walletToken = playerWalletToken ?? hostToken ?? "";
   const {
     data: wallet,
@@ -259,8 +248,10 @@ export default function WalletPage() {
   const blueLzt = wallet?.internalBalanceLzt ?? 0;
 
   const handleCopy = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success(`${label} скопирован`);
+    void navigator.clipboard.writeText(text).then(
+      () => toast.success(`${label} скопирован`),
+      () => toast.error("Не удалось скопировать в буфер обмена"),
+    );
   };
 
   const handleWithdraw = (e: React.FormEvent) => {
@@ -302,6 +293,44 @@ export default function WalletPage() {
 
   const parsedAmount = parseInt(withdrawAmountLzt || "0", 10) || 0;
   const overGreen = parsedAmount > greenLzt;
+
+  if (!walletToken) {
+    return (
+      <div className="space-y-6 text-slate-300">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-white">
+            Кошелёк
+          </h1>
+          <p className="text-sm text-slate-500">
+            Балансы в LZT. Фиксированный курс: 1 USDT = {LZT_PER_USDT} LZT.
+          </p>
+        </div>
+        <Card style={cardStyle}>
+          <CardContent className="py-10 text-center space-y-2">
+            <Wallet className="h-8 w-8 text-slate-600 mx-auto" />
+            <p className="text-sm text-slate-300 font-medium">Кошелёк ещё не создан</p>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              Нажми «Играть» у хоста — гостевой кошелёк создастся сам. Или создай его сейчас.
+            </p>
+            <div className="flex items-center justify-center gap-2 mt-3">
+              <Link href="/hosts">
+                <Button className="font-semibold" style={{ background: "#0ea5e9", color: "#fff" }}>
+                  К хостам
+                </Button>
+              </Link>
+              <Button
+                variant="outline"
+                className="border-white/15 text-slate-300"
+                onClick={() => void registerGuest()}
+              >
+                Создать гостевой кошелёк
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider>
@@ -398,7 +427,7 @@ export default function WalletPage() {
                   </p>
                   <Tabs defaultValue="crypto" className="w-full">
                     <TabsList
-                      className="grid w-full grid-cols-2 mb-4"
+                      className={`grid w-full mb-4 ${TRANSAK_ENABLED ? "grid-cols-2" : "grid-cols-1"}`}
                       style={{
                         background: "rgba(255,255,255,0.03)",
                         border: "1px solid rgba(255,255,255,0.06)",
@@ -411,13 +440,15 @@ export default function WalletPage() {
                         <Bitcoin className="h-4 w-4 mr-2" />
                         Криптой
                       </TabsTrigger>
-                      <TabsTrigger
-                        value="card"
-                        className="data-[state=active]:bg-sky-500/15 data-[state=active]:text-sky-300 text-slate-400"
-                      >
-                        <CreditCard className="h-4 w-4 mr-2" />
-                        Картой
-                      </TabsTrigger>
+                      {TRANSAK_ENABLED && (
+                        <TabsTrigger
+                          value="card"
+                          className="data-[state=active]:bg-sky-500/15 data-[state=active]:text-sky-300 text-slate-400"
+                        >
+                          <CreditCard className="h-4 w-4 mr-2" />
+                          Картой
+                        </TabsTrigger>
+                      )}
                     </TabsList>
 
                     <TabsContent value="crypto" className="mt-0">
@@ -482,16 +513,18 @@ export default function WalletPage() {
                       )}
                     </TabsContent>
 
-                    <TabsContent value="card" className="mt-0">
-                      <CardTopUp
-                        usdtAddress={
-                          wallet?.depositAddresses.find(
-                            (a) => a.currency === "USDT_TRC20",
-                          )?.address
-                        }
-                        isLoading={isLoading}
-                      />
-                    </TabsContent>
+                    {TRANSAK_ENABLED && (
+                      <TabsContent value="card" className="mt-0">
+                        <CardTopUp
+                          usdtAddress={
+                            wallet?.depositAddresses.find(
+                              (a) => a.currency === "USDT_TRC20",
+                            )?.address
+                          }
+                          isLoading={isLoading}
+                        />
+                      </TabsContent>
+                    )}
                   </Tabs>
                 </div>
               </div>

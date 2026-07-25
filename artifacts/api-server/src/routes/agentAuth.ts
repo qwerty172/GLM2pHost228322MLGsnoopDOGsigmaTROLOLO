@@ -1,11 +1,13 @@
 import { Router, type IRouter } from "express";
-import { and, eq, gt, isNull, desc } from "drizzle-orm";
+import { and, eq, gt, isNull, desc, sql } from "drizzle-orm";
 import crypto from "node:crypto";
 import { z } from "zod/v4";
 import { db, hostsTable, agentPairingCodesTable } from "@workspace/db";
 import { headerUserToken } from "../lib/requestToken";
+import { requireHost } from "../lib/hostAuth";
 import { rateLimit, ipKey, failedAttemptGuard, clearFailedAttempts } from "../lib/rateLimit";
 import { getRedis } from "../lib/redis";
+import { generateToken } from "../lib/tokens";
 
 const router: IRouter = Router();
 
@@ -102,25 +104,92 @@ const pairLimiter = rateLimit({
   keyFn: ipKey,
 });
 
+const bindLimiter = rateLimit({
+  scope: "auth:bind-agent-key",
+  windowMs: 15 * 60_000,
+  max: 20,
+  keyFn: ipKey,
+});
+
+const loginLimiter = rateLimit({
+  scope: "auth:agent-login",
+  windowMs: 15 * 60_000,
+  max: 30,
+  keyFn: ipKey,
+});
+
+const bindCodeIssueLimiter = rateLimit({
+  scope: "auth:agent-bind-code",
+  windowMs: 60_000,
+  max: 10,
+  keyFn: ipKey,
+});
+
+const BIND_CODE_TTL_MS = 10 * 60 * 1000;
+
+interface BindCodeEntry {
+  hostId: string;
+  expiresAt: number;
+}
+const bindCodes = new Map<string, BindCodeEntry>();
+
+function issueBindCode(hostId: string): { bindCode: string; expiresAt: number } {
+  const now = Date.now();
+  for (const [k, v] of bindCodes) {
+    if (v.expiresAt < now) bindCodes.delete(k);
+  }
+  for (const [k, v] of bindCodes) {
+    if (v.hostId === hostId) bindCodes.delete(k);
+  }
+  const bindCode = `bind_${generateToken(18)}`;
+  const expiresAt = now + BIND_CODE_TTL_MS;
+  bindCodes.set(bindCode, { hostId, expiresAt });
+  return { bindCode, expiresAt };
+}
+
+function consumeBindCode(bindCode: string): string | null {
+  const entry = bindCodes.get(bindCode);
+  if (!entry) return null;
+  bindCodes.delete(bindCode);
+  if (entry.expiresAt < Date.now()) return null;
+  return entry.hostId;
+}
+
 router.get("/auth/agent-challenge", (_req, res): void => {
   const { challenge, expiresAt } = issueChallenge();
   res.json({ challenge, expiresAt });
 });
 
-const BindAgentKeyBody = z.object({
-  hostToken: z.string().min(1),
-  pubkey: z.string().regex(/^[0-9a-f]+$/i, "pubkey must be hex"),
-  challenge: z.string().min(1),
-  signature: z.string().regex(/^[0-9a-f]+$/i, "signature must be hex"),
+router.post("/auth/agent-bind-code", bindCodeIssueLimiter, async (req, res): Promise<void> => {
+  const auth = await requireHost(req);
+  if (!auth.ok) {
+    res.status(auth.status).json({ error: auth.error });
+    return;
+  }
+  const { bindCode, expiresAt } = issueBindCode(auth.host.id);
+  req.log.info({ hostId: auth.host.id }, "Agent bind code issued");
+  res.json({ bindCode, expiresAt });
 });
 
-router.post("/auth/bind-agent-key", async (req, res): Promise<void> => {
+const BindAgentKeyBody = z
+  .object({
+    bindCode: z.string().min(1).optional(),
+    hostToken: z.string().min(1).optional(),
+    pubkey: z.string().regex(/^[0-9a-f]+$/i, "pubkey must be hex"),
+    challenge: z.string().min(1),
+    signature: z.string().regex(/^[0-9a-f]+$/i, "signature must be hex"),
+  })
+  .refine((b) => Boolean(b.bindCode || b.hostToken), {
+    message: "bindCode or hostToken required",
+  });
+
+router.post("/auth/bind-agent-key", bindLimiter, async (req, res): Promise<void> => {
   const parsed = BindAgentKeyBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { hostToken, pubkey, challenge, signature } = parsed.data;
+  const { bindCode, hostToken, pubkey, challenge, signature } = parsed.data;
 
   if (!(await consumeChallenge(challenge))) {
     res.status(400).json({ error: "Challenge expired or already used" });
@@ -132,32 +201,46 @@ router.post("/auth/bind-agent-key", async (req, res): Promise<void> => {
     return;
   }
 
-  const [host] = await db
-    .select({ id: hostsTable.id })
-    .from(hostsTable)
-    .where(eq(hostsTable.hostToken, hostToken));
-  if (!host) {
-    res.status(404).json({ error: "Host not found" });
+  let hostId: string | null = null;
+  if (bindCode) {
+    hostId = consumeBindCode(bindCode);
+    if (!hostId) {
+      res.status(400).json({ error: "Bind code expired or already used" });
+      return;
+    }
+  } else if (hostToken) {
+    const [host] = await db
+      .select({ id: hostsTable.id })
+      .from(hostsTable)
+      .where(eq(hostsTable.hostToken, hostToken));
+    if (!host) {
+      res.status(404).json({ error: "Host not found" });
+      return;
+    }
+    hostId = host.id;
+  }
+
+  if (!hostId) {
+    res.status(400).json({ error: "bindCode or hostToken required" });
     return;
   }
 
-  const [existing] = await db
-    .select({ agentPubkey: hostsTable.agentPubkey })
-    .from(hostsTable)
-    .where(eq(hostsTable.id, host.id));
-  if (existing?.agentPubkey && existing.agentPubkey !== pubkey) {
+  const [updated] = await db
+    .update(hostsTable)
+    .set({ agentPubkey: pubkey })
+    .where(
+      sql`${hostsTable.id} = ${hostId} AND (${hostsTable.agentPubkey} IS NULL OR ${hostsTable.agentPubkey} = '' OR ${hostsTable.agentPubkey} = ${pubkey})`,
+    )
+    .returning({ id: hostsTable.id, agentPubkey: hostsTable.agentPubkey });
+
+  if (!updated) {
     res
       .status(409)
       .json({ error: "A different key is already bound to this account" });
     return;
   }
 
-  await db
-    .update(hostsTable)
-    .set({ agentPubkey: pubkey })
-    .where(eq(hostsTable.id, host.id));
-
-  req.log.info({ hostId: host.id }, "Agent public key bound");
+  req.log.info({ hostId: updated.id }, "Agent public key bound");
   res.json({ ok: true });
 });
 
@@ -167,7 +250,7 @@ const AgentLoginBody = z.object({
   signature: z.string().regex(/^[0-9a-f]+$/i, "signature must be hex"),
 });
 
-router.post("/auth/agent-login", async (req, res): Promise<void> => {
+router.post("/auth/agent-login", loginLimiter, async (req, res): Promise<void> => {
   const parsed = AgentLoginBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });

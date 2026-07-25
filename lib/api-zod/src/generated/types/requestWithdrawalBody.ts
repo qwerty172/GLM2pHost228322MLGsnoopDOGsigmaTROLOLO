@@ -9,6 +9,6 @@
 export interface RequestWithdrawalBody {
   currency: string;
   address: string;
-  /** Amount in LZT (must be a multiple of 200 — i.e. whole USDT) */
+  /** Amount in LZT (must be a multiple of 200 вЂ” i.e. whole USDT) */
   amountLzt: number;
 }

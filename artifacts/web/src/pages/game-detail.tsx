@@ -32,9 +32,6 @@ import type { ScheduleSlot } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { SiteNav } from "@/components/site-nav";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
-import { useBrowserPingMs } from "@/hooks/use-browser-ping";
-import { playJoinPath } from "@/lib/play-link";
-import { prewarmIce } from "@/lib/ice-prewarm";
 
 const LZT_PER_USD = 200;
 const DEFAULT_CREDIT_LZT = 3000;
@@ -90,8 +87,7 @@ type LibraryHost = {
   pricePerMinuteLzt: number;
   pricePerMinuteUsd: number;
   status: "online" | "available" | "scheduled";
-  playerToken: string | null;
-  joinCode?: string | null;
+  inviteCode: string | null;
   scheduleMode: string;
   pingMs: number | null;
   hostTier?: "meets_min" | "above_rec";
@@ -107,9 +103,29 @@ function useLibraryHosts(slug: string) {
       return res.json();
     },
     enabled: !!slug,
-    refetchInterval: 60_000,
+    refetchInterval: 20_000,
     staleTime: 10_000,
   });
+}
+
+function useBrowserPingMs(): number | null {
+  const [pingMs, setPingMs] = useState<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    async function probe() {
+      try {
+        const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
+        const t0 = Date.now();
+        await fetch(`${base}/api/public/ping`, { cache: "no-store" });
+        if (!cancelled) setPingMs(Date.now() - t0);
+      } catch {
+        // ignore — just leave null
+      }
+    }
+    void probe();
+    return () => { cancelled = true; };
+  }, []);
+  return pingMs;
 }
 
 function sortHostsByLatency(hosts: LibraryHost[], browserRtt: number | null): LibraryHost[] {
@@ -176,12 +192,16 @@ export default function GameDetailPage() {
   const browserRtt = useBrowserPingMs();
   const { playerWalletToken, registerGuest } = usePlayerWallet();
 
-  async function handlePlay(host: LibraryHost) {
-    if (!host.playerToken) return;
-    let token = playerWalletToken;
-    if (!token) {
-      token = await registerGuest();
-    }
+  async function handlePlayDirect(host: LibraryHost) {
+    if (!host.inviteCode) return;
+    // Не блокируем навигацию — guest wallet создаётся на /play.
+    if (!playerWalletToken) void registerGuest();
+    navigate(`/play/i/${host.inviteCode}`);
+  }
+
+  function handlePlayConfigure(host: LibraryHost) {
+    if (!host.inviteCode) return;
+    if (!playerWalletToken) void registerGuest();
     setPreSessionHost(host);
   }
 
@@ -225,11 +245,10 @@ export default function GameDetailPage() {
             setSelectedBlockMinutes(null);
           }}
           onConfirm={(blockMins) => {
-            if (preSessionHost.playerToken) {
+            if (preSessionHost.inviteCode) {
               setSelectedBlockMinutes(blockMins ?? null);
               const qs = blockMins ? `?block=${blockMins}` : "";
-              const slug = preSessionHost.joinCode ?? preSessionHost.playerToken;
-              navigate(`${playJoinPath(slug)}${qs}`);
+              navigate(`/play/i/${preSessionHost.inviteCode}${qs}`);
             }
           }}
         />
@@ -241,7 +260,7 @@ export default function GameDetailPage() {
           onClose={() => setPreviewHost(null)}
           onPlay={() => {
             setPreviewHost(null);
-            setPreSessionHost(previewHost);
+            void handlePlayDirect(previewHost);
           }}
         />
       )}
@@ -304,15 +323,6 @@ export default function GameDetailPage() {
                 {game.genre && (
                   <p className="text-sky-400 font-mono mt-1 text-sm">{game.genre}</p>
                 )}
-                {Array.isArray((game as { saveManifest?: unknown[] }).saveManifest) &&
-                  ((game as { saveManifest?: unknown[] }).saveManifest?.length ?? 0) > 0 && (
-                  <span
-                    className="inline-flex items-center gap-1 mt-2 text-[11px] px-2 py-0.5 rounded-md"
-                    style={{ background: "rgba(16,185,129,0.12)", color: "#6ee7b7", border: "1px solid rgba(16,185,129,0.25)" }}
-                  >
-                    ☁ Облачное сохранение
-                  </span>
-                )}
                 {(game as GameEnriched).steamAppId && (
                   <SteamPlayerCount steamAppId={(game as GameEnriched).steamAppId!} />
                 )}
@@ -344,7 +354,7 @@ export default function GameDetailPage() {
                 </div>
 
                 {(libraryHosts ?? []).length > 0 && (
-                  <div className="mt-6 flex items-center gap-3">
+                  <div className="mt-6 flex flex-wrap items-center gap-3">
                     <div
                       className="px-3 py-2 rounded-lg text-sm font-semibold"
                       style={{ background: "rgba(14,165,233,0.08)", border: "1px solid rgba(14,165,233,0.15)" }}
@@ -365,6 +375,29 @@ export default function GameDetailPage() {
                         <span className="text-slate-600">{totalHostCount} хост{totalHostCount === 1 ? "" : "а"} в библиотеке</span>
                       )}
                     </div>
+                    {onlineHosts[0]?.inviteCode && (
+                      <div className="flex items-center gap-2 ml-auto">
+                        <Button
+                          size="sm"
+                          className="h-9 px-4 text-xs font-semibold"
+                          style={{ background: "#0ea5e9", color: "#fff" }}
+                          onClick={() => void handlePlayDirect(onlineHosts[0])}
+                          data-testid="button-play-now-hero"
+                        >
+                          Играть сейчас
+                          <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-9 px-3 text-xs border-white/15 text-slate-400"
+                          onClick={() => handlePlayConfigure(onlineHosts[0])}
+                          data-testid="button-configure-session-hero"
+                        >
+                          Настроить сессию
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -413,7 +446,8 @@ export default function GameDetailPage() {
                       key={h.hostId}
                       host={h}
                       browserRtt={browserRtt}
-                      onPlay={() => handlePlay(h)}
+                      onPlay={() => void handlePlayDirect(h)}
+                      onConfigure={() => handlePlayConfigure(h)}
                       onPreview={() => setPreviewHost(h)}
                     />
                   ))}
@@ -456,7 +490,19 @@ export default function GameDetailPage() {
   );
 }
 
-function LibraryHostRow({ host: h, browserRtt, onPlay, onPreview }: { host: LibraryHost; browserRtt: number | null; onPlay: () => void; onPreview: () => void }) {
+function LibraryHostRow({
+  host: h,
+  browserRtt,
+  onPlay,
+  onConfigure,
+  onPreview,
+}: {
+  host: LibraryHost;
+  browserRtt: number | null;
+  onPlay: () => void;
+  onConfigure: () => void;
+  onPreview: () => void;
+}) {
   const isOnline = h.status === "online";
   const isAvailable = h.status === "available";
 
@@ -574,18 +620,29 @@ function LibraryHostRow({ host: h, browserRtt, onPlay, onPreview }: { host: Libr
               Превью
             </button>
           )}
-          {isOnline && h.playerToken ? (
-            <Button
-              size="sm"
-              className="h-9 px-5 text-xs font-semibold rounded-md"
-              style={{ background: "#0ea5e9", color: "#fff" }}
-              data-testid={`button-join-${h.hostId}`}
-              onPointerEnter={() => void prewarmIce(h.hostId)}
-              onClick={onPlay}
-            >
-              Играть
-              <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-            </Button>
+          {isOnline && h.inviteCode ? (
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                className="h-9 px-5 text-xs font-semibold rounded-md"
+                style={{ background: "#0ea5e9", color: "#fff" }}
+                data-testid={`button-join-${h.hostId}`}
+                onClick={onPlay}
+              >
+                Играть
+                <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+              </Button>
+              <button
+                type="button"
+                className="h-9 px-3 text-[11px] font-medium rounded-md text-slate-500 hover:text-sky-400 transition-colors"
+                style={{ border: "1px solid rgba(255,255,255,0.08)" }}
+                onClick={onConfigure}
+                title="Выбрать блок минут и проверить пинг"
+                data-testid={`button-configure-${h.hostId}`}
+              >
+                Настроить
+              </button>
+            </div>
           ) : (
             <button
               disabled
@@ -866,7 +923,7 @@ function PreviewModal({
                 >
                   Закрыть
                 </button>
-                {host.playerToken && (
+                {host.inviteCode && (
                   <Button
                     size="sm"
                     className="h-9 px-5 text-xs font-semibold rounded-md"
@@ -907,52 +964,32 @@ function PreSessionModal({
     },
   });
 
-  const browserRtt = useBrowserPingMs();
-  const totalPingMs =
-    browserRtt != null && host.pingMs != null
-      ? Math.round(browserRtt + host.pingMs)
-      : browserRtt;
-  const pinging = totalPingMs == null;
-
-  const [downloadMbps, setDownloadMbps] = useState<number | null>(null);
-  const [speedTesting, setSpeedTesting] = useState(false);
-
-  useEffect(() => {
-    void prewarmIce(host.hostId);
-  }, [host.hostId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setSpeedTesting(true);
-    const started = performance.now();
-    void fetch(`${import.meta.env.BASE_URL}api/public/speedtest/download`)
-      .then((r) => r.arrayBuffer())
-      .then((buf) => {
-        if (cancelled) return;
-        const elapsed = Math.max(performance.now() - started, 1);
-        const mbps = Math.round(((buf.byteLength * 8) / elapsed) / 1000);
-        setDownloadMbps(mbps);
-      })
-      .catch(() => {
-        if (!cancelled) setDownloadMbps(null);
-      })
-      .finally(() => {
-        if (!cancelled) setSpeedTesting(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const bandwidthOk = downloadMbps === null || downloadMbps >= 5;
-
+  const [pingMs, setPingMs] = useState<number | null>(null);
+  const [pinging, setPinging] = useState(true);
+  const didPing = useRef(false);
   const [blockChoice, setBlockChoice] = useState<"unlimited" | "10" | "15" | "25">("unlimited");
 
+  useEffect(() => {
+    if (didPing.current) return;
+    didPing.current = true;
+    const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
+    const t0 = performance.now();
+    fetch(`${base}/api/public/ping`, { method: "GET", cache: "no-store" })
+      .then(() => {
+        setPingMs(Math.round(performance.now() - t0));
+      })
+      .catch(() => {
+        setPingMs(null);
+      })
+      .finally(() => setPinging(false));
+  }, []);
+
   const balanceLzt = (wallet?.internalBalanceLzt ?? 0) + (wallet?.withdrawableBalanceLzt ?? 0);
-  const creditLimit = (wallet as any)?.creditLimitLzt ?? DEFAULT_CREDIT_LZT;
+  // Claim не принимает кредитный лимит — показываем только реальные бакеты.
+  const totalAvailableLzt = balanceLzt;
+  const creditLimit = (wallet as { creditLimitLzt?: number } | undefined)?.creditLimitLzt ?? DEFAULT_CREDIT_LZT;
   const creditUsed = wallet?.creditDebtLzt ?? 0;
   const creditAvailable = Math.max(0, creditLimit - creditUsed);
-  const totalAvailableLzt = balanceLzt + creditAvailable;
   const minsAvailable = host.pricePerMinuteLzt > 0
     ? Math.floor(totalAvailableLzt / host.pricePerMinuteLzt)
     : 9999;
@@ -965,18 +1002,18 @@ function PreSessionModal({
   const selectedBlockMins = blockChoice === "unlimited" ? null : (Number(blockChoice) as 10 | 15 | 25);
   const blockCost = selectedBlockMins ? selectedBlockMins * host.pricePerMinuteLzt : null;
   const canAffordBlock = blockCost === null || totalAvailableLzt >= blockCost;
-  const canStart = minsAvailable >= 1 && canAffordBlock && bandwidthOk;
+  const canStart = minsAvailable >= 1 && canAffordBlock;
 
   const pingColor =
-    totalPingMs === null ? "#64748b"
-    : totalPingMs < 60 ? "#2dd4bf"
-    : totalPingMs < 120 ? "#eab308"
+    pingMs === null ? "#64748b"
+    : pingMs < 60 ? "#2dd4bf"
+    : pingMs < 120 ? "#eab308"
     : "#ef4444";
 
   const pingLabel =
-    totalPingMs === null ? "нет данных"
-    : totalPingMs < 60 ? "отлично"
-    : totalPingMs < 120 ? "нормально"
+    pingMs === null ? "нет данных"
+    : pingMs < 60 ? "отлично"
+    : pingMs < 120 ? "нормально"
     : "высокий";
 
   return (
@@ -1020,7 +1057,7 @@ function PreSessionModal({
               ) : (
                 <>
                   <p className="text-lg font-bold font-mono" style={{ color: pingColor }}>
-                    {totalPingMs !== null ? `${totalPingMs} мс` : "—"}
+                    {pingMs !== null ? `${pingMs} мс` : "—"}
                   </p>
                   <p className="text-[10px] mt-0.5" style={{ color: pingColor, opacity: 0.75 }}>
                     {pingLabel}
@@ -1047,33 +1084,6 @@ function PreSessionModal({
 
           <div
             className="rounded-xl p-3"
-            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
-          >
-            <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-              <Activity className="h-3 w-3" /> Скорость загрузки
-            </p>
-            {speedTesting ? (
-              <Loader2 className="h-4 w-4 text-slate-500 animate-spin" />
-            ) : (
-              <>
-                <p className="text-lg font-bold font-mono" style={{ color: bandwidthOk ? "#2dd4bf" : "#ef4444" }}>
-                  {downloadMbps != null ? `${downloadMbps} Мбит/с` : "—"}
-                </p>
-                <p className="text-[10px] mt-0.5 text-slate-500">
-                  {downloadMbps == null
-                    ? "не удалось измерить"
-                    : downloadMbps >= 15
-                      ? "1080p60 OK"
-                      : downloadMbps >= 5
-                        ? "рекомендуем 720p"
-                        : "низкая скорость — возможны лаги"}
-                </p>
-              </>
-            )}
-          </div>
-
-          <div
-            className="rounded-xl p-3"
             style={{ background: "rgba(14,165,233,0.05)", border: "1px solid rgba(14,165,233,0.12)" }}
           >
             <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Доступно для игры</p>
@@ -1094,15 +1104,15 @@ function PreSessionModal({
               </div>
               {creditAvailable > 0 && (
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-400">Кредитный лимит</span>
-                  <span className="font-mono text-amber-400">+{creditAvailable.toLocaleString("ru-RU")} LZT</span>
+                  <span className="text-slate-400">Кредит (не для claim)</span>
+                  <span className="font-mono text-slate-500">+{creditAvailable.toLocaleString("ru-RU")} LZT</span>
                 </div>
               )}
               <div
                 className="flex justify-between items-center pt-1.5 border-t"
                 style={{ borderColor: "rgba(14,165,233,0.15)" }}
               >
-                <span className="text-slate-300 font-medium">Итого</span>
+                <span className="text-slate-300 font-medium">Для старта сессии</span>
                 <span className="font-mono font-bold text-sky-300">{totalAvailableLzt.toLocaleString("ru-RU")} LZT</span>
               </div>
             </div>

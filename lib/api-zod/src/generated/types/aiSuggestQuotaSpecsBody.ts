@@ -8,7 +8,7 @@
 
 export interface AiSuggestQuotaSpecsBody {
   /**
-   * Optional game ID — the server will resolve its title and genre
+   * Optional game ID вЂ” the server will resolve its title and genre
    * @nullable
    */
   gameId?: string | null;

@@ -7,9 +7,9 @@ import {
   hostGamesTable,
   playersTable,
   sessionsTable,
-  billingEventsTable,
   quotasTable,
   quotaSessionsTable,
+  sessionMetricsTable,
 } from "@workspace/db";
 import { isQuotaActiveNow } from "../lib/quotaEngine";
 import {
@@ -29,18 +29,22 @@ import {
 } from "@workspace/api-zod";
 
 import { generateToken } from "../lib/tokens";
+import { generateInviteCode, defaultInviteExpiresAt, isInviteExpired } from "../lib/invites";
 import { applyLaunchFee } from "../lib/launchFee";
 import { pickPlayerBucket } from "../lib/lzt";
 import { isHostAvailableNow } from "../lib/schedule";
 import { checkQuotaAttachment } from "../lib/quotaAttach";
 import { headerUserToken } from "../lib/requestToken";
 import { rateLimit, ipKey } from "../lib/rateLimit";
-import { ensureJoinCodeForSession } from "../lib/joinCodes";
-import { enrichSession } from "../lib/sessionSerialize";
-import { debitBlockReserve, type UserBucket } from "../lib/economy";
-import { refundBlockRemainder } from "../lib/billingWorker";
+import {
+  countSessionMinutesUsed,
+  refundBlockRemainder,
+} from "../lib/sessionBilling";
+import { sendSignalingMessage } from "../lib/signaling";
+import { submitSessionRating, recordBlockReserveLedger } from "../lib/ratings";
+import { writeLedger } from "../lib/economy";
+import { randomUUID } from "node:crypto";
 import { z } from "zod/v4";
-import { sessionMetricsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -53,15 +57,19 @@ const claimLimiter = rateLimit({
   keyFn: ipKey,
 });
 
-const sessionLookupLimiter = rateLimit({
-  scope: "sessions:by-player-token",
-  windowMs: 60_000,
-  max: 60,
-  keyFn: ipKey,
-});
+/** OpenAPI CreateSessionBody includes requestedGameId (uuid). */
+function serialize(s: typeof sessionsTable.$inferSelect) {
+  return {
+    ...s,
+    ratePerMinute: Number(s.ratePerMinute),
+  };
+}
 
-function playerBucketFromPick(picked: "green" | "blue" | null): UserBucket {
-  return picked === "green" ? "cash" : "balance";
+function inviteFields() {
+  return {
+    inviteCode: generateInviteCode(),
+    inviteExpiresAt: defaultInviteExpiresAt(),
+  };
 }
 
 router.post("/sessions", async (req, res): Promise<void> => {
@@ -94,33 +102,13 @@ router.post("/sessions", async (req, res): Promise<void> => {
     return;
   }
 
-  // One active session per host machine — the host agent can only stream one
-  // game at a time (hardware constraint). Reject creation if a non-ended
-  // session already exists for this host.
-  const [existingActive] = await db
-    .select({ id: sessionsTable.id })
-    .from(sessionsTable)
-    .where(
-      and(
-        eq(sessionsTable.hostId, host.id),
-        ne(sessionsTable.status, "ended"),
-      ),
-    )
-    .limit(1);
-  if (existingActive) {
-    res.status(409).json({ error: "host_busy" });
-    return;
-  }
-
   const playerToken = generateToken();
 
   // Optional: caller may specify which game from the host's multi-game
   // library this session is for. When provided we use that entry's
   // pricePerMinuteLzt; otherwise we fall back to the host's legacy
   // minutePriceUsd field.
-  const requestedGameId =
-    (req.body as { requestedGameId?: string } | undefined)?.requestedGameId ??
-    null;
+  const requestedGameId = parsed.data.requestedGameId ?? null;
   let resolvedGameId: string | null = null;
   let ratePerMinute: number;
 
@@ -184,11 +172,8 @@ router.post("/sessions", async (req, res): Promise<void> => {
   // Optional quota attachment. The host can pre-pick a quota in /host/setup
   // or by passing an access code; we validate it before creating the session.
   let resolvedQuotaId: string | null = null;
-  const requestedQuotaId =
-    (req.body as { quotaId?: string | null } | undefined)?.quotaId ?? null;
-  const accessCode =
-    (req.body as { quotaAccessCode?: string } | undefined)
-      ?.quotaAccessCode ?? "";
+  const requestedQuotaId = parsed.data.quotaId ?? null;
+  const accessCode = parsed.data.quotaAccessCode ?? "";
   if (requestedQuotaId) {
     const [quota] = await db
       .select()
@@ -226,43 +211,74 @@ router.post("/sessions", async (req, res): Promise<void> => {
     resolvedQuotaId = quota.id;
   }
 
-  const [session] = await db
-    .insert(sessionsTable)
-    .values({
-      hostId: host.id,
-      gameId: resolvedGameId,
-      playerToken,
-      appName: parsed.data.appName,
-      resolution: parsed.data.resolution ?? "1920x1080",
-      bitrateKbps: parsed.data.bitrateKbps ?? 6000,
-      ratePerMinute: String(ratePerMinute),
-      paymentSource: parsed.data.paymentSource ?? "auto",
-      quotaId: resolvedQuotaId,
-    })
-    .returning();
+  // Serialize session creation per host: lock the host row then re-check busy.
+  let session: typeof sessionsTable.$inferSelect | undefined;
+  try {
+    session = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT id FROM hosts WHERE id = ${host.id} FOR UPDATE`,
+      );
+      const [existingActive] = await tx
+        .select({ id: sessionsTable.id })
+        .from(sessionsTable)
+        .where(
+          and(
+            eq(sessionsTable.hostId, host.id),
+            ne(sessionsTable.status, "ended"),
+          ),
+        )
+        .limit(1);
+      if (existingActive) {
+        throw Object.assign(new Error("host_busy"), { code: "host_busy" });
+      }
+      const [created] = await tx
+        .insert(sessionsTable)
+        .values({
+          hostId: host.id,
+          gameId: resolvedGameId!,
+          playerToken,
+          ...inviteFields(),
+          appName: parsed.data.appName,
+          resolution: parsed.data.resolution ?? "1920x1080",
+          bitrateKbps: parsed.data.bitrateKbps ?? 6000,
+          ratePerMinute: String(ratePerMinute),
+          paymentSource: parsed.data.paymentSource ?? "auto",
+          quotaId: resolvedQuotaId,
+        })
+        .returning();
+      if (!created) {
+        throw new Error("Failed to create session");
+      }
+      if (resolvedQuotaId) {
+        await tx
+          .insert(quotaSessionsTable)
+          .values({ quotaId: resolvedQuotaId, sessionId: created.id });
+      }
+      return created;
+    });
+  } catch (err) {
+    if (
+      err &&
+      typeof err === "object" &&
+      "code" in err &&
+      (err as { code: string }).code === "host_busy"
+    ) {
+      res.status(409).json({ error: "host_busy" });
+      return;
+    }
+    throw err;
+  }
 
   if (!session) {
     res.status(500).json({ error: "Failed to create session" });
     return;
   }
 
-  if (resolvedQuotaId) {
-    await db
-      .insert(quotaSessionsTable)
-      .values({ quotaId: resolvedQuotaId, sessionId: session.id });
-  }
-
   req.log.info(
     { sessionId: session.id, quotaId: resolvedQuotaId },
     "Session created",
   );
-  const joinCode = await ensureJoinCodeForSession(session.id);
-  res.status(201).json(
-    GetSessionResponse.parse({
-      ...(await enrichSession(session)),
-      joinCode,
-    }),
-  );
+  res.status(201).json(GetSessionResponse.parse(serialize(session)));
 });
 
 // Create a session whose host is the calling browser. We mint a fresh host
@@ -329,6 +345,7 @@ router.post("/sessions/browser-host", async (req, res): Promise<void> => {
       hostId: host.id,
       gameId: game.id,
       playerToken,
+      ...inviteFields(),
       appName: game.title,
       resolution: "1280x720",
       bitrateKbps: 4000,
@@ -346,7 +363,7 @@ router.post("/sessions/browser-host", async (req, res): Promise<void> => {
     "Browser-host session created",
   );
   res.status(201).json({
-    session: await enrichSession(session),
+    session: serialize(session),
     hostToken,
     browserHostUrl: game.browserHostUrl,
   });
@@ -469,6 +486,7 @@ router.post("/sessions/test", testSessionLimiter, async (req, res): Promise<void
       hostId: host.id,
       gameId: game.id,
       playerToken,
+      ...inviteFields(),
       appName: game.title,
       resolution: "1280x720",
       bitrateKbps: 4000,
@@ -506,7 +524,7 @@ router.post("/sessions/test", testSessionLimiter, async (req, res): Promise<void
   // external http(s) URL → host streaming page (tab capture via WebRTC);
   // local/relative game path → player iframe directly.
   res.status(201).json({
-    session: await enrichSession(session),
+    session: serialize(session),
     hostBoundUrl: hostBoundUrl || null,
     isExternalUrl: /^https?:\/\//i.test(hostBoundUrl),
   });
@@ -514,7 +532,6 @@ router.post("/sessions/test", testSessionLimiter, async (req, res): Promise<void
 
 router.get(
   "/sessions/by-player-token/:playerToken",
-  sessionLookupLimiter,
   async (req, res): Promise<void> => {
     const params = GetSessionByPlayerTokenParams.safeParse(req.params);
     if (!params.success) {
@@ -561,7 +578,7 @@ router.get(
 
     // Return strict-schema fields plus extra game info for the player UI.
     res.json({
-      ...GetSessionByPlayerTokenResponse.parse(await enrichSession(session)),
+      ...GetSessionByPlayerTokenResponse.parse(serialize(session)),
       gameSlug: game?.slug ?? null,
       gameCoverImageUrl: game?.coverImageUrl ?? null,
       gameTitle: session.isTest ? session.appName : game?.title ?? null,
@@ -679,7 +696,7 @@ router.post(
         { sessionId: claimed.id, playerId: player.id },
         "Test session claimed (free)",
       );
-      res.json(ClaimSessionResponse.parse(await enrichSession(claimed)));
+      res.json(ClaimSessionResponse.parse(serialize(claimed)));
       return;
     }
 
@@ -724,37 +741,49 @@ router.post(
         : picked;
 
     if (effectivePicked === null && effectiveMinLzt > 0) {
-      const creditAvailable = Math.max(
-        0,
-        player.creditLimitLzt - player.creditDebtLzt,
-      );
-      if (creditAvailable < effectiveMinLzt) {
-        const need = blockReservedLzt !== null
-          ? `${effectiveMinLzt} LZT (блок ${blockMinutes} мин × ${ratePerMinuteLzt} LZT + запуск)`
-          : `${effectiveMinLzt} LZT`;
-        res.status(400).json({
-          error: `Insufficient LZT — need at least ${need} in balance or credit`,
-        });
-        return;
-      }
+      const need = blockReservedLzt !== null
+        ? `${effectiveMinLzt} LZT (блок ${blockMinutes} мин × ${ratePerMinuteLzt} LZT + запуск)`
+        : `${effectiveMinLzt} LZT`;
+      res.status(400).json({
+        error: `Insufficient LZT — need at least ${need} in a single ${session.paymentSource === "auto" ? "(green or blue)" : session.paymentSource} bucket to start`,
+      });
+      return;
     }
 
-    // Reserve the block amount via ledger (idempotent on reclaim).
-    if (blockReservedLzt !== null && blockReservedLzt > 0) {
-      const bucket = playerBucketFromPick(effectivePicked);
-      const reserveResult = await db.transaction(async (tx) => {
-        if (isReclaimBySamePlayer) return { ok: true as const };
-        return debitBlockReserve(tx, {
-          playerId: player.id,
-          sessionId: session.id,
-          amountLzt: blockReservedLzt,
-          bucket,
-        });
-      });
-      if (!reserveResult.ok) {
-        res.status(400).json({ error: reserveResult.reason ?? "Insufficient balance to reserve the block" });
+    // Reserve the block amount: debit the player immediately so the funds are
+    // locked. The billing worker will refund unused minutes on early exit.
+    if (blockReservedLzt !== null && blockReservedLzt > 0 && !isReclaimBySamePlayer) {
+      const bucket = effectivePicked ?? "balance";
+      const playerCol =
+        bucket === "green"
+          ? playersTable.withdrawableBalanceLzt
+          : playersTable.internalBalanceLzt;
+      const debitResult = await db
+        .update(playersTable)
+        .set(
+          bucket === "green"
+            ? { withdrawableBalanceLzt: sql`${playersTable.withdrawableBalanceLzt} - ${blockReservedLzt}` }
+            : { internalBalanceLzt: sql`${playersTable.internalBalanceLzt} - ${blockReservedLzt}` },
+        )
+        .where(
+          and(
+            eq(playersTable.id, player.id),
+            sql`${playerCol} >= ${blockReservedLzt + launchFeeLzt}`,
+          ),
+        )
+        .returning({ id: playersTable.id });
+      if (debitResult.length === 0) {
+        res.status(400).json({ error: "Insufficient balance to reserve the block" });
         return;
       }
+      const ledgerBucket = bucket === "green" ? "green" : "blue";
+      await recordBlockReserveLedger({
+        playerId: player.id,
+        sessionId: session.id,
+        amountLzt: blockReservedLzt,
+        bucket: ledgerBucket,
+        note: `block reserve: ${blockMinutes} мин`,
+      });
     }
 
     if (picked === null && minBalanceLzt > 0 && blockReservedLzt === null) {
@@ -813,7 +842,7 @@ router.post(
       { sessionId: updated.id, playerId: player.id, launchFee },
       "Session claimed",
     );
-    res.json(ClaimSessionResponse.parse(await enrichSession(updated)));
+    res.json(ClaimSessionResponse.parse(serialize(updated)));
   },
 );
 
@@ -856,7 +885,7 @@ router.get("/sessions/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(GetSessionResponse.parse(await enrichSession(session)));
+  res.json(GetSessionResponse.parse(serialize(session)));
 });
 
 router.patch("/sessions/:id/end", async (req, res): Promise<void> => {
@@ -895,7 +924,7 @@ router.patch("/sessions/:id/end", async (req, res): Promise<void> => {
 
   const now = new Date();
 
-  // Block session early-exit refund: count minutes used, refund remainder.
+  // Block session early-exit refund via shared billing helper (includes ledger).
   if (
     existing.blockMinutes &&
     existing.blockReservedLzt &&
@@ -903,18 +932,8 @@ router.patch("/sessions/:id/end", async (req, res): Promise<void> => {
     existing.status === "active"
   ) {
     try {
-      const ticksRow = await db
-        .select({ n: sql<number>`count(*)::int` })
-        .from(billingEventsTable)
-        .where(
-          and(
-            eq(billingEventsTable.sessionId, existing.id),
-            eq(billingEventsTable.kind, "session_tick"),
-            eq(billingEventsTable.bucket, "green"),
-          ),
-        );
-      const minutesUsed = Number(ticksRow[0]?.n ?? 0);
       await db.transaction(async (tx) => {
+        const minutesUsed = await countSessionMinutesUsed(tx, existing.id);
         await refundBlockRemainder(tx, existing, minutesUsed);
       });
     } catch (err) {
@@ -934,14 +953,211 @@ router.patch("/sessions/:id/end", async (req, res): Promise<void> => {
   }
 
   req.log.info({ sessionId: session.id }, "Session ended");
-  const { emitPlatformEvent } = await import("../lib/pgNotify");
-  void emitPlatformEvent("session_status", {
-    sessionId: session.id,
-    status: "ended",
-    hostId: session.hostId,
-    playerToken: session.playerToken,
+  res.json(EndSessionResponse.parse(serialize(session)));
+});
+
+router.get("/sessions/by-invite/:inviteCode", async (req, res): Promise<void> => {
+  const inviteCode = String(req.params.inviteCode ?? "").trim();
+  if (!inviteCode) {
+    res.status(400).json({ error: "inviteCode required" });
+    return;
+  }
+  const [session] = await db
+    .select()
+    .from(sessionsTable)
+    .where(eq(sessionsTable.inviteCode, inviteCode));
+  if (!session) {
+    res.status(404).json({ error: "Invite not found" });
+    return;
+  }
+  if (isInviteExpired(session.inviteExpiresAt)) {
+    res.status(410).json({ error: "invite_expired", message: "Ссылка-приглашение истекла" });
+    return;
+  }
+
+  const [game] = await db
+    .select()
+    .from(gamesTable)
+    .where(eq(gamesTable.id, session.gameId));
+
+  res.json({
+    ...GetSessionByPlayerTokenResponse.parse(serialize(session)),
+    inviteCode: session.inviteCode,
+    gameSlug: game?.slug ?? null,
+    gameCoverImageUrl: game?.coverImageUrl ?? null,
+    gameTitle: session.isTest ? session.appName : game?.title ?? null,
+    gameBrowserHostUrl: game?.browserHostUrl ?? null,
   });
-  res.json(EndSessionResponse.parse(await enrichSession(session)));
+});
+
+router.post(
+  "/sessions/by-player-token/:playerToken/renew-block",
+  claimLimiter,
+  async (req, res): Promise<void> => {
+    const playerToken = String(req.params.playerToken ?? "").trim();
+    const playerWalletToken = String(req.body?.playerWalletToken ?? "").trim();
+    const blockMinutes = Number(req.body?.blockMinutes);
+    if (!playerToken || !playerWalletToken) {
+      res.status(400).json({ error: "playerWalletToken required" });
+      return;
+    }
+    if (![10, 15, 25].includes(blockMinutes)) {
+      res.status(400).json({ error: "blockMinutes must be 10, 15, or 25" });
+      return;
+    }
+
+    const [session] = await db
+      .select()
+      .from(sessionsTable)
+      .where(eq(sessionsTable.playerToken, playerToken));
+    if (!session || session.status !== "active") {
+      res.status(400).json({ error: "Session not active" });
+      return;
+    }
+    if (!session.claimedByPlayerId || !session.blockMinutes) {
+      res.status(400).json({ error: "Not a block session" });
+      return;
+    }
+
+    const [player] = await db
+      .select()
+      .from(playersTable)
+      .where(eq(playersTable.playerToken, playerWalletToken));
+    if (!player || player.id !== session.claimedByPlayerId) {
+      res.status(403).json({ error: "Wallet does not match session" });
+      return;
+    }
+
+    const ratePerMinuteLzt = Math.round(Number(session.ratePerMinute) * 200);
+    const addReserve = blockMinutes * ratePerMinuteLzt;
+    const picked = pickPlayerBucket(
+      session.paymentSource,
+      addReserve,
+      player.withdrawableBalanceLzt,
+      player.internalBalanceLzt,
+    );
+    if (picked === null && addReserve > 0) {
+      res.status(400).json({
+        error: `Insufficient LZT — need ${addReserve} LZT for ${blockMinutes} min block`,
+      });
+      return;
+    }
+
+    const bucket = picked ?? "green";
+    const playerCol =
+      bucket === "green"
+        ? playersTable.withdrawableBalanceLzt
+        : playersTable.internalBalanceLzt;
+
+    const updated = await db.transaction(async (tx) => {
+      if (addReserve > 0) {
+        const debited = await tx
+          .update(playersTable)
+          .set(
+            bucket === "green"
+              ? { withdrawableBalanceLzt: sql`${playersTable.withdrawableBalanceLzt} - ${addReserve}` }
+              : { internalBalanceLzt: sql`${playersTable.internalBalanceLzt} - ${addReserve}` },
+          )
+          .where(
+            and(
+              eq(playersTable.id, player.id),
+              sql`${playerCol} >= ${addReserve}`,
+            ),
+          )
+          .returning({ id: playersTable.id });
+        if (debited.length === 0) {
+          return null;
+        }
+        await writeLedger(tx, [
+          {
+            groupId: randomUUID(),
+            kind: "block_reserve",
+            ownerType: "player",
+            ownerId: player.id,
+            bucket: bucket === "green" ? "cash" : "balance",
+            deltaLzt: -addReserve,
+            refType: "session",
+            refId: session.id,
+            note: `block renew: +${blockMinutes} мин`,
+          },
+        ]);
+      }
+
+      const [row] = await tx
+        .update(sessionsTable)
+        .set({
+          blockMinutes: (session.blockMinutes ?? 0) + blockMinutes,
+          blockReservedLzt: (session.blockReservedLzt ?? 0) + addReserve,
+        })
+        .where(eq(sessionsTable.id, session.id))
+        .returning();
+      return row ?? null;
+    });
+
+    if (!updated) {
+      res.status(400).json({ error: "Insufficient balance to renew block" });
+      return;
+    }
+
+    sendSignalingMessage(session.id, {
+      type: "block-renewed",
+      blockMinutes: updated.blockMinutes,
+      addedMinutes: blockMinutes,
+    });
+
+    res.json(ClaimSessionResponse.parse(serialize(updated)));
+  },
+);
+
+router.post("/sessions/:id/rate", claimLimiter, async (req, res): Promise<void> => {
+  const sessionId = String(req.params.id ?? "").trim();
+  const playerWalletToken = String(req.body?.playerWalletToken ?? "").trim();
+  const score = Number(req.body?.score);
+  const comment = typeof req.body?.comment === "string" ? req.body.comment : "";
+
+  if (!sessionId || !playerWalletToken) {
+    res.status(400).json({ error: "playerWalletToken required" });
+    return;
+  }
+
+  const [session] = await db
+    .select()
+    .from(sessionsTable)
+    .where(eq(sessionsTable.id, sessionId));
+  if (!session) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+  if (session.status !== "ended") {
+    res.status(400).json({ error: "Session must be ended before rating" });
+    return;
+  }
+
+  const [player] = await db
+    .select()
+    .from(playersTable)
+    .where(eq(playersTable.playerToken, playerWalletToken));
+  if (!player || player.id !== session.claimedByPlayerId) {
+    res.status(403).json({ error: "Only the session player can rate" });
+    return;
+  }
+
+  const result = await submitSessionRating({
+    sessionId: session.id,
+    playerId: player.id,
+    hostId: session.hostId,
+    score,
+    comment,
+  });
+  if (!result.ok) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+
+  res.json({
+    ratingAvg: result.ratingAvg,
+    ratingCount: result.ratingCount,
+  });
 });
 
 const SessionMetricSample = z.object({

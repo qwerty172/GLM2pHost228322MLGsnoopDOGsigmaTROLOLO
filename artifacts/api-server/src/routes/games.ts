@@ -65,6 +65,8 @@ type GameAggregates = {
   minPricePerMinuteLzt: number | null;
 };
 
+// Extra catalog fields now covered by OpenAPI GameListItem (category, genres,
+// liveHostsCount, minPricePerMinuteLzt, createdAt).
 function shapeGame(
   g: GameRow,
   liveSessionCount: number,
@@ -77,7 +79,6 @@ function shapeGame(
     coverImageUrl: g.coverImageUrl,
     description: g.description,
     genre: g.genre,
-    // Extra catalog fields (not in generated Zod schema; bypass strict parse below).
     category: g.category,
     genres: g.genres,
     createdAt: g.createdAt,
@@ -266,10 +267,8 @@ router.get("/games", async (req, res): Promise<void> => {
     );
   }
 
-  // Bypass strict Zod parse — we've added liveHostsCount and
-  // minPricePerMinuteLzt which aren't in the generated schema yet.
-  // Returning raw shaped preserves the new fields for the UI.
-  res.json(shaped);
+  // Validate response shape against OpenAPI-generated schema.
+  res.json(ListGamesResponse.parse(shaped));
 });
 
 router.get("/games/:slug", async (req, res): Promise<void> => {
@@ -365,9 +364,10 @@ router.get("/games/:slug", async (req, res): Promise<void> => {
       scheduleMode: h.scheduleMode,
       scheduleJson: h.scheduleJson ?? [],
       streamPlatform: h.streamPlatform,
-      // Placeholders — ping and rating system land in a later task.
-      pingMs: null as number | null,
-      ratingScore: null as number | null,
+      pingMs: h.pingMs ?? null,
+      ratingScore:
+        h.ratingAvg != null ? Number(h.ratingAvg) : null,
+      ratingCount: h.ratingCount ?? 0,
     }));
 
   // Per-game aggregates from host_games for this single game.
@@ -379,8 +379,7 @@ router.get("/games/:slug", async (req, res): Promise<void> => {
     liveSessions: shapedSessions,
   };
 
-  // Bypass strict Zod parse to preserve liveHostsCount / minPricePerMinuteLzt.
-  res.json(detail);
+  res.json(GetGameBySlugResponse.parse(detail));
 });
 
 export default router;

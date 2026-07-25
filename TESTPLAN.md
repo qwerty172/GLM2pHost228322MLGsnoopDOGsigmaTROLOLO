@@ -10,10 +10,10 @@
 
 | Фаза | Что | Статус | Критерий «готово» |
 |---|---|---|---|
-| 0–1 | Окружение + API smoke | ✅ **DONE** (если healthz ok) | `http://localhost:8080/api/healthz` → `{"status":"ok"}` |
-| 2 | Обход страниц в браузере | **verified (cloud API)** | `scripts/pages-api-smoke.sh` |
-| 3 | P2P browser-host ↔ player | **verified (API/WS)** | signaling + lifecycle; video blocked |
-| 4 | Windows-агент (Electron) | **verified (API/build)** | agent-api-smoke; SendInput/GUI blocked |
+| 0–1 | Окружение + API smoke | ✅ **DONE** | `http://localhost:8080/api/healthz` → `{"status":"ok"}` |
+| 2 | Обход страниц в браузере | ✅ **verified (Windows)** | 11 URL + регистрация игрока/хоста |
+| 3 | P2P browser-host ↔ player | ✅ **verified (Windows)** | signaling + lifecycle + billing + P2P HUD |
+| 4 | Windows-агент (Electron) | ✅ **verified (Windows)** | test/build/zip + Electron start; Steam E2E manual |
 | 5 | Экономика, биллинг | pending | Леджер сходится, нет ghost-billing |
 | 6 | Квоты, VDS, embed | pending | Форма без AI, деградация внешних сервисов |
 | 7 | Регресс + отчёт | pending | TESTLOG итог |

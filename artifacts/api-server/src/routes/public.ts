@@ -1,6 +1,5 @@
 import { Router, type IRouter } from "express";
 import { and, desc, eq, gt, ilike, inArray, ne, sql } from "drizzle-orm";
-import crypto from "node:crypto";
 import {
   db,
   gamesTable,
@@ -14,29 +13,31 @@ import {
   ListPublicHostsResponse,
   GetPublicStatsResponse,
 } from "@workspace/api-zod";
-import { ensureJoinCodeForSession } from "../lib/joinCodes";
 import { isHostAvailableNow } from "../lib/schedule";
 import { generalHostTier } from "../lib/hostTier";
 import { mintPreviewToken } from "../lib/signaling";
-import { getRedis } from "../lib/redis";
+import { generateInviteCode, defaultInviteExpiresAt } from "../lib/invites";
+import { rateLimit, ipKey } from "../lib/rateLimit";
 
 const router: IRouter = Router();
 
-const TURN_TTL_SEC = 24 * 60 * 60;
+const publicSessionsLimiter = rateLimit({
+  scope: "public:sessions",
+  windowMs: 60_000,
+  max: 30,
+  keyFn: ipKey,
+});
 
-function generateTurnCredentials(
-  userId: string,
-  secret: string,
-  ttlSec: number,
-): { username: string; credential: string } {
-  const expiry = Math.floor(Date.now() / 1000) + ttlSec;
-  const username = `${expiry}:${userId}`;
-  const credential = crypto
-    .createHmac("sha1", secret)
-    .update(username)
-    .digest("base64");
-  return { username, credential };
-}
+const previewSessionLimiter = rateLimit({
+  scope: "public:preview-session",
+  windowMs: 60_000,
+  max: 20,
+  keyFn: ipKey,
+});
+
+/** Per-host cooldown for preview minting (in-memory). */
+const previewHostCooldown = new Map<string, number>();
+const PREVIEW_HOST_COOLDOWN_MS = 5_000;
 
 function urlHostname(url: string | null | undefined): string {
   if (!url) return "";
@@ -56,16 +57,6 @@ router.get("/public/games", async (req, res): Promise<void> => {
   const category = (req.query.category as string | undefined)?.trim() ?? "";
   const search = (req.query.search as string | undefined)?.trim() ?? "";
   const liveOnly = req.query.liveOnly === "true" || req.query.liveOnly === "1";
-  const cacheKey = `games:catalog:${category}:${search}:${liveOnly}`;
-
-  const redis = getRedis();
-  if (redis) {
-    const cached = await redis.get(cacheKey);
-    if (cached) {
-      res.json(JSON.parse(cached));
-      return;
-    }
-  }
 
   const conds: ReturnType<typeof eq>[] = [];
   if (category) conds.push(eq(gamesTable.category, category) as any);
@@ -107,10 +98,6 @@ router.get("/public/games", async (req, res): Promise<void> => {
       liveSessionCount: liveMap.get(g.title.toLowerCase()) ?? 0,
     }))
     .filter((g) => (liveOnly ? g.liveSessionCount > 0 : true));
-
-  if (redis) {
-    await redis.setex(cacheKey, 60, JSON.stringify(shaped));
-  }
 
   res.json(shaped);
 });
@@ -229,8 +216,8 @@ router.get("/hosts", async (_req, res): Promise<void> => {
       status: available ? "online" : "scheduled",
       // True when the agent sent a heartbeat within the last 2 minutes.
       isOnline,
-      playerToken: s.playerToken,
-      joinCode: await ensureJoinCodeForSession(s.id),
+      // Capability URL code — never expose raw playerToken on public lists.
+      inviteCode: s.inviteCode,
       // New: multi-game library entries for this host.
       games,
       // Host-to-server RTT measured at last heartbeat (null until first measurement).
@@ -296,8 +283,7 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
   const sessionRows = await db
     .select({
       hostId: sessionsTable.hostId,
-      sessionId: sessionsTable.id,
-      playerToken: sessionsTable.playerToken,
+      inviteCode: sessionsTable.inviteCode,
       status: sessionsTable.status,
     })
     .from(sessionsTable)
@@ -309,20 +295,15 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
       ),
     );
 
-  const sessionByHost = new Map<string, { playerToken: string; sessionId: string }>();
+  const sessionByHost = new Map<string, string | null>();
   for (const s of sessionRows) {
-    if (!sessionByHost.has(s.hostId)) {
-      sessionByHost.set(s.hostId, { playerToken: s.playerToken, sessionId: s.sessionId });
-    }
+    if (!sessionByHost.has(s.hostId)) sessionByHost.set(s.hostId, s.inviteCode);
   }
 
   const now = new Date();
-  const result = await Promise.all(
-    libraryRows
-    .map(async ({ hg, host: h }) => {
-      const live = sessionByHost.get(h.id) ?? null;
-      const playerToken = live?.playerToken ?? null;
-      const joinCode = live ? await ensureJoinCodeForSession(live.sessionId) : null;
+  const result = libraryRows
+    .map(({ hg, host: h }) => {
+      const inviteCode = sessionByHost.get(h.id) ?? null;
       const available = isHostAvailableNow(
         h.scheduleMode,
         h.scheduleJson ?? [],
@@ -335,19 +316,15 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
         description: h.description,
         pricePerMinuteLzt: hg.pricePerMinuteLzt,
         pricePerMinuteUsd: hg.pricePerMinuteLzt / 200,
-        status: playerToken ? "online" : (available ? "available" : "scheduled"),
-        playerToken,
-        joinCode,
+        status: inviteCode ? "online" : (available ? "available" : "scheduled"),
+        inviteCode,
         scheduleMode: h.scheduleMode,
         // Host-to-server RTT measured at last heartbeat (null until first measurement).
         pingMs: h.pingMs ?? null,
         // Strength badge vs the site-wide baseline: "meets_min" | "above_rec".
         hostTier: generalHostTier(h.pcSpecs),
       };
-    }),
-  );
-
-  const filtered = result
+    })
     // Below-minimum hosts are kept out of the discoverable catalog/search.
     .filter((r) => r.hostTier !== "below_min");
 
@@ -355,7 +332,7 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
   // then by price asc.
   const statusOrder = { online: 0, available: 1, scheduled: 2 };
   const tierRank = (t: string) => (t === "above_rec" ? 0 : 1);
-  filtered.sort(
+  result.sort(
     (a, b) =>
       tierRank(a.hostTier) - tierRank(b.hostTier) ||
       (statusOrder[a.status as keyof typeof statusOrder] ?? 2) -
@@ -363,26 +340,17 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
       a.pricePerMinuteLzt - b.pricePerMinuteLzt,
   );
 
-  res.json(filtered);
+  res.json(result);
 });
 
 // ---------------------------------------------------------------------------
 // POST /public/sessions — player-side session request.
 //
-// The player supplies { hostId, gameId? }. We look up the host's active
-// non-ended session (optionally filtered by gameId) and return its
-// playerToken so the caller can navigate to /play/:playerToken.
-//
-// Error codes:
-//   409 — host_busy: host has an active session but it's already occupied
-//         by another player (playerToken is being actively used). Currently
-//         we surface this as the signaling-layer rejection; here we optimise
-//         for returning 503 "not online for this game" until we track
-//         occupancy at the DB layer.
-//   503 — host not online for the requested game (no matching session).
-//   404 — hostId not found.
+// Returns a short-lived inviteCode (not the raw playerToken) so the caller
+// navigates to /play/i/:inviteCode. The invite is exchanged for playerToken
+// via GET /sessions/by-invite/:inviteCode.
 // ---------------------------------------------------------------------------
-router.post("/public/sessions", async (req, res): Promise<void> => {
+router.post("/public/sessions", publicSessionsLimiter, async (req, res): Promise<void> => {
   const hostId = (req.body?.hostId as string | undefined)?.trim() ?? "";
   const gameId = (req.body?.gameId as string | undefined)?.trim() ?? "";
 
@@ -415,7 +383,7 @@ router.post("/public/sessions", async (req, res): Promise<void> => {
   const sessions = await db
     .select({
       id: sessionsTable.id,
-      playerToken: sessionsTable.playerToken,
+      inviteCode: sessionsTable.inviteCode,
       status: sessionsTable.status,
     })
     .from(sessionsTable)
@@ -427,7 +395,7 @@ router.post("/public/sessions", async (req, res): Promise<void> => {
     if (gameId) {
       // Try without game filter — maybe host is online for a different game.
       const fallbackSessions = await db
-        .select({ playerToken: sessionsTable.playerToken })
+        .select({ id: sessionsTable.id })
         .from(sessionsTable)
         .where(
           and(
@@ -448,9 +416,20 @@ router.post("/public/sessions", async (req, res): Promise<void> => {
     return;
   }
 
-  const session = sessions[0]!;
-  const joinCode = await ensureJoinCodeForSession(session.id);
-  res.json({ playerToken: session.playerToken, joinCode });
+  let inviteCode = sessions[0].inviteCode;
+  if (!inviteCode) {
+    // Backfill invite for legacy sessions that predate invite codes.
+    inviteCode = generateInviteCode();
+    await db
+      .update(sessionsTable)
+      .set({
+        inviteCode,
+        inviteExpiresAt: defaultInviteExpiresAt(),
+      })
+      .where(eq(sessionsTable.id, sessions[0].id));
+  }
+
+  res.json({ inviteCode, playPath: `/play/i/${inviteCode}` });
 });
 
 // ---------------------------------------------------------------------------
@@ -463,7 +442,7 @@ router.post("/public/sessions", async (req, res): Promise<void> => {
 //
 // No session record is created — preview is free, muted, view-only.
 // ---------------------------------------------------------------------------
-router.post("/public/preview-session", async (req, res): Promise<void> => {
+router.post("/public/preview-session", previewSessionLimiter, async (req, res): Promise<void> => {
   const hostId = (req.body?.hostId as string | undefined)?.trim() ?? "";
 
   if (!hostId) {
@@ -491,6 +470,18 @@ router.post("/public/preview-session", async (req, res): Promise<void> => {
     return;
   }
 
+  const now = Date.now();
+  const cooledUntil = previewHostCooldown.get(host.id) ?? 0;
+  if (cooledUntil > now) {
+    res.setHeader("Retry-After", String(Math.ceil((cooledUntil - now) / 1000)));
+    res.status(429).json({
+      error: "too_many_requests",
+      message: "Preview cooldown for this host — try again shortly",
+    });
+    return;
+  }
+  previewHostCooldown.set(host.id, now + PREVIEW_HOST_COOLDOWN_MS);
+
   const previewToken = mintPreviewToken(host.id);
   res.json({ previewToken, hostId: host.id });
 });
@@ -499,54 +490,36 @@ router.post("/public/preview-session", async (req, res): Promise<void> => {
 // GET /public/ice-config — ICE server config for WebRTC (STUN + optional TURN)
 // TURN credentials are read from env vars so they never appear in client code.
 // ---------------------------------------------------------------------------
-router.get("/public/ice-config", (req, res): void => {
-  type IceServer = { urls: string | string[]; username?: string; credential?: string };
+router.get("/public/ice-config", (_req, res): void => {
+  type IceServer = { urls: string; username?: string; credential?: string };
   const iceServers: IceServer[] = [
     { urls: "stun:stun.l.google.com:19302" },
   ];
 
-  const turnSecret = process.env["TURN_SECRET"];
-  const turnUrlsRaw = process.env["TURN_URLS"] ?? process.env["TURN_URL"] ?? "";
-  const turnUrls = turnUrlsRaw
-    .split(",")
-    .map((u) => u.trim())
-    .filter(Boolean);
+  const turnUrl = process.env["TURN_URL"];
+  const turnUsername = process.env["TURN_USERNAME"];
+  const turnCredential = process.env["TURN_CREDENTIAL"];
 
+  // Validate that TURN_URL looks like a proper ICE URI (turn:/turns:/stun: prefix).
+  // If the env vars are misconfigured (e.g. URL and credential swapped), skip
+  // the TURN entry rather than serving a URI that crashes RTCPeerConnection.
   const isValidIceUri = (url: string) =>
     /^(turn|turns|stun|stuns):/.test(url);
 
-  if (turnSecret && turnUrls.length > 0 && turnUrls.every(isValidIceUri)) {
-    const userId =
-      (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ??
-      req.ip ??
-      "anon";
-    const { username, credential } = generateTurnCredentials(
-      userId,
-      turnSecret,
-      TURN_TTL_SEC,
-    );
-    for (const url of turnUrls) {
-      iceServers.push({ urls: url, username, credential });
-    }
-  } else {
-    // Legacy static credentials fallback.
-    const turnUrl = process.env["TURN_URL"];
-    const turnUsername = process.env["TURN_USERNAME"];
-    const turnCredential = process.env["TURN_CREDENTIAL"];
-
-    if (turnUrl && turnUsername && turnCredential && isValidIceUri(turnUrl)) {
-      iceServers.push({
-        urls: turnUrl,
-        username: turnUsername,
-        credential: turnCredential,
-      });
-    } else if (turnCredential && isValidIceUri(turnCredential)) {
-      iceServers.push({
-        urls: turnCredential,
-        username: turnUsername ?? "",
-        credential: turnUrl ?? "",
-      });
-    }
+  if (turnUrl && turnUsername && turnCredential && isValidIceUri(turnUrl)) {
+    iceServers.push({
+      urls: turnUrl,
+      username: turnUsername,
+      credential: turnCredential,
+    });
+  } else if (turnCredential && isValidIceUri(turnCredential)) {
+    // Common misconfiguration: TURN_URL and TURN_CREDENTIAL are swapped.
+    // Silently correct by using the credential field as the URL.
+    iceServers.push({
+      urls: turnCredential,
+      username: turnUsername ?? "",
+      credential: turnUrl ?? "",
+    });
   }
 
   res.json({ iceServers });
@@ -623,17 +596,6 @@ router.get("/stats", async (_req, res): Promise<void> => {
       totalPaidOutCents: paidCents,
     }),
   );
-});
-
-// Fixed-size download payload for pre-session bandwidth measurement.
-const SPEEDTEST_BYTES = 512 * 1024;
-const speedtestPayload = Buffer.alloc(SPEEDTEST_BYTES, 0x5a);
-
-router.get("/public/speedtest/download", (_req, res): void => {
-  res.setHeader("Content-Type", "application/octet-stream");
-  res.setHeader("Content-Length", String(SPEEDTEST_BYTES));
-  res.setHeader("Cache-Control", "no-store");
-  res.send(speedtestPayload);
 });
 
 export default router;

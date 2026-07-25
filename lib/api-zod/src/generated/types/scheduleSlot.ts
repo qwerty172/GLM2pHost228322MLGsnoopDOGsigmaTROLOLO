@@ -11,7 +11,7 @@
  */
 export interface ScheduleSlot {
   /**
-   * 0 = Sunday … 6 = Saturday
+   * 0 = Sunday вЂ¦ 6 = Saturday
    * @minimum 0
    * @maximum 6
    */

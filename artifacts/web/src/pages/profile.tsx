@@ -795,23 +795,111 @@ function AccountTab({ hostToken }: { hostToken: string | null }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Unbound state — agent binding is handled by a separate task */}
-          <div className="flex items-center gap-3 py-2">
-            <div
-              className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-              style={{ background: "rgba(248,113,113,0.1)" }}
-            >
-              <WifiOff className="w-4 h-4 text-red-400" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-300">
-                Агент не привязан
-              </p>
-              <p className="text-xs text-slate-500">
-                Привяжите десктопный агент, чтобы здесь отображались спецификации вашего ПК.
-              </p>
-            </div>
-          </div>
+          {(() => {
+            const lastSeenAt = host?.lastSeenAt ?? null;
+            const pcSpecs = (host as { pcSpecs?: { cpu?: string; gpu?: string; ramGb?: number } | null } | undefined)?.pcSpecs;
+            const fresh =
+              lastSeenAt != null &&
+              Date.now() - new Date(lastSeenAt).getTime() < 2 * 60_000;
+            const seenOnce = Boolean(lastSeenAt);
+
+            if (!hostToken) {
+              return (
+                <div className="flex items-center gap-3 py-2">
+                  <div
+                    className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ background: "rgba(148,163,184,0.1)" }}
+                  >
+                    <WifiOff className="w-4 h-4 text-slate-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-300">Нет аккаунта хоста</p>
+                    <p className="text-xs text-slate-500">
+                      Зарегистрируйтесь как хост, чтобы привязать агент и видеть спецификации ПК.
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+
+            if (isLoading) {
+              return (
+                <Skeleton
+                  className="h-14 w-full"
+                  style={{ background: "rgba(255,255,255,0.04)" }}
+                />
+              );
+            }
+
+            if (fresh) {
+              return (
+                <div className="space-y-3 py-1">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                      style={{ background: "rgba(16,185,129,0.12)" }}
+                    >
+                      <Wifi className="w-4 h-4 text-emerald-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-emerald-300">Агент онлайн</p>
+                      <p className="text-xs text-slate-500">
+                        Последний heartbeat{" "}
+                        {new Date(lastSeenAt!).toLocaleString("ru-RU")}
+                      </p>
+                    </div>
+                  </div>
+                  {pcSpecs && (pcSpecs.cpu || pcSpecs.gpu || pcSpecs.ramGb) && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-slate-400">
+                      {pcSpecs.cpu && <div>CPU: <span className="text-slate-300">{pcSpecs.cpu}</span></div>}
+                      {pcSpecs.gpu && <div>GPU: <span className="text-slate-300">{pcSpecs.gpu}</span></div>}
+                      {pcSpecs.ramGb != null && (
+                        <div>RAM: <span className="text-slate-300">{pcSpecs.ramGb} ГБ</span></div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            if (seenOnce) {
+              return (
+                <div className="flex items-center gap-3 py-2">
+                  <div
+                    className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ background: "rgba(245,158,11,0.1)" }}
+                  >
+                    <WifiOff className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-300">Агент офлайн</p>
+                    <p className="text-xs text-slate-500">
+                      Был на связи {new Date(lastSeenAt!).toLocaleString("ru-RU")}. Запустите десктопный агент.
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div className="flex items-center gap-3 py-2">
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: "rgba(248,113,113,0.1)" }}
+                >
+                  <WifiOff className="w-4 h-4 text-red-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-300">
+                    Агент не привязан
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Привяжите десктопный агент, чтобы здесь отображались спецификации вашего ПК.
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 

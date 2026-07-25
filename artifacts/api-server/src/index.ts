@@ -1,15 +1,15 @@
 import { createServer } from "node:http";
 import app from "./app";
 import { logger } from "./lib/logger";
-import { attachSignaling } from "./lib/signaling";
-import { startBillingWorker } from "./lib/billingWorker";
-import { startDepositWorker } from "./lib/depositWorker";
-import { startQuotaExpiryWorker } from "./lib/quotaExpiryWorker";
-import { startInterestWorker } from "./lib/interestWorker";
-import { startLoanDefaultWorker } from "./lib/loanDefaultWorker";
-import { startHostHealthWorker } from "./lib/hostHealthWorker";
-import { startScheduleWatchdog } from "./lib/scheduleWatchdog";
-import { startVdsProvisionWorker } from "./lib/vdsProvisionWorker";
+import { attachSignaling, closeSignaling } from "./lib/signaling";
+import { startBillingWorker, stopBillingWorker } from "./lib/billingWorker";
+import { startDepositWorker, stopDepositWorker } from "./lib/depositWorker";
+import { startQuotaExpiryWorker, stopQuotaExpiryWorker } from "./lib/quotaExpiryWorker";
+import { startInterestWorker, stopInterestWorker } from "./lib/interestWorker";
+import { startLoanDefaultWorker, stopLoanDefaultWorker } from "./lib/loanDefaultWorker";
+import { startHostHealthWorker, stopHostHealthWorker } from "./lib/hostHealthWorker";
+import { startScheduleWatchdog, stopScheduleWatchdog } from "./lib/scheduleWatchdog";
+import { startVdsProvisionWorker, stopVdsProvisionWorker } from "./lib/vdsProvisionWorker";
 import { startRateLimitCleanup } from "./lib/rateLimit";
 import { initRedis } from "./lib/redis";
 import { startOutboxWorker } from "./lib/outboxWorker";
@@ -18,6 +18,7 @@ import { seedGames } from "./lib/seedGames";
 import { runLegacyBackfill } from "./lib/legacyBackfill";
 import { startPgNotifyListener, stopPgNotifyListener, emitPlatformEvent } from "./lib/pgNotify";
 import { initSentry } from "./lib/sentry";
+import { pool } from "@workspace/db";
 
 export { emitPlatformEvent };
 
@@ -64,9 +65,21 @@ function startWorkers() {
   });
 }
 
+function stopWorkers() {
+  stopBillingWorker();
+  stopDepositWorker();
+  stopQuotaExpiryWorker();
+  stopInterestWorker();
+  stopLoanDefaultWorker();
+  stopHostHealthWorker();
+  stopScheduleWatchdog();
+  stopVdsProvisionWorker();
+}
+
 const MAX_RETRIES = 5;
 const RETRY_DELAY_MS = 2_000;
 let listenAttempt = 0;
+let shuttingDown = false;
 
 async function boot(): Promise<void> {
   await initRedis();
@@ -105,16 +118,32 @@ server.on("error", (err: NodeJS.ErrnoException) => {
 });
 
 function gracefulShutdown(signal: string) {
-  logger.info({ signal }, "Received shutdown signal — closing HTTP server");
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info({ signal }, "Received shutdown signal — stopping workers and closing server");
+
+  stopWorkers();
+  closeSignaling(server);
   void stopPgNotifyListener();
+
   server.close((closeErr) => {
     if (closeErr) {
       logger.error({ err: closeErr }, "Error closing HTTP server");
-      process.exit(1);
+    } else {
+      logger.info("HTTP server closed cleanly");
     }
-    logger.info("HTTP server closed cleanly");
-    process.exit(0);
+    void pool
+      .end()
+      .then(() => {
+        logger.info("Database pool closed");
+        process.exit(closeErr ? 1 : 0);
+      })
+      .catch((poolErr) => {
+        logger.error({ err: poolErr }, "Error closing database pool");
+        process.exit(1);
+      });
   });
+
   setTimeout(() => {
     logger.warn("Graceful shutdown timed out — forcing exit");
     process.exit(1);

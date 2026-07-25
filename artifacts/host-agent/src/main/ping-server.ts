@@ -2,78 +2,113 @@
 //
 // Endpoints:
 //   GET  /ping   → { status, version, audioMode }  — dashboard presence check
-//   POST /input  → 204 | 400                       — relay InputEvent to SendInput
+//   POST /input  → 204 | 400 | 401                 — relay InputEvent to SendInput
 //   OPTIONS *    → 204                             — CORS preflight
 //
-// Extracted from index.ts so it can be unit-tested outside Electron: all
-// Electron-touching dependencies (config, logging, injection) are passed in.
+// POST /input requires header X-Agent-Input-Secret (see shared/input.ts).
+// CORS is origin-whitelisted so random websites cannot call /input.
 
 import http from "node:http";
 import type { InputEvent } from "../shared/messages";
+import {
+  INPUT_SECRET_HEADER,
+  LOCAL_INPUT_SECRET,
+  parseInputEvent,
+} from "../shared/input";
+
+export { parseInputEvent, LOCAL_INPUT_SECRET, INPUT_SECRET_HEADER };
 
 export const PING_PORT = 18080;
-
-const VALID_INPUT_KINDS = new Set([
-  "mousemove",
-  "mousedown",
-  "mouseup",
-  "wheel",
-  "keydown",
-  "keyup",
-]);
+/** Fallback ports when 18080 is already bound. */
+export const PING_PORT_FALLBACKS = [18081, 18082, 18083];
 
 export interface PingServerDeps {
   // Returns presence info for GET /ping. Must never throw.
-  getInfo: () => Promise<{ version: string; audioMode: string }>;
+  getInfo: () => Promise<{ version: string; audioMode: string; port?: number }>;
   // Relays a validated InputEvent to the OS-level injector.
   injectInput: (event: InputEvent) => void;
   log: (level: "info" | "warn" | "error", message: string) => void;
+  // Shared secret for POST /input. Defaults to LOCAL_INPUT_SECRET.
+  getInputSecret?: () => string;
+  // Extra allowed CORS origins (e.g. configured apiBaseUrl origin).
+  getAllowedOrigins?: () => string[];
 }
 
-// Validate an unknown JSON payload as an InputEvent. Returns the event or
-// null when the shape is not one of the known kinds.
-export function parseInputEvent(raw: unknown): InputEvent | null {
-  if (typeof raw !== "object" || raw === null) return null;
-  const obj = raw as Record<string, unknown>;
-  const kind = obj["kind"];
-  if (typeof kind !== "string" || !VALID_INPUT_KINDS.has(kind)) return null;
-  if (kind === "mousemove") {
-    if (typeof obj["x"] !== "number" || typeof obj["y"] !== "number") return null;
-    if (!Number.isFinite(obj["x"]) || !Number.isFinite(obj["y"])) return null;
+const DEFAULT_ALLOWED_ORIGIN_PREFIXES = [
+  "http://localhost",
+  "http://127.0.0.1",
+  "https://localhost",
+  "https://127.0.0.1",
+];
+
+function isOriginAllowed(origin: string | undefined, extra: string[]): boolean {
+  if (!origin) return true; // non-browser / same-origin tools
+  for (const prefix of DEFAULT_ALLOWED_ORIGIN_PREFIXES) {
+    if (origin === prefix || origin.startsWith(prefix + ":")) return true;
   }
-  if (kind === "mousedown" || kind === "mouseup") {
-    if (obj["button"] !== "left" && obj["button"] !== "right" && obj["button"] !== "middle") {
-      return null;
-    }
+  for (const allowed of extra) {
+    if (!allowed) continue;
+    if (origin === allowed || origin.startsWith(allowed + "/")) return true;
   }
-  if (kind === "wheel") {
-    if (typeof obj["deltaY"] !== "number" || !Number.isFinite(obj["deltaY"])) return null;
+  return false;
+}
+
+function applyCors(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  extraOrigins: string[],
+): boolean {
+  const origin = req.headers.origin;
+  if (typeof origin === "string" && isOriginAllowed(origin, extraOrigins)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      `Content-Type, ${INPUT_SECRET_HEADER}`,
+    );
+    return true;
   }
-  if (kind === "keydown" || kind === "keyup") {
-    if (typeof obj["code"] !== "string" || typeof obj["key"] !== "string") return null;
+  if (!origin) {
+    // No Origin header — allow (curl / same-machine tools).
+    return true;
   }
-  return raw as InputEvent;
+  return false;
 }
 
 export function createPingServer(deps: PingServerDeps): http.Server {
   return http.createServer((req, res) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Content-Type", "application/json");
+    const extraOrigins = deps.getAllowedOrigins?.() ?? [];
+    const corsOk = applyCors(req, res, extraOrigins);
 
-    // CORS preflight — browsers send this before cross-origin POST.
     if (req.method === "OPTIONS") {
-      res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-      res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+      if (!corsOk) {
+        res.writeHead(403);
+        res.end(JSON.stringify({ error: "origin_not_allowed" }));
+        return;
+      }
       res.writeHead(204);
       res.end();
       return;
     }
 
-    // POST /input — relay a single InputEvent to Win32 SendInput.
-    // Used by browser-play.tsx when streaming an external URL: player input
-    // arrives via WebRTC DataChannel; the host page forwards it here so the
-    // agent can inject it at the OS level.
+    // POST /input — requires shared secret; used by browser-play.tsx.
     if (req.method === "POST" && req.url === "/input") {
+      if (!corsOk) {
+        res.writeHead(403);
+        res.end(JSON.stringify({ error: "origin_not_allowed" }));
+        return;
+      }
+      const expected = deps.getInputSecret?.() ?? LOCAL_INPUT_SECRET;
+      const provided = req.headers[INPUT_SECRET_HEADER];
+      const headerVal = Array.isArray(provided) ? provided[0] : provided;
+      if (!headerVal || headerVal !== expected) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: "unauthorized" }));
+        return;
+      }
+
       let body = "";
       let overflow = false;
       req.on("data", (chunk: Buffer) => {
@@ -118,7 +153,12 @@ export function createPingServer(deps: PingServerDeps): http.Server {
       return;
     }
 
-    // GET /ping (and any other GET) — presence + version info.
+    // GET /ping — presence only (no secret in response).
+    if (!corsOk) {
+      res.writeHead(403);
+      res.end(JSON.stringify({ error: "origin_not_allowed" }));
+      return;
+    }
     void deps
       .getInfo()
       .catch(() => ({ version: "0.1.0", audioMode: "off" }))

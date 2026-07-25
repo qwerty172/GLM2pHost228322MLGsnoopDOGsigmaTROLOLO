@@ -8,7 +8,7 @@
 
 /**
  * Which LZT bucket the player wants to pay from. "auto" prefers
-зелёный (withdrawable) and falls back to синий (internal).
+Р·РµР»С‘РЅС‹Р№ (withdrawable) and falls back to СЃРёРЅРёР№ (internal).
 
  */
 export type ClaimSessionBodyPaymentSource =

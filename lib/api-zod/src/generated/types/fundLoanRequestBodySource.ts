@@ -7,7 +7,7 @@
  */
 
 /**
- * cash | balance — which bucket the lender pays from
+ * cash | balance вЂ” which bucket the lender pays from
  */
 export type FundLoanRequestBodySource =
   (typeof FundLoanRequestBodySource)[keyof typeof FundLoanRequestBodySource];

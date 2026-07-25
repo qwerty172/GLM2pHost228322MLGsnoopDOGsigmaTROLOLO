@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod/v4";
-import { eq, and, ne } from "drizzle-orm";
+import { eq, and, ne, sql } from "drizzle-orm";
 import {
   db,
   devKeysTable,
@@ -12,12 +12,26 @@ import {
   quotaSessionsTable,
 } from "@workspace/db";
 import { generateToken } from "../lib/tokens";
+import { generateInviteCode, defaultInviteExpiresAt } from "../lib/invites";
 import { isHostAvailableNow } from "../lib/schedule";
 import { isQuotaActiveNow } from "../lib/quotaEngine";
 import { checkQuotaAttachment } from "../lib/quotaAttach";
+import { rateLimit, ipKey } from "../lib/rateLimit";
 import type { DevKeyHostRules } from "@workspace/db/schema";
 
 const router: IRouter = Router();
+
+const embedSessionsLimiter = rateLimit({
+  scope: "embed:sessions",
+  windowMs: 60_000,
+  max: 30,
+  keyFn: (req) => {
+    const key =
+      (typeof req.body?.apiKey === "string" && req.body.apiKey) ||
+      ipKey(req);
+    return `${ipKey(req)}:${key}`;
+  },
+});
 
 // ---------------------------------------------------------------------------
 // POST /embed/sessions — used by the third-party <iframe> widget.
@@ -38,7 +52,7 @@ const CreateEmbedSessionBody = z.object({
   bitrateKbps: z.number().int().positive().optional(),
 });
 
-router.post("/embed/sessions", async (req, res): Promise<void> => {
+router.post("/embed/sessions", embedSessionsLimiter, async (req, res): Promise<void> => {
   const parsed = CreateEmbedSessionBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -123,21 +137,6 @@ router.post("/embed/sessions", async (req, res): Promise<void> => {
   let sawQuotaMismatch = false;
 
   for (const { entry, host } of eligible) {
-    const [busy] = await db
-      .select({ id: sessionsTable.id })
-      .from(sessionsTable)
-      .where(and(eq(sessionsTable.hostId, host.id), ne(sessionsTable.status, "ended")))
-      .limit(1);
-    if (busy) continue;
-
-    if (quota) {
-      const check = checkQuotaAttachment(quota, host, game.id);
-      if (!check.ok) {
-        sawQuotaMismatch = true;
-        continue;
-      }
-    }
-
     const ratePerMinuteLzt = entry.pricePerMinuteLzt;
     const balanceLzt = devKey.internalBalanceLzt + devKey.withdrawableBalanceLzt;
     if (ratePerMinuteLzt > 0 && balanceLzt < ratePerMinuteLzt) {
@@ -150,32 +149,69 @@ router.post("/embed/sessions", async (req, res): Promise<void> => {
       return;
     }
 
-    const playerToken = generateToken();
-    const [session] = await db
-      .insert(sessionsTable)
-      .values({
-        hostId: host.id,
-        gameId: game.id,
-        playerToken,
-        appName: game.title,
-        resolution: resolution ?? "1920x1080",
-        bitrateKbps: bitrateKbps ?? 6000,
-        ratePerMinute: String(ratePerMinuteLzt / 200),
-        paymentSource: "auto",
-        devKeyId: devKey.id,
-        quotaId: quota ? quota.id : null,
-      })
-      .returning();
-    if (!session) {
-      res.status(500).json({ error: "internal_error", message: "Failed to create session" });
-      return;
+    if (quota) {
+      const check = checkQuotaAttachment(quota, host, game.id);
+      if (!check.ok) {
+        sawQuotaMismatch = true;
+        continue;
+      }
     }
 
-    if (quota) {
-      await db
-        .insert(quotaSessionsTable)
-        .values({ quotaId: quota.id, sessionId: session.id });
+    const playerToken = generateToken();
+    let session: typeof sessionsTable.$inferSelect | undefined;
+    try {
+      session = await db.transaction(async (tx) => {
+        await tx.execute(
+          sql`SELECT id FROM hosts WHERE id = ${host.id} FOR UPDATE`,
+        );
+        const [busy] = await tx
+          .select({ id: sessionsTable.id })
+          .from(sessionsTable)
+          .where(and(eq(sessionsTable.hostId, host.id), ne(sessionsTable.status, "ended")))
+          .limit(1);
+        if (busy) {
+          throw Object.assign(new Error("host_busy"), { code: "host_busy" });
+        }
+        const [created] = await tx
+          .insert(sessionsTable)
+          .values({
+            hostId: host.id,
+            gameId: game.id,
+            playerToken,
+            inviteCode: generateInviteCode(),
+            inviteExpiresAt: defaultInviteExpiresAt(),
+            appName: game.title,
+            resolution: resolution ?? "1920x1080",
+            bitrateKbps: bitrateKbps ?? 6000,
+            ratePerMinute: String(ratePerMinuteLzt / 200),
+            paymentSource: "auto",
+            devKeyId: devKey.id,
+            quotaId: quota ? quota.id : null,
+          })
+          .returning();
+        if (!created) {
+          throw new Error("Failed to create session");
+        }
+        if (quota) {
+          await tx
+            .insert(quotaSessionsTable)
+            .values({ quotaId: quota.id, sessionId: created.id });
+        }
+        return created;
+      });
+    } catch (err) {
+      if (
+        err &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "host_busy"
+      ) {
+        continue;
+      }
+      throw err;
     }
+
+    if (!session) continue;
 
     req.log.info(
       { sessionId: session.id, devKeyId: devKey.id, hostId: host.id, gameSlug, quotaId: quota?.id ?? null },

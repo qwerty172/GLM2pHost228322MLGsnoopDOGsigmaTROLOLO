@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useGetHost,
   useUpdateHostConfig,
   useListGames,
   getGetHostQueryKey,
 } from "@workspace/api-client-react";
-import type { ScheduleSlot } from "@workspace/api-client-react";
+import type { ScheduleSlot, UpdateHostConfigBody } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -72,10 +72,16 @@ export default function BindingForm({ hostToken }: Props) {
   const [streamUrl, setStreamUrl] = useState("");
   const [streamKey, setStreamKey] = useState("");
   const [clearStreamKey, setClearStreamKey] = useState(false);
+  const hasHydratedRef = useRef(false);
 
-  // Hydrate from server response, only on initial load.
+  // Hydrate from server once per host — never overwrite in-progress edits.
   useEffect(() => {
-    if (!host) return;
+    hasHydratedRef.current = false;
+  }, [hostToken]);
+
+  useEffect(() => {
+    if (!host || hasHydratedRef.current) return;
+    hasHydratedRef.current = true;
     setGameId(host.gameId);
     setBoundAppPath(host.boundAppPath ?? "");
     setBoundUrl(host.boundUrl ?? "");
@@ -96,7 +102,7 @@ export default function BindingForm({ hostToken }: Props) {
     setStreamUrl(host.streamUrl ?? "");
     // Stream key is never returned — leave the input empty so submitting
     // without typing into it preserves the existing key.
-  }, [host?.id]);
+  }, [host]);
 
   const gameOptions = useMemo(
     () =>
@@ -177,7 +183,7 @@ export default function BindingForm({ hostToken }: Props) {
     // (Enter / comma) so it isn't silently lost on save.
     const pendingTag = tagsInput.trim();
     const allTags = pendingTag ? [...tags, pendingTag] : tags;
-    const body: Record<string, unknown> = {
+    const body: UpdateHostConfigBody = {
       gameId,
       boundAppPath: sendAppPath,
       boundUrl: sendUrl,
@@ -202,7 +208,7 @@ export default function BindingForm({ hostToken }: Props) {
     }
 
     update.mutate(
-      { hostToken, data: body },
+      { data: body },
       {
         onSuccess: () => {
           toast.success("Настройки хоста сохранены");
@@ -235,7 +241,7 @@ export default function BindingForm({ hostToken }: Props) {
         <CardDescription className="text-slate-500">
           Привяжи хост к конкретной игре и укажи .exe или URL, который агент
           запустит при подключении игрока. Цены могут быть отрицательными
-          (акции). Stream key — опционально, для рестрима окна игры.
+          (акции). Ключ стрима — опционально, для рестрима окна игры.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -295,6 +301,7 @@ export default function BindingForm({ hostToken }: Props) {
                     size="sm"
                     onClick={() => setBindingKind("app")}
                     data-testid="button-binding-kind-app"
+                    aria-pressed={bindingKind === "app"}
                     style={
                       bindingKind === "app"
                         ? { background: "#0ea5e9", color: "#fff" }
@@ -309,6 +316,7 @@ export default function BindingForm({ hostToken }: Props) {
                     size="sm"
                     onClick={() => setBindingKind("browser")}
                     data-testid="button-binding-kind-browser"
+                    aria-pressed={bindingKind === "browser"}
                     style={
                       bindingKind === "browser"
                         ? { background: "#0ea5e9", color: "#fff" }
@@ -619,7 +627,7 @@ export default function BindingForm({ hostToken }: Props) {
                 </div>
                 <div className="space-y-1 md:col-span-3">
                   <Label htmlFor="sk" className="text-xs text-slate-400">
-                    Stream key (оставь пустым, чтобы сохранить текущий)
+                    Ключ стрима (оставь пустым, чтобы сохранить текущий)
                   </Label>
                   <Input
                     id="sk"

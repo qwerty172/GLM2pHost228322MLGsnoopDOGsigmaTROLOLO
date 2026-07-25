@@ -7,7 +7,7 @@
  */
 
 export interface ExchangeJoinCodeResponse {
-  /** Long-lived session token — store in memory, never put back in the URL */
+  /** Long-lived session token тАФ store in memory, never put back in the URL */
   playerToken: string;
   sessionId: string;
 }

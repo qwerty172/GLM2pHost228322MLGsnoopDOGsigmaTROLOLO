@@ -200,6 +200,8 @@ function AnalogStick({ axisX, axisY, onChange }: {
   return (
     <div
       ref={containerRef}
+      role="application"
+      aria-label="Левый стик"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -270,6 +272,10 @@ function TouchButton({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={`Кнопка ${label}`}
+      aria-pressed={pressed}
       onPointerDown={down}
       onPointerUp={up}
       onPointerCancel={up}
@@ -324,6 +330,10 @@ function ShoulderButton({ label, onPressChange }: {
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={`Кнопка ${label}`}
+      aria-pressed={pressed}
       onPointerDown={down}
       onPointerUp={up}
       onPointerCancel={up}

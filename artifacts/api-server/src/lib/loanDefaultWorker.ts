@@ -3,7 +3,7 @@
 // already accrued to the lender. The loan record stays so it can later be
 // listed for sale on the debts marketplace (out of scope here).
 
-import { and, eq, lt, sql } from "drizzle-orm";
+import { and, eq, lt } from "drizzle-orm";
 import { db, loansTable, hostsTable, playersTable } from "@workspace/db";
 import { logger } from "./logger";
 import { adjustUserBucket, writeLedger } from "./economy";
@@ -40,31 +40,47 @@ async function tickInner(now: Date = new Date()): Promise<void> {
 
   for (const loan of overdue) {
     try {
-      await db.transaction(async (tx) => {
-        const lenderTbl =
-          loan.lenderType === "host" ? hostsTable : playersTable;
-        const borrowerTbl =
-          loan.borrowerType === "host" ? hostsTable : playersTable;
-        await tx
+      const defaulted = await db.transaction(async (tx) => {
+        // Conditional claim — only one worker may default a given loan.
+        const claimed = await tx
           .update(loansTable)
           .set({ status: "defaulted", defaultedAt: now })
-          .where(eq(loansTable.id, loan.id));
+          .where(
+            and(eq(loansTable.id, loan.id), eq(loansTable.status, "active")),
+          )
+          .returning();
+        if (claimed.length === 0 || !claimed[0]) return false;
+
+        const locked = claimed[0];
+        const borrowerTbl =
+          locked.borrowerType === "host" ? hostsTable : playersTable;
         await tx
           .update(borrowerTbl)
           .set({ hasDefault: true })
-          .where(eq(borrowerTbl.id, loan.borrowerId));
+          .where(eq(borrowerTbl.id, locked.borrowerId));
+
         // Release any sitting escrow to the lender as cash; debt stays on the
         // borrower so the debts marketplace can collect it later.
-        if (loan.escrowLzt > 0) {
-          const payout = loan.escrowLzt;
-          await tx
+        if (locked.escrowLzt > 0) {
+          const payout = locked.escrowLzt;
+          // Zero escrow only if still matching the claimed amount (defense in depth).
+          const cleared = await tx
             .update(loansTable)
             .set({ escrowLzt: 0 })
-            .where(eq(loansTable.id, loan.id));
+            .where(
+              and(
+                eq(loansTable.id, locked.id),
+                eq(loansTable.escrowLzt, payout),
+              ),
+            )
+            .returning({ id: loansTable.id });
+          if (cleared.length === 0) {
+            throw new Error("Loan escrow race — aborting default payout");
+          }
           await adjustUserBucket(
             tx,
-            loan.lenderType as "host" | "player",
-            loan.lenderId,
+            locked.lenderType as "host" | "player",
+            locked.lenderId,
             "cash",
             payout,
           );
@@ -79,12 +95,12 @@ async function tickInner(now: Date = new Date()): Promise<void> {
             {
               groupId,
               kind: "loan_default_release",
-              ownerType: loan.lenderType as "host" | "player",
-              ownerId: loan.lenderId,
+              ownerType: locked.lenderType as "host" | "player",
+              ownerId: locked.lenderId,
               bucket: "cash",
               deltaLzt: payout,
               refType: "loan",
-              refId: loan.id,
+              refId: locked.id,
             },
             {
               groupId,
@@ -94,12 +110,15 @@ async function tickInner(now: Date = new Date()): Promise<void> {
               bucket: "escrow",
               deltaLzt: -payout,
               refType: "loan",
-              refId: loan.id,
+              refId: locked.id,
             },
           ]);
         }
+        return true;
       });
-      logger.info({ loanId: loan.id }, "Loan marked defaulted");
+      if (defaulted) {
+        logger.info({ loanId: loan.id }, "Loan marked defaulted");
+      }
     } catch (err) {
       logger.error({ err, loanId: loan.id }, "Failed to default loan");
     }

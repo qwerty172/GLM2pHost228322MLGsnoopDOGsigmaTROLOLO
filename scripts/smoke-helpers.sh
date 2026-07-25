@@ -8,10 +8,17 @@ smoke_root() {
 
 smoke_database_url() {
   if [[ -n "${DATABASE_URL:-}" ]]; then
-    echo "$DATABASE_URL"
+    # Strip CR from Windows .env / env inheritance
+    echo "$DATABASE_URL" | tr -d '\r'
     return
   fi
-  grep '^DATABASE_URL=' "$(smoke_root)/.env" | cut -d= -f2-
+  grep '^DATABASE_URL=' "$(smoke_root)/.env" | cut -d= -f2- | tr -d '\r'
+}
+
+# SQL via node-pg (reliable on Windows where psql URI parsing breaks)
+smoke_sql() {
+  local sql="$1"
+  node "$(smoke_root)/scripts/sql-query.mjs" "$sql" | tr -d '\r\n[:space:]'
 }
 
 smoke_json_field() {

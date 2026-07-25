@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Workspace root install is the supported path for this pnpm monorepo
+      # (pnpm-workspace.yaml + root package.json scripts).
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests (api-server)
+        run: pnpm --filter @workspace/api-server test
+
+      - name: Build api-server
+        run: pnpm --filter @workspace/api-server build
+
+      - name: Build web
+        env:
+          PORT: "5000"
+          BASE_PATH: /
+        run: pnpm --filter @workspace/web exec vite build --config vite.config.ts

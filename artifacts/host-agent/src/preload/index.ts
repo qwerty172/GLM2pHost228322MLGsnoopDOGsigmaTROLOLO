@@ -52,6 +52,8 @@ const api = {
   disconnectGamepad: (): void => {
     ipcRenderer.send("gamepad:disconnect");
   },
+  getGamepadStatus: (): Promise<{ ok: boolean; error: string; platform: string }> =>
+    ipcRenderer.invoke("agent:get-gamepad-status"),
   // Legacy single-game launch via HostConfig stored in config file.
   launchApp: (): Promise<{ ok: boolean; pid?: number; error?: string }> =>
     ipcRenderer.invoke("app:launch"),
@@ -68,6 +70,10 @@ const api = {
   },
   getCaptureSources: (): Promise<{ id: string; name: string }[]> =>
     ipcRenderer.invoke("capture:get-sources"),
+  /** Tell main which window title WebRTC is capturing (for RTMP sync). */
+  setCaptureSource: (title: string): void => {
+    ipcRenderer.send("capture:set-source", title);
+  },
   killApp: (): void => {
     ipcRenderer.send("app:kill");
   },
@@ -117,12 +123,14 @@ const api = {
   // Returns the hex-encoded Ed25519 public key, or null if not yet generated.
   getAgentPubkey: (): Promise<string | null> =>
     ipcRenderer.invoke("agent:get-pubkey"),
-  // Binds this agent's public key to the host account (requires valid hostToken + apiBaseUrl).
+  // Binds this agent's public key to the host account.
+  // Prefer one-time bindCode from the dashboard; hostToken still works (legacy).
   bindAgentKey: (
     hostToken: string,
     apiBaseUrl: string,
+    bindCode?: string,
   ): Promise<{ ok: boolean; error?: string }> =>
-    ipcRenderer.invoke("agent:bind-key", hostToken, apiBaseUrl),
+    ipcRenderer.invoke("agent:bind-key", hostToken, apiBaseUrl, bindCode),
   // Opens the web dashboard in the browser, authenticated via key signature.
   agentLogin: (
     apiBaseUrl: string,

@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { z } from "zod/v4";
 import Anthropic from "@anthropic-ai/sdk";
 import { resolveOwnerByToken } from "../lib/walletOwner";
+import { rateLimit, ipKey } from "../lib/rateLimit";
 
 const router: IRouter = Router();
 
@@ -21,7 +22,7 @@ function getAnthropicClient(): Anthropic | null {
 
 const MessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
-  content: z.string(),
+  content: z.string().max(8_000),
 });
 
 const FormStateSchema = z.object({
@@ -57,9 +58,21 @@ const GameSchema = z.object({ id: z.string(), title: z.string() });
 
 const BodySchema = z.object({
   ownerToken: z.string(),
-  messages: z.array(MessageSchema),
+  messages: z.array(MessageSchema).min(1).max(40),
   currentFormState: FormStateSchema,
-  availableGames: z.array(GameSchema).optional(),
+  availableGames: z.array(GameSchema).max(200).optional(),
+});
+
+const aiChatLimiter = rateLimit({
+  scope: "quotas:ai-chat",
+  windowMs: 60_000,
+  max: 20,
+  keyFn: (req) => {
+    const tok =
+      (typeof req.body?.ownerToken === "string" && req.body.ownerToken) ||
+      ipKey(req);
+    return tok;
+  },
 });
 
 const SYSTEM_PROMPT = `Ты — ИИ-помощник для заполнения формы создания/редактирования квоты на платформе облачного гейминга LazorTech.
@@ -242,7 +255,7 @@ function sanitizeFormPatch(raw: Record<string, unknown>): Record<string, unknown
   return out;
 }
 
-router.post("/quotas/ai-chat", async (req, res): Promise<void> => {
+router.post("/quotas/ai-chat", aiChatLimiter, async (req, res): Promise<void> => {
   const parsed = BodySchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });

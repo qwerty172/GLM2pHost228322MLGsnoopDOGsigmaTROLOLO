@@ -2,8 +2,17 @@ import { Router, type IRouter } from "express";
 import { z } from "zod/v4";
 import { resolveOwnerByToken } from "../lib/walletOwner";
 import { logger } from "../lib/logger";
+import { rateLimit, ipKey } from "../lib/rateLimit";
+import { hostTokenFromRequest } from "../lib/hostAuth";
 
 const router: IRouter = Router();
+
+const vtLookupLimiter = rateLimit({
+  scope: "vt:lookup",
+  windowMs: 60_000,
+  max: 30,
+  keyFn: ipKey,
+});
 
 const VT_BASE = "https://www.virustotal.com/api/v3";
 const SHA256_RE = /^[a-fA-F0-9]{64}$/;
@@ -233,11 +242,19 @@ router.post("/vt/scan", async (req, res): Promise<void> => {
 });
 
 // GET /api/vt/lookup?sha256=<hash>
-// Quick lookup of an already-known hash (cached). For host-agent use.
-router.get("/vt/lookup", async (req, res): Promise<void> => {
+// Quick lookup of an already-known hash (cached). Requires host auth or IP rate limit.
+router.get("/vt/lookup", vtLookupLimiter, async (req, res): Promise<void> => {
   const apiKey = process.env.VIRUSTOTAL_API_KEY;
   if (!apiKey) {
     res.status(503).json({ error: "VirusTotal не настроен" });
+    return;
+  }
+
+  // Prefer authenticated host agent; anonymous still allowed but IP-limited above.
+  const hostTok = hostTokenFromRequest(req);
+  if (!hostTok && process.env.NODE_ENV === "production") {
+    // In production require a host token so VT quota isn't burned anonymously.
+    res.status(401).json({ error: "X-Host-Token required" });
     return;
   }
 
@@ -247,7 +264,6 @@ router.get("/vt/lookup", async (req, res): Promise<void> => {
     return;
   }
 
-  // GET lookup is public — just reads the hash result, no sensitive action possible
   try {
     const result = await vtGetFile(sha256, apiKey);
     res.json(result);
