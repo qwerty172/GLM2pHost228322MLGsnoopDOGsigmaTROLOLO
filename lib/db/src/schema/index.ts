@@ -23,3 +23,4 @@ export * from "./sessionMetrics";
 export * from "./outbox";
 export * from "./refreshTokens";
 export * from "./sessionRatings";
+export * from "./verifierLinks";

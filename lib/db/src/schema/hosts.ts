@@ -157,6 +157,14 @@ export const hostsTable = pgTable("hosts", {
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+  /**
+   * Account trust level — determines device portability.
+   * 0 = device-locked (default)
+   * 1 = dual-app OTP verified (Telegram + Discord)
+   * 2 = KYC verified
+   * 3 = paid portability unlock ($70)
+   */
+  trustLevel: integer("trust_level").notNull().default(0),
 }, (t) => ({
   // Online-filter / heartbeat scans: hosts lastSeenAt within N minutes.
   lastSeenAtIdx: index("hosts_last_seen_at_idx").on(t.lastSeenAt),

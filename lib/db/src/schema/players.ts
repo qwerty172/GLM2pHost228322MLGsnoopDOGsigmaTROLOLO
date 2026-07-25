@@ -55,6 +55,14 @@ export const playersTable = pgTable("players", {
   kycVerified: boolean("kyc_verified").notNull().default(false),
   hasDefault: boolean("has_default").notNull().default(false),
   isGuest: boolean("is_guest").notNull().default(false),
+  /**
+   * Account trust level — determines device portability.
+   * 0 = device-locked (default)
+   * 1 = dual-app OTP verified (Telegram + Discord)
+   * 2 = KYC verified
+   * 3 = paid portability unlock ($70)
+   */
+  trustLevel: integer("trust_level").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
