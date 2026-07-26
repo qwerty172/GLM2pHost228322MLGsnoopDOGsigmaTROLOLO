@@ -1,3 +1,4 @@
+- [Host agent owned by Cursor](host-agent-cursor.md) — artifacts/host-agent is developed in Cursor, not here; remind user and decline edits to that folder.
 - [Stale lib type declarations](stale-lib-types.md) — phantom TS errors after merges = rebuild lib/db composite dist; missing client fields = add to openapi.yaml + codegen.
 - [Rate limiter IP vs token keying](rate-limit-keying.md) — read endpoints must use token key (default), not ipKey; Replit proxy funnels all traffic through one IP so IP-keyed read limits block every user collectively.
 - [Web artifact port override](web-port-override.md) — never hardcode PORT in the web dev script; system assigns a unique port per artifact and injects it as env.
