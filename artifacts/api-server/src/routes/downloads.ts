@@ -40,6 +40,15 @@ const START_BAT = `@echo off
 REM Cloud Gaming Host Agent — first-run launcher.
 REM Requires Node.js 20+ installed (https://nodejs.org).
 
+REM ── Self-relaunch guard ──────────────────────────────────────────────────────
+REM If launched by double-click or from inside a ZIP the window closes as soon
+REM as the script ends. We relaunch ourselves inside "cmd /k" so the window
+REM always stays open and the user can read any error messages.
+if /i "%~1"=="--interactive" goto :main
+start "Cloud Gaming Host Agent" cmd /k ""%~f0" --interactive"
+exit /b 0
+
+:main
 setlocal
 cd /d "%~dp0"
 
