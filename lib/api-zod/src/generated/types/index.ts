@@ -10,6 +10,7 @@ export * from "./activityItem";
 export * from "./addHostLibraryEntryBody";
 export * from "./adminDeleteGame200";
 export * from "./adminPatchGameBody";
+export * from "./agentEventItem";
 export * from "./agentLogin200";
 export * from "./agentLoginBody";
 export * from "./aiSuggestQuotaSpecsBody";

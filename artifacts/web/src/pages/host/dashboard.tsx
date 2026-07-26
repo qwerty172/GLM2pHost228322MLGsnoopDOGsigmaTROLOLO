@@ -5,6 +5,8 @@ import {
   useGetHost,
   useGetHostStats,
   useGetHostActivity,
+  useGetHostAgentEvents,
+  getGetHostAgentEventsQueryKey,
   useListHostSessions,
   useEndSession,
   useGetHostCurrentQuota,
@@ -151,6 +153,106 @@ function AgentTroubleshootChecklist() {
         </li>
       </ul>
     </details>
+  );
+}
+
+// ── Agent telemetry events ────────────────────────────────────────────────
+// The agent pushes startup/error events to the server; this card makes them
+// visible on the dashboard so a silently-dying agent still leaves a trace.
+
+const EVENT_LEVEL_STYLES: Record<string, { badge: string; label: string }> = {
+  fatal: { badge: "bg-red-500/15 text-red-300 border-red-500/30", label: "FATAL" },
+  error: { badge: "bg-red-500/10 text-red-400 border-red-500/20", label: "ERROR" },
+  warn: { badge: "bg-amber-500/10 text-amber-300 border-amber-500/20", label: "WARN" },
+  info: { badge: "bg-slate-500/10 text-slate-400 border-slate-500/20", label: "INFO" },
+};
+
+function AgentEventsCard({ hostToken }: { hostToken: string }) {
+  const { data: events, isLoading, refetch, isRefetching } = useGetHostAgentEvents(
+    hostToken,
+    {
+      query: {
+        enabled: !!hostToken,
+        queryKey: getGetHostAgentEventsQueryKey(hostToken),
+        refetchInterval: 30_000,
+      },
+    },
+  );
+
+  const hasErrors = (events ?? []).some(
+    (e) => e.level === "error" || e.level === "fatal",
+  );
+
+  return (
+    <Card
+      style={
+        hasErrors
+          ? { background: "rgba(239,68,68,0.04)", border: "1px solid rgba(239,68,68,0.2)" }
+          : cardStyle
+      }
+    >
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-sm text-white flex items-center gap-2">
+            <Activity className="h-4 w-4 text-sky-400" />
+            События агента
+            {hasErrors && (
+              <Badge className="bg-red-500/15 text-red-300 border border-red-500/30 text-[10px]">
+                есть ошибки
+              </Badge>
+            )}
+          </CardTitle>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 gap-1.5 text-xs text-slate-400 hover:text-white"
+            onClick={() => refetch()}
+            disabled={isRefetching}
+            data-testid="button-refresh-agent-events"
+          >
+            <RefreshCw className={`h-3 w-3 ${isRefetching ? "animate-spin" : ""}`} />
+            Обновить
+          </Button>
+        </div>
+        <CardDescription className="text-xs text-slate-500">
+          Агент сам отправляет сюда свои ошибки — даже если окно закрылось без сообщений.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {isLoading ? (
+          <Skeleton className="h-16 w-full" />
+        ) : !events || events.length === 0 ? (
+          <p className="text-xs text-slate-500 py-2" data-testid="text-no-agent-events">
+            Пока нет событий. Запусти start.bat на своём ПК — здесь появится статус запуска
+            (или причина падения).
+          </p>
+        ) : (
+          <ul className="space-y-1.5 max-h-56 overflow-y-auto pr-1" data-testid="list-agent-events">
+            {events.map((e) => {
+              const style = EVENT_LEVEL_STYLES[e.level] ?? EVENT_LEVEL_STYLES.info;
+              return (
+                <li key={e.id} className="flex items-start gap-2 text-xs">
+                  <span
+                    className={`shrink-0 mt-0.5 px-1.5 py-0.5 rounded border font-mono text-[10px] font-bold ${style.badge}`}
+                  >
+                    {style.label}
+                  </span>
+                  <span className="text-slate-300 break-all whitespace-pre-wrap flex-1">
+                    {e.message}
+                    {e.agentVersion && (
+                      <span className="text-slate-600 ml-1">v{e.agentVersion}</span>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-slate-600 font-mono text-[10px] mt-0.5">
+                    {formatDistanceToNow(new Date(e.createdAt), { addSuffix: true, locale: ru })}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1412,6 +1514,8 @@ export default function Dashboard() {
           {agent.status !== "checking" && (
             <AgentStatusCard agent={agent} heartbeat={heartbeat} />
           )}
+
+          {hostToken && <AgentEventsCard hostToken={hostToken} />}
         </div>
       </details>
 

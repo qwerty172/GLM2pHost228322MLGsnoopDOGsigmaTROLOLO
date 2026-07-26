@@ -25,6 +25,7 @@ import eventsRouter from "./events";
 import embedRouter from "./embed";
 import authRouter from "./auth";
 import verifierRouter from "./verifier";
+import agentTelemetryRouter from "./agentTelemetry";
 
 const router: IRouter = Router();
 
@@ -38,6 +39,7 @@ router.use(healthRouter);
 // Public routes must mount BEFORE hostsRouter — both serve the /hosts path
 // and Express picks the first registered handler.
 router.use(publicRouter);
+router.use(agentTelemetryRouter);
 router.use(hostsRouter);
 router.use(playersRouter);
 router.use(sessionsRouter);

@@ -487,6 +487,25 @@ export const GetHostActivityResponseItem = zod.object({
 export const GetHostActivityResponse = zod.array(GetHostActivityResponseItem);
 
 /**
+ * @summary Recent telemetry events reported by the host agent
+ */
+export const GetHostAgentEventsParams = zod.object({
+  hostToken: zod.coerce.string(),
+});
+
+export const GetHostAgentEventsResponseItem = zod.object({
+  id: zod.string(),
+  level: zod.string().describe("info | warn | error | fatal"),
+  message: zod.string(),
+  agentVersion: zod.string().nullish(),
+  occurredAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const GetHostAgentEventsResponse = zod.array(
+  GetHostAgentEventsResponseItem,
+);
+
+/**
  * Returns hosts that have an open session and are within their availability schedule. Safe for anonymous visitors вЂ” never exposes hostToken or wallet/balance.
  * @summary Public list of currently-available hosts
  */

@@ -567,6 +567,18 @@ export interface ActivityItem {
   timestamp: string;
 }
 
+export interface AgentEventItem {
+  id: string;
+  /** info | warn | error | fatal */
+  level: string;
+  message: string;
+  /** @nullable */
+  agentVersion?: string | null;
+  /** @nullable */
+  occurredAt?: string | null;
+  createdAt: string;
+}
+
 export interface DepositAddress {
   /** USDT_TRC20 | NANO | SOL */
   currency: string;

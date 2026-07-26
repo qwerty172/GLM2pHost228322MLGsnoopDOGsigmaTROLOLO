@@ -20,6 +20,7 @@ export * from "./devKeys";
 export * from "./agentPairingCodes";
 export * from "./rateLimitBuckets";
 export * from "./sessionMetrics";
+export * from "./agentEvents";
 export * from "./outbox";
 export * from "./refreshTokens";
 export * from "./sessionRatings";

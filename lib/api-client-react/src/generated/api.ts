@@ -21,6 +21,7 @@ import type {
   AddHostLibraryEntryBody,
   AdminDeleteGame200,
   AdminPatchGameBody,
+  AgentEventItem,
   AgentLogin200,
   AgentLoginBody,
   AiSuggestQuotaSpecsBody,
@@ -859,6 +860,95 @@ export function useGetHostActivity<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetHostActivityQueryOptions(hostToken, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Recent telemetry events reported by the host agent
+ */
+export const getGetHostAgentEventsUrl = (hostToken: string) => {
+  return `/api/hosts/${hostToken}/agent-events`;
+};
+
+export const getHostAgentEvents = async (
+  hostToken: string,
+  options?: RequestInit,
+): Promise<AgentEventItem[]> => {
+  return customFetch<AgentEventItem[]>(getGetHostAgentEventsUrl(hostToken), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetHostAgentEventsQueryKey = (hostToken: string) => {
+  return [`/api/hosts/${hostToken}/agent-events`] as const;
+};
+
+export const getGetHostAgentEventsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getHostAgentEvents>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  hostToken: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHostAgentEvents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetHostAgentEventsQueryKey(hostToken);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getHostAgentEvents>>
+  > = ({ signal }) =>
+    getHostAgentEvents(hostToken, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!hostToken,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getHostAgentEvents>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetHostAgentEventsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getHostAgentEvents>>
+>;
+export type GetHostAgentEventsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Recent telemetry events reported by the host agent
+ */
+
+export function useGetHostAgentEvents<
+  TData = Awaited<ReturnType<typeof getHostAgentEvents>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  hostToken: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHostAgentEvents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetHostAgentEventsQueryOptions(hostToken, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

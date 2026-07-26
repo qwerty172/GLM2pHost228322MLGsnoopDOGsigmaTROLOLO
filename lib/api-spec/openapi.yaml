@@ -257,6 +257,33 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /hosts/{hostToken}/agent-events:
+    get:
+      operationId: getHostAgentEvents
+      tags: [hosts]
+      summary: Recent telemetry events reported by the host agent
+      parameters:
+        - in: path
+          name: hostToken
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Agent events, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentEventItem"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /hosts:
     get:
       operationId: listPublicHosts
@@ -3252,6 +3279,30 @@ components:
         - kind
         - title
         - timestamp
+
+    AgentEventItem:
+      type: object
+      properties:
+        id:
+          type: string
+        level:
+          type: string
+          description: "info | warn | error | fatal"
+        message:
+          type: string
+        agentVersion:
+          type: ["string", "null"]
+        occurredAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - level
+        - message
+        - createdAt
 
     DepositAddress:
       type: object
