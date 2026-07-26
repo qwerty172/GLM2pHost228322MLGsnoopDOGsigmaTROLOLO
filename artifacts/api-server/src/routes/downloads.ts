@@ -101,7 +101,20 @@ if exist ".\\node_modules\\.bin\\electron.cmd" (
 )
 if errorlevel 1 (
   echo.
-  echo The agent exited with an error. See the messages above.
+  echo ============================================================
+  echo  AGENT EXITED WITH AN ERROR — read the messages above.
+  echo  Log file: logs\agent.log  ^(in this folder^)
+  echo ============================================================
+  pause
+) else (
+  echo.
+  echo ============================================================
+  echo  Agent stopped ^(exit code 0^).
+  echo  - If a window never appeared: the agent may already be
+  echo    running — look for its icon in the system tray ^(bottom-
+  echo    right corner of the taskbar, click the ^ arrow^).
+  echo  - Log file: logs\agent.log  ^(in this folder^)
+  echo ============================================================
   pause
 )
 endlocal
@@ -174,7 +187,7 @@ The installer ends up in the "release" folder.
 5. Токен хоста вставлен? В окне агента должно быть "Вход выполнен".
    Токен берётся из Host Dashboard на сайте.
 
-6. Лог ошибок агента: %APPDATA%\\cloud-gaming-host-agent\\logs\\agent.log
+6. Лог ошибок агента: logs\\agent.log  (в той же папке, куда распакован ZIP)
 
 Need help?
 ----------

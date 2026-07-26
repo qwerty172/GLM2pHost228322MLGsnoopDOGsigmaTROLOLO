@@ -98,7 +98,7 @@ function showFatalError(title: string, details: string): void {
         "2. Если не помогло — удали папку node_modules и запусти start.bat " +
         "(зависимости переустановятся автоматически).\n" +
         "3. Проверь, что установлен Node.js 20+ (node --version).\n" +
-        "4. Лог ошибок: %APPDATA%\\cloud-gaming-host-agent\\logs\\agent.log",
+        "4. Лог ошибок: logs\\agent.log (в папке, куда распакован ZIP)",
     );
   } catch {
     // dialog unavailable (app not ready) — the log line above is the trace.
