@@ -54,16 +54,16 @@ cd /d "%~dp0"
 
 echo.
 echo ============================================================
-echo  Cloud Gaming Host Agent — запуск
-echo  Папка: %CD%
+echo  Cloud Gaming Host Agent - starting up
+echo  Folder: %CD%
 echo ============================================================
 echo.
 
 REM ── 1. Check Node.js version ────────────────────────────────────────────────
-echo [1/3] Проверка Node.js...
+echo [1/3] Checking Node.js...
 node --version >nul 2>&1
 if errorlevel 1 (
-  echo ERROR: Node.js не найден. Установи Node.js 20+ с https://nodejs.org
+  echo ERROR: Node.js was not found. Install Node.js 20+ from https://nodejs.org
   echo.
   pause
   exit /b 1
@@ -77,17 +77,17 @@ set TEMP_VER=%CURRENT_NODE_VER:~1%
 for /f "tokens=1 delims=." %%M in ("%TEMP_VER%") do set NODE_MAJOR=%%M
 
 if %NODE_MAJOR% LSS 20 (
-  echo ERROR: Нужен Node.js 20+. У тебя версия %CURRENT_NODE_VER%.
-  echo        Скачай с https://nodejs.org
+  echo ERROR: Node.js 20 or newer is required. You have %CURRENT_NODE_VER%.
+  echo        Download the latest LTS from https://nodejs.org
   echo.
   pause
   exit /b 1
 )
-echo       Версия OK ^(%NODE_MAJOR% ^>= 20^).
+echo       Version OK ^(%NODE_MAJOR% ^>= 20^).
 
 REM ── 2. Install / re-install dependencies ────────────────────────────────────
 echo.
-echo [2/3] Проверка зависимостей...
+echo [2/3] Checking dependencies...
 
 set STAMP_FILE=.node_version
 set SAVED_NODE_VER=
@@ -96,44 +96,44 @@ if exist "%STAMP_FILE%" (
 )
 
 if not "%CURRENT_NODE_VER%"=="%SAVED_NODE_VER%" (
-  echo       Версия Node.js изменилась ^(была: %SAVED_NODE_VER%, теперь: %CURRENT_NODE_VER%^).
-  echo       Переустанавливаю зависимости ^(~2-5 минут^)...
+  echo       Node.js version changed ^(was: %SAVED_NODE_VER%, now: %CURRENT_NODE_VER%^).
+  echo       Re-installing dependencies to rebuild native addons ^(~2-5 min^)...
   if exist node_modules rmdir /s /q node_modules
   call npm install --include=dev --no-audit --no-fund
   if errorlevel 1 (
     echo.
-    echo ERROR: npm install завершился с ошибкой.
-    echo        Подробности выше. Убедись, что Node.js 20+ установлен.
+    echo ERROR: npm install failed. See messages above.
+    echo        Make sure Node.js 20+ is installed correctly.
     pause
     exit /b 1
   )
   echo %CURRENT_NODE_VER%>"%STAMP_FILE%"
-  echo       Зависимости установлены.
+  echo       Dependencies installed.
 ) else if not exist node_modules (
-  echo       Первый запуск — устанавливаю зависимости ^(~2-5 минут^)...
+  echo       First run - installing dependencies ^(~2-5 min^)...
   call npm install --include=dev --no-audit --no-fund
   if errorlevel 1 (
     echo.
-    echo ERROR: npm install завершился с ошибкой.
-    echo        Подробности выше. Убедись, что Node.js 20+ установлен.
+    echo ERROR: npm install failed. See messages above.
+    echo        Make sure Node.js 20+ is installed correctly.
     pause
     exit /b 1
   )
   echo %CURRENT_NODE_VER%>"%STAMP_FILE%"
-  echo       Зависимости установлены.
+  echo       Dependencies installed.
 ) else (
-  echo       node_modules уже есть, пропускаю установку.
+  echo       node_modules already present, skipping install.
 )
 
 REM ── 3. Launch Electron ───────────────────────────────────────────────────────
 echo.
-echo [3/3] Запуск Electron...
+echo [3/3] Launching Electron...
 
 if exist ".\\node_modules\\.bin\\electron.cmd" (
-  echo       Бинарник найден: node_modules\\.bin\\electron.cmd
+  echo       Binary found: node_modules\\.bin\\electron.cmd
   call ".\\node_modules\\.bin\\electron.cmd" .
 ) else (
-  echo       Локальный electron не найден — пробую npx...
+  echo       Local electron not found - falling back to npx...
   call npx --yes electron .
 )
 
@@ -141,17 +141,17 @@ set EXIT_CODE=%ERRORLEVEL%
 echo.
 if %EXIT_CODE% NEQ 0 (
   echo ============================================================
-  echo  АГЕНТ ЗАВЕРШИЛСЯ С ОШИБКОЙ ^(код: %EXIT_CODE%^)
-  echo  Прочитай сообщения выше.
-  echo  Лог: logs\agent.log  ^(в этой папке^)
+  echo  AGENT EXITED WITH AN ERROR ^(code: %EXIT_CODE%^)
+  echo  Read the messages above for details.
+  echo  Log file: logs\agent.log  ^(in this folder^)
   echo ============================================================
 ) else (
   echo ============================================================
-  echo  Агент остановлен ^(код: 0^).
-  echo  Если окно никогда не открылось — агент, возможно, уже
-  echo  работает. Посмотри иконку в трее ^(правый нижний угол,
-  echo  нажми ^ чтобы увидеть скрытые иконки^).
-  echo  Лог: logs\agent.log  ^(в этой папке^)
+  echo  Agent stopped ^(code: 0^).
+  echo  If no window ever appeared - the agent may already be
+  echo  running. Check the system tray ^(bottom-right corner,
+  echo  click ^ to see hidden icons^).
+  echo  Log file: logs\agent.log  ^(in this folder^)
   echo ============================================================
 )
 echo.
