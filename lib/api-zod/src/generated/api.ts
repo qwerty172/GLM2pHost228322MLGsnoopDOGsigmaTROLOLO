@@ -3211,10 +3211,20 @@ export const HostHeartbeatBody = zod.object({
     .number()
     .optional()
     .describe("RTT from agent to API in milliseconds"),
+  agentPubkey: zod
+    .string()
+    .optional()
+    .describe(
+      "Hex-encoded Ed25519 public key — when sent, response includes agentKeyStatus",
+    ),
 });
 
 export const HostHeartbeatResponse = zod.object({
   ok: zod.boolean(),
+  agentKeyStatus: zod
+    .enum(["ok", "revoked", "unbound", "mismatch"])
+    .optional()
+    .describe("Present when agentPubkey was sent in the request body"),
 });
 
 /**
@@ -3422,6 +3432,20 @@ export const BindAgentKeyBody = zod.object({
 
 export const BindAgentKeyResponse = zod.object({
   ok: zod.boolean(),
+});
+
+/**
+ * @summary Revoke the bound Ed25519 agent key for the authenticated host
+ */
+export const RevokeAgentKeyHeader = zod.object({
+  Authorization: zod.string().describe("Bearer host token"),
+});
+
+export const RevokeAgentKeyResponse = zod.object({
+  ok: zod.boolean(),
+  wasBound: zod
+    .boolean()
+    .describe("True when a key was cleared; false when none was bound"),
 });
 
 /**

@@ -1738,6 +1738,9 @@ paths:
                 pingMs:
                   type: number
                   description: RTT from agent to API in milliseconds
+                agentPubkey:
+                  type: string
+                  description: Hex-encoded Ed25519 public key — when sent, response includes agentKeyStatus
       responses:
         "200":
           description: Heartbeat accepted
@@ -1748,6 +1751,10 @@ paths:
                 properties:
                   ok:
                     type: boolean
+                  agentKeyStatus:
+                    type: string
+                    enum: [ok, revoked, unbound, mismatch]
+                    description: Present when agentPubkey was sent in the request body
                 required: [ok]
         "401":
           description: Missing host token
@@ -2231,6 +2238,39 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
           description: Different key already bound
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/revoke-agent-key:
+    post:
+      operationId: revokeAgentKey
+      tags: [auth]
+      summary: Revoke the bound Ed25519 agent key for the authenticated host
+      parameters:
+        - in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+          description: Bearer host token
+      responses:
+        "200":
+          description: Agent key revoked (or was not bound)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, wasBound]
+                properties:
+                  ok:
+                    type: boolean
+                  wasBound:
+                    type: boolean
+                    description: True when a key was cleared; false when none was bound
+        "401":
+          description: Host auth required
           content:
             application/json:
               schema:
