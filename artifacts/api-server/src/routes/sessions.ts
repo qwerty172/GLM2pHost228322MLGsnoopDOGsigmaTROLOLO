@@ -35,7 +35,7 @@ import { pickPlayerBucket } from "../lib/lzt";
 import { isHostAvailableNow } from "../lib/schedule";
 import { checkQuotaAttachment } from "../lib/quotaAttach";
 import { headerUserToken } from "../lib/requestToken";
-import { rateLimit, ipKey } from "../lib/rateLimit";
+import { rateLimit, ipKey, guardAndTrackFailures } from "../lib/rateLimit";
 import {
   countSessionMinutesUsed,
   refundBlockRemainder,
@@ -54,6 +54,13 @@ const claimLimiter = rateLimit({
   scope: "sessions:claim",
   windowMs: 60_000,
   max: 30, // keyed by token (default) — each player gets their own bucket
+});
+// Session lookup by playerToken: IP-keyed rate + failure tracking on 404.
+const sessionLookupLimiter = rateLimit({
+  scope: "sessions:lookup",
+  windowMs: 60_000,
+  max: 120,
+  keyFn: ipKey,
 });
 
 function playerBucketFromPick(picked: "green" | "blue" | null): UserBucket {
@@ -527,6 +534,8 @@ router.post("/sessions/test", testSessionLimiter, async (req, res): Promise<void
 
 router.get(
   "/sessions/by-player-token/:playerToken",
+  sessionLookupLimiter,
+  guardAndTrackFailures("sessions:lookup"),
   async (req, res): Promise<void> => {
     const params = GetSessionByPlayerTokenParams.safeParse(req.params);
     if (!params.success) {

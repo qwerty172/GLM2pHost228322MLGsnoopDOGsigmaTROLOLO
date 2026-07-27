@@ -51,6 +51,7 @@
 | **marathon W7 ledger+refund** | **done** | invariant CI, block refund integration, idempotency, harness |
 | **marathon W8-1 economy E2E** | **done** | deposit → minute play → block → P2P loan → repay → withdraw integration test |
 | **marathon W8-2 ghost-billing** | **done** | integration test: нет billing_events после session end |
+| **marathon W8-3 token brute-force** | **done** | guardAndTrackFailures на wallet/session lookup, IP-keyed rate limit |
 
 ## Баги
 
