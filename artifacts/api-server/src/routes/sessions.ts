@@ -43,8 +43,7 @@ import {
 import { sendSignalingMessage } from "../lib/signaling";
 import { submitSessionRating } from "../lib/ratings";
 import { enrichSession } from "../lib/sessionSerialize";
-import { debitBlockReserve, writeLedger, type UserBucket } from "../lib/economy";
-import { randomUUID } from "node:crypto";
+import { debitBlockReserve, debitBlockRenew, type UserBucket } from "../lib/economy";
 import { z } from "zod/v4";
 
 const router: IRouter = Router();
@@ -976,9 +975,14 @@ router.post(
   async (req, res): Promise<void> => {
     const playerToken = String(req.params.playerToken ?? "").trim();
     const playerWalletToken = String(req.body?.playerWalletToken ?? "").trim();
+    const idempotencyKey = String(req.body?.idempotencyKey ?? "").trim();
     const blockMinutes = Number(req.body?.blockMinutes);
     if (!playerToken || !playerWalletToken) {
       res.status(400).json({ error: "playerWalletToken required" });
+      return;
+    }
+    if (!idempotencyKey || idempotencyKey.length > 128) {
+      res.status(400).json({ error: "idempotencyKey required" });
       return;
     }
     if (![10, 15, 25].includes(blockMinutes)) {
@@ -1023,46 +1027,30 @@ router.post(
       return;
     }
 
-    const bucket = picked ?? "green";
-    const playerCol =
-      bucket === "green"
-        ? playersTable.withdrawableBalanceLzt
-        : playersTable.internalBalanceLzt;
+    const bucket = playerBucketFromPick(picked);
 
+    let wasNewRenew = false;
     const updated = await db.transaction(async (tx) => {
-      if (addReserve > 0) {
-        const debited = await tx
-          .update(playersTable)
-          .set(
-            bucket === "green"
-              ? { withdrawableBalanceLzt: sql`${playersTable.withdrawableBalanceLzt} - ${addReserve}` }
-              : { internalBalanceLzt: sql`${playersTable.internalBalanceLzt} - ${addReserve}` },
-          )
-          .where(
-            and(
-              eq(playersTable.id, player.id),
-              sql`${playerCol} >= ${addReserve}`,
-            ),
-          )
-          .returning({ id: playersTable.id });
-        if (debited.length === 0) {
-          return null;
-        }
-        await writeLedger(tx, [
-          {
-            groupId: randomUUID(),
-            kind: "block_reserve",
-            ownerType: "player",
-            ownerId: player.id,
-            bucket: bucket === "green" ? "cash" : "balance",
-            deltaLzt: -addReserve,
-            refType: "session",
-            refId: session.id,
-            note: `block renew: +${blockMinutes} мин`,
-          },
-        ]);
+      const renewResult = await debitBlockRenew(tx, {
+        playerId: player.id,
+        sessionId: session.id,
+        amountLzt: addReserve,
+        bucket,
+        idempotencyKey,
+        note: `block renew: +${blockMinutes} мин`,
+      });
+      if (!renewResult.ok) {
+        return null;
+      }
+      if (renewResult.alreadyProcessed) {
+        const [row] = await tx
+          .select()
+          .from(sessionsTable)
+          .where(eq(sessionsTable.id, session.id));
+        return row ?? null;
       }
 
+      wasNewRenew = true;
       const [row] = await tx
         .update(sessionsTable)
         .set({
@@ -1079,11 +1067,13 @@ router.post(
       return;
     }
 
-    sendSignalingMessage(session.id, {
-      type: "block-renewed",
-      blockMinutes: updated.blockMinutes,
-      addedMinutes: blockMinutes,
-    });
+    if (wasNewRenew) {
+      sendSignalingMessage(session.id, {
+        type: "block-renewed",
+        blockMinutes: updated.blockMinutes,
+        addedMinutes: blockMinutes,
+      });
+    }
 
     res.json(ClaimSessionResponse.parse(await enrichSession(updated)));
   },
