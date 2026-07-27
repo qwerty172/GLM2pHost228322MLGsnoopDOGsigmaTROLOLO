@@ -4,12 +4,20 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 
+// @workspace/db throws at import without DATABASE_URL; integration suites skip
+// when DATABASE_URL_TEST is unset, but modules still load for type-checking.
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL =
+    process.env.DATABASE_URL_TEST ??
+    "postgresql://test:test@127.0.0.1:5432/decentralhub_test";
+}
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../..");
 
 export type IntegrationCtx = {
   server: Server;
   baseUrl: string;
-  pool: import("pg").Pool;
+  pool: typeof import("@workspace/db").pool;
   db: typeof import("@workspace/db").db;
   tables: typeof import("@workspace/db");
 };
