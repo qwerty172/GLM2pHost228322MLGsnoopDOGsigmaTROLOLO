@@ -66,6 +66,17 @@ export interface PlayerGameSaveResponse {
   save: PlayerGameSaveResponseSave;
 }
 
+export interface PlayerCreditSettingsBody {
+  /** When false, disables the gaming credit line (creditLimitLzt = 0). */
+  creditEnabled: boolean;
+}
+
+export interface PlayerCreditSettingsResponse {
+  creditEnabled: boolean;
+  /** Effective credit line after the update (0 when disabled). */
+  creditLimitLzt: number;
+}
+
 export interface ExchangeJoinCodeResponse {
   /** Long-lived session token — store in memory, never put back in the URL */
   playerToken: string;
