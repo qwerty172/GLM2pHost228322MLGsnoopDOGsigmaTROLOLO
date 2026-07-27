@@ -39,7 +39,7 @@ InviteCode канон, joinCode deprecated, ws-ticket route.
 | ID | Задача | Статус |
 |---|---|---|
 | W8-1 | Economy E2E integration test: deposit → play → block → loan → repay → withdraw (PLAN 3.8) | done |
-| W8-2 | Ghost-billing: integration test — нет тиков после session end | pending |
+| W8-2 | Ghost-billing: integration test — нет тиков после session end | done |
 | W8-3 | Brute-force токенов: wire `recordFailedAttempt` на wallet/session lookup | pending |
 | W8-4 | Пере-замер пинга в каталоге каждые 60с (PLAN 1.9) | pending |
 | W8-5 | Крипто без нод: аудит русских сообщений «временно недоступно» | pending |

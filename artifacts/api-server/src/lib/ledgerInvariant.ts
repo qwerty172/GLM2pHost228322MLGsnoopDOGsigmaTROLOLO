@@ -1,10 +1,9 @@
 import { sql, eq } from "drizzle-orm";
-import type pg from "pg";
 import { ledgerTable, playersTable } from "@workspace/db/schema";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "@workspace/db/schema";
 
-type DbClient = NodePgDatabase<typeof schema> | pg.Pool;
+type DbClient = NodePgDatabase<typeof schema>;
 
 export type LedgerInvariantResult =
   | { ok: true }
