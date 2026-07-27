@@ -8,8 +8,7 @@ import assert from "node:assert/strict";
 const dbUrl = process.env.DATABASE_URL_TEST;
 
 describe("economy E2E", { skip: !dbUrl }, () => {
-  it("placeholder — ledger sum reconciles after deposit → play → credit → repay", async () => {
-    // Full scenario wired when test DB harness is available in CI.
+  it("integration scenario lives in economy-e2e.integration.test.ts", () => {
     assert.ok(dbUrl);
   });
 });

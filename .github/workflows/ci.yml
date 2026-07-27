@@ -52,11 +52,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Push test database schema
+        run: DATABASE_URL=$DATABASE_URL_TEST pnpm --filter @workspace/db exec drizzle-kit push --force --config ./drizzle.config.ts
+
       - name: Typecheck
         run: pnpm typecheck
 
       - name: Unit tests (api-server)
         run: pnpm --filter @workspace/api-server test
+
+      - name: Ledger invariant (test DB)
+        run: DATABASE_URL=$DATABASE_URL_TEST pnpm smoke:ledger
 
       - name: Unit tests (host-agent)
         run: pnpm --filter @workspace/host-agent test

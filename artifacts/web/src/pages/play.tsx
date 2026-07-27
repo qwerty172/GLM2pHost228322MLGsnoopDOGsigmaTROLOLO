@@ -394,13 +394,21 @@ export default function Play() {
 
   // Initialize block countdown from session data when session loads
   useEffect(() => {
-    if (!session || !isPlaying) return;
-    const s = session as typeof session & { blockMinutes?: number | null };
-    if (!s.blockMinutes) return;
-    if (blockMinsLeft === null) {
+    if (!session) return;
+    const s = session as typeof session & {
+      blockMinutes?: number | null;
+      blockMinsRemaining?: number | null;
+    };
+    if (s.blockMinsRemaining != null) {
+      setBlockMinsLeft(s.blockMinsRemaining);
+    } else if (s.blockMinutes != null && blockMinsLeft === null) {
       setBlockMinsLeft(s.blockMinutes);
     }
-  }, [session?.id, isPlaying]);
+  }, [
+    session?.id,
+    (session as typeof session & { blockMinsRemaining?: number | null })?.blockMinsRemaining,
+    session?.blockMinutes,
+  ]);
 
   // Client-side block countdown: ticks every minute in sync with billing
   useEffect(() => {
@@ -966,12 +974,17 @@ export default function Play() {
       if (!playerToken || !playerWalletToken || renewBlockLoading) return;
       setRenewBlockLoading(true);
       try {
+        const idempotencyKey = crypto.randomUUID();
         const res = await fetch(
           `${import.meta.env.BASE_URL}api/sessions/by-player-token/${encodeURIComponent(playerToken)}/renew-block`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playerWalletToken, blockMinutes: minutes }),
+            body: JSON.stringify({
+              playerWalletToken,
+              blockMinutes: minutes,
+              idempotencyKey,
+            }),
           },
         );
         const data = await res.json().catch(() => ({}));

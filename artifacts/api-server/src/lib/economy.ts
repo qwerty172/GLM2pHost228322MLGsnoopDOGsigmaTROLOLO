@@ -955,6 +955,78 @@ export async function debitBlockReserve(
   return { ok: true };
 }
 
+function blockRenewRefId(sessionId: string, idempotencyKey: string): string {
+  return `${sessionId}:renew:${idempotencyKey}`;
+}
+
+/** Returns true if this renew idempotency key was already processed. */
+export async function hasBlockRenewLedger(
+  tx: DbTx,
+  sessionId: string,
+  idempotencyKey: string,
+): Promise<boolean> {
+  const [row] = await tx
+    .select({ id: ledgerTable.id })
+    .from(ledgerTable)
+    .where(
+      and(
+        eq(ledgerTable.kind, "block_reserve"),
+        eq(ledgerTable.refType, "session"),
+        eq(ledgerTable.refId, blockRenewRefId(sessionId, idempotencyKey)),
+      ),
+    )
+    .limit(1);
+  return !!row;
+}
+
+/**
+ * Debit the player for a block renewal.
+ * Idempotent per (sessionId, idempotencyKey) — safe on network retries.
+ */
+export async function debitBlockRenew(
+  tx: DbTx,
+  args: {
+    playerId: string;
+    sessionId: string;
+    amountLzt: number;
+    bucket: UserBucket;
+    idempotencyKey: string;
+    note: string;
+  },
+): Promise<
+  { ok: true; alreadyProcessed: boolean } | { ok: false; reason: string }
+> {
+  if (await hasBlockRenewLedger(tx, args.sessionId, args.idempotencyKey)) {
+    return { ok: true, alreadyProcessed: true };
+  }
+  const amt = Math.floor(args.amountLzt);
+  if (amt <= 0) return { ok: true, alreadyProcessed: false };
+  const debited = await adjustUserBucket(
+    tx,
+    "player",
+    args.playerId,
+    args.bucket,
+    -amt,
+  );
+  if (!debited) {
+    return { ok: false, reason: "insufficient balance for block renew" };
+  }
+  await writeLedger(tx, [
+    {
+      groupId: randomUUID(),
+      kind: "block_reserve",
+      ownerType: "player",
+      ownerId: args.playerId,
+      bucket: args.bucket,
+      deltaLzt: -amt,
+      refType: "session",
+      refId: blockRenewRefId(args.sessionId, args.idempotencyKey),
+      note: args.note,
+    },
+  ]);
+  return { ok: true, alreadyProcessed: false };
+}
+
 // Pledger limit on P2P loan request size: max(largest_deposit, largest_withdrawal).
 export function pledgerLimitLzt(args: {
   maxDepositUsdtCents: number;
