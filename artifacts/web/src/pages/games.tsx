@@ -22,6 +22,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SiteNav } from "@/components/site-nav";
+import {
+  GAME_NOTIFY_CHANGED_EVENT,
+  getSubscribedSlugs,
+} from "@/lib/game-notify";
 
 const LZT_PER_USDT = 200;
 const DEFAULT_PRICE_PER_MIN_USD = 0.04;
@@ -78,7 +82,18 @@ export default function GamesPage() {
   });
   const [maxLzt, setMaxLzt] = useState<number>(9999);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const [subscribedSlugs, setSubscribedSlugs] = useState(() => getSubscribedSlugs());
   const sliderInitRef = useRef(false);
+
+  useEffect(() => {
+    const refresh = () => setSubscribedSlugs(getSubscribedSlugs());
+    window.addEventListener(GAME_NOTIFY_CHANGED_EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener(GAME_NOTIFY_CHANGED_EVENT, refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
 
   const apiParams = useMemo(() => {
     const p: Record<string, boolean | string> = {};
@@ -159,22 +174,33 @@ export default function GamesPage() {
       return true;
     });
     if (sort === "mostOnline") {
-      list.sort((a, b) => ((b as GameEnriched).liveHostsCount ?? 0) - ((a as GameEnriched).liveHostsCount ?? 0));
+      list.sort((a, b) => {
+        const aSub = subscribedSlugs.has(a.slug) ? 1 : 0;
+        const bSub = subscribedSlugs.has(b.slug) ? 1 : 0;
+        if (aSub !== bSub) return bSub - aSub;
+        return ((b as GameEnriched).liveHostsCount ?? 0) - ((a as GameEnriched).liveHostsCount ?? 0);
+      });
     } else if (sort === "cheapest") {
       list.sort((a, b) => {
+        const aSub = subscribedSlugs.has(a.slug) ? 1 : 0;
+        const bSub = subscribedSlugs.has(b.slug) ? 1 : 0;
+        if (aSub !== bSub) return bSub - aSub;
         const pa = (a as GameEnriched).minPricePerMinuteLzt ?? Infinity;
         const pb = (b as GameEnriched).minPricePerMinuteLzt ?? Infinity;
         return pa - pb;
       });
     } else if (sort === "newest") {
       list.sort((a, b) => {
+        const aSub = subscribedSlugs.has(a.slug) ? 1 : 0;
+        const bSub = subscribedSlugs.has(b.slug) ? 1 : 0;
+        if (aSub !== bSub) return bSub - aSub;
         const da = (a as GameEnriched).createdAt ?? "";
         const db = (b as GameEnriched).createdAt ?? "";
         return db.localeCompare(da);
       });
     }
     return list;
-  }, [games, sort, maxLzt, selectedGenres]);
+  }, [games, sort, maxLzt, selectedGenres, subscribedSlugs]);
 
   const toggleBool = (key: FilterKey) =>
     setBoolFilters((s) => ({ ...s, [key]: !s[key] }));

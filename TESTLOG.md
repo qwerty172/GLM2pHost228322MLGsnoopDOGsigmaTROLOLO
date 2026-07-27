@@ -47,6 +47,7 @@
 | **marathon W5 infra** | **done** | .env.example Redis/JWT/Sentry/migrations docs, worker math tests |
 | **marathon W8-5 crypto unavailable** | **done** | cryptoRouteHelpers, cryptoEnabled в Wallet API, wallet.tsx 503 UI |
 | **marathon W8-6 credit-settings** | **done** | PATCH /players/me/credit-settings, profile toggle, OpenAPI+hooks |
+| **marathon W9-1 game notify** | **done** | localStorage подписки, поллинг 60с, Web Notifications, pin в каталоге |
 
 ## Баги
 

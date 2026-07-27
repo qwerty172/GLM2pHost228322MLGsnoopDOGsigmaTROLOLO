@@ -12,7 +12,6 @@ import {
   Activity,
   ArrowLeft,
   ArrowRight,
-  Bell,
   Calendar,
   Clock,
   Eye,
@@ -31,6 +30,7 @@ import {
 import type { ScheduleSlot } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { SiteNav } from "@/components/site-nav";
+import { GameNotifyButton } from "@/components/game-notify-button";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
 
 const LZT_PER_USD = 200;
@@ -468,18 +468,7 @@ export default function GameDetailPage() {
                     </Link>
                     .
                   </p>
-                  <button
-                    className="mt-4 inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md transition-colors"
-                    style={{
-                      background: "rgba(255,255,255,0.04)",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      color: "#94a3b8",
-                    }}
-                    onClick={() => toast.success("Готово! Мы покажем эту игру выше в каталоге, когда появится хост.", { duration: 4000 })}
-                  >
-                    <Bell className="h-3 w-3" />
-                    Уведомить когда появится хост
-                  </button>
+                  <GameNotifyButton slug={slug} title={game?.title ?? slug} />
                 </div>
               )}
             </section>
