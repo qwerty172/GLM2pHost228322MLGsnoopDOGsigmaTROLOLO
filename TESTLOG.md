@@ -48,6 +48,7 @@
 | **marathon W6 block reclaim** | **done** | debitBlockReserve в claim, enrichSession+blockMinsRemaining, integration test |
 | **marathon W6 renew-block** | **done** | debitBlockRenew + idempotencyKey, integration test |
 | **marathon W7 wallet blocks** | **done** | block_reserve → block_purchase + русское описание с игрой |
+| **marathon W7 ledger+refund** | **done** | invariant CI, block refund integration, idempotency, harness |
 
 ## Баги
 

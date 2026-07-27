@@ -3,6 +3,7 @@ import {
   sessionIdFromLedgerRef,
   mapLedgerKindForWallet,
   formatBlockReserveDescription,
+  formatBlockRefundDescription,
 } from "./walletLedgerFormat";
 
 describe("sessionIdFromLedgerRef", () => {
@@ -38,5 +39,16 @@ describe("formatBlockReserveDescription", () => {
     expect(
       formatBlockReserveDescription("block reserve 80 LZT", null, -80),
     ).toBe("Блок 80 LZT");
+  });
+});
+
+describe("formatBlockRefundDescription", () => {
+  it("formats refund with usage and game", () => {
+    expect(
+      formatBlockRefundDescription(
+        "block refund: 3/10 мин использовано",
+        "Refund Game",
+      ),
+    ).toBe("Возврат блока: 3/10 мин использовано — Refund Game");
   });
 });

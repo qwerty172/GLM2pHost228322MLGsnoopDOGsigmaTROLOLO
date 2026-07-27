@@ -28,6 +28,7 @@ import { recordWithdrawalDebit } from "../lib/economy";
 import { rateLimit, ipKey } from "../lib/rateLimit";
 import {
   formatBlockReserveDescription,
+  formatBlockRefundDescription,
   mapLedgerKindForWallet,
   sessionIdFromLedgerRef,
 } from "../lib/walletLedgerFormat";
@@ -201,7 +202,11 @@ router.get(
     const blockSessionIds = [
       ...new Set(
         ledgerRows
-          .filter((l) => l.kind === "block_reserve" && l.refType === "session")
+          .filter(
+            (l) =>
+              (l.kind === "block_reserve" || l.kind === "block_refund") &&
+              l.refType === "session",
+          )
           .map((l) => sessionIdFromLedgerRef(l.refId))
           .filter((id): id is string => !!id),
       ),
@@ -224,14 +229,17 @@ router.get(
 
     for (const l of ledgerRows) {
       const sessionId =
-        l.kind === "block_reserve" && l.refType === "session"
+        (l.kind === "block_reserve" || l.kind === "block_refund") &&
+        l.refType === "session"
           ? sessionIdFromLedgerRef(l.refId)
           : null;
       const gameTitle = sessionId ? gameTitleBySessionId.get(sessionId) : undefined;
       const description =
         l.kind === "block_reserve"
           ? formatBlockReserveDescription(l.note, gameTitle, l.deltaLzt)
-          : (l.note ?? l.kind);
+          : l.kind === "block_refund"
+            ? formatBlockRefundDescription(l.note, gameTitle)
+            : (l.note ?? l.kind);
 
       txs.push({
         id: `led-${l.id}`,
