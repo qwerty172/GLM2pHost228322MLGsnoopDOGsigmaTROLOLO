@@ -52,6 +52,11 @@ export interface Session {
    * @nullable
    */
   blockReservedLzt?: number | null;
+  /**
+   * Server-authoritative minutes left in a prepaid block session (null when not block-billed).
+   * @nullable
+   */
+  blockMinsRemaining?: number | null;
   /** Host self-test session вЂ” completely free, skipped by billing. */
   isTest?: boolean;
 }
