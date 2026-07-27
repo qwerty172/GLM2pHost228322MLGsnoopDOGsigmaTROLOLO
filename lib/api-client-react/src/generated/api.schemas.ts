@@ -66,6 +66,17 @@ export interface PlayerGameSaveResponse {
   save: PlayerGameSaveResponseSave;
 }
 
+export interface PlayerCreditSettingsBody {
+  /** When false, disables the gaming credit line (creditLimitLzt = 0). */
+  creditEnabled: boolean;
+}
+
+export interface PlayerCreditSettingsResponse {
+  creditEnabled: boolean;
+  /** Effective credit line after the update (0 when disabled). */
+  creditLimitLzt: number;
+}
+
 export interface ExchangeJoinCodeResponse {
   /** Long-lived session token — store in memory, never put back in the URL */
   playerToken: string;
@@ -638,6 +649,8 @@ export interface Wallet {
   lifetimeDepositUsdtCents: number;
   pendingWithdrawalsLzt: number;
   lztPerUsdt: number;
+  /** True when blockchain deposit/withdraw nodes and wallet encryption are configured. */
+  cryptoEnabled: boolean;
   depositAddresses: DepositAddress[];
   recentWithdrawals: Withdrawal[];
 }
@@ -1488,10 +1501,27 @@ export type HostHeartbeatBody = {
   hostToken?: string;
   /** RTT from agent to API in milliseconds */
   pingMs?: number;
+  /** Hex-encoded Ed25519 public key — when sent, response includes agentKeyStatus */
+  agentPubkey?: string;
 };
+
+/**
+ * Present when agentPubkey was sent in the request body
+ */
+export type HostHeartbeat200AgentKeyStatus =
+  (typeof HostHeartbeat200AgentKeyStatus)[keyof typeof HostHeartbeat200AgentKeyStatus];
+
+export const HostHeartbeat200AgentKeyStatus = {
+  ok: "ok",
+  revoked: "revoked",
+  unbound: "unbound",
+  mismatch: "mismatch",
+} as const;
 
 export type HostHeartbeat200 = {
   ok: boolean;
+  /** Present when agentPubkey was sent in the request body */
+  agentKeyStatus?: HostHeartbeat200AgentKeyStatus;
 };
 
 export type CreatePublicSessionBody = {
@@ -1552,6 +1582,12 @@ export type BindAgentKeyBody = {
 
 export type BindAgentKey200 = {
   ok: boolean;
+};
+
+export type RevokeAgentKey200 = {
+  ok: boolean;
+  /** True when a key was cleared; false when none was bound */
+  wasBound: boolean;
 };
 
 export type AgentLoginBody = {

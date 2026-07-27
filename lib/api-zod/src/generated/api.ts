@@ -2818,6 +2818,11 @@ export const GetWalletResponse = zod.object({
     ),
   pendingWithdrawalsLzt: zod.number(),
   lztPerUsdt: zod.number(),
+  cryptoEnabled: zod
+    .boolean()
+    .describe(
+      "True when blockchain deposit\/withdraw nodes and wallet encryption are configured.",
+    ),
   depositAddresses: zod.array(
     zod.object({
       currency: zod.string().describe("USDT_TRC20 | NANO | SOL"),
@@ -3206,10 +3211,20 @@ export const HostHeartbeatBody = zod.object({
     .number()
     .optional()
     .describe("RTT from agent to API in milliseconds"),
+  agentPubkey: zod
+    .string()
+    .optional()
+    .describe(
+      "Hex-encoded Ed25519 public key — when sent, response includes agentKeyStatus",
+    ),
 });
 
 export const HostHeartbeatResponse = zod.object({
   ok: zod.boolean(),
+  agentKeyStatus: zod
+    .enum(["ok", "revoked", "unbound", "mismatch"])
+    .optional()
+    .describe("Present when agentPubkey was sent in the request body"),
 });
 
 /**
@@ -3420,6 +3435,20 @@ export const BindAgentKeyResponse = zod.object({
 });
 
 /**
+ * @summary Revoke the bound Ed25519 agent key for the authenticated host
+ */
+export const RevokeAgentKeyHeader = zod.object({
+  Authorization: zod.string().describe("Bearer host token"),
+});
+
+export const RevokeAgentKeyResponse = zod.object({
+  ok: zod.boolean(),
+  wasBound: zod
+    .boolean()
+    .describe("True when a key was cleared; false when none was bound"),
+});
+
+/**
  * @summary Verify agent signature and return hostToken
  */
 export const AgentLoginBody = zod.object({
@@ -3449,6 +3478,26 @@ export const RequestUploadUrlResponse = zod.object({
     size: zod.number(),
     contentType: zod.string(),
   }),
+});
+
+/**
+ * Authenticate with X-User-Token or X-Player-Wallet-Token (player wallet token). When disabled, sets creditLimitLzt to 0; when enabled, restores the default limit (500 LZT for guests, 3000 LZT for full accounts).
+
+ * @summary Enable or disable platform gaming credit line
+ */
+export const PatchPlayerCreditSettingsBody = zod.object({
+  creditEnabled: zod
+    .boolean()
+    .describe(
+      "When false, disables the gaming credit line (creditLimitLzt = 0).",
+    ),
+});
+
+export const PatchPlayerCreditSettingsResponse = zod.object({
+  creditEnabled: zod.boolean(),
+  creditLimitLzt: zod
+    .number()
+    .describe("Effective credit line after the update (0 when disabled)."),
 });
 
 /**

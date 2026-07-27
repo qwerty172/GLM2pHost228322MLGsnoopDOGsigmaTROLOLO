@@ -857,11 +857,39 @@ async function startAgent(): Promise<void> {
   // and auto-terminate ghost sessions. Fire every 15s; silently skipped
   // when config lacks hostToken or apiBaseUrl.
   const HEARTBEAT_INTERVAL_MS = 15_000;
+  let agentKeyRevokedNotified = false;
+
+  function notifyAgentKeyStatus(status: "ok" | "revoked" | "unbound" | "mismatch"): void {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("agent:key-status", { status });
+    }
+    if ((status === "revoked" || status === "mismatch") && !agentKeyRevokedNotified) {
+      agentKeyRevokedNotified = true;
+      if (Notification.isSupported()) {
+        new Notification({
+          title: "Ключ агента отозван",
+          body: "Получи новый код привязки на дашборде и привяжи агент заново.",
+        }).show();
+      }
+      log("warn", "[agent-key] Server reports key revoked or replaced — re-bind required");
+    } else if (status === "ok") {
+      agentKeyRevokedNotified = false;
+    }
+  }
+
   trackInterval(
     setInterval(() => {
       void loadConfig().then((cfg) => {
         if (cfg.hostToken && cfg.apiBaseUrl) {
-          void sendHeartbeat(cfg.hostToken, cfg.apiBaseUrl);
+          void sendHeartbeat(
+            cfg.hostToken,
+            cfg.apiBaseUrl,
+            keyStore?.publicKeyHex ?? null,
+          ).then((result) => {
+            if (result.agentKeyStatus) {
+              notifyAgentKeyStatus(result.agentKeyStatus);
+            }
+          });
         }
       });
     }, HEARTBEAT_INTERVAL_MS),

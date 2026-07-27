@@ -147,6 +147,17 @@ const api = {
   // Returns local PC specs without uploading them.
   getPcSpecs: (): Promise<{ gpu: string; cpu: string; ramGb: number }> =>
     ipcRenderer.invoke("agent:get-pc-specs"),
+  // Fires when heartbeat detects the bound agent key was revoked or replaced.
+  onAgentKeyStatus: (
+    cb: (ev: { status: "ok" | "revoked" | "unbound" | "mismatch" }) => void,
+  ): (() => void) => {
+    const handler = (
+      _e: Electron.IpcRendererEvent,
+      ev: { status: "ok" | "revoked" | "unbound" | "mismatch" },
+    ) => cb(ev);
+    ipcRenderer.on("agent:key-status", handler);
+    return () => ipcRenderer.off("agent:key-status", handler);
+  },
   // Input injector (koffi/SendInput) health — for the diagnostics panel.
   getInjectorStatus: (): Promise<{ ok: boolean; error: string; platform: string }> =>
     ipcRenderer.invoke("agent:get-injector-status"),

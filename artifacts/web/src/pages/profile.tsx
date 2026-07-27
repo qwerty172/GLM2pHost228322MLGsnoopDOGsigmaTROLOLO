@@ -8,6 +8,7 @@ import {
   useGetHostStats,
   useListWalletTransactions,
   useGetWallet,
+  usePatchPlayerCreditSettings,
   getGetHostQueryKey,
   getGetHostStatsQueryKey,
   getListWalletTransactionsQueryKey,
@@ -629,6 +630,7 @@ function PlayerCreditCard() {
       queryKey: getGetWalletQueryKey(playerWalletToken ?? ""),
     },
   });
+  const { mutateAsync: patchCreditSettings } = usePatchPlayerCreditSettings();
   const [saving, setSaving] = useState(false);
 
   if (!playerWalletToken) return null;
@@ -640,14 +642,7 @@ function PlayerCreditCard() {
   const toggleCredit = async (enabled: boolean) => {
     setSaving(true);
     try {
-      await fetch("/api/players/me/credit-settings", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "X-User-Token": playerWalletToken,
-        },
-        body: JSON.stringify({ creditEnabled: enabled }),
-      });
+      await patchCreditSettings({ data: { creditEnabled: enabled } });
       await refetch();
     } finally {
       setSaving(false);

@@ -56,6 +56,8 @@ const inputStyle = {
 };
 
 const LZT_PER_USDT = 200;
+const CRYPTO_UNAVAILABLE_MESSAGE =
+  "Крипто-операции временно недоступны — узлы блокчейна не настроены";
 const formatLzt = (lzt: number) =>
   new Intl.NumberFormat("ru-RU").format(Math.trunc(lzt));
 const lztToUsdt = (lzt: number) => lzt / LZT_PER_USDT;
@@ -91,9 +93,11 @@ function buildTransakUrl(opts: {
 function CardTopUp({
   usdtAddress,
   isLoading,
+  cryptoEnabled,
 }: {
   usdtAddress: string | undefined;
   isLoading: boolean;
+  cryptoEnabled: boolean;
 }) {
   const [opened, setOpened] = useState(false);
 
@@ -103,7 +107,9 @@ function CardTopUp({
   if (!usdtAddress) {
     return (
       <div className="text-center py-6 text-slate-500 text-sm">
-        Адрес USDT-TRC20 ещё не готов. Попробуй через минуту.
+        {cryptoEnabled
+          ? "Адрес USDT-TRC20 ещё не готов. Попробуй через минуту."
+          : CRYPTO_UNAVAILABLE_MESSAGE}
       </div>
     );
   }
@@ -246,6 +252,7 @@ export default function WalletPage() {
 
   const greenLzt = wallet?.withdrawableBalanceLzt ?? 0;
   const blueLzt = wallet?.internalBalanceLzt ?? 0;
+  const cryptoEnabled = Boolean(wallet?.cryptoEnabled);
 
   const handleCopy = (text: string, label: string) => {
     void navigator.clipboard.writeText(text).then(
@@ -284,8 +291,15 @@ export default function WalletPage() {
           setWithdrawAmountLzt("");
           refetch();
         },
-        onError: () => {
-          toast.error("Не удалось запросить вывод");
+        onError: (err: unknown) => {
+          const message =
+            err &&
+            typeof err === "object" &&
+            "message" in err &&
+            typeof (err as { message?: unknown }).message === "string"
+              ? (err as { message: string }).message
+              : CRYPTO_UNAVAILABLE_MESSAGE;
+          toast.error(message);
         },
       },
     );
@@ -458,6 +472,16 @@ export default function WalletPage() {
                             <Skeleton key={i} className="h-24 w-full" />
                           ))}
                         </div>
+                      ) : !cryptoEnabled || !wallet?.depositAddresses.length ? (
+                        <div
+                          className="rounded-lg p-5 text-center text-sm text-slate-400"
+                          style={{
+                            background: "rgba(255,255,255,0.02)",
+                            border: "1px solid rgba(255,255,255,0.06)",
+                          }}
+                        >
+                          {CRYPTO_UNAVAILABLE_MESSAGE}
+                        </div>
                       ) : (
                         <div className="space-y-3">
                           {wallet?.depositAddresses.map((addr) => (
@@ -522,6 +546,7 @@ export default function WalletPage() {
                             )?.address
                           }
                           isLoading={isLoading}
+                          cryptoEnabled={cryptoEnabled}
                         />
                       </TabsContent>
                     )}
@@ -627,6 +652,17 @@ export default function WalletPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                {!cryptoEnabled ? (
+                  <div
+                    className="rounded-lg p-4 text-sm text-slate-400 text-center"
+                    style={{
+                      background: "rgba(255,255,255,0.02)",
+                      border: "1px solid rgba(255,255,255,0.06)",
+                    }}
+                  >
+                    {CRYPTO_UNAVAILABLE_MESSAGE}
+                  </div>
+                ) : (
                 <form onSubmit={handleWithdraw} className="space-y-4">
                   <RadioGroup
                     value={withdrawCurrency}
@@ -768,6 +804,7 @@ export default function WalletPage() {
                     </Button>
                   )}
                 </form>
+                )}
               </CardContent>
             </Card>
           </div>

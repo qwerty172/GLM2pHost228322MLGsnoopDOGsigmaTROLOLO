@@ -9,10 +9,21 @@ import {
   resolveCallerUserId,
 } from "../lib/storageRouteHelpers";
 import multer from "multer";
+import {
+  MAX_COVER_SIZE_BYTES,
+  validateCoverImage,
+} from "../lib/coverImageValidation";
 
 const ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_COVER_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB
 const MAX_CLIP_SIZE_BYTES = 200 * 1024 * 1024; // 200 MB
+
+const coverUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_COVER_SIZE_BYTES },
+  fileFilter: (_req, file, cb) => {
+    cb(null, ALLOWED_CONTENT_TYPES.includes(file.mimetype));
+  },
+});
 
 const clipUpload = multer({
   storage: multer.memoryStorage(),
@@ -173,6 +184,83 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     handleStorageError(req, res, error, "Failed to serve object");
   }
 });
+
+/**
+ * POST /storage/cover-upload
+ *
+ * Authenticated hosts upload game cover images.
+ * Validates MIME (magic bytes), size ≤ 2 MB, resolution ≥ 300×170 before storing.
+ */
+router.post(
+  "/storage/cover-upload",
+  coverUpload.single("file"),
+  async (req: Request, res: Response) => {
+    const hostToken = req.headers["x-host-token"] as string | undefined;
+    if (!hostToken) {
+      res.status(401).json({ error: "Missing X-Host-Token header" });
+      return;
+    }
+
+    const { db, hostsTable } = await import("@workspace/db");
+    const { eq } = await import("drizzle-orm");
+    const [host] = await db
+      .select({ id: hostsTable.id })
+      .from(hostsTable)
+      .where(eq(hostsTable.hostToken, hostToken));
+    if (!host) {
+      res.status(401).json({ error: "Unknown host token" });
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({ error: "Загрузите файл обложки (PNG, JPEG или WebP)" });
+      return;
+    }
+
+    const validation = validateCoverImage(req.file.buffer);
+    if (!validation.ok) {
+      res.status(400).json({ error: validation.error });
+      return;
+    }
+
+    try {
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      const rawPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+
+      const uploadRes = await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": validation.mime },
+        body: req.file.buffer,
+      });
+
+      if (!uploadRes.ok) {
+        req.log.error({ status: uploadRes.status }, "Object storage PUT failed for cover");
+        res.status(502).json({ error: "Не удалось сохранить обложку" });
+        return;
+      }
+
+      try {
+        await objectStorageService.trySetObjectEntityAclPolicy(rawPath, {
+          owner: `host:${host.id}`,
+          visibility: "public",
+        });
+      } catch (aclErr) {
+        req.log.warn({ err: aclErr }, "Failed to set cover ACL (object still stored)");
+      }
+
+      const objectPath = `/api/storage${rawPath}`;
+      res.json({
+        objectPath,
+        size: req.file.size,
+        width: validation.width,
+        height: validation.height,
+        contentType: validation.mime,
+      });
+    } catch (error) {
+      handleStorageError(req, res, error, "Failed to upload cover");
+    }
+  },
+);
 
 /**
  * POST /storage/clip-upload

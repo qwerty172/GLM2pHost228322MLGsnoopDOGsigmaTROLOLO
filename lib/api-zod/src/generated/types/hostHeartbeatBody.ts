@@ -11,4 +11,6 @@ export type HostHeartbeatBody = {
   hostToken?: string;
   /** RTT from agent to API in milliseconds */
   pingMs?: number;
+  /** Hex-encoded Ed25519 public key — when sent, response includes agentKeyStatus */
+  agentPubkey?: string;
 };

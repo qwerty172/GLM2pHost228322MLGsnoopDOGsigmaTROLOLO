@@ -7,6 +7,7 @@ import {
   gamesTable,
   gameSubmissionsTable,
 } from "@workspace/db";
+import { validateStoredCoverImageUrl } from "../lib/coverImageStorage";
 
 const router: IRouter = Router();
 
@@ -65,6 +66,14 @@ router.post("/games/submit", async (req, res): Promise<void> => {
       .status(400)
       .json({ error: "coverImageUrl must be a valid http(s) URL or storage path" });
     return;
+  }
+
+  if (body.coverImageUrl) {
+    const coverError = await validateStoredCoverImageUrl(body.coverImageUrl);
+    if (coverError) {
+      res.status(400).json({ error: coverError });
+      return;
+    }
   }
 
   // Browser games require a defaultBrowserUrl.
