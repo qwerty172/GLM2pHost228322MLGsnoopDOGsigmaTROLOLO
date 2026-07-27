@@ -3419,6 +3419,9 @@ components:
           type: integer
         lztPerUsdt:
           type: integer
+        cryptoEnabled:
+          type: boolean
+          description: True when blockchain deposit/withdraw nodes and wallet encryption are configured.
         depositAddresses:
           type: array
           items:
@@ -3441,6 +3444,7 @@ components:
         - lifetimeDepositUsdtCents
         - pendingWithdrawalsLzt
         - lztPerUsdt
+        - cryptoEnabled
         - depositAddresses
         - recentWithdrawals
 

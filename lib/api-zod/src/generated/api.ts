@@ -2818,6 +2818,11 @@ export const GetWalletResponse = zod.object({
     ),
   pendingWithdrawalsLzt: zod.number(),
   lztPerUsdt: zod.number(),
+  cryptoEnabled: zod
+    .boolean()
+    .describe(
+      "True when blockchain deposit\/withdraw nodes and wallet encryption are configured.",
+    ),
   depositAddresses: zod.array(
     zod.object({
       currency: zod.string().describe("USDT_TRC20 | NANO | SOL"),
