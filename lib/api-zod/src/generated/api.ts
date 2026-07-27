@@ -442,6 +442,12 @@ export const ListHostSessionsResponseItem = zod.object({
     .describe(
       "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
     ),
+  blockMinsRemaining: zod
+    .number()
+    .nullish()
+    .describe(
+      "Minutes left in the current block (blockMinutes minus billed green ticks). Null when not a block session.",
+    ),
   isTest: zod
     .boolean()
     .optional()
@@ -923,6 +929,12 @@ export const GetSessionResponse = zod.object({
     .describe(
       "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
     ),
+  blockMinsRemaining: zod
+    .number()
+    .nullish()
+    .describe(
+      "Minutes left in the current block (blockMinutes minus billed green ticks). Null when not a block session.",
+    ),
   isTest: zod
     .boolean()
     .optional()
@@ -980,6 +992,12 @@ export const GetSessionByPlayerTokenResponse = zod.object({
     .nullish()
     .describe(
       "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
+    ),
+  blockMinsRemaining: zod
+    .number()
+    .nullish()
+    .describe(
+      "Minutes left in the current block (blockMinutes minus billed green ticks). Null when not a block session.",
     ),
   isTest: zod
     .boolean()
@@ -1039,6 +1057,12 @@ export const GetSessionByInviteResponse = zod
       .nullish()
       .describe(
         "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
+      ),
+    blockMinsRemaining: zod
+      .number()
+      .nullish()
+      .describe(
+        "Minutes left in the current block (blockMinutes minus billed green ticks). Null when not a block session.",
       ),
     isTest: zod
       .boolean()
@@ -1138,6 +1162,12 @@ export const ClaimSessionResponse = zod.object({
     .describe(
       "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
     ),
+  blockMinsRemaining: zod
+    .number()
+    .nullish()
+    .describe(
+      "Minutes left in the current block (blockMinutes minus billed green ticks). Null when not a block session.",
+    ),
   isTest: zod
     .boolean()
     .optional()
@@ -1199,6 +1229,12 @@ export const EndSessionResponse = zod.object({
     .nullish()
     .describe(
       "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
+    ),
+  blockMinsRemaining: zod
+    .number()
+    .nullish()
+    .describe(
+      "Minutes left in the current block (blockMinutes minus billed green ticks). Null when not a block session.",
     ),
   isTest: zod
     .boolean()

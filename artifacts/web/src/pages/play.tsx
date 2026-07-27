@@ -395,12 +395,15 @@ export default function Play() {
   // Initialize block countdown from session data when session loads
   useEffect(() => {
     if (!session || !isPlaying) return;
-    const s = session as typeof session & { blockMinutes?: number | null };
+    const s = session as typeof session & {
+      blockMinutes?: number | null;
+      blockMinsRemaining?: number | null;
+    };
     if (!s.blockMinutes) return;
     if (blockMinsLeft === null) {
-      setBlockMinsLeft(s.blockMinutes);
+      setBlockMinsLeft(s.blockMinsRemaining ?? s.blockMinutes);
     }
-  }, [session?.id, isPlaying]);
+  }, [session?.id, session?.blockMinsRemaining, isPlaying]);
 
   // Client-side block countdown: ticks every minute in sync with billing
   useEffect(() => {
