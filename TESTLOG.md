@@ -45,6 +45,10 @@
 | **marathon W3 dedup** | **done** | inviteCode канон, joinCode deprecated, OpenAPI+hooks, ws-ticket route |
 | **marathon W4 UX** | **done** | agent --bind-code, setup advanced banner, agent port discovery |
 | **marathon W5 infra** | **done** | .env.example Redis/JWT/Sentry/migrations docs, worker math tests |
+| **marathon W9-2 covers** | **done** | MIME по magic bytes, ≤2 МБ, ≥300×170, cover-upload + submit guard |
+| **marathon W8-5 crypto unavailable** | **done** | cryptoRouteHelpers, cryptoEnabled в Wallet API, wallet.tsx 503 UI |
+| **marathon W8-6 credit-settings** | **done** | PATCH /players/me/credit-settings, profile toggle, OpenAPI+hooks |
+| **marathon W9-1 game notify** | **done** | localStorage подписки, поллинг 60с, Web Notifications, pin в каталоге |
 
 ## Баги
 

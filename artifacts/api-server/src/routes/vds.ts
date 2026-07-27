@@ -5,6 +5,7 @@ import { db, quotaVdsTable, quotasTable, hostsTable } from "@workspace/db";
 import { resolveOwnerByToken } from "../lib/walletOwner";
 import { encryptSshKey, decryptSshKey } from "../lib/sshKey";
 import { isWalletCryptoEnabled } from "../lib/encryption";
+import { respondEncryptionUnavailable } from "../lib/cryptoRouteHelpers";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -162,10 +163,7 @@ router.post("/quotas/:quotaId/vds", async (req, res): Promise<void> => {
   }
 
   if (!isWalletCryptoEnabled()) {
-    res.status(503).json({
-      error: "encryption_unavailable",
-      message: "Шифрование не настроено (WALLET_ENCRYPTION_KEY)",
-    });
+    respondEncryptionUnavailable(res);
     return;
   }
 
@@ -173,10 +171,7 @@ router.post("/quotas/:quotaId/vds", async (req, res): Promise<void> => {
   try {
     sshKeyEncrypted = encryptSshKey(sshKey);
   } catch {
-    res.status(503).json({
-      error: "encryption_unavailable",
-      message: "Шифрование не настроено (WALLET_ENCRYPTION_KEY)",
-    });
+    respondEncryptionUnavailable(res);
     return;
   }
 
