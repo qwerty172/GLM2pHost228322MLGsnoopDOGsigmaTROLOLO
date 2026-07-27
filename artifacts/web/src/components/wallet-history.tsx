@@ -54,7 +54,7 @@ function kindMeta(kind: string, amountLzt: number): KindMeta {
     return { label: "Заработок хоста", icon: Coins, color: "#22c55e" };
   if (kind === "block_refund")
     return { label: "Возврат за блок", icon: RotateCcw, color: "#22c55e" };
-  if (kind === "block_purchase")
+  if (kind === "block_purchase" || kind === "block_reserve")
     return { label: "Блок тариф", icon: Gamepad2, color: "#38bdf8" };
   if (kind === "platform_credit")
     return { label: "Игра в кредит", icon: HandCoins, color: "#a78bfa" };

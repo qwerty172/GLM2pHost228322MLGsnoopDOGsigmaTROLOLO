@@ -45,6 +45,12 @@
 | **marathon W3 dedup** | **done** | inviteCode канон, joinCode deprecated, OpenAPI+hooks, ws-ticket route |
 | **marathon W4 UX** | **done** | agent --bind-code, setup advanced banner, agent port discovery |
 | **marathon W5 infra** | **done** | .env.example Redis/JWT/Sentry/migrations docs, worker math tests |
+| **marathon W6 block reclaim** | **done** | debitBlockReserve в claim, enrichSession+blockMinsRemaining, integration test |
+| **marathon W6 renew-block** | **done** | debitBlockRenew + idempotencyKey, integration test |
+| **marathon W7 wallet blocks** | **done** | block_reserve → block_purchase + русское описание с игрой |
+| **marathon W7 ledger+refund** | **done** | invariant CI, block refund integration, idempotency, harness |
+| **marathon W8-1 economy E2E** | **done** | deposit → minute play → block → P2P loan → repay → withdraw integration test |
+| **marathon W8-2 ghost-billing** | **done** | integration test: нет billing_events после session end |
 
 ## Баги
 

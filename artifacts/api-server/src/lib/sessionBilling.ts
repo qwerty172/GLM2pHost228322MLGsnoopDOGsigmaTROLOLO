@@ -8,6 +8,7 @@ import {
   billingEventsTable,
   playersTable,
   sessionsTable,
+  ledgerTable,
 } from "@workspace/db";
 import { logger } from "./logger";
 import { writeLedger } from "./economy";
@@ -45,6 +46,24 @@ export async function countSessionMinutesUsed(
   return Number(row?.n ?? 0);
 }
 
+async function hasBlockRefundLedger(
+  tx: Tx,
+  sessionId: string,
+): Promise<boolean> {
+  const [row] = await tx
+    .select({ id: ledgerTable.id })
+    .from(ledgerTable)
+    .where(
+      and(
+        eq(ledgerTable.kind, "block_refund"),
+        eq(ledgerTable.refType, "session"),
+        eq(ledgerTable.refId, sessionId),
+      ),
+    )
+    .limit(1);
+  return !!row;
+}
+
 export async function refundBlockRemainder(
   tx: Tx,
   session: typeof sessionsTable.$inferSelect,
@@ -52,6 +71,7 @@ export async function refundBlockRemainder(
 ): Promise<void> {
   if (!session.blockMinutes || !session.blockReservedLzt || !session.claimedByPlayerId)
     return;
+  if (await hasBlockRefundLedger(tx, session.id)) return;
   const costPerMinute = Math.round(session.blockReservedLzt / session.blockMinutes);
   const costUsed = minutesUsed * costPerMinute;
   const refundLzt = Math.max(0, session.blockReservedLzt - costUsed);
