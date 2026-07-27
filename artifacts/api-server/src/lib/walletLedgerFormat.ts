@@ -11,6 +11,19 @@ export function mapLedgerKindForWallet(kind: string): string {
   return kind;
 }
 
+/** Human-readable Russian label for block refund rows in wallet history. */
+export function formatBlockRefundDescription(
+  note: string | null | undefined,
+  gameTitle: string | null | undefined,
+): string {
+  const gameSuffix = gameTitle ? ` — ${gameTitle}` : "";
+  const usedMatch = note?.match(/block refund: (\d+)\/(\d+) мин/);
+  if (usedMatch) {
+    return `Возврат блока: ${usedMatch[1]}/${usedMatch[2]} мин использовано${gameSuffix}`;
+  }
+  return note?.trim() || `Возврат за блок${gameSuffix}`;
+}
+
 /** Human-readable Russian label for block billing rows in wallet history. */
 export function formatBlockReserveDescription(
   note: string | null | undefined,
