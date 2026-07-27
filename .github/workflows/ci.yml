@@ -61,6 +61,9 @@ jobs:
       - name: Unit tests (api-server)
         run: pnpm --filter @workspace/api-server test
 
+      - name: Ledger invariant (test DB)
+        run: DATABASE_URL=$DATABASE_URL_TEST pnpm smoke:ledger
+
       - name: Unit tests (host-agent)
         run: pnpm --filter @workspace/host-agent test
 

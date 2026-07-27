@@ -28,5 +28,8 @@ InviteCode канон, joinCode deprecated, ws-ticket route.
 | ID | Задача | Статус |
 |---|---|---|
 | W7-1 | История кошелька: `block_reserve` → «Блок N мин — Игра» (PLAN 3.5) | done |
-| W7-2 | Ledger invariant smoke в CI | pending |
-| W7-3 | Block end refund integration test | pending |
+| W7-2 | Ledger invariant smoke в CI | done |
+| W7-3 | Block end refund integration test | done |
+| W7-4 | Block refund idempotency (ledger guard + double-end test) | done |
+| W7-5 | Wallet `block_refund` описание с игрой | done |
+| W7-6 | Shared integration test harness | done |
