@@ -82,6 +82,8 @@ import type {
   MatchQuotasForHostParams,
   MyLoans,
   Player,
+  PlayerCreditSettingsBody,
+  PlayerCreditSettingsResponse,
   PlayerGameSaveCommitBody,
   PlayerGameSaveCommitResponse,
   PlayerGameSaveResponse,
@@ -6448,6 +6450,98 @@ export const useRequestUploadUrl = <
   TContext
 > => {
   return useMutation(getRequestUploadUrlMutationOptions(options));
+};
+
+/**
+ * Authenticate with X-User-Token or X-Player-Wallet-Token (player wallet token). When disabled, sets creditLimitLzt to 0; when enabled, restores the default limit (500 LZT for guests, 3000 LZT for full accounts).
+
+ * @summary Enable or disable platform gaming credit line
+ */
+export const getPatchPlayerCreditSettingsUrl = () => {
+  return `/api/players/me/credit-settings`;
+};
+
+export const patchPlayerCreditSettings = async (
+  playerCreditSettingsBody: PlayerCreditSettingsBody,
+  options?: RequestInit,
+): Promise<PlayerCreditSettingsResponse> => {
+  return customFetch<PlayerCreditSettingsResponse>(
+    getPatchPlayerCreditSettingsUrl(),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(playerCreditSettingsBody),
+    },
+  );
+};
+
+export const getPatchPlayerCreditSettingsMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchPlayerCreditSettings>>,
+    TError,
+    { data: BodyType<PlayerCreditSettingsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof patchPlayerCreditSettings>>,
+  TError,
+  { data: BodyType<PlayerCreditSettingsBody> },
+  TContext
+> => {
+  const mutationKey = ["patchPlayerCreditSettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof patchPlayerCreditSettings>>,
+    { data: BodyType<PlayerCreditSettingsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return patchPlayerCreditSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PatchPlayerCreditSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof patchPlayerCreditSettings>>
+>;
+export type PatchPlayerCreditSettingsMutationBody =
+  BodyType<PlayerCreditSettingsBody>;
+export type PatchPlayerCreditSettingsMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Enable or disable platform gaming credit line
+ */
+export const usePatchPlayerCreditSettings = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchPlayerCreditSettings>>,
+    TError,
+    { data: BodyType<PlayerCreditSettingsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof patchPlayerCreditSettings>>,
+  TError,
+  { data: BodyType<PlayerCreditSettingsBody> },
+  TContext
+> => {
+  return useMutation(getPatchPlayerCreditSettingsMutationOptions(options));
 };
 
 /**

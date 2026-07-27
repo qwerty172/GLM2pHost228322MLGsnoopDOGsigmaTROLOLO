@@ -28,6 +28,7 @@ import {
 import { generateToken } from "../lib/tokens";
 import { ensureDepositAddressesForOwner } from "../lib/walletOwner";
 import { encryptSecret, decryptSecret, isWalletCryptoEnabled } from "../lib/encryption";
+import { respondEncryptionUnavailable } from "../lib/cryptoRouteHelpers";
 import { headerUserToken } from "../lib/requestToken";
 import { hostTokenFromRequest, requireHost } from "../lib/hostAuth";
 import {
@@ -300,10 +301,7 @@ async function applyHostConfigUpdate(
   if (body.streamUrl !== undefined) update.streamUrl = body.streamUrl;
   if (body.streamKey !== undefined) {
     if (body.streamKey !== "" && !isWalletCryptoEnabled()) {
-      res.status(503).json({
-        error: "encryption_unavailable",
-        message: "Шифрование не настроено (WALLET_ENCRYPTION_KEY)",
-      });
+      respondEncryptionUnavailable(res);
       return;
     }
     update.streamKey = body.streamKey === "" ? "" : encryptSecret(body.streamKey);
@@ -1221,7 +1219,7 @@ async function serveStreamRelay(
     return;
   }
   if (!isWalletCryptoEnabled()) {
-    res.status(503).json({ error: "encryption_unavailable" });
+    respondEncryptionUnavailable(res);
     return;
   }
   try {

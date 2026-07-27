@@ -2818,6 +2818,11 @@ export const GetWalletResponse = zod.object({
     ),
   pendingWithdrawalsLzt: zod.number(),
   lztPerUsdt: zod.number(),
+  cryptoEnabled: zod
+    .boolean()
+    .describe(
+      "True when blockchain deposit\/withdraw nodes and wallet encryption are configured.",
+    ),
   depositAddresses: zod.array(
     zod.object({
       currency: zod.string().describe("USDT_TRC20 | NANO | SOL"),
@@ -3449,6 +3454,26 @@ export const RequestUploadUrlResponse = zod.object({
     size: zod.number(),
     contentType: zod.string(),
   }),
+});
+
+/**
+ * Authenticate with X-User-Token or X-Player-Wallet-Token (player wallet token). When disabled, sets creditLimitLzt to 0; when enabled, restores the default limit (500 LZT for guests, 3000 LZT for full accounts).
+
+ * @summary Enable or disable platform gaming credit line
+ */
+export const PatchPlayerCreditSettingsBody = zod.object({
+  creditEnabled: zod
+    .boolean()
+    .describe(
+      "When false, disables the gaming credit line (creditLimitLzt = 0).",
+    ),
+});
+
+export const PatchPlayerCreditSettingsResponse = zod.object({
+  creditEnabled: zod.boolean(),
+  creditLimitLzt: zod
+    .number()
+    .describe("Effective credit line after the update (0 when disabled)."),
 });
 
 /**

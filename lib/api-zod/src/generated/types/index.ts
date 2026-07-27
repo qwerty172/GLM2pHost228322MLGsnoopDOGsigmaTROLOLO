@@ -89,6 +89,8 @@ export * from "./loanRequest";
 export * from "./matchQuotasForHostParams";
 export * from "./myLoans";
 export * from "./player";
+export * from "./playerCreditSettingsBody";
+export * from "./playerCreditSettingsResponse";
 export * from "./playerGameSaveCommitBody";
 export * from "./playerGameSaveCommitResponse";
 export * from "./playerGameSaveCommitResponseSave";
