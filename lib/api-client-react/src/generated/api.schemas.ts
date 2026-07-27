@@ -638,6 +638,8 @@ export interface Wallet {
   lifetimeDepositUsdtCents: number;
   pendingWithdrawalsLzt: number;
   lztPerUsdt: number;
+  /** True when blockchain deposit/withdraw nodes and wallet encryption are configured. */
+  cryptoEnabled: boolean;
   depositAddresses: DepositAddress[];
   recentWithdrawals: Withdrawal[];
 }
