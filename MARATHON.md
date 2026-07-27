@@ -8,7 +8,7 @@
 |---|---|---|
 | W6-1 | `blockMinsRemaining`: wire `enrichSession` в sessions routes + OpenAPI + play.tsx | done |
 | W6-2 | Block reconnect idempotency: integration test (два reclaim → одно списание в ledger) | done |
-| W6-3 | `renew-block` idempotency audit + тест | pending |
+| W6-3 | `renew-block` idempotency audit + тест | done |
 | W6-4 | CI: `drizzle push` перед integration-тестами | done |
 
 ## W5 — done

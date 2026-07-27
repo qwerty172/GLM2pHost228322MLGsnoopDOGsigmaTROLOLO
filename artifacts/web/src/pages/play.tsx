@@ -974,12 +974,17 @@ export default function Play() {
       if (!playerToken || !playerWalletToken || renewBlockLoading) return;
       setRenewBlockLoading(true);
       try {
+        const idempotencyKey = crypto.randomUUID();
         const res = await fetch(
           `${import.meta.env.BASE_URL}api/sessions/by-player-token/${encodeURIComponent(playerToken)}/renew-block`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playerWalletToken, blockMinutes: minutes }),
+            body: JSON.stringify({
+              playerWalletToken,
+              blockMinutes: minutes,
+              idempotencyKey,
+            }),
           },
         );
         const data = await res.json().catch(() => ({}));
