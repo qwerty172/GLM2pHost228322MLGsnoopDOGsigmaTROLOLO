@@ -41,8 +41,9 @@ import {
   refundBlockRemainder,
 } from "../lib/sessionBilling";
 import { sendSignalingMessage } from "../lib/signaling";
-import { submitSessionRating, recordBlockReserveLedger } from "../lib/ratings";
-import { writeLedger } from "../lib/economy";
+import { submitSessionRating } from "../lib/ratings";
+import { enrichSession } from "../lib/sessionSerialize";
+import { debitBlockReserve, writeLedger, type UserBucket } from "../lib/economy";
 import { randomUUID } from "node:crypto";
 import { z } from "zod/v4";
 
@@ -56,12 +57,8 @@ const claimLimiter = rateLimit({
   max: 30, // keyed by token (default) — each player gets their own bucket
 });
 
-/** OpenAPI CreateSessionBody includes requestedGameId (uuid). */
-function serialize(s: typeof sessionsTable.$inferSelect) {
-  return {
-    ...s,
-    ratePerMinute: Number(s.ratePerMinute),
-  };
+function playerBucketFromPick(picked: "green" | "blue" | null): UserBucket {
+  return picked === "green" ? "cash" : "balance";
 }
 
 function inviteFields() {
@@ -277,7 +274,7 @@ router.post("/sessions", async (req, res): Promise<void> => {
     { sessionId: session.id, quotaId: resolvedQuotaId },
     "Session created",
   );
-  res.status(201).json(GetSessionResponse.parse(serialize(session)));
+  res.status(201).json(GetSessionResponse.parse(await enrichSession(session)));
 });
 
 // Create a session whose host is the calling browser. We mint a fresh host
@@ -362,7 +359,7 @@ router.post("/sessions/browser-host", async (req, res): Promise<void> => {
     "Browser-host session created",
   );
   res.status(201).json({
-    session: serialize(session),
+    session: await enrichSession(session),
     hostToken,
     browserHostUrl: game.browserHostUrl,
   });
@@ -523,7 +520,7 @@ router.post("/sessions/test", testSessionLimiter, async (req, res): Promise<void
   // external http(s) URL → host streaming page (tab capture via WebRTC);
   // local/relative game path → player iframe directly.
   res.status(201).json({
-    session: serialize(session),
+    session: await enrichSession(session),
     hostBoundUrl: hostBoundUrl || null,
     isExternalUrl: /^https?:\/\//i.test(hostBoundUrl),
   });
@@ -577,7 +574,7 @@ router.get(
 
     // Return strict-schema fields plus extra game info for the player UI.
     res.json({
-      ...GetSessionByPlayerTokenResponse.parse(serialize(session)),
+      ...GetSessionByPlayerTokenResponse.parse(await enrichSession(session)),
       gameSlug: game?.slug ?? null,
       gameCoverImageUrl: game?.coverImageUrl ?? null,
       gameTitle: session.isTest ? session.appName : game?.title ?? null,
@@ -695,7 +692,7 @@ router.post(
         { sessionId: claimed.id, playerId: player.id },
         "Test session claimed (free)",
       );
-      res.json(ClaimSessionResponse.parse(serialize(claimed)));
+      res.json(ClaimSessionResponse.parse(await enrichSession(claimed)));
       return;
     }
 
@@ -749,40 +746,24 @@ router.post(
       return;
     }
 
-    // Reserve the block amount: debit the player immediately so the funds are
-    // locked. The billing worker will refund unused minutes on early exit.
-    if (blockReservedLzt !== null && blockReservedLzt > 0 && !isReclaimBySamePlayer) {
-      const bucket = effectivePicked ?? "balance";
-      const playerCol =
-        bucket === "green"
-          ? playersTable.withdrawableBalanceLzt
-          : playersTable.internalBalanceLzt;
-      const debitResult = await db
-        .update(playersTable)
-        .set(
-          bucket === "green"
-            ? { withdrawableBalanceLzt: sql`${playersTable.withdrawableBalanceLzt} - ${blockReservedLzt}` }
-            : { internalBalanceLzt: sql`${playersTable.internalBalanceLzt} - ${blockReservedLzt}` },
-        )
-        .where(
-          and(
-            eq(playersTable.id, player.id),
-            sql`${playerCol} >= ${blockReservedLzt + launchFeeLzt}`,
-          ),
-        )
-        .returning({ id: playersTable.id });
-      if (debitResult.length === 0) {
-        res.status(400).json({ error: "Insufficient balance to reserve the block" });
+    // Reserve the block amount via ledger (idempotent on reclaim).
+    if (blockReservedLzt !== null && blockReservedLzt > 0) {
+      const bucket = playerBucketFromPick(effectivePicked);
+      const reserveResult = await db.transaction(async (tx) => {
+        if (isReclaimBySamePlayer) return { ok: true as const };
+        return debitBlockReserve(tx, {
+          playerId: player.id,
+          sessionId: session.id,
+          amountLzt: blockReservedLzt,
+          bucket,
+        });
+      });
+      if (!reserveResult.ok) {
+        res.status(400).json({
+          error: reserveResult.reason ?? "Insufficient balance to reserve the block",
+        });
         return;
       }
-      const ledgerBucket = bucket === "green" ? "green" : "blue";
-      await recordBlockReserveLedger({
-        playerId: player.id,
-        sessionId: session.id,
-        amountLzt: blockReservedLzt,
-        bucket: ledgerBucket,
-        note: `block reserve: ${blockMinutes} мин`,
-      });
     }
 
     if (picked === null && minBalanceLzt > 0 && blockReservedLzt === null) {
@@ -841,7 +822,7 @@ router.post(
       { sessionId: updated.id, playerId: player.id, launchFee },
       "Session claimed",
     );
-    res.json(ClaimSessionResponse.parse(serialize(updated)));
+    res.json(ClaimSessionResponse.parse(await enrichSession(updated)));
   },
 );
 
@@ -884,7 +865,7 @@ router.get("/sessions/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(GetSessionResponse.parse(serialize(session)));
+  res.json(GetSessionResponse.parse(await enrichSession(session)));
 });
 
 router.patch("/sessions/:id/end", async (req, res): Promise<void> => {
@@ -952,7 +933,7 @@ router.patch("/sessions/:id/end", async (req, res): Promise<void> => {
   }
 
   req.log.info({ sessionId: session.id }, "Session ended");
-  res.json(EndSessionResponse.parse(serialize(session)));
+  res.json(EndSessionResponse.parse(await enrichSession(session)));
 });
 
 router.get("/sessions/by-invite/:inviteCode", async (req, res): Promise<void> => {
@@ -980,7 +961,7 @@ router.get("/sessions/by-invite/:inviteCode", async (req, res): Promise<void> =>
     .where(eq(gamesTable.id, session.gameId));
 
   res.json({
-    ...GetSessionByPlayerTokenResponse.parse(serialize(session)),
+    ...GetSessionByPlayerTokenResponse.parse(await enrichSession(session)),
     inviteCode: session.inviteCode,
     gameSlug: game?.slug ?? null,
     gameCoverImageUrl: game?.coverImageUrl ?? null,
@@ -1104,7 +1085,7 @@ router.post(
       addedMinutes: blockMinutes,
     });
 
-    res.json(ClaimSessionResponse.parse(serialize(updated)));
+    res.json(ClaimSessionResponse.parse(await enrichSession(updated)));
   },
 );
 
