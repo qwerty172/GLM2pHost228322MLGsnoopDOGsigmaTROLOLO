@@ -5,7 +5,10 @@
  * P2P Cloud Gaming signaling, session, and wallet API
  * OpenAPI spec version: 0.1.0
  */
+import type { HostHeartbeat200AgentKeyStatus } from "./hostHeartbeat200AgentKeyStatus";
 
 export type HostHeartbeat200 = {
   ok: boolean;
+  /** Present when agentPubkey was sent in the request body */
+  agentKeyStatus?: HostHeartbeat200AgentKeyStatus;
 };

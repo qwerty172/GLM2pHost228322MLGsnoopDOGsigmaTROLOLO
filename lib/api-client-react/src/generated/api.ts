@@ -104,6 +104,7 @@ import type {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
   RequestWithdrawalBody,
+  RevokeAgentKey200,
   SaveConfirmBody,
   SaveConfirmResponse,
   SaveDownloadUrlResponse,
@@ -6278,6 +6279,87 @@ export const useBindAgentKey = <
   TContext
 > => {
   return useMutation(getBindAgentKeyMutationOptions(options));
+};
+
+/**
+ * @summary Revoke the bound Ed25519 agent key for the authenticated host
+ */
+export const getRevokeAgentKeyUrl = () => {
+  return `/api/auth/revoke-agent-key`;
+};
+
+export const revokeAgentKey = async (
+  options?: RequestInit,
+): Promise<RevokeAgentKey200> => {
+  return customFetch<RevokeAgentKey200>(getRevokeAgentKeyUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRevokeAgentKeyMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokeAgentKey>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof revokeAgentKey>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["revokeAgentKey"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof revokeAgentKey>>,
+    void
+  > = () => {
+    return revokeAgentKey(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RevokeAgentKeyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revokeAgentKey>>
+>;
+
+export type RevokeAgentKeyMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Revoke the bound Ed25519 agent key for the authenticated host
+ */
+export const useRevokeAgentKey = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokeAgentKey>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof revokeAgentKey>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getRevokeAgentKeyMutationOptions(options));
 };
 
 /**

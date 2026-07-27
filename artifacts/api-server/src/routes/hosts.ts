@@ -40,6 +40,7 @@ import {
 import { generalHostTier, computeHostTier, specsFromPcSpecs, BASELINE_REC, BASELINE_MIN, type TierThresholds } from "../lib/hostTier";
 import { isQuotaActiveNow } from "../lib/quotaEngine";
 import { rateLimit, ipKey, failedAttemptGuard, guardAndTrackFailures } from "../lib/rateLimit";
+import { resolveAgentKeyStatus } from "../lib/agentKeyStatus";
 import type { Request, Response } from "express";
 
 const router: IRouter = Router();
@@ -1274,7 +1275,7 @@ router.post("/hosts/heartbeat", async (req, res): Promise<void> => {
     return;
   }
   const [host] = await db
-    .select({ id: hostsTable.id })
+    .select({ id: hostsTable.id, agentPubkey: hostsTable.agentPubkey })
     .from(hostsTable)
     .where(eq(hostsTable.hostToken, hostToken));
   if (!host) {
@@ -1282,7 +1283,7 @@ router.post("/hosts/heartbeat", async (req, res): Promise<void> => {
     return;
   }
 
-  const body = req.body as { hostToken?: string; pingMs?: number };
+  const body = req.body as { hostToken?: string; pingMs?: number; agentPubkey?: string };
   const update: Partial<typeof hostsTable.$inferInsert> = { lastSeenAt: new Date() };
   if (typeof body.pingMs === "number" && Number.isFinite(body.pingMs) && body.pingMs >= 0) {
     update.pingMs = Math.round(body.pingMs);
@@ -1294,7 +1295,14 @@ router.post("/hosts/heartbeat", async (req, res): Promise<void> => {
     .where(eq(hostsTable.id, host.id));
   const { emitPlatformEvent } = await import("../lib/pgNotify");
   void emitPlatformEvent("host_last_seen", { hostId: host.id });
-  res.json({ ok: true });
+
+  const response: { ok: true; agentKeyStatus?: ReturnType<typeof resolveAgentKeyStatus> } = {
+    ok: true,
+  };
+  if (typeof body.agentPubkey === "string" && body.agentPubkey.trim()) {
+    response.agentKeyStatus = resolveAgentKeyStatus(host.agentPubkey, body.agentPubkey);
+  }
+  res.json(response);
 });
 
 const SteamGameInput = z.object({
