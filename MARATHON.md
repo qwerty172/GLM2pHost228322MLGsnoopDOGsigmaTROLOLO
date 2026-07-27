@@ -22,3 +22,11 @@ Agent `--bind-code`, setup banner, port discovery.
 ## W3 — done
 
 InviteCode канон, joinCode deprecated, ws-ticket route.
+
+## W7 — Wallet & billing UX (2026-07-27)
+
+| ID | Задача | Статус |
+|---|---|---|
+| W7-1 | История кошелька: `block_reserve` → «Блок N мин — Игра» (PLAN 3.5) | done |
+| W7-2 | Ledger invariant smoke в CI | pending |
+| W7-3 | Block end refund integration test | pending |
