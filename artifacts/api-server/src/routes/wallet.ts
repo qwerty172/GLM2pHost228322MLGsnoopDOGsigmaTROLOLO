@@ -24,6 +24,10 @@ import {
 import { LZT_PER_USDT, lztToUsdt, usdtToLzt } from "../lib/lzt";
 import { recordWithdrawalDebit } from "../lib/economy";
 import { rateLimit, ipKey } from "../lib/rateLimit";
+import {
+  isCryptoOperationsEnabled,
+  respondCryptoUnavailable,
+} from "../lib/cryptoRouteHelpers";
 
 const router: IRouter = Router();
 
@@ -108,6 +112,7 @@ router.get("/wallet/:userToken", walletReadLimiter, async (req, res): Promise<vo
       lifetimeDepositUsdtCents: owner.lifetimeDepositUsdtCents,
       pendingWithdrawalsLzt,
       lztPerUsdt: LZT_PER_USDT,
+      cryptoEnabled: isCryptoOperationsEnabled(),
       depositAddresses: addresses.map((a) => ({
         currency: a.currency,
         label: a.label,
@@ -329,7 +334,14 @@ router.post(
     if (owner.type === "dev_key") {
       // Out of scope for task-125: API keys are spend-only wallets (top up
       // via deposit, spend via the embed widget). No withdrawal flow.
-      res.status(400).json({ error: "dev_key_no_withdrawal", message: "API keys cannot withdraw — deposit-only wallet" });
+      res.status(400).json({
+        error: "dev_key_no_withdrawal",
+        message: "API-ключи не поддерживают вывод — только пополнение и траты",
+      });
+      return;
+    }
+    if (!isCryptoOperationsEnabled()) {
+      respondCryptoUnavailable(res);
       return;
     }
     const ownerType = owner.type;
