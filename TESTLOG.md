@@ -45,6 +45,7 @@
 | **marathon W3 dedup** | **done** | inviteCode канон, joinCode deprecated, OpenAPI+hooks, ws-ticket route |
 | **marathon W4 UX** | **done** | agent --bind-code, setup advanced banner, agent port discovery |
 | **marathon W5 infra** | **done** | .env.example Redis/JWT/Sentry/migrations docs, worker math tests |
+| **marathon W8-4 ping refresh** | **done** | useBrowserPingMs каждые 60с + refetchInterval каталога в hosts/game-detail |
 
 ## Баги
 

@@ -31,6 +31,7 @@ import {
 import type { ScheduleSlot } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { SiteNav } from "@/components/site-nav";
+import { useBrowserPingMs } from "@/hooks/use-browser-ping";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
 
 const LZT_PER_USD = 200;
@@ -103,29 +104,9 @@ function useLibraryHosts(slug: string) {
       return res.json();
     },
     enabled: !!slug,
-    refetchInterval: 20_000,
+    refetchInterval: 60_000,
     staleTime: 10_000,
   });
-}
-
-function useBrowserPingMs(): number | null {
-  const [pingMs, setPingMs] = useState<number | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    async function probe() {
-      try {
-        const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
-        const t0 = Date.now();
-        await fetch(`${base}/api/public/ping`, { cache: "no-store" });
-        if (!cancelled) setPingMs(Date.now() - t0);
-      } catch {
-        // ignore — just leave null
-      }
-    }
-    void probe();
-    return () => { cancelled = true; };
-  }, []);
-  return pingMs;
 }
 
 function sortHostsByLatency(hosts: LibraryHost[], browserRtt: number | null): LibraryHost[] {
