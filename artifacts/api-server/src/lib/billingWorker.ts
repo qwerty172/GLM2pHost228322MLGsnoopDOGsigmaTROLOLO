@@ -737,6 +737,11 @@ async function billOnceInner(): Promise<void> {
     );
 }
 
+/** Single billing pass — for integration tests (ghost-billing guard). */
+export async function runBillingTickOnce(): Promise<void> {
+  await billOnce();
+}
+
 export function startBillingWorker(): void {
   if (interval) return;
   logger.info(

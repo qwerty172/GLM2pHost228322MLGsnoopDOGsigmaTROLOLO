@@ -8,6 +8,8 @@ import {
   depositsTable,
   billingEventsTable,
   ledgerTable,
+  sessionsTable,
+  gamesTable,
 } from "@workspace/db";
 import {
   GetWalletParams,
@@ -23,17 +25,24 @@ import {
 } from "../lib/walletOwner";
 import { LZT_PER_USDT, lztToUsdt, usdtToLzt } from "../lib/lzt";
 import { recordWithdrawalDebit } from "../lib/economy";
-import { rateLimit, ipKey } from "../lib/rateLimit";
+import { rateLimit, ipKey, guardAndTrackFailures } from "../lib/rateLimit";
+import {
+  formatBlockReserveDescription,
+  formatBlockRefundDescription,
+  mapLedgerKindForWallet,
+  sessionIdFromLedgerRef,
+} from "../lib/walletLedgerFormat";
 
 const router: IRouter = Router();
 
 // Wallet reads are keyed by IP: a token brute-forcer sends many *different*
 // tokens, so per-token buckets would never fill. 429 long before a random
 // token space can be explored.
-const walletReadLimiter = rateLimit({ // keyed by token (default) — isolated per user
+const walletReadLimiter = rateLimit({
   scope: "wallet:read",
   windowMs: 60_000,
-  max: 120, // keyed by token (default) — isolated per user
+  max: 120,
+  keyFn: ipKey,
 });
 // Withdrawals are rare, human-initiated actions — keep the cap tight.
 const withdrawLimiter = rateLimit({
@@ -47,7 +56,11 @@ function ownerBalanceTable(type: OwnerType) {
   return type === "host" ? hostsTable : playersTable;
 }
 
-router.get("/wallet/:userToken", walletReadLimiter, async (req, res): Promise<void> => {
+router.get(
+  "/wallet/:userToken",
+  walletReadLimiter,
+  guardAndTrackFailures("wallet:read"),
+  async (req, res): Promise<void> => {
   const params = GetWalletParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -136,6 +149,7 @@ router.get("/wallet/:userToken", walletReadLimiter, async (req, res): Promise<vo
 router.get(
   "/wallet/:userToken/transactions",
   walletReadLimiter,
+  guardAndTrackFailures("wallet:read"),
   async (req, res): Promise<void> => {
     const params = ListWalletTransactionsParams.safeParse(req.params);
     if (!params.success) {
@@ -191,15 +205,56 @@ router.get(
     };
     const txs: Tx[] = [];
 
+    const blockSessionIds = [
+      ...new Set(
+        ledgerRows
+          .filter(
+            (l) =>
+              (l.kind === "block_reserve" || l.kind === "block_refund") &&
+              l.refType === "session",
+          )
+          .map((l) => sessionIdFromLedgerRef(l.refId))
+          .filter((id): id is string => !!id),
+      ),
+    ];
+
+    const gameTitleBySessionId = new Map<string, string>();
+    if (blockSessionIds.length > 0) {
+      const sessionGames = await db
+        .select({
+          sessionId: sessionsTable.id,
+          title: gamesTable.title,
+        })
+        .from(sessionsTable)
+        .innerJoin(gamesTable, eq(sessionsTable.gameId, gamesTable.id))
+        .where(inArray(sessionsTable.id, blockSessionIds));
+      for (const row of sessionGames) {
+        gameTitleBySessionId.set(row.sessionId, row.title);
+      }
+    }
+
     for (const l of ledgerRows) {
+      const sessionId =
+        (l.kind === "block_reserve" || l.kind === "block_refund") &&
+        l.refType === "session"
+          ? sessionIdFromLedgerRef(l.refId)
+          : null;
+      const gameTitle = sessionId ? gameTitleBySessionId.get(sessionId) : undefined;
+      const description =
+        l.kind === "block_reserve"
+          ? formatBlockReserveDescription(l.note, gameTitle, l.deltaLzt)
+          : l.kind === "block_refund"
+            ? formatBlockRefundDescription(l.note, gameTitle)
+            : (l.note ?? l.kind);
+
       txs.push({
         id: `led-${l.id}`,
-        kind: l.kind,
+        kind: mapLedgerKindForWallet(l.kind),
         currency: l.bucket,
         amountLzt: l.deltaLzt,
         bucket: l.bucket,
         status: null,
-        description: l.note ?? l.kind,
+        description,
         timestamp: new Date(l.createdAt).toISOString(),
       });
     }
@@ -304,6 +359,7 @@ router.get(
 router.post(
   "/wallet/:userToken/withdraw",
   withdrawLimiter,
+  guardAndTrackFailures("wallet:withdraw"),
   async (req, res): Promise<void> => {
     const params = RequestWithdrawalParams.safeParse(req.params);
     if (!params.success) {

@@ -79,10 +79,10 @@ export function createVerifierRouter(cfg: VerifierConfig, getUser: GetUser): Rou
   // ── POST /challenge/:id/verify ───────────────────────────────────────────
   // Body: { provider: "telegram" | "discord", code: "123456" }
   router.post("/challenge/:id/verify", requireUser, async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = String(req.params.id ?? "");
     const provider = req.body?.provider as ProviderName | undefined;
     const code = req.body?.code as string | undefined;
-    if (!provider || !code) {
+    if (!id || !provider || !code) {
       return json(res, 400, { error: "provider and code are required" });
     }
     const result = await submitCode(cfg, id, provider, code);
@@ -91,7 +91,8 @@ export function createVerifierRouter(cfg: VerifierConfig, getUser: GetUser): Rou
 
   // ── GET /challenge/:id ───────────────────────────────────────────────────
   router.get("/challenge/:id", requireUser, async (req: Request, res: Response) => {
-    const status = await getChallengeStatus(cfg, req.params.id);
+    const id = String(req.params.id ?? "");
+    const status = await getChallengeStatus(cfg, id);
     json(res, 200, { status });
   });
 
