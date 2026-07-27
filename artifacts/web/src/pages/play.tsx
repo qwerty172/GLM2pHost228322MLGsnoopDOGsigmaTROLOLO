@@ -971,7 +971,11 @@ export default function Play() {
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playerWalletToken, blockMinutes: minutes }),
+            body: JSON.stringify({
+              playerWalletToken,
+              blockMinutes: minutes,
+              idempotencyKey: crypto.randomUUID(),
+            }),
           },
         );
         const data = await res.json().catch(() => ({}));

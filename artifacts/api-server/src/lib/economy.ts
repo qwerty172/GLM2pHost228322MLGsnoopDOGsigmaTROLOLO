@@ -23,6 +23,7 @@ import {
   devKeysTable,
   ledgerTable,
   loansTable,
+  sessionsTable,
   systemAccountsTable,
   outboxTable,
 } from "@workspace/db";
@@ -953,6 +954,105 @@ export async function debitBlockReserve(
     },
   ]);
   return { ok: true };
+}
+
+export function blockRenewRefId(sessionId: string, idempotencyKey: string): string {
+  return `${sessionId}:${idempotencyKey}`;
+}
+
+/** Returns true when this renew idempotency key was already processed. */
+export async function hasBlockRenewLedger(
+  tx: DbTx,
+  renewRefId: string,
+): Promise<boolean> {
+  const [row] = await tx
+    .select({ id: ledgerTable.id })
+    .from(ledgerTable)
+    .where(
+      and(
+        eq(ledgerTable.kind, "block_renew"),
+        eq(ledgerTable.refType, "session_renew"),
+        eq(ledgerTable.refId, renewRefId),
+      ),
+    )
+    .limit(1);
+  return !!row;
+}
+
+export type PlayerColorBucket = "green" | "blue";
+
+function colorBucketToUserBucket(bucket: PlayerColorBucket): UserBucket {
+  return bucket === "green" ? "cash" : "balance";
+}
+
+/**
+ * Extend a prepaid block session. Idempotent per (sessionId, idempotencyKey) —
+ * safe on network retries / double-submit.
+ */
+export async function renewBlockSession(
+  tx: DbTx,
+  args: {
+    session: typeof sessionsTable.$inferSelect;
+    playerId: string;
+    blockMinutes: number;
+    addReserve: number;
+    bucket: PlayerColorBucket;
+    idempotencyKey: string;
+  },
+): Promise<
+  | { ok: true; session: typeof sessionsTable.$inferSelect; alreadyProcessed: boolean }
+  | { ok: false; reason: string }
+> {
+  const renewRefId = blockRenewRefId(args.session.id, args.idempotencyKey);
+  if (await hasBlockRenewLedger(tx, renewRefId)) {
+    const [row] = await tx
+      .select()
+      .from(sessionsTable)
+      .where(eq(sessionsTable.id, args.session.id))
+      .limit(1);
+    if (!row) return { ok: false, reason: "session not found" };
+    return { ok: true, session: row, alreadyProcessed: true };
+  }
+
+  const addReserve = Math.floor(args.addReserve);
+  const userBucket = colorBucketToUserBucket(args.bucket);
+
+  if (addReserve > 0) {
+    const debited = await adjustUserBucket(
+      tx,
+      "player",
+      args.playerId,
+      userBucket,
+      -addReserve,
+    );
+    if (!debited) {
+      return { ok: false, reason: "insufficient balance to renew block" };
+    }
+    await writeLedger(tx, [
+      {
+        groupId: randomUUID(),
+        kind: "block_renew",
+        ownerType: "player",
+        ownerId: args.playerId,
+        bucket: userBucket,
+        deltaLzt: -addReserve,
+        refType: "session_renew",
+        refId: renewRefId,
+        note: `block renew: +${args.blockMinutes} мин`,
+      },
+    ]);
+  }
+
+  const [row] = await tx
+    .update(sessionsTable)
+    .set({
+      blockMinutes: (args.session.blockMinutes ?? 0) + args.blockMinutes,
+      blockReservedLzt: (args.session.blockReservedLzt ?? 0) + addReserve,
+    })
+    .where(eq(sessionsTable.id, args.session.id))
+    .returning();
+  if (!row) return { ok: false, reason: "session not found" };
+  return { ok: true, session: row, alreadyProcessed: false };
 }
 
 // Pledger limit on P2P loan request size: max(largest_deposit, largest_withdrawal).

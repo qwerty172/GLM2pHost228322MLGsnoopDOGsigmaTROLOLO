@@ -42,8 +42,7 @@ import {
 } from "../lib/sessionBilling";
 import { sendSignalingMessage } from "../lib/signaling";
 import { submitSessionRating, recordBlockReserveLedger } from "../lib/ratings";
-import { writeLedger } from "../lib/economy";
-import { randomUUID } from "node:crypto";
+import { renewBlockSession } from "../lib/economy";
 import { z } from "zod/v4";
 
 const router: IRouter = Router();
@@ -995,9 +994,14 @@ router.post(
   async (req, res): Promise<void> => {
     const playerToken = String(req.params.playerToken ?? "").trim();
     const playerWalletToken = String(req.body?.playerWalletToken ?? "").trim();
+    const idempotencyKey = String(req.body?.idempotencyKey ?? "").trim();
     const blockMinutes = Number(req.body?.blockMinutes);
     if (!playerToken || !playerWalletToken) {
       res.status(400).json({ error: "playerWalletToken required" });
+      return;
+    }
+    if (!idempotencyKey || idempotencyKey.length > 128) {
+      res.status(400).json({ error: "idempotencyKey required (max 128 chars)" });
       return;
     }
     if (![10, 15, 25].includes(blockMinutes)) {
@@ -1042,69 +1046,33 @@ router.post(
       return;
     }
 
-    const bucket = picked ?? "green";
-    const playerCol =
-      bucket === "green"
-        ? playersTable.withdrawableBalanceLzt
-        : playersTable.internalBalanceLzt;
+    const colorBucket = picked ?? "green";
 
-    const updated = await db.transaction(async (tx) => {
-      if (addReserve > 0) {
-        const debited = await tx
-          .update(playersTable)
-          .set(
-            bucket === "green"
-              ? { withdrawableBalanceLzt: sql`${playersTable.withdrawableBalanceLzt} - ${addReserve}` }
-              : { internalBalanceLzt: sql`${playersTable.internalBalanceLzt} - ${addReserve}` },
-          )
-          .where(
-            and(
-              eq(playersTable.id, player.id),
-              sql`${playerCol} >= ${addReserve}`,
-            ),
-          )
-          .returning({ id: playersTable.id });
-        if (debited.length === 0) {
-          return null;
-        }
-        await writeLedger(tx, [
-          {
-            groupId: randomUUID(),
-            kind: "block_reserve",
-            ownerType: "player",
-            ownerId: player.id,
-            bucket: bucket === "green" ? "cash" : "balance",
-            deltaLzt: -addReserve,
-            refType: "session",
-            refId: session.id,
-            note: `block renew: +${blockMinutes} мин`,
-          },
-        ]);
-      }
+    const result = await db.transaction(async (tx) =>
+      renewBlockSession(tx, {
+        session,
+        playerId: player.id,
+        blockMinutes,
+        addReserve,
+        bucket: colorBucket,
+        idempotencyKey,
+      }),
+    );
 
-      const [row] = await tx
-        .update(sessionsTable)
-        .set({
-          blockMinutes: (session.blockMinutes ?? 0) + blockMinutes,
-          blockReservedLzt: (session.blockReservedLzt ?? 0) + addReserve,
-        })
-        .where(eq(sessionsTable.id, session.id))
-        .returning();
-      return row ?? null;
-    });
-
-    if (!updated) {
+    if (!result.ok) {
       res.status(400).json({ error: "Insufficient balance to renew block" });
       return;
     }
 
-    sendSignalingMessage(session.id, {
-      type: "block-renewed",
-      blockMinutes: updated.blockMinutes,
-      addedMinutes: blockMinutes,
-    });
+    if (!result.alreadyProcessed) {
+      sendSignalingMessage(session.id, {
+        type: "block-renewed",
+        blockMinutes: result.session.blockMinutes,
+        addedMinutes: blockMinutes,
+      });
+    }
 
-    res.json(ClaimSessionResponse.parse(serialize(updated)));
+    res.json(ClaimSessionResponse.parse(serialize(result.session)));
   },
 );
 
