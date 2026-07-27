@@ -8,12 +8,11 @@ import {
   billingEventsTable,
   playersTable,
   sessionsTable,
+  ledgerTable,
 } from "@workspace/db";
 import { logger } from "./logger";
 import { writeLedger } from "./economy";
 import { randomUUID } from "node:crypto";
-import { eq, and } from "drizzle-orm";
-import { ledgerTable } from "@workspace/db";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
