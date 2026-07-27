@@ -33,3 +33,14 @@ InviteCode канон, joinCode deprecated, ws-ticket route.
 | W7-4 | Block refund idempotency (ledger guard + double-end test) | done |
 | W7-5 | Wallet `block_refund` описание с игрой | done |
 | W7-6 | Shared integration test harness | done |
+
+## W8 — Economy E2E & фаза 5 TESTPLAN (2026-07-27)
+
+| ID | Задача | Статус |
+|---|---|---|
+| W8-1 | Economy E2E integration test: deposit → play → block → loan → repay → withdraw (PLAN 3.8) | done |
+| W8-2 | Ghost-billing: integration test — нет тиков после session end | pending |
+| W8-3 | Brute-force токенов: wire `recordFailedAttempt` на wallet/session lookup | pending |
+| W8-4 | Пере-замер пинга в каталоге каждые 60с (PLAN 1.9) | pending |
+| W8-5 | Крипто без нод: аудит русских сообщений «временно недоступно» | pending |
+| W8-6 | `credit-settings` API + toggle в профиле (PLAN 3.4) | pending |

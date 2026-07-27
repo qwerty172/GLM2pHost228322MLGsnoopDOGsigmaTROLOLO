@@ -49,6 +49,7 @@
 | **marathon W6 renew-block** | **done** | debitBlockRenew + idempotencyKey, integration test |
 | **marathon W7 wallet blocks** | **done** | block_reserve → block_purchase + русское описание с игрой |
 | **marathon W7 ledger+refund** | **done** | invariant CI, block refund integration, idempotency, harness |
+| **marathon W8-1 economy E2E** | **done** | deposit → minute play → block → P2P loan → repay → withdraw integration test |
 
 ## Баги
 
