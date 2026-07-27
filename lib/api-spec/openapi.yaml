@@ -3073,6 +3073,9 @@ components:
         blockReservedLzt:
           type: ["integer", "null"]
           description: Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.
+        blockMinsRemaining:
+          type: ["integer", "null"]
+          description: Minutes left in the current block (blockMinutes minus billed green ticks). Null when not a block session.
         isTest:
           type: boolean
           description: Host self-test session вЂ” completely free, skipped by billing.

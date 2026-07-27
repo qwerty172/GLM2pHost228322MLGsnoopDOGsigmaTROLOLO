@@ -52,6 +52,11 @@ export interface Session {
    * @nullable
    */
   blockReservedLzt?: number | null;
+  /**
+   * Minutes left in the current block (blockMinutes minus billed green ticks). Null when not a block session.
+   * @nullable
+   */
+  blockMinsRemaining?: number | null;
   /** Host self-test session вЂ” completely free, skipped by billing. */
   isTest?: boolean;
 }
