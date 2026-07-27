@@ -43,4 +43,4 @@ InviteCode канон, joinCode deprecated, ws-ticket route.
 | W8-3 | Brute-force токенов: wire `recordFailedAttempt` на wallet/session lookup | done |
 | W8-4 | Пере-замер пинга в каталоге каждые 60с (PLAN 1.9) | done |
 | W8-5 | Крипто без нод: аудит русских сообщений «временно недоступно» | done |
-| W8-6 | `credit-settings` API + toggle в профиле (PLAN 3.4) | pending |
+| W8-6 | `credit-settings` API + toggle в профиле (PLAN 3.4) | done |

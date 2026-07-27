@@ -2318,6 +2318,47 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /players/me/credit-settings:
+    patch:
+      operationId: patchPlayerCreditSettings
+      tags: [players]
+      summary: Enable or disable platform gaming credit line
+      description: >
+        Authenticate with X-User-Token or X-Player-Wallet-Token (player wallet token).
+        When disabled, sets creditLimitLzt to 0; when enabled, restores the default
+        limit (500 LZT for guests, 3000 LZT for full accounts).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerCreditSettingsBody"
+      responses:
+        "200":
+          description: Updated credit settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerCreditSettingsResponse"
+        "400":
+          description: Invalid body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing player token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Player not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /players/me/saves/{gameId}:
     get:
       operationId: getPlayerGameSave
@@ -2518,6 +2559,24 @@ components:
           type: ["object", "null"]
           additionalProperties: true
       required: [save]
+
+    PlayerCreditSettingsBody:
+      type: object
+      properties:
+        creditEnabled:
+          type: boolean
+          description: When false, disables the gaming credit line (creditLimitLzt = 0).
+      required: [creditEnabled]
+
+    PlayerCreditSettingsResponse:
+      type: object
+      properties:
+        creditEnabled:
+          type: boolean
+        creditLimitLzt:
+          type: integer
+          description: Effective credit line after the update (0 when disabled).
+      required: [creditEnabled, creditLimitLzt]
 
 
 

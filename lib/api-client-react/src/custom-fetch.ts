@@ -406,8 +406,9 @@ export async function customFetch<T = unknown>(
   // Move known user tokens out of the URL into the X-User-Token header.
   let userTokenHeader: string | null = null;
   if (_userTokensGetter) {
+    const tokens = _userTokensGetter();
     const original = resolveUrl(input);
-    const rewritten = rewriteTokenUrl(original, _userTokensGetter());
+    const rewritten = rewriteTokenUrl(original, tokens);
     if (rewritten.token) {
       userTokenHeader = rewritten.token;
       if (typeof input === "string") {
@@ -417,6 +418,10 @@ export async function customFetch<T = unknown>(
       } else if (isRequest(input)) {
         input = new Request(rewritten.url, input);
       }
+    } else if (/\/players\/me(\/|$|\?)/.test(original)) {
+      // Literal /players/me/* routes — prefer the player wallet token.
+      const playerToken = tokens[1] ?? tokens.find((t) => t) ?? null;
+      if (playerToken) userTokenHeader = playerToken;
     }
   }
 
