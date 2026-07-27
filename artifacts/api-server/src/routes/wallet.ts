@@ -8,6 +8,8 @@ import {
   depositsTable,
   billingEventsTable,
   ledgerTable,
+  sessionsTable,
+  gamesTable,
 } from "@workspace/db";
 import {
   GetWalletParams,
@@ -24,6 +26,12 @@ import {
 import { LZT_PER_USDT, lztToUsdt, usdtToLzt } from "../lib/lzt";
 import { recordWithdrawalDebit } from "../lib/economy";
 import { rateLimit, ipKey } from "../lib/rateLimit";
+import {
+  formatBlockReserveDescription,
+  formatBlockRefundDescription,
+  mapLedgerKindForWallet,
+  sessionIdFromLedgerRef,
+} from "../lib/walletLedgerFormat";
 
 const router: IRouter = Router();
 
@@ -191,15 +199,56 @@ router.get(
     };
     const txs: Tx[] = [];
 
+    const blockSessionIds = [
+      ...new Set(
+        ledgerRows
+          .filter(
+            (l) =>
+              (l.kind === "block_reserve" || l.kind === "block_refund") &&
+              l.refType === "session",
+          )
+          .map((l) => sessionIdFromLedgerRef(l.refId))
+          .filter((id): id is string => !!id),
+      ),
+    ];
+
+    const gameTitleBySessionId = new Map<string, string>();
+    if (blockSessionIds.length > 0) {
+      const sessionGames = await db
+        .select({
+          sessionId: sessionsTable.id,
+          title: gamesTable.title,
+        })
+        .from(sessionsTable)
+        .innerJoin(gamesTable, eq(sessionsTable.gameId, gamesTable.id))
+        .where(inArray(sessionsTable.id, blockSessionIds));
+      for (const row of sessionGames) {
+        gameTitleBySessionId.set(row.sessionId, row.title);
+      }
+    }
+
     for (const l of ledgerRows) {
+      const sessionId =
+        (l.kind === "block_reserve" || l.kind === "block_refund") &&
+        l.refType === "session"
+          ? sessionIdFromLedgerRef(l.refId)
+          : null;
+      const gameTitle = sessionId ? gameTitleBySessionId.get(sessionId) : undefined;
+      const description =
+        l.kind === "block_reserve"
+          ? formatBlockReserveDescription(l.note, gameTitle, l.deltaLzt)
+          : l.kind === "block_refund"
+            ? formatBlockRefundDescription(l.note, gameTitle)
+            : (l.note ?? l.kind);
+
       txs.push({
         id: `led-${l.id}`,
-        kind: l.kind,
+        kind: mapLedgerKindForWallet(l.kind),
         currency: l.bucket,
         amountLzt: l.deltaLzt,
         bucket: l.bucket,
         status: null,
-        description: l.note ?? l.kind,
+        description,
         timestamp: new Date(l.createdAt).toISOString(),
       });
     }

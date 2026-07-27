@@ -9,7 +9,7 @@ vi.mock("@workspace/db", () => ({
   ledgerTable: { id: "id", kind: "kind", refType: "refType", refId: "refId" },
 }));
 
-import { hasBlockReserveLedger, debitBlockReserve } from "./economy";
+import { hasBlockReserveLedger, debitBlockReserve, hasBlockRenewLedger, debitBlockRenew } from "./economy";
 
 function mockTx(existingLedger: boolean) {
   const limit = vi.fn().mockResolvedValue(existingLedger ? [{ id: "x" }] : []);
@@ -39,5 +39,29 @@ describe("debitBlockReserve idempotency", () => {
       bucket: "cash",
     });
     expect(result).toEqual({ ok: true });
+  });
+});
+
+describe("hasBlockRenewLedger", () => {
+  it("returns true when renew ledger row exists", async () => {
+    const tx = mockTx(true);
+    await expect(
+      hasBlockRenewLedger(tx, "session-1", "renew-key-1"),
+    ).resolves.toBe(true);
+  });
+});
+
+describe("debitBlockRenew idempotency", () => {
+  it("skips debit when renew key already processed", async () => {
+    const tx = mockTx(true);
+    const result = await debitBlockRenew(tx, {
+      playerId: "player-1",
+      sessionId: "session-1",
+      amountLzt: 120,
+      bucket: "cash",
+      idempotencyKey: "renew-key-1",
+      note: "block renew: +15 мин",
+    });
+    expect(result).toEqual({ ok: true, alreadyProcessed: true });
   });
 });

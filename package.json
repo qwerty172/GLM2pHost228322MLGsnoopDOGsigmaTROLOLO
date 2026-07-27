@@ -9,7 +9,8 @@
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "test": "pnpm --filter @workspace/api-server test",
     "smoke:invite": "node scripts/invite-flow-smoke.mjs",
-    "smoke:features": "node scripts/features-smoke.mjs"
+    "smoke:features": "node scripts/features-smoke.mjs",
+    "smoke:ledger": "node scripts/ledger-invariant.mjs"
   },
   "private": true,
   "devDependencies": {

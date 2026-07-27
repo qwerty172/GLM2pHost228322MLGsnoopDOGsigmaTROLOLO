@@ -1,0 +1,35 @@
+# Marathon — очередь задач
+
+> Hourly cron: берёт **первую** задачу со статусом `pending`, реализует, помечает `done`, обновляет TESTLOG.
+
+## W6 — Block billing & reconnect (2026-07-27)
+
+| ID | Задача | Статус |
+|---|---|---|
+| W6-1 | `blockMinsRemaining`: wire `enrichSession` в sessions routes + OpenAPI + play.tsx | done |
+| W6-2 | Block reconnect idempotency: integration test (два reclaim → одно списание в ledger) | done |
+| W6-3 | `renew-block` idempotency audit + тест | done |
+| W6-4 | CI: `drizzle push` перед integration-тестами | done |
+
+## W5 — done
+
+Инфра: `.env.example`, worker math tests, agent UX.
+
+## W4 — done
+
+Agent `--bind-code`, setup banner, port discovery.
+
+## W3 — done
+
+InviteCode канон, joinCode deprecated, ws-ticket route.
+
+## W7 — Wallet & billing UX (2026-07-27)
+
+| ID | Задача | Статус |
+|---|---|---|
+| W7-1 | История кошелька: `block_reserve` → «Блок N мин — Игра» (PLAN 3.5) | done |
+| W7-2 | Ledger invariant smoke в CI | done |
+| W7-3 | Block end refund integration test | done |
+| W7-4 | Block refund idempotency (ledger guard + double-end test) | done |
+| W7-5 | Wallet `block_refund` описание с игрой | done |
+| W7-6 | Shared integration test harness | done |
