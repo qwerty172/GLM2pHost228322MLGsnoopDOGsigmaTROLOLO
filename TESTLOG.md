@@ -96,3 +96,13 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
 | Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+
+## Marathon UX-02 (2026-07-28) {#marathon-ux-02}
+
+| Область | Результат |
+|---|---|
+| Web dashboard | `AgentTroubleshootPanel` в расширенном разделе |
+| Диагностика | Живые статусы: локальный ping, heartbeat API, ключ привязки |
+| Симптомы | Таблица из HOSTING.md §9 (9 строк) |
+| UX | Кнопки «Обновить» и «Скопировать отчёт» |
+| Верификация | `pnpm typecheck`, api-server + host-agent tests |
