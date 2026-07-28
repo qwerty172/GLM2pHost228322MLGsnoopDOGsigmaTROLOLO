@@ -23,6 +23,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Coins, Sparkles, Loader2, Server, ChevronDown, ChevronRight, CheckCircle2, XCircle, Cpu, Wand2 } from "lucide-react";
 import { QuotaAiChat, type QuotaFormPatch } from "@/components/quota-ai-chat";
 import { VtScanner } from "@/components/vt-scanner";
+import {
+  parseQuotaIntField,
+  validateQuotaForm,
+} from "@/lib/quota-form-validation";
 
 const cardStyle = {
   background: "#0a1018",
@@ -216,10 +220,41 @@ export default function QuotaNewPage() {
       toast.error("Нужно войти как хост");
       return;
     }
-    if (!title.trim()) {
-      toast.error("Укажи название");
+
+    const parsedMinSession = parseQuotaIntField(minSessionMinutes);
+    const parsedMaxSession = parseQuotaIntField(maxSessionMinutes);
+    const formInput = {
+      kind,
+      title,
+      royaltyBasis: kind === "royalty" ? royaltyBasis : null,
+      royaltyValue: kind === "royalty" ? Math.floor(royaltyValue) : null,
+      royaltySource: kind === "royalty" ? royaltySource : null,
+      budgetLzt: kind === "sponsor" ? Math.floor(budgetLzt) : null,
+      sponsorHostPerMinute:
+        kind === "sponsor" ? Math.floor(sponsorHostPerMinute) : null,
+      sponsorPlayerPerMinute:
+        kind === "sponsor" ? Math.floor(sponsorPlayerPerMinute) : null,
+      minSessionMinutes: parsedMinSession,
+      maxSessionMinutes: parsedMaxSession,
+      startAt: startAt || null,
+      endAt: endAt || null,
+      minGpuVram: parseQuotaIntField(minGpuVram),
+      minCpuCores: parseQuotaIntField(minCpuCores),
+      minRamGb: parseQuotaIntField(minRamGb),
+      minDownloadMbps: parseQuotaIntField(minDownloadMbps),
+      minUploadMbps: parseQuotaIntField(minUploadMbps),
+      recGpuVram: parseQuotaIntField(recGpuVram),
+      recCpuCores: parseQuotaIntField(recCpuCores),
+      recRamGb: parseQuotaIntField(recRamGb),
+      recDownloadMbps: parseQuotaIntField(recDownloadMbps),
+      recUploadMbps: parseQuotaIntField(recUploadMbps),
+    };
+    const validationError = validateQuotaForm(formInput);
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
+
     try {
       const created = await createQuota.mutateAsync({
         data: {
@@ -229,12 +264,8 @@ export default function QuotaNewPage() {
           description,
           visibility,
           gameId: gameId || null,
-          minSessionMinutes: minSessionMinutes
-            ? Math.max(1, Math.floor(Number(minSessionMinutes)))
-            : null,
-          maxSessionMinutes: maxSessionMinutes
-            ? Math.max(1, Math.floor(Number(maxSessionMinutes)))
-            : null,
+          minSessionMinutes: parsedMinSession,
+          maxSessionMinutes: parsedMaxSession,
           startAt: startAt ? new Date(startAt).toISOString() : null,
           endAt: endAt ? new Date(endAt).toISOString() : null,
           royaltyBasis: kind === "royalty" ? royaltyBasis : null,
@@ -245,16 +276,16 @@ export default function QuotaNewPage() {
             kind === "sponsor" ? Math.floor(sponsorHostPerMinute) : null,
           sponsorPlayerPerMinuteLzt:
             kind === "sponsor" ? Math.floor(sponsorPlayerPerMinute) : null,
-          minGpuVram: minGpuVram ? Math.floor(Number(minGpuVram)) : null,
-          minCpuCores: minCpuCores ? Math.floor(Number(minCpuCores)) : null,
-          minRamGb: minRamGb ? Math.floor(Number(minRamGb)) : null,
-          minDownloadMbps: minDownloadMbps ? Math.floor(Number(minDownloadMbps)) : null,
-          minUploadMbps: minUploadMbps ? Math.floor(Number(minUploadMbps)) : null,
-          recGpuVram: recGpuVram ? Math.floor(Number(recGpuVram)) : null,
-          recCpuCores: recCpuCores ? Math.floor(Number(recCpuCores)) : null,
-          recRamGb: recRamGb ? Math.floor(Number(recRamGb)) : null,
-          recDownloadMbps: recDownloadMbps ? Math.floor(Number(recDownloadMbps)) : null,
-          recUploadMbps: recUploadMbps ? Math.floor(Number(recUploadMbps)) : null,
+          minGpuVram: formInput.minGpuVram,
+          minCpuCores: formInput.minCpuCores,
+          minRamGb: formInput.minRamGb,
+          minDownloadMbps: formInput.minDownloadMbps,
+          minUploadMbps: formInput.minUploadMbps,
+          recGpuVram: formInput.recGpuVram,
+          recCpuCores: formInput.recCpuCores,
+          recRamGb: formInput.recRamGb,
+          recDownloadMbps: formInput.recDownloadMbps,
+          recUploadMbps: formInput.recUploadMbps,
           requiredTier,
           apiKey: apiKey.trim() || null,
         },
