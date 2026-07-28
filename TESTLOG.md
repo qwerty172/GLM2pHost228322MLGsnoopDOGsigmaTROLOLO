@@ -45,6 +45,15 @@
 | **marathon W3 dedup** | **done** | inviteCode канон, joinCode deprecated, OpenAPI+hooks, ws-ticket route |
 | **marathon W4 UX** | **done** | agent --bind-code, setup advanced banner, agent port discovery |
 | **marathon W5 infra** | **done** | .env.example Redis/JWT/Sentry/migrations docs, worker math tests |
+| **marathon W6 UX** | **done** | UX-02 troubleshoot+bind-code; UX-03 connection-hints RU; UX-05 quota form validation |
+
+## Marathon Wave UX (2026-07-28) {#marathon-ux-2026-07-28}
+
+| ID | Изменение |
+|---|---|
+| UX-02 | `dashboard.tsx` — чеклист: bind-code, агент на другом ПК |
+| UX-03 | `lib/connection-hints.ts` — бейдж «Ретрансляция/Через NAT/Прямое» вместо TURN/STUN/P2P |
+| UX-05 | `lib/quota-validation.ts` + проверка в `quota-new.tsx` до API |
 
 ## Баги
 

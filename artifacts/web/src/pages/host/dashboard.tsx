@@ -149,7 +149,15 @@ function AgentTroubleshootChecklist() {
           <span className="font-mono text-sky-400">18080–18083</span> и исходящие соединения агента
         </li>
         <li>
-          В агенте вставлен токен хоста и есть надпись «Вход выполнен»
+          В агенте вставлен токен хоста и есть надпись «Вход выполнен» — или
+          одноразовый <span className="text-slate-300">код привязки</span> из блока ниже
+          (можно вставить в агенте или запустить{" "}
+          <span className="font-mono text-sky-400">start.bat --bind-code=КОД</span>)
+        </li>
+        <li>
+          Агент на <span className="text-slate-300">другом ПК</span>, чем этот браузер? Это нормально —
+          статус «Агент онлайн (на другом ПК)» означает heartbeat с сервера; локальный ping{" "}
+          <span className="font-mono text-sky-400">127.0.0.1:18080</span> с этой машины не сработает
         </li>
       </ul>
     </details>
