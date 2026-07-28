@@ -125,13 +125,20 @@ async function pingAgent(): Promise<AgentState> {
   };
 }
 
-function AgentTroubleshootChecklist() {
+function AgentTroubleshootChecklist({ showRemotePcHint = false }: { showRemotePcHint?: boolean }) {
   return (
     <details className="w-full mt-2" data-testid="agent-troubleshoot">
       <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-300 select-none">
         Если не работает — чеклист
       </summary>
-      <ul className="mt-2 space-y-1 text-xs text-slate-400 list-disc pl-5">
+      <ul className="mt-2 space-y-1.5 text-xs text-slate-400 list-disc pl-5">
+        {showRemotePcHint && (
+          <li>
+            <span className="text-slate-300">Дашборд и агент на разных ПК</span> — это нормально.
+            Статус «на другом ПК» значит, что агент шлёт heartbeat на сервер, но локальный{" "}
+            <span className="font-mono text-sky-400">localhost:18080</span> с этой машины недоступен.
+          </li>
+        )}
         <li>
           Установлен <span className="text-slate-300">Node.js 20+</span> — проверь командой{" "}
           <span className="font-mono text-sky-400">node --version</span>
@@ -149,7 +156,22 @@ function AgentTroubleshootChecklist() {
           <span className="font-mono text-sky-400">18080–18083</span> и исходящие соединения агента
         </li>
         <li>
-          В агенте вставлен токен хоста и есть надпись «Вход выполнен»
+          В агенте вставлен токен хоста или{" "}
+          <a href="#agent-bind-code" className="text-sky-400 hover:underline">
+            код привязки
+          </a>{" "}
+          — в окне должна быть надпись «Вход выполнен»
+        </li>
+        <li>
+          Код привязки можно вставить в агенте или передать при запуске:{" "}
+          <span className="font-mono text-sky-400">start.bat --bind-code=КОД</span>
+        </li>
+        <li>
+          Если дашборд открыт не на игровом ПК — получи{" "}
+          <a href="#agent-bind-code" className="text-sky-400 hover:underline">
+            одноразовый код привязки
+          </a>{" "}
+          здесь и введи его в агенте на Windows-машине
         </li>
       </ul>
     </details>
@@ -267,18 +289,29 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
           border: "1px solid rgba(16,185,129,0.25)",
         }}
       >
-        <CardContent className="py-4 flex flex-wrap items-center gap-3" data-testid="agent-status-heartbeat">
-          <span className="flex items-center gap-1.5">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
+        <CardContent className="py-4 space-y-2" data-testid="agent-status-heartbeat">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="flex items-center gap-1.5">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
+              </span>
+              <span className="text-sm font-semibold text-emerald-300">Агент онлайн</span>
+              <span className="text-xs text-slate-500">
+                (на другом ПК · был на связи{" "}
+                {formatDistanceToNow(new Date(heartbeat.lastSeenAt), { addSuffix: true, locale: ru })})
+              </span>
             </span>
-            <span className="text-sm font-semibold text-emerald-300">Агент онлайн</span>
-            <span className="text-xs text-slate-500">
-              (на другом ПК · был на связи{" "}
-              {formatDistanceToNow(new Date(heartbeat.lastSeenAt), { addSuffix: true, locale: ru })})
-            </span>
-          </span>
+          </div>
+          <p className="text-xs text-slate-500">
+            Локальный ping недоступен — агент работает на другой машине. Управляй им через окно в трее
+            или{" "}
+            <a href="decenthub://open" className="text-sky-400 hover:underline">
+              decenthub://open
+            </a>
+            .
+          </p>
+          <AgentTroubleshootChecklist showRemotePcHint />
         </CardContent>
       </Card>
     );
@@ -1148,7 +1181,7 @@ function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
     expiresAt != null && Date.now() > expiresAt;
 
   return (
-    <Card style={cardStyle}>
+    <Card style={cardStyle} id="agent-bind-code">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-white text-base">
           <KeyRound className="h-4 w-4 text-sky-400" />
