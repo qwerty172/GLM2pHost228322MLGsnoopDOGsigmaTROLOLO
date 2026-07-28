@@ -125,6 +125,94 @@ async function pingAgent(): Promise<AgentState> {
   };
 }
 
+const TROUBLE_SYMPTOMS: { symptom: string; cause: string; fix: string }[] = [
+  {
+    symptom: "«Окно игры не найдено»",
+    cause: "Title не содержит exe basename",
+    fix: "Ручной picker или «Цель захвата»",
+  },
+  {
+    symptom: "Стримит весь рабочий стол",
+    cause: "Fallback screen (1 игра в library)",
+    fix: "Выбрать окно вручную",
+  },
+  {
+    symptom: "Игрок видео нет, ICE ok",
+    cause: "Неверный source / 0×0 capture",
+    fix: "Перевыбрать окно, не минимизировать",
+  },
+  {
+    symptom: "Ввод не доходит (native)",
+    cause: "Focus guard — игра не в foreground",
+    fix: "Alt+Tab в игру",
+  },
+  {
+    symptom: "Ввод не доходит (browser external)",
+    cause: "Агент не запущен",
+    fix: "curl http://127.0.0.1:18080/ping",
+  },
+  {
+    symptom: "«Агент не подключен»",
+    cause: "Порт 18080 занят / firewall",
+    fix: "Перезапуск агента, EADDRINUSE в логе",
+  },
+  {
+    symptom: "Browser сессия не ends",
+    cause: "Любой Chrome = alive",
+    fix: "Закрыть все окна браузера",
+  },
+  {
+    symptom: "ViGEm не работает",
+    cause: "DLL не установлен",
+    fix: "ViGEmBus + ViGEmClient.dll",
+  },
+  {
+    symptom: "iframe пустой",
+    cause: "X-Frame-Options",
+    fix: "Использовать tab capture (/host/play)",
+  },
+];
+
+function formatHeartbeatLabel(heartbeat: HeartbeatState): string {
+  if (heartbeat.status === "unknown") return "Загрузка…";
+  if (heartbeat.status === "never") return "Никогда не было";
+  if (heartbeat.status === "fresh") {
+    return `Свежий (${formatDistanceToNow(new Date(heartbeat.lastSeenAt), { locale: ru })})`;
+  }
+  return `Устарел (${formatDistanceToNow(new Date(heartbeat.lastSeenAt), { locale: ru })})`;
+}
+
+function formatLocalPingLabel(agent: AgentState): string {
+  if (agent.status === "checking") return "Проверяем…";
+  if (agent.status === "online") {
+    return `Онлайн v${agent.version} · localhost:${agent.port}`;
+  }
+  return "Недоступен (127.0.0.1:18080–18083)";
+}
+
+function buildTroubleshootReport(
+  agent: AgentState,
+  heartbeat: HeartbeatState,
+  agentKeyBound: boolean,
+): string {
+  return [
+    "DecentralHub — отчёт диагностики агента",
+    `Дата: ${new Date().toISOString()}`,
+    "",
+    "Локальный ping:",
+    `  ${formatLocalPingLabel(agent)}`,
+    "Heartbeat API:",
+    `  ${formatHeartbeatLabel(heartbeat)}`,
+    "Ключ привязки:",
+    `  ${agentKeyBound ? "Привязан" : "Не привязан"}`,
+    "",
+    "Симптомы (HOSTING.md §9):",
+    ...TROUBLE_SYMPTOMS.map(
+      (row) => `  • ${row.symptom} → ${row.cause} → ${row.fix}`,
+    ),
+  ].join("\n");
+}
+
 function AgentTroubleshootChecklist() {
   return (
     <details className="w-full mt-2" data-testid="agent-troubleshoot">
@@ -153,6 +241,153 @@ function AgentTroubleshootChecklist() {
         </li>
       </ul>
     </details>
+  );
+}
+
+function AgentTroubleshootPanel({
+  agent,
+  heartbeat,
+  agentKeyBound,
+  onRefreshPing,
+}: {
+  agent: AgentState;
+  heartbeat: HeartbeatState;
+  agentKeyBound: boolean;
+  onRefreshPing: () => Promise<void>;
+}) {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const diagnostics: { label: string; value: string; ok: boolean | null }[] = [
+    {
+      label: "Локальный ping",
+      value: formatLocalPingLabel(agent),
+      ok: agent.status === "online" ? true : agent.status === "offline" ? false : null,
+    },
+    {
+      label: "Heartbeat API",
+      value: formatHeartbeatLabel(heartbeat),
+      ok:
+        heartbeat.status === "fresh"
+          ? true
+          : heartbeat.status === "stale" || heartbeat.status === "never"
+            ? false
+            : null,
+    },
+    {
+      label: "Ключ привязки",
+      value: agentKeyBound ? "Привязан" : "Не привязан",
+      ok: agentKeyBound,
+    },
+  ];
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    void onRefreshPing().finally(() => setRefreshing(false));
+  };
+
+  const handleCopyReport = () => {
+    const report = buildTroubleshootReport(agent, heartbeat, agentKeyBound);
+    void navigator.clipboard.writeText(report).then(
+      () => toast.success("Отчёт скопирован в буфер"),
+      () => toast.error("Не удалось скопировать отчёт"),
+    );
+  };
+
+  return (
+    <Card style={cardStyle} data-testid="agent-troubleshoot-panel">
+      <CardHeader className="pb-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="text-sm text-white flex items-center gap-2">
+            <Activity className="h-4 w-4 text-amber-400" />
+            Диагностика агента
+          </CardTitle>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 gap-1.5 text-xs text-slate-400 hover:text-white"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              data-testid="button-refresh-troubleshoot"
+            >
+              <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} />
+              Обновить
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1.5 text-xs border-slate-600 text-slate-300"
+              onClick={handleCopyReport}
+              data-testid="button-copy-troubleshoot-report"
+            >
+              <Copy className="h-3 w-3" />
+              Скопировать отчёт
+            </Button>
+          </div>
+        </div>
+        <CardDescription className="text-xs text-slate-500">
+          Живая проверка ping, heartbeat и привязки ключа. Таблица симптомов — из HOSTING.md.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4 pt-0">
+        <div className="grid gap-2 sm:grid-cols-3">
+          {diagnostics.map((row) => (
+            <div
+              key={row.label}
+              className="rounded-lg p-3 text-xs"
+              style={{
+                background: "rgba(255,255,255,0.02)",
+                border: `1px solid ${
+                  row.ok === true
+                    ? "rgba(16,185,129,0.25)"
+                    : row.ok === false
+                      ? "rgba(239,68,68,0.2)"
+                      : "rgba(255,255,255,0.06)"
+                }`,
+              }}
+            >
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                {row.label}
+              </div>
+              <div
+                className={`font-medium ${
+                  row.ok === true
+                    ? "text-emerald-300"
+                    : row.ok === false
+                      ? "text-red-300"
+                      : "text-slate-300"
+                }`}
+              >
+                {row.value}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="overflow-x-auto rounded-lg border border-white/5">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-white/5 text-left text-slate-500">
+                <th className="px-3 py-2 font-medium">Симптом</th>
+                <th className="px-3 py-2 font-medium">Причина</th>
+                <th className="px-3 py-2 font-medium">Что делать</th>
+              </tr>
+            </thead>
+            <tbody>
+              {TROUBLE_SYMPTOMS.map((row) => (
+                <tr key={row.symptom} className="border-b border-white/5 last:border-0">
+                  <td className="px-3 py-2 text-slate-300 whitespace-nowrap">{row.symptom}</td>
+                  <td className="px-3 py-2 text-slate-400">{row.cause}</td>
+                  <td className="px-3 py-2 text-sky-300/90">{row.fix}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <AgentTroubleshootChecklist />
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1234,6 +1469,11 @@ export default function Dashboard() {
     };
   }, []);
 
+  const refreshAgentPing = async () => {
+    const state = await pingAgent();
+    setAgent(state);
+  };
+
   // Server-side heartbeat via React Query — agent POSTs every ~15s.
   const { data: hostMe } = useGetHost(hostToken || "", {
     query: {
@@ -1516,6 +1756,15 @@ export default function Dashboard() {
           )}
 
           {hostToken && <AgentEventsCard hostToken={hostToken} />}
+
+          {hostToken && (
+            <AgentTroubleshootPanel
+              agent={agent}
+              heartbeat={heartbeat}
+              agentKeyBound={agentKeyBound}
+              onRefreshPing={refreshAgentPing}
+            />
+          )}
         </div>
       </details>
 
