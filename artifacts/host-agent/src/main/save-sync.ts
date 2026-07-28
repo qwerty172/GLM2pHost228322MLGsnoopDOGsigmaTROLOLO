@@ -73,15 +73,38 @@ async function zipSavePaths(paths: string[]): Promise<Buffer | null> {
   let count = 0;
 
   for (const root of paths) {
+    const rootNorm = path.resolve(root);
     const files = await listFilesRecursive(root);
     for (const filePath of files) {
-      zip.addFile(filePath, await fs.readFile(filePath));
+      const rel = path.relative(rootNorm, path.resolve(filePath));
+      if (rel.startsWith("..") || path.isAbsolute(rel)) continue;
+      const entryName = path.join(path.basename(rootNorm), rel).replace(/\\/g, "/");
+      zip.addFile(entryName, await fs.readFile(filePath));
       count++;
     }
   }
 
   if (count === 0) return null;
   return zip.toBuffer();
+}
+
+function resolveZipEntryPath(
+  entryName: string,
+  targetPaths: string[],
+): string | null {
+  const normalized = entryName.replace(/\//g, path.sep).replace(/^(\.\.(\/|\\|$))+/, "");
+  if (path.isAbsolute(normalized) || normalized.includes("..")) return null;
+
+  const baseName = normalized.split(path.sep)[0];
+  const root = targetPaths.find((p) => path.basename(path.resolve(p)) === baseName);
+  if (!root) return null;
+
+  const rootResolved = path.resolve(root);
+  const absolutePath = path.resolve(rootResolved, ...normalized.split(path.sep).slice(1));
+  if (!absolutePath.startsWith(rootResolved + path.sep) && absolutePath !== rootResolved) {
+    return null;
+  }
+  return absolutePath;
 }
 
 async function extractSaveZip(buffer: Buffer, targetPaths: string[]): Promise<void> {
@@ -93,10 +116,11 @@ async function extractSaveZip(buffer: Buffer, targetPaths: string[]): Promise<vo
 
   for (const entry of entries) {
     if (entry.isDirectory) continue;
-    const entryName = entry.entryName.replace(/\//g, path.sep);
-    const absolutePath = path.isAbsolute(entryName)
-      ? path.normalize(entryName)
-      : path.normalize(path.join(process.cwd(), entryName));
+    const absolutePath = resolveZipEntryPath(entry.entryName, targetPaths);
+    if (!absolutePath) {
+      log("warn", `[save-sync] Skipped unsafe zip entry: ${entry.entryName}`);
+      continue;
+    }
     await fs.mkdir(path.dirname(absolutePath), { recursive: true });
     await fs.writeFile(absolutePath, entry.getData());
   }
@@ -200,7 +224,6 @@ export async function pushSave(opts: {
       return { ok: false, error: confirmed.error ?? "confirm_failed" };
     }
 
-    await clearSavePaths(syncPaths);
     log("info", `[save-sync] Uploaded save for session ${opts.sessionId}`);
     return { ok: true };
   } catch (err) {

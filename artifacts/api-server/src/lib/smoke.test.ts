@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { generateToken } from "./tokens";
-import { timingSafeEqualString } from "./timingSafeEqual";
+import { timingSafeEqualString } from "./timingSafe";
 import {
   LZT_PER_USDT,
   lztToUsdt,
@@ -159,6 +159,12 @@ describe("hostAuth", () => {
       } as Request),
     ).toBe("fallback");
     expect(hostTokenFromRequest({ headers: {} } as Request)).toBeNull();
+    expect(
+      hostTokenFromRequest({
+        headers: {},
+        query: { hostToken: "query-tok" },
+      } as Request),
+    ).toBe("query-tok");
   });
 });
 

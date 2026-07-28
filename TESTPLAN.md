@@ -14,14 +14,15 @@
 | 2 | Обход страниц в браузере | ✅ **verified (Windows)** | 11 URL + регистрация игрока/хоста |
 | 3 | P2P browser-host ↔ player | ✅ **verified (Windows)** | signaling + lifecycle + billing + P2P HUD |
 | 4 | Windows-агент (Electron) | ✅ **verified (Windows)** | test/build/zip + Electron start; Steam E2E manual |
-| 5 | Экономика, биллинг | in progress | Леджер сходится, нет ghost-billing |
-| 6 | Квоты, VDS, embed | pending | Форма без AI, деградация внешних сервисов |
-| 7 | Регресс + отчёт | pending | TESTLOG итог |
+| 5 | Экономика, биллинг | ✅ **agent verified** | vitest economy offline + ledger CI; Windows billing manual |
+| 6 | Квоты, VDS, embed | **blocked (human)** | Форма без AI — нужен ручной прогон на Windows |
+| 7 | Регресс + отчёт | ✅ **agent done** | CI + MARATHON; Windows P2P re-check — human |
+| **marathon** | 4-cycle audit | ✅ **2026-07-27** | [MARATHON.md](./MARATHON.md); SSE auth, save-sync, UX |
 | **post-merge** | CI + unit smoke | ✅ **2026-07-25** | `pnpm typecheck`, api/host-agent tests, unified `.github/workflows/ci.yml` |
 
 **Если `healthz` ok и `:5000` открывается — фазы 0–1 пройдены, начинайте фазу 2.**
 
-Журнал багов: [TESTLOG.md](./TESTLOG.md). Инструкция запуска: [LOCAL_SETUP.md](./LOCAL_SETUP.md).
+Журнал багов: [TESTLOG.md](./TESTLOG.md). Инструкция запуска: [LOCAL_SETUP.md](./LOCAL_SETUP.md). **Хостинг и привязка к окну:** [HOSTING.md](./HOSTING.md).
 
 ---
 
@@ -224,6 +225,8 @@ BILLING_SMOKE=1 ./scripts/session-lifecycle.sh   # + billing_events после ~
 ---
 
 ## ФАЗА 4 — Windows-агент E2E
+
+> **Подробный разбор привязки к окну, focus guard и чеклист:** [HOSTING.md](./HOSTING.md)
 
 ```bat
 pnpm --filter @workspace/host-agent run test

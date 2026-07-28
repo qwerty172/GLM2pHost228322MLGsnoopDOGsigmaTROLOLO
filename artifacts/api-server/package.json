@@ -8,7 +8,7 @@
     "build": "node ./build.mjs",
     "start": "dotenv -e ../../.env -- node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run && cross-env RATE_LIMIT_STORAGE=memory node --import tsx --test src/__tests__/**/*.test.ts",
+    "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {

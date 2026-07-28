@@ -28,6 +28,19 @@ type Win32Guard = {
 };
 
 let win32: Win32Guard | null = null;
+let refreshParentMap: (() => Map<number, number>) | null = null;
+let parentMapCache: Map<number, number> | null = null;
+let parentMapCachedAt = 0;
+const PARENT_MAP_TTL_MS = 500;
+
+function cachedParentMap(): Map<number, number> {
+  const now = Date.now();
+  if (!parentMapCache || !refreshParentMap || now - parentMapCachedAt > PARENT_MAP_TTL_MS) {
+    parentMapCache = refreshParentMap?.() ?? new Map();
+    parentMapCachedAt = now;
+  }
+  return parentMapCache;
+}
 
 function initWin32(): Win32Guard | null {
   if (process.platform !== "win32") return null;
@@ -106,7 +119,7 @@ function initWin32(): Win32Guard | null {
 
     function isDescendantOf(childPid: number, rootPid: number): boolean {
       if (childPid === rootPid) return true;
-      const parents = buildParentMap();
+      const parents = cachedParentMap();
       let cur = childPid;
       const seen = new Set<number>();
       while (cur > 0 && !seen.has(cur)) {
@@ -118,6 +131,8 @@ function initWin32(): Win32Guard | null {
       }
       return false;
     }
+
+    refreshParentMap = buildParentMap;
 
     win32 = {
       getForegroundPid,
@@ -165,7 +180,7 @@ export function isInputAllowed(): boolean {
   if (process.platform !== "win32") return true;
 
   const w = initWin32();
-  if (!w) return true;
+  if (!w) return false;
 
   const fgPid = w.getForegroundPid();
   if (fgPid === null) return false;

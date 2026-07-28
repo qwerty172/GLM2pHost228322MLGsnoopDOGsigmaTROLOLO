@@ -19,6 +19,7 @@ import {
   endSession,
   hostHeartbeat,
 } from "@workspace/api-client-react";
+import { webrtcConnectionLabel } from "@/lib/webrtc-connection-label";
 import { postAgentInput } from "@/lib/agent-local";
 
 const HOST_TOKEN_STORAGE_PREFIX = "streamline.browserHostToken:";
@@ -638,7 +639,7 @@ export default function BrowserPlay() {
         <div className="flex items-center gap-3">
           <Gamepad2 className="h-5 w-5 text-sky-400" />
           <div className="font-bold text-white">
-            {session?.appName || "Browser host"}
+            {session?.appName || "Браузерный хост"}
           </div>
           <Badge
             variant="outline"
@@ -654,7 +655,7 @@ export default function BrowserPlay() {
             ) : (
               <WifiOff className="h-3 w-3 mr-1 inline" />
             )}
-            {connectionState.toUpperCase()}
+            {webrtcConnectionLabel(connectionState)}
           </Badge>
         </div>
         <Button
@@ -813,7 +814,7 @@ export default function BrowserPlay() {
                 >
                   {connectionState === "connected"
                     ? "подключён"
-                    : connectionState}
+                    : webrtcConnectionLabel(connectionState).toLowerCase()}
                 </span>
               </div>
               <div className="flex justify-between">

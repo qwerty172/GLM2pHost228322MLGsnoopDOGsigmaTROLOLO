@@ -16,6 +16,7 @@ import { WebGLVideoShader, SHADER_PRESETS, type PresetKey } from "@/components/w
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { TouchOverlay } from "@/components/TouchOverlay";
+import { webrtcConnectionLabel } from "@/lib/webrtc-connection-label";
 import { toast } from "sonner";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
 
@@ -1683,20 +1684,8 @@ export default function Play() {
               <WifiOff className="w-3 h-3 mr-2 inline" />
             )}
             {reconnecting
-              ? "ПЕРЕПОДКЛЮЧЕНИЕ..."
-              : connectionState === "connected"
-                ? "ПОДКЛЮЧЕНО"
-                : connectionState === "connecting"
-                  ? "СОЕДИНЕНИЕ"
-                  : connectionState === "disconnected"
-                    ? "ОТКЛЮЧЕНО"
-                    : connectionState === "failed"
-                      ? "ОШИБКА СВЯЗИ"
-                      : connectionState === "closed"
-                        ? "ЗАКРЫТО"
-                        : connectionState === "new"
-                          ? "ИНИЦИАЛИЗАЦИЯ"
-                          : "ПОДКЛЮЧЕНИЕ"}
+              ? webrtcConnectionLabel(connectionState, { reconnecting: true })
+              : webrtcConnectionLabel(connectionState)}
           </Badge>
           {iceType && !reconnecting && (
             <Badge
@@ -1788,6 +1777,7 @@ export default function Play() {
               onClick={() => void saveClip()}
               disabled={!dataChannelOpen || isSavingClip}
               title={dataChannelOpen ? "Сохранить последние ~30 сек" : "Доступно после подключения"}
+              aria-label={dataChannelOpen ? "Сохранить клип последних 30 секунд" : "Сохранение клипа недоступно"}
               className="shadow-md gap-1.5"
               style={{
                 background: dataChannelOpen ? "rgba(139,92,246,0.85)" : "rgba(100,100,100,0.4)",
@@ -1806,6 +1796,7 @@ export default function Play() {
               size="sm"
               onClick={() => setShowClipSettings((v) => !v)}
               title="Настройки облачного сохранения"
+              aria-label="Настройки облачного сохранения"
               className="shadow-md px-2"
               style={{
                 background: showClipSettings ? "rgba(139,92,246,0.6)" : "rgba(255,255,255,0.07)",
@@ -1827,6 +1818,7 @@ export default function Play() {
             }}
             className="pointer-events-auto"
             title="Виртуальный геймпад"
+            aria-label="Виртуальный геймпад"
             style={{
               background: gamepadOverlay ? "rgba(14,165,233,0.25)" : "rgba(255,255,255,0.08)",
               border: gamepadOverlay ? "1px solid rgba(14,165,233,0.6)" : "1px solid rgba(255,255,255,0.15)",
@@ -1851,6 +1843,7 @@ export default function Play() {
               onClick={() => setGamepadEditMode((v) => !v)}
               className="pointer-events-auto"
               title="Редактировать раскладку"
+              aria-label="Редактировать раскладку геймпада"
               style={{
                 background: gamepadEditMode ? "rgba(234,179,8,0.25)" : "rgba(255,255,255,0.06)",
                 border: gamepadEditMode ? "1px solid rgba(234,179,8,0.7)" : "1px solid rgba(255,255,255,0.12)",
@@ -1871,6 +1864,7 @@ export default function Play() {
             onClick={() => setShowShaderPanel((v) => !v)}
             className="pointer-events-auto"
             title="Шейдеры и пост-обработка"
+            aria-label="Шейдеры и пост-обработка"
             style={{
               background: shaderActive
                 ? "rgba(16,185,129,0.25)"
@@ -2228,6 +2222,7 @@ export default function Play() {
           autoPlay
           playsInline
           muted={false}
+          aria-label="Видеопоток игры"
           className="w-full h-full object-contain pointer-events-auto"
           style={{ opacity: shaderActive ? 0 : 1, pointerEvents: shaderActive ? "none" : "auto" }}
           onClick={requestPointerLock}

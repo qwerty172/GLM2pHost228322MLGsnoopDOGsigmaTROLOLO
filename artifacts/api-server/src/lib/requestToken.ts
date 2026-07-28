@@ -32,5 +32,7 @@ export function hostTokenFromRequest(req: Request): string | null {
   const xHost = req.headers["x-host-token"];
   if (typeof xHost === "string" && xHost.trim()) return xHost.trim();
   if (Array.isArray(xHost) && xHost[0]?.trim()) return xHost[0].trim();
+  const qHost = req.query?.hostToken;
+  if (typeof qHost === "string" && qHost.trim()) return qHost.trim();
   return headerUserToken(req);
 }

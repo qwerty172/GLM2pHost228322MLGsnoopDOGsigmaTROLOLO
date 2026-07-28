@@ -271,7 +271,52 @@ details summary {
   font-size: 13px;
 }
 
-/* ── Steam scan modal ───────────────────────────────────────────────────── */
+.pairing-primary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+#pairing-code {
+  font-size: 28px;
+  letter-spacing: 0.35em;
+  text-align: center;
+  padding: 14px 12px;
+  width: 100%;
+  max-width: 280px;
+  margin: 0 auto;
+}
+
+.btn-primary-lg {
+  width: 100%;
+  max-width: 280px;
+  margin: 0 auto;
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 14px 18px !important;
+}
+
+#extras-details > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  list-style: none;
+}
+
+#extras-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+#extras-details[open] > summary {
+  margin-bottom: 12px;
+}
+
+.optional-fold {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 4px;
+}
 
 .modal-overlay {
   position: fixed;
@@ -281,6 +326,15 @@ details summary {
   align-items: center;
   justify-content: center;
   z-index: 100;
+}
+
+/* Author `display: flex` otherwise overrides the HTML `hidden` attribute. */
+.modal-overlay[hidden],
+#steam-scan-progress[hidden],
+#steam-scan-error[hidden],
+#steam-scan-results[hidden],
+#window-picker-modal[hidden] {
+  display: none !important;
 }
 
 .modal-box {

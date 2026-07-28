@@ -118,6 +118,10 @@ const api = {
   log: (level: "info" | "warn" | "error", message: string): void => {
     ipcRenderer.send("log", level, message);
   },
+  openLogFile: (): Promise<{ ok: boolean; error?: string; path: string }> =>
+    ipcRenderer.invoke("agent:open-log"),
+  getLogTail: (): Promise<{ path: string; text: string }> =>
+    ipcRenderer.invoke("agent:get-log-tail"),
 
   // ── Crypto key & PC binding ─────────────────────────────────────────────
   // Returns the hex-encoded Ed25519 public key, or null if not yet generated.

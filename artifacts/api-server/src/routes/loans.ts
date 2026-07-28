@@ -25,7 +25,7 @@ import {
   writeLedger,
   type OwnerType,
 } from "../lib/economy";
-import { rateLimit } from "../lib/rateLimit";
+import { rateLimit, ipKey } from "../lib/rateLimit";
 import { randomUUID } from "node:crypto";
 
 const router: IRouter = Router();
@@ -40,6 +40,12 @@ const fundLimiter = rateLimit({
   scope: "loans:fund",
   windowMs: 60_000,
   max: 6,
+});
+const readLimiter = rateLimit({
+  scope: "loans:read",
+  windowMs: 60_000,
+  max: 60,
+  keyFn: ipKey,
 });
 
 // Platform anti-wash fee on every fresh P2P loan disbursal (2% of principal).
@@ -112,7 +118,7 @@ router.post("/loans/requests", writeLimiter, async (req, res): Promise<void> => 
   res.status(201).json(request);
 });
 
-router.get("/loans/requests", async (_req, res): Promise<void> => {
+router.get("/loans/requests", readLimiter, async (_req, res): Promise<void> => {
   const rows = await db
     .select()
     .from(loanRequestsTable)

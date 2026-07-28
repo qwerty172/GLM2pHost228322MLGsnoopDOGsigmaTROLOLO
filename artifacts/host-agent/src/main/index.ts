@@ -7,7 +7,7 @@ import os from "node:os";
 import { execSync } from "node:child_process";
 import type http from "node:http";
 import { loadConfig, saveConfig, getCachedConfig } from "./config";
-import { createTray, setStatus } from "./tray";
+import { createTray, setStatus, destroyTray } from "./tray";
 import { initInputInjector, injectInput, getInjectorStatus } from "./input-injection";
 import {
   initGamepadInjector,
@@ -35,9 +35,17 @@ import { syncWakeTasks } from "./wake-scheduler";
 import { pullSave, pushSave, restoreSave, backupSave, type SaveManifestEntry } from "./save-sync";
 import { scanSteam, loadScanState, saveScanState } from "./steam-scanner";
 import { loadOrGenerateKeyPair, signChallenge } from "./crypto-key";
-import { log } from "./logger";
+import { log, getLogPath, readLogTail } from "./logger";
 import { parseInputEvent, parseGamepadState } from "../shared/input";
 import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry, SteamScanResult, QuotaStatusEvent, SaveSyncRequest, SaveSyncResult } from "../shared/messages";
+
+// package.json name is "@workspace/host-agent" → ugly userData folder. Prefer product name.
+{
+  const desired = path.join(app.getPath("appData"), "Cloud Gaming Host Agent");
+  if (app.getPath("userData") !== desired) {
+    app.setPath("userData", desired);
+  }
+}
 
 let mainWindow: BrowserWindow | null = null;
 let pingServer: http.Server | null = null;
@@ -79,9 +87,11 @@ function allowedCorsOriginsFromConfig(cfg: HostConfig | null): string[] {
   return out;
 }
 
-const singleInstance = app.requestSingleInstanceLock();
-if (!singleInstance) {
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  // Stop immediately — do not register whenReady / IPC / tray on the loser.
   app.quit();
+  process.exit(0);
 }
 
 // ── Startup diagnostics ──────────────────────────────────────────────────────
@@ -94,11 +104,10 @@ function showFatalError(title: string, details: string): void {
     dialog.showErrorBox(
       title,
       `${details}\n\nЧто делать:\n` +
-        "1. Закрой агент и запусти start.bat заново.\n" +
-        "2. Если не помогло — удали папку node_modules и запусти start.bat " +
-        "(зависимости переустановятся автоматически).\n" +
+        "1. Закрой агент через трей → «Выход» и запусти снова.\n" +
+        "2. Если не помогло — удали папку node_modules и пересобери агент.\n" +
         "3. Проверь, что установлен Node.js 20+ (node --version).\n" +
-        "4. Лог ошибок: %APPDATA%\\cloud-gaming-host-agent\\logs\\agent.log",
+        `4. Лог ошибок: ${getLogPath()}`,
     );
   } catch {
     // dialog unavailable (app not ready) — the log line above is the trace.
@@ -116,8 +125,19 @@ process.on("unhandledRejection", (reason) => {
   log("error", `[fatal] Unhandled rejection: ${String(reason)}`);
 });
 
+function showOrCreateMainWindow(): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+    return;
+  }
+  createWindow();
+}
+
 function createWindow(): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.show();
     mainWindow.focus();
     return;
@@ -210,13 +230,19 @@ async function startAgent(): Promise<void> {
   void syncScheduleFromServer();
 
   createTray(() => {
-    createWindow();
+    showOrCreateMainWindow();
   });
 
   // After first bind (hostToken saved): start in tray. Window only on tray click.
   // Fresh install (no token) still shows the window for setup.
   const startHidden =
     process.argv.includes("--hidden") || Boolean(config.hostToken?.trim());
+  log(
+    "info",
+    `[startup] packaged=${app.isPackaged} startHidden=${startHidden} ` +
+      `hasToken=${Boolean(config.hostToken?.trim())} argvHidden=${process.argv.includes("--hidden")} ` +
+      `singleInstanceLock=true`,
+  );
   if (!startHidden) {
     createWindow();
   } else if (Notification.isSupported() && config.hostToken?.trim()) {
@@ -321,9 +347,6 @@ async function startAgent(): Promise<void> {
     setInputBlocked(false);
   });
 
-  ipcMain.on("gamepad:inject", (_e, state: { axes: number[]; buttons: number[] }) => {
-    injectGamepad(state);
-  });
   ipcMain.on("gamepad:connect", () => {
     connectGamepad();
   });
@@ -578,6 +601,16 @@ async function startAgent(): Promise<void> {
     },
   );
 
+  ipcMain.handle("agent:open-log", async () => {
+    const file = getLogPath();
+    const err = await shell.openPath(file);
+    return { ok: !err, error: err || undefined, path: file };
+  });
+
+  ipcMain.handle("agent:get-log-tail", (): { path: string; text: string } => {
+    return { path: getLogPath(), text: readLogTail() };
+  });
+
   // ── Local HTTP ping server ────────────────────────────────────────────────
   // The web dashboard pings http://localhost:18080/ping to detect whether the
   // agent is running. POST /input requires X-Agent-Input-Secret.
@@ -619,10 +652,20 @@ async function startAgent(): Promise<void> {
         if (port !== PING_PORT) {
           const msg =
             `Порт ${PING_PORT} занят — агент слушает ${pingPortInUse}. ` +
-            `Проверь, что не запущен второй экземпляр.`;
-          log("warn", msg);
+            `Скорее всего уже запущен другой экземпляр: закрой его через трей → «Выход» ` +
+            `или заверши процесс в Диспетчере задач.`;
+          log("warn", `[single-instance] ${msg}`);
           if (Notification.isSupported()) {
             new Notification({ title: "Порт агента занят", body: msg }).show();
+          }
+          try {
+            dialog.showMessageBoxSync({
+              type: "warning",
+              title: "Порт агента занят",
+              message: msg,
+            });
+          } catch {
+            /* dialog may fail early */
           }
         }
         return;
@@ -648,6 +691,10 @@ async function startAgent(): Promise<void> {
   }
 
   await bindPingServer();
+  log(
+    "info",
+    `[startup] pingPort=${pingPortInUse} logFile=${getLogPath()}`,
+  );
 
   // Injector status for the renderer's diagnostics panel.
   ipcMain.handle("agent:get-injector-status", () => getInjectorStatus());
@@ -1086,8 +1133,12 @@ async function startAgent(): Promise<void> {
   }
 }
 
-app.on("second-instance", () => {
-  createWindow();
+app.on("second-instance", (_event, argv) => {
+  log(
+    "info",
+    `[single-instance] second-instance argv=${JSON.stringify(argv.slice(1))}`,
+  );
+  showOrCreateMainWindow();
 });
 
 app.on("window-all-closed", () => {
@@ -1099,6 +1150,7 @@ app.on("before-quit", () => {
   (app as unknown as { isQuitting?: boolean }).isQuitting = true;
   globalShortcut.unregisterAll();
   destroyGamepadInjector();
+  destroyTray();
   for (const handle of lifetimeIntervals) {
     clearInterval(handle);
   }

@@ -3,8 +3,16 @@ import { eq } from "drizzle-orm";
 import { z } from "zod/v4";
 import { db, gamesTable } from "@workspace/db";
 import { parseSteamPcRequirements, recSpecsToJson } from "../lib/steamSpecs";
+import { rateLimit, ipKey } from "../lib/rateLimit";
 
 const router = Router();
+
+const enrichLimiter = rateLimit({
+  scope: "enrich",
+  windowMs: 60_000,
+  max: 40,
+  keyFn: ipKey,
+});
 
 // Simple in-memory cache (key → {data, expiresAt})
 const cache = new Map<string, { data: unknown; expiresAt: number }>();
@@ -22,7 +30,7 @@ function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T>
 // Game search with cover + metadata. Uses RAWG if RAWG_API_KEY is set,
 // otherwise falls back to Steam Store Search (no key required).
 // ---------------------------------------------------------------------------
-router.get("/games/rawg-search", async (req, res): Promise<void> => {
+router.get("/games/rawg-search", enrichLimiter, async (req, res): Promise<void> => {
   const q = z.string().min(2).max(100).safeParse(req.query.q);
   if (!q.success) {
     res.status(400).json({ error: "q must be 2–100 chars" });
@@ -103,7 +111,7 @@ router.get("/games/rawg-search", async (req, res): Promise<void> => {
 // Fetches game metadata from Steam Store API + current player count.
 // No API key required.
 // ---------------------------------------------------------------------------
-router.get("/games/steam-lookup", async (req, res): Promise<void> => {
+router.get("/games/steam-lookup", enrichLimiter, async (req, res): Promise<void> => {
   const appId = z.string().regex(/^\d{1,10}$/).safeParse(req.query.appId);
   if (!appId.success) {
     res.status(400).json({ error: "appId must be numeric" });

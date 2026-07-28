@@ -11,9 +11,9 @@
 | 3 | **verified (Windows P2P)** | signaling + lifecycle + billing; browser-host ↔ player P2P |
 | 4 | **verified (Windows agent)** | unit/test/build/zip, ping :18080, Electron UI стартует, SendInput injector ready |
 | 5 | in progress | Экономика, биллинг (расширенный) |
-| 6 | pending | Квоты, VDS, embed |
-| 7 | pending | Регресс + итог |
-| **post-merge** | **2026-07-25** | typecheck green; CI unified; vitest smoke expanded; invite-flow script |
+| 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
+| 7 | agent done | Регресс CI + MARATHON backlog |
+| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -84,3 +84,15 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 - **Работает end-to-end (Windows):** pages UI, signaling, session lifecycle, billing tick, browser-host P2P, agent ping/auth/zip, Electron start + SendInput init
 - **Осталось вручную:** полный цикл Steam → сессия → SendInput в реальной игре; kill Electron → disconnect ≤30с на живом стриме
 - **Топ рисков:** Electron `EADDRINUSE` если уже крутится ping-server; video frames в headless/automation иногда 0×0 (в UI HUD P2P ок)
+
+## Marathon 4-cycle audit (2026-07-27) {#marathon-c1}
+
+| Область | Фикс |
+|---|---|
+| API SSE | `/events/stream` требует host token + rate limit 30/min |
+| API auth | `hostToken` query для EventSource; timingSafe unified |
+| API limits | enrich + loans read limiters |
+| Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
+| Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
+| CI | ledger-invariant + smoke:invite steps |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |

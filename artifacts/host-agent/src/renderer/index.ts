@@ -67,6 +67,8 @@ declare global {
       markSteamGamesAdded: (appIds: string[]) => Promise<void>;
       platform: string;
       log: (level: "info" | "warn" | "error", message: string) => void;
+      openLogFile: () => Promise<{ ok: boolean; error?: string; path: string }>;
+      getLogTail: () => Promise<{ path: string; text: string }>;
       getAgentPubkey: () => Promise<string | null>;
       bindAgentKey: (
         hostToken: string,
@@ -282,7 +284,7 @@ function log(msg: string): void {
 async function loadFormFromConfig(): Promise<HostConfig> {
   const cfg = await window.agent.getConfig();
   ($("hostToken") as HTMLInputElement).value = cfg.hostToken;
-  ($("apiBaseUrl") as HTMLInputElement).value = cfg.apiBaseUrl;
+  ($("apiBaseUrl") as HTMLInputElement).value = cfg.apiBaseUrl || DEFAULT_API_BASE_URL;
   ($("signalingUrl") as HTMLInputElement).value = cfg.signalingUrl;
   setAppPath(cfg.appPath);
   ($("boundUrl") as HTMLInputElement).value = cfg.boundUrl ?? "";
@@ -608,7 +610,40 @@ const signinBanner = document.getElementById("signin-banner") as HTMLElement;
 const signinDisplayName = document.getElementById("signin-display-name") as HTMLSpanElement;
 const signinApiUrl = document.getElementById("signin-api-url") as HTMLSpanElement;
 const switchAccountBtn = document.getElementById("switch-account-btn") as HTMLButtonElement;
-const settingsSection = form.closest("section") as HTMLElement;
+const sessionActionsCard = document.getElementById("session-actions-card") as HTMLElement;
+const extrasCard = document.getElementById("extras-card") as HTMLElement;
+const signedInExtras = document.getElementById("signed-in-extras") as HTMLElement | null;
+const DEFAULT_API_BASE_URL = "http://127.0.0.1:5000";
+
+function resolveApiBaseUrl(cfg?: HostConfig | null): string {
+  const fromForm = ($("apiBaseUrl") as HTMLInputElement | null)?.value.trim() ?? "";
+  const fromCfg = cfg?.apiBaseUrl?.trim() ?? "";
+  return fromForm || fromCfg || DEFAULT_API_BASE_URL;
+}
+
+/** Guest = только код + Подключиться; signed-in = баннер + онлайн + библиотека. */
+function setHostUiMode(mode: "guest" | "signed-in"): void {
+  const signedIn = mode === "signed-in";
+  const pairing = document.getElementById("pairing-card") as HTMLElement | null;
+  const steamRec = document.getElementById("steam-recommend-card") as HTMLElement | null;
+  const autoSteam = document.getElementById("auto-steam-card") as HTMLElement | null;
+  const autoQuota = document.getElementById("auto-quota-card") as HTMLElement | null;
+  if (pairing) pairing.hidden = signedIn;
+  sessionActionsCard.hidden = !signedIn;
+  if (signedInExtras) signedInExtras.hidden = !signedIn;
+  if (!signedIn) {
+    signinBanner.hidden = true;
+    libraryCard.hidden = true;
+    if (steamRec) steamRec.hidden = true;
+    if (autoSteam) autoSteam.hidden = true;
+    gamePickerCard.hidden = true;
+    if (autoQuota) autoQuota.hidden = true;
+    const extrasDetails = document.getElementById("extras-details") as HTMLDetailsElement | null;
+    if (extrasDetails) extrasDetails.open = false;
+  }
+  // Collapsed «Дополнительно» — на госте только URL платформы внутри.
+  extrasCard.hidden = false;
+}
 
 function showSigninBanner(displayName: string, apiBaseUrl: string): void {
   signinDisplayName.textContent = displayName;
@@ -620,19 +655,19 @@ function showSigninBanner(displayName: string, apiBaseUrl: string): void {
     }
   })();
   signinBanner.hidden = false;
-  // Collapse the settings section so first-time users don't see the whole form.
-  settingsSection.hidden = true;
+  setHostUiMode("signed-in");
 }
 
 function hideSigninBanner(): void {
   signinBanner.hidden = true;
-  settingsSection.hidden = false;
+  setHostUiMode("guest");
 }
 
 switchAccountBtn.addEventListener("click", () => {
   hideSigninBanner();
-  ($("hostToken") as HTMLInputElement).focus();
-  log("Введи новый Host Token и нажми Save.");
+  const code = document.getElementById("pairing-code") as HTMLInputElement | null;
+  code?.focus();
+  log("Введи новый 6-значный код с сайта.");
 });
 
 // Validate a host token by calling GET /api/hosts/:token and return the display name.
@@ -1318,8 +1353,12 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
   }
 
   setPipelineStep("window", "active", "ищем окно игры…");
+  const captureMode = cfg.captureMode === "native" ? "chromium" : (cfg.captureMode ?? "chromium");
+  if (cfg.captureMode === "native") {
+    log("[capture] native mode is not implemented yet — using chromium desktopCapturer");
+  }
   try {
-    captureStream = await captureScreen(cfg);
+    captureStream = await captureScreen({ ...cfg, captureMode });
   } catch (err) {
     setPipelineStep("window", "error", String(err));
     setStatus("error", `Capture failed: ${String(err)}`);
@@ -1329,8 +1368,7 @@ async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     return;
   }
   setPipelineStep("stream", "active", "устанавливаем WebRTC-соединение…");
-  const captureMode = cfg.captureMode ?? "chromium";
-  log(`[capture] mode=${captureMode}${captureMode === "native" ? " (fallback to chromium if native unavailable)" : ""}`);
+  log(`[capture] mode=${captureMode}`);
 
   // Fetch ICE server config (STUN + optional TURN) from the API.
   let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
@@ -1752,6 +1790,7 @@ function pickWindowManually(): Promise<{ id: string; name: string }> {
       refreshBtn.onclick = null;
       screenBtn.onclick = null;
       if (cancelBtn) cancelBtn.onclick = null;
+      modal.onclick = null;
       list.innerHTML = "";
     };
 
@@ -1779,17 +1818,25 @@ function pickWindowManually(): Promise<{ id: string; name: string }> {
     refreshBtn.onclick = () => void render();
     screenBtn.onclick = async () => {
       const sources = await window.agent.getCaptureSources();
-      const screen = sources.find((s) => s.id.startsWith("screen:")) ?? sources[0];
-      cleanup();
-      resolve(screen);
+      const screen =
+        sources.find((s) => s.id.startsWith("screen:")) ?? sources[0];
+      if (screen) {
+        cleanup();
+        resolve(screen);
+      }
     };
     if (cancelBtn) {
       cancelBtn.onclick = () => {
         cleanup();
-        reject(new Error("Выбор окна отменён"));
+        reject(new Error("Window picker cancelled"));
       };
     }
-
+    modal.onclick = (e) => {
+      if (e.target === modal) {
+        cleanup();
+        reject(new Error("Window picker cancelled"));
+      }
+    };
     modal.hidden = false;
     void render();
   });
@@ -2301,6 +2348,7 @@ const steamModalClose = $("steam-modal-close") as HTMLButtonElement;
 const steamScanProgress = $("steam-scan-progress") as HTMLDivElement;
 const steamScanError = $("steam-scan-error") as HTMLDivElement;
 const steamScanErrorText = $("steam-scan-error-text") as HTMLParagraphElement;
+const steamScanRetryBtn = $("steam-scan-retry") as HTMLButtonElement;
 const steamScanResults = $("steam-scan-results") as HTMLDivElement;
 const steamScanSummary = $("steam-scan-summary") as HTMLParagraphElement;
 const steamGameList = $("steam-game-list") as HTMLDivElement;
@@ -2316,6 +2364,11 @@ const badgeAdded = $("badge-added") as HTMLSpanElement;
 if (window.agent.platform === "win32") {
   scanSteamBtn.hidden = false;
 }
+// Ensure modal starts closed (CSS historically fought the `hidden` attribute).
+steamModal.hidden = true;
+steamScanProgress.hidden = true;
+steamScanError.hidden = true;
+steamScanResults.hidden = true;
 
 type SteamTab = "catalog" | "new" | "added";
 let currentSteamTab: SteamTab = "catalog";
@@ -2474,20 +2527,53 @@ document.querySelectorAll<HTMLButtonElement>(".steam-tab").forEach((btn) => {
   });
 });
 
-function showSteamModal(): void {
+function setSteamModalView(view: "scanning" | "results" | "error"): void {
+  steamScanProgress.hidden = view !== "scanning";
+  steamScanResults.hidden = view !== "results";
+  steamScanError.hidden = view !== "error";
+}
+
+function openSteamModal(view: "scanning" | "results" | "error" = "scanning"): void {
   steamModal.hidden = false;
-  steamScanProgress.hidden = false;
-  steamScanError.hidden = true;
-  steamScanResults.hidden = true;
+  setSteamModalView(view);
 }
 
 function closeSteamModal(): void {
   steamModal.hidden = true;
+  setSteamModalView("results");
 }
 
-steamModalClose.addEventListener("click", closeSteamModal);
+/** Show modal with cached games (results) or kick off a fresh scan. */
+function openSteamModalWithCacheOrScan(): void {
+  if (steamGames.length > 0) {
+    openSteamModal("results");
+    const startTab: SteamTab =
+      recommendedCatalogGames().length > 0
+        ? "catalog"
+        : steamGames.some((g) => !g.alreadyInLibrary && g.catalogGame === null)
+          ? "new"
+          : "added";
+    renderSteamTab(startTab);
+    return;
+  }
+  void runSteamScan({ openModal: true });
+}
+
+steamModalClose.addEventListener("click", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  closeSteamModal();
+});
 steamModal.addEventListener("click", (e) => {
   if (e.target === steamModal) closeSteamModal();
+});
+steamScanRetryBtn.addEventListener("click", () => {
+  void runSteamScan({ openModal: true });
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !steamModal.hidden) {
+    closeSteamModal();
+  }
 });
 
 const steamRecommendCard = $("steam-recommend-card") as HTMLDivElement;
@@ -2554,9 +2640,11 @@ async function runSteamScan(opts: { openModal?: boolean } = {}): Promise<void> {
   if (steamScanInFlight) return;
   steamScanInFlight = true;
 
-  if (opts.openModal) {
-    showSteamModal();
+  const openModal = opts.openModal === true;
+  if (openModal) {
+    openSteamModal("scanning");
   } else {
+    // Background auto-scan: recommendations card only — never fullscreen modal.
     steamRecommendCard.hidden = false;
     steamRecommendStatus.textContent = "Сканируем библиотеку Steam…";
     steamRecommendList.innerHTML = "";
@@ -2564,18 +2652,19 @@ async function runSteamScan(opts: { openModal?: boolean } = {}): Promise<void> {
   }
 
   scanSteamBtn.disabled = true;
+  log(`Steam scan started (modal=${openModal}).`);
   try {
     const result = await window.agent.scanSteam(cfg.hostToken, cfg.apiBaseUrl);
-    steamScanProgress.hidden = true;
 
     if (result.error && result.games.length === 0) {
-      if (opts.openModal) {
-        steamScanError.hidden = false;
+      if (openModal) {
         steamScanErrorText.textContent = result.error;
+        setSteamModalView("error");
       }
       steamRecommendCard.hidden = false;
       steamRecommendStatus.textContent = result.error;
       steamRecommendAddBtn.hidden = true;
+      log(`Steam scan error: ${result.error}`);
       return;
     }
 
@@ -2601,20 +2690,21 @@ async function runSteamScan(opts: { openModal?: boolean } = {}): Promise<void> {
       : `Найдено ${steamGames.length} установленных игр Steam.` +
         (result.error ? `  ⚠️ ${result.error}` : "");
 
-    steamScanResults.hidden = false;
     const startTab: SteamTab = inCatalog > 0 ? "catalog" : isNew > 0 ? "new" : "added";
     renderSteamTab(startTab);
     renderSteamRecommendations();
     renderGamePickerSteam();
+    if (openModal) {
+      setSteamModalView("results");
+    }
     log(
       `Steam: ${steamGames.length} игр, из них ${inCatalog} можно хостить (есть в каталоге).`,
     );
     void refreshSteamAutoHost(cfg);
   } catch (err) {
-    steamScanProgress.hidden = true;
-    if (opts.openModal) {
-      steamScanError.hidden = false;
+    if (openModal) {
       steamScanErrorText.textContent = `Scan failed: ${String(err)}`;
+      setSteamModalView("error");
     }
     steamRecommendCard.hidden = false;
     steamRecommendStatus.textContent = `Ошибка скана Steam: ${String(err)}`;
@@ -2630,12 +2720,7 @@ scanSteamBtn.addEventListener("click", () => {
 });
 
 steamRecommendOpenBtn.addEventListener("click", () => {
-  if (steamGames.length === 0) {
-    void runSteamScan({ openModal: true });
-  } else {
-    showSteamModal();
-    renderSteamTab(recommendedCatalogGames().length > 0 ? "catalog" : "new");
-  }
+  openSteamModalWithCacheOrScan();
 });
 
 steamRecommendAddBtn.addEventListener("click", async () => {
@@ -3051,13 +3136,9 @@ const pairingCard = document.getElementById("pairing-card") as HTMLElement;
 async function submitPairingCode(): Promise<void> {
   const code = pairingCodeInput.value.trim();
   const cfg = await window.agent.getConfig();
-  const apiBaseUrl = ($("apiBaseUrl") as HTMLInputElement).value.trim() || cfg.apiBaseUrl;
+  const apiBaseUrl = resolveApiBaseUrl(cfg);
   if (!/^\d{6}$/.test(code)) {
     pairingStatusEl.textContent = "Введи 6 цифр с сайта";
-    return;
-  }
-  if (!apiBaseUrl) {
-    pairingStatusEl.textContent = "Сначала укажи Platform URL в расширенных настройках";
     return;
   }
   pairingSubmitBtn.disabled = true;
@@ -3078,14 +3159,15 @@ async function submitPairingCode(): Promise<void> {
     ($("hostToken") as HTMLInputElement).value = data.hostToken;
     ($("apiBaseUrl") as HTMLInputElement).value = apiBaseUrl;
     pairingStatusEl.textContent = `Подключено: ${data.displayName ?? "хост"}`;
-    pairingCard.hidden = true;
     if (data.displayName) showSigninBanner(data.displayName, apiBaseUrl);
+    else setHostUiMode("signed-in");
     log(`Вход по коду выполнен: ${data.displayName ?? data.hostToken.slice(0, 8)}…`);
     await loadLibrary(newCfg);
     startLibraryPolling(newCfg);
     showAutoQuotaCard();
   } catch {
-    pairingStatusEl.textContent = "Ошибка сети — проверь Platform URL";
+    pairingStatusEl.textContent =
+      "Нет связи с платформой. Открой «Дополнительно» и проверь адрес (по умолчанию http://127.0.0.1:5000).";
   } finally {
     pairingSubmitBtn.disabled = false;
   }
@@ -3177,6 +3259,26 @@ void loadFormFromConfig().then(async (cfg) => {
     teardown("Паника: ввод заблокирован хостом");
   });
   log("Agent UI loaded.");
+  setHostUiMode("guest");
+  const openLogBtn = document.getElementById("open-log-file") as HTMLButtonElement | null;
+  const copyLogBtn = document.getElementById("copy-log-tail") as HTMLButtonElement | null;
+  openLogBtn?.addEventListener("click", async () => {
+    try {
+      const res = await window.agent.openLogFile();
+      log(res.ok ? `Лог открыт: ${res.path}` : `Не удалось открыть лог: ${res.error ?? "?"}`);
+    } catch (err) {
+      log(`Не удалось открыть лог: ${String(err)}`);
+    }
+  });
+  copyLogBtn?.addEventListener("click", async () => {
+    try {
+      const res = await window.agent.getLogTail();
+      await navigator.clipboard.writeText(res.text || `(пустой лог: ${res.path})`);
+      log("Хвост лога скопирован в буфер обмена.");
+    } catch (err) {
+      log(`Не удалось скопировать лог: ${String(err)}`);
+    }
+  });
   void initAgentKey();
   if (typeof (window.agent as { onUpdateReady?: (cb: () => void) => () => void }).onUpdateReady === "function") {
     (window.agent as unknown as { onUpdateReady: (cb: () => void) => () => void }).onUpdateReady(() => {
@@ -3207,10 +3309,10 @@ void loadFormFromConfig().then(async (cfg) => {
     if (displayName) {
       showSigninBanner(displayName, cfg.apiBaseUrl);
       log(`Вход выполнен как: ${displayName}`);
-      pairingCard.hidden = true;
     } else {
-      // Token is stale or platform unreachable — show the form so user can fix it.
-      log("Не удалось проверить токен. Введи заново или проверь Platform URL.");
+      // Token is stale or platform unreachable — guest UI to re-pair.
+      setHostUiMode("guest");
+      log("Не удалось проверить токен. Введи код с сайта или проверь адрес платформы.");
     }
 
     await loadLibrary(cfg);
@@ -3233,6 +3335,7 @@ void loadFormFromConfig().then(async (cfg) => {
       void runSteamScan({ openModal: false });
     }
   } else {
-    log("First launch — paste your host token from the web dashboard.");
+    setHostUiMode("guest");
+    log("Введи 6-значный код с сайта, чтобы войти.");
   }
 });

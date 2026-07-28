@@ -78,7 +78,10 @@ function kindLabel(kind: string): { label: string; color: string } {
   if (kind.startsWith("loan_repay")) return { label: "Погашение", color: "#fb7185" };
   if (kind === "interest_payout") return { label: "Проценты", color: "#34d399" };
   if (kind === "premium_purchase") return { label: "Премиум", color: "#f472b6" };
-  return { label: kind, color: "#94a3b8" };
+  if (kind === "block_reserve") return { label: "Резерв блока", color: "#38bdf8" };
+  if (kind === "block_release") return { label: "Возврат резерва", color: "#34d399" };
+  if (kind === "platform_fee") return { label: "Комиссия", color: "#94a3b8" };
+  return { label: "Операция", color: "#94a3b8" };
 }
 
 const PAGE_SIZE = 20;

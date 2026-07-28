@@ -57,6 +57,16 @@ jobs:
 
       - name: Unit tests (api-server)
         run: pnpm --filter @workspace/api-server test
+        env:
+          RATE_LIMIT_STORAGE: memory
+
+      - name: Ledger invariant
+        run: node scripts/ledger-invariant.mjs
+        continue-on-error: true
+
+      - name: Invite flow smoke
+        run: pnpm smoke:invite
+        continue-on-error: true
 
       - name: Unit tests (host-agent)
         run: pnpm --filter @workspace/host-agent test

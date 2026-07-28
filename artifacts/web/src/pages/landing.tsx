@@ -16,12 +16,14 @@ import {
   Server,
 } from "lucide-react";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   useGetPublicStats,
   getGetPublicStatsQueryKey,
   useListGames,
   getListGamesQueryKey,
+  useListPublicHosts,
+  getListPublicHostsQueryKey,
+  type PublicHostListItem,
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
@@ -41,29 +43,15 @@ function coverSrc(url: string | null | undefined): string | null {
   return `${import.meta.env.BASE_URL}${url.replace(/^\//, "")}`;
 }
 
-type LiveHost = {
-  id: string;
-  displayName: string;
-  boundAppLabel: string;
-  pricePerHourUsd: number;
-  minutePriceUsd: number;
-  status: string;
-  inviteCode: string | null;
-  tags: string[];
-  games: Array<{ slug: string; title: string; coverImageUrl: string; genre: string; pricePerMinuteLzt: number }>;
-};
+type LiveHost = PublicHostListItem;
 
 function useLiveHosts() {
-  const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
-  return useQuery<LiveHost[]>({
-    queryKey: ["live-hosts-landing"],
-    queryFn: async () => {
-      const res = await fetch(`${base}/api/hosts`);
-      if (!res.ok) return [];
-      return res.json();
+  return useListPublicHosts({
+    query: {
+      queryKey: getListPublicHostsQueryKey(),
+      refetchInterval: 30_000,
+      staleTime: 15_000,
     },
-    refetchInterval: 30_000,
-    staleTime: 15_000,
   });
 }
 
@@ -161,6 +149,12 @@ export default function Landing() {
       className="min-h-screen text-slate-300 font-sans"
       style={{ background: "#06090e" }}
     >
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:px-3 focus:py-2 focus:rounded-md focus:bg-sky-600 focus:text-white"
+      >
+        Перейти к содержимому
+      </a>
       <style>{`
         .surface-card {
           background: #0a1018;
@@ -179,6 +173,7 @@ export default function Landing() {
 
       <SiteNav activePath="/" />
 
+      <main id="main-content">
       <section className="max-w-6xl mx-auto px-6 pt-14 pb-10 flex flex-col lg:flex-row items-start gap-12">
         <div className="flex-1 min-w-0">
           <div
@@ -288,13 +283,8 @@ export default function Landing() {
           </div>
           <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
             {playableHosts.map((host) => {
-              const firstGame = host.games?.[0];
-              const cover = firstGame?.coverImageUrl
-                ? coverSrc(firstGame.coverImageUrl)
-                : null;
-              const gameTitle = firstGame?.title ?? host.boundAppLabel ?? "Игра";
-              const lztPerMin = firstGame?.pricePerMinuteLzt
-                ?? Math.round(host.minutePriceUsd * 200);
+              const gameTitle = host.boundAppLabel || "Игра";
+              const lztPerMin = Math.round(host.minutePriceUsd * 200);
               return (
                 <div
                   key={host.id}
@@ -306,23 +296,12 @@ export default function Landing() {
                   }}
                 >
                   <div className="relative" style={{ height: 100 }}>
-                    {cover ? (
-                      <img
-                        src={cover}
-                        alt={gameTitle}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).style.display = "none";
-                        }}
-                      />
-                    ) : (
-                      <div
-                        className="w-full h-full flex items-center justify-center"
-                        style={{ background: "rgba(14,165,233,0.05)" }}
-                      >
-                        <Server className="w-8 h-8 text-slate-700" />
-                      </div>
-                    )}
+                    <div
+                      className="w-full h-full flex items-center justify-center"
+                      style={{ background: "rgba(14,165,233,0.05)" }}
+                    >
+                      <Server className="w-8 h-8 text-slate-700" />
+                    </div>
                     <div
                       className="absolute inset-0"
                       style={{ background: "linear-gradient(to top, rgba(10,16,24,0.9) 0%, transparent 60%)" }}
@@ -505,7 +484,7 @@ export default function Landing() {
           </Link>
         </div>
       </section>
-
+      </main>
       <footer
         className="border-t px-6 py-5"
         style={{ borderColor: "rgba(255,255,255,0.05)" }}

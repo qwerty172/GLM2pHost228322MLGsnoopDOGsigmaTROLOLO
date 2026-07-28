@@ -321,10 +321,10 @@ function MobileMenu({ activePath }: { activePath?: string }) {
       style={{ borderColor: "rgba(255,255,255,0.05)" }}
     >
       {/* Primary: Играть */}
-      <Link href="/games">
+      <Link href="/hosts">
         <span
           className="flex items-center gap-1 text-[12px] font-semibold px-3 py-1 rounded whitespace-nowrap"
-          style={{ color: activePath === "/games" ? "#38bdf8" : "#e2e8f0" }}
+          style={{ color: activePath === "/hosts" ? "#38bdf8" : "#e2e8f0" }}
           data-testid="link-mobile-games"
         >
           <Gamepad2 className="w-3 h-3" /> Играть
