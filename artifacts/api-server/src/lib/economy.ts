@@ -856,6 +856,38 @@ export async function recordWithdrawalDebit(
   return true;
 }
 
+/** Reverse a failed on-chain payout — credits cash back to the owner. */
+export async function refundWithdrawalDebit(
+  tx: DbTx,
+  args: {
+    ownerType: Exclude<OwnerType, "dev_key">;
+    ownerId: string;
+    amountLzt: number;
+    withdrawalId: string;
+  },
+): Promise<void> {
+  await adjustUserBucket(
+    tx,
+    args.ownerType,
+    args.ownerId,
+    "cash",
+    args.amountLzt,
+  );
+  await writeLedger(tx, [
+    {
+      groupId: randomUUID(),
+      kind: "withdrawal_refund",
+      ownerType: args.ownerType,
+      ownerId: args.ownerId,
+      bucket: "cash",
+      deltaLzt: args.amountLzt,
+      refType: "withdrawal",
+      refId: args.withdrawalId,
+      note: "Автоматический возврат после неудачной выплаты",
+    },
+  ]);
+}
+
 // ---------------------------------------------------------------- system
 
 export async function systemAccountBalance(
