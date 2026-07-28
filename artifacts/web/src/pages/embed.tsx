@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { API_ERROR_CODES_RU, translateApiError } from "@/lib/api-errors";
 import { useSearch } from "wouter";
 import { Loader2, AlertCircle, WifiOff } from "lucide-react";
 
@@ -28,16 +29,17 @@ type EmbedApiError = { error: string; message: string };
 const isDev = import.meta.env.DEV;
 
 function mapEmbedError(error: EmbedApiError): { title: string; detail: string } {
+  const codeTitle = error.error ? API_ERROR_CODES_RU[error.error] : undefined;
   switch (error.error) {
     case "key_balance_exhausted":
       return {
-        title: "Баланс API-ключа исчерпан",
+        title: codeTitle ?? "Баланс API-ключа исчерпан",
         detail: error.message || "Пополните кошелёк ключа, чтобы продолжить.",
       };
     case "invalid_api_key":
-      return { title: "Неверный API-ключ", detail: error.message };
+      return { title: codeTitle ?? "Неверный API-ключ", detail: translateApiError(error, "") };
     case "key_disabled":
-      return { title: "API-ключ отключён", detail: error.message };
+      return { title: codeTitle ?? "API-ключ отключён", detail: translateApiError(error, "") };
     case "missing_params":
       return {
         title: "Не хватает параметров",
@@ -51,7 +53,7 @@ function mapEmbedError(error: EmbedApiError): { title: string; detail: string } 
     default:
       return {
         title: "Не удалось начать сессию",
-        detail: error.message || error.error,
+        detail: translateApiError(error, error.error || "Неизвестная ошибка"),
       };
   }
 }

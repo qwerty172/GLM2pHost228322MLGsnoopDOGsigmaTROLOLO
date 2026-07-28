@@ -1,4 +1,5 @@
 import { Link, useParams, useSearch, useLocation } from "wouter";
+import { translateApiError } from "@/lib/api-errors";
 import { toast } from "sonner";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -731,7 +732,7 @@ function PreviewModal({
         if (!res.ok) {
           const err = (await res.json().catch(() => ({}))) as { error?: string };
           if (!cancelled) {
-            setErrorMsg(err.error === "host_offline" ? "Хост сейчас не в сети" : "Не удалось запустить превью");
+            setErrorMsg(translateApiError(err, "Не удалось запустить превью"));
             setPhase("error");
           }
           return;

@@ -19,6 +19,7 @@ import { TouchOverlay } from "@/components/TouchOverlay";
 import { KeyboardOverlay } from "@/components/KeyboardOverlay";
 import { toast } from "sonner";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { apiErrorFromUnknown, translateApiError } from "@/lib/api-errors";
 
 const LZT_PER_USDT = 200;
 type PaymentSource = "auto" | "blue" | "green";
@@ -32,32 +33,7 @@ const devWarn = (...args: unknown[]) => {
 };
 
 function mapClaimError(err: unknown): string {
-  const raw =
-    err instanceof Error
-      ? err.message
-      : typeof err === "string"
-        ? err
-        : typeof err === "object" && err && "message" in err
-          ? String((err as { message: unknown }).message)
-          : "";
-  const lower = raw.toLowerCase();
-  if (/insufficient|balance|недостаточно|exhausted/i.test(raw) || lower.includes("balance")) {
-    return "Недостаточно средств на кошельке. Пополни баланс и попробуй снова.";
-  }
-  if (/already.?claimed|уже занят|claimed/i.test(raw)) {
-    return "Сессия уже занята другим игроком.";
-  }
-  if (/host.?offline|host_offline|хост оффлайн/i.test(raw)) {
-    return "Хост сейчас офлайн. Выбери другого или попробуй позже.";
-  }
-  if (/not.?found|404|не найден/i.test(raw)) {
-    return "Сессия не найдена или уже завершена.";
-  }
-  if (/rate.?limit|too many/i.test(raw)) {
-    return "Слишком много попыток. Подожди немного и попробуй снова.";
-  }
-  if (raw.trim()) return raw;
-  return "Не удалось занять сессию. Попробуй ещё раз.";
+  return apiErrorFromUnknown(err, "Не удалось занять сессию. Попробуй ещё раз.");
 }
 
 // ---------------------------------------------------------------------------
@@ -184,14 +160,7 @@ export default function Play() {
       } catch (err) {
         if (cancelled) return;
         const apiErr = err as { status?: number; data?: { error?: string; message?: string } };
-        setInviteError(
-          apiErr.data?.message ||
-            (apiErr.data?.error === "invite_expired"
-              ? "Ссылка-приглашение истекла"
-              : apiErr.status === 404
-                ? "Приглашение не найдено"
-                : "Ошибка сети"),
-        );
+        setInviteError(apiErrorFromUnknown(apiErr, "Ошибка сети"));
         setInviteLoading(false);
       }
     })();
@@ -976,7 +945,7 @@ export default function Play() {
         );
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          toast.error(data.error || "Не удалось продлить блок");
+          toast.error(translateApiError(data, "Не удалось продлить блок"));
           return;
         }
         const bm = data.blockMinutes as number | undefined;

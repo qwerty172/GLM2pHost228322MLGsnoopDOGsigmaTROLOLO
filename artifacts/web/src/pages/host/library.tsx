@@ -137,9 +137,7 @@ function isWindowsPath(s: string) {
   return /^[a-zA-Z]:\\/.test(s) || s.startsWith("\\\\") || s.startsWith("/");
 }
 
-// --------------------------------------------------------------------------
-// API helpers
-// --------------------------------------------------------------------------
+import { translateApiMessage } from "@/lib/api-errors";
 async function apiFetch<T>(
   url: string,
   opts?: RequestInit,
@@ -156,7 +154,7 @@ async function apiFetch<T>(
     });
     if (res.status === 204) return { ok: true, data: undefined as T };
     const json = await res.json();
-    if (!res.ok) return { ok: false, error: json?.error ?? "Ошибка сервера", status: res.status };
+    if (!res.ok) return { ok: false, error: translateApiMessage(json?.error, "Ошибка сервера"), status: res.status };
     return { ok: true, data: json };
   } catch {
     return { ok: false, error: "Нет соединения", status: 0 };
