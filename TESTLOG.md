@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-07-28** | UX-05 quotas validation; Wave Regression завершён агентом |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -95,4 +95,12 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E, UX-03 TURN/STUN |
+
+## Marathon UX-05 — валидация квот (2026-07-28) {#marathon-ux05}
+
+| Область | Изменение |
+|---|---|
+| Web | `quota-form-validation.ts` — клиентская валидация create/edit квот (royalty %, sponsor budget, min/max сессии, даты, min/rec specs) |
+| Web | `quota-new.tsx`, `quota-edit.tsx` — toast с русскими ошибками до API-запроса |
+| Acceptance | `pnpm typecheck`, api-server + host-agent tests |
