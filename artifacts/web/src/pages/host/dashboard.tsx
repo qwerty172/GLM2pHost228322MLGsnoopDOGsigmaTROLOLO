@@ -80,7 +80,7 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Link } from "wouter";
-import { discoverAgentPort } from "@/lib/agent-local";
+import { AGENT_PING_PORTS, discoverAgentPort } from "@/lib/agent-local";
 
 const cardStyle = {
   background: "#0a1018",
@@ -125,33 +125,300 @@ async function pingAgent(): Promise<AgentState> {
   };
 }
 
-function AgentTroubleshootChecklist() {
+const TROUBLESHOOT_SYMPTOMS: Array<{
+  symptom: string;
+  cause: string;
+  fix: string;
+}> = [
+  {
+    symptom: "«Агент не подключен»",
+    cause: "Порт 18080 занят или firewall",
+    fix: "Перезапусти start.bat; проверь EADDRINUSE в логах агента",
+  },
+  {
+    symptom: "Дашборд «онлайн», но ввод не доходит",
+    cause: "Агент на другом ПК или focus guard",
+    fix: "curl http://127.0.0.1:18080/ping на ПК с игрой; Alt+Tab в игру",
+  },
+  {
+    symptom: "«Окно игры не найдено»",
+    cause: "Заголовок окна не совпадает с exe",
+    fix: "Ручной picker в агенте или «Цель захвата»",
+  },
+  {
+    symptom: "Стримит весь рабочий стол",
+    cause: "Fallback на экран (одна игра в библиотеке)",
+    fix: "Выбери окно вручную в агенте",
+  },
+  {
+    symptom: "Видео нет, ICE подключён",
+    cause: "Неверный source / окно 0×0",
+    fix: "Перевыбери окно, не минимизируй игру",
+  },
+  {
+    symptom: "ViGEm / геймпад не работает",
+    cause: "Драйвер ViGEmBus не установлен",
+    fix: "Установи ViGEmBus; положи ViGEmClient.dll рядом с агентом",
+  },
+];
+
+type DiagnosticCheck = {
+  id: string;
+  label: string;
+  status: "ok" | "warn" | "fail" | "unknown";
+  detail: string;
+};
+
+function diagnosticStatusLabel(status: DiagnosticCheck["status"]): string {
+  switch (status) {
+    case "ok":
+      return "OK";
+    case "warn":
+      return "Внимание";
+    case "fail":
+      return "Ошибка";
+    default:
+      return "—";
+  }
+}
+
+function diagnosticStatusClass(status: DiagnosticCheck["status"]): string {
+  switch (status) {
+    case "ok":
+      return "bg-emerald-500/10 text-emerald-300 border-emerald-500/25";
+    case "warn":
+      return "bg-amber-500/10 text-amber-300 border-amber-500/25";
+    case "fail":
+      return "bg-red-500/10 text-red-300 border-red-500/25";
+    default:
+      return "bg-slate-500/10 text-slate-400 border-slate-500/20";
+  }
+}
+
+function buildAgentDiagnostics(
+  agent: AgentState,
+  heartbeat: HeartbeatState,
+  agentKeyBound: boolean,
+): DiagnosticCheck[] {
+  const localPing: DiagnosticCheck = (() => {
+    if (agent.status === "checking") {
+      return {
+        id: "local-ping",
+        label: "Локальный ping",
+        status: "unknown",
+        detail: "Проверяем порты 18080–18083…",
+      };
+    }
+    if (agent.status === "online") {
+      return {
+        id: "local-ping",
+        label: "Локальный ping",
+        status: "ok",
+        detail: `Ответ на localhost:${agent.port} · v${agent.version}`,
+      };
+    }
+    return {
+      id: "local-ping",
+      label: "Локальный ping",
+      status: "fail",
+      detail: `Нет ответа на ${AGENT_PING_PORTS.join(", ")} — агент не запущен на этом ПК`,
+    };
+  })();
+
+  const serverHeartbeat: DiagnosticCheck = (() => {
+    if (heartbeat.status === "unknown") {
+      return {
+        id: "heartbeat",
+        label: "Heartbeat API",
+        status: "unknown",
+        detail: "Загружаем статус узла…",
+      };
+    }
+    if (heartbeat.status === "fresh") {
+      return {
+        id: "heartbeat",
+        label: "Heartbeat API",
+        status: "ok",
+        detail: `Агент на связи ${formatDistanceToNow(new Date(heartbeat.lastSeenAt), {
+          addSuffix: true,
+          locale: ru,
+        })}`,
+      };
+    }
+    if (heartbeat.status === "stale") {
+      return {
+        id: "heartbeat",
+        label: "Heartbeat API",
+        status: "warn",
+        detail: `Давно не было heartbeat (${formatDistanceToNow(
+          new Date(heartbeat.lastSeenAt),
+          { addSuffix: true, locale: ru },
+        )})`,
+      };
+    }
+    return {
+      id: "heartbeat",
+      label: "Heartbeat API",
+      status: "fail",
+      detail: "Агент ни разу не отправлял heartbeat на сервер",
+    };
+  })();
+
+  const bindCheck: DiagnosticCheck = agentKeyBound
+    ? {
+        id: "bind",
+        label: "Ключ агента",
+        status: "ok",
+        detail: "Привязан — можно выходить в онлайн",
+      }
+    : {
+        id: "bind",
+        label: "Ключ агента",
+        status: "warn",
+        detail: "Не привязан — выдай код ниже и вставь в агенте",
+      };
+
+  if (agent.status === "offline" && heartbeat.status === "fresh") {
+    localPing.status = "warn";
+    localPing.detail =
+      "На этом ПК ping не отвечает, но heartbeat свежий — агент, вероятно, на другом компьютере";
+  }
+
+  return [localPing, serverHeartbeat, bindCheck];
+}
+
+function AgentTroubleshootPanel({
+  agent,
+  heartbeat,
+  agentKeyBound,
+  onRecheck,
+  rechecking,
+}: {
+  agent: AgentState;
+  heartbeat: HeartbeatState;
+  agentKeyBound: boolean;
+  onRecheck?: () => void;
+  rechecking?: boolean;
+}) {
+  const checks = buildAgentDiagnostics(agent, heartbeat, agentKeyBound);
+
+  const copyDiagnostics = () => {
+    const lines = [
+      "DecentralHub — диагностика агента",
+      ...checks.map((c) => `${c.label}: ${diagnosticStatusLabel(c.status)} — ${c.detail}`),
+      `Порты: ${AGENT_PING_PORTS.join(", ")}`,
+    ];
+    void navigator.clipboard.writeText(lines.join("\n")).then(
+      () => toast.success("Диагностика скопирована"),
+      () => toast.error("Не удалось скопировать"),
+    );
+  };
+
   return (
     <details className="w-full mt-2" data-testid="agent-troubleshoot">
       <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-300 select-none">
-        Если не работает — чеклист
+        Диагностика и устранение неполадок
       </summary>
-      <ul className="mt-2 space-y-1 text-xs text-slate-400 list-disc pl-5">
-        <li>
-          Установлен <span className="text-slate-300">Node.js 20+</span> — проверь командой{" "}
-          <span className="font-mono text-sky-400">node --version</span>
-        </li>
-        <li>
-          Агент запущен через <span className="font-mono text-sky-400">start.bat</span> и не закрыт
-          (иконка в трее)
-        </li>
-        <li>
-          Для игр с античитом запускай <span className="font-mono text-sky-400">start.bat</span>{" "}
-          <span className="text-slate-300">от имени администратора</span>
-        </li>
-        <li>
-          Файрвол/антивирус не блокирует порты{" "}
-          <span className="font-mono text-sky-400">18080–18083</span> и исходящие соединения агента
-        </li>
-        <li>
-          В агенте вставлен токен хоста и есть надпись «Вход выполнен»
-        </li>
-      </ul>
+      <div className="mt-3 space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {onRecheck && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1.5 text-[11px] border-white/10"
+              onClick={(e) => {
+                e.preventDefault();
+                onRecheck();
+              }}
+              disabled={rechecking}
+              data-testid="button-recheck-agent"
+            >
+              <RefreshCw className={`h-3 w-3 ${rechecking ? "animate-spin" : ""}`} />
+              Проверить сейчас
+            </Button>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 gap-1.5 text-[11px] text-slate-400"
+            onClick={(e) => {
+              e.preventDefault();
+              copyDiagnostics();
+            }}
+            data-testid="button-copy-diagnostics"
+          >
+            <Copy className="h-3 w-3" />
+            Скопировать отчёт
+          </Button>
+        </div>
+
+        <ul className="space-y-1.5" data-testid="agent-diagnostics">
+          {checks.map((c) => (
+            <li
+              key={c.id}
+              className="flex items-start gap-2 text-xs rounded-md px-2 py-1.5"
+              style={{ background: "rgba(0,0,0,0.2)" }}
+            >
+              <span
+                className={`shrink-0 mt-0.5 px-1.5 py-0.5 rounded border font-mono text-[10px] font-bold ${diagnosticStatusClass(c.status)}`}
+              >
+                {diagnosticStatusLabel(c.status)}
+              </span>
+              <span className="text-slate-300">
+                <span className="font-medium">{c.label}.</span> {c.detail}
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        <div className="overflow-x-auto rounded-lg border border-white/5">
+          <table className="w-full text-[11px] text-left">
+            <thead>
+              <tr className="text-slate-500 border-b border-white/5">
+                <th className="px-2 py-1.5 font-medium">Симптом</th>
+                <th className="px-2 py-1.5 font-medium">Причина</th>
+                <th className="px-2 py-1.5 font-medium">Что делать</th>
+              </tr>
+            </thead>
+            <tbody>
+              {TROUBLESHOOT_SYMPTOMS.map((row) => (
+                <tr key={row.symptom} className="border-b border-white/5 last:border-0">
+                  <td className="px-2 py-1.5 text-slate-300 align-top">{row.symptom}</td>
+                  <td className="px-2 py-1.5 text-slate-500 align-top">{row.cause}</td>
+                  <td className="px-2 py-1.5 text-slate-400 align-top">{row.fix}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <ul className="space-y-1 text-xs text-slate-400 list-disc pl-5">
+          <li>
+            Установлен <span className="text-slate-300">Node.js 20+</span> —{" "}
+            <span className="font-mono text-sky-400">node --version</span>
+          </li>
+          <li>
+            Агент запущен через <span className="font-mono text-sky-400">start.bat</span> (иконка в
+            трее)
+          </li>
+          <li>
+            Для античита — <span className="font-mono text-sky-400">start.bat</span> от
+            администратора
+          </li>
+          <li>
+            Привязка: код с дашборда или{" "}
+            <span className="font-mono text-sky-400">start.bat --bind-code=XXXX</span>
+          </li>
+          <li>
+            Логи агента:{" "}
+            <span className="font-mono text-slate-500">
+              %APPDATA%/cloud-gaming-host-agent/logs/
+            </span>
+          </li>
+        </ul>
+      </div>
     </details>
   );
 }
@@ -256,7 +523,19 @@ function AgentEventsCard({ hostToken }: { hostToken: string }) {
   );
 }
 
-function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: HeartbeatState }) {
+function AgentStatusCard({
+  agent,
+  heartbeat,
+  agentKeyBound,
+  onRecheckAgent,
+  recheckingAgent,
+}: {
+  agent: AgentState;
+  heartbeat: HeartbeatState;
+  agentKeyBound: boolean;
+  onRecheckAgent?: () => void;
+  recheckingAgent?: boolean;
+}) {
   // A fresh server-side heartbeat means the agent is running (possibly on
   // another PC) even if the local ping to localhost:18080 fails.
   if (agent.status === "offline" && heartbeat.status === "fresh") {
@@ -412,7 +691,13 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
         <p className="mt-3 text-[11px] text-slate-600">
           Нужен Node.js 20+ · Windows 10/11 · Запусти от имени администратора, если игра не захватывается
         </p>
-        <AgentTroubleshootChecklist />
+        <AgentTroubleshootPanel
+          agent={agent}
+          heartbeat={heartbeat}
+          agentKeyBound={agentKeyBound}
+          onRecheck={onRecheckAgent}
+          rechecking={recheckingAgent}
+        />
       </CardContent>
     </Card>
   );
@@ -844,6 +1129,8 @@ function HostQuickStartCard({
   agentKeyBound,
   libraryCount,
   hasActiveSession,
+  onRecheckAgent,
+  recheckingAgent,
 }: {
   hostToken: string;
   agent: AgentState;
@@ -851,6 +1138,8 @@ function HostQuickStartCard({
   agentKeyBound: boolean;
   libraryCount: number;
   hasActiveSession: boolean;
+  onRecheckAgent?: () => void;
+  recheckingAgent?: boolean;
 }) {
   const agentOnline =
     agent.status === "online" || heartbeat.status === "fresh";
@@ -975,7 +1264,13 @@ function HostQuickStartCard({
           <div className="rounded-lg p-3 text-xs text-slate-400" style={{ background: "rgba(0,0,0,0.25)" }}>
             После установки запусти <span className="font-mono text-sky-400">start.bat</span>.
             Агент уйдёт в трей — окно настроек открой по клику на иконку.
-            <AgentTroubleshootChecklist />
+            <AgentTroubleshootPanel
+              agent={agent}
+              heartbeat={heartbeat}
+              agentKeyBound={agentKeyBound}
+              onRecheck={onRecheckAgent}
+              rechecking={recheckingAgent}
+            />
           </div>
         )}
 
@@ -1218,6 +1513,24 @@ interface PcSpecs {
 export default function Dashboard() {
   const { hostToken } = useAuth();
   const [agent, setAgent] = useState<AgentState>({ status: "checking" });
+  const [recheckingAgent, setRecheckingAgent] = useState(false);
+
+  const recheckAgent = () => {
+    setRecheckingAgent(true);
+    void discoverAgentPort({ force: true, timeoutMs: 1200 }).then((info) => {
+      if (info) {
+        setAgent({
+          status: "online",
+          version: info.version,
+          audioMode: (info.audioMode ?? "off") as AudioMode,
+          port: info.port,
+        });
+      } else {
+        setAgent({ status: "offline" });
+      }
+      setRecheckingAgent(false);
+    });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -1410,6 +1723,8 @@ export default function Dashboard() {
           agentKeyBound={agentKeyBound}
           libraryCount={libraryCount}
           hasActiveSession={hasActiveSession}
+          onRecheckAgent={recheckAgent}
+          recheckingAgent={recheckingAgent}
         />
       )}
 
@@ -1512,7 +1827,13 @@ export default function Dashboard() {
           {hostToken && <BindingForm hostToken={hostToken} />}
 
           {agent.status !== "checking" && (
-            <AgentStatusCard agent={agent} heartbeat={heartbeat} />
+            <AgentStatusCard
+              agent={agent}
+              heartbeat={heartbeat}
+              agentKeyBound={agentKeyBound}
+              onRecheckAgent={recheckAgent}
+              recheckingAgent={recheckingAgent}
+            />
           )}
 
           {hostToken && <AgentEventsCard hostToken={hostToken} />}
