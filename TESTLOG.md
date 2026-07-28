@@ -48,6 +48,10 @@
 | **marathon W9-4 withdrawal worker** | **done** | withdrawalWorker + walletPayout, hot wallets, retry/backoff, refund on fail |
 | **marathon W10-1** | **done** | activeSessionCount в библиотеке хоста + кнопка «Завершить» (PLAN 2.4) |
 | **marathon W11-1 tier pricing** | **done** | множители bronze/silver/gold на хосте, персональная цена в каталоге и биллинге |
+| **marathon W12 economy admin** | **done** | `platform_settings` в БД, interestWorker + регистрация из settings, `/admin` UI (настройки + резервы) |
+| **marathon W13 dev-keys admin** | **done** | Admin API/UI: list/create/disable dev keys + initial top-up |
+| **marathon W14 drip** | **done** | `drip_schedules` + dripWorker, admin UI/API, ledger `drip_payout` |
+| **marathon W15 ops** | **done** | manual adjustments + marathon-task (webhook / MARATHON.md) |
 
 ## Баги
 

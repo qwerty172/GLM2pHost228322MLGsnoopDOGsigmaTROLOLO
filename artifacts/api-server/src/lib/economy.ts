@@ -46,6 +46,7 @@ export type DbTx = PgTransaction<
 
 export const SYSTEM_INTEREST_RESERVE = "interest_reserve";
 export const SYSTEM_PLATFORM_FEES = "platform_fees";
+export const SYSTEM_DRIP_RESERVE = "drip_reserve";
 
 // ---------------------------------------------------------------- helpers
 

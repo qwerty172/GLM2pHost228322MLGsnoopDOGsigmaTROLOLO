@@ -7,6 +7,7 @@ import { startDepositWorker, stopDepositWorker } from "./lib/depositWorker";
 import { startWithdrawalWorker, stopWithdrawalWorker } from "./lib/withdrawalWorker";
 import { startQuotaExpiryWorker, stopQuotaExpiryWorker } from "./lib/quotaExpiryWorker";
 import { startInterestWorker, stopInterestWorker } from "./lib/interestWorker";
+import { startDripWorker, stopDripWorker } from "./lib/dripWorker";
 import { startLoanDefaultWorker, stopLoanDefaultWorker } from "./lib/loanDefaultWorker";
 import { startHostHealthWorker, stopHostHealthWorker } from "./lib/hostHealthWorker";
 import { startScheduleWatchdog, stopScheduleWatchdog } from "./lib/scheduleWatchdog";
@@ -52,6 +53,7 @@ function startWorkers() {
   startWithdrawalWorker();
   startQuotaExpiryWorker();
   startInterestWorker();
+  startDripWorker();
   startLoanDefaultWorker();
   startHostHealthWorker();
   startScheduleWatchdog();
@@ -73,6 +75,7 @@ function stopWorkers() {
   stopWithdrawalWorker();
   stopQuotaExpiryWorker();
   stopInterestWorker();
+  stopDripWorker();
   stopLoanDefaultWorker();
   stopHostHealthWorker();
   stopScheduleWatchdog();

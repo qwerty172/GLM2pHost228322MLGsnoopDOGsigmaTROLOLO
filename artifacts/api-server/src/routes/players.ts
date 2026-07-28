@@ -9,6 +9,9 @@ import {
 import { generateToken } from "../lib/tokens";
 import { ensureDepositAddressesForOwner } from "../lib/walletOwner";
 import { rateLimit, ipKey } from "../lib/rateLimit";
+import { getPlatformSettings } from "../lib/platformSettings";
+import { adjustUserBucket, writeLedger } from "../lib/economy";
+import { randomUUID } from "node:crypto";
 
 const router: IRouter = Router();
 
@@ -34,8 +37,19 @@ const claimGuestLimiter = rateLimit({
   keyFn: ipKey,
 });
 
-const GUEST_CREDIT_LIMIT_LZT = 500;
-const DEFAULT_CREDIT_LIMIT_LZT = 3000;
+async function registrationLimits(isGuest: boolean) {
+  const settings = await getPlatformSettings();
+  if (isGuest) {
+    return {
+      creditLimitLzt: settings.guestCreditLimitLzt,
+      welcomeBonusLzt: 0,
+    };
+  }
+  return {
+    creditLimitLzt: settings.defaultCreditLimitLzt,
+    welcomeBonusLzt: settings.welcomeBonusLzt,
+  };
+}
 
 function serialize(p: typeof playersTable.$inferSelect) {
   return {
@@ -54,6 +68,7 @@ router.post("/players/register", registerLimiter, async (req, res): Promise<void
   const isGuestRequest = !!(req.body?.guest);
 
   if (isGuestRequest) {
+    const limits = await registrationLimits(true);
     const playerToken = generateToken();
     const guestName = `Гость_${playerToken.slice(0, 6)}`;
     const [player] = await db
@@ -62,7 +77,7 @@ router.post("/players/register", registerLimiter, async (req, res): Promise<void
         playerToken,
         displayName: guestName,
         isGuest: true,
-        creditLimitLzt: GUEST_CREDIT_LIMIT_LZT,
+        creditLimitLzt: limits.creditLimitLzt,
       })
       .returning();
 
@@ -83,11 +98,13 @@ router.post("/players/register", registerLimiter, async (req, res): Promise<void
   }
 
   const playerToken = generateToken();
+  const limits = await registrationLimits(false);
   const [player] = await db
     .insert(playersTable)
     .values({
       playerToken,
       displayName: parsed.data.displayName,
+      creditLimitLzt: limits.creditLimitLzt,
     })
     .returning();
 
@@ -96,10 +113,41 @@ router.post("/players/register", registerLimiter, async (req, res): Promise<void
     return;
   }
 
+  if (limits.welcomeBonusLzt > 0) {
+    await db.transaction(async (tx) => {
+      await adjustUserBucket(
+        tx,
+        "player",
+        player.id,
+        "balance",
+        limits.welcomeBonusLzt,
+      );
+      const groupId = randomUUID();
+      await writeLedger(tx, [
+        {
+          groupId,
+          kind: "welcome_bonus",
+          ownerType: "player",
+          ownerId: player.id,
+          bucket: "balance",
+          deltaLzt: limits.welcomeBonusLzt,
+          refType: "platform_settings",
+          refId: "1",
+          note: "welcome bonus on registration",
+        },
+      ]);
+    });
+  }
+
   await ensureDepositAddressesForOwner("player", player.id);
 
+  const [fresh] = await db
+    .select()
+    .from(playersTable)
+    .where(eq(playersTable.id, player.id));
+
   req.log.info({ playerId: player.id }, "Player registered");
-  res.status(201).json(GetPlayerResponse.parse(serialize(player)));
+  res.status(201).json(GetPlayerResponse.parse(serialize(fresh ?? player)));
 });
 
 router.get("/players/:playerToken", playerReadLimiter, async (req, res): Promise<void> => {
@@ -163,6 +211,7 @@ router.post("/players/claim-guest", claimGuestLimiter, async (req, res): Promise
 
   // Find or create a full player account linked to the host.
   // For now we create a new full player that inherits the guest balance.
+  const limits = await registrationLimits(false);
   const newToken = generateToken();
   const [fullPlayer] = await db
     .insert(playersTable)
@@ -170,7 +219,7 @@ router.post("/players/claim-guest", claimGuestLimiter, async (req, res): Promise
       playerToken: newToken,
       displayName: host.displayName,
       isGuest: false,
-      creditLimitLzt: DEFAULT_CREDIT_LIMIT_LZT,
+      creditLimitLzt: limits.creditLimitLzt,
       internalBalanceLzt: guest.internalBalanceLzt,
       withdrawableBalanceLzt: guest.withdrawableBalanceLzt,
     })
@@ -246,6 +295,7 @@ router.post("/players/upgrade-guest", upgradeGuestLimiter, async (req, res): Pro
     return;
   }
 
+  const limits = await registrationLimits(false);
   const newToken = generateToken();
   const [upgraded] = await db
     .update(playersTable)
@@ -253,7 +303,7 @@ router.post("/players/upgrade-guest", upgradeGuestLimiter, async (req, res): Pro
       playerToken: newToken,
       displayName,
       isGuest: false,
-      creditLimitLzt: DEFAULT_CREDIT_LIMIT_LZT,
+      creditLimitLzt: limits.creditLimitLzt,
     })
     .where(and(eq(playersTable.id, guest.id), eq(playersTable.isGuest, true)))
     .returning();
