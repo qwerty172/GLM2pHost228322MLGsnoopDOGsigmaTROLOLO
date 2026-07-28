@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-07-28** | Wave Regression complete; C1-S06 ACL legacy; UX-03 ICE hints RU |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -95,4 +95,15 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, Windows E2E |
+
+## Marathon Wave Regression (2026-07-28) {#marathon-reg}
+
+| Проверка | Статус |
+|---|---|
+| `pnpm typecheck` | verified (auth-verifier params fix) |
+| api-server tests | 22 vitest + 3 node:test |
+| host-agent tests | 12/12 |
+| C1-S06 legacy ACL | `evaluateObjectAccess(null)` → READ ok, WRITE deny; matches `storage.ts` route |
+| UX-03 ICE hints | `IceConnectivityBadge` — «Прямое» / «Через NAT» / «Через сервер» + tooltip RU |
+| UX-02 dashboard | `AgentTroubleshootChecklist` + TURN env hints для хоста |

@@ -19,6 +19,7 @@ import { TouchOverlay } from "@/components/TouchOverlay";
 import { KeyboardOverlay } from "@/components/KeyboardOverlay";
 import { toast } from "sonner";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { IceConnectivityBadge } from "@/components/ice-connectivity-badge";
 
 const LZT_PER_USDT = 200;
 type PaymentSource = "auto" | "blue" | "green";
@@ -1735,18 +1736,7 @@ export default function Play() {
                           ? "ИНИЦИАЛИЗАЦИЯ"
                           : "ПОДКЛЮЧЕНИЕ"}
           </Badge>
-          {iceType && !reconnecting && (
-            <Badge
-              variant="outline"
-              className="bg-black/50 backdrop-blur font-mono text-[10px]"
-              style={{
-                borderColor: iceType === "relay" ? "#a855f7" : "#22c55e",
-                color: iceType === "relay" ? "#c084fc" : "#86efac",
-              }}
-            >
-              {iceType === "relay" ? "TURN" : iceType === "srflx" ? "STUN" : "P2P"}
-            </Badge>
-          )}
+          {iceType && !reconnecting && <IceConnectivityBadge type={iceType} />}
           {/* E2E RTT indicator */}
           {e2eRtt !== null && !reconnecting && (
             <Badge
