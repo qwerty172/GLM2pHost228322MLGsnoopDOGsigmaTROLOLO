@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { translateApiMessage } from "@/lib/api-errors";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
@@ -57,18 +58,6 @@ function bpsToPercent(bps: number) {
   return (bps / 100).toFixed(2);
 }
 
-function serverErrorToRu(msg: string): string {
-  if (/pledger limit/i.test(msg)) return "Pledger-лимит равен нулю — сначала сделай хотя бы один депозит или вывод";
-  if (/amountLzt exceeds/i.test(msg)) return "Сумма превышает твой Pledger-лимит";
-  if (/termDays must be/i.test(msg)) return `Срок должен быть не менее ${MIN_TERM_DAYS} дней`;
-  if (/not open/i.test(msg)) return "Заявка уже не в открытом статусе";
-  if (/own request/i.test(msg)) return "Нельзя финансировать собственную заявку";
-  if (/insufficient lender/i.test(msg)) return "Недостаточно баланса для финансирования";
-  if (/insufficient/i.test(msg)) return "Недостаточно баланса";
-  if (/not your loan/i.test(msg)) return "Это не твой займ";
-  if (/not repayable/i.test(msg)) return "Займ нельзя погасить (возможно, уже закрыт)";
-  return msg;
-}
 
 function loanRequestStatusRu(status: string): string {
   const labels: Record<string, string> = {
@@ -223,7 +212,7 @@ function FundModal({
         },
         onError: (err: unknown) => {
           const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Ошибка";
-          setServerError(serverErrorToRu(msg));
+          setServerError(translateApiMessage(msg));
         },
       },
     );
@@ -460,7 +449,7 @@ function CreateRequestSection({ myToken }: { myToken: string | null }) {
         },
         onError: (err: unknown) => {
           const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Ошибка";
-          setServerError(serverErrorToRu(msg));
+          setServerError(translateApiMessage(msg));
         },
       },
     );
@@ -664,7 +653,7 @@ function BorrowerCard({
         },
         onError: (err: unknown) => {
           const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Ошибка";
-          setServerError(serverErrorToRu(msg));
+          setServerError(translateApiMessage(msg));
         },
       },
     );

@@ -23,6 +23,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Coins, Sparkles, Loader2, Server, ChevronDown, ChevronRight, CheckCircle2, XCircle, Cpu, Wand2 } from "lucide-react";
 import { QuotaAiChat, type QuotaFormPatch } from "@/components/quota-ai-chat";
 import { VtScanner } from "@/components/vt-scanner";
+import { apiErrorFromUnknown, translateApiError, translateApiMessage } from "@/lib/api-errors";
 
 const cardStyle = {
   background: "#0a1018",
@@ -147,7 +148,7 @@ export default function QuotaNewPage() {
       );
       if (!res.ok) {
         const d = (await res.json()) as { error?: string };
-        toast.error(d.error ?? "Не удалось сохранить VDS-конфиг");
+        toast.error(translateApiMessage(d.error, "Не удалось сохранить VDS-конфиг"));
       } else {
         toast.success("VDS-конфиг сохранён, провижининг запущен");
       }
@@ -177,7 +178,7 @@ export default function QuotaNewPage() {
       );
       if (!resp.ok) {
         const err = (await resp.json()) as { error?: string };
-        toast.error(err.error ?? "AI вернул ошибку");
+        toast.error(translateApiMessage(err.error, "AI вернул ошибку"));
         return;
       }
       const data = (await resp.json()) as {
@@ -280,7 +281,7 @@ export default function QuotaNewPage() {
       }
       navigate(`/quotas/${created.id}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Ошибка");
+      toast.error(apiErrorFromUnknown(err, "Ошибка"));
     }
   };
 
