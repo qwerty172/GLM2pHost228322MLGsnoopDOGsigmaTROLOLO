@@ -19,6 +19,11 @@ import { TouchOverlay } from "@/components/TouchOverlay";
 import { KeyboardOverlay } from "@/components/KeyboardOverlay";
 import { toast } from "sonner";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import {
+  iceConnectionHint,
+  iceConnectionShortLabel,
+  type IceConnectionType,
+} from "@/lib/connection-hints";
 
 const LZT_PER_USDT = 200;
 type PaymentSource = "auto" | "blue" | "green";
@@ -249,7 +254,7 @@ export default function Play() {
   const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>("new");
   const [isPlaying, setIsPlaying] = useState(false);
   const [showAudioPrompt, setShowAudioPrompt] = useState(false);
-  const [iceType, setIceType] = useState<"relay" | "srflx" | "host" | null>(null);
+  const [iceType, setIceType] = useState<IceConnectionType | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
   const [e2eRtt, setE2eRtt] = useState<number | null>(null);
   const [dataChannelOpen, setDataChannelOpen] = useState(false);
@@ -1743,8 +1748,9 @@ export default function Play() {
                 borderColor: iceType === "relay" ? "#a855f7" : "#22c55e",
                 color: iceType === "relay" ? "#c084fc" : "#86efac",
               }}
+              title={iceConnectionHint(iceType)}
             >
-              {iceType === "relay" ? "TURN" : iceType === "srflx" ? "STUN" : "P2P"}
+              {iceConnectionShortLabel(iceType)}
             </Badge>
           )}
           {/* E2E RTT indicator */}

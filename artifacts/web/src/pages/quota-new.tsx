@@ -23,6 +23,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Coins, Sparkles, Loader2, Server, ChevronDown, ChevronRight, CheckCircle2, XCircle, Cpu, Wand2 } from "lucide-react";
 import { QuotaAiChat, type QuotaFormPatch } from "@/components/quota-ai-chat";
 import { VtScanner } from "@/components/vt-scanner";
+import { parseQuotaIntField, validateQuotaForm } from "@/lib/quota-validation";
 
 const cardStyle = {
   background: "#0a1018",
@@ -216,10 +217,81 @@ export default function QuotaNewPage() {
       toast.error("Нужно войти как хост");
       return;
     }
-    if (!title.trim()) {
-      toast.error("Укажи название");
+
+    const parsedMinSession = minSessionMinutes
+      ? parseQuotaIntField(minSessionMinutes)
+      : null;
+    const parsedMaxSession = maxSessionMinutes
+      ? parseQuotaIntField(maxSessionMinutes)
+      : null;
+    const parsedMinGpu = minGpuVram ? parseQuotaIntField(minGpuVram) : null;
+    const parsedMinCpu = minCpuCores ? parseQuotaIntField(minCpuCores) : null;
+    const parsedMinRam = minRamGb ? parseQuotaIntField(minRamGb) : null;
+    const parsedMinDown = minDownloadMbps
+      ? parseQuotaIntField(minDownloadMbps)
+      : null;
+    const parsedMinUp = minUploadMbps ? parseQuotaIntField(minUploadMbps) : null;
+    const parsedRecGpu = recGpuVram ? parseQuotaIntField(recGpuVram) : null;
+    const parsedRecCpu = recCpuCores ? parseQuotaIntField(recCpuCores) : null;
+    const parsedRecRam = recRamGb ? parseQuotaIntField(recRamGb) : null;
+    const parsedRecDown = recDownloadMbps
+      ? parseQuotaIntField(recDownloadMbps)
+      : null;
+    const parsedRecUp = recUploadMbps ? parseQuotaIntField(recUploadMbps) : null;
+
+    for (const [label, value] of [
+      ["Мин. длительность сессии", parsedMinSession],
+      ["Макс. длительность сессии", parsedMaxSession],
+      ["Мин. VRAM", parsedMinGpu],
+      ["Мин. ядра CPU", parsedMinCpu],
+      ["Мин. ОЗУ", parsedMinRam],
+      ["Мин. скачивание", parsedMinDown],
+      ["Мин. отдача", parsedMinUp],
+      ["Рек. VRAM", parsedRecGpu],
+      ["Рек. ядра CPU", parsedRecCpu],
+      ["Рек. ОЗУ", parsedRecRam],
+      ["Рек. скачивание", parsedRecDown],
+      ["Рек. отдача", parsedRecUp],
+    ] as const) {
+      if (value != null && Number.isNaN(value)) {
+        toast.error(`${label} — укажи целое число`);
+        return;
+      }
+    }
+
+    const validationError = validateQuotaForm({
+      kind,
+      title,
+      royaltyBasis: kind === "royalty" ? royaltyBasis : null,
+      royaltyValue: kind === "royalty" ? Math.floor(royaltyValue) : null,
+      royaltySource: kind === "royalty" ? royaltySource : null,
+      budgetLzt: kind === "sponsor" ? Math.floor(budgetLzt) : null,
+      sponsorHostPerMinuteLzt:
+        kind === "sponsor" ? Math.floor(sponsorHostPerMinute) : null,
+      sponsorPlayerPerMinuteLzt:
+        kind === "sponsor" ? Math.floor(sponsorPlayerPerMinute) : null,
+      minSessionMinutes:
+        parsedMinSession != null ? Math.max(1, parsedMinSession) : null,
+      maxSessionMinutes:
+        parsedMaxSession != null ? Math.max(1, parsedMaxSession) : null,
+      startAt: startAt || null,
+      endAt: endAt || null,
+      minGpuVram: parsedMinGpu,
+      minCpuCores: parsedMinCpu,
+      minRamGb: parsedMinRam,
+      minDownloadMbps: parsedMinDown,
+      minUploadMbps: parsedMinUp,
+      recGpuVram: parsedRecGpu,
+      recCpuCores: parsedRecCpu,
+      recRamGb: parsedRecRam,
+      recDownloadMbps: parsedRecDown,
+      recUploadMbps: parsedRecUp,
+    });
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
+
     try {
       const created = await createQuota.mutateAsync({
         data: {
