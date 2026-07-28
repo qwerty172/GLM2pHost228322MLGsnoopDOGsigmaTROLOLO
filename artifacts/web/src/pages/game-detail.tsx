@@ -86,6 +86,9 @@ type LibraryHost = {
   description: string | null;
   pricePerMinuteLzt: number;
   pricePerMinuteUsd: number;
+  yourPricePerMinuteLzt?: number;
+  yourPricePerMinuteUsd?: number;
+  playerTier?: "bronze" | "silver" | "gold" | null;
   status: "online" | "available" | "scheduled";
   inviteCode: string | null;
   scheduleMode: string;
@@ -93,12 +96,31 @@ type LibraryHost = {
   hostTier?: "meets_min" | "above_rec";
 };
 
-function useLibraryHosts(slug: string) {
+const TIER_LABELS: Record<string, string> = {
+  bronze: "Бронза",
+  silver: "Серебро",
+  gold: "Золото",
+};
+
+function effectiveHostPriceLzt(h: LibraryHost): number {
+  return h.yourPricePerMinuteLzt ?? h.pricePerMinuteLzt;
+}
+
+function effectiveHostPriceUsd(h: LibraryHost): number {
+  return h.yourPricePerMinuteUsd ?? h.pricePerMinuteUsd;
+}
+
+function useLibraryHosts(slug: string, playerWalletToken: string | null) {
   return useQuery<LibraryHost[]>({
-    queryKey: ["public-game-hosts", slug],
+    queryKey: ["public-game-hosts", slug, playerWalletToken ?? ""],
     queryFn: async () => {
       const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
-      const res = await fetch(`${base}/api/public/games/${encodeURIComponent(slug)}/hosts`);
+      const headers: Record<string, string> = {};
+      if (playerWalletToken) headers["X-User-Token"] = playerWalletToken;
+      const res = await fetch(
+        `${base}/api/public/games/${encodeURIComponent(slug)}/hosts`,
+        { headers },
+      );
       if (!res.ok) return [];
       return res.json();
     },
@@ -188,9 +210,10 @@ export default function GameDetailPage() {
     },
   });
 
-  const { data: libraryHosts, isLoading: hostsLoading } = useLibraryHosts(slug);
   const browserRtt = useBrowserPingMs();
   const { playerWalletToken, registerGuest } = usePlayerWallet();
+
+  const { data: libraryHosts, isLoading: hostsLoading } = useLibraryHosts(slug, playerWalletToken);
 
   async function handlePlayDirect(host: LibraryHost) {
     if (!host.inviteCode) return;
@@ -361,7 +384,7 @@ export default function GameDetailPage() {
                     >
                       <span className="text-slate-500 font-normal text-xs mr-1.5">от</span>
                       <span className="text-sky-300">
-                        {Math.min(...(libraryHosts ?? []).map((h) => h.pricePerMinuteLzt))} LZT
+                        {Math.min(...(libraryHosts ?? []).map((h) => effectiveHostPriceLzt(h)))} LZT
                       </span>
                       <span className="text-slate-500 font-normal text-xs ml-1">/мин</span>
                     </div>
@@ -506,8 +529,12 @@ function LibraryHostRow({
   const isOnline = h.status === "online";
   const isAvailable = h.status === "available";
 
-  const lztPerHour = h.pricePerMinuteLzt * 60;
-  const usdPerHour = (h.pricePerMinuteUsd * 60).toFixed(2);
+  const priceLzt = effectiveHostPriceLzt(h);
+  const priceUsd = effectiveHostPriceUsd(h);
+  const lztPerHour = priceLzt * 60;
+  const usdPerHour = (priceUsd * 60).toFixed(2);
+  const tierLabel = h.playerTier ? TIER_LABELS[h.playerTier] : null;
+  const hasTierDiscount = priceLzt !== h.pricePerMinuteLzt;
   const totalLatency = h.pingMs != null ? Math.round((browserRtt ?? 0) + h.pingMs) : null;
   const isTop = h.hostTier === "above_rec";
 
@@ -567,9 +594,15 @@ function LibraryHostRow({
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs">
             <span className="flex items-center gap-1" data-testid={`text-minute-price-${h.hostId}`}>
               <span className="w-1.5 h-1.5 rounded-full bg-sky-400 inline-block" />
-              <span className="font-bold text-white">{h.pricePerMinuteLzt} LZT</span>
+              <span className="font-bold text-white">{priceLzt} LZT</span>
               <span className="text-slate-500">/мин</span>
-              <span className="text-slate-600 font-mono ml-1">≈ ${h.pricePerMinuteUsd.toFixed(4)}</span>
+              <span className="text-slate-600 font-mono ml-1">≈ ${priceUsd.toFixed(4)}</span>
+              {tierLabel && (
+                <span className="text-[10px] text-amber-400/90 ml-1">
+                  ({tierLabel}
+                  {hasTierDiscount ? ` · база ${h.pricePerMinuteLzt}` : ""})
+                </span>
+              )}
             </span>
             <span className="flex items-center gap-1 text-slate-600 font-mono">
               <Zap className="h-3 w-3" />
@@ -912,7 +945,7 @@ function PreviewModal({
                 <p className="text-white font-semibold text-sm">Впечатлило?</p>
                 <p className="text-slate-500 text-xs mt-0.5">
                   Играй за{" "}
-                  <span className="text-sky-300 font-mono font-bold">{host.pricePerMinuteLzt} LZT/мин</span>
+                  <span className="text-sky-300 font-mono font-bold">{effectiveHostPriceLzt(host)} LZT/мин</span>
                 </p>
               </div>
               <div className="flex gap-2 shrink-0">
@@ -990,8 +1023,9 @@ function PreSessionModal({
   const creditLimit = (wallet as { creditLimitLzt?: number } | undefined)?.creditLimitLzt ?? DEFAULT_CREDIT_LZT;
   const creditUsed = wallet?.creditDebtLzt ?? 0;
   const creditAvailable = Math.max(0, creditLimit - creditUsed);
-  const minsAvailable = host.pricePerMinuteLzt > 0
-    ? Math.floor(totalAvailableLzt / host.pricePerMinuteLzt)
+  const priceLzt = effectiveHostPriceLzt(host);
+  const minsAvailable = priceLzt > 0
+    ? Math.floor(totalAvailableLzt / priceLzt)
     : 9999;
 
   const blockOptions: Array<{ mins: 10 | 15 | 25; label: string }> = [
@@ -1000,7 +1034,7 @@ function PreSessionModal({
     { mins: 25, label: "25 мин" },
   ];
   const selectedBlockMins = blockChoice === "unlimited" ? null : (Number(blockChoice) as 10 | 15 | 25);
-  const blockCost = selectedBlockMins ? selectedBlockMins * host.pricePerMinuteLzt : null;
+  const blockCost = selectedBlockMins ? selectedBlockMins * priceLzt : null;
   const canAffordBlock = blockCost === null || totalAvailableLzt >= blockCost;
   const canStart = minsAvailable >= 1 && canAffordBlock;
 
@@ -1074,10 +1108,10 @@ function PreSessionModal({
                 <Clock className="h-3 w-3" /> Стоимость
               </p>
               <p className="text-lg font-bold font-mono text-white">
-                {host.pricePerMinuteLzt} LZT
+                {priceLzt} LZT
               </p>
               <p className="text-[10px] text-slate-500 mt-0.5">
-                в минуту · {host.pricePerMinuteLzt * 60} LZT/час
+                в минуту · {priceLzt * 60} LZT/час
               </p>
             </div>
           </div>
@@ -1119,7 +1153,7 @@ function PreSessionModal({
           </div>
 
           {/* Block selector (only shown for paid sessions) */}
-          {host.pricePerMinuteLzt > 0 && (
+          {priceLzt > 0 && (
             <div
               className="rounded-xl p-3"
               style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
@@ -1138,7 +1172,7 @@ function PreSessionModal({
                   ∞
                 </button>
                 {blockOptions.map((opt) => {
-                  const cost = opt.mins * host.pricePerMinuteLzt;
+                  const cost = opt.mins * priceLzt;
                   const affordable = totalAvailableLzt >= cost;
                   return (
                     <button

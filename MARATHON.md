@@ -1,13 +1,14 @@
 # DecentralHub Marathon — живой бэклог
 
-> **Активный цикл:** Wave Regression  
+> **Активный цикл:** Cross-cutting + UX (см. первую `pending` ниже)  
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл` (cron пн/чт 09:00)  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
+> **Админка:** `/admin` (экономика) · `/admin/games` deprecated  
 > **Последнее обновление:** 2026-07-28
 
 ## Как пользоваться
 
-1. Automation (или агент в чате) берёт **первую** задачу со статусом `pending` в активном цикле.
+1. Automation (или агент в чате) берёт **первую** задачу со статусом `pending`.
 2. Переводит в `in_progress` → выполняет acceptance → `done` или `blocked`.
 3. Записывает находки в [TESTLOG.md](./TESTLOG.md).
 4. Базовая верификация: `pnpm typecheck`, api/host-agent tests, `pnpm smoke:invite`.
@@ -116,8 +117,35 @@
 | REG-04 | TESTLOG summary | done | agent |
 | REG-05 | TESTPLAN 5-7 | done | agent |
 
+## W12–W15 — Admin economy (merged 2026-07-28)
+
+| ID | Задача | Статус |
+|----|--------|--------|
+| W12-1 | `platform_settings` + API `/admin/economy/settings` | done |
+| W12-2 | `interestWorker` читает rate из БД | done |
+| W12-3 | Welcome bonus / лимиты из settings | done |
+| W12-4 | Admin UI `/admin`: «Настройки» | done |
+| W12-5 | Admin UI: «Резервы» | done |
+| W13-1 | Admin API dev keys + top-up | done |
+| W13-2 | Admin UI: «API-ключи» | done |
+| W14-1 | `drip_schedules` + dripWorker | done |
+| W14-2 | Admin API/UI drips | done |
+| W14-3 | Ledger `drip_payout`, wallet history | done |
+| W15-1 | Manual credit/debit + ledger audit | done |
+| W15-2 | POST marathon-task webhook | done |
+
+## Economy backlog (PLAN фаза 3)
+
+| ID | Задача | Priority | Status | Owner |
+|----|--------|----------|--------|-------|
+| ECO-01 | deposit USD-lock (PLAN 3.2) | P1 | pending | agent |
+| ECO-02 | Partial loans (PLAN 3.9) | P2 | pending | agent |
+| ECO-03 | Loan reminders (PLAN 3.10) | P2 | pending | agent |
+| ECO-04 | Redis rate-limit (PLAN 3.7) | P2 | pending | agent |
+| ECO-05 | Удалить `/admin/games`, перенести заявки в `/admin` | P2 | pending | agent |
+
 ## Automation prompt
 
 ```
-Прочитай MARATHON.md. Возьми первую pending задачу. Выполни acceptance. pnpm typecheck && pnpm --filter @workspace/api-server test && pnpm --filter @workspace/host-agent test. Обнови MARATHON.md и TESTLOG.md. Не коммить без запроса.
+Прочитай MARATHON.md. Возьми первую pending задачу. Выполни acceptance. pnpm typecheck && pnpm --filter @workspace/api-server test && pnpm --filter @workspace/host-agent test. Обнови MARATHON.md и TESTLOG.md.
 ```

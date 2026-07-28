@@ -25,3 +25,5 @@ export * from "./outbox";
 export * from "./refreshTokens";
 export * from "./sessionRatings";
 export * from "./verifierLinks";
+export * from "./platformSettings";
+export * from "./dripSchedules";

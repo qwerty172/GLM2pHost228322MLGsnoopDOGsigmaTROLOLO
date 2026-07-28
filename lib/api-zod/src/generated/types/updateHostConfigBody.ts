@@ -22,6 +22,21 @@ export interface UpdateHostConfigBody {
   tags?: string[];
   launchPriceUsd?: number;
   minutePriceUsd?: number;
+  /**
+   * @minimum 50
+   * @maximum 200
+   */
+  tierBronzeMultiplierPct?: number;
+  /**
+   * @minimum 50
+   * @maximum 200
+   */
+  tierSilverMultiplierPct?: number;
+  /**
+   * @minimum 50
+   * @maximum 200
+   */
+  tierGoldMultiplierPct?: number;
   scheduleMode?: UpdateHostConfigBodyScheduleMode;
   scheduleJson?: ScheduleSlot[];
   streamPlatform?: string;

@@ -15,6 +15,7 @@ import BrowserPlay from "@/pages/host/browser-play";
 import GamesPage from "@/pages/games";
 import GameDetailPage from "@/pages/game-detail";
 import AdminGamesPage from "@/pages/admin/games";
+import AdminEconomyPage from "@/pages/admin/economy";
 import HostsPage from "@/pages/hosts";
 import QuotasPage from "@/pages/quotas";
 import QuotaDetailPage from "@/pages/quota-detail";
@@ -71,6 +72,7 @@ function Router() {
       <Route path="/games" component={GamesPage} />
       <Route path="/profile" component={ProfilePage} />
       <Route path="/games/:slug" component={GameDetailPage} />
+      <Route path="/admin" component={AdminEconomyPage} />
       <Route path="/admin/games" component={AdminGamesPage} />
       <Route path="/hosts" component={HostsPage} />
       <Route path="/exchange" component={ExchangePage} />

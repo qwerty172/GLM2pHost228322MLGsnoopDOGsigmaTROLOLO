@@ -64,6 +64,9 @@ export default function BindingForm({ hostToken }: Props) {
   const [tags, setTags] = useState<string[]>([]);
   const [launchPriceUsd, setLaunchPriceUsd] = useState("0");
   const [minutePriceUsd, setMinutePriceUsd] = useState("0.04");
+  const [tierBronzeMultiplierPct, setTierBronzeMultiplierPct] = useState("100");
+  const [tierSilverMultiplierPct, setTierSilverMultiplierPct] = useState("100");
+  const [tierGoldMultiplierPct, setTierGoldMultiplierPct] = useState("100");
   const [scheduleMode, setScheduleMode] = useState<"always" | "scheduled">(
     "always",
   );
@@ -96,6 +99,9 @@ export default function BindingForm({ hostToken }: Props) {
     setTags(host.tags ?? []);
     setLaunchPriceUsd(String(host.launchPriceUsd ?? 0));
     setMinutePriceUsd(String(host.minutePriceUsd ?? 0));
+    setTierBronzeMultiplierPct(String(host.tierBronzeMultiplierPct ?? 100));
+    setTierSilverMultiplierPct(String(host.tierSilverMultiplierPct ?? 100));
+    setTierGoldMultiplierPct(String(host.tierGoldMultiplierPct ?? 100));
     setScheduleMode(host.scheduleMode === "scheduled" ? "scheduled" : "always");
     setScheduleJson(host.scheduleJson ?? []);
     setStreamPlatform(host.streamPlatform ?? "");
@@ -138,6 +144,20 @@ export default function BindingForm({ hostToken }: Props) {
     if (!Number.isFinite(mp) || Math.abs(mp) > 100) {
       toast.error("Цена за минуту: число, |значение| ≤ 100");
       return;
+    }
+    const tierMults = [
+      { label: "Бронза", raw: tierBronzeMultiplierPct, key: "tierBronzeMultiplierPct" },
+      { label: "Серебро", raw: tierSilverMultiplierPct, key: "tierSilverMultiplierPct" },
+      { label: "Золото", raw: tierGoldMultiplierPct, key: "tierGoldMultiplierPct" },
+    ] as const;
+    const parsedTierMults: Record<string, number> = {};
+    for (const t of tierMults) {
+      const v = Math.floor(Number(t.raw));
+      if (!Number.isFinite(v) || v < 50 || v > 200) {
+        toast.error(`Множитель «${t.label}»: целое число от 50 до 200 (100 = базовая цена)`);
+        return;
+      }
+      parsedTierMults[t.key] = v;
     }
     if (scheduleMode === "scheduled") {
       for (const slot of scheduleJson) {
@@ -192,6 +212,9 @@ export default function BindingForm({ hostToken }: Props) {
       tags: allTags,
       launchPriceUsd: lp,
       minutePriceUsd: mp,
+      tierBronzeMultiplierPct: parsedTierMults.tierBronzeMultiplierPct,
+      tierSilverMultiplierPct: parsedTierMults.tierSilverMultiplierPct,
+      tierGoldMultiplierPct: parsedTierMults.tierGoldMultiplierPct,
       scheduleMode,
       scheduleJson,
       streamPlatform,
@@ -477,6 +500,60 @@ export default function BindingForm({ hostToken }: Props) {
                   value={minutePriceUsd}
                   onChange={(e) => setMinutePriceUsd(e.target.value)}
                 />
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded border border-white/10 p-4 bg-white/[0.02]">
+              <div>
+                <Label className="text-slate-300">Множители цены по тирам игроков</Label>
+                <p className="text-xs text-slate-500 mt-1">
+                  Тир определяется суммой депозитов игрока: бронза &lt; $20, серебро $20–$149.99,
+                  золото ≥ $150. 100 = базовая цена из библиотеки, 120 = +20%.
+                </p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="tierBronze" className="text-slate-400 text-xs">
+                    Бронза (%)
+                  </Label>
+                  <Input
+                    id="tierBronze"
+                    data-testid="input-tier-bronze"
+                    type="number"
+                    min={50}
+                    max={200}
+                    value={tierBronzeMultiplierPct}
+                    onChange={(e) => setTierBronzeMultiplierPct(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tierSilver" className="text-slate-400 text-xs">
+                    Серебро (%)
+                  </Label>
+                  <Input
+                    id="tierSilver"
+                    data-testid="input-tier-silver"
+                    type="number"
+                    min={50}
+                    max={200}
+                    value={tierSilverMultiplierPct}
+                    onChange={(e) => setTierSilverMultiplierPct(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tierGold" className="text-slate-400 text-xs">
+                    Золото (%)
+                  </Label>
+                  <Input
+                    id="tierGold"
+                    data-testid="input-tier-gold"
+                    type="number"
+                    min={50}
+                    max={200}
+                    value={tierGoldMultiplierPct}
+                    onChange={(e) => setTierGoldMultiplierPct(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
 

@@ -45,6 +45,13 @@
 | **marathon W3 dedup** | **done** | inviteCode канон, joinCode deprecated, OpenAPI+hooks, ws-ticket route |
 | **marathon W4 UX** | **done** | agent --bind-code, setup advanced banner, agent port discovery |
 | **marathon W5 infra** | **done** | .env.example Redis/JWT/Sentry/migrations docs, worker math tests |
+| **marathon W9-4 withdrawal worker** | **done** | withdrawalWorker + walletPayout, hot wallets, retry/backoff, refund on fail |
+| **marathon W10-1** | **done** | activeSessionCount в библиотеке хоста + кнопка «Завершить» (PLAN 2.4) |
+| **marathon W11-1 tier pricing** | **done** | множители bronze/silver/gold на хосте, персональная цена в каталоге и биллинге |
+| **marathon W12 economy admin** | **done** | `platform_settings` в БД, interestWorker + регистрация из settings, `/admin` UI (настройки + резервы) |
+| **marathon W13 dev-keys admin** | **done** | Admin API/UI: list/create/disable dev keys + initial top-up |
+| **marathon W14 drip** | **done** | `drip_schedules` + dripWorker, admin UI/API, ledger `drip_payout` |
+| **marathon W15 ops** | **done** | manual adjustments + marathon-task (webhook / MARATHON.md) |
 
 ## Баги
 
@@ -97,3 +104,12 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | CI | ledger-invariant + smoke:invite steps |
 | Storage ACL | `uploads/*` без metadata — legacy public read; `saves/*` и др. → 401 без ACL; private ACL на confirm |
 | Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, Windows E2E |
+
+## Marathon admin economy (2026-07-28) {#marathon-w12}
+
+| Область | Статус |
+|---|---|
+| Admin `/admin` | settings, reserves, dev keys, drips, adjustments, marathon-task |
+| DB | `platform_settings`, `drip_schedules` + migration 0004 |
+| Workers | `interestWorker` из БД; `dripWorker` для scheduled payouts |
+| Merge | W12–W15 из `bc-edd235f0` + C1-S06 storage ACL в `bfc8` |

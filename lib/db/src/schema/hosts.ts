@@ -67,6 +67,17 @@ export const hostsTable = pgTable("hosts", {
     .notNull()
     .default(12_000), // ~$60 @ 200 LZT/USDT
 
+  // Per-player deposit tier price multipliers (100 = 1.0×, no change).
+  tierBronzeMultiplierPct: integer("tier_bronze_multiplier_pct")
+    .notNull()
+    .default(100),
+  tierSilverMultiplierPct: integer("tier_silver_multiplier_pct")
+    .notNull()
+    .default(100),
+  tierGoldMultiplierPct: integer("tier_gold_multiplier_pct")
+    .notNull()
+    .default(100),
+
   // -----------------------------------------------------------------
   // Host "offer" config — what this host streams and on what terms.
   // -----------------------------------------------------------------

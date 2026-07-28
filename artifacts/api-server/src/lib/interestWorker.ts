@@ -15,6 +15,7 @@
 import { eq, sql } from "drizzle-orm";
 import { db, hostsTable, playersTable } from "@workspace/db";
 import { logger } from "./logger";
+import { getPlatformSettings } from "./platformSettings";
 import {
   drawFromSystemAccount,
   systemAccountBalance,
@@ -38,10 +39,8 @@ const CRON_HOUR = Math.min(
   23,
   Math.max(0, Number(process.env["WEEKLY_INTEREST_HOUR_UTC"] ?? 0)),
 );
-// Rate is hundredth-of-bps × 100 — so 20 = 0.20%. Default 20.
-const RATE_HUNDREDTH_BPS = Number(
-  process.env["WEEKLY_INTEREST_RATE_HBPS"] ?? 20,
-);
+// Rate is hundredth-of-bps × 100 — so 20 = 0.20%. Overridden by platform_settings.
+const ENV_RATE_HBPS = Number(process.env["WEEKLY_INTEREST_RATE_HBPS"] ?? 20);
 const FRACTION_SCALE = 10_000;
 let timer: NodeJS.Timeout | null = null;
 let stopped = false;
@@ -68,6 +67,13 @@ function msUntilNextRun(from: Date = new Date()): number {
 }
 
 async function payOnce(now: Date = new Date()): Promise<void> {
+  const settings = await getPlatformSettings();
+  if (!settings.interestEnabled) {
+    logger.info("Weekly interest skipped — disabled in platform settings");
+    return;
+  }
+  const rateHbps = settings.weeklyInterestRateHbps ?? ENV_RATE_HBPS;
+
   const reserveBefore = await db.transaction((tx) =>
     systemAccountBalance(tx, SYSTEM_INTEREST_RESERVE),
   );
@@ -102,7 +108,7 @@ async function payOnce(now: Date = new Date()): Promise<void> {
         }
         continue;
       }
-      const scaledNew = avg * RATE_HUNDREDTH_BPS;
+      const scaledNew = avg * rateHbps;
       const totalScaled = scaledNew + u.fraction;
       const wholeLzt = Math.floor(totalScaled / FRACTION_SCALE);
       const remainder = totalScaled - wholeLzt * FRACTION_SCALE;
@@ -205,10 +211,17 @@ export function startInterestWorker(): void {
     return;
   }
   stopped = false;
-  logger.info(
-    { dowUtc: CRON_DOW, hourUtc: CRON_HOUR, rateHbps: RATE_HUNDREDTH_BPS },
-    "Starting weekly interest worker (UTC cron)",
-  );
+  void getPlatformSettings().then((s) => {
+    logger.info(
+      {
+        dowUtc: CRON_DOW,
+        hourUtc: CRON_HOUR,
+        rateHbps: s.weeklyInterestRateHbps,
+        interestEnabled: s.interestEnabled,
+      },
+      "Starting weekly interest worker (UTC cron)",
+    );
+  });
   scheduleNext();
 }
 

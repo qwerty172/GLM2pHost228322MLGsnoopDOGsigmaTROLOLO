@@ -178,6 +178,24 @@ export interface Host {
   launchPriceUsd: number;
   /** Charged per minute while streaming (may be negative) */
   minutePriceUsd: number;
+  /**
+   * Price multiplier for bronze-tier players (lifetime deposit < $20). 100 = base price.
+   * @minimum 50
+   * @maximum 200
+   */
+  tierBronzeMultiplierPct: number;
+  /**
+   * Price multiplier for silver-tier players ($20–$149.99 lifetime). 100 = base price.
+   * @minimum 50
+   * @maximum 200
+   */
+  tierSilverMultiplierPct: number;
+  /**
+   * Price multiplier for gold-tier players (≥ $150 lifetime). 100 = base price.
+   * @minimum 50
+   * @maximum 200
+   */
+  tierGoldMultiplierPct: number;
   scheduleMode: HostScheduleMode;
   scheduleJson: ScheduleSlot[];
   /** e.g. "twitch", "youtube", "rtmp" */
@@ -250,6 +268,21 @@ export interface UpdateHostConfigBody {
   tags?: string[];
   launchPriceUsd?: number;
   minutePriceUsd?: number;
+  /**
+   * @minimum 50
+   * @maximum 200
+   */
+  tierBronzeMultiplierPct?: number;
+  /**
+   * @minimum 50
+   * @maximum 200
+   */
+  tierSilverMultiplierPct?: number;
+  /**
+   * @minimum 50
+   * @maximum 200
+   */
+  tierGoldMultiplierPct?: number;
   scheduleMode?: UpdateHostConfigBodyScheduleMode;
   scheduleJson?: ScheduleSlot[];
   streamPlatform?: string;
@@ -1281,6 +1314,8 @@ export interface HostLibraryEntry {
   lastError: string;
   addedAt: string;
   hasActiveSession: boolean;
+  /** Number of non-ended sessions for this game on this host */
+  activeSessionCount: number;
   game: HostLibraryGame;
 }
 
