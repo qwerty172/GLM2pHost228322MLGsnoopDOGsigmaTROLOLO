@@ -5,6 +5,7 @@ import {
   gamesTable,
   hostGamesTable,
   hostsTable,
+  playersTable,
   sessionsTable,
   billingEventsTable,
   withdrawalsTable,
@@ -15,6 +16,11 @@ import {
 } from "@workspace/api-zod";
 import { isHostAvailableNow } from "../lib/schedule";
 import { generalHostTier } from "../lib/hostTier";
+import {
+  effectivePricePerMinuteLzt,
+  playerDepositTierForLifetimeCents,
+} from "../lib/playerDepositTier";
+import { headerUserToken } from "../lib/requestToken";
 import { mintPreviewToken } from "../lib/signaling";
 import { generateInviteCode, defaultInviteExpiresAt } from "../lib/invites";
 import { rateLimit, ipKey } from "../lib/rateLimit";
@@ -259,6 +265,18 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
 
   if (!game) { res.status(404).json({ error: "Game not found" }); return; }
 
+  const walletToken = headerUserToken(req);
+  let playerLifetimeCents = 0;
+  if (walletToken) {
+    const [walletPlayer] = await db
+      .select({ lifetimeDepositUsdtCents: playersTable.lifetimeDepositUsdtCents })
+      .from(playersTable)
+      .where(eq(playersTable.playerToken, walletToken));
+    if (walletPlayer) {
+      playerLifetimeCents = walletPlayer.lifetimeDepositUsdtCents;
+    }
+  }
+
   // All enabled library entries for this game.
   const libraryRows = await db
     .select({
@@ -316,6 +334,16 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
         description: h.description,
         pricePerMinuteLzt: hg.pricePerMinuteLzt,
         pricePerMinuteUsd: hg.pricePerMinuteLzt / 200,
+        yourPricePerMinuteLzt: effectivePricePerMinuteLzt(
+          hg.pricePerMinuteLzt,
+          h,
+          playerLifetimeCents,
+        ),
+        yourPricePerMinuteUsd:
+          effectivePricePerMinuteLzt(hg.pricePerMinuteLzt, h, playerLifetimeCents) / 200,
+        playerTier: walletToken
+          ? playerDepositTierForLifetimeCents(playerLifetimeCents)
+          : null,
         status: inviteCode ? "online" : (available ? "available" : "scheduled"),
         inviteCode,
         scheduleMode: h.scheduleMode,
@@ -337,7 +365,9 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
       tierRank(a.hostTier) - tierRank(b.hostTier) ||
       (statusOrder[a.status as keyof typeof statusOrder] ?? 2) -
         (statusOrder[b.status as keyof typeof statusOrder] ?? 2) ||
-      a.pricePerMinuteLzt - b.pricePerMinuteLzt,
+      (walletToken
+        ? a.yourPricePerMinuteLzt - b.yourPricePerMinuteLzt
+        : a.pricePerMinuteLzt - b.pricePerMinuteLzt),
   );
 
   res.json(result);

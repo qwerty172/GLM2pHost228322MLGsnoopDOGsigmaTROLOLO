@@ -61,6 +61,24 @@ const hostReadLimiter = rateLimit({
 // Hosts can declare any rate, including negative ("loss-leader" promos), but
 // we cap the absolute value so a typo can't drain a wallet in one tick.
 const PRICE_ABS_LIMIT = 100; // USD
+const TIER_MULTIPLIER_MIN = 50;
+const TIER_MULTIPLIER_MAX = 200;
+
+function validateTierMultiplier(
+  res: Response,
+  field: string,
+  value: number | undefined,
+): number | undefined | null {
+  if (value === undefined) return undefined;
+  const v = Math.floor(value);
+  if (!Number.isFinite(v) || v < TIER_MULTIPLIER_MIN || v > TIER_MULTIPLIER_MAX) {
+    res.status(400).json({
+      error: `${field} must be an integer in [${TIER_MULTIPLIER_MIN}, ${TIER_MULTIPLIER_MAX}]`,
+    });
+    return null;
+  }
+  return v;
+}
 
 function serializeHost(h: typeof hostsTable.$inferSelect) {
   return {
@@ -77,6 +95,9 @@ function serializeHost(h: typeof hostsTable.$inferSelect) {
     tags: h.tags ?? [],
     launchPriceUsd: Number(h.launchPriceUsd),
     minutePriceUsd: Number(h.minutePriceUsd),
+    tierBronzeMultiplierPct: h.tierBronzeMultiplierPct,
+    tierSilverMultiplierPct: h.tierSilverMultiplierPct,
+    tierGoldMultiplierPct: h.tierGoldMultiplierPct,
     scheduleMode: h.scheduleMode,
     scheduleJson: h.scheduleJson ?? [],
     streamPlatform: h.streamPlatform,
@@ -329,6 +350,27 @@ async function applyHostConfigUpdate(
     }
     update.creditMaxLztPerPlayer = v;
   }
+  const bronzeMult = validateTierMultiplier(
+    res,
+    "tierBronzeMultiplierPct",
+    body.tierBronzeMultiplierPct,
+  );
+  if (bronzeMult === null) return;
+  if (bronzeMult !== undefined) update.tierBronzeMultiplierPct = bronzeMult;
+  const silverMult = validateTierMultiplier(
+    res,
+    "tierSilverMultiplierPct",
+    body.tierSilverMultiplierPct,
+  );
+  if (silverMult === null) return;
+  if (silverMult !== undefined) update.tierSilverMultiplierPct = silverMult;
+  const goldMult = validateTierMultiplier(
+    res,
+    "tierGoldMultiplierPct",
+    body.tierGoldMultiplierPct,
+  );
+  if (goldMult === null) return;
+  if (goldMult !== undefined) update.tierGoldMultiplierPct = goldMult;
 
   if (Object.keys(update).length === 0) {
     res.json(GetHostResponse.parse(serializeHost(existing)));
