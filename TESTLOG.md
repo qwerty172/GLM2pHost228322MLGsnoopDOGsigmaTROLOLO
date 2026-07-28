@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-07-28** | UX-03: RU ice labels, disconnect hints, host TURN/NAT troubleshoot — см. MARATHON.md |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -96,3 +96,12 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
 | Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+
+## Marathon UX-03 (2026-07-28) {#marathon-ux-03}
+
+| Область | Изменение |
+|---|---|
+| Web play | Бейдж TURN/STUN/P2P → «Прямое» / «Через сервер»; подсказки при обрыве связи |
+| Web play | Убраны WebRTC/ICE из оверлеев загрузки |
+| Web dashboard | Блок «Сеть: P2P, TURN и NAT» в расширенных настройках хоста |
+| Lib | `artifacts/web/src/lib/ice-connection.ts` — метки и тексты подсказок |
