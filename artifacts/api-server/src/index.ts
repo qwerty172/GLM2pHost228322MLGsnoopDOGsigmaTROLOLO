@@ -4,6 +4,7 @@ import { logger } from "./lib/logger";
 import { attachSignaling, closeSignaling } from "./lib/signaling";
 import { startBillingWorker, stopBillingWorker } from "./lib/billingWorker";
 import { startDepositWorker, stopDepositWorker } from "./lib/depositWorker";
+import { startWithdrawalWorker, stopWithdrawalWorker } from "./lib/withdrawalWorker";
 import { startQuotaExpiryWorker, stopQuotaExpiryWorker } from "./lib/quotaExpiryWorker";
 import { startInterestWorker, stopInterestWorker } from "./lib/interestWorker";
 import { startLoanDefaultWorker, stopLoanDefaultWorker } from "./lib/loanDefaultWorker";
@@ -48,6 +49,7 @@ void startPgNotifyListener().catch((err) => {
 function startWorkers() {
   startBillingWorker();
   startDepositWorker();
+  startWithdrawalWorker();
   startQuotaExpiryWorker();
   startInterestWorker();
   startLoanDefaultWorker();
@@ -68,6 +70,7 @@ function startWorkers() {
 function stopWorkers() {
   stopBillingWorker();
   stopDepositWorker();
+  stopWithdrawalWorker();
   stopQuotaExpiryWorker();
   stopInterestWorker();
   stopLoanDefaultWorker();
