@@ -113,3 +113,12 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | DB | `platform_settings`, `drip_schedules` + migration 0004 |
 | Workers | `interestWorker` из БД; `dripWorker` для scheduled payouts |
 | Merge | W12–W15 из `bc-edd235f0` + C1-S06 storage ACL в `bfc8` |
+
+## Marathon backlog expand (2026-07-28) {#marathon-ship}
+
+| Область | Статус |
+|---|---|
+| MARATHON.md | Wave Ship, WIN manual, PLAN/ECO backlog, W9–W11 archive |
+| LOCAL_SETUP | env checklist + `/admin` bootstrap |
+| bootstrap-admin.mjs | `is_admin=1` для dev |
+| typecheck | auth-verifier `paramString` fix |
