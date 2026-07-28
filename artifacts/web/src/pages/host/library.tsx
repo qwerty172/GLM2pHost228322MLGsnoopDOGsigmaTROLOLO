@@ -56,6 +56,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Image as ImageIcon,
+  PowerOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -64,8 +65,11 @@ import {
   useUpdateHostLibraryEntry,
   useRemoveHostLibraryEntry,
   useListGames,
+  useListHostSessions,
+  useEndSession,
   getListHostLibraryQueryKey,
   getListGamesQueryKey,
+  getListHostSessionsQueryKey,
   type HostLibraryEntry,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -169,6 +173,9 @@ async function apiFetch<T>(
 function SortableRow({
   entry,
   hasActiveSession,
+  activeSessionCount,
+  onEndSessions,
+  endingSessions,
   onToggle,
   onEdit,
   onDelete,
@@ -176,6 +183,9 @@ function SortableRow({
 }: {
   entry: LibraryEntry;
   hasActiveSession: boolean;
+  activeSessionCount: number;
+  onEndSessions: (e: LibraryEntry) => void;
+  endingSessions: boolean;
   onToggle: (e: LibraryEntry) => void;
   onEdit: (e: LibraryEntry) => void;
   onDelete: (e: LibraryEntry) => void;
@@ -245,6 +255,20 @@ function SortableRow({
         </div>
         <div className="flex items-center gap-2 mt-0.5">
           <LztBadge lzt={entry.pricePerMinuteLzt} className="text-xs" />
+          {activeSessionCount > 0 && (
+            <Badge
+              variant="outline"
+              className="text-[10px] h-4 px-1.5"
+              style={{
+                background: "rgba(20,184,166,0.12)",
+                color: "#2dd4bf",
+                border: "1px solid rgba(20,184,166,0.3)",
+              }}
+            >
+              {activeSessionCount}{" "}
+              {activeSessionCount === 1 ? "сессия" : "сессий"}
+            </Badge>
+          )}
           {!entry.enabled && (
             <span className="text-[10px] text-slate-600 italic">выключена</span>
           )}
@@ -253,6 +277,24 @@ function SortableRow({
 
       {/* Actions */}
       <div className="flex items-center gap-2 flex-shrink-0">
+        {activeSessionCount > 0 && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10"
+            onClick={() => onEndSessions(entry)}
+            disabled={endingSessions}
+            title="Завершить активные сессии"
+          >
+            {endingSessions ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <PowerOff className="h-3.5 w-3.5" />
+            )}
+            <span className="ml-1 hidden sm:inline">Завершить</span>
+          </Button>
+        )}
+
         {/* Toggle */}
         <Tooltip>
           <TooltipTrigger asChild>
@@ -1105,6 +1147,8 @@ export default function HostLibrary() {
   const [editEntry, setEditEntry] = useState<LibraryEntry | null>(null);
   const [deleteEntry, setDeleteEntry] = useState<LibraryEntry | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [endSessionsEntry, setEndSessionsEntry] = useState<LibraryEntry | null>(null);
+  const [endingSessions, setEndingSessions] = useState(false);
 
   const {
     data: remoteEntries,
@@ -1117,6 +1161,18 @@ export default function HostLibrary() {
       queryKey: getListHostLibraryQueryKey(hostToken ?? ""),
     },
   });
+
+  const {
+    data: sessions,
+    refetch: refetchSessions,
+  } = useListHostSessions(hostToken ?? "", {
+    query: {
+      enabled: !!hostToken,
+      queryKey: getListHostSessionsQueryKey(hostToken ?? ""),
+    },
+  });
+
+  const endSession = useEndSession();
 
   const updateEntry = useUpdateHostLibraryEntry();
   const removeEntry = useRemoveHostLibraryEntry();
@@ -1143,7 +1199,53 @@ export default function HostLibrary() {
     void queryClient.invalidateQueries({
       queryKey: getListHostLibraryQueryKey(hostToken),
     });
+    void queryClient.invalidateQueries({
+      queryKey: getListHostSessionsQueryKey(hostToken),
+    });
   }, [hostToken, queryClient]);
+
+  const activeSessionsByGame = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const s of sessions ?? []) {
+      if (s.status === "ended" || !s.gameId) continue;
+      const ids = map.get(s.gameId) ?? [];
+      ids.push(s.id);
+      map.set(s.gameId, ids);
+    }
+    return map;
+  }, [sessions]);
+
+  const handleEndSessions = async () => {
+    if (!hostToken || !endSessionsEntry) return;
+    const sessionIds = activeSessionsByGame.get(endSessionsEntry.gameId) ?? [];
+    if (sessionIds.length === 0) {
+      setEndSessionsEntry(null);
+      return;
+    }
+    setEndingSessions(true);
+    let failed = 0;
+    for (const id of sessionIds) {
+      try {
+        await endSession.mutateAsync({ id, data: { hostToken } });
+      } catch {
+        failed += 1;
+      }
+    }
+    setEndingSessions(false);
+    setEndSessionsEntry(null);
+    if (failed > 0) {
+      toast.error(`Не удалось завершить ${failed} из ${sessionIds.length} сессий`);
+    } else {
+      toast.success(
+        sessionIds.length === 1
+          ? "Сессия завершена"
+          : `Завершено ${sessionIds.length} сессий`,
+      );
+    }
+    invalidateLibrary();
+    void refetchSessions();
+    void refetch();
+  };
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -1306,6 +1408,14 @@ export default function HostLibrary() {
                       key={entry.id}
                       entry={entry}
                       hasActiveSession={entry.hasActiveSession}
+                      activeSessionCount={
+                        entry.activeSessionCount ??
+                        (entry.hasActiveSession ? 1 : 0)
+                      }
+                      onEndSessions={setEndSessionsEntry}
+                      endingSessions={
+                        endingSessions && endSessionsEntry?.id === entry.id
+                      }
                       onToggle={handleToggle}
                       onEdit={setEditEntry}
                       onDelete={setDeleteEntry}
@@ -1344,6 +1454,60 @@ export default function HostLibrary() {
         onClose={() => setDeleteEntry(null)}
         onConfirm={handleDelete}
       />
+
+      <Dialog
+        open={!!endSessionsEntry}
+        onOpenChange={(v) => {
+          if (!v && !endingSessions) setEndSessionsEntry(null);
+        }}
+      >
+        <DialogContent
+          className="sm:max-w-sm"
+          style={{ background: "#0d1520", border: "1px solid rgba(255,255,255,0.08)" }}
+        >
+          <DialogHeader>
+            <DialogTitle className="text-white">
+              Завершить {endSessionsEntry ? `«${endSessionsEntry.game.title}»` : "сессии"}?
+            </DialogTitle>
+            <DialogDescription className="text-slate-500">
+              {endSessionsEntry && (
+                <>
+                  {(
+                    endSessionsEntry.activeSessionCount ??
+                    activeSessionsByGame.get(endSessionsEntry.gameId)?.length ??
+                    0
+                  ) > 1
+                    ? "Все активные сессии этой игры будут завершены. Игроки отключатся, биллинг остановится."
+                    : "Игрок будет отключён, биллинг остановится. Это действие нельзя отменить."}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setEndSessionsEntry(null)}
+              disabled={endingSessions}
+              className="border-white/10 text-slate-300 hover:text-white"
+            >
+              Отмена
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleEndSessions()}
+              disabled={endingSessions}
+              className="bg-red-600 hover:bg-red-500 text-white"
+            >
+              {endingSessions ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                "Завершить"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
