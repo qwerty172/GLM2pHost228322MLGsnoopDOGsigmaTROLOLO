@@ -46,6 +46,7 @@
 | **marathon W4 UX** | **done** | agent --bind-code, setup advanced banner, agent port discovery |
 | **marathon W5 infra** | **done** | .env.example Redis/JWT/Sentry/migrations docs, worker math tests |
 | **marathon W9-4 withdrawal worker** | **done** | withdrawalWorker + walletPayout, hot wallets, retry/backoff, refund on fail |
+| **marathon W10-1** | **done** | activeSessionCount в библиотеке хоста + кнопка «Завершить» (PLAN 2.4) |
 
 ## Баги
 
