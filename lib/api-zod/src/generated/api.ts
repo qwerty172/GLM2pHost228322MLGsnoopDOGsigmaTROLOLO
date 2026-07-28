@@ -3233,6 +3233,9 @@ export const ListHostLibraryResponseItem = zod.object({
   lastError: zod.string(),
   addedAt: zod.coerce.date(),
   hasActiveSession: zod.boolean(),
+  activeSessionCount: zod
+    .number()
+    .describe("Number of non-ended sessions for this game on this host"),
   game: zod.object({
     id: zod.string(),
     slug: zod.string(),
@@ -3294,6 +3297,9 @@ export const UpdateHostLibraryEntryResponse = zod.object({
   lastError: zod.string(),
   addedAt: zod.coerce.date(),
   hasActiveSession: zod.boolean(),
+  activeSessionCount: zod
+    .number()
+    .describe("Number of non-ended sessions for this game on this host"),
   game: zod.object({
     id: zod.string(),
     slug: zod.string(),
