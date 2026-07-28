@@ -75,6 +75,8 @@ import {
   VolumeX,
   KeyRound,
   RefreshCw,
+  ClipboardCopy,
+  Stethoscope,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -153,6 +155,213 @@ function AgentTroubleshootChecklist() {
         </li>
       </ul>
     </details>
+  );
+}
+
+const HOST_TROUBLESHOOT_ROWS = [
+  {
+    symptom: "«Окно игры не найдено»",
+    cause: "Title не содержит exe basename",
+    fix: "Ручной picker или «Цель захвата»",
+  },
+  {
+    symptom: "Стримит весь рабочий стол",
+    cause: "Fallback screen (1 игра в library)",
+    fix: "Выбрать окно вручную",
+  },
+  {
+    symptom: "Игрок видео нет, ICE ok",
+    cause: "Неверный source / 0×0 capture",
+    fix: "Перевыбрать окно, не минимизировать",
+  },
+  {
+    symptom: "Ввод не доходит (native)",
+    cause: "Focus guard — игра не в foreground",
+    fix: "Alt+Tab в игру",
+  },
+  {
+    symptom: "Ввод не доходит (browser external)",
+    cause: "Агент не запущен",
+    fix: "curl http://127.0.0.1:18080/ping",
+  },
+  {
+    symptom: "«Агент не подключен»",
+    cause: "Порт 18080 занят / firewall",
+    fix: "Перезапуск агента, EADDRINUSE в логе",
+  },
+  {
+    symptom: "Browser сессия не ends",
+    cause: "Любой Chrome = alive",
+    fix: "Закрыть все окна браузера",
+  },
+  {
+    symptom: "ViGEm не работает",
+    cause: "DLL не установлен",
+    fix: "ViGEmBus + ViGEmClient.dll",
+  },
+  {
+    symptom: "iframe пустой",
+    cause: "X-Frame-Options",
+    fix: "Использовать tab capture (/host/play)",
+  },
+] as const;
+
+function localPingLabel(agent: AgentState): string {
+  if (agent.status === "checking") return "проверяем…";
+  if (agent.status === "online") return `онлайн (v${agent.version}, :${agent.port})`;
+  return "нет ответа на 127.0.0.1:18080";
+}
+
+function heartbeatLabel(heartbeat: HeartbeatState): string {
+  if (heartbeat.status === "unknown") return "нет данных";
+  if (heartbeat.status === "never") return "ни разу не был на связи";
+  if (heartbeat.status === "fresh") {
+    return `свежий (${formatDistanceToNow(new Date(heartbeat.lastSeenAt), { addSuffix: true, locale: ru })})`;
+  }
+  return `устарел (${formatDistanceToNow(new Date(heartbeat.lastSeenAt), { addSuffix: true, locale: ru })})`;
+}
+
+function buildAgentTroubleshootReport(
+  agent: AgentState,
+  heartbeat: HeartbeatState,
+  agentKeyBound: boolean,
+): string {
+  const lines = [
+    "DecentralHub — диагностика агента",
+    `Время: ${new Date().toLocaleString("ru-RU")}`,
+    "",
+    "=== Состояние ===",
+    `Локальный ping (:18080): ${localPingLabel(agent)}`,
+    `Heartbeat на сервере: ${heartbeatLabel(heartbeat)}`,
+    `Ключ агента привязан: ${agentKeyBound ? "да" : "нет"}`,
+    "",
+    "=== Частые проблемы (HOSTING.md) ===",
+    ...HOST_TROUBLESHOOT_ROWS.map(
+      (row, i) =>
+        `${i + 1}. ${row.symptom}\n   Причина: ${row.cause}\n   Решение: ${row.fix}`,
+    ),
+  ];
+  return lines.join("\n");
+}
+
+function AgentTroubleshootPanel({
+  agent,
+  heartbeat,
+  agentKeyBound,
+}: {
+  agent: AgentState;
+  heartbeat: HeartbeatState;
+  agentKeyBound: boolean;
+}) {
+  const copyReport = () => {
+    const text = buildAgentTroubleshootReport(agent, heartbeat, agentKeyBound);
+    void navigator.clipboard.writeText(text).then(
+      () => toast.success("Отчёт диагностики скопирован"),
+      () => toast.error("Не удалось скопировать отчёт"),
+    );
+  };
+
+  const diagnostics = [
+    {
+      label: "Локальный ping",
+      value: localPingLabel(agent),
+      ok: agent.status === "online",
+      warn: agent.status === "checking",
+    },
+    {
+      label: "Heartbeat сервера",
+      value: heartbeatLabel(heartbeat),
+      ok: heartbeat.status === "fresh",
+      warn: heartbeat.status === "unknown",
+    },
+    {
+      label: "Ключ агента",
+      value: agentKeyBound ? "привязан" : "не привязан",
+      ok: agentKeyBound,
+      warn: false,
+    },
+  ] as const;
+
+  return (
+    <Card style={cardStyle} data-testid="agent-troubleshoot-panel">
+      <CardHeader className="pb-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-white text-base">
+              <Stethoscope className="h-4 w-4 text-sky-400" />
+              Диагностика агента
+            </CardTitle>
+            <CardDescription className="text-slate-500">
+              Живые проверки и таблица симптомов из гайда по хостингу.
+            </CardDescription>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 text-xs shrink-0"
+            onClick={copyReport}
+            data-testid="button-copy-agent-report"
+          >
+            <ClipboardCopy className="h-3 w-3" />
+            Скопировать отчёт
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {diagnostics.map((d) => (
+            <div
+              key={d.label}
+              className="rounded-lg px-3 py-2 text-xs"
+              style={{
+                background: d.ok
+                  ? "rgba(16,185,129,0.06)"
+                  : d.warn
+                    ? "rgba(234,179,8,0.06)"
+                    : "rgba(239,68,68,0.05)",
+                border: `1px solid ${
+                  d.ok
+                    ? "rgba(16,185,129,0.25)"
+                    : d.warn
+                      ? "rgba(234,179,8,0.25)"
+                      : "rgba(239,68,68,0.2)"
+                }`,
+              }}
+            >
+              <p className="text-slate-500 mb-0.5">{d.label}</p>
+              <p
+                className={
+                  d.ok ? "text-emerald-300" : d.warn ? "text-amber-300" : "text-red-300"
+                }
+              >
+                {d.value}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div className="overflow-x-auto rounded-lg border border-white/5">
+          <table className="w-full text-xs text-left">
+            <thead>
+              <tr className="text-slate-500 border-b border-white/5">
+                <th className="px-3 py-2 font-medium">Симптом</th>
+                <th className="px-3 py-2 font-medium">Вероятная причина</th>
+                <th className="px-3 py-2 font-medium">Что делать</th>
+              </tr>
+            </thead>
+            <tbody>
+              {HOST_TROUBLESHOOT_ROWS.map((row) => (
+                <tr key={row.symptom} className="border-b border-white/5 last:border-0">
+                  <td className="px-3 py-2 text-slate-300 align-top">{row.symptom}</td>
+                  <td className="px-3 py-2 text-slate-500 align-top">{row.cause}</td>
+                  <td className="px-3 py-2 text-slate-400 align-top">{row.fix}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1516,6 +1725,14 @@ export default function Dashboard() {
           )}
 
           {hostToken && <AgentEventsCard hostToken={hostToken} />}
+
+          {agent.status !== "checking" && (
+            <AgentTroubleshootPanel
+              agent={agent}
+              heartbeat={heartbeat}
+              agentKeyBound={agentKeyBound}
+            />
+          )}
         </div>
       </details>
 

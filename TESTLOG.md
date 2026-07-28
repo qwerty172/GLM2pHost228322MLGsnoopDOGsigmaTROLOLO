@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-07-28** | UX-02 dashboard troubleshoot panel; Wave Regression complete (REG-03 human) |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -95,4 +95,14 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: UX-03 TURN/STUN hints, OpenAPI gaps, storage ACL, Windows E2E |
+
+## Marathon UX-02 (2026-07-28) {#marathon-ux02}
+
+| Проверка | Статус | Примечание |
+|---|---|---|
+| AgentTroubleshootPanel | done | Живые ping/heartbeat/bind + таблица симптомов HOSTING.md §9 |
+| copy report | done | `button-copy-agent-report` — буфер с диагностикой |
+| web typecheck | verified | `pnpm --filter @workspace/web run typecheck` |
+| api-server tests | verified | 22 vitest + 3 node:test |
+| host-agent tests | verified | 12/12 ping-server |
