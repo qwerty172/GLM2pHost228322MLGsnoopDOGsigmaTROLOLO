@@ -23,6 +23,11 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Coins, Sparkles, Loader2, Server, ChevronDown, ChevronRight, CheckCircle2, XCircle, Cpu, Wand2 } from "lucide-react";
 import { QuotaAiChat, type QuotaFormPatch } from "@/components/quota-ai-chat";
 import { VtScanner } from "@/components/vt-scanner";
+import {
+  clearQuotaFieldError,
+  validateQuotaCreateForm,
+  type QuotaFormFieldErrors,
+} from "@/lib/quota-form-validation";
 
 const cardStyle = {
   background: "#0a1018",
@@ -86,6 +91,7 @@ export default function QuotaNewPage() {
   const [requiredTier, setRequiredTier] = useState<"min" | "recommended">("min");
   const [aiLoading, setAiLoading] = useState(false);
   const [apiKey, setApiKey] = useState<string>("");
+  const [fieldErrors, setFieldErrors] = useState<QuotaFormFieldErrors>({});
 
   const createQuota = useCreateQuota();
   const publishQuota = usePublishQuota();
@@ -216,10 +222,38 @@ export default function QuotaNewPage() {
       toast.error("Нужно войти как хост");
       return;
     }
-    if (!title.trim()) {
-      toast.error("Укажи название");
+
+    const validation = validateQuotaCreateForm({
+      kind,
+      title,
+      royaltyBasis,
+      royaltyValue,
+      royaltySource,
+      budgetLzt,
+      sponsorHostPerMinute,
+      sponsorPlayerPerMinute,
+      minSessionMinutes,
+      maxSessionMinutes,
+      startAt,
+      endAt,
+      minGpuVram,
+      minCpuCores,
+      minRamGb,
+      minDownloadMbps,
+      minUploadMbps,
+      recGpuVram,
+      recCpuCores,
+      recRamGb,
+      recDownloadMbps,
+      recUploadMbps,
+    });
+    if (!validation.ok) {
+      setFieldErrors(validation.errors);
+      toast.error(validation.firstError);
       return;
     }
+    setFieldErrors({});
+
     try {
       const created = await createQuota.mutateAsync({
         data: {
@@ -412,12 +446,26 @@ export default function QuotaNewPage() {
                     <Label className="text-slate-300">Название</Label>
                     <Input
                       value={title}
-                      onChange={(e) => setTitle(e.target.value)}
+                      onChange={(e) => {
+                        setTitle(e.target.value);
+                        setFieldErrors((prev) => clearQuotaFieldError(prev, "title"));
+                      }}
                       placeholder="например, Мод-пак Skyrim Realism"
-                      style={inputStyle}
+                      style={{
+                        ...inputStyle,
+                        borderColor: fieldErrors.title
+                          ? "rgba(239,68,68,0.5)"
+                          : inputStyle.border,
+                      }}
                       className="mt-1"
                       data-testid="input-title"
+                      aria-invalid={fieldErrors.title ? true : undefined}
                     />
+                    {fieldErrors.title && (
+                      <p className="text-xs text-red-400 mt-1" role="alert">
+                        {fieldErrors.title}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label className="text-slate-300">Описание</Label>
@@ -520,12 +568,28 @@ export default function QuotaNewPage() {
                         type="number"
                         min={1}
                         value={minSessionMinutes}
-                        onChange={(e) => setMinSessionMinutes(e.target.value)}
+                        onChange={(e) => {
+                          setMinSessionMinutes(e.target.value);
+                          setFieldErrors((prev) =>
+                            clearQuotaFieldError(prev, "minSessionMinutes"),
+                          );
+                        }}
                         placeholder="без ограничения"
-                        style={inputStyle}
+                        style={{
+                          ...inputStyle,
+                          borderColor: fieldErrors.minSessionMinutes
+                            ? "rgba(239,68,68,0.5)"
+                            : inputStyle.border,
+                        }}
                         className="mt-1"
                         data-testid="input-min-session-min"
+                        aria-invalid={fieldErrors.minSessionMinutes ? true : undefined}
                       />
+                      {fieldErrors.minSessionMinutes && (
+                        <p className="text-xs text-red-400 mt-1" role="alert">
+                          {fieldErrors.minSessionMinutes}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <Label className="text-slate-300">
@@ -535,12 +599,28 @@ export default function QuotaNewPage() {
                         type="number"
                         min={1}
                         value={maxSessionMinutes}
-                        onChange={(e) => setMaxSessionMinutes(e.target.value)}
+                        onChange={(e) => {
+                          setMaxSessionMinutes(e.target.value);
+                          setFieldErrors((prev) =>
+                            clearQuotaFieldError(prev, "maxSessionMinutes"),
+                          );
+                        }}
                         placeholder="без ограничения"
-                        style={inputStyle}
+                        style={{
+                          ...inputStyle,
+                          borderColor: fieldErrors.maxSessionMinutes
+                            ? "rgba(239,68,68,0.5)"
+                            : inputStyle.border,
+                        }}
                         className="mt-1"
                         data-testid="input-max-session-min"
+                        aria-invalid={fieldErrors.maxSessionMinutes ? true : undefined}
                       />
+                      {fieldErrors.maxSessionMinutes && (
+                        <p className="text-xs text-red-400 mt-1" role="alert">
+                          {fieldErrors.maxSessionMinutes}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -551,11 +631,25 @@ export default function QuotaNewPage() {
                       <Input
                         type="datetime-local"
                         value={startAt}
-                        onChange={(e) => setStartAt(e.target.value)}
-                        style={inputStyle}
+                        onChange={(e) => {
+                          setStartAt(e.target.value);
+                          setFieldErrors((prev) => clearQuotaFieldError(prev, "startAt"));
+                        }}
+                        style={{
+                          ...inputStyle,
+                          borderColor: fieldErrors.startAt
+                            ? "rgba(239,68,68,0.5)"
+                            : inputStyle.border,
+                        }}
                         className="mt-1"
                         data-testid="input-start-at"
+                        aria-invalid={fieldErrors.startAt ? true : undefined}
                       />
+                      {fieldErrors.startAt && (
+                        <p className="text-xs text-red-400 mt-1" role="alert">
+                          {fieldErrors.startAt}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <Label className="text-slate-300">
@@ -564,11 +658,25 @@ export default function QuotaNewPage() {
                       <Input
                         type="datetime-local"
                         value={endAt}
-                        onChange={(e) => setEndAt(e.target.value)}
-                        style={inputStyle}
+                        onChange={(e) => {
+                          setEndAt(e.target.value);
+                          setFieldErrors((prev) => clearQuotaFieldError(prev, "endAt"));
+                        }}
+                        style={{
+                          ...inputStyle,
+                          borderColor: fieldErrors.endAt
+                            ? "rgba(239,68,68,0.5)"
+                            : inputStyle.border,
+                        }}
                         className="mt-1"
                         data-testid="input-end-at"
+                        aria-invalid={fieldErrors.endAt ? true : undefined}
                       />
+                      {fieldErrors.endAt && (
+                        <p className="text-xs text-red-400 mt-1" role="alert">
+                          {fieldErrors.endAt}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -629,11 +737,27 @@ export default function QuotaNewPage() {
                         min={0}
                         max={royaltyBasis === "percent" ? 100 : 10000}
                         value={royaltyValue}
-                        onChange={(e) => setRoyaltyValue(Number(e.target.value))}
-                        style={inputStyle}
+                        onChange={(e) => {
+                          setRoyaltyValue(Number(e.target.value));
+                          setFieldErrors((prev) =>
+                            clearQuotaFieldError(prev, "royaltyValue"),
+                          );
+                        }}
+                        style={{
+                          ...inputStyle,
+                          borderColor: fieldErrors.royaltyValue
+                            ? "rgba(239,68,68,0.5)"
+                            : inputStyle.border,
+                        }}
                         className="mt-1"
                         data-testid="input-royalty-value"
+                        aria-invalid={fieldErrors.royaltyValue ? true : undefined}
                       />
+                      {fieldErrors.royaltyValue && (
+                        <p className="text-xs text-red-400 mt-1" role="alert">
+                          {fieldErrors.royaltyValue}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <Label className="text-slate-300">Откуда брать</Label>
@@ -692,11 +816,25 @@ export default function QuotaNewPage() {
                         type="number"
                         min={1}
                         value={budgetLzt}
-                        onChange={(e) => setBudgetLzt(Number(e.target.value))}
-                        style={inputStyle}
+                        onChange={(e) => {
+                          setBudgetLzt(Number(e.target.value));
+                          setFieldErrors((prev) => clearQuotaFieldError(prev, "budgetLzt"));
+                        }}
+                        style={{
+                          ...inputStyle,
+                          borderColor: fieldErrors.budgetLzt
+                            ? "rgba(239,68,68,0.5)"
+                            : inputStyle.border,
+                        }}
                         className="mt-1"
                         data-testid="input-budget"
+                        aria-invalid={fieldErrors.budgetLzt ? true : undefined}
                       />
+                      {fieldErrors.budgetLzt && (
+                        <p className="text-xs text-red-400 mt-1" role="alert">
+                          {fieldErrors.budgetLzt}
+                        </p>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -705,13 +843,27 @@ export default function QuotaNewPage() {
                           type="number"
                           min={0}
                           value={sponsorHostPerMinute}
-                          onChange={(e) =>
-                            setSponsorHostPerMinute(Number(e.target.value))
-                          }
-                          style={inputStyle}
+                          onChange={(e) => {
+                            setSponsorHostPerMinute(Number(e.target.value));
+                            setFieldErrors((prev) =>
+                              clearQuotaFieldError(prev, "sponsorHostPerMinute"),
+                            );
+                          }}
+                          style={{
+                            ...inputStyle,
+                            borderColor: fieldErrors.sponsorHostPerMinute
+                              ? "rgba(239,68,68,0.5)"
+                              : inputStyle.border,
+                          }}
                           className="mt-1"
                           data-testid="input-host-per-min"
+                          aria-invalid={fieldErrors.sponsorHostPerMinute ? true : undefined}
                         />
+                        {fieldErrors.sponsorHostPerMinute && (
+                          <p className="text-xs text-red-400 mt-1" role="alert">
+                            {fieldErrors.sponsorHostPerMinute}
+                          </p>
+                        )}
                       </div>
                       <div>
                         <Label className="text-slate-300">Игроку LZT/мин</Label>
@@ -719,13 +871,27 @@ export default function QuotaNewPage() {
                           type="number"
                           min={0}
                           value={sponsorPlayerPerMinute}
-                          onChange={(e) =>
-                            setSponsorPlayerPerMinute(Number(e.target.value))
-                          }
-                          style={inputStyle}
+                          onChange={(e) => {
+                            setSponsorPlayerPerMinute(Number(e.target.value));
+                            setFieldErrors((prev) =>
+                              clearQuotaFieldError(prev, "sponsorPlayerPerMinute"),
+                            );
+                          }}
+                          style={{
+                            ...inputStyle,
+                            borderColor: fieldErrors.sponsorPlayerPerMinute
+                              ? "rgba(239,68,68,0.5)"
+                              : inputStyle.border,
+                          }}
                           className="mt-1"
                           data-testid="input-player-per-min"
+                          aria-invalid={fieldErrors.sponsorPlayerPerMinute ? true : undefined}
                         />
+                        {fieldErrors.sponsorPlayerPerMinute && (
+                          <p className="text-xs text-red-400 mt-1" role="alert">
+                            {fieldErrors.sponsorPlayerPerMinute}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <p className="text-xs text-slate-500">
