@@ -43,7 +43,7 @@
 | **post-merge CI** | **verified** | `.github/workflows/ci.yml` (typecheck + tests + builds) |
 | **invite-flow smoke script** | **added** | `pnpm smoke:invite` |
 | **marathon W3 dedup** | **done** | inviteCode канон, joinCode deprecated, OpenAPI+hooks, ws-ticket route |
-| **marathon W4 UX** | **done** | agent --bind-code, setup advanced banner, agent port discovery |
+| **marathon W11 UX-02** | **done** | dashboard: live diagnostics (ping/heartbeat/bind), symptom table, copy report |
 | **marathon W5 infra** | **done** | .env.example Redis/JWT/Sentry/migrations docs, worker math tests |
 
 ## Баги
