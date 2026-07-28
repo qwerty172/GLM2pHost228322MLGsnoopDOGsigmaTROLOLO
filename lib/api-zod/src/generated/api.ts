@@ -28,6 +28,15 @@ export const GetHostParams = zod.object({
   hostToken: zod.coerce.string(),
 });
 
+export const getHostResponseTierBronzeMultiplierPctMin = 50;
+export const getHostResponseTierBronzeMultiplierPctMax = 200;
+
+export const getHostResponseTierSilverMultiplierPctMin = 50;
+export const getHostResponseTierSilverMultiplierPctMax = 200;
+
+export const getHostResponseTierGoldMultiplierPctMin = 50;
+export const getHostResponseTierGoldMultiplierPctMax = 200;
+
 export const getHostResponseScheduleJsonItemDayMin = 0;
 export const getHostResponseScheduleJsonItemDayMax = 6;
 
@@ -72,6 +81,27 @@ export const GetHostResponse = zod.object({
   minutePriceUsd: zod
     .number()
     .describe("Charged per minute while streaming (may be negative)"),
+  tierBronzeMultiplierPct: zod
+    .number()
+    .min(getHostResponseTierBronzeMultiplierPctMin)
+    .max(getHostResponseTierBronzeMultiplierPctMax)
+    .describe(
+      "Price multiplier for bronze-tier players (lifetime deposit < $20). 100 = base price.",
+    ),
+  tierSilverMultiplierPct: zod
+    .number()
+    .min(getHostResponseTierSilverMultiplierPctMin)
+    .max(getHostResponseTierSilverMultiplierPctMax)
+    .describe(
+      "Price multiplier for silver-tier players ($20–$149.99 lifetime). 100 = base price.",
+    ),
+  tierGoldMultiplierPct: zod
+    .number()
+    .min(getHostResponseTierGoldMultiplierPctMin)
+    .max(getHostResponseTierGoldMultiplierPctMax)
+    .describe(
+      "Price multiplier for gold-tier players (≥ $150 lifetime). 100 = base price.",
+    ),
   scheduleMode: zod.enum(["always", "scheduled"]),
   scheduleJson: zod.array(
     zod
@@ -167,6 +197,15 @@ export const GetHostResponse = zod.object({
 
  * @summary Update the host's offer config (binding, pricing, schedule, restream)
  */
+export const updateHostConfigBodyTierBronzeMultiplierPctMin = 50;
+export const updateHostConfigBodyTierBronzeMultiplierPctMax = 200;
+
+export const updateHostConfigBodyTierSilverMultiplierPctMin = 50;
+export const updateHostConfigBodyTierSilverMultiplierPctMax = 200;
+
+export const updateHostConfigBodyTierGoldMultiplierPctMin = 50;
+export const updateHostConfigBodyTierGoldMultiplierPctMax = 200;
+
 export const updateHostConfigBodyScheduleJsonItemDayMin = 0;
 export const updateHostConfigBodyScheduleJsonItemDayMax = 6;
 
@@ -196,6 +235,21 @@ export const UpdateHostConfigBody = zod
     tags: zod.array(zod.string()).optional(),
     launchPriceUsd: zod.number().optional(),
     minutePriceUsd: zod.number().optional(),
+    tierBronzeMultiplierPct: zod
+      .number()
+      .min(updateHostConfigBodyTierBronzeMultiplierPctMin)
+      .max(updateHostConfigBodyTierBronzeMultiplierPctMax)
+      .optional(),
+    tierSilverMultiplierPct: zod
+      .number()
+      .min(updateHostConfigBodyTierSilverMultiplierPctMin)
+      .max(updateHostConfigBodyTierSilverMultiplierPctMax)
+      .optional(),
+    tierGoldMultiplierPct: zod
+      .number()
+      .min(updateHostConfigBodyTierGoldMultiplierPctMin)
+      .max(updateHostConfigBodyTierGoldMultiplierPctMax)
+      .optional(),
     scheduleMode: zod.enum(["always", "scheduled"]).optional(),
     scheduleJson: zod
       .array(
@@ -242,6 +296,15 @@ export const UpdateHostConfigBody = zod
   })
   .describe("Partial update вЂ” omit a field to leave it unchanged.");
 
+export const updateHostConfigResponseTierBronzeMultiplierPctMin = 50;
+export const updateHostConfigResponseTierBronzeMultiplierPctMax = 200;
+
+export const updateHostConfigResponseTierSilverMultiplierPctMin = 50;
+export const updateHostConfigResponseTierSilverMultiplierPctMax = 200;
+
+export const updateHostConfigResponseTierGoldMultiplierPctMin = 50;
+export const updateHostConfigResponseTierGoldMultiplierPctMax = 200;
+
 export const updateHostConfigResponseScheduleJsonItemDayMin = 0;
 export const updateHostConfigResponseScheduleJsonItemDayMax = 6;
 
@@ -286,6 +349,27 @@ export const UpdateHostConfigResponse = zod.object({
   minutePriceUsd: zod
     .number()
     .describe("Charged per minute while streaming (may be negative)"),
+  tierBronzeMultiplierPct: zod
+    .number()
+    .min(updateHostConfigResponseTierBronzeMultiplierPctMin)
+    .max(updateHostConfigResponseTierBronzeMultiplierPctMax)
+    .describe(
+      "Price multiplier for bronze-tier players (lifetime deposit < $20). 100 = base price.",
+    ),
+  tierSilverMultiplierPct: zod
+    .number()
+    .min(updateHostConfigResponseTierSilverMultiplierPctMin)
+    .max(updateHostConfigResponseTierSilverMultiplierPctMax)
+    .describe(
+      "Price multiplier for silver-tier players ($20–$149.99 lifetime). 100 = base price.",
+    ),
+  tierGoldMultiplierPct: zod
+    .number()
+    .min(updateHostConfigResponseTierGoldMultiplierPctMin)
+    .max(updateHostConfigResponseTierGoldMultiplierPctMax)
+    .describe(
+      "Price multiplier for gold-tier players (≥ $150 lifetime). 100 = base price.",
+    ),
   scheduleMode: zod.enum(["always", "scheduled"]),
   scheduleJson: zod.array(
     zod

@@ -34,6 +34,7 @@ import { applyLaunchFee } from "../lib/launchFee";
 import { pickPlayerBucket } from "../lib/lzt";
 import { isHostAvailableNow } from "../lib/schedule";
 import { checkQuotaAttachment } from "../lib/quotaAttach";
+import { effectiveRatePerMinuteUsd } from "../lib/playerDepositTier";
 import { headerUserToken } from "../lib/requestToken";
 import { rateLimit, ipKey } from "../lib/rateLimit";
 import {
@@ -668,6 +669,23 @@ router.post(
     if (!host) {
       res.status(404).json({ error: "Host not found" });
       return;
+    }
+
+    // Apply host tier multiplier for this player's deposit tier on first claim.
+    if (!session.isTest && !isReclaimBySamePlayer) {
+      const baseRateUsd = Number(session.ratePerMinute);
+      const tieredRateUsd = effectiveRatePerMinuteUsd(
+        baseRateUsd,
+        host,
+        player.lifetimeDepositUsdtCents,
+      );
+      if (tieredRateUsd !== baseRateUsd) {
+        await db
+          .update(sessionsTable)
+          .set({ ratePerMinute: String(tieredRateUsd) })
+          .where(eq(sessionsTable.id, session.id));
+        session.ratePerMinute = String(tieredRateUsd);
+      }
     }
 
     // Test sessions are free: skip balance requirements and the launch fee

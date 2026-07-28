@@ -2645,6 +2645,21 @@ components:
         minutePriceUsd:
           type: number
           description: Charged per minute while streaming (may be negative)
+        tierBronzeMultiplierPct:
+          type: integer
+          minimum: 50
+          maximum: 200
+          description: Price multiplier for bronze-tier players (lifetime deposit < $20). 100 = base price.
+        tierSilverMultiplierPct:
+          type: integer
+          minimum: 50
+          maximum: 200
+          description: Price multiplier for silver-tier players ($20–$149.99 lifetime). 100 = base price.
+        tierGoldMultiplierPct:
+          type: integer
+          minimum: 50
+          maximum: 200
+          description: Price multiplier for gold-tier players (≥ $150 lifetime). 100 = base price.
         scheduleMode:
           type: string
           enum: [always, scheduled]
@@ -2734,6 +2749,9 @@ components:
         - tags
         - launchPriceUsd
         - minutePriceUsd
+        - tierBronzeMultiplierPct
+        - tierSilverMultiplierPct
+        - tierGoldMultiplierPct
         - scheduleMode
         - scheduleJson
         - streamPlatform
@@ -2776,6 +2794,18 @@ components:
           type: number
         minutePriceUsd:
           type: number
+        tierBronzeMultiplierPct:
+          type: integer
+          minimum: 50
+          maximum: 200
+        tierSilverMultiplierPct:
+          type: integer
+          minimum: 50
+          maximum: 200
+        tierGoldMultiplierPct:
+          type: integer
+          minimum: 50
+          maximum: 200
         scheduleMode:
           type: string
           enum: [always, scheduled]
