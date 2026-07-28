@@ -44,6 +44,8 @@ function kindMeta(kind: string, amountLzt: number): KindMeta {
     return { label: "Комиссия за пополнение", icon: Percent, color: "#f59e0b" };
   if (kind.startsWith("deposit"))
     return { label: "Пополнение", icon: ArrowDownToLine, color: "#22c55e" };
+  if (kind.startsWith("withdrawal_refund"))
+    return { label: "Возврат вывода", icon: RotateCcw, color: "#22c55e" };
   if (kind.startsWith("withdrawal"))
     return { label: "Вывод средств", icon: ArrowUpFromLine, color: "#f59e0b" };
   if (kind === "session_tick" || kind === "session_billing")
