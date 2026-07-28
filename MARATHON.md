@@ -64,4 +64,4 @@ InviteCode канон, joinCode deprecated, ws-ticket route.
 
 | ID | Задача | Статус |
 |---|---|---|
-| W11-1 | Свои цены по тирам bronze/silver/gold (PLAN 2.5) | pending |
+| W11-1 | Свои цены по тирам bronze/silver/gold (PLAN 2.5) | done |
