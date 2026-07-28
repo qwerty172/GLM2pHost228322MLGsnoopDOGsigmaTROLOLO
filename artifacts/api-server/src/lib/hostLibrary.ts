@@ -15,6 +15,7 @@ export type LibraryEntry = {
   lastError: string;
   addedAt: Date;
   hasActiveSession: boolean;
+  activeSessionCount: number;
   game: {
     id: string;
     slug: string;
@@ -49,7 +50,10 @@ export async function listLibrary(hostId: string): Promise<LibraryEntry[]> {
         ne(sessionsTable.status, "ended"),
       ),
     );
-  const activeGameIds = new Set(activeSessions.map((s) => s.gameId));
+  const activeCountByGame = new Map<string, number>();
+  for (const s of activeSessions) {
+    activeCountByGame.set(s.gameId, (activeCountByGame.get(s.gameId) ?? 0) + 1);
+  }
 
   return rows.map((r) => ({
     id: r.host_games.id,
@@ -64,7 +68,8 @@ export async function listLibrary(hostId: string): Promise<LibraryEntry[]> {
     localAvailable: r.host_games.localAvailable,
     lastError: r.host_games.lastError,
     addedAt: r.host_games.addedAt,
-    hasActiveSession: activeGameIds.has(r.host_games.gameId),
+    hasActiveSession: (activeCountByGame.get(r.host_games.gameId) ?? 0) > 0,
+    activeSessionCount: activeCountByGame.get(r.host_games.gameId) ?? 0,
     game: {
       id: r.games.id,
       slug: r.games.slug,
