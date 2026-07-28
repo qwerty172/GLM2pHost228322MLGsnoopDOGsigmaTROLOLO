@@ -37,6 +37,15 @@ export const getHostResponseScheduleJsonItemStartMinMax = 1440;
 export const getHostResponseScheduleJsonItemEndMinMin = 0;
 export const getHostResponseScheduleJsonItemEndMinMax = 1440;
 
+export const getHostResponseTierBronzeMultiplierPctMin = 50;
+export const getHostResponseTierBronzeMultiplierPctMax = 200;
+
+export const getHostResponseTierSilverMultiplierPctMin = 50;
+export const getHostResponseTierSilverMultiplierPctMax = 200;
+
+export const getHostResponseTierGoldMultiplierPctMin = 50;
+export const getHostResponseTierGoldMultiplierPctMax = 200;
+
 export const GetHostResponse = zod.object({
   id: zod.string(),
   hostToken: zod.string(),
@@ -109,6 +118,27 @@ export const GetHostResponse = zod.object({
   creditMaxLztPerPlayer: zod
     .number()
     .describe("Per-borrower cap on host service credit, in LZT."),
+  tierBronzeMultiplierPct: zod
+    .number()
+    .min(getHostResponseTierBronzeMultiplierPctMin)
+    .max(getHostResponseTierBronzeMultiplierPctMax)
+    .describe(
+      "Price multiplier for bronze-tier players (percent of base; 100 = unchanged).",
+    ),
+  tierSilverMultiplierPct: zod
+    .number()
+    .min(getHostResponseTierSilverMultiplierPctMin)
+    .max(getHostResponseTierSilverMultiplierPctMax)
+    .describe(
+      "Price multiplier for silver-tier players (percent of base; 100 = unchanged).",
+    ),
+  tierGoldMultiplierPct: zod
+    .number()
+    .min(getHostResponseTierGoldMultiplierPctMin)
+    .max(getHostResponseTierGoldMultiplierPctMax)
+    .describe(
+      "Price multiplier for gold-tier players (percent of base; 100 = unchanged).",
+    ),
   createdAt: zod.coerce.date(),
   lastSeenAt: zod.coerce.date(),
   hostTier: zod
@@ -181,6 +211,15 @@ export const updateHostConfigBodyCreditMinutesPerNewPlayerMax = 1440;
 
 export const updateHostConfigBodyCreditMaxLztPerPlayerMin = 0;
 
+export const updateHostConfigBodyTierBronzeMultiplierPctMin = 50;
+export const updateHostConfigBodyTierBronzeMultiplierPctMax = 200;
+
+export const updateHostConfigBodyTierSilverMultiplierPctMin = 50;
+export const updateHostConfigBodyTierSilverMultiplierPctMax = 200;
+
+export const updateHostConfigBodyTierGoldMultiplierPctMin = 50;
+export const updateHostConfigBodyTierGoldMultiplierPctMax = 200;
+
 export const UpdateHostConfigBody = zod
   .object({
     gameId: zod.string().nullish(),
@@ -239,6 +278,30 @@ export const UpdateHostConfigBody = zod
       .describe(
         "Maximum LZT this host will credit to any single borrower. Acts as a\nper-borrower cap on host service credit.\n",
       ),
+    tierBronzeMultiplierPct: zod
+      .number()
+      .min(updateHostConfigBodyTierBronzeMultiplierPctMin)
+      .max(updateHostConfigBodyTierBronzeMultiplierPctMax)
+      .optional()
+      .describe(
+        "Price multiplier for bronze-tier players (percent of base; 100 = unchanged).",
+      ),
+    tierSilverMultiplierPct: zod
+      .number()
+      .min(updateHostConfigBodyTierSilverMultiplierPctMin)
+      .max(updateHostConfigBodyTierSilverMultiplierPctMax)
+      .optional()
+      .describe(
+        "Price multiplier for silver-tier players (percent of base; 100 = unchanged).",
+      ),
+    tierGoldMultiplierPct: zod
+      .number()
+      .min(updateHostConfigBodyTierGoldMultiplierPctMin)
+      .max(updateHostConfigBodyTierGoldMultiplierPctMax)
+      .optional()
+      .describe(
+        "Price multiplier for gold-tier players (percent of base; 100 = unchanged).",
+      ),
   })
   .describe("Partial update вЂ” omit a field to leave it unchanged.");
 
@@ -250,6 +313,15 @@ export const updateHostConfigResponseScheduleJsonItemStartMinMax = 1440;
 
 export const updateHostConfigResponseScheduleJsonItemEndMinMin = 0;
 export const updateHostConfigResponseScheduleJsonItemEndMinMax = 1440;
+
+export const updateHostConfigResponseTierBronzeMultiplierPctMin = 50;
+export const updateHostConfigResponseTierBronzeMultiplierPctMax = 200;
+
+export const updateHostConfigResponseTierSilverMultiplierPctMin = 50;
+export const updateHostConfigResponseTierSilverMultiplierPctMax = 200;
+
+export const updateHostConfigResponseTierGoldMultiplierPctMin = 50;
+export const updateHostConfigResponseTierGoldMultiplierPctMax = 200;
 
 export const UpdateHostConfigResponse = zod.object({
   id: zod.string(),
@@ -323,6 +395,27 @@ export const UpdateHostConfigResponse = zod.object({
   creditMaxLztPerPlayer: zod
     .number()
     .describe("Per-borrower cap on host service credit, in LZT."),
+  tierBronzeMultiplierPct: zod
+    .number()
+    .min(updateHostConfigResponseTierBronzeMultiplierPctMin)
+    .max(updateHostConfigResponseTierBronzeMultiplierPctMax)
+    .describe(
+      "Price multiplier for bronze-tier players (percent of base; 100 = unchanged).",
+    ),
+  tierSilverMultiplierPct: zod
+    .number()
+    .min(updateHostConfigResponseTierSilverMultiplierPctMin)
+    .max(updateHostConfigResponseTierSilverMultiplierPctMax)
+    .describe(
+      "Price multiplier for silver-tier players (percent of base; 100 = unchanged).",
+    ),
+  tierGoldMultiplierPct: zod
+    .number()
+    .min(updateHostConfigResponseTierGoldMultiplierPctMin)
+    .max(updateHostConfigResponseTierGoldMultiplierPctMax)
+    .describe(
+      "Price multiplier for gold-tier players (percent of base; 100 = unchanged).",
+    ),
   createdAt: zod.coerce.date(),
   lastSeenAt: zod.coerce.date(),
   hostTier: zod
@@ -3233,6 +3326,9 @@ export const ListHostLibraryResponseItem = zod.object({
   lastError: zod.string(),
   addedAt: zod.coerce.date(),
   hasActiveSession: zod.boolean(),
+  activeSessionCount: zod
+    .number()
+    .describe("Number of non-ended sessions for this game on this host"),
   game: zod.object({
     id: zod.string(),
     slug: zod.string(),
@@ -3294,6 +3390,9 @@ export const UpdateHostLibraryEntryResponse = zod.object({
   lastError: zod.string(),
   addedAt: zod.coerce.date(),
   hasActiveSession: zod.boolean(),
+  activeSessionCount: zod
+    .number()
+    .describe("Number of non-ended sessions for this game on this host"),
   game: zod.object({
     id: zod.string(),
     slug: zod.string(),

@@ -67,6 +67,18 @@ export const hostsTable = pgTable("hosts", {
     .notNull()
     .default(12_000), // ~$60 @ 200 LZT/USDT
 
+  // Per-player gaming tier price multipliers (percent of base price).
+  // 100 = no change. Host may discount gold players (80) or surcharge bronze (120).
+  tierBronzeMultiplierPct: integer("tier_bronze_multiplier_pct")
+    .notNull()
+    .default(100),
+  tierSilverMultiplierPct: integer("tier_silver_multiplier_pct")
+    .notNull()
+    .default(100),
+  tierGoldMultiplierPct: integer("tier_gold_multiplier_pct")
+    .notNull()
+    .default(100),
+
   // -----------------------------------------------------------------
   // Host "offer" config — what this host streams and on what terms.
   // -----------------------------------------------------------------

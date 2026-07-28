@@ -13,6 +13,12 @@ import {
 } from "@workspace/db";
 import { isQuotaActiveNow } from "../lib/quotaEngine";
 import {
+  applyTierMultiplierToUsd,
+  hostTierMultipliersFromHost,
+  playerGamingTierFromLifetimeCents,
+  tierMultiplierPct,
+} from "../lib/playerPriceTier";
+import {
   CreateBrowserHostSessionBody,
   CreateSessionBody,
   GetSessionResponse,
@@ -700,7 +706,26 @@ router.post(
     }
 
     const launchFee = Number(host.launchPriceUsd);
-    const perMinute = Number(session.ratePerMinute);
+    let perMinute = Number(session.ratePerMinute);
+
+    // Apply host-configured player tier multiplier on first claim (not reconnect).
+    if (!isReclaimBySamePlayer) {
+      const tier = playerGamingTierFromLifetimeCents(
+        player.lifetimeDepositUsdtCents,
+      );
+      const multipliers = hostTierMultipliersFromHost(host);
+      const multiplierPct = tierMultiplierPct(multipliers, tier);
+      const adjusted = applyTierMultiplierToUsd(perMinute, multiplierPct);
+      if (adjusted !== perMinute) {
+        perMinute = adjusted;
+        await db
+          .update(sessionsTable)
+          .set({ ratePerMinute: String(perMinute) })
+          .where(eq(sessionsTable.id, session.id));
+        session.ratePerMinute = String(perMinute);
+      }
+    }
+
     // We require a single bucket to cover both the (positive) launch fee AND
     // one minute of streaming. We must not let "auto" combine buckets here —
     // billing debits from one bucket at a time, so a combined total can pass

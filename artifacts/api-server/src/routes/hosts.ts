@@ -37,6 +37,9 @@ import {
   removeFromLibrary,
 } from "../lib/hostLibrary";
 import { generalHostTier, computeHostTier, specsFromPcSpecs, BASELINE_REC, BASELINE_MIN, type TierThresholds } from "../lib/hostTier";
+import {
+  isValidTierMultiplierPct,
+} from "../lib/playerPriceTier";
 import { isQuotaActiveNow } from "../lib/quotaEngine";
 import { rateLimit, ipKey, failedAttemptGuard, guardAndTrackFailures } from "../lib/rateLimit";
 import type { Request, Response } from "express";
@@ -85,6 +88,9 @@ function serializeHost(h: typeof hostsTable.$inferSelect) {
     streamKeySet: (h.streamKey ?? "").length > 0,
     creditMinutesPerNewPlayer: h.creditMinutesPerNewPlayer,
     creditMaxLztPerPlayer: h.creditMaxLztPerPlayer,
+    tierBronzeMultiplierPct: h.tierBronzeMultiplierPct,
+    tierSilverMultiplierPct: h.tierSilverMultiplierPct,
+    tierGoldMultiplierPct: h.tierGoldMultiplierPct,
     createdAt: h.createdAt,
     lastSeenAt: h.lastSeenAt,
     // Submission outcome notification fields — host dashboard reads these.
@@ -328,6 +334,21 @@ async function applyHostConfigUpdate(
       return;
     }
     update.creditMaxLztPerPlayer = v;
+  }
+  for (const [field, value] of [
+    ["tierBronzeMultiplierPct", body.tierBronzeMultiplierPct],
+    ["tierSilverMultiplierPct", body.tierSilverMultiplierPct],
+    ["tierGoldMultiplierPct", body.tierGoldMultiplierPct],
+  ] as const) {
+    if (value === undefined) continue;
+    const v = Math.floor(value);
+    if (!isValidTierMultiplierPct(v)) {
+      res.status(400).json({
+        error: `${field} must be an integer between 50 and 200 (percent of base price)`,
+      });
+      return;
+    }
+    update[field] = v;
   }
 
   if (Object.keys(update).length === 0) {
