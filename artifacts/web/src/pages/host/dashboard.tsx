@@ -79,6 +79,7 @@ import {
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
+import { ICE_HOST_TROUBLESHOOT_ITEMS } from "@/lib/ice-connection";
 import { Link } from "wouter";
 import { discoverAgentPort } from "@/lib/agent-local";
 
@@ -152,6 +153,24 @@ function AgentTroubleshootChecklist() {
           В агенте вставлен токен хоста и есть надпись «Вход выполнен»
         </li>
       </ul>
+    </details>
+  );
+}
+
+function IceNetworkTroubleshoot() {
+  return (
+    <details className="w-full" data-testid="ice-network-troubleshoot">
+      <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-300 select-none">
+        Сеть: P2P, TURN и NAT
+      </summary>
+      <ul className="mt-2 space-y-1 text-xs text-slate-400 list-disc pl-5">
+        {ICE_HOST_TROUBLESHOOT_ITEMS.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+      <p className="mt-2 text-[11px] text-slate-600">
+        Если игрок видит «Через сервер» — соединение идёт через TURN (выше задержка, но стабильнее за NAT).
+      </p>
     </details>
   );
 }
@@ -1516,6 +1535,8 @@ export default function Dashboard() {
           )}
 
           {hostToken && <AgentEventsCard hostToken={hostToken} />}
+
+          <IceNetworkTroubleshoot />
         </div>
       </details>
 
