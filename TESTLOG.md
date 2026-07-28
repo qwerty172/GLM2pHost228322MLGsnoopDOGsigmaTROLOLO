@@ -96,3 +96,11 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
 | Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+
+## Marathon Wave UX (2026-07-28) {#marathon-ux-2026-07-28}
+
+| ID | Изменение | Верификация |
+|---|---|---|
+| UX-02 | Dashboard: чеклист агента — код привязки, агент на другом ПК | `data-testid="agent-troubleshoot"` |
+| UX-06 | `artifacts/web/src/lib/api-error.ts` — `formatUserError` / `formatApiErrorText`; подключено в quota/host/play/exchange/admin | `pnpm typecheck`, api-server + host-agent tests |
+| Next | UX-03 TURN/STUN hints, UX-05 quotas validation | — |

@@ -49,6 +49,7 @@ import {
 } from "lucide-react";
 import { SiteNav } from "@/components/site-nav";
 import { toast } from "sonner";
+import { formatApiErrorText, formatUserError } from "@/lib/api-error";
 
 const formatLzt = (n: number) => new Intl.NumberFormat("ru-RU").format(Math.trunc(n));
 const MIN_TERM_DAYS = 60;
@@ -67,7 +68,7 @@ function serverErrorToRu(msg: string): string {
   if (/insufficient/i.test(msg)) return "Недостаточно баланса";
   if (/not your loan/i.test(msg)) return "Это не твой займ";
   if (/not repayable/i.test(msg)) return "Займ нельзя погасить (возможно, уже закрыт)";
-  return msg;
+  return formatApiErrorText(msg);
 }
 
 function loanRequestStatusRu(status: string): string {
@@ -222,8 +223,7 @@ function FundModal({
           onClose();
         },
         onError: (err: unknown) => {
-          const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Ошибка";
-          setServerError(serverErrorToRu(msg));
+          setServerError(serverErrorToRu(formatUserError(err, "Ошибка")));
         },
       },
     );
@@ -459,8 +459,7 @@ function CreateRequestSection({ myToken }: { myToken: string | null }) {
           qc.invalidateQueries({ queryKey: getListMyLoansQueryKey({ userToken: myToken }) });
         },
         onError: (err: unknown) => {
-          const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Ошибка";
-          setServerError(serverErrorToRu(msg));
+          setServerError(serverErrorToRu(formatUserError(err, "Ошибка")));
         },
       },
     );
@@ -663,8 +662,7 @@ function BorrowerCard({
           qc.invalidateQueries({ queryKey: getGetWalletQueryKey(myToken) });
         },
         onError: (err: unknown) => {
-          const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Ошибка";
-          setServerError(serverErrorToRu(msg));
+          setServerError(serverErrorToRu(formatUserError(err, "Ошибка")));
         },
       },
     );

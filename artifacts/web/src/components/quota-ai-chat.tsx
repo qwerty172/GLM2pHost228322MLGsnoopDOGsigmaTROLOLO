@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Send, Bot, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { formatApiErrorText } from "@/lib/api-error";
 
 function apiUrl(path: string) {
   const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
@@ -143,7 +144,7 @@ export function QuotaAiChat({ ownerToken, currentFormState, availableGames, onFo
         const err = await res.json().catch(() => ({ error: "Ошибка сервера" }));
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: `Ошибка: ${err.error ?? "неизвестная ошибка"}` },
+          { role: "assistant", content: `Ошибка: ${formatApiErrorText(err.error, "неизвестная ошибка")}` },
         ]);
         return;
       }

@@ -20,6 +20,7 @@ import {
   hostHeartbeat,
 } from "@workspace/api-client-react";
 import { postAgentInput } from "@/lib/agent-local";
+import { formatApiErrorText, formatUserError } from "@/lib/api-error";
 
 const HOST_TOKEN_STORAGE_PREFIX = "streamline.browserHostToken:";
 const BROWSER_HOST_URL_STORAGE_PREFIX = "streamline.browserHostUrl:";
@@ -545,7 +546,7 @@ export default function BrowserPlay() {
       }
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Не удалось завершить сессию",
+        formatUserError(err, "Не удалось завершить сессию"),
       );
     }
   };

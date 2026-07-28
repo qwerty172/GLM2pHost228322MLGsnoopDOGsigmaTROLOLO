@@ -19,6 +19,7 @@ import { TouchOverlay } from "@/components/TouchOverlay";
 import { KeyboardOverlay } from "@/components/KeyboardOverlay";
 import { toast } from "sonner";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { formatUserError } from "@/lib/api-error";
 
 const LZT_PER_USDT = 200;
 type PaymentSource = "auto" | "blue" | "green";
@@ -56,8 +57,7 @@ function mapClaimError(err: unknown): string {
   if (/rate.?limit|too many/i.test(raw)) {
     return "Слишком много попыток. Подожди немного и попробуй снова.";
   }
-  if (raw.trim()) return raw;
-  return "Не удалось занять сессию. Попробуй ещё раз.";
+  return formatUserError(err, "Не удалось занять сессию. Попробуй ещё раз.");
 }
 
 // ---------------------------------------------------------------------------

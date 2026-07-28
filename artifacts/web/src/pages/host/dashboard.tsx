@@ -81,6 +81,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Link } from "wouter";
 import { discoverAgentPort } from "@/lib/agent-local";
+import { formatUserError } from "@/lib/api-error";
 
 const cardStyle = {
   background: "#0a1018",
@@ -149,7 +150,13 @@ function AgentTroubleshootChecklist() {
           <span className="font-mono text-sky-400">18080–18083</span> и исходящие соединения агента
         </li>
         <li>
-          В агенте вставлен токен хоста и есть надпись «Вход выполнен»
+          В агенте вставлен токен хоста или{" "}
+          <span className="text-slate-300">код привязки</span> с дашборда — статус «Вход выполнен»
+        </li>
+        <li>
+          Агент на <span className="text-slate-300">другом ПК</span>? Создай код привязки здесь и
+          вставь в агенте, либо запусти{" "}
+          <span className="font-mono text-sky-400">start.bat --bind-code=КОД</span>
         </li>
       </ul>
     </details>
@@ -1046,7 +1053,7 @@ function QuickAddFirstGame({ hostToken }: { hostToken: string }) {
         queryKey: getListHostLibraryQueryKey(hostToken),
       });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не удалось добавить");
+      toast.error(formatUserError(err, "Не удалось добавить"));
     } finally {
       setBusy(false);
     }
@@ -1129,8 +1136,7 @@ function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
       setExpiresAt(json.expiresAt ?? null);
       toast.success("Код привязки создан — вставь в агент или запусти с --bind-code=…");
     } catch (err) {
-      const msg = (err as { data?: { error?: string } }).data?.error;
-      toast.error(msg ?? "Нет соединения");
+      toast.error(formatUserError(err, "Не удалось выдать код привязки"));
     } finally {
       setLoading(false);
     }
@@ -1364,10 +1370,7 @@ export default function Dashboard() {
         );
       }
     } catch (err) {
-      const msg =
-        (err as { data?: { error?: string; message?: string } }).data?.message ??
-        (err as { data?: { error?: string } }).data?.error;
-      toast.error(msg ?? "Ошибка сети при создании тест-сессии");
+      toast.error(formatUserError(err, "Ошибка сети при создании тест-сессии"));
     } finally {
       setTestLoading(false);
     }

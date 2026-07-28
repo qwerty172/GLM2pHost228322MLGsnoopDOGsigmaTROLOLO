@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2 } from "lucide-react";
 import { QuotaAiChat, type QuotaFormPatch } from "@/components/quota-ai-chat";
+import { formatUserError } from "@/lib/api-error";
 
 const cardStyle = {
   background: "#0a1018",
@@ -159,7 +160,7 @@ export default function QuotaEditPage() {
       toast.success("Изменения сохранены");
       navigate(`/quotas/${quota.id}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Ошибка");
+      toast.error(formatUserError(err, "Ошибка"));
     }
   };
 
@@ -301,7 +302,7 @@ export default function QuotaEditPage() {
                               toast.success("Привязка к API-ключу снята");
                             } catch (err) {
                               toast.error(
-                                err instanceof Error ? err.message : "Ошибка",
+                                formatUserError(err, "Ошибка"),
                               );
                             }
                           }}

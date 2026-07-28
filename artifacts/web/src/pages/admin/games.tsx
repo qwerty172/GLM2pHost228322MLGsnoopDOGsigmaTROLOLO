@@ -3,6 +3,7 @@ import { SiteNav } from "@/components/site-nav";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
+import { formatApiErrorText } from "@/lib/api-error";
 import {
   CheckCircle,
   XCircle,
@@ -157,7 +158,7 @@ function CatalogGameRow({
     try {
       const res = await toggleVisibility(game.id, game.isHidden, hostToken);
       if (res.error) {
-        toast.error(res.error);
+        toast.error(formatApiErrorText(res.error, "Ошибка"));
       } else {
         toast.success(res.isHidden ? `«${game.title}» скрыта` : `«${game.title}» показана`);
         onAction();
@@ -174,7 +175,7 @@ function CatalogGameRow({
     try {
       const res = await deleteGame(game.id, hostToken);
       if (res.error) {
-        toast.error(res.error);
+        toast.error(formatApiErrorText(res.error, "Ошибка"));
       } else {
         toast.success(`«${game.title}» удалена`);
         onAction();
@@ -334,7 +335,7 @@ function SubmissionCard({
     try {
       const res = await approveSubmission(sub.id, hostToken);
       if (res.error) {
-        toast.error(res.error);
+        toast.error(formatApiErrorText(res.error, "Ошибка"));
       } else {
         toast.success(`Игра одобрена: ${res.game?.slug}`);
         onAction();
@@ -355,7 +356,7 @@ function SubmissionCard({
     try {
       const res = await rejectSubmission(sub.id, rejectReason, hostToken);
       if (res.error) {
-        toast.error(res.error);
+        toast.error(formatApiErrorText(res.error, "Ошибка"));
       } else {
         toast.success("Заявка отклонена");
         onAction();

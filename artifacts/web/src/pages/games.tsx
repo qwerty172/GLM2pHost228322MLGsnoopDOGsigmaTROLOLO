@@ -22,6 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SiteNav } from "@/components/site-nav";
+import { formatUserError } from "@/lib/api-error";
 
 const LZT_PER_USDT = 200;
 const DEFAULT_PRICE_PER_MIN_USD = 0.04;
@@ -531,7 +532,7 @@ function GameCard({ game, vdsBadge }: { game: GameEnriched; vdsBadge?: boolean }
       } catch { /* ignore */ }
       navigate(`/host/play/${res.session.id}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не удалось создать сессию хоста");
+      toast.error(formatUserError(err, "Не удалось создать сессию хоста"));
     }
   };
 
