@@ -149,7 +149,16 @@ function AgentTroubleshootChecklist() {
           <span className="font-mono text-sky-400">18080–18083</span> и исходящие соединения агента
         </li>
         <li>
-          В агенте вставлен токен хоста и есть надпись «Вход выполнен»
+          В агенте вставлен токен хоста и есть надпись «Вход выполнен» — или одноразовый{" "}
+          <span className="text-slate-300">код привязки</span> с дашборда
+        </li>
+        <li>
+          Можно запустить с кодом:{" "}
+          <span className="font-mono text-sky-400">start.bat --bind-code=КОД</span>
+        </li>
+        <li>
+          Агент на другом ПК? Дашборд покажет «онлайн (на другом ПК)» по heartbeat — локальный ping
+          не обязателен
         </li>
       </ul>
     </details>
