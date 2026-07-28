@@ -21,6 +21,11 @@ function json(res: Response, status: number, body: unknown) {
   res.status(status).json(body);
 }
 
+function paramString(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
+}
+
 export function createVerifierRouter(cfg: VerifierConfig, getUser: GetUser): Router {
   const router = Router();
 
@@ -79,19 +84,23 @@ export function createVerifierRouter(cfg: VerifierConfig, getUser: GetUser): Rou
   // ── POST /challenge/:id/verify ───────────────────────────────────────────
   // Body: { provider: "telegram" | "discord", code: "123456" }
   router.post("/challenge/:id/verify", requireUser, async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const challengeId = paramString(req.params.id);
     const provider = req.body?.provider as ProviderName | undefined;
     const code = req.body?.code as string | undefined;
-    if (!provider || !code) {
+    if (!challengeId || !provider || !code) {
       return json(res, 400, { error: "provider and code are required" });
     }
-    const result = await submitCode(cfg, id, provider, code);
+    const result = await submitCode(cfg, challengeId, provider, code);
     json(res, result.ok ? 200 : 400, result);
   });
 
   // ── GET /challenge/:id ───────────────────────────────────────────────────
   router.get("/challenge/:id", requireUser, async (req: Request, res: Response) => {
-    const status = await getChallengeStatus(cfg, req.params.id);
+    const challengeId = paramString(req.params.id);
+    if (!challengeId) {
+      return json(res, 400, { error: "challenge id required" });
+    }
+    const status = await getChallengeStatus(cfg, challengeId);
     json(res, 200, { status });
   });
 

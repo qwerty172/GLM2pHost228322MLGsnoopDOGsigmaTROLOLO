@@ -4,8 +4,10 @@ import { logger } from "./lib/logger";
 import { attachSignaling, closeSignaling } from "./lib/signaling";
 import { startBillingWorker, stopBillingWorker } from "./lib/billingWorker";
 import { startDepositWorker, stopDepositWorker } from "./lib/depositWorker";
+import { startWithdrawalWorker, stopWithdrawalWorker } from "./lib/withdrawalWorker";
 import { startQuotaExpiryWorker, stopQuotaExpiryWorker } from "./lib/quotaExpiryWorker";
 import { startInterestWorker, stopInterestWorker } from "./lib/interestWorker";
+import { startDripWorker, stopDripWorker } from "./lib/dripWorker";
 import { startLoanDefaultWorker, stopLoanDefaultWorker } from "./lib/loanDefaultWorker";
 import { startHostHealthWorker, stopHostHealthWorker } from "./lib/hostHealthWorker";
 import { startScheduleWatchdog, stopScheduleWatchdog } from "./lib/scheduleWatchdog";
@@ -48,8 +50,10 @@ void startPgNotifyListener().catch((err) => {
 function startWorkers() {
   startBillingWorker();
   startDepositWorker();
+  startWithdrawalWorker();
   startQuotaExpiryWorker();
   startInterestWorker();
+  startDripWorker();
   startLoanDefaultWorker();
   startHostHealthWorker();
   startScheduleWatchdog();
@@ -68,8 +72,10 @@ function startWorkers() {
 function stopWorkers() {
   stopBillingWorker();
   stopDepositWorker();
+  stopWithdrawalWorker();
   stopQuotaExpiryWorker();
   stopInterestWorker();
+  stopDripWorker();
   stopLoanDefaultWorker();
   stopHostHealthWorker();
   stopScheduleWatchdog();

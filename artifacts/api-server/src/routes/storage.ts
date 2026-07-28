@@ -8,6 +8,7 @@ import {
   respondStorageUnavailable,
   resolveCallerUserId,
 } from "../lib/storageRouteHelpers";
+import { allowsLegacyPublicRead } from "../lib/storageAcl";
 import multer from "multer";
 
 const ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -143,7 +144,12 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
 
     const policy = await getObjectAclPolicy(objectFile);
-    if (policy) {
+    if (!policy) {
+      if (!allowsLegacyPublicRead(wildcardPath)) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+    } else {
       const userId = await resolveCallerUserId(req);
       const canAccess = await objectStorageService.canAccessObjectEntity({
         userId,

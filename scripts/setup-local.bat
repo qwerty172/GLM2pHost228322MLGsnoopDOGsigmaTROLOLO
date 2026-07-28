@@ -25,6 +25,7 @@ if errorlevel 1 exit /b 1
 
 echo.
 echo ==^> Схема БД (нужен PostgreSQL и DATABASE_URL в .env)
+echo    Включает platform_settings, drip_schedules (economy admin / 0004)
 call pnpm --filter @workspace/db run push
 if errorlevel 1 (
   echo.
@@ -35,3 +36,4 @@ if errorlevel 1 (
 echo.
 echo Готово. Запуск: scripts\dev-local.bat
 echo Web: http://localhost:5000
+echo Админ: node scripts\bootstrap-admin.mjs  (после регистрации хоста)

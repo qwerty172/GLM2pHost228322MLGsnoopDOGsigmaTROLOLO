@@ -27,7 +27,7 @@ fi
 echo "==> pnpm install"
 pnpm install
 
-echo "==> Применение схемы БД (нужен запущенный PostgreSQL и DATABASE_URL в .env)"
+echo "==> Применение схемы БД (platform_settings, drip_schedules, …)"
 pnpm --filter @workspace/db run push
 
 echo "==> Проверка типов"
@@ -36,4 +36,4 @@ pnpm run typecheck
 echo ""
 echo "Готово. Запуск:"
 echo "  ./scripts/dev-local.sh          — API + Web"
-echo "  или см. README.md"
+echo "  node scripts/bootstrap-admin.mjs   — is_admin для первого хоста (после регистрации)"

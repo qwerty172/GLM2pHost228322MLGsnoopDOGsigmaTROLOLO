@@ -104,3 +104,39 @@ chmod +x scripts/*.sh
 | **Agent** | Фиксы в коде, TESTPLAN/TESTLOG, smoke при необходимости |
 
 Не нужно заново clone/setup, если healthz ok и `dev-local.bat` уже запущен.
+
+---
+
+## Чеклист `.env` (минимум для работы)
+
+| Переменная | Зачем |
+|---|---|
+| `DATABASE_URL` | PostgreSQL |
+| `WALLET_ENCRYPTION_KEY` | 64 hex символов — `setup-local` генерирует, если пусто |
+| `ADMIN_SECRET` | Панель `/admin` (заголовок `X-Admin-Secret`) |
+
+Опционально для P2P через NAT: `TURN_SECRET`, `TURN_URLS` (см. [HOSTING.md](./HOSTING.md)).
+
+Крипто без нод в `.env` — API отвечает «временно недоступно», это нормально для локалки.
+
+---
+
+## Первый администратор (`/admin`)
+
+1. Запусти Web, зарегистрируй **хост** (дашборд).
+2. Убедись, что в `.env` задан `ADMIN_SECRET` (в `.env.example` есть `change-me-local-dev`).
+3. Выдай права админа:
+
+```bat
+node scripts\bootstrap-admin.mjs
+```
+
+Или SQL:
+
+```sql
+UPDATE hosts SET is_admin = 1 WHERE display_name ILIKE '%ваш_ник%';
+```
+
+4. Открой http://localhost:5000/admin → введи секрет.
+
+`pnpm --filter @workspace/db run push` создаёт `platform_settings` и `drip_schedules` (миграция `0004_economy_admin`).

@@ -44,6 +44,8 @@ function kindMeta(kind: string, amountLzt: number): KindMeta {
     return { label: "Комиссия за пополнение", icon: Percent, color: "#f59e0b" };
   if (kind.startsWith("deposit"))
     return { label: "Пополнение", icon: ArrowDownToLine, color: "#22c55e" };
+  if (kind.startsWith("withdrawal_refund"))
+    return { label: "Возврат вывода", icon: RotateCcw, color: "#22c55e" };
   if (kind.startsWith("withdrawal"))
     return { label: "Вывод средств", icon: ArrowUpFromLine, color: "#f59e0b" };
   if (kind === "session_tick" || kind === "session_billing")
@@ -70,6 +72,16 @@ function kindMeta(kind: string, amountLzt: number): KindMeta {
     return { label: "Эскроу по кредиту", icon: Shield, color: "#a78bfa" };
   if (kind === "interest_payout")
     return { label: "Проценты", icon: Percent, color: "#22c55e" };
+  if (kind === "drip_payout")
+    return { label: "Плановая выплата", icon: Gift, color: "#22c55e" };
+  if (kind === "welcome_bonus")
+    return { label: "Бонус при регистрации", icon: Gift, color: "#22c55e" };
+  if (kind === "admin_grant" || kind === "admin_adjustment")
+    return {
+      label: kind === "admin_grant" ? "Начисление админом" : "Корректировка админом",
+      icon: Coins,
+      color: amountLzt >= 0 ? "#22c55e" : "#f59e0b",
+    };
   if (kind === "launch_fee")
     return { label: "Комиссия за запуск", icon: Rocket, color: "#f59e0b" };
   if (kind.startsWith("launch_promo"))
