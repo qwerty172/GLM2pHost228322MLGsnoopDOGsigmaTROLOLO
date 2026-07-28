@@ -4298,6 +4298,9 @@ components:
           format: date-time
         hasActiveSession:
           type: boolean
+        activeSessionCount:
+          type: integer
+          description: Number of non-ended sessions for this game on this host
         game:
           $ref: "#/components/schemas/HostLibraryGame"
       required:
@@ -4314,6 +4317,7 @@ components:
         - lastError
         - addedAt
         - hasActiveSession
+        - activeSessionCount
         - game
 
     AddHostLibraryEntryBody:
