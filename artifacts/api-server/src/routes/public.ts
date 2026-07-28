@@ -8,6 +8,7 @@ import {
   sessionsTable,
   billingEventsTable,
   withdrawalsTable,
+  playersTable,
 } from "@workspace/db";
 import {
   ListPublicHostsResponse,
@@ -15,6 +16,12 @@ import {
 } from "@workspace/api-zod";
 import { isHostAvailableNow } from "../lib/schedule";
 import { generalHostTier } from "../lib/hostTier";
+import {
+  applyTierMultiplierToLzt,
+  hostTierMultipliersFromHost,
+  playerGamingTierFromLifetimeCents,
+  tierMultiplierPct,
+} from "../lib/playerPriceTier";
 import { mintPreviewToken } from "../lib/signaling";
 import { generateInviteCode, defaultInviteExpiresAt } from "../lib/invites";
 import { rateLimit, ipKey } from "../lib/rateLimit";
@@ -301,6 +308,22 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
   }
 
   const now = new Date();
+
+  // Optional player context for personalized tier pricing.
+  const playerWalletToken = (
+    req.headers["x-player-token"] as string | undefined
+  )?.trim();
+  let playerLifetimeCents: number | null = null;
+  if (playerWalletToken) {
+    const [player] = await db
+      .select({ lifetimeDepositUsdtCents: playersTable.lifetimeDepositUsdtCents })
+      .from(playersTable)
+      .where(eq(playersTable.playerToken, playerWalletToken));
+    if (player) {
+      playerLifetimeCents = player.lifetimeDepositUsdtCents;
+    }
+  }
+
   const result = libraryRows
     .map(({ hg, host: h }) => {
       const inviteCode = sessionByHost.get(h.id) ?? null;
@@ -309,6 +332,18 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
         h.scheduleJson ?? [],
         now,
       );
+      const multipliers = hostTierMultipliersFromHost(h);
+      const playerTier =
+        playerLifetimeCents !== null
+          ? playerGamingTierFromLifetimeCents(playerLifetimeCents)
+          : null;
+      const yourPricePerMinuteLzt =
+        playerTier !== null
+          ? applyTierMultiplierToLzt(
+              hg.pricePerMinuteLzt,
+              tierMultiplierPct(multipliers, playerTier),
+            )
+          : undefined;
       return {
         hostId: h.id,
         displayName: h.displayName,
@@ -316,6 +351,9 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
         description: h.description,
         pricePerMinuteLzt: hg.pricePerMinuteLzt,
         pricePerMinuteUsd: hg.pricePerMinuteLzt / 200,
+        ...(yourPricePerMinuteLzt !== undefined
+          ? { yourPricePerMinuteLzt, playerGamingTier: playerTier }
+          : {}),
         status: inviteCode ? "online" : (available ? "available" : "scheduled"),
         inviteCode,
         scheduleMode: h.scheduleMode,

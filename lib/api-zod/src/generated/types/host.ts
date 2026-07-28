@@ -47,6 +47,24 @@ export interface Host {
   creditMinutesPerNewPlayer: number;
   /** Per-borrower cap on host service credit, in LZT. */
   creditMaxLztPerPlayer: number;
+  /**
+   * Price multiplier for bronze-tier players (percent of base; 100 = unchanged).
+   * @minimum 50
+   * @maximum 200
+   */
+  tierBronzeMultiplierPct: number;
+  /**
+   * Price multiplier for silver-tier players (percent of base; 100 = unchanged).
+   * @minimum 50
+   * @maximum 200
+   */
+  tierSilverMultiplierPct: number;
+  /**
+   * Price multiplier for gold-tier players (percent of base; 100 = unchanged).
+   * @minimum 50
+   * @maximum 200
+   */
+  tierGoldMultiplierPct: number;
   createdAt: Date;
   lastSeenAt: Date;
   /** Quick general strength badge vs the site-wide baseline hardware profile (not tied to a specific quota) */

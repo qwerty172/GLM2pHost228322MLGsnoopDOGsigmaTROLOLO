@@ -2666,6 +2666,21 @@ components:
         creditMaxLztPerPlayer:
           type: integer
           description: Per-borrower cap on host service credit, in LZT.
+        tierBronzeMultiplierPct:
+          type: integer
+          minimum: 50
+          maximum: 200
+          description: Price multiplier for bronze-tier players (percent of base; 100 = unchanged).
+        tierSilverMultiplierPct:
+          type: integer
+          minimum: 50
+          maximum: 200
+          description: Price multiplier for silver-tier players (percent of base; 100 = unchanged).
+        tierGoldMultiplierPct:
+          type: integer
+          minimum: 50
+          maximum: 200
+          description: Price multiplier for gold-tier players (percent of base; 100 = unchanged).
         createdAt:
           type: string
           format: date-time
@@ -2741,6 +2756,9 @@ components:
         - streamKeySet
         - creditMinutesPerNewPlayer
         - creditMaxLztPerPlayer
+        - tierBronzeMultiplierPct
+        - tierSilverMultiplierPct
+        - tierGoldMultiplierPct
         - createdAt
         - lastSeenAt
         - hostTier
@@ -2801,6 +2819,21 @@ components:
           description: |
             Maximum LZT this host will credit to any single borrower. Acts as a
             per-borrower cap on host service credit.
+        tierBronzeMultiplierPct:
+          type: integer
+          minimum: 50
+          maximum: 200
+          description: Price multiplier for bronze-tier players (percent of base; 100 = unchanged).
+        tierSilverMultiplierPct:
+          type: integer
+          minimum: 50
+          maximum: 200
+          description: Price multiplier for silver-tier players (percent of base; 100 = unchanged).
+        tierGoldMultiplierPct:
+          type: integer
+          minimum: 50
+          maximum: 200
+          description: Price multiplier for gold-tier players (percent of base; 100 = unchanged).
 
     Player:
       type: object
