@@ -50,6 +50,7 @@
 | **marathon W8-6 credit-settings** | **done** | PATCH /players/me/credit-settings, profile toggle, OpenAPI+hooks |
 | **marathon W9-1 game notify** | **done** | localStorage подписки, поллинг 60с, Web Notifications, pin в каталоге |
 | **marathon W9-3 agent revoke** | **done** | POST /auth/revoke-agent-key, heartbeat agentKeyStatus, dashboard + agent UX |
+| **marathon W9-4 withdrawal worker** | **done** | withdrawalWorker + walletPayout, hot wallets, retry/backoff, refund on fail |
 
 ## Баги
 
