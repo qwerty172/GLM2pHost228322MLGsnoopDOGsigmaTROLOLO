@@ -96,3 +96,13 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
 | Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+
+## Marathon Wave UX (2026-07-28) {#marathon-ux}
+
+| ID | Результат |
+|---|---|
+| UX-02 | Dashboard: чеклист агента + bind-code / `--bind-code` в troubleshoot |
+| UX-03 | `IceConnectivityHints` на host dashboard — STUN/релей статус с `/api/public/ice-config` |
+| UX-05 | `quota-form-validation.ts` — русская валидация create/edit до submit; inline errors |
+
+Верификация: `pnpm --filter @workspace/web typecheck`; `pnpm --filter @workspace/api-server test`; `pnpm --filter @workspace/host-agent test`.

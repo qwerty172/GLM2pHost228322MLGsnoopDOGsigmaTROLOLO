@@ -27,6 +27,7 @@ import {
   type HostLibraryEntry,
 } from "@workspace/api-client-react";
 import BindingForm from "./binding-form";
+import { IceConnectivityHints } from "@/components/ice-connectivity-hints";
 import {
   Card,
   CardContent,
@@ -149,7 +150,9 @@ function AgentTroubleshootChecklist() {
           <span className="font-mono text-sky-400">18080–18083</span> и исходящие соединения агента
         </li>
         <li>
-          В агенте вставлен токен хоста и есть надпись «Вход выполнен»
+          В агенте вставлен токен хоста и есть надпись «Вход выполнен» — или одноразовый{" "}
+          <span className="text-slate-300">код привязки</span> / запуск с{" "}
+          <span className="font-mono text-sky-400">--bind-code=…</span>
         </li>
       </ul>
     </details>
@@ -1516,6 +1519,8 @@ export default function Dashboard() {
           )}
 
           {hostToken && <AgentEventsCard hostToken={hostToken} />}
+
+          <IceConnectivityHints />
         </div>
       </details>
 
