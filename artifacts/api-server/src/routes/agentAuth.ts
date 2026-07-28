@@ -160,6 +160,30 @@ router.get("/auth/agent-challenge", (_req, res): void => {
   res.json({ challenge, expiresAt });
 });
 
+const revokeKeyLimiter = rateLimit({
+  scope: "auth:revoke-agent-key",
+  windowMs: 60_000,
+  max: 10,
+  keyFn: ipKey,
+});
+
+router.post("/auth/revoke-agent-key", revokeKeyLimiter, async (req, res): Promise<void> => {
+  const auth = await requireHost(req);
+  if (!auth.ok) {
+    res.status(auth.status).json({ error: auth.error });
+    return;
+  }
+
+  const wasBound = (auth.host.agentPubkey ?? "").length > 0;
+  await db
+    .update(hostsTable)
+    .set({ agentPubkey: null })
+    .where(eq(hostsTable.id, auth.host.id));
+
+  req.log.info({ hostId: auth.host.id, wasBound }, "Agent public key revoked");
+  res.json({ ok: true, wasBound });
+});
+
 router.post("/auth/agent-bind-code", bindCodeIssueLimiter, async (req, res): Promise<void> => {
   const auth = await requireHost(req);
   if (!auth.ok) {

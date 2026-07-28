@@ -61,10 +61,16 @@ export async function fetchLibrary(
 // the lightweight /api/public/ping probe, then reports it as `pingMs` in the
 // heartbeat body so the catalog can sort hosts by latency.
 // Fire-and-forget — caller should call this on an interval and ignore failures.
+export type HeartbeatResult = {
+  ok: boolean;
+  agentKeyStatus?: "ok" | "revoked" | "unbound" | "mismatch";
+};
+
 export async function sendHeartbeat(
   hostToken: string,
   apiBaseUrl: string,
-): Promise<void> {
+  agentPubkey?: string | null,
+): Promise<HeartbeatResult> {
   try {
     // Measure RTT with a lightweight probe first, then report in heartbeat.
     const probeUrl = `${base(apiBaseUrl)}/api/public/ping`;
@@ -73,16 +79,29 @@ export async function sendHeartbeat(
     const pingMs = Date.now() - t0;
 
     const url = `${base(apiBaseUrl)}/api/hosts/heartbeat`;
-    await fetch(url, {
+    const body: { hostToken: string; pingMs: number; agentPubkey?: string } = {
+      hostToken,
+      pingMs,
+    };
+    if (agentPubkey?.trim()) {
+      body.agentPubkey = agentPubkey.trim();
+    }
+    const resp = await fetch(url, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         "x-host-token": hostToken,
       },
-      body: JSON.stringify({ hostToken, pingMs }),
+      body: JSON.stringify(body),
     });
+    if (!resp.ok) {
+      return { ok: false };
+    }
+    const data = (await resp.json()) as HeartbeatResult;
+    return { ok: true, agentKeyStatus: data.agentKeyStatus };
   } catch {
     // Intentionally silent — network blips should not log noise.
+    return { ok: false };
   }
 }
 

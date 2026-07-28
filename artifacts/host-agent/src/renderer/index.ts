@@ -77,6 +77,9 @@ declare global {
       agentLogin: (apiBaseUrl: string) => Promise<{ ok: boolean; error?: string }>;
       updatePcSpecs: (hostToken: string, apiBaseUrl: string) => Promise<{ ok: boolean; error?: string; pcSpecs?: { gpu: string; cpu: string; ramGb: number } }>;
       getPcSpecs: () => Promise<{ gpu: string; cpu: string; ramGb: number }>;
+      onAgentKeyStatus: (
+        cb: (ev: { status: "ok" | "revoked" | "unbound" | "mismatch" }) => void,
+      ) => () => void;
       getInjectorStatus: () => Promise<{ ok: boolean; error: string; platform: string }>;
       getGamepadInjectorStatus: () => Promise<{ ok: boolean; error: string; platform: string; connected: boolean }>;
       // Auto-quota IPC (main-process scheduler)
@@ -2895,6 +2898,23 @@ const bindKeyBtn = document.getElementById("bind-agent-key") as HTMLButtonElemen
 const agentLoginBtn = document.getElementById("agent-login") as HTMLButtonElement;
 const updatePcSpecsBtn = document.getElementById("update-pc-specs") as HTMLButtonElement;
 const pcSpecsInfoEl = document.getElementById("pc-specs-info") as HTMLParagraphElement;
+
+const REVOKED_KEY_MSG =
+  "Ключ отозван — получи новый код привязки на дашборде и нажми «Привязать ключ».";
+
+function applyAgentKeyStatus(status: "ok" | "revoked" | "unbound" | "mismatch"): void {
+  if (status === "revoked" || status === "mismatch") {
+    agentKeyStatusEl.textContent = REVOKED_KEY_MSG;
+    agentKeyStatusEl.style.color = "#f87171";
+    log(REVOKED_KEY_MSG);
+  } else if (status === "ok") {
+    agentKeyStatusEl.style.color = "";
+  }
+}
+
+window.agent.onAgentKeyStatus((ev) => {
+  applyAgentKeyStatus(ev.status);
+});
 
 async function initAgentKey(): Promise<void> {
   try {

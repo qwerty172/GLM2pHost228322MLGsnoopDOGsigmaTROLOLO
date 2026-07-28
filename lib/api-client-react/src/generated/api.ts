@@ -82,6 +82,8 @@ import type {
   MatchQuotasForHostParams,
   MyLoans,
   Player,
+  PlayerCreditSettingsBody,
+  PlayerCreditSettingsResponse,
   PlayerGameSaveCommitBody,
   PlayerGameSaveCommitResponse,
   PlayerGameSaveResponse,
@@ -102,6 +104,7 @@ import type {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
   RequestWithdrawalBody,
+  RevokeAgentKey200,
   SaveConfirmBody,
   SaveConfirmResponse,
   SaveDownloadUrlResponse,
@@ -6279,6 +6282,87 @@ export const useBindAgentKey = <
 };
 
 /**
+ * @summary Revoke the bound Ed25519 agent key for the authenticated host
+ */
+export const getRevokeAgentKeyUrl = () => {
+  return `/api/auth/revoke-agent-key`;
+};
+
+export const revokeAgentKey = async (
+  options?: RequestInit,
+): Promise<RevokeAgentKey200> => {
+  return customFetch<RevokeAgentKey200>(getRevokeAgentKeyUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRevokeAgentKeyMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokeAgentKey>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof revokeAgentKey>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["revokeAgentKey"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof revokeAgentKey>>,
+    void
+  > = () => {
+    return revokeAgentKey(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RevokeAgentKeyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revokeAgentKey>>
+>;
+
+export type RevokeAgentKeyMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Revoke the bound Ed25519 agent key for the authenticated host
+ */
+export const useRevokeAgentKey = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokeAgentKey>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof revokeAgentKey>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getRevokeAgentKeyMutationOptions(options));
+};
+
+/**
  * @summary Verify agent signature and return hostToken
  */
 export const getAgentLoginUrl = () => {
@@ -6448,6 +6532,98 @@ export const useRequestUploadUrl = <
   TContext
 > => {
   return useMutation(getRequestUploadUrlMutationOptions(options));
+};
+
+/**
+ * Authenticate with X-User-Token or X-Player-Wallet-Token (player wallet token). When disabled, sets creditLimitLzt to 0; when enabled, restores the default limit (500 LZT for guests, 3000 LZT for full accounts).
+
+ * @summary Enable or disable platform gaming credit line
+ */
+export const getPatchPlayerCreditSettingsUrl = () => {
+  return `/api/players/me/credit-settings`;
+};
+
+export const patchPlayerCreditSettings = async (
+  playerCreditSettingsBody: PlayerCreditSettingsBody,
+  options?: RequestInit,
+): Promise<PlayerCreditSettingsResponse> => {
+  return customFetch<PlayerCreditSettingsResponse>(
+    getPatchPlayerCreditSettingsUrl(),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(playerCreditSettingsBody),
+    },
+  );
+};
+
+export const getPatchPlayerCreditSettingsMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchPlayerCreditSettings>>,
+    TError,
+    { data: BodyType<PlayerCreditSettingsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof patchPlayerCreditSettings>>,
+  TError,
+  { data: BodyType<PlayerCreditSettingsBody> },
+  TContext
+> => {
+  const mutationKey = ["patchPlayerCreditSettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof patchPlayerCreditSettings>>,
+    { data: BodyType<PlayerCreditSettingsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return patchPlayerCreditSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PatchPlayerCreditSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof patchPlayerCreditSettings>>
+>;
+export type PatchPlayerCreditSettingsMutationBody =
+  BodyType<PlayerCreditSettingsBody>;
+export type PatchPlayerCreditSettingsMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Enable or disable platform gaming credit line
+ */
+export const usePatchPlayerCreditSettings = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchPlayerCreditSettings>>,
+    TError,
+    { data: BodyType<PlayerCreditSettingsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof patchPlayerCreditSettings>>,
+  TError,
+  { data: BodyType<PlayerCreditSettingsBody> },
+  TContext
+> => {
+  return useMutation(getPatchPlayerCreditSettingsMutationOptions(options));
 };
 
 /**

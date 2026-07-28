@@ -23,6 +23,7 @@ import {
   getListHostLibraryQueryKey,
   getListGamesQueryKey,
   issueAgentBindCode,
+  revokeAgentKey,
   createTestSession,
   type HostLibraryEntry,
 } from "@workspace/api-client-react";
@@ -75,6 +76,7 @@ import {
   VolumeX,
   KeyRound,
   RefreshCw,
+  ShieldOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -1107,6 +1109,80 @@ function QuickAddFirstGame({ hostToken }: { hostToken: string }) {
   );
 }
 
+function AgentKeyRevokeCard({
+  hostToken,
+  onRevoked,
+}: {
+  hostToken: string;
+  onRevoked: () => void;
+}) {
+  const [loading, setLoading] = useState(false);
+
+  const revoke = async () => {
+    if (
+      !window.confirm(
+        "Отозвать ключ агента? Текущий агент перестанет быть привязан — понадобится новый код привязки.",
+      )
+    ) {
+      return;
+    }
+    setLoading(true);
+    try {
+      const json = await revokeAgentKey({
+        headers: {
+          Authorization: `Bearer ${hostToken}`,
+          "X-User-Token": hostToken,
+        },
+      });
+      if (!json.ok) {
+        toast.error("Не удалось отозвать ключ");
+        return;
+      }
+      toast.success(
+        json.wasBound
+          ? "Ключ агента отозван — выдай новый код привязки"
+          : "Ключ агента не был привязан",
+      );
+      onRevoked();
+    } catch (err) {
+      const msg = (err as { data?: { error?: string } }).data?.error;
+      toast.error(msg ?? "Нет соединения");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card style={cardStyle}>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-white text-base">
+          <ShieldOff className="h-4 w-4 text-amber-400" />
+          Ключ агента
+        </CardTitle>
+        <CardDescription className="text-slate-500">
+          Ключ привязан. Отзови его, если агент потерян или скомпрометирован — затем выдай новый код привязки.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5 h-8 text-xs text-amber-300 border-amber-500/40 hover:bg-amber-500/10"
+          onClick={() => void revoke()}
+          disabled={loading}
+        >
+          {loading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <ShieldOff className="h-3.5 w-3.5" />
+          )}
+          Отозвать ключ
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
   const [bindCode, setBindCode] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
@@ -1217,6 +1293,7 @@ interface PcSpecs {
 
 export default function Dashboard() {
   const { hostToken } = useAuth();
+  const queryClient = useQueryClient();
   const [agent, setAgent] = useState<AgentState>({ status: "checking" });
 
   useEffect(() => {
@@ -1508,6 +1585,17 @@ export default function Dashboard() {
           </div>
 
           {hostToken && !agentKeyBound && <AgentBindCodeCard hostToken={hostToken} />}
+
+          {hostToken && agentKeyBound && (
+            <AgentKeyRevokeCard
+              hostToken={hostToken}
+              onRevoked={() => {
+                void queryClient.invalidateQueries({
+                  queryKey: getGetHostQueryKey(hostToken),
+                });
+              }}
+            />
+          )}
 
           {hostToken && <BindingForm hostToken={hostToken} />}
 

@@ -1738,6 +1738,9 @@ paths:
                 pingMs:
                   type: number
                   description: RTT from agent to API in milliseconds
+                agentPubkey:
+                  type: string
+                  description: Hex-encoded Ed25519 public key — when sent, response includes agentKeyStatus
       responses:
         "200":
           description: Heartbeat accepted
@@ -1748,6 +1751,10 @@ paths:
                 properties:
                   ok:
                     type: boolean
+                  agentKeyStatus:
+                    type: string
+                    enum: [ok, revoked, unbound, mismatch]
+                    description: Present when agentPubkey was sent in the request body
                 required: [ok]
         "401":
           description: Missing host token
@@ -2236,6 +2243,39 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /auth/revoke-agent-key:
+    post:
+      operationId: revokeAgentKey
+      tags: [auth]
+      summary: Revoke the bound Ed25519 agent key for the authenticated host
+      parameters:
+        - in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+          description: Bearer host token
+      responses:
+        "200":
+          description: Agent key revoked (or was not bound)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, wasBound]
+                properties:
+                  ok:
+                    type: boolean
+                  wasBound:
+                    type: boolean
+                    description: True when a key was cleared; false when none was bound
+        "401":
+          description: Host auth required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /auth/agent-login:
     post:
       operationId: agentLogin
@@ -2313,6 +2353,47 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Missing or unknown host token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /players/me/credit-settings:
+    patch:
+      operationId: patchPlayerCreditSettings
+      tags: [players]
+      summary: Enable or disable platform gaming credit line
+      description: >
+        Authenticate with X-User-Token or X-Player-Wallet-Token (player wallet token).
+        When disabled, sets creditLimitLzt to 0; when enabled, restores the default
+        limit (500 LZT for guests, 3000 LZT for full accounts).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerCreditSettingsBody"
+      responses:
+        "200":
+          description: Updated credit settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerCreditSettingsResponse"
+        "400":
+          description: Invalid body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing player token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Player not found
           content:
             application/json:
               schema:
@@ -2518,6 +2599,24 @@ components:
           type: ["object", "null"]
           additionalProperties: true
       required: [save]
+
+    PlayerCreditSettingsBody:
+      type: object
+      properties:
+        creditEnabled:
+          type: boolean
+          description: When false, disables the gaming credit line (creditLimitLzt = 0).
+      required: [creditEnabled]
+
+    PlayerCreditSettingsResponse:
+      type: object
+      properties:
+        creditEnabled:
+          type: boolean
+        creditLimitLzt:
+          type: integer
+          description: Effective credit line after the update (0 when disabled).
+      required: [creditEnabled, creditLimitLzt]
 
 
 
@@ -3419,6 +3518,9 @@ components:
           type: integer
         lztPerUsdt:
           type: integer
+        cryptoEnabled:
+          type: boolean
+          description: True when blockchain deposit/withdraw nodes and wallet encryption are configured.
         depositAddresses:
           type: array
           items:
@@ -3441,6 +3543,7 @@ components:
         - lifetimeDepositUsdtCents
         - pendingWithdrawalsLzt
         - lztPerUsdt
+        - cryptoEnabled
         - depositAddresses
         - recentWithdrawals
 

@@ -26,6 +26,7 @@ import { SiteNav } from "@/components/site-nav";
 import { HostAuthGuard } from "@/components/host-auth-guard";
 import ProfilePage from "@/pages/profile";
 import Embed from "@/pages/embed";
+import { GameNotifyPoller } from "@/components/game-notify-poller";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -116,6 +117,7 @@ function App() {
       <AuthProvider>
         <TooltipProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <GameNotifyPoller />
             <Router />
           </WouterRouter>
           <Toaster theme="dark" />

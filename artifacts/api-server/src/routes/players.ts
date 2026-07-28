@@ -5,10 +5,19 @@ import {
   RegisterPlayerBody,
   GetPlayerResponse,
   GetPlayerParams,
+  PatchPlayerCreditSettingsBody,
+  PatchPlayerCreditSettingsResponse,
 } from "@workspace/api-zod";
 import { generateToken } from "../lib/tokens";
 import { ensureDepositAddressesForOwner } from "../lib/walletOwner";
 import { rateLimit, ipKey } from "../lib/rateLimit";
+import { headerUserToken } from "../lib/requestToken";
+import {
+  creditEnabledFromLimit,
+  creditLimitFromEnabled,
+  DEFAULT_CREDIT_LIMIT_LZT,
+  GUEST_CREDIT_LIMIT_LZT,
+} from "../lib/creditSettings";
 
 const router: IRouter = Router();
 
@@ -34,8 +43,23 @@ const claimGuestLimiter = rateLimit({
   keyFn: ipKey,
 });
 
-const GUEST_CREDIT_LIMIT_LZT = 500;
-const DEFAULT_CREDIT_LIMIT_LZT = 3000;
+const creditSettingsLimiter = rateLimit({
+  scope: "players:credit-settings",
+  windowMs: 60_000,
+  max: 30,
+});
+
+function playerTokenFromRequest(req: {
+  headers: Record<string, string | string[] | undefined>;
+}): string | null {
+  const fromHeader = headerUserToken(req as Parameters<typeof headerUserToken>[0]);
+  if (fromHeader) return fromHeader;
+  const raw =
+    req.headers["x-player-wallet-token"] ?? req.headers["x-player-token"];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
 
 function serialize(p: typeof playersTable.$inferSelect) {
   return {
@@ -268,5 +292,65 @@ router.post("/players/upgrade-guest", upgradeGuestLimiter, async (req, res): Pro
   req.log.info({ playerId: upgraded.id }, "Guest upgraded to full account");
   res.status(200).json(serialize(upgraded));
 });
+
+router.patch(
+  "/players/me/credit-settings",
+  creditSettingsLimiter,
+  async (req, res): Promise<void> => {
+    const playerToken = playerTokenFromRequest(req);
+    if (!playerToken) {
+      res.status(401).json({ error: "Требуется токен игрока (X-User-Token)" });
+      return;
+    }
+
+    const parsed = PatchPlayerCreditSettingsBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+
+    const [player] = await db
+      .select()
+      .from(playersTable)
+      .where(eq(playersTable.playerToken, playerToken));
+
+    if (!player) {
+      res.status(404).json({ error: "Игрок не найден" });
+      return;
+    }
+
+    const nextLimit = creditLimitFromEnabled(
+      parsed.data.creditEnabled,
+      player.isGuest,
+    );
+
+    const [updated] = await db
+      .update(playersTable)
+      .set({ creditLimitLzt: nextLimit })
+      .where(eq(playersTable.id, player.id))
+      .returning({ creditLimitLzt: playersTable.creditLimitLzt });
+
+    if (!updated) {
+      res.status(500).json({ error: "Не удалось обновить настройки кредита" });
+      return;
+    }
+
+    req.log.info(
+      {
+        playerId: player.id,
+        creditEnabled: parsed.data.creditEnabled,
+        creditLimitLzt: updated.creditLimitLzt,
+      },
+      "Player credit settings updated",
+    );
+
+    res.json(
+      PatchPlayerCreditSettingsResponse.parse({
+        creditEnabled: creditEnabledFromLimit(updated.creditLimitLzt),
+        creditLimitLzt: updated.creditLimitLzt,
+      }),
+    );
+  },
+);
 
 export default router;
