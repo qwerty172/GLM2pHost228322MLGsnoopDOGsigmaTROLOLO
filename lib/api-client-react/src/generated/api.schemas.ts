@@ -1281,6 +1281,8 @@ export interface HostLibraryEntry {
   lastError: string;
   addedAt: string;
   hasActiveSession: boolean;
+  /** Number of non-ended sessions for this game on this host */
+  activeSessionCount: number;
   game: HostLibraryGame;
 }
 
