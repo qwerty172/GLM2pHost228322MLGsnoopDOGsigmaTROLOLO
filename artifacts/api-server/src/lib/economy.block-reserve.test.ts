@@ -9,7 +9,11 @@ vi.mock("@workspace/db", () => ({
   ledgerTable: { id: "id", kind: "kind", refType: "refType", refId: "refId" },
 }));
 
-import { hasBlockReserveLedger, debitBlockReserve } from "./economy";
+import {
+  hasBlockReserveLedger,
+  hasBlockRefundLedger,
+  debitBlockReserve,
+} from "./economy";
 
 function mockTx(existingLedger: boolean) {
   const limit = vi.fn().mockResolvedValue(existingLedger ? [{ id: "x" }] : []);
@@ -26,6 +30,18 @@ describe("hasBlockReserveLedger", () => {
   it("returns false when no ledger row", async () => {
     const tx = mockTx(false);
     await expect(hasBlockReserveLedger(tx, "session-1")).resolves.toBe(false);
+  });
+});
+
+describe("hasBlockRefundLedger", () => {
+  it("returns true when block_refund ledger row exists", async () => {
+    const tx = mockTx(true);
+    await expect(hasBlockRefundLedger(tx, "session-1")).resolves.toBe(true);
+  });
+
+  it("returns false when no ledger row", async () => {
+    const tx = mockTx(false);
+    await expect(hasBlockRefundLedger(tx, "session-1")).resolves.toBe(false);
   });
 });
 

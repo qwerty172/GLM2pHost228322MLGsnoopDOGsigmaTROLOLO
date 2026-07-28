@@ -923,28 +923,46 @@ router.patch("/sessions/:id/end", async (req, res): Promise<void> => {
 
   const now = new Date();
 
-  // Block session early-exit refund via shared billing helper (includes ledger).
-  if (
-    existing.blockMinutes &&
-    existing.blockReservedLzt &&
-    existing.claimedByPlayerId &&
-    existing.status === "active"
-  ) {
-    try {
-      await db.transaction(async (tx) => {
-        const minutesUsed = await countSessionMinutesUsed(tx, existing.id);
-        await refundBlockRemainder(tx, existing, minutesUsed);
-      });
-    } catch (err) {
-      req.log.error({ err, sessionId: existing.id }, "Block refund failed during session end");
-    }
-  }
+  // Atomically claim active → ended, then refund block remainder in the same
+  // transaction. Matches hostHealthWorker so concurrent end paths cannot
+  // double-refund the player.
+  let session: typeof sessionsTable.$inferSelect | undefined;
+  try {
+    session = await db.transaction(async (tx) => {
+      const [ended] = await tx
+        .update(sessionsTable)
+        .set({ status: "ended", endedAt: now })
+        .where(
+          and(
+            eq(sessionsTable.id, params.data.id),
+            eq(sessionsTable.status, "active"),
+          ),
+        )
+        .returning();
 
-  const [session] = await db
-    .update(sessionsTable)
-    .set({ status: "ended", endedAt: now })
-    .where(eq(sessionsTable.id, params.data.id))
-    .returning();
+      if (ended) {
+        if (
+          ended.blockMinutes &&
+          ended.blockReservedLzt &&
+          ended.claimedByPlayerId
+        ) {
+          const minutesUsed = await countSessionMinutesUsed(tx, ended.id);
+          await refundBlockRemainder(tx, ended, minutesUsed);
+        }
+        return ended;
+      }
+
+      const [current] = await tx
+        .select()
+        .from(sessionsTable)
+        .where(eq(sessionsTable.id, params.data.id));
+      return current;
+    });
+  } catch (err) {
+    req.log.error({ err, sessionId: existing.id }, "Session end transaction failed");
+    res.status(500).json({ error: "Failed to end session" });
+    return;
+  }
 
   if (!session) {
     res.status(404).json({ error: "Session not found" });
