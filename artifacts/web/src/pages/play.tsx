@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { TouchOverlay } from "@/components/TouchOverlay";
 import { KeyboardOverlay } from "@/components/KeyboardOverlay";
 import { toast } from "sonner";
+import { formatApiError } from "@/lib/api-errors";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
 
 const LZT_PER_USDT = 200;
@@ -32,32 +33,7 @@ const devWarn = (...args: unknown[]) => {
 };
 
 function mapClaimError(err: unknown): string {
-  const raw =
-    err instanceof Error
-      ? err.message
-      : typeof err === "string"
-        ? err
-        : typeof err === "object" && err && "message" in err
-          ? String((err as { message: unknown }).message)
-          : "";
-  const lower = raw.toLowerCase();
-  if (/insufficient|balance|недостаточно|exhausted/i.test(raw) || lower.includes("balance")) {
-    return "Недостаточно средств на кошельке. Пополни баланс и попробуй снова.";
-  }
-  if (/already.?claimed|уже занят|claimed/i.test(raw)) {
-    return "Сессия уже занята другим игроком.";
-  }
-  if (/host.?offline|host_offline|хост оффлайн/i.test(raw)) {
-    return "Хост сейчас офлайн. Выбери другого или попробуй позже.";
-  }
-  if (/not.?found|404|не найден/i.test(raw)) {
-    return "Сессия не найдена или уже завершена.";
-  }
-  if (/rate.?limit|too many/i.test(raw)) {
-    return "Слишком много попыток. Подожди немного и попробуй снова.";
-  }
-  if (raw.trim()) return raw;
-  return "Не удалось занять сессию. Попробуй ещё раз.";
+  return formatApiError(err, "Не удалось занять сессию. Попробуй ещё раз.");
 }
 
 // ---------------------------------------------------------------------------
@@ -976,7 +952,7 @@ export default function Play() {
         );
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          toast.error(data.error || "Не удалось продлить блок");
+          toast.error(formatApiError(data.error, "Не удалось продлить блок"));
           return;
         }
         const bm = data.blockMinutes as number | undefined;
