@@ -102,7 +102,7 @@
 | UX-03 | TURN/STUN hints | done |
 | UX-04 | wallet labels | done |
 | UX-05 | quotas validation | done |
-| UX-06 | API errors RU | pending |
+| UX-06 | API errors RU | done |
 | UX-07 | spinner RU | done |
 | UX-08 | skip-link | done |
 
