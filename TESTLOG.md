@@ -14,6 +14,7 @@
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon UX-02** | **done** | dashboard troubleshoot: #agent-bind-code, другой ПК, --bind-code= |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -85,7 +86,12 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 - **Осталось вручную:** полный цикл Steam → сессия → SendInput в реальной игре; kill Electron → disconnect ≤30с на живом стриме
 - **Топ рисков:** Electron `EADDRINUSE` если уже крутится ping-server; video frames в headless/automation иногда 0×0 (в UI HUD P2P ок)
 
-## Marathon 4-cycle audit (2026-07-27) {#marathon-c1}
+## Marathon Wave UX {#marathon-ux}
+
+| ID | Результат | Детали |
+|---|---|---|
+| UX-02 | done | `dashboard.tsx`: чеклист «Если не работает» — агент на другом ПК, ссылка `#agent-bind-code`, `start.bat --bind-code=…`; якорь `id="agent-bind-code"` на карточке кода привязки |
+
 
 | Область | Фикс |
 |---|---|
