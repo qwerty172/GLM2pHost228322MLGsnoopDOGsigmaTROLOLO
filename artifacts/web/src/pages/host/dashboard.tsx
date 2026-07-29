@@ -125,33 +125,145 @@ async function pingAgent(): Promise<AgentState> {
   };
 }
 
-function AgentTroubleshootChecklist() {
+const AGENT_SYMPTOM_ROWS = [
+  {
+    symptom: "«Агент не подключен» на дашборде",
+    cause: "Порт 18080 занят или агент не запущен",
+    fix: "Перезапусти start.bat; в логе ищи EADDRINUSE или curl http://127.0.0.1:18080/ping",
+  },
+  {
+    symptom: "«Окно игры не найдено»",
+    cause: "Заголовок окна не содержит имя exe",
+    fix: "В агенте: «Цель захвата» → выбери окно вручную",
+  },
+  {
+    symptom: "Стримит весь рабочий стол",
+    cause: "Fallback на экран (одна игра в библиотеке)",
+    fix: "Выбери окно игры вручную в настройках агента",
+  },
+  {
+    symptom: "Игрок не видит видео, ICE ok",
+    cause: "Неверный source или захват 0×0",
+    fix: "Перевыбери окно, не минимизируй игру",
+  },
+  {
+    symptom: "Ввод не доходит (нативная игра)",
+    cause: "Focus guard — игра не в foreground",
+    fix: "Alt+Tab в окно игры на ПК хоста",
+  },
+  {
+    symptom: "Ввод не доходит (браузерная игра)",
+    cause: "Локальный агент не запущен",
+    fix: "curl http://127.0.0.1:18080/ping → должен ответить ok",
+  },
+  {
+    symptom: "Browser-сессия не завершается",
+    cause: "Любой Chrome считается «живым»",
+    fix: "Закрой все окна браузера на ПК хоста",
+  },
+  {
+    symptom: "ViGEm / геймпад не работает",
+    cause: "Драйвер ViGEmBus не установлен",
+    fix: "Установи ViGEmBus + ViGEmClient.dll",
+  },
+] as const;
+
+function AgentTroubleshootChecklist({
+  defaultOpen = false,
+}: {
+  defaultOpen?: boolean;
+}) {
   return (
-    <details className="w-full mt-2" data-testid="agent-troubleshoot">
+    <details
+      className="w-full mt-2"
+      data-testid="agent-troubleshoot"
+      open={defaultOpen}
+    >
       <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-300 select-none">
-        Если не работает — чеклист
+        Если не работает — чеклист и симптомы
       </summary>
-      <ul className="mt-2 space-y-1 text-xs text-slate-400 list-disc pl-5">
-        <li>
-          Установлен <span className="text-slate-300">Node.js 20+</span> — проверь командой{" "}
-          <span className="font-mono text-sky-400">node --version</span>
-        </li>
-        <li>
-          Агент запущен через <span className="font-mono text-sky-400">start.bat</span> и не закрыт
-          (иконка в трее)
-        </li>
-        <li>
-          Для игр с античитом запускай <span className="font-mono text-sky-400">start.bat</span>{" "}
-          <span className="text-slate-300">от имени администратора</span>
-        </li>
-        <li>
-          Файрвол/антивирус не блокирует порты{" "}
-          <span className="font-mono text-sky-400">18080–18083</span> и исходящие соединения агента
-        </li>
-        <li>
-          В агенте вставлен токен хоста и есть надпись «Вход выполнен»
-        </li>
-      </ul>
+      <div className="mt-3 space-y-4">
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5 font-mono">
+            Установка
+          </p>
+          <ul className="space-y-1 text-xs text-slate-400 list-disc pl-5">
+            <li>
+              Установлен <span className="text-slate-300">Node.js 20+</span> —{" "}
+              <span className="font-mono text-sky-400">node --version</span>
+            </li>
+            <li>
+              Агент запущен через <span className="font-mono text-sky-400">start.bat</span>{" "}
+              (иконка в трее, окно можно свернуть)
+            </li>
+            <li>
+              Для игр с античитом — <span className="font-mono text-sky-400">start.bat</span>{" "}
+              <span className="text-slate-300">от имени администратора</span>
+            </li>
+            <li>
+              Файрвол не блокирует порты{" "}
+              <span className="font-mono text-sky-400">18080–18083</span> и исходящие к API
+            </li>
+            <li>
+              В агенте вставлен код привязки или токен — статус «Вход выполнен»
+            </li>
+            <li>
+              Platform URL в агенте совпадает с адресом сайта (например{" "}
+              <span className="font-mono text-sky-400">{window.location.origin}</span>)
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5 font-mono">
+            Симптомы
+          </p>
+          <div className="overflow-x-auto rounded-lg border border-white/5">
+            <table className="w-full text-xs text-left">
+              <thead>
+                <tr className="text-slate-500 border-b border-white/5">
+                  <th className="px-2 py-1.5 font-medium">Симптом</th>
+                  <th className="px-2 py-1.5 font-medium hidden sm:table-cell">Причина</th>
+                  <th className="px-2 py-1.5 font-medium">Что делать</th>
+                </tr>
+              </thead>
+              <tbody>
+                {AGENT_SYMPTOM_ROWS.map((row) => (
+                  <tr
+                    key={row.symptom}
+                    className="border-b border-white/5 last:border-0"
+                  >
+                    <td className="px-2 py-1.5 text-slate-300 align-top">{row.symptom}</td>
+                    <td className="px-2 py-1.5 text-slate-500 align-top hidden sm:table-cell">
+                      {row.cause}
+                    </td>
+                    <td className="px-2 py-1.5 text-slate-400 align-top">{row.fix}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5 font-mono">
+            Логи
+          </p>
+          <ul className="space-y-1 text-xs text-slate-400 list-disc pl-5">
+            <li>
+              Агент (main):{" "}
+              <span className="font-mono text-sky-400">
+                %APPDATA%/cloud-gaming-host-agent/logs/
+              </span>
+            </li>
+            <li>
+              Проверка локального API:{" "}
+              <span className="font-mono text-sky-400">curl http://127.0.0.1:18080/ping</span>
+            </li>
+            <li>Карточка «События агента» ниже — ошибки старта даже после закрытия окна</li>
+          </ul>
+        </div>
+      </div>
     </details>
   );
 }
@@ -251,6 +363,14 @@ function AgentEventsCard({ hostToken }: { hostToken: string }) {
             })}
           </ul>
         )}
+        {hasErrors && (
+          <div className="mt-3 pt-3 border-t border-white/5">
+            <p className="text-xs text-red-300/80 mb-2">
+              Есть ошибки запуска — см. чеклист ниже или логи в %APPDATA%/cloud-gaming-host-agent/logs/
+            </p>
+            <AgentTroubleshootChecklist defaultOpen />
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -279,6 +399,56 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
               {formatDistanceToNow(new Date(heartbeat.lastSeenAt), { addSuffix: true, locale: ru })})
             </span>
           </span>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (
+    agent.status === "offline" &&
+    (heartbeat.status === "stale" || heartbeat.status === "never")
+  ) {
+    const lastSeenHint =
+      heartbeat.status === "stale"
+        ? `последний heartbeat ${formatDistanceToNow(new Date(heartbeat.lastSeenAt), { addSuffix: true, locale: ru })}`
+        : "heartbeat с сервера ещё не приходил";
+
+    return (
+      <Card
+        style={{
+          background: "rgba(245,158,11,0.05)",
+          border: "1px solid rgba(245,158,11,0.25)",
+        }}
+      >
+        <CardHeader className="pb-3" data-testid="agent-status-stale">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base text-white mb-1">
+                <WifiOff className="h-4 w-4 text-amber-400" />
+                Агент не отвечает
+              </CardTitle>
+              <CardDescription className="text-slate-400 text-xs">
+                Локальный ping не прошёл · {lastSeenHint}. Запусти start.bat на ПК со стримом.
+              </CardDescription>
+            </div>
+            <a
+              href="/api/downloads/host-agent.zip"
+              download="cloud-gaming-host-agent.zip"
+              data-testid="link-download-host-agent"
+            >
+              <Button
+                size="sm"
+                className="gap-2 h-8 text-xs font-semibold shrink-0"
+                style={{ background: "#0ea5e9", color: "#fff" }}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Скачать агент
+              </Button>
+            </a>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <AgentTroubleshootChecklist defaultOpen />
         </CardContent>
       </Card>
     );
@@ -412,7 +582,7 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
         <p className="mt-3 text-[11px] text-slate-600">
           Нужен Node.js 20+ · Windows 10/11 · Запусти от имени администратора, если игра не захватывается
         </p>
-        <AgentTroubleshootChecklist />
+        <AgentTroubleshootChecklist defaultOpen />
       </CardContent>
     </Card>
   );
