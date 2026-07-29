@@ -125,11 +125,61 @@ async function pingAgent(): Promise<AgentState> {
   };
 }
 
+const AGENT_SYMPTOMS: Array<{ symptom: string; fix: string }> = [
+  {
+    symptom: "«Агент не запущен» на дашборде",
+    fix: "Запусти start.bat — иконка должна появиться в трее Windows",
+  },
+  {
+    symptom: "Был онлайн, потом пропал (stale heartbeat)",
+    fix: "Перезапусти start.bat; открой «События агента» — там причина падения",
+  },
+  {
+    symptom: "localhost:18080 не открывается",
+    fix: "Файрвол/антивирус: разреши порты 18080–18083 и исходящие соединения",
+  },
+  {
+    symptom: "В агенте «Вход не выполнен»",
+    fix: "Скопируй токен хоста с дашборда или введи код привязки",
+  },
+  {
+    symptom: "Игра не захватывается / чёрный экран",
+    fix: "start.bat от имени администратора; проверь путь к .exe в библиотеке",
+  },
+  {
+    symptom: "Node.js не найден при первом запуске",
+    fix: "Установи Node.js 20+ (node --version в cmd)",
+  },
+];
+
+function AgentSymptomTable() {
+  return (
+    <div className="mt-3 overflow-x-auto" data-testid="agent-symptom-table">
+      <table className="w-full text-xs border-collapse">
+        <thead>
+          <tr className="text-slate-500 border-b border-white/5">
+            <th className="text-left py-1.5 pr-3 font-medium">Симптом</th>
+            <th className="text-left py-1.5 font-medium">Что делать</th>
+          </tr>
+        </thead>
+        <tbody>
+          {AGENT_SYMPTOMS.map((row) => (
+            <tr key={row.symptom} className="border-b border-white/5 last:border-0">
+              <td className="py-1.5 pr-3 text-slate-400 align-top">{row.symptom}</td>
+              <td className="py-1.5 text-slate-300 align-top">{row.fix}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function AgentTroubleshootChecklist() {
   return (
     <details className="w-full mt-2" data-testid="agent-troubleshoot">
       <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-300 select-none">
-        Если не работает — чеклист
+        Если не работает — чеклист и таблица симптомов
       </summary>
       <ul className="mt-2 space-y-1 text-xs text-slate-400 list-disc pl-5">
         <li>
@@ -152,6 +202,7 @@ function AgentTroubleshootChecklist() {
           В агенте вставлен токен хоста и есть надпись «Вход выполнен»
         </li>
       </ul>
+      <AgentSymptomTable />
     </details>
   );
 }
@@ -279,6 +330,46 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
               {formatDistanceToNow(new Date(heartbeat.lastSeenAt), { addSuffix: true, locale: ru })})
             </span>
           </span>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (agent.status === "offline" && heartbeat.status === "stale") {
+    return (
+      <Card
+        style={{
+          background: "rgba(234,179,8,0.06)",
+          border: "1px solid rgba(234,179,8,0.25)",
+        }}
+      >
+        <CardHeader className="pb-3" data-testid="agent-status-stale">
+          <CardTitle className="flex items-center gap-2 text-base text-amber-200 mb-1">
+            <WifiOff className="h-4 w-4 text-amber-400" />
+            Агент не отвечает
+          </CardTitle>
+          <CardDescription className="text-amber-200/70 text-xs">
+            Heartbeat пропал — агент был на связи{" "}
+            {formatDistanceToNow(new Date(heartbeat.lastSeenAt), { addSuffix: true, locale: ru })}.
+            Возможно, процесс закрылся или ПК потерял сеть.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0 space-y-2">
+          <p className="text-xs text-slate-400">
+            Перезапусти <span className="font-mono text-sky-400">start.bat</span> на Windows-ПК.
+            Если снова падает — открой «События агента» в расширенном блоке ниже.
+          </p>
+          <a href="/api/downloads/host-agent.zip" download="cloud-gaming-host-agent.zip">
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 h-8 text-xs border-amber-500/30 text-amber-200 hover:text-white"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Скачать агент
+            </Button>
+          </a>
+          <AgentTroubleshootChecklist />
         </CardContent>
       </Card>
     );
@@ -867,7 +958,9 @@ function HostQuickStartCard({
         ? agent.status === "online"
           ? `localhost:${agent.port}`
           : "на связи через heartbeat"
-        : "Запусти start.bat",
+        : heartbeat.status === "stale"
+          ? "heartbeat пропал — перезапусти start.bat"
+          : "Запусти start.bat",
     },
     {
       done: agentKeyBound,
@@ -1296,6 +1389,21 @@ export default function Dashboard() {
     (s) => s.status === "active" || s.status === "pending",
   );
   const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  const { data: agentEvents } = useGetHostAgentEvents(hostToken || "", {
+    query: {
+      enabled: !!hostToken,
+      queryKey: getGetHostAgentEventsQueryKey(hostToken || ""),
+      refetchInterval: 30_000,
+    },
+  });
+  const hasAgentErrors = (agentEvents ?? []).some(
+    (e) => e.level === "error" || e.level === "fatal",
+  );
+
+  useEffect(() => {
+    if (hasAgentErrors) setAdvancedOpen(true);
+  }, [hasAgentErrors]);
 
   const endSession = useEndSession();
   const [endSessionId, setEndSessionId] = useState<string | null>(null);
