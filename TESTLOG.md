@@ -45,6 +45,7 @@
 | **marathon W3 dedup** | **done** | inviteCode канон, joinCode deprecated, OpenAPI+hooks, ws-ticket route |
 | **marathon W4 UX** | **done** | agent --bind-code, setup advanced banner, agent port discovery |
 | **marathon W5 infra** | **done** | .env.example Redis/JWT/Sentry/migrations docs, worker math tests |
+| **marathon Wave UX** | **done** | UX-02 dashboard bind-code/troubleshoot; UX-03 RU ICE labels; UX-05 quota form validation |
 
 ## Баги
 
