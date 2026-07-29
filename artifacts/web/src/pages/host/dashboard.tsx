@@ -125,6 +125,84 @@ async function pingAgent(): Promise<AgentState> {
   };
 }
 
+type AgentSymptomContext = {
+  agent: AgentState;
+  heartbeat: HeartbeatState;
+  hasAgentErrors: boolean;
+};
+
+function AgentSymptomTable({ agent, heartbeat, hasAgentErrors }: AgentSymptomContext) {
+  const rows: Array<{ symptom: string; cause: string; fix: string }> = [];
+
+  if (agent.status === "offline" && heartbeat.status === "stale") {
+    rows.push({
+      symptom: "Агент был на связи, но пропал",
+      cause: "Процесс закрылся, завис или потерял интернет",
+      fix: "Перезапусти start.bat; проверь иконку в трее и файрвол",
+    });
+  }
+  if (agent.status === "offline" && heartbeat.status === "never") {
+    rows.push({
+      symptom: "Сервер не видел агент",
+      cause: "Агент ещё ни разу не отправлял heartbeat",
+      fix: "Скачай ZIP, запусти start.bat и вставь токен хоста",
+    });
+  }
+  if (agent.status === "offline" && heartbeat.status === "fresh") {
+    rows.push({
+      symptom: "Локальный ping не отвечает",
+      cause: "Агент работает на другом ПК — это нормально",
+      fix: "Ничего делать не нужно, если сессии идут",
+    });
+  }
+  if (agent.status === "online" && heartbeat.status === "stale") {
+    rows.push({
+      symptom: "Локально агент отвечает, heartbeat устарел",
+      cause: "Токен хоста в агенте может не совпадать с этим аккаунтом",
+      fix: "Проверь токен в агенте и нажми «Сохранить»",
+    });
+  }
+  if (hasAgentErrors) {
+    rows.push({
+      symptom: "В событиях агента есть ошибки",
+      cause: "Смотри текст ошибки в блоке «События агента»",
+      fix: "Часто помогает перезапуск от администратора",
+    });
+  }
+  if (agent.status === "checking") {
+    rows.push({
+      symptom: "Идёт проверка localhost",
+      cause: "Сканируются порты 18080–18083",
+      fix: "Подожди пару секунд",
+    });
+  }
+
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="mt-3 overflow-x-auto" data-testid="agent-symptom-table">
+      <table className="w-full text-xs text-left border-collapse">
+        <thead>
+          <tr className="text-slate-500 border-b border-white/5">
+            <th className="py-1.5 pr-3 font-medium">Симптом</th>
+            <th className="py-1.5 pr-3 font-medium">Вероятная причина</th>
+            <th className="py-1.5 font-medium">Что сделать</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.symptom} className="border-b border-white/5 last:border-0">
+              <td className="py-2 pr-3 text-slate-300 align-top">{row.symptom}</td>
+              <td className="py-2 pr-3 text-slate-500 align-top">{row.cause}</td>
+              <td className="py-2 text-sky-300 align-top">{row.fix}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function AgentTroubleshootChecklist() {
   return (
     <details className="w-full mt-2" data-testid="agent-troubleshoot">
@@ -256,7 +334,11 @@ function AgentEventsCard({ hostToken }: { hostToken: string }) {
   );
 }
 
-function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: HeartbeatState }) {
+function AgentStatusCard({
+  agent,
+  heartbeat,
+  hasAgentErrors,
+}: AgentSymptomContext) {
   // A fresh server-side heartbeat means the agent is running (possibly on
   // another PC) even if the local ping to localhost:18080 fails.
   if (agent.status === "offline" && heartbeat.status === "fresh") {
@@ -290,6 +372,48 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
         <CardContent className="py-4 flex items-center gap-3">
           <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
           <span className="text-sm text-slate-500">Проверяем агент…</span>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (heartbeat.status === "stale" && agent.status !== "online") {
+    return (
+      <Card
+        style={{
+          background: "rgba(234,179,8,0.06)",
+          border: "1px solid rgba(234,179,8,0.3)",
+        }}
+      >
+        <CardHeader className="pb-3" data-testid="agent-status-stale">
+          <CardTitle className="flex items-center gap-2 text-base text-amber-200">
+            <WifiOff className="h-4 w-4 text-amber-400" />
+            Агент не отвечает
+          </CardTitle>
+          <CardDescription className="text-slate-400 text-xs">
+            Последний heartbeat{" "}
+            {formatDistanceToNow(new Date(heartbeat.lastSeenAt), { addSuffix: true, locale: ru })}
+            . Локальный ping{" "}
+            {agent.status === "offline" ? "не проходит" : "проходит, но сервер давно не видел агент"}.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0 space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <a href="/api/downloads/host-agent.zip" download="cloud-gaming-host-agent.zip">
+              <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
+                <Download className="h-3.5 w-3.5" />
+                Скачать агент
+              </Button>
+            </a>
+            <a href="decenthub://open" target="_blank" rel="noreferrer">
+              <Button size="sm" variant="ghost" className="h-8 gap-1.5 text-xs text-slate-400">
+                <ExternalLink className="h-3 w-3" />
+                Открыть агент
+              </Button>
+            </a>
+          </div>
+          <AgentSymptomTable agent={agent} heartbeat={heartbeat} hasAgentErrors={hasAgentErrors} />
+          <AgentTroubleshootChecklist />
         </CardContent>
       </Card>
     );
@@ -412,6 +536,7 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
         <p className="mt-3 text-[11px] text-slate-600">
           Нужен Node.js 20+ · Windows 10/11 · Запусти от имени администратора, если игра не захватывается
         </p>
+        <AgentSymptomTable agent={agent} heartbeat={heartbeat} hasAgentErrors={hasAgentErrors} />
         <AgentTroubleshootChecklist />
       </CardContent>
     </Card>
@@ -1297,6 +1422,23 @@ export default function Dashboard() {
   );
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
+  const { data: agentEvents } = useGetHostAgentEvents(hostToken || "", {
+    query: {
+      enabled: !!hostToken,
+      queryKey: getGetHostAgentEventsQueryKey(hostToken || ""),
+      refetchInterval: 30_000,
+    },
+  });
+  const hasAgentErrors = (agentEvents ?? []).some(
+    (e) => e.level === "error" || e.level === "fatal",
+  );
+
+  useEffect(() => {
+    if (hasAgentErrors || heartbeat.status === "stale") {
+      setAdvancedOpen(true);
+    }
+  }, [hasAgentErrors, heartbeat.status]);
+
   const endSession = useEndSession();
   const [endSessionId, setEndSessionId] = useState<string | null>(null);
 
@@ -1512,7 +1654,11 @@ export default function Dashboard() {
           {hostToken && <BindingForm hostToken={hostToken} />}
 
           {agent.status !== "checking" && (
-            <AgentStatusCard agent={agent} heartbeat={heartbeat} />
+            <AgentStatusCard
+              agent={agent}
+              heartbeat={heartbeat}
+              hasAgentErrors={hasAgentErrors}
+            />
           )}
 
           {hostToken && <AgentEventsCard hostToken={hostToken} />}

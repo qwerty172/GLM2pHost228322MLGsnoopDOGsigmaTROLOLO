@@ -23,6 +23,23 @@ import { usePlayerWallet } from "@/hooks/use-player-wallet";
 const LZT_PER_USDT = 200;
 type PaymentSource = "auto" | "blue" | "green";
 
+function connectionRouteLabel(iceType: "relay" | "srflx" | "host" | null): string | null {
+  if (!iceType) return null;
+  if (iceType === "host") return "Прямое";
+  if (iceType === "srflx") return "Через NAT";
+  return "Через сервер";
+}
+
+function disconnectHint(iceType: "relay" | "srflx" | "host" | null): string {
+  if (iceType === "relay") {
+    return "Соединение шло через сервер — проверь интернет или нажми «Переподключить».";
+  }
+  if (iceType === "srflx") {
+    return "Возможна блокировка NAT — переподключение часто помогает за 10–20 секунд.";
+  }
+  return "Проверь, что хост не закрыл игру и агент в сети.";
+}
+
 const isDev = import.meta.env.DEV;
 const devLog = (...args: unknown[]) => {
   if (isDev) console.log(...args);
@@ -1639,7 +1656,10 @@ export default function Play() {
 
             {playDock === "disconnect" && (
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm text-yellow-200 flex-1 min-w-[140px]">Связь с хостом пропала</p>
+                <div className="flex-1 min-w-[140px]">
+                  <p className="text-sm text-yellow-200">Связь с хостом пропала</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{disconnectHint(iceType)}</p>
+                </div>
                 <Button
                   size="sm"
                   style={{ background: "#0ea5e9", color: "#fff" }}
@@ -1743,8 +1763,9 @@ export default function Play() {
                 borderColor: iceType === "relay" ? "#a855f7" : "#22c55e",
                 color: iceType === "relay" ? "#c084fc" : "#86efac",
               }}
+              data-testid="badge-connection-route"
             >
-              {iceType === "relay" ? "TURN" : iceType === "srflx" ? "STUN" : "P2P"}
+              {connectionRouteLabel(iceType)}
             </Badge>
           )}
           {/* E2E RTT indicator */}
