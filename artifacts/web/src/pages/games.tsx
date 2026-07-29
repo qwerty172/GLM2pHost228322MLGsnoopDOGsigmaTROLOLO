@@ -8,6 +8,7 @@ import {
 } from "@workspace/api-client-react";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
 import { toast } from "sonner";
+import { formatApiError } from "@/lib/api-errors";
 import {
   Activity,
   AlertCircle,
@@ -531,7 +532,7 @@ function GameCard({ game, vdsBadge }: { game: GameEnriched; vdsBadge?: boolean }
       } catch { /* ignore */ }
       navigate(`/host/play/${res.session.id}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не удалось создать сессию хоста");
+      toast.error(formatApiError(err, "Не удалось создать сессию хоста"));
     }
   };
 

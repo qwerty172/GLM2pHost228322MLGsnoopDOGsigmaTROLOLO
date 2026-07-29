@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
+import { formatApiError } from "@/lib/api-errors";
 import {
   useCreateQuota,
   usePublishQuota,
@@ -151,7 +152,7 @@ export default function QuotaNewPage() {
       );
       if (!res.ok) {
         const d = (await res.json()) as { error?: string };
-        toast.error(d.error ?? "Не удалось сохранить VDS-конфиг");
+        toast.error(formatApiError(d.error, "Не удалось сохранить VDS-конфиг"));
       } else {
         toast.success("VDS-конфиг сохранён, провижининг запущен");
       }
@@ -181,7 +182,7 @@ export default function QuotaNewPage() {
       );
       if (!resp.ok) {
         const err = (await resp.json()) as { error?: string };
-        toast.error(err.error ?? "AI вернул ошибку");
+        toast.error(formatApiError(err.error, "AI вернул ошибку"));
         return;
       }
       const data = (await resp.json()) as {
@@ -304,14 +305,12 @@ export default function QuotaNewPage() {
           });
           toast.success("Квота опубликована");
         } catch (err) {
-          toast.error(
-            err instanceof Error ? err.message : "Не удалось опубликовать",
-          );
+          toast.error(formatApiError(err, "Не удалось опубликовать"));
         }
       }
       navigate(`/quotas/${created.id}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Ошибка");
+      toast.error(formatApiError(err));
     }
   };
 
@@ -1173,7 +1172,7 @@ export default function QuotaNewPage() {
                           )}
                           {vdsTestResult.ok
                             ? "Подключение успешно"
-                            : vdsTestResult.error ?? "Ошибка подключения"}
+                            : formatApiError(vdsTestResult.error, "Ошибка подключения")}
                         </span>
                       )}
                     </div>

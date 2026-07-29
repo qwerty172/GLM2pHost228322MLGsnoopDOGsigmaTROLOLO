@@ -3,6 +3,7 @@ import { SiteNav } from "@/components/site-nav";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
+import { formatApiError } from "@/lib/api-errors";
 import {
   CheckCircle,
   XCircle,
@@ -157,7 +158,7 @@ function CatalogGameRow({
     try {
       const res = await toggleVisibility(game.id, game.isHidden, hostToken);
       if (res.error) {
-        toast.error(res.error);
+        toast.error(formatApiError(res.error));
       } else {
         toast.success(res.isHidden ? `«${game.title}» скрыта` : `«${game.title}» показана`);
         onAction();
@@ -174,7 +175,7 @@ function CatalogGameRow({
     try {
       const res = await deleteGame(game.id, hostToken);
       if (res.error) {
-        toast.error(res.error);
+        toast.error(formatApiError(res.error));
       } else {
         toast.success(`«${game.title}» удалена`);
         onAction();
@@ -334,7 +335,7 @@ function SubmissionCard({
     try {
       const res = await approveSubmission(sub.id, hostToken);
       if (res.error) {
-        toast.error(res.error);
+        toast.error(formatApiError(res.error));
       } else {
         toast.success(`Игра одобрена: ${res.game?.slug}`);
         onAction();
@@ -355,7 +356,7 @@ function SubmissionCard({
     try {
       const res = await rejectSubmission(sub.id, rejectReason, hostToken);
       if (res.error) {
-        toast.error(res.error);
+        toast.error(formatApiError(res.error));
       } else {
         toast.success("Заявка отклонена");
         onAction();
@@ -563,7 +564,7 @@ export default function AdminGamesPage() {
       );
       const data = await r.json();
       if (data.error) {
-        setSubError(data.error);
+        setSubError(formatApiError(data.error));
         setSubmissions(null);
       } else {
         setSubmissions(data);
@@ -585,7 +586,7 @@ export default function AdminGamesPage() {
       );
       const data = await r.json();
       if (data.error) {
-        setCatError(data.error);
+        setCatError(formatApiError(data.error));
         setCatalogGames(null);
       } else {
         setCatalogGames(data);

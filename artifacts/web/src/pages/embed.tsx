@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearch } from "wouter";
 import { Loader2, AlertCircle, WifiOff } from "lucide-react";
+import { formatApiErrorCode } from "@/lib/api-errors";
 
 // ---------------------------------------------------------------------------
 // Embeddable widget (task-125): third-party sites drop this page into an
@@ -51,7 +52,7 @@ function mapEmbedError(error: EmbedApiError): { title: string; detail: string } 
     default:
       return {
         title: "Не удалось начать сессию",
-        detail: error.message || error.error,
+        detail: formatApiErrorCode(error.error, error.message),
       };
   }
 }
