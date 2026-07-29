@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2 } from "lucide-react";
 import { QuotaAiChat, type QuotaFormPatch } from "@/components/quota-ai-chat";
+import { validateQuotaForm } from "@/lib/quota-validation";
 
 const cardStyle = {
   background: "#0a1018",
@@ -118,6 +119,29 @@ export default function QuotaEditPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!hostToken) return;
+    const validationError = validateQuotaForm({
+      kind: quota.kind,
+      title,
+      royaltyBasis: quota.royaltyBasis ?? undefined,
+      royaltyValue,
+      royaltySource: quota.royaltySource ?? undefined,
+      budgetLzt,
+      sponsorHostPerMinuteLzt: sponsorHostPerMinute,
+      sponsorPlayerPerMinuteLzt: sponsorPlayerPerMinute,
+      minSessionMinutes,
+      maxSessionMinutes,
+      endAt,
+      minGpuVram,
+      minCpuCores,
+      minRamGb,
+      recGpuVram,
+      recCpuCores,
+      recRamGb,
+    });
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
     try {
       await update.mutateAsync({
         id: quota.id,
