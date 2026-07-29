@@ -78,6 +78,15 @@ SELECT session_id, count(*) FROM billing_events GROUP BY session_id;
 SELECT account, SUM(amount) FROM ledger GROUP BY account;
 ```
 
+| **marathon** | **2026-07-29** | Wave UX: dashboard agent troubleshoot + RU connection hints — см. MARATHON.md |
+
+## Marathon Wave UX (2026-07-29) {#marathon-ux}
+
+| ID | Что сделано |
+|---|---|
+| UX-02 | Карточка `agent-status-stale` при устаревшем heartbeat; таблица симптомов `agent-symptom-table`; авто-раскрытие «Расширенно» при ошибках агента |
+| UX-03 | Бейджи соединения на русском (Прямое / Через NAT / Через сервер) вместо TURN/STUN/P2P; подсказки при обрыве; убраны WebRTC/ICE из UI игрока |
+
 ## Итог (фаза 7)
 
 - **Найдено / починено / отложено:** #11–14 fixed на Windows; Steam full E2E и ViGEm отложены
