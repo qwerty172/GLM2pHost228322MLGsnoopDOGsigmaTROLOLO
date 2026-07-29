@@ -19,6 +19,7 @@ import { TouchOverlay } from "@/components/TouchOverlay";
 import { KeyboardOverlay } from "@/components/KeyboardOverlay";
 import { toast } from "sonner";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { getIceConnectionLabel } from "@/lib/connection-hints";
 
 const LZT_PER_USDT = 200;
 type PaymentSource = "auto" | "blue" | "green";
@@ -1744,7 +1745,7 @@ export default function Play() {
                 color: iceType === "relay" ? "#c084fc" : "#86efac",
               }}
             >
-              {iceType === "relay" ? "TURN" : iceType === "srflx" ? "STUN" : "P2P"}
+              {getIceConnectionLabel(iceType)}
             </Badge>
           )}
           {/* E2E RTT indicator */}

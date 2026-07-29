@@ -151,6 +151,20 @@ function AgentTroubleshootChecklist() {
         <li>
           В агенте вставлен токен хоста и есть надпись «Вход выполнен»
         </li>
+        <li>
+          Стрим с <span className="text-slate-300">другого ПК</span> — не копируй долгоживущий
+          токен: выдай{" "}
+          <a href="#agent-bind-code" className="text-sky-400 hover:underline">
+            код привязки
+          </a>{" "}
+          и вставь его в агенте (или запусти{" "}
+          <span className="font-mono text-sky-400">start.bat --bind-code=КОД</span>)
+        </li>
+        <li>
+          Код привязки не подставился — закрой агент, запусти{" "}
+          <span className="font-mono text-sky-400">start.bat --bind-code=…</span> из командной
+          строки в папке агента
+        </li>
       </ul>
     </details>
   );
@@ -1148,7 +1162,7 @@ function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
     expiresAt != null && Date.now() > expiresAt;
 
   return (
-    <Card style={cardStyle}>
+    <Card style={cardStyle} id="agent-bind-code" data-testid="agent-bind-code">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-white text-base">
           <KeyRound className="h-4 w-4 text-sky-400" />
