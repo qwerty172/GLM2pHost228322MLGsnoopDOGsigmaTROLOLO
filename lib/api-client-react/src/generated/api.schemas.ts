@@ -1347,6 +1347,24 @@ export interface RequestUploadUrlResponse {
   metadata: RequestUploadUrlResponseMetadata;
 }
 
+export interface ConfirmStorageUploadBody {
+  /** Path returned from requestUploadUrl (with or without /api/storage prefix) */
+  objectPath: string;
+}
+
+export type ConfirmStorageUploadResponseVisibility =
+  (typeof ConfirmStorageUploadResponseVisibility)[keyof typeof ConfirmStorageUploadResponseVisibility];
+
+export const ConfirmStorageUploadResponseVisibility = {
+  public: "public",
+  private: "private",
+} as const;
+
+export interface ConfirmStorageUploadResponse {
+  objectPath: string;
+  visibility: ConfirmStorageUploadResponseVisibility;
+}
+
 export type GetHostDebtors200 = { [key: string]: unknown };
 
 export type GetHostStreamRelay200 = {

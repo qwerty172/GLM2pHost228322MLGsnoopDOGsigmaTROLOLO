@@ -2318,6 +2318,45 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /storage/uploads/confirm:
+    post:
+      operationId: confirmStorageUpload
+      tags: [storage]
+      summary: Confirm cover upload and set public ACL
+      security:
+        - HostToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmStorageUploadBody"
+      responses:
+        "200":
+          description: ACL applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfirmStorageUploadResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or unknown host token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Upload not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /players/me/saves/{gameId}:
     get:
       operationId: getPlayerGameSave
@@ -4430,3 +4469,24 @@ components:
         - uploadURL
         - objectPath
         - metadata
+
+    ConfirmStorageUploadBody:
+      type: object
+      properties:
+        objectPath:
+          type: string
+          description: Path returned from requestUploadUrl (with or without /api/storage prefix)
+      required:
+        - objectPath
+
+    ConfirmStorageUploadResponse:
+      type: object
+      properties:
+        objectPath:
+          type: string
+        visibility:
+          type: string
+          enum: [public, private]
+      required:
+        - objectPath
+        - visibility

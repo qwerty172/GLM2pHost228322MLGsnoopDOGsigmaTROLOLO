@@ -31,6 +31,8 @@ import type {
   BindAgentKey200,
   BindAgentKeyBody,
   ClaimSessionBody,
+  ConfirmStorageUploadBody,
+  ConfirmStorageUploadResponse,
   CreateBrowserHostSessionBody,
   CreateBrowserHostSessionResponse,
   CreateEmbedSessionBody,
@@ -6448,6 +6450,96 @@ export const useRequestUploadUrl = <
   TContext
 > => {
   return useMutation(getRequestUploadUrlMutationOptions(options));
+};
+
+/**
+ * @summary Confirm cover upload and set public ACL
+ */
+export const getConfirmStorageUploadUrl = () => {
+  return `/api/storage/uploads/confirm`;
+};
+
+export const confirmStorageUpload = async (
+  confirmStorageUploadBody: ConfirmStorageUploadBody,
+  options?: RequestInit,
+): Promise<ConfirmStorageUploadResponse> => {
+  return customFetch<ConfirmStorageUploadResponse>(
+    getConfirmStorageUploadUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(confirmStorageUploadBody),
+    },
+  );
+};
+
+export const getConfirmStorageUploadMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmStorageUpload>>,
+    TError,
+    { data: BodyType<ConfirmStorageUploadBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof confirmStorageUpload>>,
+  TError,
+  { data: BodyType<ConfirmStorageUploadBody> },
+  TContext
+> => {
+  const mutationKey = ["confirmStorageUpload"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof confirmStorageUpload>>,
+    { data: BodyType<ConfirmStorageUploadBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return confirmStorageUpload(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ConfirmStorageUploadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof confirmStorageUpload>>
+>;
+export type ConfirmStorageUploadMutationBody =
+  BodyType<ConfirmStorageUploadBody>;
+export type ConfirmStorageUploadMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Confirm cover upload and set public ACL
+ */
+export const useConfirmStorageUpload = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmStorageUpload>>,
+    TError,
+    { data: BodyType<ConfirmStorageUploadBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof confirmStorageUpload>>,
+  TError,
+  { data: BodyType<ConfirmStorageUploadBody> },
+  TContext
+> => {
+  return useMutation(getConfirmStorageUploadMutationOptions(options));
 };
 
 /**
