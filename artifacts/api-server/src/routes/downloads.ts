@@ -44,8 +44,8 @@ REM ── Self-relaunch guard ────────────────�
 REM If launched by double-click or from inside a ZIP the window closes as soon
 REM as the script ends. We relaunch ourselves inside "cmd /k" so the window
 REM always stays open and the user can read any error messages.
-if /i "%~1"=="--interactive" goto :main
-start "Cloud Gaming Host Agent" cmd /k ""%~f0" --interactive"
+if /i "%~1"=="--interactive" shift & goto :main
+start "Cloud Gaming Host Agent" cmd /k ""%~f0" --interactive %*"
 exit /b 0
 
 :main
@@ -131,10 +131,10 @@ echo [3/3] Launching Electron...
 
 if exist ".\\node_modules\\.bin\\electron.cmd" (
   echo       Binary found: node_modules\\.bin\\electron.cmd
-  call ".\\node_modules\\.bin\\electron.cmd" .
+  call ".\\node_modules\\.bin\\electron.cmd" . %*
 ) else (
   echo       Local electron not found - falling back to npx...
-  call npx --yes electron .
+  call npx --yes electron . %*
 )
 
 set EXIT_CODE=%ERRORLEVEL%
