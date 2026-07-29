@@ -13,7 +13,16 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-07-29** | Wave UX UX-02: dashboard agent troubleshoot (#agent-bind-code, другой ПК, bind-code) — см. MARATHON.md |
+
+## Marathon Wave UX (2026-07-29) {#marathon-ux02}
+
+| ID | Изменение | Файл |
+|---|---|---|
+| UX-02 | Чеклист агента: другой ПК, код привязки, `--bind-code=`, якорь `#agent-bind-code` | `artifacts/web/src/pages/host/dashboard.tsx` |
+
+- **Верификация:** `pnpm --filter @workspace/web typecheck`; api-server test 22+3; host-agent test 12
+- **Следующая pending:** UX-03 TURN/STUN hints
 
 ## Матрица проверок (Windows 2026-07-24)
 

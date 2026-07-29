@@ -141,6 +141,19 @@ function AgentTroubleshootChecklist() {
           (иконка в трее)
         </li>
         <li>
+          Браузер и агент могут быть на <span className="text-slate-300">разных ПК</span> — тогда
+          статус «на другом ПК» означает, что heartbeat доходит до сервера, даже если локальный ping
+          на <span className="font-mono text-sky-400">:18080</span> не отвечает
+        </li>
+        <li>
+          Вместо долгого токена используй{" "}
+          <a href="#agent-bind-code" className="text-sky-400 hover:underline">
+            код привязки
+          </a>{" "}
+          — вставь в агенте или запусти{" "}
+          <span className="font-mono text-sky-400">start.bat --bind-code=КОД</span>
+        </li>
+        <li>
           Для игр с античитом запускай <span className="font-mono text-sky-400">start.bat</span>{" "}
           <span className="text-slate-300">от имени администратора</span>
         </li>
@@ -149,7 +162,10 @@ function AgentTroubleshootChecklist() {
           <span className="font-mono text-sky-400">18080–18083</span> и исходящие соединения агента
         </li>
         <li>
-          В агенте вставлен токен хоста и есть надпись «Вход выполнен»
+          В агенте вставлен токен хоста (или код привязки) и есть надпись «Вход выполнен»
+        </li>
+        <li>
+          Ниже в блоке «События агента» появится причина, если агент упал при старте
         </li>
       </ul>
     </details>
@@ -1148,14 +1164,15 @@ function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
     expiresAt != null && Date.now() > expiresAt;
 
   return (
-    <Card style={cardStyle}>
+    <Card id="agent-bind-code" style={cardStyle} data-testid="agent-bind-code">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-white text-base">
           <KeyRound className="h-4 w-4 text-sky-400" />
           Код привязки агента
         </CardTitle>
         <CardDescription className="text-slate-500">
-          Одноразовый код вместо долгоживущего токена — вставь его в агенте при привязке ключа.
+          Одноразовый код вместо долгоживущего токена — вставь в агенте или запусти{" "}
+          <span className="font-mono text-sky-400">start.bat --bind-code=КОД</span>.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
