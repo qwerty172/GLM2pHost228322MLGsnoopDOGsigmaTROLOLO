@@ -125,6 +125,64 @@ async function pingAgent(): Promise<AgentState> {
   };
 }
 
+const AGENT_SYMPTOMS: { symptom: string; cause: string; fix: string }[] = [
+  {
+    symptom: "start.bat закрывается сразу",
+    cause: "Нет Node.js или ошибка установки зависимостей",
+    fix: "Установи Node.js 20+ (node --version), запусти start.bat от администратора",
+  },
+  {
+    symptom: "Дашборд пишет «Агент не запущен»",
+    cause: "Агент не работает или heartbeat не доходит до сервера",
+    fix: "Проверь иконку в трее, перезапусти start.bat, открой файрвол для портов 18080–18083",
+  },
+  {
+    symptom: "Был онлайн, потом пропал",
+    cause: "Агент завис, ПК уснул или сеть оборвалась",
+    fix: "Перезапусти start.bat; отключи сон ПК во время стриминга",
+  },
+  {
+    symptom: "Токен не сохраняется",
+    cause: "Нет прав на запись в папку агента",
+    fix: "Распакуй агент в C:\\CloudAgent (не Program Files), запусти от администратора",
+  },
+  {
+    symptom: "Игра не захватывается",
+    cause: "Античит или окно не в фокусе",
+    fix: "Запусти start.bat от администратора; выбери окно игры вручную в агенте",
+  },
+  {
+    symptom: "Код привязки не принимается",
+    cause: "Код истёк или уже использован",
+    fix: "Нажми «Получить код» на дашборде и вставь свежий код в агенте",
+  },
+];
+
+function AgentSymptomTable() {
+  return (
+    <div className="mt-3 overflow-x-auto" data-testid="agent-symptom-table">
+      <table className="w-full text-xs border-collapse">
+        <thead>
+          <tr className="text-slate-500 text-left">
+            <th className="pb-1.5 pr-2 font-medium">Симптом</th>
+            <th className="pb-1.5 pr-2 font-medium hidden sm:table-cell">Вероятная причина</th>
+            <th className="pb-1.5 font-medium">Что сделать</th>
+          </tr>
+        </thead>
+        <tbody className="text-slate-400">
+          {AGENT_SYMPTOMS.map((row) => (
+            <tr key={row.symptom} className="border-t border-white/5">
+              <td className="py-1.5 pr-2 text-slate-300 align-top">{row.symptom}</td>
+              <td className="py-1.5 pr-2 align-top hidden sm:table-cell">{row.cause}</td>
+              <td className="py-1.5 align-top">{row.fix}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function AgentTroubleshootChecklist() {
   return (
     <details className="w-full mt-2" data-testid="agent-troubleshoot">
@@ -152,6 +210,7 @@ function AgentTroubleshootChecklist() {
           В агенте вставлен токен хоста и есть надпись «Вход выполнен»
         </li>
       </ul>
+      <AgentSymptomTable />
     </details>
   );
 }
@@ -290,6 +349,49 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
         <CardContent className="py-4 flex items-center gap-3">
           <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
           <span className="text-sm text-slate-500">Проверяем агент…</span>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (agent.status === "offline" && heartbeat.status === "stale") {
+    return (
+      <Card
+        style={{
+          background: "rgba(234,179,8,0.06)",
+          border: "1px solid rgba(234,179,8,0.25)",
+        }}
+      >
+        <CardHeader className="pb-3" data-testid="agent-status-stale">
+          <CardTitle className="flex items-center gap-2 text-base text-amber-200 mb-1">
+            <WifiOff className="h-4 w-4 text-amber-400" />
+            Агент не отвечает
+          </CardTitle>
+          <CardDescription className="text-slate-400 text-xs">
+            Последний сигнал{" "}
+            {formatDistanceToNow(new Date(heartbeat.lastSeenAt), { addSuffix: true, locale: ru })}
+            . Агент мог зависнуть, уснуть или потерять сеть.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0 space-y-3">
+          <ol className="space-y-1.5 text-xs text-slate-400">
+            {[
+              "Проверь иконку агента в трее Windows — окно могло свернуться",
+              "Перезапусти start.bat на ПК хоста",
+              "Отключи сон/гибернацию ПК во время стриминга",
+            ].map((text, i) => (
+              <li key={text} className="flex items-start gap-2">
+                <span
+                  className="shrink-0 w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center mt-0.5"
+                  style={{ background: "rgba(234,179,8,0.15)", color: "#fbbf24" }}
+                >
+                  {i + 1}
+                </span>
+                <span>{text}</span>
+              </li>
+            ))}
+          </ol>
+          <AgentTroubleshootChecklist />
         </CardContent>
       </Card>
     );
@@ -1296,6 +1398,22 @@ export default function Dashboard() {
     (s) => s.status === "active" || s.status === "pending",
   );
   const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  const { data: agentEvents } = useGetHostAgentEvents(hostToken || "", {
+    query: {
+      enabled: !!hostToken,
+      queryKey: getGetHostAgentEventsQueryKey(hostToken || ""),
+    },
+  });
+
+  useEffect(() => {
+    const hasAgentErrors = (agentEvents ?? []).some(
+      (e) => e.level === "error" || e.level === "fatal",
+    );
+    if (hasAgentErrors) {
+      setAdvancedOpen(true);
+    }
+  }, [agentEvents]);
 
   const endSession = useEndSession();
   const [endSessionId, setEndSessionId] = useState<string | null>(null);
