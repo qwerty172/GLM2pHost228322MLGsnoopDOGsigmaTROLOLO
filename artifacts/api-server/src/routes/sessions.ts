@@ -41,8 +41,13 @@ import {
   refundBlockRemainder,
 } from "../lib/sessionBilling";
 import { sendSignalingMessage } from "../lib/signaling";
-import { submitSessionRating, recordBlockReserveLedger } from "../lib/ratings";
-import { writeLedger } from "../lib/economy";
+import { submitSessionRating } from "../lib/ratings";
+import {
+  writeLedger,
+  debitBlockReserve,
+  reverseBlockReserve,
+  type UserBucket,
+} from "../lib/economy";
 import { randomUUID } from "node:crypto";
 import { z } from "zod/v4";
 
@@ -749,71 +754,90 @@ router.post(
       return;
     }
 
-    // Reserve the block amount: debit the player immediately so the funds are
-    // locked. The billing worker will refund unused minutes on early exit.
-    if (blockReservedLzt !== null && blockReservedLzt > 0 && !isReclaimBySamePlayer) {
-      const bucket = effectivePicked ?? "balance";
-      const playerCol =
-        bucket === "green"
-          ? playersTable.withdrawableBalanceLzt
-          : playersTable.internalBalanceLzt;
-      const debitResult = await db
-        .update(playersTable)
-        .set(
-          bucket === "green"
-            ? { withdrawableBalanceLzt: sql`${playersTable.withdrawableBalanceLzt} - ${blockReservedLzt}` }
-            : { internalBalanceLzt: sql`${playersTable.internalBalanceLzt} - ${blockReservedLzt}` },
-        )
-        .where(
-          and(
-            eq(playersTable.id, player.id),
-            sql`${playerCol} >= ${blockReservedLzt + launchFeeLzt}`,
-          ),
-        )
-        .returning({ id: playersTable.id });
-      if (debitResult.length === 0) {
+    // Reserve the block amount and claim atomically so a failed claim never
+    // leaves the player's block reserve debited without a session binding.
+    const reserveBucket: UserBucket | null =
+      blockReservedLzt !== null && blockReservedLzt > 0 && !isReclaimBySamePlayer
+        ? effectivePicked === "green"
+          ? "cash"
+          : "balance"
+        : null;
+
+    let updated: typeof sessionsTable.$inferSelect;
+    try {
+      updated = await db.transaction(async (tx) => {
+        if (reserveBucket && blockReservedLzt) {
+          const playerCol =
+            reserveBucket === "cash"
+              ? playersTable.withdrawableBalanceLzt
+              : playersTable.internalBalanceLzt;
+          const [bal] = await tx
+            .select({ n: playerCol })
+            .from(playersTable)
+            .where(eq(playersTable.id, player.id));
+          if ((bal?.n ?? 0) < blockReservedLzt + launchFeeLzt) {
+            throw Object.assign(new Error("insufficient_block"), {
+              code: "insufficient_block",
+            });
+          }
+          const reserved = await debitBlockReserve(tx, {
+            playerId: player.id,
+            sessionId: session.id,
+            amountLzt: blockReservedLzt,
+            bucket: reserveBucket,
+          });
+          if (!reserved.ok) {
+            throw Object.assign(new Error("insufficient_block"), {
+              code: "insufficient_block",
+            });
+          }
+        }
+
+        const [row] = await tx
+          .update(sessionsTable)
+          .set({
+            claimedByPlayerId: player.id,
+            ...(blockMinutes !== null
+              ? { blockMinutes, blockReservedLzt: blockReservedLzt ?? 0 }
+              : {}),
+          })
+          .where(
+            and(
+              eq(sessionsTable.id, session.id),
+              or(
+                isNull(sessionsTable.claimedByPlayerId),
+                eq(sessionsTable.claimedByPlayerId, player.id),
+              ),
+            ),
+          )
+          .returning();
+        if (!row) {
+          throw Object.assign(new Error("already_claimed"), {
+            code: "already_claimed",
+          });
+        }
+        return row;
+      });
+    } catch (err) {
+      if (
+        err &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "insufficient_block"
+      ) {
         res.status(400).json({ error: "Insufficient balance to reserve the block" });
         return;
       }
-      const ledgerBucket = bucket === "green" ? "green" : "blue";
-      await recordBlockReserveLedger({
-        playerId: player.id,
-        sessionId: session.id,
-        amountLzt: blockReservedLzt,
-        bucket: ledgerBucket,
-        note: `block reserve: ${blockMinutes} мин`,
-      });
-    }
-
-    if (picked === null && minBalanceLzt > 0 && blockReservedLzt === null) {
-      res.status(400).json({
-        error: `Insufficient LZT — need at least ${minBalanceLzt} LZT in a single ${session.paymentSource === "auto" ? "(green or blue)" : session.paymentSource} bucket to start`,
-      });
-      return;
-    }
-
-    const [updated] = await db
-      .update(sessionsTable)
-      .set({
-        claimedByPlayerId: player.id,
-        ...(blockMinutes !== null
-          ? { blockMinutes, blockReservedLzt: blockReservedLzt ?? 0 }
-          : {}),
-      })
-      .where(
-        and(
-          eq(sessionsTable.id, session.id),
-          or(
-            isNull(sessionsTable.claimedByPlayerId),
-            eq(sessionsTable.claimedByPlayerId, player.id),
-          ),
-        ),
-      )
-      .returning();
-
-    if (!updated) {
-      res.status(409).json({ error: "Session already claimed by another player" });
-      return;
+      if (
+        err &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "already_claimed"
+      ) {
+        res.status(409).json({ error: "Session already claimed by another player" });
+        return;
+      }
+      throw err;
     }
 
     // One-time launch fee transfer (no-op if launchPriceUsd is 0). Skipped on
@@ -827,11 +851,24 @@ router.post(
         paymentSource: session.paymentSource,
       });
       if (!fee.ok) {
-        // Roll back the claim so the player isn't stuck.
-        await db
-          .update(sessionsTable)
-          .set({ claimedByPlayerId: null })
-          .where(eq(sessionsTable.id, updated.id));
+        await db.transaction(async (tx) => {
+          if (reserveBucket && blockReservedLzt) {
+            await reverseBlockReserve(tx, {
+              playerId: player.id,
+              sessionId: session.id,
+              amountLzt: blockReservedLzt,
+              bucket: reserveBucket,
+            });
+          }
+          await tx
+            .update(sessionsTable)
+            .set({
+              claimedByPlayerId: null,
+              blockMinutes: null,
+              blockReservedLzt: null,
+            })
+            .where(eq(sessionsTable.id, updated.id));
+        });
         res.status(400).json({ error: fee.reason ?? "Launch fee failed" });
         return;
       }

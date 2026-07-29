@@ -9,7 +9,7 @@ vi.mock("@workspace/db", () => ({
   ledgerTable: { id: "id", kind: "kind", refType: "refType", refId: "refId" },
 }));
 
-import { hasBlockReserveLedger, debitBlockReserve } from "./economy";
+import { hasBlockReserveLedger, debitBlockReserve, reverseBlockReserve } from "./economy";
 
 function mockTx(existingLedger: boolean) {
   const limit = vi.fn().mockResolvedValue(existingLedger ? [{ id: "x" }] : []);
@@ -33,6 +33,19 @@ describe("debitBlockReserve idempotency", () => {
   it("skips debit when ledger already has block_reserve", async () => {
     const tx = mockTx(true);
     const result = await debitBlockReserve(tx, {
+      playerId: "player-1",
+      sessionId: "session-1",
+      amountLzt: 400,
+      bucket: "cash",
+    });
+    expect(result).toEqual({ ok: true });
+  });
+});
+
+describe("reverseBlockReserve", () => {
+  it("is a no-op when no block_reserve ledger exists", async () => {
+    const tx = mockTx(false);
+    const result = await reverseBlockReserve(tx, {
       playerId: "player-1",
       sessionId: "session-1",
       amountLzt: 400,
