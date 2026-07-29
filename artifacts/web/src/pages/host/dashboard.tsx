@@ -81,6 +81,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Link } from "wouter";
 import { discoverAgentPort } from "@/lib/agent-local";
+import { WebRtcConnectivityCard } from "@/components/webrtc-connectivity-card";
 
 const cardStyle = {
   background: "#0a1018",
@@ -125,33 +126,57 @@ async function pingAgent(): Promise<AgentState> {
   };
 }
 
+const AGENT_SYMPTOMS: { symptom: string; check: string }[] = [
+  {
+    symptom: "Дашборд «Агент офлайн», но start.bat запущен",
+    check: "Иконка в трее · порты 18080–18083 не заблокированы файрволом",
+  },
+  {
+    symptom: "localhost:18080 не открывается",
+    check: "Запусти start.bat от администратора · проверь, что Node.js 20+ установлен",
+  },
+  {
+    symptom: "В агенте «Вход не выполнен»",
+    check: "Вставь токен хоста или код привязки из блока ниже",
+  },
+  {
+    symptom: "Игра не захватывается / чёрный экран",
+    check: "start.bat от администратора · выбери правильное окно в агенте",
+  },
+  {
+    symptom: "Был онлайн, потом пропал (устаревший heartbeat)",
+    check: "ПК уснул · агент закрыт · сеть оборвалась — перезапусти start.bat",
+  },
+  {
+    symptom: "Игроки не подключаются (WebRTC)",
+    check: "Настрой TURN в .env сервера · см. карточку WebRTC / NAT ниже",
+  },
+];
+
 function AgentTroubleshootChecklist() {
   return (
     <details className="w-full mt-2" data-testid="agent-troubleshoot">
       <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-300 select-none">
-        Если не работает — чеклист
+        Если не работает — таблица симптомов
       </summary>
-      <ul className="mt-2 space-y-1 text-xs text-slate-400 list-disc pl-5">
-        <li>
-          Установлен <span className="text-slate-300">Node.js 20+</span> — проверь командой{" "}
-          <span className="font-mono text-sky-400">node --version</span>
-        </li>
-        <li>
-          Агент запущен через <span className="font-mono text-sky-400">start.bat</span> и не закрыт
-          (иконка в трее)
-        </li>
-        <li>
-          Для игр с античитом запускай <span className="font-mono text-sky-400">start.bat</span>{" "}
-          <span className="text-slate-300">от имени администратора</span>
-        </li>
-        <li>
-          Файрвол/антивирус не блокирует порты{" "}
-          <span className="font-mono text-sky-400">18080–18083</span> и исходящие соединения агента
-        </li>
-        <li>
-          В агенте вставлен токен хоста и есть надпись «Вход выполнен»
-        </li>
-      </ul>
+      <div className="mt-2 overflow-x-auto rounded-lg border border-white/5">
+        <table className="w-full text-xs text-left" data-testid="agent-symptom-table">
+          <thead>
+            <tr className="text-slate-500 border-b border-white/5">
+              <th className="py-1.5 px-2 font-medium">Симптом</th>
+              <th className="py-1.5 px-2 font-medium">Что проверить</th>
+            </tr>
+          </thead>
+          <tbody>
+            {AGENT_SYMPTOMS.map((row) => (
+              <tr key={row.symptom} className="border-b border-white/5 last:border-0">
+                <td className="py-1.5 px-2 text-slate-300 align-top">{row.symptom}</td>
+                <td className="py-1.5 px-2 text-slate-500 align-top">{row.check}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </details>
   );
 }
@@ -279,6 +304,45 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
               {formatDistanceToNow(new Date(heartbeat.lastSeenAt), { addSuffix: true, locale: ru })})
             </span>
           </span>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (agent.status === "offline" && heartbeat.status === "stale") {
+    return (
+      <Card
+        style={{
+          background: "rgba(245,158,11,0.06)",
+          border: "1px solid rgba(245,158,11,0.25)",
+        }}
+      >
+        <CardHeader className="pb-3" data-testid="agent-status-stale-heartbeat">
+          <CardTitle className="flex items-center gap-2 text-base text-amber-200 mb-1">
+            <WifiOff className="h-4 w-4 text-amber-400" />
+            Агент не отвечает
+          </CardTitle>
+          <CardDescription className="text-slate-400 text-xs">
+            Последний сигнал был{" "}
+            {formatDistanceToNow(new Date(heartbeat.lastSeenAt), { addSuffix: true, locale: ru })}.
+            Локальный ping на localhost:18080 тоже не проходит — агент, скорее всего, остановлен
+            или ПК ушёл в сон.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0 space-y-3">
+          <ol className="space-y-1.5 text-xs text-slate-400">
+            {[
+              "Проверь иконку агента в трее Windows",
+              "Перезапусти start.bat на машине со стримом",
+              "Убедись, что ПК не ушёл в сон и сеть активна",
+            ].map((step) => (
+              <li key={step} className="flex items-start gap-2">
+                <span className="text-amber-400">•</span>
+                <span>{step}</span>
+              </li>
+            ))}
+          </ol>
+          <AgentTroubleshootChecklist />
         </CardContent>
       </Card>
     );
@@ -1297,6 +1361,26 @@ export default function Dashboard() {
   );
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
+  const { data: agentEvents } = useGetHostAgentEvents(hostToken || "", {
+    query: {
+      enabled: !!hostToken,
+      queryKey: getGetHostAgentEventsQueryKey(hostToken || ""),
+      refetchInterval: 30_000,
+    },
+  });
+  const hasAgentErrors = (agentEvents ?? []).some(
+    (e) => e.level === "error" || e.level === "fatal",
+  );
+
+  useEffect(() => {
+    if (
+      hasAgentErrors ||
+      (agent.status === "offline" && heartbeat.status === "stale")
+    ) {
+      setAdvancedOpen(true);
+    }
+  }, [hasAgentErrors, agent.status, heartbeat.status]);
+
   const endSession = useEndSession();
   const [endSessionId, setEndSessionId] = useState<string | null>(null);
 
@@ -1516,6 +1600,8 @@ export default function Dashboard() {
           )}
 
           {hostToken && <AgentEventsCard hostToken={hostToken} />}
+
+          <WebRtcConnectivityCard />
         </div>
       </details>
 

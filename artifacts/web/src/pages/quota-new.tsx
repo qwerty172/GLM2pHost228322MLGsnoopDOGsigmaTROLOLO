@@ -23,6 +23,11 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Coins, Sparkles, Loader2, Server, ChevronDown, ChevronRight, CheckCircle2, XCircle, Cpu, Wand2 } from "lucide-react";
 import { QuotaAiChat, type QuotaFormPatch } from "@/components/quota-ai-chat";
 import { VtScanner } from "@/components/vt-scanner";
+import {
+  validateQuotaForm,
+  firstQuotaFormError,
+  type QuotaFormErrors,
+} from "@/lib/quota-validation";
 
 const cardStyle = {
   background: "#0a1018",
@@ -86,6 +91,7 @@ export default function QuotaNewPage() {
   const [requiredTier, setRequiredTier] = useState<"min" | "recommended">("min");
   const [aiLoading, setAiLoading] = useState(false);
   const [apiKey, setApiKey] = useState<string>("");
+  const [fieldErrors, setFieldErrors] = useState<QuotaFormErrors>({});
 
   const createQuota = useCreateQuota();
   const publishQuota = usePublishQuota();
@@ -216,10 +222,38 @@ export default function QuotaNewPage() {
       toast.error("Нужно войти как хост");
       return;
     }
-    if (!title.trim()) {
-      toast.error("Укажи название");
+
+    const errors = validateQuotaForm({
+      kind,
+      title,
+      royaltyBasis,
+      royaltyValue,
+      royaltySource,
+      budgetLzt,
+      sponsorHostPerMinute,
+      sponsorPlayerPerMinute,
+      minSessionMinutes,
+      maxSessionMinutes,
+      startAt,
+      endAt,
+      minGpuVram,
+      minCpuCores,
+      minRamGb,
+      minDownloadMbps,
+      minUploadMbps,
+      recGpuVram,
+      recCpuCores,
+      recRamGb,
+      recDownloadMbps,
+      recUploadMbps,
+    });
+    setFieldErrors(errors);
+    const firstError = firstQuotaFormError(errors);
+    if (firstError) {
+      toast.error(firstError);
       return;
     }
+
     try {
       const created = await createQuota.mutateAsync({
         data: {
@@ -344,6 +378,13 @@ export default function QuotaNewPage() {
 
   const isSponsor = kind === "sponsor";
 
+  const fieldError = (key: keyof QuotaFormErrors) =>
+    fieldErrors[key] ? (
+      <p className="text-xs text-red-400 mt-1" data-testid={`error-${key}`}>
+        {fieldErrors[key]}
+      </p>
+    ) : null;
+
   return (
     <div className="min-h-screen text-slate-300" style={{ background: "#06090e" }}>
       <SiteNav activePath="/quotas" />
@@ -418,6 +459,7 @@ export default function QuotaNewPage() {
                       className="mt-1"
                       data-testid="input-title"
                     />
+                    {fieldError("title")}
                   </div>
                   <div>
                     <Label className="text-slate-300">Описание</Label>
@@ -526,6 +568,7 @@ export default function QuotaNewPage() {
                         className="mt-1"
                         data-testid="input-min-session-min"
                       />
+                      {fieldError("minSessionMinutes")}
                     </div>
                     <div>
                       <Label className="text-slate-300">
@@ -541,6 +584,7 @@ export default function QuotaNewPage() {
                         className="mt-1"
                         data-testid="input-max-session-min"
                       />
+                      {fieldError("maxSessionMinutes")}
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -556,6 +600,7 @@ export default function QuotaNewPage() {
                         className="mt-1"
                         data-testid="input-start-at"
                       />
+                      {fieldError("startAt")}
                     </div>
                     <div>
                       <Label className="text-slate-300">
@@ -569,6 +614,7 @@ export default function QuotaNewPage() {
                         className="mt-1"
                         data-testid="input-end-at"
                       />
+                      {fieldError("endAt")}
                     </div>
                   </div>
                 </CardContent>
@@ -634,6 +680,7 @@ export default function QuotaNewPage() {
                         className="mt-1"
                         data-testid="input-royalty-value"
                       />
+                      {fieldError("royaltyValue")}
                     </div>
                     <div>
                       <Label className="text-slate-300">Откуда брать</Label>
@@ -697,6 +744,7 @@ export default function QuotaNewPage() {
                         className="mt-1"
                         data-testid="input-budget"
                       />
+                      {fieldError("budgetLzt")}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -712,6 +760,7 @@ export default function QuotaNewPage() {
                           className="mt-1"
                           data-testid="input-host-per-min"
                         />
+                        {fieldError("sponsorHostPerMinute")}
                       </div>
                       <div>
                         <Label className="text-slate-300">Игроку LZT/мин</Label>

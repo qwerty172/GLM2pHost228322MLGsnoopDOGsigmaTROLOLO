@@ -85,6 +85,16 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 - **Осталось вручную:** полный цикл Steam → сессия → SendInput в реальной игре; kill Electron → disconnect ≤30с на живом стриме
 - **Топ рисков:** Electron `EADDRINUSE` если уже крутится ping-server; video frames в headless/automation иногда 0×0 (в UI HUD P2P ок)
 
+## Marathon Wave UX (2026-07-29) {#marathon-wave-ux}
+
+| ID | Что сделано | Верификация |
+|---|---|---|
+| UX-02 | Таблица симптомов агента, карточка stale heartbeat, авто-раскрытие «Расширенно» при ошибках | `dashboard.tsx` data-testid agent-symptom-table, agent-status-stale-heartbeat |
+| UX-03 | `WebRtcConnectivityCard` на дашборде хоста; подсказки STUN/TURN при disconnect в `/play` | web typecheck |
+| UX-05 | Клиентская валидация формы `/quotas/new` (`quota-validation.ts`), inline-ошибки на русском | web typecheck |
+
+Тесты: `pnpm --filter @workspace/web typecheck`, api-server 25, host-agent 12.
+
 ## Marathon 4-cycle audit (2026-07-27) {#marathon-c1}
 
 | Область | Фикс |
