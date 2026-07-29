@@ -250,6 +250,7 @@ export default function Play() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showAudioPrompt, setShowAudioPrompt] = useState(false);
   const [iceType, setIceType] = useState<"relay" | "srflx" | "host" | null>(null);
+  const [turnAvailable, setTurnAvailable] = useState<boolean | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
   const [e2eRtt, setE2eRtt] = useState<number | null>(null);
   const [dataChannelOpen, setDataChannelOpen] = useState(false);
@@ -809,6 +810,14 @@ export default function Play() {
     } catch {
       devWarn("[ice] Failed to fetch ICE config, using default STUN only");
     }
+
+    const iceUrls = iceServers.flatMap((s) => {
+      const u = s.urls;
+      return Array.isArray(u) ? u : [u];
+    });
+    setTurnAvailable(
+      iceUrls.some((u) => u.startsWith("turn:") || u.startsWith("turns:")),
+    );
 
     const pc = new RTCPeerConnection({ iceServers });
     pcRef.current = pc;
@@ -1638,22 +1647,33 @@ export default function Play() {
             )}
 
             {playDock === "disconnect" && (
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm text-yellow-200 flex-1 min-w-[140px]">Связь с хостом пропала</p>
-                <Button
-                  size="sm"
-                  style={{ background: "#0ea5e9", color: "#fff" }}
-                  onClick={() => {
-                    setPlayDock("none");
-                    if (pcRef.current) void triggerIceRestart(pcRef.current);
-                  }}
-                >
-                  <RefreshCw className="h-3.5 w-3.5 mr-1 inline" />
-                  Переподключить
-                </Button>
-                <Button size="sm" variant="ghost" className="text-slate-400" onClick={cleanupConnection}>
-                  Выйти
-                </Button>
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm text-yellow-200 flex-1 min-w-[140px]">Связь с хостом пропала</p>
+                  <Button
+                    size="sm"
+                    style={{ background: "#0ea5e9", color: "#fff" }}
+                    onClick={() => {
+                      setPlayDock("none");
+                      if (pcRef.current) void triggerIceRestart(pcRef.current);
+                    }}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5 mr-1 inline" />
+                    Переподключить
+                  </Button>
+                  <Button size="sm" variant="ghost" className="text-slate-400" onClick={cleanupConnection}>
+                    Выйти
+                  </Button>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed" data-testid="disconnect-ice-hint">
+                  {iceType === "relay"
+                    ? "Соединение шло через TURN-релей — проверь сеть или попробуй переподключиться."
+                    : turnAvailable === false
+                      ? "На сервере не настроен TURN — за строгим NAT P2P часто рвётся. Хосту стоит добавить coturn (TURN_URL в .env)."
+                      : iceType === "host"
+                        ? "Прямой P2P нестабилен — ждём STUN/TURN. Попробуй другую сеть (мобильный хот-спот) или переподключись."
+                        : "WebRTC обрыв: подожди авто-переподключение или нажми кнопку выше. STUN помогает за NAT, TURN — если P2P не проходит."}
+                </p>
               </div>
             )}
 
