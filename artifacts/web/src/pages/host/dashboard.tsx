@@ -15,6 +15,8 @@ import {
   useDetachQuotaFromSession,
   useAddHostLibraryEntry,
   useListGames,
+  useGetPublicIceConfig,
+  getGetPublicIceConfigQueryKey,
   getGetHostQueryKey,
   getGetHostStatsQueryKey,
   getGetHostActivityQueryKey,
@@ -75,12 +77,15 @@ import {
   VolumeX,
   KeyRound,
   RefreshCw,
+  Network,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Link } from "wouter";
 import { discoverAgentPort } from "@/lib/agent-local";
+import { summarizeIceServers } from "@/lib/ice-connectivity";
 
 const cardStyle = {
   background: "#0a1018",
@@ -125,34 +130,162 @@ async function pingAgent(): Promise<AgentState> {
   };
 }
 
-function AgentTroubleshootChecklist() {
+const AGENT_SYMPTOMS: Array<{ symptom: string; fix: string }> = [
+  {
+    symptom: "«Агент не запущен», но heartbeat свежий",
+    fix: "Агент на другом ПК — это нормально. Локальный ping не нужен.",
+  },
+  {
+    symptom: "Heartbeat давно не обновлялся",
+    fix: "Перезапусти start.bat. Проверь интернет и что агент не свёрнут с ошибкой.",
+  },
+  {
+    symptom: "Игрок не подключается / «Ошибка связи»",
+    fix: "Открой UDP в роутере, отключи VPN. Если только STUN — настрой TURN на сервере (см. карточку «Сеть для игроков»).",
+  },
+  {
+    symptom: "Чёрный экран у игрока",
+    fix: "Игра должна быть в фокусе на хосте. Для античита — start.bat от администратора.",
+  },
+  {
+    symptom: "Ввод не доходит до игры",
+    fix: "Focus guard: окно игры на переднем плане. Browser-host — вкладка с игрой активна.",
+  },
+  {
+    symptom: "start.bat сразу закрывается",
+    fix: "Смотри «События агента» ниже или логи в папке агента. Часто — нет Node.js 20+.",
+  },
+];
+
+function AgentTroubleshootChecklist({ defaultOpen = false }: { defaultOpen?: boolean }) {
   return (
-    <details className="w-full mt-2" data-testid="agent-troubleshoot">
+    <details className="w-full mt-2" data-testid="agent-troubleshoot" open={defaultOpen}>
       <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-300 select-none">
-        Если не работает — чеклист
+        Если не работает — симптомы и решения
       </summary>
-      <ul className="mt-2 space-y-1 text-xs text-slate-400 list-disc pl-5">
+      <div className="mt-2 overflow-x-auto">
+        <table className="w-full text-xs text-left border-collapse">
+          <thead>
+            <tr className="text-slate-500 border-b border-white/5">
+              <th className="py-1.5 pr-3 font-medium">Симптом</th>
+              <th className="py-1.5 font-medium">Что сделать</th>
+            </tr>
+          </thead>
+          <tbody>
+            {AGENT_SYMPTOMS.map((row) => (
+              <tr key={row.symptom} className="border-b border-white/5 last:border-0">
+                <td className="py-1.5 pr-3 text-slate-300 align-top whitespace-nowrap">
+                  {row.symptom}
+                </td>
+                <td className="py-1.5 text-slate-400 align-top">{row.fix}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <ul className="mt-3 space-y-1 text-xs text-slate-500 list-disc pl-5">
         <li>
-          Установлен <span className="text-slate-300">Node.js 20+</span> — проверь командой{" "}
-          <span className="font-mono text-sky-400">node --version</span>
+          Node.js 20+: <span className="font-mono text-sky-400">node --version</span>
         </li>
         <li>
-          Агент запущен через <span className="font-mono text-sky-400">start.bat</span> и не закрыт
-          (иконка в трее)
+          Порты агента <span className="font-mono text-sky-400">18080–18083</span> не блокирует файрвол
         </li>
-        <li>
-          Для игр с античитом запускай <span className="font-mono text-sky-400">start.bat</span>{" "}
-          <span className="text-slate-300">от имени администратора</span>
-        </li>
-        <li>
-          Файрвол/антивирус не блокирует порты{" "}
-          <span className="font-mono text-sky-400">18080–18083</span> и исходящие соединения агента
-        </li>
-        <li>
-          В агенте вставлен токен хоста и есть надпись «Вход выполнен»
-        </li>
+        <li>В агенте вставлен токен хоста и статус «Вход выполнен»</li>
       </ul>
     </details>
+  );
+}
+
+function WebRtcConnectivityCard() {
+  const { data, isLoading, isError } = useGetPublicIceConfig({
+    query: {
+      queryKey: getGetPublicIceConfigQueryKey(),
+      staleTime: 60_000,
+    },
+  });
+
+  const summary = summarizeIceServers(data?.iceServers);
+
+  return (
+    <Card style={cardStyle} data-testid="webrtc-connectivity-card">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm text-white flex items-center gap-2">
+          <Network className="h-4 w-4 text-sky-400" />
+          Сеть для игроков
+        </CardTitle>
+        <CardDescription className="text-xs text-slate-500">
+          STUN/TURN — как браузер игрока достучится до вашего ПК через NAT.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="pt-0 space-y-3">
+        {isLoading ? (
+          <Skeleton className="h-10 w-full" />
+        ) : isError ? (
+          <p className="text-xs text-red-400">Не удалось загрузить конфиг ICE с сервера.</p>
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-2">
+              <Badge
+                className={
+                  summary.hasStun
+                    ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/25"
+                    : "bg-slate-500/10 text-slate-400 border border-slate-500/20"
+                }
+              >
+                STUN{summary.stunCount > 0 ? ` ×${summary.stunCount}` : ""}
+              </Badge>
+              <Badge
+                className={
+                  summary.hasTurn
+                    ? "bg-violet-500/10 text-violet-300 border border-violet-500/25"
+                    : "bg-amber-500/10 text-amber-300 border border-amber-500/25"
+                }
+              >
+                TURN{summary.hasTurn ? ` ×${summary.turnCount}` : " не настроен"}
+              </Badge>
+            </div>
+            <p className="text-xs text-slate-400">
+              {summary.hasTurn
+                ? "Релей включён — игроки за строгим NAT или CGNAT смогут подключиться через сервер."
+                : "Сейчас только STUN: работает прямое P2P. За симметричным NAT или корпоративным файрволом игроки могут не подключиться."}
+            </p>
+          </>
+        )}
+        <details className="text-xs" data-testid="turn-stun-hints">
+          <summary className="text-slate-500 cursor-pointer hover:text-slate-300 select-none">
+            Подсказки по NAT и TURN
+          </summary>
+          <ul className="mt-2 space-y-1.5 text-slate-400 list-disc pl-5">
+            <li>
+              <span className="text-slate-300">STUN</span> — помогает узнать внешний IP; достаточно
+              для большинства домашних сетей.
+            </li>
+            <li>
+              <span className="text-slate-300">TURN</span> — релейный сервер, если прямой UDP
+              заблокирован. Нужен для ~10–20% игроков.
+            </li>
+            <li>
+              На сервере API задай{" "}
+              <span className="font-mono text-sky-400">TURN_URL</span>,{" "}
+              <span className="font-mono text-sky-400">TURN_USERNAME</span>,{" "}
+              <span className="font-mono text-sky-400">TURN_CREDENTIAL</span> или{" "}
+              <span className="font-mono text-sky-400">TURN_SECRET</span> + coturn (см.{" "}
+              <span className="font-mono text-slate-500">infra/coturn/</span>).
+            </li>
+            <li>
+              Хосту: разреши исходящий UDP и TCP 3478; игроку — не блокируй WebRTC в браузере и
+              отключи VPN при проблемах.
+            </li>
+            <li>
+              В плеере бейдж <span className="font-mono text-emerald-400">P2P</span> /{" "}
+              <span className="font-mono text-emerald-400">STUN</span> /{" "}
+              <span className="font-mono text-violet-400">TURN</span> показывает тип соединения
+              после подключения.
+            </li>
+          </ul>
+        </details>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -256,7 +389,15 @@ function AgentEventsCard({ hostToken }: { hostToken: string }) {
   );
 }
 
-function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: HeartbeatState }) {
+function AgentStatusCard({
+  agent,
+  heartbeat,
+  troubleshootOpen = false,
+}: {
+  agent: AgentState;
+  heartbeat: HeartbeatState;
+  troubleshootOpen?: boolean;
+}) {
   // A fresh server-side heartbeat means the agent is running (possibly on
   // another PC) even if the local ping to localhost:18080 fails.
   if (agent.status === "offline" && heartbeat.status === "fresh") {
@@ -279,6 +420,33 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
               {formatDistanceToNow(new Date(heartbeat.lastSeenAt), { addSuffix: true, locale: ru })})
             </span>
           </span>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (agent.status === "offline" && heartbeat.status === "stale") {
+    return (
+      <Card
+        style={{
+          background: "rgba(234,179,8,0.06)",
+          border: "1px solid rgba(234,179,8,0.25)",
+        }}
+      >
+        <CardContent className="py-4 space-y-3" data-testid="agent-status-stale-heartbeat">
+          <div className="flex flex-wrap items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+            <span className="text-sm font-semibold text-amber-300">Агент давно не отвечал</span>
+            <span className="text-xs text-slate-500">
+              последний heartbeat{" "}
+              {formatDistanceToNow(new Date(heartbeat.lastSeenAt), { addSuffix: true, locale: ru })}
+            </span>
+          </div>
+          <p className="text-xs text-slate-400">
+            Сервер не получал сигнал от агента больше 45 секунд. Перезапусти start.bat или
+            проверь интернет на ПК с агентом.
+          </p>
+          <AgentTroubleshootChecklist defaultOpen={troubleshootOpen || true} />
         </CardContent>
       </Card>
     );
@@ -412,7 +580,7 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
         <p className="mt-3 text-[11px] text-slate-600">
           Нужен Node.js 20+ · Windows 10/11 · Запусти от имени администратора, если игра не захватывается
         </p>
-        <AgentTroubleshootChecklist />
+        <AgentTroubleshootChecklist defaultOpen={troubleshootOpen} />
       </CardContent>
     </Card>
   );
@@ -1297,6 +1465,21 @@ export default function Dashboard() {
   );
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
+  const { data: agentEvents } = useGetHostAgentEvents(hostToken || "", {
+    query: {
+      enabled: !!hostToken,
+      queryKey: getGetHostAgentEventsQueryKey(hostToken || ""),
+      refetchInterval: 30_000,
+    },
+  });
+  const agentHasErrors = (agentEvents ?? []).some(
+    (e) => e.level === "error" || e.level === "fatal",
+  );
+
+  useEffect(() => {
+    if (agentHasErrors) setAdvancedOpen(true);
+  }, [agentHasErrors]);
+
   const endSession = useEndSession();
   const [endSessionId, setEndSessionId] = useState<string | null>(null);
 
@@ -1413,6 +1596,8 @@ export default function Dashboard() {
         />
       )}
 
+      <WebRtcConnectivityCard />
+
       {/* PC Specs card — shown only when the agent has reported specs */}
       {pcSpecs && (
         <Card style={cardStyle}>
@@ -1512,7 +1697,11 @@ export default function Dashboard() {
           {hostToken && <BindingForm hostToken={hostToken} />}
 
           {agent.status !== "checking" && (
-            <AgentStatusCard agent={agent} heartbeat={heartbeat} />
+            <AgentStatusCard
+              agent={agent}
+              heartbeat={heartbeat}
+              troubleshootOpen={agentHasErrors}
+            />
           )}
 
           {hostToken && <AgentEventsCard hostToken={hostToken} />}
