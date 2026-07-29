@@ -122,9 +122,15 @@ export default function QuotaEditPage() {
     const validationError = validateQuotaForm({
       kind: quota.kind,
       title,
-      royaltyBasis: quota.royaltyBasis ?? undefined,
+      royaltyBasis:
+        quota.royaltyBasis === "percent" || quota.royaltyBasis === "fixed_per_minute"
+          ? quota.royaltyBasis
+          : undefined,
       royaltyValue,
-      royaltySource: quota.royaltySource ?? undefined,
+      royaltySource:
+        quota.royaltySource === "player" || quota.royaltySource === "host_share"
+          ? quota.royaltySource
+          : undefined,
       budgetLzt,
       sponsorHostPerMinuteLzt: sponsorHostPerMinute,
       sponsorPlayerPerMinuteLzt: sponsorPlayerPerMinute,
