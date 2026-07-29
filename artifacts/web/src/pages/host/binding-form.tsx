@@ -8,6 +8,7 @@ import {
 import type { ScheduleSlot, UpdateHostConfigBody } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { formatApiError } from "@/lib/api-errors";
 import {
   Card,
   CardContent,
@@ -218,8 +219,7 @@ export default function BindingForm({ hostToken }: Props) {
           qc.invalidateQueries({ queryKey: getGetHostQueryKey(hostToken) });
         },
         onError: (err) => {
-          const msg = (err as Error)?.message ?? "Не удалось сохранить";
-          toast.error(msg);
+          toast.error(formatApiError(err, "Не удалось сохранить"));
         },
       },
     );

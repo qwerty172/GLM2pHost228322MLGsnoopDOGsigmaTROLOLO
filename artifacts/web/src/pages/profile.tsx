@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearch } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { formatApiError } from "@/lib/api-errors";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -459,7 +460,7 @@ function MyVdsTab({ hostToken }: { hostToken: string | null }) {
       );
       if (!res.ok) {
         const d = (await res.json()) as { error?: string };
-        setError(d.error ?? "Ошибка загрузки");
+        setError(formatApiError(d.error, "Ошибка загрузки"));
       } else {
         const data = (await res.json()) as VdsEntry[];
         setEntries(data);

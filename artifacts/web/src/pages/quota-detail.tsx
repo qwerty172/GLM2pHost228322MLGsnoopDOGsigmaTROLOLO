@@ -11,6 +11,7 @@ import {
   getListMyQuotasQueryKey,
 } from "@workspace/api-client-react";
 import { toast } from "sonner";
+import { formatApiError } from "@/lib/api-errors";
 import { SiteNav } from "@/components/site-nav";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -93,7 +94,7 @@ export default function QuotaDetailPage() {
       toast.success("Квота опубликована");
       invalidate();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Ошибка");
+      toast.error(formatApiError(err));
     }
   };
   const doPause = async () => {
@@ -103,7 +104,7 @@ export default function QuotaDetailPage() {
       toast.success("Поставлено на паузу");
       invalidate();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Ошибка");
+      toast.error(formatApiError(err));
     }
   };
   const doClose = async () => {
@@ -113,7 +114,7 @@ export default function QuotaDetailPage() {
       toast.success("Квота закрыта, эскроу возвращён");
       invalidate();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Ошибка");
+      toast.error(formatApiError(err));
     }
   };
   const doRegen = async () => {
@@ -123,7 +124,7 @@ export default function QuotaDetailPage() {
       toast.success("Новый код выпущен");
       invalidate();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Ошибка");
+      toast.error(formatApiError(err));
     }
   };
 
