@@ -20,6 +20,7 @@ import {
   hostHeartbeat,
 } from "@workspace/api-client-react";
 import { postAgentInput } from "@/lib/agent-local";
+import { hostNatHint } from "@/lib/ice-connection";
 
 const HOST_TOKEN_STORAGE_PREFIX = "streamline.browserHostToken:";
 const BROWSER_HOST_URL_STORAGE_PREFIX = "streamline.browserHostUrl:";
@@ -834,6 +835,11 @@ export default function BrowserPlay() {
                   ${session?.ratePerMinute?.toFixed(2) ?? "—"}/мин
                 </span>
               </div>
+              {connectionState !== "connected" && (
+                <p className="text-[11px] text-slate-500 pt-2 border-t border-white/5 leading-relaxed">
+                  {hostNatHint()}
+                </p>
+              )}
             </CardContent>
           </Card>
 

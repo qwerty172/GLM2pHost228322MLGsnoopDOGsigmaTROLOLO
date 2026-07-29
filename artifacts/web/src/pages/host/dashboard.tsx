@@ -149,7 +149,19 @@ function AgentTroubleshootChecklist() {
           <span className="font-mono text-sky-400">18080–18083</span> и исходящие соединения агента
         </li>
         <li>
-          В агенте вставлен токен хоста и есть надпись «Вход выполнен»
+          В агенте вставлен токен хоста или{" "}
+          <a href="#agent-bind-code" className="text-sky-400 hover:underline">
+            код привязки
+          </a>{" "}
+          — есть надпись «Вход выполнен»
+        </li>
+        <li>
+          Агент на <span className="text-slate-300">другом ПК</span>, чем этот браузер? Это нормально —
+          статус «на другом ПК» по heartbeat значит, что агент на связи
+        </li>
+        <li>
+          Быстрая привязка: скопируй команду запуска с{" "}
+          <span className="font-mono text-sky-400">--bind-code=…</span> из блока ниже
         </li>
       </ul>
     </details>
@@ -1144,11 +1156,20 @@ function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
     );
   };
 
+  const copyLaunchCommand = () => {
+    if (!bindCode) return;
+    const cmd = `start.bat --bind-code=${bindCode}`;
+    void navigator.clipboard.writeText(cmd).then(
+      () => toast.success("Команда запуска скопирована — вставь в cmd в папке агента"),
+      () => toast.error("Не удалось скопировать"),
+    );
+  };
+
   const expired =
     expiresAt != null && Date.now() > expiresAt;
 
   return (
-    <Card style={cardStyle}>
+    <Card style={cardStyle} id="agent-bind-code">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-white text-base">
           <KeyRound className="h-4 w-4 text-sky-400" />
@@ -1172,7 +1193,17 @@ function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
             </code>
             <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={copyCode}>
               <Copy className="h-3 w-3" />
-              Копировать
+              Код
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 text-xs"
+              onClick={copyLaunchCommand}
+              data-testid="button-copy-launch-command"
+            >
+              <Copy className="h-3 w-3" />
+              Команда запуска
             </Button>
             {expiresAt != null && (
               <span className="text-xs text-slate-500">
