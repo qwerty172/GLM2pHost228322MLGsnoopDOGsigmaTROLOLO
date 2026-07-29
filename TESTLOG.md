@@ -45,6 +45,8 @@
 | **marathon W3 dedup** | **done** | inviteCode канон, joinCode deprecated, OpenAPI+hooks, ws-ticket route |
 | **marathon W4 UX** | **done** | agent --bind-code, setup advanced banner, agent port discovery |
 | **marathon W5 infra** | **done** | .env.example Redis/JWT/Sentry/migrations docs, worker math tests |
+| **marathon UX-02** | **done** | dashboard: #agent-bind-code, другой ПК, bind-code, copy launch command |
+| **marathon UX-03** | **done** | ice-connection.ts: «Прямое»/«Через сервер», disconnect hints, host TURN block |
 
 ## Баги
 
