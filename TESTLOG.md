@@ -13,7 +13,15 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-07-29** | Wave UX: agent troubleshoot, RU connection badges, quota validation — см. MARATHON.md |
+
+## Marathon Wave UX (2026-07-29) {#marathon-ux}
+
+| ID | Что сделано | Верификация |
+|---|---|---|
+| UX-02 | `agent-status-stale`, `agent-symptom-table`, auto-expand «Расширенно» при ошибках/stale heartbeat | web typecheck |
+| UX-03 | Бейджи «Прямое» / «Через NAT» / «Через сервер»; подсказки при disconnect | web typecheck |
+| UX-05 | `lib/quota-validation.ts` — клиентская валидация create/edit квот (RU) | web typecheck |
 
 ## Матрица проверок (Windows 2026-07-24)
 
