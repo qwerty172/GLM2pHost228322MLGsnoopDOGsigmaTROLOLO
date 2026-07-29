@@ -133,6 +133,21 @@ function AgentTroubleshootChecklist() {
       </summary>
       <ul className="mt-2 space-y-1 text-xs text-slate-400 list-disc pl-5">
         <li>
+          <span className="text-slate-300">Агент на другом ПК</span> — нормально: дашборд может
+          быть в браузере, а агент на игровом компьютере. Если статус «на другом ПК» или свежий
+          heartbeat — агент на связи, даже если{" "}
+          <span className="font-mono text-sky-400">localhost:18080</span> не отвечает.
+        </li>
+        <li>
+          Привязка ключа: получи{" "}
+          <a href="#agent-bind-code" className="text-sky-400 hover:underline">
+            код привязки
+          </a>{" "}
+          и вставь в агенте, либо запусти{" "}
+          <span className="font-mono text-sky-400">start.bat --bind-code=КОД</span> (код
+          одноразовый, ~10 мин).
+        </li>
+        <li>
           Установлен <span className="text-slate-300">Node.js 20+</span> — проверь командой{" "}
           <span className="font-mono text-sky-400">node --version</span>
         </li>
@@ -149,7 +164,7 @@ function AgentTroubleshootChecklist() {
           <span className="font-mono text-sky-400">18080–18083</span> и исходящие соединения агента
         </li>
         <li>
-          В агенте вставлен токен хоста и есть надпись «Вход выполнен»
+          В агенте вставлен токен хоста или код привязки — есть надпись «Вход выполнен»
         </li>
       </ul>
     </details>
@@ -872,7 +887,7 @@ function HostQuickStartCard({
     {
       done: agentKeyBound,
       title: "Агент привязан",
-      hint: "Код привязки ниже → вставь в агенте",
+      hint: "Код привязки (#agent-bind-code) → вставь в агенте или --bind-code=",
     },
     {
       done: libraryCount > 0,
@@ -1148,14 +1163,15 @@ function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
     expiresAt != null && Date.now() > expiresAt;
 
   return (
-    <Card style={cardStyle}>
+    <Card style={cardStyle} id="agent-bind-code" data-testid="agent-bind-code">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-white text-base">
           <KeyRound className="h-4 w-4 text-sky-400" />
           Код привязки агента
         </CardTitle>
         <CardDescription className="text-slate-500">
-          Одноразовый код вместо долгоживущего токена — вставь его в агенте при привязке ключа.
+          Одноразовый код вместо долгоживущего токена — вставь в окне агента или запусти{" "}
+          <span className="font-mono text-sky-400/90">start.bat --bind-code=…</span> на игровом ПК.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
