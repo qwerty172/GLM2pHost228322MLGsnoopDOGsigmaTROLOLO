@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-07-29** | UX-02 dashboard agent troubleshoot — см. MARATHON.md |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -77,6 +77,17 @@ SELECT session_id, count(*) FROM billing_events GROUP BY session_id;
 -- Инвариант леджера (фаза 5)
 SELECT account, SUM(amount) FROM ledger GROUP BY account;
 ```
+
+## Marathon UX-02 (2026-07-29)
+
+| Что | Результат |
+|-----|-----------|
+| `agent-status-stale` | Карточка при устаревшем heartbeat + offline ping |
+| `agent-symptom-table` | Контекстная таблица симптомов (HOSTING.md §9) |
+| `agent-troubleshoot` | Расширенный чеклист с подсказками по состоянию |
+| auto-expand advanced | Раскрытие при ошибках агента или stale heartbeat |
+| RU agent events | EADDRINUSE, 401, bind fail → русские сообщения |
+| verify | web typecheck ✓; api-server 22+3; host-agent 12 |
 
 ## Итог (фаза 7)
 
