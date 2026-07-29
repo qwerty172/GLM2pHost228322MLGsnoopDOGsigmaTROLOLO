@@ -413,7 +413,7 @@ SELECT id, status, ended_at FROM sessions WHERE status = 'active' AND ended_at I
 3. **Unit tests** — `findBrowserCaptureSource`, `targetExeName`, `browserWindowStillOpen`.
 4. **Picker UX** — thumbnails из `desktopCapturer` в модалке.
 5. **Опциональный browser focus guard** — ввод только если foreground browser содержит hostname игры.
-6. **Dashboard UX-02** — расширенный troubleshoot (MARATHON).
+6. **Dashboard UX-02** — расширенный troubleshoot (MARATHON) — **done** (симптомы + логи на дашборде).
 
 ---
 
