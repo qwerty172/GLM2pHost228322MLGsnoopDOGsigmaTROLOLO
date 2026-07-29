@@ -125,7 +125,7 @@ async function pingAgent(): Promise<AgentState> {
   };
 }
 
-function AgentTroubleshootChecklist() {
+function AgentTroubleshootChecklist({ agentKeyBound = true }: { agentKeyBound?: boolean }) {
   return (
     <details className="w-full mt-2" data-testid="agent-troubleshoot">
       <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-300 select-none">
@@ -141,6 +141,21 @@ function AgentTroubleshootChecklist() {
           (иконка в трее)
         </li>
         <li>
+          Агент на <span className="text-slate-300">другом ПК</span>? Дашборд покажет «на другом
+          ПК», если heartbeat свежий, а ping{" "}
+          <span className="font-mono text-sky-400">localhost:18080</span> с этой машины недоступен
+        </li>
+        {!agentKeyBound && (
+          <li>
+            Для привязки без долгоживущего токена —{" "}
+            <a href="#agent-bind-code" className="text-sky-400 hover:underline">
+              код привязки
+            </a>{" "}
+            или запуск{" "}
+            <span className="font-mono text-sky-400">start.bat --bind-code=КОД</span>
+          </li>
+        )}
+        <li>
           Для игр с античитом запускай <span className="font-mono text-sky-400">start.bat</span>{" "}
           <span className="text-slate-300">от имени администратора</span>
         </li>
@@ -149,7 +164,7 @@ function AgentTroubleshootChecklist() {
           <span className="font-mono text-sky-400">18080–18083</span> и исходящие соединения агента
         </li>
         <li>
-          В агенте вставлен токен хоста и есть надпись «Вход выполнен»
+          В агенте вставлен токен хоста (или одноразовый код) и есть надпись «Вход выполнен»
         </li>
       </ul>
     </details>
@@ -395,7 +410,10 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
           {[
             { n: "1", text: "Скачай ZIP и распакуй в любую папку (например C:\\CloudAgent)" },
             { n: "2", text: "Дважды кликни start.bat — при первом запуске установит Node.js зависимости (~2 мин)" },
-            { n: "3", text: "В окне агента вставь токен хоста (скопируй ниже) и нажми Сохранить" },
+            {
+              n: "3",
+              text: "В окне агента вставь токен хоста или одноразовый код привязки (#agent-bind-code) и нажми Сохранить",
+            },
             { n: "4", text: "Выбери игру и нажми Выйти в онлайн — эта страница покажет «Агент онлайн ✓»" },
           ].map((s) => (
             <li key={s.n} className="flex items-start gap-2">
@@ -412,7 +430,7 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
         <p className="mt-3 text-[11px] text-slate-600">
           Нужен Node.js 20+ · Windows 10/11 · Запусти от имени администратора, если игра не захватывается
         </p>
-        <AgentTroubleshootChecklist />
+        <AgentTroubleshootChecklist agentKeyBound={false} />
       </CardContent>
     </Card>
   );
@@ -975,7 +993,7 @@ function HostQuickStartCard({
           <div className="rounded-lg p-3 text-xs text-slate-400" style={{ background: "rgba(0,0,0,0.25)" }}>
             После установки запусти <span className="font-mono text-sky-400">start.bat</span>.
             Агент уйдёт в трей — окно настроек открой по клику на иконку.
-            <AgentTroubleshootChecklist />
+            <AgentTroubleshootChecklist agentKeyBound={agentKeyBound} />
           </div>
         )}
 
@@ -1144,36 +1162,65 @@ function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
     );
   };
 
+  const copyLaunchCommand = () => {
+    if (!bindCode) return;
+    const cmd = `start.bat --bind-code=${bindCode}`;
+    void navigator.clipboard.writeText(cmd).then(
+      () => toast.success("Команда запуска скопирована"),
+      () => toast.error("Не удалось скопировать"),
+    );
+  };
+
   const expired =
     expiresAt != null && Date.now() > expiresAt;
 
   return (
-    <Card style={cardStyle}>
+    <Card id="agent-bind-code" style={cardStyle} data-testid="agent-bind-code-card">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-white text-base">
           <KeyRound className="h-4 w-4 text-sky-400" />
           Код привязки агента
         </CardTitle>
         <CardDescription className="text-slate-500">
-          Одноразовый код вместо долгоживущего токена — вставь его в агенте при привязке ключа.
+          Одноразовый код вместо долгоживущего токена — вставь его в агенте или запусти{" "}
+          <span className="font-mono text-sky-400">start.bat --bind-code=…</span>.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {bindCode && !expired ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <code
-              className="font-mono text-lg tracking-widest text-sky-300 px-3 py-1.5 rounded"
-              style={{
-                background: "rgba(14,165,233,0.08)",
-                border: "1px solid rgba(14,165,233,0.25)",
-              }}
-            >
-              {bindCode}
-            </code>
-            <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={copyCode}>
-              <Copy className="h-3 w-3" />
-              Копировать
-            </Button>
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <code
+                className="font-mono text-lg tracking-widest text-sky-300 px-3 py-1.5 rounded"
+                style={{
+                  background: "rgba(14,165,233,0.08)",
+                  border: "1px solid rgba(14,165,233,0.25)",
+                }}
+              >
+                {bindCode}
+              </code>
+              <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={copyCode}>
+                <Copy className="h-3 w-3" />
+                Копировать код
+              </Button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <code
+                className="font-mono text-xs text-slate-400 px-2 py-1 rounded"
+                style={{ background: "rgba(0,0,0,0.25)" }}
+              >
+                start.bat --bind-code={bindCode}
+              </code>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 gap-1 text-xs text-slate-400"
+                onClick={copyLaunchCommand}
+              >
+                <Copy className="h-3 w-3" />
+                Копировать команду
+              </Button>
+            </div>
             {expiresAt != null && (
               <span className="text-xs text-slate-500">
                 действует{" "}
