@@ -68,3 +68,19 @@ export async function resolveCallerUserId(req: Request): Promise<string | undefi
   if (playerId) return `player:${playerId}`;
   return undefined;
 }
+
+/** Cover uploads issued via POST /storage/uploads/request-url (legacy: no ACL metadata). */
+const LEGACY_PUBLIC_OBJECT_PREFIX = "/objects/uploads/";
+
+export function normalizeStorageObjectPath(objectPath: string): string {
+  const trimmed = objectPath.trim();
+  if (trimmed.startsWith("/api/storage")) {
+    return trimmed.slice("/api/storage".length);
+  }
+  return trimmed;
+}
+
+export function isLegacyPublicObjectPath(objectPath: string): boolean {
+  const normalized = normalizeStorageObjectPath(objectPath);
+  return normalized.startsWith(LEGACY_PUBLIC_OBJECT_PREFIX);
+}

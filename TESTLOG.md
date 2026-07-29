@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-07-29** | C1-S06 storage ACL: legacy covers public, confirm endpoint, 403 без ACL |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -95,4 +95,13 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, Windows E2E |
+
+## Marathon C1-S06 — Storage ACL (2026-07-29) {#marathon-c1-s06}
+
+| Находка | Решение |
+|---|---|
+| `GET /storage/objects/*` без ACL metadata отдавал любой объект публично | Только `/objects/uploads/*` остаётся legacy-public |
+| Новые cover uploads не получали ACL | `POST /storage/uploads/confirm` → `visibility: public`, owner `host:{id}` |
+| Сейвы/клипы без ACL | 403 + warn в лог |
+| Тесты | `storageRouteHelpers.test.ts` — prefix normalize + legacy path guard |
