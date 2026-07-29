@@ -555,7 +555,13 @@ export const GetPublicStatsResponse = zod.object({
  * @summary Register a new player wallet identity
  */
 export const RegisterPlayerBody = zod.object({
-  displayName: zod.string(),
+  displayName: zod.string().optional(),
+  guest: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When true, create an anonymous guest wallet (no displayName required)",
+    ),
 });
 
 /**
@@ -577,6 +583,46 @@ export const GetPlayerResponse = zod.object({
     .describe("Р—РµР»С‘РЅС‹Р№ вЂ” LZT convertible back to crypto at 200:1"),
   createdAt: zod.coerce.date(),
   lastSeenAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Upgrade a guest player account to a full account with a new display name
+ */
+export const upgradeGuestBodyDisplayNameMin = 2;
+export const upgradeGuestBodyDisplayNameMax = 32;
+
+export const UpgradeGuestBody = zod.object({
+  guestToken: zod.string(),
+  displayName: zod
+    .string()
+    .min(upgradeGuestBodyDisplayNameMin)
+    .max(upgradeGuestBodyDisplayNameMax),
+});
+
+export const UpgradeGuestResponse = zod.object({
+  id: zod.string(),
+  playerToken: zod.string(),
+  displayName: zod.string(),
+  internalBalanceLzt: zod
+    .number()
+    .describe("РЎРёРЅРёР№ вЂ” internal LZT, cannot be withdrawn"),
+  withdrawableBalanceLzt: zod
+    .number()
+    .describe("Р—РµР»С‘РЅС‹Р№ вЂ” LZT convertible back to crypto at 200:1"),
+  createdAt: zod.coerce.date(),
+  lastSeenAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Enable or disable play-on-credit for the authenticated player
+ */
+export const PatchPlayerCreditSettingsBody = zod.object({
+  creditEnabled: zod.boolean(),
+});
+
+export const PatchPlayerCreditSettingsResponse = zod.object({
+  creditLimitLzt: zod.number(),
+  creditEnabled: zod.boolean(),
 });
 
 /**
@@ -604,6 +650,12 @@ export const ListGamesQueryParams = zod.object({
     .optional()
     .describe(
       "Only return games that have at least one live session right now",
+    ),
+  vdsOnly: zod.coerce
+    .boolean()
+    .optional()
+    .describe(
+      "Only return games that have at least one host with an attached VDS quota",
     ),
   search: zod.coerce
     .string()
@@ -825,6 +877,90 @@ export const GetGameBySlugResponse = zod
       ),
     }),
   );
+
+/**
+ * @summary Search games via RAWG or Steam Store (cover + metadata)
+ */
+export const rawgSearchQueryQMin = 2;
+export const rawgSearchQueryQMax = 100;
+
+export const RawgSearchQueryParams = zod.object({
+  q: zod.coerce.string().min(rawgSearchQueryQMin).max(rawgSearchQueryQMax),
+});
+
+export const RawgSearchResponseItem = zod.object({
+  rawgId: zod.string(),
+  title: zod.string(),
+  coverImageUrl: zod.string().nullish(),
+  genres: zod.array(zod.string()).optional(),
+  rating: zod.number().nullish(),
+  metacritic: zod.number().nullish(),
+  steamAppId: zod.string().optional(),
+  source: zod.enum(["rawg", "steam"]).optional(),
+});
+export const RawgSearchResponse = zod.array(RawgSearchResponseItem);
+
+/**
+ * @summary Fetch Steam app metadata and current player count
+ */
+export const steamLookupQueryAppIdRegExp = new RegExp("^\\d{1,10}$");
+
+export const SteamLookupQueryParams = zod.object({
+  appId: zod.coerce.string().regex(steamLookupQueryAppIdRegExp),
+});
+
+export const SteamLookupResponse = zod.object({
+  steamAppId: zod.string(),
+  title: zod.string(),
+  coverImageUrl: zod.string().optional(),
+  description: zod.string().optional(),
+  genres: zod.array(zod.string()).optional(),
+  metacritic: zod.number().nullish(),
+  currentPlayers: zod.number().nullish(),
+  recSpecs: zod.record(zod.string(), zod.unknown()).optional(),
+  minSpecs: zod.record(zod.string(), zod.unknown()).optional(),
+});
+
+/**
+ * @summary Host proposes a new catalog entry for admin review
+ */
+export const SubmitGameBody = zod.object({
+  hostToken: zod.string(),
+  title: zod.string(),
+  slug: zod.string().optional(),
+  category: zod.string().optional(),
+  genres: zod.array(zod.string()).optional(),
+  description: zod.string().optional(),
+  coverImageUrl: zod.string().optional(),
+  kind: zod.enum(["native", "browser"]).optional(),
+  defaultBrowserUrl: zod.string().optional(),
+  steamAppId: zod.string().optional(),
+});
+
+/**
+ * @summary Save host launch config before submission approval
+ */
+export const UpdateSubmissionPendingConfigParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const updateSubmissionPendingConfigBodyPricePerMinuteLztMin = 0;
+export const updateSubmissionPendingConfigBodyPricePerMinuteLztMax = 200000;
+
+export const UpdateSubmissionPendingConfigBody = zod.object({
+  hostToken: zod.string(),
+  pricePerMinuteLzt: zod
+    .number()
+    .min(updateSubmissionPendingConfigBodyPricePerMinuteLztMin)
+    .max(updateSubmissionPendingConfigBodyPricePerMinuteLztMax),
+  appPath: zod.string().optional(),
+  boundUrl: zod.string().optional(),
+  launchArgs: zod.string().optional(),
+});
+
+export const UpdateSubmissionPendingConfigResponse = zod.object({
+  saved: zod.boolean(),
+});
 
 /**
  * @summary Create a new session
@@ -1144,6 +1280,89 @@ export const ClaimSessionResponse = zod.object({
     .describe(
       "Host self-test session вЂ” completely free, skipped by billing.",
     ),
+});
+
+/**
+ * @summary Extend a block-billed session by 10, 15, or 25 minutes
+ */
+export const RenewSessionBlockParams = zod.object({
+  playerToken: zod.coerce.string(),
+});
+
+export const RenewSessionBlockBody = zod.object({
+  playerWalletToken: zod.string(),
+  blockMinutes: zod.union([zod.literal(10), zod.literal(15), zod.literal(25)]),
+});
+
+export const RenewSessionBlockResponse = zod.object({
+  id: zod.string(),
+  hostId: zod.string(),
+  gameId: zod.string().describe("Catalog game this session is bound to"),
+  playerToken: zod.string(),
+  inviteCode: zod
+    .string()
+    .nullish()
+    .describe("Short invite code for share links"),
+  inviteExpiresAt: zod.coerce.date().nullish(),
+  claimedByPlayerId: zod.string().nullish(),
+  appName: zod.string(),
+  status: zod.string().describe("One of pending, active, ended"),
+  resolution: zod.string(),
+  bitrateKbps: zod.number(),
+  ratePerMinute: zod
+    .number()
+    .describe(
+      "Player credits charged per minute (host receives net of commission)",
+    ),
+  paymentSource: zod.enum(["blue", "green", "auto"]).optional(),
+  quotaId: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  startedAt: zod.coerce.date().nullish(),
+  endedAt: zod.coerce.date().nullish(),
+  endReason: zod
+    .string()
+    .nullish()
+    .describe(
+      "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline, block_expired.",
+    ),
+  blockMinutes: zod
+    .number()
+    .nullish()
+    .describe(
+      "Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.",
+    ),
+  blockReservedLzt: zod
+    .number()
+    .nullish()
+    .describe(
+      "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
+    ),
+  isTest: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Host self-test session вЂ” completely free, skipped by billing.",
+    ),
+});
+
+/**
+ * @summary Rate an ended session (player only)
+ */
+export const RateSessionParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const rateSessionBodyScoreMax = 5;
+
+export const RateSessionBody = zod.object({
+  playerWalletToken: zod.string(),
+  score: zod.number().min(1).max(rateSessionBodyScoreMax),
+  comment: zod.string().optional(),
+});
+
+export const RateSessionResponse = zod.object({
+  ratingAvg: zod.number(),
+  ratingCount: zod.number(),
 });
 
 /**
@@ -2952,6 +3171,146 @@ export const AdminListGamesResponseItem = zod.object({
 export const AdminListGamesResponse = zod.array(AdminListGamesResponseItem);
 
 /**
+ * @summary Admin — list game catalog submissions
+ */
+export const adminListSubmissionsQueryStatusDefault = `pending`;
+
+export const AdminListSubmissionsQueryParams = zod.object({
+  status: zod
+    .enum(["pending", "approved", "rejected", "all"])
+    .default(adminListSubmissionsQueryStatusDefault),
+});
+
+export const AdminListSubmissionsHeader = zod.object({
+  "X-Host-Token": zod.string(),
+  "X-Admin-Secret": zod.string().optional(),
+});
+
+export const AdminListSubmissionsResponseItem = zod.object({
+  id: zod.string(),
+  hostId: zod.string(),
+  status: zod.string(),
+  title: zod.string(),
+  slug: zod.string().optional(),
+  category: zod.string().optional(),
+  genres: zod.array(zod.string()).optional(),
+  description: zod.string().optional(),
+  coverImageUrl: zod.string().optional(),
+  kind: zod.string().optional(),
+  defaultBrowserUrl: zod.string().optional(),
+  steamAppId: zod.string().nullish(),
+  reviewedAt: zod.coerce.date().nullish(),
+  rejectionReason: zod.string().nullish(),
+  approvedGameId: zod.string().nullish(),
+  createdAt: zod.coerce.date().optional(),
+  submitterDisplayName: zod.string().optional(),
+});
+export const AdminListSubmissionsResponse = zod.array(
+  AdminListSubmissionsResponseItem,
+);
+
+/**
+ * @summary Admin — approve a game submission and create catalog entry
+ */
+export const AdminApproveSubmissionParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const AdminApproveSubmissionHeader = zod.object({
+  "X-Host-Token": zod.string(),
+  "X-Admin-Secret": zod.string().optional(),
+});
+
+export const AdminApproveSubmissionBody = zod.object({
+  title: zod.string().optional(),
+  slug: zod.string().optional(),
+  category: zod.string().optional(),
+  genres: zod.array(zod.string()).optional(),
+  description: zod.string().optional(),
+  coverImageUrl: zod.string().optional(),
+  steamAppId: zod.string().optional(),
+});
+
+export const AdminApproveSubmissionResponse = zod.object({
+  approved: zod.boolean(),
+  game: zod
+    .object({
+      id: zod.string(),
+      slug: zod.string(),
+      title: zod.string(),
+      coverImageUrl: zod.string(),
+      description: zod.string(),
+      genre: zod.string(),
+      category: zod
+        .string()
+        .describe("Primary catalog category (e.g. action, rpg)"),
+      genres: zod.array(zod.string()).describe("Additional genre tags"),
+      createdAt: zod.coerce.date(),
+      hasMods: zod.boolean(),
+      isMultiplayer: zod.boolean(),
+      hostSpectatesPlayer: zod.boolean(),
+      hasQuests: zod.boolean(),
+      liveSessionCount: zod
+        .number()
+        .describe(
+          "Number of pending or active sessions matching this game right now",
+        ),
+      liveHostsCount: zod
+        .number()
+        .describe(
+          "Hosts with this game enabled that currently have a live session",
+        ),
+      vdsHostsCount: zod
+        .number()
+        .optional()
+        .describe("Number of always-on VDS hosts offering this game"),
+      hasVdsHosts: zod
+        .boolean()
+        .optional()
+        .describe("True when at least one VDS host offers this game"),
+      minPricePerMinuteLzt: zod
+        .number()
+        .nullable()
+        .describe(
+          "Cheapest enabled library price for this game across hosts, in LZT",
+        ),
+      browserHostUrl: zod
+        .string()
+        .describe(
+          "Same-origin URL of a vendored browser build that a player can host\ndirectly from their browser tab (no desktop agent). Empty when only\nnative-app hosting is supported.\n",
+        ),
+      isHidden: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true the game is excluded from the public catalog (admin-only flag).",
+        ),
+    })
+    .optional(),
+  libraryAutoCreated: zod.boolean().optional(),
+});
+
+/**
+ * @summary Admin — reject a game submission
+ */
+export const AdminRejectSubmissionParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const AdminRejectSubmissionHeader = zod.object({
+  "X-Host-Token": zod.string(),
+  "X-Admin-Secret": zod.string().optional(),
+});
+
+export const AdminRejectSubmissionBody = zod.object({
+  reason: zod.string().min(1),
+});
+
+export const AdminRejectSubmissionResponse = zod.object({
+  rejected: zod.boolean(),
+});
+
+/**
  * @summary List open P2P loan requests (newest first)
  */
 export const ListLoanRequestsResponseItem = zod
@@ -3343,6 +3702,30 @@ export const CreatePreviewSessionResponse = zod.object({
 });
 
 /**
+ * @summary Hosts with this game enabled in their library (pricing + live status)
+ */
+export const GetPublicGameHostsParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const GetPublicGameHostsResponseItem = zod.object({
+  hostId: zod.string(),
+  displayName: zod.string(),
+  tags: zod.array(zod.string()).optional(),
+  description: zod.string().nullish(),
+  pricePerMinuteLzt: zod.number(),
+  pricePerMinuteUsd: zod.number().optional(),
+  status: zod.enum(["online", "available", "scheduled"]),
+  inviteCode: zod.string().nullish(),
+  scheduleMode: zod.string(),
+  pingMs: zod.number().nullish(),
+  hostTier: zod.enum(["meets_min", "above_rec", "below_min"]).optional(),
+});
+export const GetPublicGameHostsResponse = zod.array(
+  GetPublicGameHostsResponseItem,
+);
+
+/**
  * @summary Latency probe for browser-side RTT measurement
  */
 export const PublicPingResponse = zod.object({
@@ -3370,6 +3753,33 @@ export const CreateEmbedSessionBody = zod.object({
   gameSlug: zod.string(),
   resolution: zod.string().optional(),
   bitrateKbps: zod.number().optional(),
+});
+
+/**
+ * @summary Exchange a legacy host/player token for a JWT access token
+ */
+export const AuthLoginBody = zod.object({
+  legacyToken: zod.string(),
+});
+
+export const AuthLoginResponse = zod.object({
+  accessToken: zod.string(),
+  expiresInSec: zod.number(),
+});
+
+/**
+ * @summary Refresh JWT access token using httpOnly refresh cookie
+ */
+export const AuthRefreshResponse = zod.object({
+  accessToken: zod.string(),
+  expiresInSec: zod.number(),
+});
+
+/**
+ * @summary Revoke refresh token and clear auth cookie
+ */
+export const AuthLogoutResponse = zod.object({
+  ok: zod.boolean(),
 });
 
 /**

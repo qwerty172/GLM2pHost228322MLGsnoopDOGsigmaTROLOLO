@@ -288,7 +288,9 @@ export interface RegisterHostBody {
 }
 
 export interface RegisterPlayerBody {
-  displayName: string;
+  displayName?: string;
+  /** When true, create an anonymous guest wallet (no displayName required) */
+  guest?: boolean;
 }
 
 export interface GameListItem {
@@ -1347,6 +1349,215 @@ export interface RequestUploadUrlResponse {
   metadata: RequestUploadUrlResponseMetadata;
 }
 
+export interface UpgradeGuestBody {
+  guestToken: string;
+  /**
+   * @minLength 2
+   * @maxLength 32
+   */
+  displayName: string;
+}
+
+export interface PatchPlayerCreditSettingsBody {
+  creditEnabled: boolean;
+}
+
+export interface PatchPlayerCreditSettingsResponse {
+  creditLimitLzt: number;
+  creditEnabled: boolean;
+}
+
+export type RenewSessionBlockBodyBlockMinutes =
+  (typeof RenewSessionBlockBodyBlockMinutes)[keyof typeof RenewSessionBlockBodyBlockMinutes];
+
+export const RenewSessionBlockBodyBlockMinutes = {
+  NUMBER_10: 10,
+  NUMBER_15: 15,
+  NUMBER_25: 25,
+} as const;
+
+export interface RenewSessionBlockBody {
+  playerWalletToken: string;
+  blockMinutes: RenewSessionBlockBodyBlockMinutes;
+}
+
+export interface RateSessionBody {
+  playerWalletToken: string;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  score: number;
+  comment?: string;
+}
+
+export interface RateSessionResponse {
+  ratingAvg: number;
+  ratingCount: number;
+}
+
+export interface AuthLoginBody {
+  legacyToken: string;
+}
+
+export interface AuthTokenResponse {
+  accessToken: string;
+  expiresInSec: number;
+}
+
+export type GameSearchResultSource =
+  (typeof GameSearchResultSource)[keyof typeof GameSearchResultSource];
+
+export const GameSearchResultSource = {
+  rawg: "rawg",
+  steam: "steam",
+} as const;
+
+export interface GameSearchResult {
+  rawgId: string;
+  title: string;
+  /** @nullable */
+  coverImageUrl?: string | null;
+  genres?: string[];
+  /** @nullable */
+  rating?: number | null;
+  /** @nullable */
+  metacritic?: number | null;
+  steamAppId?: string;
+  source?: GameSearchResultSource;
+}
+
+export type SteamLookupResultRecSpecs = { [key: string]: unknown };
+
+export type SteamLookupResultMinSpecs = { [key: string]: unknown };
+
+export interface SteamLookupResult {
+  steamAppId: string;
+  title: string;
+  coverImageUrl?: string;
+  description?: string;
+  genres?: string[];
+  /** @nullable */
+  metacritic?: number | null;
+  /** @nullable */
+  currentPlayers?: number | null;
+  recSpecs?: SteamLookupResultRecSpecs;
+  minSpecs?: SteamLookupResultMinSpecs;
+}
+
+export type SubmitGameBodyKind =
+  (typeof SubmitGameBodyKind)[keyof typeof SubmitGameBodyKind];
+
+export const SubmitGameBodyKind = {
+  native: "native",
+  browser: "browser",
+} as const;
+
+export interface SubmitGameBody {
+  hostToken: string;
+  title: string;
+  slug?: string;
+  category?: string;
+  genres?: string[];
+  description?: string;
+  coverImageUrl?: string;
+  kind?: SubmitGameBodyKind;
+  defaultBrowserUrl?: string;
+  steamAppId?: string;
+}
+
+export interface SubmissionPendingConfigBody {
+  hostToken: string;
+  /**
+   * @minimum 0
+   * @maximum 200000
+   */
+  pricePerMinuteLzt: number;
+  appPath?: string;
+  boundUrl?: string;
+  launchArgs?: string;
+}
+
+export interface GameSubmission {
+  id: string;
+  hostId: string;
+  status: string;
+  title: string;
+  slug?: string;
+  category?: string;
+  genres?: string[];
+  description?: string;
+  coverImageUrl?: string;
+  kind?: string;
+  defaultBrowserUrl?: string;
+  /** @nullable */
+  steamAppId?: string | null;
+  /** @nullable */
+  reviewedAt?: string | null;
+  /** @nullable */
+  rejectionReason?: string | null;
+  /** @nullable */
+  approvedGameId?: string | null;
+  createdAt?: string;
+  submitterDisplayName?: string;
+}
+
+export interface AdminApproveSubmissionBody {
+  title?: string;
+  slug?: string;
+  category?: string;
+  genres?: string[];
+  description?: string;
+  coverImageUrl?: string;
+  steamAppId?: string;
+}
+
+export interface AdminApproveSubmissionResponse {
+  approved: boolean;
+  game?: GameListItem;
+  libraryAutoCreated?: boolean;
+}
+
+export interface AdminRejectSubmissionBody {
+  /** @minLength 1 */
+  reason: string;
+}
+
+export type PublicGameHostStatus =
+  (typeof PublicGameHostStatus)[keyof typeof PublicGameHostStatus];
+
+export const PublicGameHostStatus = {
+  online: "online",
+  available: "available",
+  scheduled: "scheduled",
+} as const;
+
+export type PublicGameHostHostTier =
+  (typeof PublicGameHostHostTier)[keyof typeof PublicGameHostHostTier];
+
+export const PublicGameHostHostTier = {
+  meets_min: "meets_min",
+  above_rec: "above_rec",
+  below_min: "below_min",
+} as const;
+
+export interface PublicGameHost {
+  hostId: string;
+  displayName: string;
+  tags?: string[];
+  /** @nullable */
+  description?: string | null;
+  pricePerMinuteLzt: number;
+  pricePerMinuteUsd?: number;
+  status: PublicGameHostStatus;
+  /** @nullable */
+  inviteCode?: string | null;
+  scheduleMode: string;
+  /** @nullable */
+  pingMs?: number | null;
+  hostTier?: PublicGameHostHostTier;
+}
+
 export type GetHostDebtors200 = { [key: string]: unknown };
 
 export type GetHostStreamRelay200 = {
@@ -1377,6 +1588,10 @@ export type ListGamesParams = {
    */
   liveOnly?: boolean;
   /**
+   * Only return games that have at least one host with an attached VDS quota
+   */
+  vdsOnly?: boolean;
+  /**
    * Case-insensitive substring match against the game title
    */
   search?: string;
@@ -1395,6 +1610,25 @@ export type GetGameBySlugParams = {
    * When set, only live hosts whose capability tags contain this value are returned.
    */
   tag?: string;
+};
+
+export type RawgSearchParams = {
+  /**
+   * @minLength 2
+   * @maxLength 100
+   */
+  q: string;
+};
+
+export type SteamLookupParams = {
+  /**
+   * @pattern ^\d{1,10}$
+   */
+  appId: string;
+};
+
+export type UpdateSubmissionPendingConfig200 = {
+  saved: boolean;
 };
 
 export type GetSessionParams = {
@@ -1474,6 +1708,24 @@ export type GetQuotaParams = {
   ownerToken?: string;
 };
 
+export type AdminListSubmissionsParams = {
+  status?: AdminListSubmissionsStatus;
+};
+
+export type AdminListSubmissionsStatus =
+  (typeof AdminListSubmissionsStatus)[keyof typeof AdminListSubmissionsStatus];
+
+export const AdminListSubmissionsStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+  all: "all",
+} as const;
+
+export type AdminRejectSubmission200 = {
+  rejected: boolean;
+};
+
 export type ListMyLoansParams = {
   userToken: string;
 };
@@ -1521,6 +1773,10 @@ export type GetPublicIceConfig200IceServersItem = {
 
 export type GetPublicIceConfig200 = {
   iceServers: GetPublicIceConfig200IceServersItem[];
+};
+
+export type AuthLogout200 = {
+  ok: boolean;
 };
 
 export type GetAgentChallenge200 = {

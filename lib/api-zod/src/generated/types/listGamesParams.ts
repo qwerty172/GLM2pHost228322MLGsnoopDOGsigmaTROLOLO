@@ -28,6 +28,10 @@ export type ListGamesParams = {
    */
   liveOnly?: boolean;
   /**
+   * Only return games that have at least one host with an attached VDS quota
+   */
+  vdsOnly?: boolean;
+  /**
    * Case-insensitive substring match against the game title
    */
   search?: string;

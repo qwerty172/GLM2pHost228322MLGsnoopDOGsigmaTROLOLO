@@ -6,8 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface RegisterPlayerBody {
-  displayName?: string;
-  /** When true, create an anonymous guest wallet (no displayName required) */
-  guest?: boolean;
+export interface RateSessionBody {
+  playerWalletToken: string;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  score: number;
+  comment?: string;
 }
