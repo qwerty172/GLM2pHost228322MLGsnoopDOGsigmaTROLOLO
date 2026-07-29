@@ -125,33 +125,61 @@ async function pingAgent(): Promise<AgentState> {
   };
 }
 
+const AGENT_SYMPTOM_ROWS = [
+  {
+    symptom: "Агент не запускается / окно сразу закрывается",
+    fix: "Установи Node.js 20+ (node --version), запусти start.bat от имени администратора.",
+  },
+  {
+    symptom: "localhost:18080 недоступен в браузере",
+    fix: "Разреши порты 18080–18083 в файрволе/антивирусе; агент должен быть запущен на этом ПК.",
+  },
+  {
+    symptom: "На дашборде «Агент онлайн», но стрим не идёт",
+    fix: "Проверь привязку кода, выбери игру в агенте и нажми «Выйти в онлайн».",
+  },
+  {
+    symptom: "Heartbeat устарел — агент был, но пропал",
+    fix: "Не закрывай окно агента; проверь интернет и что токен хоста не сменился.",
+  },
+  {
+    symptom: "Игра не захватывается / чёрный экран",
+    fix: "Запусти start.bat от администратора; для полноэкранных игр попробуй оконный режим.",
+  },
+  {
+    symptom: "В событиях агента ERROR / FATAL",
+    fix: "Прочитай текст ошибки ниже; перезапусти агент и обнови до последней версии ZIP.",
+  },
+] as const;
+
 function AgentTroubleshootChecklist() {
   return (
     <details className="w-full mt-2" data-testid="agent-troubleshoot">
       <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-300 select-none">
-        Если не работает — чеклист
+        Если не работает — таблица симптомов
       </summary>
-      <ul className="mt-2 space-y-1 text-xs text-slate-400 list-disc pl-5">
-        <li>
-          Установлен <span className="text-slate-300">Node.js 20+</span> — проверь командой{" "}
-          <span className="font-mono text-sky-400">node --version</span>
-        </li>
-        <li>
-          Агент запущен через <span className="font-mono text-sky-400">start.bat</span> и не закрыт
-          (иконка в трее)
-        </li>
-        <li>
-          Для игр с античитом запускай <span className="font-mono text-sky-400">start.bat</span>{" "}
-          <span className="text-slate-300">от имени администратора</span>
-        </li>
-        <li>
-          Файрвол/антивирус не блокирует порты{" "}
-          <span className="font-mono text-sky-400">18080–18083</span> и исходящие соединения агента
-        </li>
-        <li>
-          В агенте вставлен токен хоста и есть надпись «Вход выполнен»
-        </li>
-      </ul>
+      <div className="mt-2 overflow-x-auto rounded-lg border border-white/5">
+        <table className="w-full text-xs text-left" data-testid="agent-symptom-table">
+          <thead>
+            <tr className="border-b border-white/5 text-slate-500">
+              <th className="px-2 py-1.5 font-medium">Симптом</th>
+              <th className="px-2 py-1.5 font-medium">Что сделать</th>
+            </tr>
+          </thead>
+          <tbody>
+            {AGENT_SYMPTOM_ROWS.map((row) => (
+              <tr key={row.symptom} className="border-b border-white/5 last:border-0">
+                <td className="px-2 py-1.5 text-slate-300 align-top whitespace-normal min-w-[9rem]">
+                  {row.symptom}
+                </td>
+                <td className="px-2 py-1.5 text-slate-400 align-top whitespace-normal">
+                  {row.fix}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </details>
   );
 }
@@ -257,6 +285,46 @@ function AgentEventsCard({ hostToken }: { hostToken: string }) {
 }
 
 function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: HeartbeatState }) {
+  // Stale heartbeat: agent was connected but stopped sending heartbeats.
+  if (heartbeat.status === "stale") {
+    return (
+      <Card
+        style={{
+          background: "rgba(245,158,11,0.06)",
+          border: "1px solid rgba(245,158,11,0.25)",
+        }}
+      >
+        <CardHeader className="pb-2" data-testid="agent-status-stale">
+          <CardTitle className="flex items-center gap-2 text-base text-amber-200 mb-1">
+            <Clock className="h-4 w-4 text-amber-400" />
+            Heartbeat устарел
+          </CardTitle>
+          <CardDescription className="text-amber-200/70 text-xs">
+            Агент был на связи{" "}
+            {formatDistanceToNow(new Date(heartbeat.lastSeenAt), { addSuffix: true, locale: ru })}
+            , но перестал отправлять heartbeat. Проверь, что{" "}
+            <span className="font-mono text-amber-100">start.bat</span> всё ещё запущен.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {agent.status === "online" ? (
+            <p className="text-xs text-slate-400 mb-2">
+              Локальный ping отвечает (v{agent.version} на порту {agent.port}), но сервер не
+              получает heartbeat — проверь токен хоста и интернет на машине с агентом.
+            </p>
+          ) : (
+            <p className="text-xs text-slate-400 mb-2">
+              Локальный ping не отвечает — агент, скорее всего, закрыт или упал. Перезапусти{" "}
+              <span className="font-mono text-sky-400">start.bat</span> и посмотри «События агента»
+              ниже.
+            </p>
+          )}
+          <AgentTroubleshootChecklist />
+        </CardContent>
+      </Card>
+    );
+  }
+
   // A fresh server-side heartbeat means the agent is running (possibly on
   // another PC) even if the local ping to localhost:18080 fails.
   if (agent.status === "offline" && heartbeat.status === "fresh") {
@@ -1296,6 +1364,26 @@ export default function Dashboard() {
     (s) => s.status === "active" || s.status === "pending",
   );
   const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  const { data: agentEvents } = useGetHostAgentEvents(hostToken || "", {
+    query: {
+      enabled: !!hostToken,
+      queryKey: getGetHostAgentEventsQueryKey(hostToken || ""),
+      refetchInterval: 30_000,
+    },
+  });
+  const hasAgentErrors = (agentEvents ?? []).some(
+    (e) => e.level === "error" || e.level === "fatal",
+  );
+
+  // UX-02: auto-expand advanced section when agent needs attention.
+  useEffect(() => {
+    const needsAttention =
+      agent.status === "offline" ||
+      heartbeat.status === "stale" ||
+      hasAgentErrors;
+    if (needsAttention) setAdvancedOpen(true);
+  }, [agent.status, heartbeat.status, hasAgentErrors]);
 
   const endSession = useEndSession();
   const [endSessionId, setEndSessionId] = useState<string | null>(null);

@@ -85,6 +85,12 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 - **Осталось вручную:** полный цикл Steam → сессия → SendInput в реальной игре; kill Electron → disconnect ≤30с на живом стриме
 - **Топ рисков:** Electron `EADDRINUSE` если уже крутится ping-server; video frames в headless/automation иногда 0×0 (в UI HUD P2P ок)
 
+## Marathon Wave UX (2026-07-29) {#marathon-ux}
+
+| ID | Что сделано | Верификация |
+|---|---|---|
+| UX-02 | Карточка stale heartbeat; таблица симптомов агента; авто-раскрытие «Расширенно» при offline/stale/errors | `pnpm --filter @workspace/web typecheck`; api-server 22+3; host-agent 12 |
+
 ## Marathon 4-cycle audit (2026-07-27) {#marathon-c1}
 
 | Область | Фикс |
