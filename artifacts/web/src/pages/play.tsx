@@ -19,6 +19,14 @@ import { TouchOverlay } from "@/components/TouchOverlay";
 import { KeyboardOverlay } from "@/components/KeyboardOverlay";
 import { toast } from "sonner";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import {
+  iceConnectionBadgeStyle,
+  iceConnectionLabel,
+  iceDisconnectHint,
+  iceReconnectMessage,
+  mapIceCandidateType,
+  type IceConnectionType,
+} from "@/lib/ice-connection";
 
 const LZT_PER_USDT = 200;
 type PaymentSource = "auto" | "blue" | "green";
@@ -249,7 +257,7 @@ export default function Play() {
   const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>("new");
   const [isPlaying, setIsPlaying] = useState(false);
   const [showAudioPrompt, setShowAudioPrompt] = useState(false);
-  const [iceType, setIceType] = useState<"relay" | "srflx" | "host" | null>(null);
+  const [iceType, setIceType] = useState<IceConnectionType | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
   const [e2eRtt, setE2eRtt] = useState<number | null>(null);
   const [dataChannelOpen, setDataChannelOpen] = useState(false);
@@ -827,9 +835,9 @@ export default function Play() {
               stats.forEach((r) => {
                 if (r.id === localId && r.type === "local-candidate") {
                   const t = r.candidateType as string;
-                  const mapped = t === "relay" ? "relay" : t === "srflx" ? "srflx" : "host";
+                  const mapped = mapIceCandidateType(t);
                   devLog(`[ice] connection type: ${mapped}`);
-                  setIceType(mapped as "relay" | "srflx" | "host");
+                  setIceType(mapped);
                 }
               });
             }
@@ -1639,7 +1647,10 @@ export default function Play() {
 
             {playDock === "disconnect" && (
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm text-yellow-200 flex-1 min-w-[140px]">Связь с хостом пропала</p>
+                <div className="flex-1 min-w-[140px]">
+                  <p className="text-sm text-yellow-200">Связь с хостом пропала</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{iceDisconnectHint(iceType)}</p>
+                </div>
                 <Button
                   size="sm"
                   style={{ background: "#0ea5e9", color: "#fff" }}
@@ -1738,13 +1749,17 @@ export default function Play() {
           {iceType && !reconnecting && (
             <Badge
               variant="outline"
-              className="bg-black/50 backdrop-blur font-mono text-[10px]"
-              style={{
-                borderColor: iceType === "relay" ? "#a855f7" : "#22c55e",
-                color: iceType === "relay" ? "#c084fc" : "#86efac",
-              }}
+              className="bg-black/50 backdrop-blur text-[10px]"
+              style={iceConnectionBadgeStyle(iceType)}
+              title={
+                iceType === "relay"
+                  ? "Трафик идёт через relay-сервер (TURN)"
+                  : iceType === "srflx"
+                    ? "Прямое соединение через NAT (STUN)"
+                    : "Прямое P2P-соединение"
+              }
             >
-              {iceType === "relay" ? "TURN" : iceType === "srflx" ? "STUN" : "P2P"}
+              {iceConnectionLabel(iceType)}
             </Badge>
           )}
           {/* E2E RTT indicator */}
@@ -2246,7 +2261,7 @@ export default function Play() {
               Переподключение...
             </div>
             <div className="font-mono text-slate-500 text-xs mt-2">
-              Восстанавливаем ICE-соединение
+              {iceReconnectMessage()}
             </div>
           </div>
         )}
