@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { formatApiError } from "@/lib/api-errors";
 import { Send, Bot, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -143,7 +144,7 @@ export function QuotaAiChat({ ownerToken, currentFormState, availableGames, onFo
         const err = await res.json().catch(() => ({ error: "Ошибка сервера" }));
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: `Ошибка: ${err.error ?? "неизвестная ошибка"}` },
+          { role: "assistant", content: `Ошибка: ${formatApiError(err, "неизвестная ошибка")}` },
         ]);
         return;
       }

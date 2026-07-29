@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-07-29** | UX-06: централизованный `formatApiError` — RU toast/inline для API ошибок |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -98,4 +98,12 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — Wave UX: UX-06 done; next pending UX tasks |
+
+## Marathon UX-06 (2026-07-29) {#marathon-ux06}
+
+| Область | Фикс |
+|---|---|
+| Web | `artifacts/web/src/lib/api-errors.ts` — `formatApiError`, `formatApiErrorCode`, словарь кодов + regex EN→RU |
+| Web pages | quota/host/play/exchange/admin/profile/embed/game-detail — toast и inline ошибки через formatApiError |
+| Верификация | `pnpm --filter @workspace/web typecheck`; api-server 22+3; host-agent 12 |

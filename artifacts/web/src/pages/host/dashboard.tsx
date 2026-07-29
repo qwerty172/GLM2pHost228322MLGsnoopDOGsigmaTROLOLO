@@ -77,6 +77,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatApiError } from "@/lib/api-errors";
 import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Link } from "wouter";
@@ -1192,7 +1193,7 @@ function QuickAddFirstGame({ hostToken }: { hostToken: string }) {
         queryKey: getListHostLibraryQueryKey(hostToken),
       });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не удалось добавить");
+      toast.error(formatApiError(err, "Не удалось добавить"));
     } finally {
       setBusy(false);
     }
@@ -1275,8 +1276,7 @@ function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
       setExpiresAt(json.expiresAt ?? null);
       toast.success("Код привязки создан — вставь в агент или запусти с --bind-code=…");
     } catch (err) {
-      const msg = (err as { data?: { error?: string } }).data?.error;
-      toast.error(msg ?? "Нет соединения");
+      toast.error(formatApiError(err, "Нет соединения"));
     } finally {
       setLoading(false);
     }
@@ -1521,10 +1521,7 @@ export default function Dashboard() {
         );
       }
     } catch (err) {
-      const msg =
-        (err as { data?: { error?: string; message?: string } }).data?.message ??
-        (err as { data?: { error?: string } }).data?.error;
-      toast.error(msg ?? "Ошибка сети при создании тест-сессии");
+      toast.error(formatApiError(err, "Ошибка сети при создании тест-сессии"));
     } finally {
       setTestLoading(false);
     }

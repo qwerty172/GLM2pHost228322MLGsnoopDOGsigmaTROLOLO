@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useLocation, Link } from "wouter";
 import { toast } from "sonner";
+import { formatApiError } from "@/lib/api-errors";
 import {
   useGetQuota,
   useUpdateQuota,
@@ -203,7 +204,7 @@ export default function QuotaEditPage() {
       toast.success("Изменения сохранены");
       navigate(`/quotas/${quota.id}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Ошибка");
+      toast.error(formatApiError(err));
     }
   };
 
@@ -344,9 +345,7 @@ export default function QuotaEditPage() {
                               });
                               toast.success("Привязка к API-ключу снята");
                             } catch (err) {
-                              toast.error(
-                                err instanceof Error ? err.message : "Ошибка",
-                              );
+                              toast.error(formatApiError(err));
                             }
                           }}
                         >
