@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-07-29** | UX-02 dashboard: stale heartbeat, symptom table, auto-expand advanced |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -96,3 +96,15 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
 | Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+
+## Marathon UX-02 (2026-07-29) {#marathon-ux-02}
+
+| Проверка | Статус | Примечание |
+|---|---|---|
+| stale heartbeat card | done | `agent-status-stale` на дашборде при пропавшем heartbeat |
+| symptom table | done | `agent-symptom-table` — 6 симптомов в troubleshoot |
+| auto-expand advanced | done | «Расширенно» открывается при error/fatal в событиях агента |
+| web typecheck | verified | `pnpm --filter @workspace/web typecheck` |
+| api-server test | verified | vitest green |
+| host-agent test | verified | 12/12 |
+| root typecheck | pre-existing | `lib/auth-verifier/router.ts` string\|string[] — не UX-02 |
