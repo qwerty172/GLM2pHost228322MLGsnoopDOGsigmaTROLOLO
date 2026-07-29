@@ -9,6 +9,7 @@ import {
 import { generateToken } from "../lib/tokens";
 import { ensureDepositAddressesForOwner } from "../lib/walletOwner";
 import { rateLimit, ipKey } from "../lib/rateLimit";
+import { headerUserToken } from "../lib/requestToken";
 
 const router: IRouter = Router();
 
@@ -81,13 +82,18 @@ router.post("/players/register", registerLimiter, async (req, res): Promise<void
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  const displayName = parsed.data.displayName?.trim();
+  if (!displayName) {
+    res.status(400).json({ error: "displayName required" });
+    return;
+  }
 
   const playerToken = generateToken();
   const [player] = await db
     .insert(playersTable)
     .values({
       playerToken,
-      displayName: parsed.data.displayName,
+      displayName,
     })
     .returning();
 
@@ -268,5 +274,55 @@ router.post("/players/upgrade-guest", upgradeGuestLimiter, async (req, res): Pro
   req.log.info({ playerId: upgraded.id }, "Guest upgraded to full account");
   res.status(200).json(serialize(upgraded));
 });
+
+const creditSettingsLimiter = rateLimit({
+  scope: "players:credit-settings",
+  windowMs: 60_000,
+  max: 30,
+  keyFn: ipKey,
+});
+
+router.patch(
+  "/players/me/credit-settings",
+  creditSettingsLimiter,
+  async (req, res): Promise<void> => {
+    const token = headerUserToken(req);
+    if (!token) {
+      res.status(401).json({ error: "X-User-Token required" });
+      return;
+    }
+    const creditEnabled = req.body?.creditEnabled;
+    if (typeof creditEnabled !== "boolean") {
+      res.status(400).json({ error: "creditEnabled boolean required" });
+      return;
+    }
+
+    const [player] = await db
+      .select()
+      .from(playersTable)
+      .where(eq(playersTable.playerToken, token));
+    if (!player) {
+      res.status(404).json({ error: "Player not found" });
+      return;
+    }
+
+    const creditLimitLzt = creditEnabled ? DEFAULT_CREDIT_LIMIT_LZT : 0;
+    const [updated] = await db
+      .update(playersTable)
+      .set({ creditLimitLzt })
+      .where(eq(playersTable.id, player.id))
+      .returning();
+
+    if (!updated) {
+      res.status(500).json({ error: "Update failed" });
+      return;
+    }
+
+    res.json({
+      creditLimitLzt: updated.creditLimitLzt,
+      creditEnabled: updated.creditLimitLzt > 0,
+    });
+  },
+);
 
 export default router;

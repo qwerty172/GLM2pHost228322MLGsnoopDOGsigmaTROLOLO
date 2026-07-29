@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { registerPlayer, upgradeGuest as upgradeGuestApi } from "@workspace/api-client-react";
 
 const STORAGE_KEY = "streamline.playerWalletToken";
 const GUEST_KEY = "streamline.playerIsGuest";
-const BASE = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
 
 interface PlayerWalletState {
   playerWalletToken: string | null;
@@ -32,18 +32,7 @@ export function usePlayerWallet(): PlayerWalletState {
     setIsRegistering(true);
     setRegisterError(null);
     try {
-      const res = await fetch(`${BASE}/api/players/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guest: true }),
-      });
-      if (!res.ok) {
-        const msg = "Не удалось создать гостевой кошелёк";
-        setRegisterError(msg);
-        toast.error(msg);
-        return null;
-      }
-      const data = await res.json();
+      const data = await registerPlayer({ guest: true });
       const token: string = data.playerToken;
       localStorage.setItem(STORAGE_KEY, token);
       localStorage.setItem(GUEST_KEY, "true");
@@ -64,13 +53,10 @@ export function usePlayerWallet(): PlayerWalletState {
     const guestToken = localStorage.getItem(STORAGE_KEY);
     if (!guestToken || !isGuest) return false;
     try {
-      const res = await fetch(`${BASE}/api/players/upgrade-guest`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guestToken, displayName: displayName.trim() }),
+      const data = await upgradeGuestApi({
+        guestToken,
+        displayName: displayName.trim(),
       });
-      if (!res.ok) return false;
-      const data = await res.json();
       const token: string = data.playerToken;
       localStorage.setItem(STORAGE_KEY, token);
       localStorage.removeItem(GUEST_KEY);

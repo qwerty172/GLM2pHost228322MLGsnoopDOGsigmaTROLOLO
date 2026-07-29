@@ -6,8 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface RegisterPlayerBody {
-  displayName?: string;
-  /** When true, create an anonymous guest wallet (no displayName required) */
-  guest?: boolean;
+export interface UpgradeGuestBody {
+  guestToken: string;
+  /**
+   * @minLength 2
+   * @maxLength 32
+   */
+  displayName: string;
 }

@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { authLogin, authRefresh, authLogout } from "@workspace/api-client-react";
 
 interface AuthContextType {
   hostToken: string | null;
@@ -25,14 +26,10 @@ function consumeTokenFromUrl(setHostToken: (token: string | null) => void): void
 
 async function exchangeLegacyForJwt(legacyToken: string): Promise<string | null> {
   try {
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ legacyToken }),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { accessToken?: string };
+    const data = await authLogin(
+      { legacyToken },
+      { credentials: "include" },
+    );
     return data.accessToken ?? null;
   } catch {
     return null;
@@ -41,12 +38,7 @@ async function exchangeLegacyForJwt(legacyToken: string): Promise<string | null>
 
 async function refreshAccessJwt(): Promise<string | null> {
   try {
-    const res = await fetch("/api/auth/refresh", {
-      method: "POST",
-      credentials: "include",
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { accessToken?: string };
+    const data = await authRefresh({ credentials: "include" });
     return data.accessToken ?? null;
   } catch {
     return null;
@@ -69,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem("streamline.hostToken");
       sessionStorage.removeItem(ACCESS_STORAGE);
       setAccessToken(null);
-      void fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+      void authLogout({ credentials: "include" });
     }
     setToken(token);
   };

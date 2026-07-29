@@ -95,4 +95,13 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: storage ACL, Windows E2E, VDS/embed (phase 6) |
+
+## Marathon C2-D02 OpenAPI gaps (2026-07-29) {#marathon-c2-d02}
+
+| Область | Изменение |
+|---|---|
+| OpenAPI | +18 эндпоинтов: auth login/refresh/logout, renew-block, rate, upgrade-guest, credit-settings, admin submissions, games enrich/submit, public game hosts, vdsOnly |
+| API | `PATCH /players/me/credit-settings` — включение/отключение кредита |
+| Web codegen | admin/games, play (renew/rate), profile credit, games vdsOnly, game-detail hosts, use-auth, use-player-wallet |
+| Верификация | `pnpm typecheck`, api-server 22+3, host-agent 12 |

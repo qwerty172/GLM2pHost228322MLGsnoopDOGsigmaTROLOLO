@@ -7,6 +7,8 @@ import {
   getGetGameBySlugQueryKey,
   useGetWallet,
   getGetWalletQueryKey,
+  useGetPublicGameHosts,
+  getGetPublicGameHostsQueryKey,
 } from "@workspace/api-client-react";
 import {
   Activity,
@@ -82,30 +84,26 @@ function SteamPlayerCount({ steamAppId }: { steamAppId: string }) {
 type LibraryHost = {
   hostId: string;
   displayName: string;
-  tags: string[];
-  description: string | null;
+  tags?: string[];
+  description?: string | null;
   pricePerMinuteLzt: number;
-  pricePerMinuteUsd: number;
+  pricePerMinuteUsd?: number;
   status: "online" | "available" | "scheduled";
-  inviteCode: string | null;
-  scheduleMode: string;
-  pingMs: number | null;
-  hostTier?: "meets_min" | "above_rec";
+  inviteCode?: string | null;
+  scheduleMode?: string;
+  pingMs?: number | null;
+  hostTier?: "meets_min" | "above_rec" | "below_min";
 };
 
 function useLibraryHosts(slug: string) {
-  return useQuery<LibraryHost[]>({
-    queryKey: ["public-game-hosts", slug],
-    queryFn: async () => {
-      const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
-      const res = await fetch(`${base}/api/public/games/${encodeURIComponent(slug)}/hosts`);
-      if (!res.ok) return [];
-      return res.json();
+  const { data, ...rest } = useGetPublicGameHosts(slug, {
+    query: {
+      queryKey: getGetPublicGameHostsQueryKey(slug),
+      refetchInterval: 20_000,
+      staleTime: 10_000,
     },
-    enabled: !!slug,
-    refetchInterval: 20_000,
-    staleTime: 10_000,
   });
+  return { data: (data ?? []) as LibraryHost[], ...rest };
 }
 
 function useBrowserPingMs(): number | null {
@@ -227,7 +225,7 @@ export default function GameDetailPage() {
 
   const filteredLibraryHosts = tag
     ? sortedLibraryHosts.filter((h) =>
-        h.tags.some((t) => t.toLowerCase() === tag.toLowerCase()),
+        h.tags?.some((t) => t.toLowerCase() === tag.toLowerCase()),
       )
     : sortedLibraryHosts;
 
@@ -507,7 +505,7 @@ function LibraryHostRow({
   const isAvailable = h.status === "available";
 
   const lztPerHour = h.pricePerMinuteLzt * 60;
-  const usdPerHour = (h.pricePerMinuteUsd * 60).toFixed(2);
+  const usdPerHour = ((h.pricePerMinuteUsd ?? h.pricePerMinuteLzt / 200) * 60).toFixed(2);
   const totalLatency = h.pingMs != null ? Math.round((browserRtt ?? 0) + h.pingMs) : null;
   const isTop = h.hostTier === "above_rec";
 
@@ -569,7 +567,7 @@ function LibraryHostRow({
               <span className="w-1.5 h-1.5 rounded-full bg-sky-400 inline-block" />
               <span className="font-bold text-white">{h.pricePerMinuteLzt} LZT</span>
               <span className="text-slate-500">/мин</span>
-              <span className="text-slate-600 font-mono ml-1">≈ ${h.pricePerMinuteUsd.toFixed(4)}</span>
+              <span className="text-slate-600 font-mono ml-1">≈ ${(h.pricePerMinuteUsd ?? h.pricePerMinuteLzt / 200).toFixed(4)}</span>
             </span>
             <span className="flex items-center gap-1 text-slate-600 font-mono">
               <Zap className="h-3 w-3" />
@@ -581,9 +579,9 @@ function LibraryHostRow({
             <p className="text-xs text-slate-500 mt-1.5 line-clamp-1">{h.description}</p>
           )}
 
-          {h.tags.length > 0 && (
+          {(h.tags?.length ?? 0) > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
-              {h.tags.map((t) => (
+              {(h.tags ?? []).map((t) => (
                 <span
                   key={t}
                   className="text-[10px] px-1.5 py-0.5 rounded"

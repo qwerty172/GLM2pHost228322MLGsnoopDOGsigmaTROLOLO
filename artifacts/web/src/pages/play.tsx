@@ -7,6 +7,8 @@ import {
   useGetWallet,
   getGetWalletQueryKey,
   getSessionByInvite,
+  renewSessionBlock,
+  rateSession,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -966,26 +968,21 @@ export default function Play() {
       if (!playerToken || !playerWalletToken || renewBlockLoading) return;
       setRenewBlockLoading(true);
       try {
-        const res = await fetch(
-          `${import.meta.env.BASE_URL}api/sessions/by-player-token/${encodeURIComponent(playerToken)}/renew-block`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playerWalletToken, blockMinutes: minutes }),
-          },
-        );
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          toast.error(data.error || "Не удалось продлить блок");
-          return;
-        }
+        const data = await renewSessionBlock(playerToken, {
+          playerWalletToken,
+          blockMinutes: minutes,
+        });
         const bm = data.blockMinutes as number | undefined;
         if (bm != null) setBlockMinsLeft(bm);
         setPlayDock("none");
         blockWarningShownRef.current = false;
         toast.success(`Блок продлён на ${minutes} мин`);
-      } catch {
-        toast.error("Ошибка сети");
+      } catch (err) {
+        const msg =
+          err instanceof Error && "data" in err
+            ? String((err as { data?: { error?: string } }).data?.error ?? err.message)
+            : "Ошибка сети";
+        toast.error(msg || "Не удалось продлить блок");
       } finally {
         setRenewBlockLoading(false);
       }
@@ -996,24 +993,10 @@ export default function Play() {
   const submitRating = useCallback(async () => {
     if (!session?.id || !playerWalletToken || ratingSubmitted) return;
     try {
-      const res = await fetch(
-        `${import.meta.env.BASE_URL}api/sessions/${session.id}/rate`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            playerWalletToken,
-            score: ratingScore,
-          }),
-        },
-      );
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        if (data.error !== "already_rated") {
-          toast.error("Не удалось отправить оценку");
-          return;
-        }
-      }
+      await rateSession(session.id, {
+        playerWalletToken,
+        score: ratingScore,
+      });
       setRatingSubmitted(true);
       setPlayDock((d) => (d === "rating" ? "none" : d));
       toast.success("Спасибо за оценку!");

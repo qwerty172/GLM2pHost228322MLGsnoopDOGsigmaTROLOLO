@@ -12,6 +12,7 @@ import {
   getGetHostStatsQueryKey,
   getListWalletTransactionsQueryKey,
   getGetWalletQueryKey,
+  patchPlayerCreditSettings,
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -640,14 +641,10 @@ function PlayerCreditCard() {
   const toggleCredit = async (enabled: boolean) => {
     setSaving(true);
     try {
-      await fetch("/api/players/me/credit-settings", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "X-User-Token": playerWalletToken,
-        },
-        body: JSON.stringify({ creditEnabled: enabled }),
-      });
+      await patchPlayerCreditSettings(
+        { creditEnabled: enabled },
+        { headers: { "X-User-Token": playerWalletToken } },
+      );
       await refetch();
     } finally {
       setSaving(false);
