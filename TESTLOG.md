@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-07-29** | UX-06: централизованный `formatApiError` — RU toast/inline для API ошибок |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -45,6 +45,9 @@
 | **marathon W3 dedup** | **done** | inviteCode канон, joinCode deprecated, OpenAPI+hooks, ws-ticket route |
 | **marathon W4 UX** | **done** | agent --bind-code, setup advanced banner, agent port discovery |
 | **marathon W5 infra** | **done** | .env.example Redis/JWT/Sentry/migrations docs, worker math tests |
+| **marathon UX-02** | **done** | dashboard: stale heartbeat, symptom table, contextual troubleshoot, auto-expand advanced, RU agent events |
+| **marathon UX-03** | **done** | play: RU connection labels (Прямое/Через сеть/Через сервер), relay toast hint |
+| **marathon UX-05** | **done** | quota-new/edit: клиентская валидация (royalty/sponsor, сессии, даты, min/rec specs) до API |
 
 ## Баги
 
@@ -95,4 +98,14 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — Wave UX завершён (UX-01..08 done); следующий цикл — Wave Regression (REG-03 blocked human) |
+
+## Marathon UX wave (2026-07-30) {#marathon-ux-wave}
+
+| ID | Область | Фикс |
+|---|---|---|
+| UX-02 | dashboard | stale heartbeat card, symptom table, contextual troubleshoot, auto-expand advanced, RU agent event messages |
+| UX-03 | play HUD | RU connection labels (`connection-labels.ts`), relay toast hint |
+| UX-05 | quotas | `quota-form-validation.ts` — клиентская валидация quota-new/edit с RU toast |
+| UX-06 | web errors | `api-errors.ts` — `formatApiError` с кодами и regex EN→RU на страницах quota/host/play/exchange/admin/profile |
+| Верификация | CI | `pnpm --filter @workspace/web typecheck`; api-server 22+3; host-agent 12 |

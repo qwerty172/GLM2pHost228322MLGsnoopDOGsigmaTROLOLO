@@ -18,7 +18,13 @@ import { Label } from "@/components/ui/label";
 import { TouchOverlay } from "@/components/TouchOverlay";
 import { KeyboardOverlay } from "@/components/KeyboardOverlay";
 import { toast } from "sonner";
+import { formatApiError } from "@/lib/api-errors";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import {
+  ICE_CONNECTION_LABELS,
+  ICE_TONE_STYLES,
+  type IceConnectionKind,
+} from "@/lib/connection-labels";
 
 const LZT_PER_USDT = 200;
 type PaymentSource = "auto" | "blue" | "green";
@@ -32,32 +38,7 @@ const devWarn = (...args: unknown[]) => {
 };
 
 function mapClaimError(err: unknown): string {
-  const raw =
-    err instanceof Error
-      ? err.message
-      : typeof err === "string"
-        ? err
-        : typeof err === "object" && err && "message" in err
-          ? String((err as { message: unknown }).message)
-          : "";
-  const lower = raw.toLowerCase();
-  if (/insufficient|balance|недостаточно|exhausted/i.test(raw) || lower.includes("balance")) {
-    return "Недостаточно средств на кошельке. Пополни баланс и попробуй снова.";
-  }
-  if (/already.?claimed|уже занят|claimed/i.test(raw)) {
-    return "Сессия уже занята другим игроком.";
-  }
-  if (/host.?offline|host_offline|хост оффлайн/i.test(raw)) {
-    return "Хост сейчас офлайн. Выбери другого или попробуй позже.";
-  }
-  if (/not.?found|404|не найден/i.test(raw)) {
-    return "Сессия не найдена или уже завершена.";
-  }
-  if (/rate.?limit|too many/i.test(raw)) {
-    return "Слишком много попыток. Подожди немного и попробуй снова.";
-  }
-  if (raw.trim()) return raw;
-  return "Не удалось занять сессию. Попробуй ещё раз.";
+  return formatApiError(err, "Не удалось занять сессию. Попробуй ещё раз.");
 }
 
 // ---------------------------------------------------------------------------
@@ -249,7 +230,7 @@ export default function Play() {
   const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>("new");
   const [isPlaying, setIsPlaying] = useState(false);
   const [showAudioPrompt, setShowAudioPrompt] = useState(false);
-  const [iceType, setIceType] = useState<"relay" | "srflx" | "host" | null>(null);
+  const [iceType, setIceType] = useState<IceConnectionKind | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
   const [e2eRtt, setE2eRtt] = useState<number | null>(null);
   const [dataChannelOpen, setDataChannelOpen] = useState(false);
@@ -328,6 +309,7 @@ export default function Play() {
   const wsReconnectDelayRef = useRef<number>(1000);
   const wsReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wsUrlRef = useRef<string>("");
+  const relayHintShownRef = useRef(false);
 
   // Clip recording ring-buffer
   const clipChunksRef = useRef<Blob[]>([]);
@@ -829,7 +811,11 @@ export default function Play() {
                   const t = r.candidateType as string;
                   const mapped = t === "relay" ? "relay" : t === "srflx" ? "srflx" : "host";
                   devLog(`[ice] connection type: ${mapped}`);
-                  setIceType(mapped as "relay" | "srflx" | "host");
+                  setIceType(mapped as IceConnectionKind);
+                  if (mapped === "relay" && !relayHintShownRef.current) {
+                    relayHintShownRef.current = true;
+                    toast.info(ICE_CONNECTION_LABELS.relay.hint, { duration: 8000 });
+                  }
                 }
               });
             }
@@ -976,7 +962,7 @@ export default function Play() {
         );
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          toast.error(data.error || "Не удалось продлить блок");
+          toast.error(formatApiError(data.error, "Не удалось продлить блок"));
           return;
         }
         const bm = data.blockMinutes as number | undefined;
@@ -1735,18 +1721,21 @@ export default function Play() {
                           ? "ИНИЦИАЛИЗАЦИЯ"
                           : "ПОДКЛЮЧЕНИЕ"}
           </Badge>
-          {iceType && !reconnecting && (
-            <Badge
-              variant="outline"
-              className="bg-black/50 backdrop-blur font-mono text-[10px]"
-              style={{
-                borderColor: iceType === "relay" ? "#a855f7" : "#22c55e",
-                color: iceType === "relay" ? "#c084fc" : "#86efac",
-              }}
-            >
-              {iceType === "relay" ? "TURN" : iceType === "srflx" ? "STUN" : "P2P"}
-            </Badge>
-          )}
+          {iceType && !reconnecting && (() => {
+            const meta = ICE_CONNECTION_LABELS[iceType];
+            const tone = ICE_TONE_STYLES[meta.tone];
+            return (
+              <Badge
+                variant="outline"
+                className="bg-black/50 backdrop-blur font-mono text-[10px] max-w-[10rem] truncate"
+                style={{ borderColor: tone.border, color: tone.color }}
+                title={meta.hint}
+                data-testid="badge-connection-type"
+              >
+                {meta.short}
+              </Badge>
+            );
+          })()}
           {/* E2E RTT indicator */}
           {e2eRtt !== null && !reconnecting && (
             <Badge

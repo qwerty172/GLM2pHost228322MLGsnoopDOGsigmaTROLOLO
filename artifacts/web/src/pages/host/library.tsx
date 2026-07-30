@@ -58,6 +58,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatApiError } from "@/lib/api-errors";
 import {
   useListHostLibrary,
   useAddHostLibraryEntry,
@@ -156,7 +157,7 @@ async function apiFetch<T>(
     });
     if (res.status === 204) return { ok: true, data: undefined as T };
     const json = await res.json();
-    if (!res.ok) return { ok: false, error: json?.error ?? "Ошибка сервера", status: res.status };
+    if (!res.ok) return { ok: false, error: formatApiError(json, "Ошибка сервера"), status: res.status };
     return { ok: true, data: json };
   } catch {
     return { ok: false, error: "Нет соединения", status: 0 };
@@ -1036,7 +1037,7 @@ function AddGameModal({
       handleClose();
       onAdded();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не удалось добавить игру");
+      toast.error(formatApiError(err, "Не удалось добавить игру"));
     } finally {
       setSubmitting(false);
     }
@@ -1192,7 +1193,7 @@ export default function HostLibrary() {
       });
       invalidateLibrary();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не удалось переключить");
+      toast.error(formatApiError(err, "Не удалось переключить"));
     } finally {
       setToggling(null);
     }
@@ -1209,7 +1210,7 @@ export default function HostLibrary() {
       setEditEntry(null);
       invalidateLibrary();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не удалось сохранить");
+      toast.error(formatApiError(err, "Не удалось сохранить"));
     }
   };
 
@@ -1229,7 +1230,7 @@ export default function HostLibrary() {
           ? (err as { status: number }).status
           : 0;
       if (status === 409) toast.error("Нельзя удалить: идёт активная сессия");
-      else toast.error(err instanceof Error ? err.message : "Не удалось удалить");
+      else toast.error(formatApiError(err, "Не удалось удалить"));
     }
   };
 
