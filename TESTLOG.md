@@ -108,4 +108,4 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | UX-03 | play HUD | RU connection labels (`connection-labels.ts`), relay toast hint |
 | UX-05 | quotas | `quota-form-validation.ts` — клиентская валидация quota-new/edit с RU toast |
 | UX-06 | web errors | `api-errors.ts` — `formatApiError` с кодами и regex EN→RU на страницах quota/host/play/exchange/admin/profile |
-| Верификация | CI | `pnpm --filter @workspace/web typecheck`; api-server 22+3; host-agent 12 |
+| Верификация | CI | `pnpm typecheck` OK; api-server 22+3; host-agent 12 (cron 2026-07-30 05:04 UTC) |
