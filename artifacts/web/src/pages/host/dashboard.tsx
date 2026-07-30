@@ -81,6 +81,8 @@ import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Link } from "wouter";
 import { discoverAgentPort } from "@/lib/agent-local";
+import type { AgentState, HeartbeatState } from "@/lib/agent-troubleshoot-types";
+import { AgentTroubleshootPanel } from "@/components/agent-troubleshoot-panel";
 
 const cardStyle = {
   background: "#0a1018",
@@ -91,21 +93,10 @@ const cardStyle = {
 
 type AudioMode = "off" | "voice" | "standard" | "quality";
 
-type AgentState =
-  | { status: "checking" }
-  | { status: "online"; version: string; audioMode: AudioMode; port: number }
-  | { status: "offline" };
-
 // Heartbeat freshness: the agent sends a heartbeat to the API every 15s.
 // If lastSeenAt is fresher than this, the agent is considered connected even
 // when the local ping fails (agent may run on a different PC than the browser).
 const HEARTBEAT_FRESH_MS = 45_000;
-
-type HeartbeatState =
-  | { status: "unknown" }
-  | { status: "fresh"; lastSeenAt: string }
-  | { status: "stale"; lastSeenAt: string }
-  | { status: "never" };
 
 const AUDIO_MODE_LABELS: Record<AudioMode, string> = {
   off: "Без звука",
@@ -123,37 +114,6 @@ async function pingAgent(): Promise<AgentState> {
     audioMode: (info.audioMode ?? "off") as AudioMode,
     port: info.port,
   };
-}
-
-function AgentTroubleshootChecklist() {
-  return (
-    <details className="w-full mt-2" data-testid="agent-troubleshoot">
-      <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-300 select-none">
-        Если не работает — чеклист
-      </summary>
-      <ul className="mt-2 space-y-1 text-xs text-slate-400 list-disc pl-5">
-        <li>
-          Установлен <span className="text-slate-300">Node.js 20+</span> — проверь командой{" "}
-          <span className="font-mono text-sky-400">node --version</span>
-        </li>
-        <li>
-          Агент запущен через <span className="font-mono text-sky-400">start.bat</span> и не закрыт
-          (иконка в трее)
-        </li>
-        <li>
-          Для игр с античитом запускай <span className="font-mono text-sky-400">start.bat</span>{" "}
-          <span className="text-slate-300">от имени администратора</span>
-        </li>
-        <li>
-          Файрвол/антивирус не блокирует порты{" "}
-          <span className="font-mono text-sky-400">18080–18083</span> и исходящие соединения агента
-        </li>
-        <li>
-          В агенте вставлен токен хоста и есть надпись «Вход выполнен»
-        </li>
-      </ul>
-    </details>
-  );
 }
 
 // ── Agent telemetry events ────────────────────────────────────────────────
@@ -256,7 +216,17 @@ function AgentEventsCard({ hostToken }: { hostToken: string }) {
   );
 }
 
-function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: HeartbeatState }) {
+function AgentStatusCard({
+  agent,
+  heartbeat,
+  onRetryPing,
+  retryingPing,
+}: {
+  agent: AgentState;
+  heartbeat: HeartbeatState;
+  onRetryPing?: () => void;
+  retryingPing?: boolean;
+}) {
   // A fresh server-side heartbeat means the agent is running (possibly on
   // another PC) even if the local ping to localhost:18080 fails.
   if (agent.status === "offline" && heartbeat.status === "fresh") {
@@ -267,18 +237,61 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
           border: "1px solid rgba(16,185,129,0.25)",
         }}
       >
-        <CardContent className="py-4 flex flex-wrap items-center gap-3" data-testid="agent-status-heartbeat">
-          <span className="flex items-center gap-1.5">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
+        <CardContent className="py-4 space-y-3" data-testid="agent-status-heartbeat">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="flex items-center gap-1.5">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
+              </span>
+              <span className="text-sm font-semibold text-emerald-300">Агент онлайн</span>
+              <span className="text-xs text-slate-500">
+                (на другом ПК · был на связи{" "}
+                {formatDistanceToNow(new Date(heartbeat.lastSeenAt), { addSuffix: true, locale: ru })})
+              </span>
             </span>
-            <span className="text-sm font-semibold text-emerald-300">Агент онлайн</span>
-            <span className="text-xs text-slate-500">
-              (на другом ПК · был на связи{" "}
-              {formatDistanceToNow(new Date(heartbeat.lastSeenAt), { addSuffix: true, locale: ru })})
-            </span>
-          </span>
+          </div>
+          <AgentTroubleshootPanel
+            agent={agent}
+            heartbeat={heartbeat}
+            onRetryPing={onRetryPing}
+            retrying={retryingPing}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (agent.status === "offline" && heartbeat.status === "stale") {
+    return (
+      <Card
+        style={{
+          background: "rgba(234,179,8,0.06)",
+          border: "1px solid rgba(234,179,8,0.25)",
+        }}
+      >
+        <CardHeader className="pb-3" data-testid="agent-status-stale">
+          <CardTitle className="flex items-center gap-2 text-base text-white mb-1">
+            <WifiOff className="h-4 w-4 text-amber-400" />
+            Агент отключился
+          </CardTitle>
+          <CardDescription className="text-slate-400 text-xs">
+            Последний heartbeat{" "}
+            {formatDistanceToNow(new Date(heartbeat.lastSeenAt), {
+              addSuffix: true,
+              locale: ru,
+            })}
+            . Перезапусти агент на игровом ПК.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <AgentTroubleshootPanel
+            agent={agent}
+            heartbeat={heartbeat}
+            onRetryPing={onRetryPing}
+            retrying={retryingPing}
+            defaultOpen
+          />
         </CardContent>
       </Card>
     );
@@ -303,8 +316,9 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
           border: "1px solid rgba(16,185,129,0.25)",
         }}
       >
-        <CardContent className="py-4 flex flex-wrap items-center gap-3" data-testid="agent-status-online">
-          <span className="flex items-center gap-1.5">
+        <CardContent className="py-4 space-y-3" data-testid="agent-status-online">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="flex items-center gap-1.5">
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
@@ -350,6 +364,8 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
               </Button>
             </a>
           </div>
+          </div>
+          <AgentTroubleshootPanel agent={agent} heartbeat={heartbeat} />
         </CardContent>
       </Card>
     );
@@ -412,7 +428,13 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
         <p className="mt-3 text-[11px] text-slate-600">
           Нужен Node.js 20+ · Windows 10/11 · Запусти от имени администратора, если игра не захватывается
         </p>
-        <AgentTroubleshootChecklist />
+        <AgentTroubleshootPanel
+          agent={agent}
+          heartbeat={heartbeat}
+          onRetryPing={onRetryPing}
+          retrying={retryingPing}
+          defaultOpen
+        />
       </CardContent>
     </Card>
   );
@@ -844,6 +866,8 @@ function HostQuickStartCard({
   agentKeyBound,
   libraryCount,
   hasActiveSession,
+  onRetryPing,
+  retryingPing,
 }: {
   hostToken: string;
   agent: AgentState;
@@ -851,6 +875,8 @@ function HostQuickStartCard({
   agentKeyBound: boolean;
   libraryCount: number;
   hasActiveSession: boolean;
+  onRetryPing?: () => void;
+  retryingPing?: boolean;
 }) {
   const agentOnline =
     agent.status === "online" || heartbeat.status === "fresh";
@@ -975,7 +1001,12 @@ function HostQuickStartCard({
           <div className="rounded-lg p-3 text-xs text-slate-400" style={{ background: "rgba(0,0,0,0.25)" }}>
             После установки запусти <span className="font-mono text-sky-400">start.bat</span>.
             Агент уйдёт в трей — окно настроек открой по клику на иконку.
-            <AgentTroubleshootChecklist />
+            <AgentTroubleshootPanel
+              agent={agent}
+              heartbeat={heartbeat}
+              onRetryPing={onRetryPing}
+              retrying={retryingPing}
+            />
           </div>
         )}
 
@@ -1218,6 +1249,15 @@ interface PcSpecs {
 export default function Dashboard() {
   const { hostToken } = useAuth();
   const [agent, setAgent] = useState<AgentState>({ status: "checking" });
+  const [retryingPing, setRetryingPing] = useState(false);
+
+  const refreshAgentPing = (force = false) => {
+    if (force) setRetryingPing(true);
+    void pingAgent().then((state) => {
+      setAgent(state);
+      if (force) setRetryingPing(false);
+    });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -1410,6 +1450,8 @@ export default function Dashboard() {
           agentKeyBound={agentKeyBound}
           libraryCount={libraryCount}
           hasActiveSession={hasActiveSession}
+          onRetryPing={() => refreshAgentPing(true)}
+          retryingPing={retryingPing}
         />
       )}
 
@@ -1512,7 +1554,12 @@ export default function Dashboard() {
           {hostToken && <BindingForm hostToken={hostToken} />}
 
           {agent.status !== "checking" && (
-            <AgentStatusCard agent={agent} heartbeat={heartbeat} />
+            <AgentStatusCard
+              agent={agent}
+              heartbeat={heartbeat}
+              onRetryPing={() => refreshAgentPing(true)}
+              retryingPing={retryingPing}
+            />
           )}
 
           {hostToken && <AgentEventsCard hostToken={hostToken} />}

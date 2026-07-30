@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-07-30** | Wave UX UX-02: расширенный troubleshoot на дашборде агента — см. MARATHON.md |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -45,6 +45,7 @@
 | **marathon W3 dedup** | **done** | inviteCode канон, joinCode deprecated, OpenAPI+hooks, ws-ticket route |
 | **marathon W4 UX** | **done** | agent --bind-code, setup advanced banner, agent port discovery |
 | **marathon W5 infra** | **done** | .env.example Redis/JWT/Sentry/migrations docs, worker math tests |
+| **marathon UX-02** | **done** | dashboard: контекстный troubleshoot (fresh/stale/remote/local), symptom→fix, retry ping |
 
 ## Баги
 
