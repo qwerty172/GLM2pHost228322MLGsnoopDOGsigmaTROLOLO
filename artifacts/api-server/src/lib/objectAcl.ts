@@ -105,7 +105,8 @@ export async function canAccessObject({
 }): Promise<boolean> {
   const aclPolicy = await getObjectAclPolicy(objectFile);
   if (!aclPolicy) {
-    return false;
+    // Legacy objects uploaded before ACL metadata existed — public read only.
+    return requestedPermission === ObjectPermission.READ;
   }
 
   if (
