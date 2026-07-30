@@ -3,7 +3,7 @@
 > **Активный цикл:** Wave Regression  
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл` (cron пн/чт 09:00)  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-07-27
+> **Последнее обновление:** 2026-07-30
 
 ## Как пользоваться
 
@@ -43,7 +43,7 @@
 | ID | Задача | Priority | Status | Owner |
 |----|--------|----------|--------|-------|
 | C2-S01 | Raw fetch audit | P1 | done | agent |
-| C2-S02 | embed/admin codegen | P1 | pending | agent |
+| C2-S02 | embed/admin codegen | P1 | done | agent |
 | C2-S03 | landing hosts dup | P2 | done | agent |
 | C2-S04 | RU browser-play | P1 | done | agent |
 | C2-S05 | a11y player | P1 | done | agent |

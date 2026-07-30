@@ -1,4 +1,11 @@
 import { useEffect, useState } from "react";
+import {
+  adminDeleteGame,
+  adminPatchGame,
+  getAdminListGamesQueryKey,
+  useAdminListGames,
+  type GameListItem,
+} from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
@@ -35,17 +42,6 @@ type Submission = {
   submitterDisplayName: string;
 };
 
-type CatalogGame = {
-  id: string;
-  slug: string;
-  title: string;
-  coverImageUrl: string;
-  genre: string;
-  isHidden: boolean;
-  browserHostUrl: string;
-  createdAt: string;
-};
-
 const ADMIN_SECRET_KEY = "streamline.adminSecret";
 
 function readAdminSecret(): string {
@@ -77,6 +73,16 @@ function adminHeaders(hostToken: string): Record<string, string> {
     "X-Host-Token": hostToken,
     ...(secret ? { "X-Admin-Secret": secret } : {}),
   };
+}
+
+function apiErrorField(err: unknown): string | null {
+  if (err && typeof err === "object" && "data" in err) {
+    const data = (err as { data: unknown }).data;
+    if (data && typeof data === "object" && data !== null && "error" in data) {
+      return String((data as { error: unknown }).error);
+    }
+  }
+  return null;
 }
 
 async function approveSubmission(
@@ -115,29 +121,28 @@ async function toggleVisibility(
   currentHidden: boolean,
   hostToken: string,
 ): Promise<{ error?: string; isHidden?: boolean }> {
-  const r = await fetch(
-    `${import.meta.env.BASE_URL}api/admin/games/${id}`,
-    {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...adminHeaders(hostToken) },
-      body: JSON.stringify({ isHidden: !currentHidden }),
-    },
-  );
-  return r.json();
+  try {
+    const game = await adminPatchGame(
+      id,
+      { isHidden: !currentHidden },
+      { headers: adminHeaders(hostToken) },
+    );
+    return { isHidden: game.isHidden };
+  } catch (err) {
+    return { error: apiErrorField(err) ?? "Ошибка при смене видимости" };
+  }
 }
 
 async function deleteGame(
   id: string,
   hostToken: string,
 ): Promise<{ error?: string; deleted?: boolean }> {
-  const r = await fetch(
-    `${import.meta.env.BASE_URL}api/admin/games/${id}`,
-    {
-      method: "DELETE",
-      headers: adminHeaders(hostToken),
-    },
-  );
-  return r.json();
+  try {
+    await adminDeleteGame(id, { headers: adminHeaders(hostToken) });
+    return { deleted: true };
+  } catch (err) {
+    return { error: apiErrorField(err) ?? "Ошибка при удалении" };
+  }
 }
 
 function CatalogGameRow({
@@ -145,7 +150,7 @@ function CatalogGameRow({
   hostToken,
   onAction,
 }: {
-  game: CatalogGame;
+  game: GameListItem;
   hostToken: string;
   onAction: () => void;
 }) {
@@ -155,7 +160,7 @@ function CatalogGameRow({
   const handleToggle = async () => {
     setBusy(true);
     try {
-      const res = await toggleVisibility(game.id, game.isHidden, hostToken);
+      const res = await toggleVisibility(game.id, game.isHidden ?? false, hostToken);
       if (res.error) {
         toast.error(res.error);
       } else {
@@ -539,8 +544,6 @@ export default function AdminGamesPage() {
   const handleSecretChange = (value: string) => {
     setAdminSecret(value);
     writeAdminSecret(value);
-    setCatalogGames(null);
-    setCatError(null);
     setSubmissions(null);
     setSubError(null);
   };
@@ -549,9 +552,20 @@ export default function AdminGamesPage() {
   const [subLoading, setSubLoading] = useState(false);
   const [subError, setSubError] = useState<string | null>(null);
 
-  const [catalogGames, setCatalogGames] = useState<CatalogGame[] | null>(null);
-  const [catLoading, setCatLoading] = useState(false);
-  const [catError, setCatError] = useState<string | null>(null);
+  const {
+    data: catalogGames,
+    isLoading: catLoading,
+    error: catQueryError,
+    refetch: refetchCatalog,
+  } = useAdminListGames({
+    query: {
+      enabled: !!hostToken && tab === "catalog",
+      queryKey: [...getAdminListGamesQueryKey(), hostToken, adminSecret],
+      retry: false,
+    },
+    request: hostToken ? { headers: adminHeaders(hostToken) } : undefined,
+  });
+  const catError = catQueryError ? apiErrorField(catQueryError) : null;
 
   const fetchSubmissions = async (token: string, status: string) => {
     setSubLoading(true);
@@ -575,35 +589,9 @@ export default function AdminGamesPage() {
     }
   };
 
-  const fetchCatalog = async (token: string) => {
-    setCatLoading(true);
-    setCatError(null);
-    try {
-      const r = await fetch(
-        `${import.meta.env.BASE_URL}api/admin/games`,
-        { headers: adminHeaders(token) },
-      );
-      const data = await r.json();
-      if (data.error) {
-        setCatError(data.error);
-        setCatalogGames(null);
-      } else {
-        setCatalogGames(data);
-      }
-    } catch (e) {
-      setCatError(String(e));
-    } finally {
-      setCatLoading(false);
-    }
-  };
-
   useEffect(() => {
-    if (!hostToken) return;
-    if (tab === "catalog") {
-      void fetchCatalog(hostToken);
-    } else {
-      void fetchSubmissions(hostToken, statusFilter);
-    }
+    if (!hostToken || tab !== "submissions") return;
+    void fetchSubmissions(hostToken, statusFilter);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hostToken, tab, statusFilter, adminSecret]);
 
@@ -685,11 +673,7 @@ export default function AdminGamesPage() {
               <button
                 type="button"
                 className="text-xs text-sky-500 hover:text-sky-400"
-                onClick={() => {
-                  setCatalogGames(null);
-                  setCatError(null);
-                  if (hostToken) fetchCatalog(hostToken);
-                }}
+                onClick={() => void refetchCatalog()}
               >
                 Обновить
               </button>
@@ -718,7 +702,7 @@ export default function AdminGamesPage() {
               </div>
             )}
 
-            {!catLoading && !catError && catalogGames !== null && (
+            {!catLoading && !catError && catalogGames !== undefined && (
               <>
                 {catalogGames.length === 0 ? (
                   <div
@@ -738,10 +722,7 @@ export default function AdminGamesPage() {
                         key={game.id}
                         game={game}
                         hostToken={hostToken}
-                        onAction={() => {
-                          setCatalogGames(null);
-                          fetchCatalog(hostToken);
-                        }}
+                        onAction={() => void refetchCatalog()}
                       />
                     ))}
                   </div>
