@@ -108,7 +108,7 @@ export class ObjectStorageService {
   async downloadObject(file: File, cacheTtlSec: number = 3600): Promise<Response> {
     const [metadata] = await file.getMetadata();
     const aclPolicy = await getObjectAclPolicy(file);
-    const isPublic = aclPolicy?.visibility === "public";
+    const isPublic = !aclPolicy || aclPolicy.visibility === "public";
 
     const nodeStream = file.createReadStream();
     const webStream = Readable.toWeb(nodeStream) as ReadableStream;

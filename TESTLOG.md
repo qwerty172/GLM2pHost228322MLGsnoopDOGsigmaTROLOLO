@@ -95,4 +95,14 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, Windows E2E |
+
+## Marathon C1-S06 — Storage ACL legacy public read (2026-07-30) {#marathon-c1-s06}
+
+| Область | Изменение |
+|---|---|
+| `objectAcl.canAccessObject` | Объекты без ACL metadata → anonymous READ (legacy game covers) |
+| `storage.ts` GET `/objects/*` | Всегда через `canAccessObjectEntity` (убран дублирующий `if (policy)`) |
+| `objectStorage.downloadObject` | Legacy/no-ACL → `Cache-Control: public` |
+| Тесты | `objectAcl.test.ts` — 6 кейсов (legacy, public, private, owner) |
+| Попутно | `auth-verifier/router.ts` — `paramString()` для Express 5 params |

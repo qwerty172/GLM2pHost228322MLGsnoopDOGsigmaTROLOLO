@@ -104,8 +104,9 @@ export async function canAccessObject({
   requestedPermission: ObjectPermission;
 }): Promise<boolean> {
   const aclPolicy = await getObjectAclPolicy(objectFile);
+  // Legacy objects (e.g. game covers uploaded before ACL metadata) — public READ.
   if (!aclPolicy) {
-    return false;
+    return requestedPermission === ObjectPermission.READ;
   }
 
   if (
