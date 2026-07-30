@@ -85,8 +85,9 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | UX-02 | dashboard agent troubleshoot | Таблица симптомов, диагностика stale/offline, RU-лейблы событий агента (`agent-event-labels.ts`) |
 | UX-03 | TURN/STUN hints | Бейдж «Прямое/Через сеть/Через сервер» + toast при relay (`connection-labels.ts`) |
 | UX-05 | quotas validation | Совместимость квот с pcSpecs хоста на `/quotas`, фильтр «Только подходящие», валидация формы `quota-new` |
+| UX-06 | API errors RU | `formatApiError` / `formatApiErrorPanel` — централизованный перевод ошибок API |
 
-Верификация: `pnpm typecheck`, api-server tests, host-agent tests.
+Верификация (2026-07-30 cron): web typecheck ok; api-server 22/22 + 3 node; host-agent 12/12.
 
 ## Итог (фаза 7)
 
