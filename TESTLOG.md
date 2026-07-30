@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-07-30** | UX-06: централизованный `formatApiError` (RU) в web UI |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -78,6 +78,17 @@ SELECT session_id, count(*) FROM billing_events GROUP BY session_id;
 SELECT account, SUM(amount) FROM ledger GROUP BY account;
 ```
 
+## Marathon Wave UX (2026-07-30) {#marathon-ux-2026-07-30}
+
+| ID | Задача | Результат |
+|---|---|---|
+| UX-02 | dashboard agent troubleshoot | Таблица симптомов, диагностика stale/offline, RU-лейблы событий агента (`agent-event-labels.ts`) |
+| UX-03 | TURN/STUN hints | Бейдж «Прямое/Через сеть/Через сервер» + toast при relay (`connection-labels.ts`) |
+| UX-05 | quotas validation | Совместимость квот с pcSpecs хоста на `/quotas`, фильтр «Только подходящие», валидация формы `quota-new` |
+| UX-06 | API errors RU | `formatApiError` / `formatApiErrorPanel` — централизованный перевод ошибок API |
+
+Верификация (2026-07-30 cron): web typecheck ok; api-server 22/22 + 3 node; host-agent 12/12.
+
 ## Итог (фаза 7)
 
 - **Найдено / починено / отложено:** #11–14 fixed на Windows; Steam full E2E и ViGEm отложены
@@ -96,3 +107,11 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
 | Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+
+## Marathon Wave UX — UX-06 (2026-07-30) {#marathon-ux-06}
+
+| Область | Изменение |
+|---|---|
+| Web | `lib/api-errors.ts` — `formatApiError` / `formatApiErrorPanel`: коды API + англ. сообщения → RU |
+| Web | play, embed, dashboard, quotas, game-detail, games, library, browser-play, quota-ai-chat |
+| Верификация | web typecheck ok; api-server 22/22 vitest + 3 node tests; host-agent 12/12 |
