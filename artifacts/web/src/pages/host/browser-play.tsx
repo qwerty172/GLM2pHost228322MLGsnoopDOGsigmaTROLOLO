@@ -3,6 +3,7 @@ import { useRoute, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { formatApiError } from "@/lib/api-errors";
 import {
   Copy,
   Loader2,
@@ -544,9 +545,7 @@ export default function BrowserPlay() {
         // ignore
       }
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Не удалось завершить сессию",
-      );
+      toast.error(formatApiError(err, "Не удалось завершить сессию"));
     }
   };
 

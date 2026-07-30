@@ -3,7 +3,7 @@
 > **Активный цикл:** Wave Regression  
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл` (cron пн/чт 09:00)  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-07-27
+> **Последнее обновление:** 2026-07-30
 
 ## Как пользоваться
 
@@ -102,7 +102,7 @@
 | UX-03 | TURN/STUN hints | pending |
 | UX-04 | wallet labels | done |
 | UX-05 | quotas validation | pending |
-| UX-06 | API errors RU | pending |
+| UX-06 | API errors RU | done |
 | UX-07 | spinner RU | done |
 | UX-08 | skip-link | done |
 
