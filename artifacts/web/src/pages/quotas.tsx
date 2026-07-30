@@ -7,13 +7,16 @@ import {
   useListAppliedQuotas,
   getListAppliedQuotasQueryKey,
   useListGames,
+  useGetHost,
+  getGetHostQueryKey,
   type Quota,
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Sparkles, Coins, Lock, Globe } from "lucide-react";
+import { Plus, Search, Sparkles, Coins, Lock, Globe, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { getQuotaCompatibility, type QuotaCompatibility } from "@/lib/quota-compatibility";
 
 const cardStyle = {
   background: "#0a1018",
@@ -43,17 +46,29 @@ function statusBadge(status: Quota["status"]) {
   );
 }
 
-function QuotaCard({ q }: { q: Quota }) {
+function QuotaCard({
+  q,
+  compatibility,
+}: {
+  q: Quota;
+  compatibility?: QuotaCompatibility | null;
+}) {
   const isRoyalty = q.kind === "royalty";
+  const incompatible = compatibility != null && !compatibility.compatible;
   return (
     <Link href={`/quotas/${q.id}`}>
       <div
-        className="rounded-xl p-5 cursor-pointer transition-colors hover:border-sky-500/40"
-        style={cardStyle}
+        className={`rounded-xl p-5 cursor-pointer transition-colors hover:border-sky-500/40 ${incompatible ? "opacity-60" : ""}`}
+        style={{
+          ...cardStyle,
+          border: incompatible
+            ? "1px solid rgba(244,63,94,0.25)"
+            : cardStyle.border,
+        }}
         data-testid={`quota-card-${q.id}`}
       >
         <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {isRoyalty ? (
               <Coins className="h-4 w-4 text-amber-400" />
             ) : (
@@ -70,6 +85,26 @@ function QuotaCard({ q }: { q: Quota }) {
             ) : (
               <Globe className="h-3 w-3 text-slate-500" />
             )}
+            {compatibility?.compatible && (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded"
+                style={{ background: "rgba(16,185,129,0.15)", color: "#34d399" }}
+                data-testid={`quota-compatible-${q.id}`}
+              >
+                <CheckCircle2 className="h-3 w-3" />
+                Подходит
+              </span>
+            )}
+            {incompatible && (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded"
+                style={{ background: "rgba(244,63,94,0.15)", color: "#f87171" }}
+                data-testid={`quota-incompatible-${q.id}`}
+              >
+                <AlertTriangle className="h-3 w-3" />
+                Не подходит
+              </span>
+            )}
           </div>
           {statusBadge(q.status)}
         </div>
@@ -79,6 +114,15 @@ function QuotaCard({ q }: { q: Quota }) {
         <p className="text-xs text-slate-500 line-clamp-2 mb-3 min-h-[2rem]">
           {q.description || "Без описания"}
         </p>
+        {incompatible && compatibility?.reason && (
+          <p
+            className="text-xs text-red-300/90 mb-3 rounded-md px-2 py-1.5"
+            style={{ background: "rgba(244,63,94,0.08)" }}
+            data-testid={`quota-incompatible-reason-${q.id}`}
+          >
+            {compatibility.reason}
+          </p>
+        )}
         <div className="text-xs font-mono text-slate-400 space-y-1 border-t border-white/5 pt-3">
           {isRoyalty ? (
             <div>
@@ -133,6 +177,16 @@ export default function QuotasPage() {
   const [kindFilter, setKindFilter] = useState<"" | "royalty" | "sponsor">("");
   const [gameFilter, setGameFilter] = useState<string>("");
   const [search, setSearch] = useState("");
+  const [onlyCompatible, setOnlyCompatible] = useState(false);
+
+  const { data: hostMe } = useGetHost(hostToken ?? "", {
+    query: {
+      enabled: !!hostToken,
+      queryKey: getGetHostQueryKey(hostToken ?? ""),
+    },
+  });
+  const hostPcSpecs = (hostMe as { pcSpecs?: Parameters<typeof getQuotaCompatibility>[0] } | undefined)
+    ?.pcSpecs;
 
   const { data: games } = useListGames({});
   const publicParams: { kind?: "royalty" | "sponsor"; gameId?: string } = {};
@@ -159,13 +213,25 @@ export default function QuotasPage() {
       : tab === "applied"
         ? appliedQuery.data ?? []
         : publicQuery.data ?? [];
-  const filtered = search
+
+  const compatibilityMap = new Map<string, QuotaCompatibility>();
+  if (hostToken && tab === "public") {
+    for (const q of rows) {
+      compatibilityMap.set(q.id, getQuotaCompatibility(hostPcSpecs, q));
+    }
+  }
+
+  const filtered = (search
     ? rows.filter(
         (q) =>
           q.title.toLowerCase().includes(search.toLowerCase()) ||
           (q.description ?? "").toLowerCase().includes(search.toLowerCase()),
       )
-    : rows;
+    : rows
+  ).filter((q) => {
+    if (!onlyCompatible || tab !== "public" || !hostToken) return true;
+    return compatibilityMap.get(q.id)?.compatible !== false;
+  });
   const loading =
     tab === "mine"
       ? myQuery.isLoading
@@ -290,6 +356,23 @@ export default function QuotasPage() {
               {k === "" ? "Любой тип" : k === "royalty" ? "Роялти" : "Спонсор"}
             </button>
           ))}
+          {hostToken && tab === "public" && (
+            <button
+              type="button"
+              className="h-8 px-3 rounded-full text-xs transition-colors"
+              style={{
+                background: onlyCompatible
+                  ? "rgba(16,185,129,0.18)"
+                  : "transparent",
+                color: onlyCompatible ? "#34d399" : "#94a3b8",
+                border: "1px solid rgba(255,255,255,0.08)",
+              }}
+              onClick={() => setOnlyCompatible((v) => !v)}
+              data-testid="filter-only-compatible"
+            >
+              {onlyCompatible ? "Только подходящие ✓" : "Только подходящие"}
+            </button>
+          )}
           <div className="relative w-full sm:w-64 ml-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
             <Input
@@ -348,7 +431,11 @@ export default function QuotasPage() {
             data-testid="quotas-grid"
           >
             {filtered.map((q) => (
-              <QuotaCard key={q.id} q={q} />
+              <QuotaCard
+                key={q.id}
+                q={q}
+                compatibility={compatibilityMap.get(q.id) ?? null}
+              />
             ))}
           </div>
         )}

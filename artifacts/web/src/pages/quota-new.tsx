@@ -23,6 +23,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Coins, Sparkles, Loader2, Server, ChevronDown, ChevronRight, CheckCircle2, XCircle, Cpu, Wand2 } from "lucide-react";
 import { QuotaAiChat, type QuotaFormPatch } from "@/components/quota-ai-chat";
 import { VtScanner } from "@/components/vt-scanner";
+import { validateQuotaFormFields } from "@/lib/quota-compatibility";
 
 const cardStyle = {
   background: "#0a1018",
@@ -218,6 +219,30 @@ export default function QuotaNewPage() {
     }
     if (!title.trim()) {
       toast.error("Укажи название");
+      return;
+    }
+    const validationError = validateQuotaFormFields({
+      minGpuVram,
+      minCpuCores,
+      minRamGb,
+      minDownloadMbps,
+      minUploadMbps,
+      recGpuVram,
+      recCpuCores,
+      recRamGb,
+      recDownloadMbps,
+      recUploadMbps,
+      minSessionMinutes,
+      maxSessionMinutes,
+      kind,
+      royaltyValue,
+      royaltyBasis,
+      budgetLzt,
+      sponsorHostPerMinute,
+      sponsorPlayerPerMinute,
+    });
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
     try {
