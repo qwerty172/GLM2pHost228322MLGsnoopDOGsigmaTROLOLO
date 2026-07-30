@@ -13,6 +13,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatApiError } from "@/lib/api-errors";
 import {
   useGetSession,
   getGetSessionQueryKey,
@@ -544,9 +545,7 @@ export default function BrowserPlay() {
         // ignore
       }
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Не удалось завершить сессию",
-      );
+      toast.error(formatApiError(err, "Не удалось завершить сессию"));
     }
   };
 
