@@ -7,6 +7,7 @@ import {
   type GameListItem,
 } from "@workspace/api-client-react";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { formatApiError } from "@/lib/api-errors";
 import { toast } from "sonner";
 import {
   Activity,
@@ -531,7 +532,7 @@ function GameCard({ game, vdsBadge }: { game: GameEnriched; vdsBadge?: boolean }
       } catch { /* ignore */ }
       navigate(`/host/play/${res.session.id}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не удалось создать сессию хоста");
+      toast.error(formatApiError(err, "Не удалось создать сессию хоста"));
     }
   };
 
