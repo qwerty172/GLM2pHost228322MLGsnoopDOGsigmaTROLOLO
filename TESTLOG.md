@@ -47,6 +47,7 @@
 | **marathon W5 infra** | **done** | .env.example Redis/JWT/Sentry/migrations docs, worker math tests |
 | **marathon UX-02** | **done** | dashboard: stale heartbeat, symptom table, contextual troubleshoot, auto-expand advanced, RU agent events |
 | **marathon UX-03** | **done** | play: RU connection labels (Прямое/Через сеть/Через сервер), relay toast hint |
+| **marathon UX-05** | **done** | quota-new/edit: клиентская валидация (royalty/sponsor, сессии, даты, min/rec specs) до API |
 
 ## Баги
 
