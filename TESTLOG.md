@@ -98,12 +98,14 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — Wave UX: UX-06 done; next pending UX tasks |
+| Backlog | [MARATHON.md](./MARATHON.md) — Wave UX завершён (UX-01..08 done); следующий цикл — Wave Regression (REG-03 blocked human) |
 
-## Marathon UX-06 (2026-07-29) {#marathon-ux06}
+## Marathon UX wave (2026-07-30) {#marathon-ux-wave}
 
-| Область | Фикс |
-|---|---|
-| Web | `artifacts/web/src/lib/api-errors.ts` — `formatApiError`, `formatApiErrorCode`, словарь кодов + regex EN→RU |
-| Web pages | quota/host/play/exchange/admin/profile/embed/game-detail — toast и inline ошибки через formatApiError |
-| Верификация | `pnpm --filter @workspace/web typecheck`; api-server 22+3; host-agent 12 |
+| ID | Область | Фикс |
+|---|---|---|
+| UX-02 | dashboard | stale heartbeat card, symptom table, contextual troubleshoot, auto-expand advanced, RU agent event messages |
+| UX-03 | play HUD | RU connection labels (`connection-labels.ts`), relay toast hint |
+| UX-05 | quotas | `quota-form-validation.ts` — клиентская валидация quota-new/edit с RU toast |
+| UX-06 | web errors | `api-errors.ts` — `formatApiError` с кодами и regex EN→RU на страницах quota/host/play/exchange/admin/profile |
+| Верификация | CI | `pnpm --filter @workspace/web typecheck`; api-server 22+3; host-agent 12 |
