@@ -4,6 +4,7 @@ import { Loader2, AlertCircle, WifiOff } from "lucide-react";
 import {
   createEmbedSession,
   getPublicIceConfig,
+  getGetSessionByPlayerTokenQueryKey,
   useGetSessionByPlayerToken,
   type CreateEmbedSessionResponse,
 } from "@workspace/api-client-react";
@@ -244,6 +245,7 @@ export default function Embed() {
     {
       query: {
         enabled: Boolean(session?.playerToken) && !ended,
+        queryKey: getGetSessionByPlayerTokenQueryKey(session?.playerToken ?? ""),
         refetchInterval: 5000,
       },
     },
