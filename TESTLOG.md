@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-07-30** | Wave UX: UX-02 dashboard troubleshoot + UX-03 RU connection hints — см. MARATHON.md |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -96,3 +96,11 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
 | Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+
+## Marathon Wave UX (2026-07-30) {#marathon-ux}
+
+| ID | Что сделано | Верификация |
+|---|---|---|
+| UX-02 | Dashboard: таблица симптомов, диагностика heartbeat/stale, RU-локализация событий агента | `pnpm --filter @workspace/web typecheck` ok |
+| UX-03 | Play: RU-метки WebRTC (Прямое / Через сеть / Через сервер), toast при relay | typecheck web ok |
+| REG (cron) | Wave Regression завершён агентом; REG-03 Windows manual — blocked human | api-server 28/28, host-agent 12/12; smoke:invite — skip (нет API) |
