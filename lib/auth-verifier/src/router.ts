@@ -13,6 +13,7 @@ import { DiscordProvider } from "./providers/discord.js";
 import { startLinkFlow, confirmLinkToken } from "./link.js";
 import { createChallenge, submitCode, getChallengeStatus } from "./challenge.js";
 import type { VerifierConfig, ProviderName, UserType } from "./types.js";
+import { paramString } from "./paramString.js";
 
 export type AuthUser = { userId: string; userType: UserType };
 export type GetUser = (req: Request) => AuthUser | null | Promise<AuthUser | null>;
@@ -79,7 +80,7 @@ export function createVerifierRouter(cfg: VerifierConfig, getUser: GetUser): Rou
   // ── POST /challenge/:id/verify ───────────────────────────────────────────
   // Body: { provider: "telegram" | "discord", code: "123456" }
   router.post("/challenge/:id/verify", requireUser, async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = paramString(req.params.id);
     const provider = req.body?.provider as ProviderName | undefined;
     const code = req.body?.code as string | undefined;
     if (!provider || !code) {
@@ -91,7 +92,7 @@ export function createVerifierRouter(cfg: VerifierConfig, getUser: GetUser): Rou
 
   // ── GET /challenge/:id ───────────────────────────────────────────────────
   router.get("/challenge/:id", requireUser, async (req: Request, res: Response) => {
-    const status = await getChallengeStatus(cfg, req.params.id);
+    const status = await getChallengeStatus(cfg, paramString(req.params.id));
     json(res, 200, { status });
   });
 
