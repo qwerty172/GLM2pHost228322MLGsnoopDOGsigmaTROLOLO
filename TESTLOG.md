@@ -78,6 +78,16 @@ SELECT session_id, count(*) FROM billing_events GROUP BY session_id;
 SELECT account, SUM(amount) FROM ledger GROUP BY account;
 ```
 
+## Marathon Wave UX (2026-07-30) {#marathon-ux-2026-07-30}
+
+| ID | Задача | Результат |
+|---|---|---|
+| UX-02 | dashboard agent troubleshoot | Таблица симптомов, диагностика stale/offline, RU-лейблы событий агента (`agent-event-labels.ts`) |
+| UX-03 | TURN/STUN hints | Бейдж «Прямое/Через сеть/Через сервер» + toast при relay (`connection-labels.ts`) |
+| UX-05 | quotas validation | Совместимость квот с pcSpecs хоста на `/quotas`, фильтр «Только подходящие», валидация формы `quota-new` |
+
+Верификация: `pnpm typecheck`, api-server tests, host-agent tests.
+
 ## Итог (фаза 7)
 
 - **Найдено / починено / отложено:** #11–14 fixed на Windows; Steam full E2E и ViGEm отложены
