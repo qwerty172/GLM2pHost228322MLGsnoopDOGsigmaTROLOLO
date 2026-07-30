@@ -44,7 +44,6 @@ function HostRoutes() {
           <Route path="/host" component={Dashboard} />
           <Route path="/host/setup" component={SetupSession} />
           <Route path="/host/library" component={HostLibrary} />
-          <Route path="/wallet" component={WalletPage} />
           <Route component={NotFound} />
         </Switch>
       </HostLayout>
