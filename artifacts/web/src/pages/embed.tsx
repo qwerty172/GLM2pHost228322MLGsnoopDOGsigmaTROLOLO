@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { formatApiErrorPanel } from "@/lib/api-errors";
 import { useSearch } from "wouter";
 import { Loader2, AlertCircle, WifiOff } from "lucide-react";
 
@@ -28,32 +29,10 @@ type EmbedApiError = { error: string; message: string };
 const isDev = import.meta.env.DEV;
 
 function mapEmbedError(error: EmbedApiError): { title: string; detail: string } {
-  switch (error.error) {
-    case "key_balance_exhausted":
-      return {
-        title: "Баланс API-ключа исчерпан",
-        detail: error.message || "Пополните кошелёк ключа, чтобы продолжить.",
-      };
-    case "invalid_api_key":
-      return { title: "Неверный API-ключ", detail: error.message };
-    case "key_disabled":
-      return { title: "API-ключ отключён", detail: error.message };
-    case "missing_params":
-      return {
-        title: "Не хватает параметров",
-        detail: "Укажите apiKey и game в query-параметрах.",
-      };
-    case "network_error":
-      return {
-        title: "Ошибка сети",
-        detail: error.message || "Не удалось связаться с сервером.",
-      };
-    default:
-      return {
-        title: "Не удалось начать сессию",
-        detail: error.message || error.error,
-      };
-  }
+  return formatApiErrorPanel(error, {
+    title: "Не удалось начать сессию",
+    detail: "Попробуйте позже или проверьте параметры.",
+  });
 }
 
 export default function Embed() {

@@ -81,6 +81,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Link } from "wouter";
 import { discoverAgentPort } from "@/lib/agent-local";
+import { formatApiError } from "@/lib/api-errors";
 
 const cardStyle = {
   background: "#0a1018",
@@ -1046,7 +1047,7 @@ function QuickAddFirstGame({ hostToken }: { hostToken: string }) {
         queryKey: getListHostLibraryQueryKey(hostToken),
       });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не удалось добавить");
+      toast.error(formatApiError(err, "Не удалось добавить"));
     } finally {
       setBusy(false);
     }
@@ -1364,10 +1365,7 @@ export default function Dashboard() {
         );
       }
     } catch (err) {
-      const msg =
-        (err as { data?: { error?: string; message?: string } }).data?.message ??
-        (err as { data?: { error?: string } }).data?.error;
-      toast.error(msg ?? "Ошибка сети при создании тест-сессии");
+      toast.error(formatApiError(err, "Ошибка сети при создании тест-сессии"));
     } finally {
       setTestLoading(false);
     }
