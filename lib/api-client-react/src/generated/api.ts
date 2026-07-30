@@ -19,8 +19,13 @@ import type {
 import type {
   ActivityItem,
   AddHostLibraryEntryBody,
+  AdminApproveSubmissionBody,
+  AdminApproveSubmissionResponse,
   AdminDeleteGame200,
+  AdminListSubmissionsParams,
   AdminPatchGameBody,
+  AdminRejectSubmission200,
+  AdminRejectSubmissionBody,
   AgentEventItem,
   AgentLogin200,
   AgentLoginBody,
@@ -53,6 +58,7 @@ import type {
   FundLoanResponse,
   GameDetail,
   GameListItem,
+  GameSubmission,
   GetAgentChallenge200,
   GetGameBySlugParams,
   GetHostCurrentQuota200,
@@ -4470,6 +4476,288 @@ export function useAdminListGames<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Admin вЂ” list game submissions for moderation
+ */
+export const getAdminListSubmissionsUrl = (
+  params?: AdminListSubmissionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/games/submissions?${stringifiedParams}`
+    : `/api/admin/games/submissions`;
+};
+
+export const adminListSubmissions = async (
+  params?: AdminListSubmissionsParams,
+  options?: RequestInit,
+): Promise<GameSubmission[]> => {
+  return customFetch<GameSubmission[]>(getAdminListSubmissionsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListSubmissionsQueryKey = (
+  params?: AdminListSubmissionsParams,
+) => {
+  return [`/api/admin/games/submissions`, ...(params ? [params] : [])] as const;
+};
+
+export const getAdminListSubmissionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListSubmissions>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: AdminListSubmissionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListSubmissions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListSubmissionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListSubmissions>>
+  > = ({ signal }) =>
+    adminListSubmissions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListSubmissions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListSubmissionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListSubmissions>>
+>;
+export type AdminListSubmissionsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Admin вЂ” list game submissions for moderation
+ */
+
+export function useAdminListSubmissions<
+  TData = Awaited<ReturnType<typeof adminListSubmissions>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: AdminListSubmissionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListSubmissions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListSubmissionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Admin вЂ” approve a pending game submission
+ */
+export const getAdminApproveSubmissionUrl = (id: string) => {
+  return `/api/admin/games/submissions/${id}/approve`;
+};
+
+export const adminApproveSubmission = async (
+  id: string,
+  adminApproveSubmissionBody: AdminApproveSubmissionBody,
+  options?: RequestInit,
+): Promise<AdminApproveSubmissionResponse> => {
+  return customFetch<AdminApproveSubmissionResponse>(
+    getAdminApproveSubmissionUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(adminApproveSubmissionBody),
+    },
+  );
+};
+
+export const getAdminApproveSubmissionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminApproveSubmission>>,
+    TError,
+    { id: string; data: BodyType<AdminApproveSubmissionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminApproveSubmission>>,
+  TError,
+  { id: string; data: BodyType<AdminApproveSubmissionBody> },
+  TContext
+> => {
+  const mutationKey = ["adminApproveSubmission"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminApproveSubmission>>,
+    { id: string; data: BodyType<AdminApproveSubmissionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminApproveSubmission(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminApproveSubmissionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminApproveSubmission>>
+>;
+export type AdminApproveSubmissionMutationBody =
+  BodyType<AdminApproveSubmissionBody>;
+export type AdminApproveSubmissionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Admin вЂ” approve a pending game submission
+ */
+export const useAdminApproveSubmission = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminApproveSubmission>>,
+    TError,
+    { id: string; data: BodyType<AdminApproveSubmissionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminApproveSubmission>>,
+  TError,
+  { id: string; data: BodyType<AdminApproveSubmissionBody> },
+  TContext
+> => {
+  return useMutation(getAdminApproveSubmissionMutationOptions(options));
+};
+
+/**
+ * @summary Admin вЂ” reject a pending game submission
+ */
+export const getAdminRejectSubmissionUrl = (id: string) => {
+  return `/api/admin/games/submissions/${id}/reject`;
+};
+
+export const adminRejectSubmission = async (
+  id: string,
+  adminRejectSubmissionBody: AdminRejectSubmissionBody,
+  options?: RequestInit,
+): Promise<AdminRejectSubmission200> => {
+  return customFetch<AdminRejectSubmission200>(
+    getAdminRejectSubmissionUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(adminRejectSubmissionBody),
+    },
+  );
+};
+
+export const getAdminRejectSubmissionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminRejectSubmission>>,
+    TError,
+    { id: string; data: BodyType<AdminRejectSubmissionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminRejectSubmission>>,
+  TError,
+  { id: string; data: BodyType<AdminRejectSubmissionBody> },
+  TContext
+> => {
+  const mutationKey = ["adminRejectSubmission"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminRejectSubmission>>,
+    { id: string; data: BodyType<AdminRejectSubmissionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminRejectSubmission(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminRejectSubmissionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminRejectSubmission>>
+>;
+export type AdminRejectSubmissionMutationBody =
+  BodyType<AdminRejectSubmissionBody>;
+export type AdminRejectSubmissionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Admin вЂ” reject a pending game submission
+ */
+export const useAdminRejectSubmission = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminRejectSubmission>>,
+    TError,
+    { id: string; data: BodyType<AdminRejectSubmissionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminRejectSubmission>>,
+  TError,
+  { id: string; data: BodyType<AdminRejectSubmissionBody> },
+  TContext
+> => {
+  return useMutation(getAdminRejectSubmissionMutationOptions(options));
+};
 
 /**
  * @summary List open P2P loan requests (newest first)
