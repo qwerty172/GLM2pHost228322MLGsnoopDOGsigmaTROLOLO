@@ -1049,6 +1049,24 @@ router.post(
         : playersTable.internalBalanceLzt;
 
     const updated = await db.transaction(async (tx) => {
+      // Atomic increment: concurrent renew requests must not overwrite each
+      // other using a stale session snapshot (lost-update → player charged but
+      // blockMinutes undercounted).
+      const [row] = await tx
+        .update(sessionsTable)
+        .set({
+          blockMinutes: sql`COALESCE(${sessionsTable.blockMinutes}, 0) + ${blockMinutes}`,
+          blockReservedLzt: sql`COALESCE(${sessionsTable.blockReservedLzt}, 0) + ${addReserve}`,
+        })
+        .where(
+          and(
+            eq(sessionsTable.id, session.id),
+            eq(sessionsTable.status, "active"),
+          ),
+        )
+        .returning();
+      if (!row) return null;
+
       if (addReserve > 0) {
         const debited = await tx
           .update(playersTable)
@@ -1065,7 +1083,8 @@ router.post(
           )
           .returning({ id: playersTable.id });
         if (debited.length === 0) {
-          return null;
+          // Rolls back the session extension above.
+          throw new Error("insufficient_balance");
         }
         await writeLedger(tx, [
           {
@@ -1082,15 +1101,12 @@ router.post(
         ]);
       }
 
-      const [row] = await tx
-        .update(sessionsTable)
-        .set({
-          blockMinutes: (session.blockMinutes ?? 0) + blockMinutes,
-          blockReservedLzt: (session.blockReservedLzt ?? 0) + addReserve,
-        })
-        .where(eq(sessionsTable.id, session.id))
-        .returning();
-      return row ?? null;
+      return row;
+    }).catch((err: unknown) => {
+      if (err instanceof Error && err.message === "insufficient_balance") {
+        return null;
+      }
+      throw err;
     });
 
     if (!updated) {
