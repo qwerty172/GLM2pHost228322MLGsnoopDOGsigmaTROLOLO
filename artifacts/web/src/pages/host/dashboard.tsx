@@ -81,6 +81,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Link } from "wouter";
 import { discoverAgentPort } from "@/lib/agent-local";
+import { localizeAgentEventMessage } from "@/lib/agent-event-labels";
 
 const cardStyle = {
   background: "#0a1018",
@@ -125,9 +126,116 @@ async function pingAgent(): Promise<AgentState> {
   };
 }
 
-function AgentTroubleshootChecklist() {
+type AgentDiagnosis = {
+  symptom: string;
+  likelyCause: string;
+  action: string;
+};
+
+function getAgentDiagnosis(
+  agent: AgentState,
+  heartbeat: HeartbeatState,
+): AgentDiagnosis[] {
+  const rows: AgentDiagnosis[] = [];
+
+  if (agent.status === "offline" && heartbeat.status === "fresh") {
+    rows.push({
+      symptom: "Браузер не видит агент на этом ПК",
+      likelyCause: "Агент запущен на другом компьютере",
+      action: "Открой дашборд на том же ПК, где работает start.bat, или установи агент здесь",
+    });
+  }
+
+  if (heartbeat.status === "stale") {
+    rows.push({
+      symptom: "Агент перестал отвечать",
+      likelyCause: "Процесс завершился или пропал интернет",
+      action: "Перезапусти start.bat и проверь сеть на ПК с агентом",
+    });
+  }
+
+  if (
+    agent.status === "offline" &&
+    (heartbeat.status === "never" || heartbeat.status === "unknown")
+  ) {
+    rows.push({
+      symptom: "Агент ни разу не подключался",
+      likelyCause: "start.bat не запускали или агент упал при старте",
+      action: "Скачай ZIP, запусти start.bat от имени администратора",
+    });
+  }
+
+  if (agent.status === "offline" && heartbeat.status !== "fresh") {
+    rows.push({
+      symptom: "Порт 18080 недоступен",
+      likelyCause: "Файрвол блокирует или агент не слушает",
+      action: "Разреши порты 18080–18083 в брандмауэре Windows",
+    });
+  }
+
+  return rows;
+}
+
+function AgentSymptomTable({
+  agent,
+  heartbeat,
+}: {
+  agent: AgentState;
+  heartbeat: HeartbeatState;
+}) {
+  const rows = getAgentDiagnosis(agent, heartbeat);
+  if (rows.length === 0) return null;
+
   return (
-    <details className="w-full mt-2" data-testid="agent-troubleshoot">
+    <div
+      className="mt-3 overflow-x-auto rounded-lg border border-white/5"
+      data-testid="agent-symptom-table"
+    >
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-white/5 text-slate-500">
+            <th className="px-3 py-2 text-left font-medium">Симптом</th>
+            <th className="px-3 py-2 text-left font-medium">Вероятная причина</th>
+            <th className="px-3 py-2 text-left font-medium">Что сделать</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.symptom} className="border-b border-white/5 last:border-0">
+              <td className="px-3 py-2 text-slate-300 align-top">{row.symptom}</td>
+              <td className="px-3 py-2 text-slate-400 align-top">{row.likelyCause}</td>
+              <td className="px-3 py-2 text-sky-300 align-top">{row.action}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function AgentTroubleshootChecklist({
+  agent,
+  heartbeat,
+}: {
+  agent?: AgentState;
+  heartbeat?: HeartbeatState;
+}) {
+  const showPortHint =
+    !agent ||
+    agent.status === "offline" ||
+    heartbeat?.status === "stale" ||
+    heartbeat?.status === "never";
+  const showAdminHint =
+    !agent || agent.status !== "online" || heartbeat?.status !== "fresh";
+  const defaultOpen =
+    agent?.status === "offline" || heartbeat?.status === "stale";
+
+  return (
+    <details
+      className="w-full mt-2"
+      data-testid="agent-troubleshoot"
+      open={defaultOpen}
+    >
       <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-300 select-none">
         Если не работает — чеклист
       </summary>
@@ -140,17 +248,27 @@ function AgentTroubleshootChecklist() {
           Агент запущен через <span className="font-mono text-sky-400">start.bat</span> и не закрыт
           (иконка в трее)
         </li>
-        <li>
-          Для игр с античитом запускай <span className="font-mono text-sky-400">start.bat</span>{" "}
-          <span className="text-slate-300">от имени администратора</span>
-        </li>
-        <li>
-          Файрвол/антивирус не блокирует порты{" "}
-          <span className="font-mono text-sky-400">18080–18083</span> и исходящие соединения агента
-        </li>
+        {showAdminHint && (
+          <li>
+            Для игр с античитом запускай <span className="font-mono text-sky-400">start.bat</span>{" "}
+            <span className="text-slate-300">от имени администратора</span>
+          </li>
+        )}
+        {showPortHint && (
+          <li>
+            Файрвол/антивирус не блокирует порты{" "}
+            <span className="font-mono text-sky-400">18080–18083</span> и исходящие соединения агента
+          </li>
+        )}
         <li>
           В агенте вставлен токен хоста и есть надпись «Вход выполнен»
         </li>
+        {heartbeat?.status === "stale" && (
+          <li>
+            Если агент завис — закрой через трей и перезапусти{" "}
+            <span className="font-mono text-sky-400">start.bat</span>
+          </li>
+        )}
       </ul>
     </details>
   );
@@ -238,7 +356,7 @@ function AgentEventsCard({ hostToken }: { hostToken: string }) {
                     {style.label}
                   </span>
                   <span className="text-slate-300 break-all whitespace-pre-wrap flex-1">
-                    {e.message}
+                    {localizeAgentEventMessage(e.message)}
                     {e.agentVersion && (
                       <span className="text-slate-600 ml-1">v{e.agentVersion}</span>
                     )}
@@ -290,6 +408,33 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
         <CardContent className="py-4 flex items-center gap-3">
           <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
           <span className="text-sm text-slate-500">Проверяем агент…</span>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (heartbeat.status === "stale" && agent.status !== "online") {
+    return (
+      <Card
+        style={{
+          background: "rgba(245,158,11,0.06)",
+          border: "1px solid rgba(245,158,11,0.3)",
+        }}
+      >
+        <CardHeader className="pb-3" data-testid="agent-status-stale">
+          <CardTitle className="flex items-center gap-2 text-base text-amber-200 mb-1">
+            <WifiOff className="h-4 w-4 text-amber-400" />
+            Агент не отвечает
+          </CardTitle>
+          <CardDescription className="text-slate-400 text-xs">
+            Последний сигнал{" "}
+            {formatDistanceToNow(new Date(heartbeat.lastSeenAt), { addSuffix: true, locale: ru })}
+            . Возможно, агент завис или потерял сеть.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <AgentSymptomTable agent={agent} heartbeat={heartbeat} />
+          <AgentTroubleshootChecklist agent={agent} heartbeat={heartbeat} />
         </CardContent>
       </Card>
     );
@@ -412,7 +557,8 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
         <p className="mt-3 text-[11px] text-slate-600">
           Нужен Node.js 20+ · Windows 10/11 · Запусти от имени администратора, если игра не захватывается
         </p>
-        <AgentTroubleshootChecklist />
+        <AgentSymptomTable agent={agent} heartbeat={heartbeat} />
+        <AgentTroubleshootChecklist agent={agent} heartbeat={heartbeat} />
       </CardContent>
     </Card>
   );
@@ -975,7 +1121,7 @@ function HostQuickStartCard({
           <div className="rounded-lg p-3 text-xs text-slate-400" style={{ background: "rgba(0,0,0,0.25)" }}>
             После установки запусти <span className="font-mono text-sky-400">start.bat</span>.
             Агент уйдёт в трей — окно настроек открой по клику на иконку.
-            <AgentTroubleshootChecklist />
+            <AgentTroubleshootChecklist agent={agent} heartbeat={heartbeat} />
           </div>
         )}
 
@@ -1296,6 +1442,17 @@ export default function Dashboard() {
     (s) => s.status === "active" || s.status === "pending",
   );
   const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  const agentNeedsAttention =
+    agent.status === "offline" ||
+    heartbeat.status === "stale" ||
+    heartbeat.status === "never";
+
+  useEffect(() => {
+    if (agentNeedsAttention && agent.status !== "checking") {
+      setAdvancedOpen(true);
+    }
+  }, [agentNeedsAttention, agent.status]);
 
   const endSession = useEndSession();
   const [endSessionId, setEndSessionId] = useState<string | null>(null);
