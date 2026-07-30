@@ -1,6 +1,6 @@
 # DecentralHub Marathon — живой бэклог
 
-> **Активный цикл:** Wave Regression  
+> **Активный цикл:** Wave UX  
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл` (cron пн/чт 09:00)  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Последнее обновление:** 2026-07-30
@@ -101,7 +101,7 @@
 | UX-02 | dashboard agent | done |
 | UX-03 | TURN/STUN hints | done |
 | UX-04 | wallet labels | done |
-| UX-05 | quotas validation | pending |
+| UX-05 | quotas validation | done |
 | UX-06 | API errors RU | pending |
 | UX-07 | spinner RU | done |
 | UX-08 | skip-link | done |
