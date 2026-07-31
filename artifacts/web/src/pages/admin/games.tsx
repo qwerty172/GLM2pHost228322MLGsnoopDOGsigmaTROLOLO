@@ -1,8 +1,23 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { SiteNav } from "@/components/site-nav";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
+import {
+  getAdminListGameSubmissionsQueryKey,
+  getAdminListGamesQueryKey,
+  useAdminApproveGameSubmission,
+  useAdminDeleteGame,
+  useAdminListGameSubmissions,
+  useAdminListGames,
+  useAdminPatchGame,
+  useAdminRejectGameSubmission,
+} from "@workspace/api-client-react";
+import type {
+  AdminListGameSubmissionsStatus,
+  GameListItem,
+  GameSubmissionListItem,
+} from "@workspace/api-client-react";
 import {
   CheckCircle,
   XCircle,
@@ -14,37 +29,6 @@ import {
   Trash2,
   Gamepad2,
 } from "lucide-react";
-
-type Submission = {
-  id: string;
-  hostId: string;
-  status: string;
-  title: string;
-  slug: string;
-  category: string;
-  genres: string[];
-  description: string;
-  coverImageUrl: string;
-  kind: string;
-  defaultBrowserUrl: string;
-  steamAppId: string | null;
-  reviewedAt: string | null;
-  rejectionReason: string | null;
-  approvedGameId: string | null;
-  createdAt: string;
-  submitterDisplayName: string;
-};
-
-type CatalogGame = {
-  id: string;
-  slug: string;
-  title: string;
-  coverImageUrl: string;
-  genre: string;
-  isHidden: boolean;
-  browserHostUrl: string;
-  createdAt: string;
-};
 
 const ADMIN_SECRET_KEY = "streamline.adminSecret";
 
@@ -63,7 +47,6 @@ function writeAdminSecret(value: string): void {
   } catch {
     /* sessionStorage unavailable */
   }
-  // Migrate away from the older localStorage copy (persists across sessions).
   try {
     localStorage.removeItem(ADMIN_SECRET_KEY);
   } catch {
@@ -79,75 +62,29 @@ function adminHeaders(hostToken: string): Record<string, string> {
   };
 }
 
-async function approveSubmission(
-  id: string,
-  hostToken: string,
-): Promise<{ error?: string; game?: { slug: string } }> {
-  const r = await fetch(
-    `${import.meta.env.BASE_URL}api/admin/games/submissions/${id}/approve`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...adminHeaders(hostToken) },
-      body: JSON.stringify({}),
-    },
-  );
-  return r.json();
-}
-
-async function rejectSubmission(
-  id: string,
-  reason: string,
-  hostToken: string,
-): Promise<{ error?: string }> {
-  const r = await fetch(
-    `${import.meta.env.BASE_URL}api/admin/games/submissions/${id}/reject`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...adminHeaders(hostToken) },
-      body: JSON.stringify({ reason }),
-    },
-  );
-  return r.json();
-}
-
-async function toggleVisibility(
-  id: string,
-  currentHidden: boolean,
-  hostToken: string,
-): Promise<{ error?: string; isHidden?: boolean }> {
-  const r = await fetch(
-    `${import.meta.env.BASE_URL}api/admin/games/${id}`,
-    {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...adminHeaders(hostToken) },
-      body: JSON.stringify({ isHidden: !currentHidden }),
-    },
-  );
-  return r.json();
-}
-
-async function deleteGame(
-  id: string,
-  hostToken: string,
-): Promise<{ error?: string; deleted?: boolean }> {
-  const r = await fetch(
-    `${import.meta.env.BASE_URL}api/admin/games/${id}`,
-    {
-      method: "DELETE",
-      headers: adminHeaders(hostToken),
-    },
-  );
-  return r.json();
+function formatAdminError(error: unknown): string {
+  if (error && typeof error === "object" && "data" in error) {
+    const data = (error as { data: { error?: string; message?: string } | null }).data;
+    const code = data?.error ?? data?.message;
+    if (code === "Admin access required") {
+      return "У тебя нет прав администратора.";
+    }
+    if (code === "admin_secret_required") {
+      return data?.message ?? "Требуется секрет администратора.";
+    }
+    return data?.message ?? data?.error ?? String(error);
+  }
+  return String(error);
 }
 
 function CatalogGameRow({
   game,
-  hostToken,
-  onAction,
+  onToggle,
+  onDelete,
 }: {
-  game: CatalogGame;
-  hostToken: string;
-  onAction: () => void;
+  game: GameListItem;
+  onToggle: (id: string, isHidden: boolean) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -155,15 +92,12 @@ function CatalogGameRow({
   const handleToggle = async () => {
     setBusy(true);
     try {
-      const res = await toggleVisibility(game.id, game.isHidden, hostToken);
-      if (res.error) {
-        toast.error(res.error);
-      } else {
-        toast.success(res.isHidden ? `«${game.title}» скрыта` : `«${game.title}» показана`);
-        onAction();
-      }
-    } catch {
-      toast.error("Ошибка при смене видимости");
+      await onToggle(game.id, game.isHidden ?? false);
+      toast.success(
+        game.isHidden ? `«${game.title}» показана` : `«${game.title}» скрыта`,
+      );
+    } catch (err) {
+      toast.error(formatAdminError(err));
     } finally {
       setBusy(false);
     }
@@ -172,15 +106,10 @@ function CatalogGameRow({
   const handleDelete = async () => {
     setBusy(true);
     try {
-      const res = await deleteGame(game.id, hostToken);
-      if (res.error) {
-        toast.error(res.error);
-      } else {
-        toast.success(`«${game.title}» удалена`);
-        onAction();
-      }
-    } catch {
-      toast.error("Ошибка при удалении");
+      await onDelete(game.id);
+      toast.success(`«${game.title}» удалена`);
+    } catch (err) {
+      toast.error(formatAdminError(err));
     } finally {
       setBusy(false);
       setConfirmDelete(false);
@@ -318,12 +247,12 @@ function CatalogGameRow({
 
 function SubmissionCard({
   sub,
-  hostToken,
-  onAction,
+  onApprove,
+  onReject,
 }: {
-  sub: Submission;
-  hostToken: string;
-  onAction: () => void;
+  sub: GameSubmissionListItem;
+  onApprove: (id: string) => Promise<void>;
+  onReject: (id: string, reason: string) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -332,15 +261,10 @@ function SubmissionCard({
   const handleApprove = async () => {
     setBusy(true);
     try {
-      const res = await approveSubmission(sub.id, hostToken);
-      if (res.error) {
-        toast.error(res.error);
-      } else {
-        toast.success(`Игра одобрена: ${res.game?.slug}`);
-        onAction();
-      }
-    } catch {
-      toast.error("Ошибка при одобрении");
+      await onApprove(sub.id);
+      toast.success(`Игра одобрена: ${sub.slug || sub.title}`);
+    } catch (err) {
+      toast.error(formatAdminError(err));
     } finally {
       setBusy(false);
     }
@@ -353,15 +277,10 @@ function SubmissionCard({
     }
     setBusy(true);
     try {
-      const res = await rejectSubmission(sub.id, rejectReason, hostToken);
-      if (res.error) {
-        toast.error(res.error);
-      } else {
-        toast.success("Заявка отклонена");
-        onAction();
-      }
-    } catch {
-      toast.error("Ошибка при отклонении");
+      await onReject(sub.id, rejectReason.trim());
+      toast.success("Заявка отклонена");
+    } catch (err) {
+      toast.error(formatAdminError(err));
     } finally {
       setBusy(false);
     }
@@ -498,18 +417,17 @@ function SubmissionCard({
                   placeholder="Причина отклонения…"
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
-                  className="flex-1 h-8 px-3 rounded-md text-xs"
+                  className="flex-1 h-8 px-3 text-xs rounded-lg text-slate-200 placeholder:text-slate-600 outline-none"
                   style={{
-                    background: "#0d1823",
+                    background: "rgba(255,255,255,0.03)",
                     border: "1px solid rgba(255,255,255,0.08)",
-                    color: "#e2e8f0",
                   }}
                 />
                 <Button
                   size="sm"
                   onClick={handleReject}
-                  disabled={busy || !rejectReason.trim()}
-                  className="h-8 text-xs font-semibold"
+                  disabled={busy}
+                  className="h-8 px-3 text-xs font-semibold flex-shrink-0"
                   style={{
                     background: "rgba(239,68,68,0.12)",
                     color: "#f87171",
@@ -533,84 +451,65 @@ type Tab = "catalog" | "submissions";
 export default function AdminGamesPage() {
   const { hostToken } = useAuth();
   const [tab, setTab] = useState<Tab>("catalog");
-  const [statusFilter, setStatusFilter] = useState("pending");
+  const [statusFilter, setStatusFilter] = useState<AdminListGameSubmissionsStatus>("pending");
   const [adminSecret, setAdminSecret] = useState(() => readAdminSecret());
+
+  const adminRequest = useMemo(
+    () => ({ headers: hostToken ? adminHeaders(hostToken) : undefined }),
+    [hostToken, adminSecret],
+  );
+
+  const catalogQuery = useAdminListGames({
+    request: adminRequest,
+    query: {
+      enabled: Boolean(hostToken) && tab === "catalog",
+      queryKey: [...getAdminListGamesQueryKey(), adminSecret],
+    },
+  });
+
+  const submissionsQuery = useAdminListGameSubmissions(
+    { status: statusFilter },
+    {
+      request: adminRequest,
+      query: {
+        enabled: Boolean(hostToken) && tab === "submissions",
+        queryKey: [...getAdminListGameSubmissionsQueryKey({ status: statusFilter }), adminSecret],
+      },
+    },
+  );
+
+  const patchGame = useAdminPatchGame({ request: adminRequest });
+  const deleteGame = useAdminDeleteGame({ request: adminRequest });
+  const approveSubmission = useAdminApproveGameSubmission({ request: adminRequest });
+  const rejectSubmission = useAdminRejectGameSubmission({ request: adminRequest });
 
   const handleSecretChange = (value: string) => {
     setAdminSecret(value);
     writeAdminSecret(value);
-    setCatalogGames(null);
-    setCatError(null);
-    setSubmissions(null);
-    setSubError(null);
   };
 
-  const [submissions, setSubmissions] = useState<Submission[] | null>(null);
-  const [subLoading, setSubLoading] = useState(false);
-  const [subError, setSubError] = useState<string | null>(null);
-
-  const [catalogGames, setCatalogGames] = useState<CatalogGame[] | null>(null);
-  const [catLoading, setCatLoading] = useState(false);
-  const [catError, setCatError] = useState<string | null>(null);
-
-  const fetchSubmissions = async (token: string, status: string) => {
-    setSubLoading(true);
-    setSubError(null);
-    try {
-      const r = await fetch(
-        `${import.meta.env.BASE_URL}api/admin/games/submissions?status=${status}`,
-        { headers: adminHeaders(token) },
-      );
-      const data = await r.json();
-      if (data.error) {
-        setSubError(data.error);
-        setSubmissions(null);
-      } else {
-        setSubmissions(data);
-      }
-    } catch (e) {
-      setSubError(String(e));
-    } finally {
-      setSubLoading(false);
-    }
+  const handleToggleVisibility = async (id: string, isHidden: boolean) => {
+    await patchGame.mutateAsync({ id, data: { isHidden: !isHidden } });
+    await catalogQuery.refetch();
   };
 
-  const fetchCatalog = async (token: string) => {
-    setCatLoading(true);
-    setCatError(null);
-    try {
-      const r = await fetch(
-        `${import.meta.env.BASE_URL}api/admin/games`,
-        { headers: adminHeaders(token) },
-      );
-      const data = await r.json();
-      if (data.error) {
-        setCatError(data.error);
-        setCatalogGames(null);
-      } else {
-        setCatalogGames(data);
-      }
-    } catch (e) {
-      setCatError(String(e));
-    } finally {
-      setCatLoading(false);
-    }
+  const handleDeleteGame = async (id: string) => {
+    await deleteGame.mutateAsync({ id });
+    await catalogQuery.refetch();
   };
 
-  useEffect(() => {
-    if (!hostToken) return;
-    if (tab === "catalog") {
-      void fetchCatalog(hostToken);
-    } else {
-      void fetchSubmissions(hostToken, statusFilter);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hostToken, tab, statusFilter, adminSecret]);
+  const handleApprove = async (id: string) => {
+    await approveSubmission.mutateAsync({ id, data: {} });
+    await submissionsQuery.refetch();
+  };
 
-  const handleFilterChange = (s: string) => {
+  const handleReject = async (id: string, reason: string) => {
+    await rejectSubmission.mutateAsync({ id, data: { reason } });
+    await submissionsQuery.refetch();
+  };
+
+  const handleFilterChange = (s: AdminListGameSubmissionsStatus) => {
     setStatusFilter(s);
-    setSubmissions(null);
-    setSubError(null);
   };
 
   if (!hostToken) {
@@ -624,6 +523,13 @@ export default function AdminGamesPage() {
     );
   }
 
+  const catalogGames = catalogQuery.data;
+  const catalogError = catalogQuery.error ? formatAdminError(catalogQuery.error) : null;
+  const submissions = submissionsQuery.data;
+  const submissionsError = submissionsQuery.error
+    ? formatAdminError(submissionsQuery.error)
+    : null;
+
   return (
     <div className="min-h-screen text-slate-300" style={{ background: "#06090e" }}>
       <SiteNav activePath="/admin/games" />
@@ -635,7 +541,6 @@ export default function AdminGamesPage() {
           Каталог и заявки хостов на добавление новых игр.
         </p>
 
-        {/* Admin secret */}
         <div className="mb-6">
           <label className="block text-xs font-medium text-slate-500 mb-1.5">
             Секрет администратора
@@ -657,7 +562,6 @@ export default function AdminGamesPage() {
           </p>
         </div>
 
-        {/* Tab switcher */}
         <div className="flex gap-2 mb-8 border-b border-white/[0.06] pb-0">
           {(["catalog", "submissions"] as const).map((t) => (
             <button
@@ -675,7 +579,6 @@ export default function AdminGamesPage() {
           ))}
         </div>
 
-        {/* ── Catalog tab ── */}
         {tab === "catalog" && (
           <>
             <div className="flex items-center justify-between mb-4">
@@ -685,17 +588,13 @@ export default function AdminGamesPage() {
               <button
                 type="button"
                 className="text-xs text-sky-500 hover:text-sky-400"
-                onClick={() => {
-                  setCatalogGames(null);
-                  setCatError(null);
-                  if (hostToken) fetchCatalog(hostToken);
-                }}
+                onClick={() => void catalogQuery.refetch()}
               >
                 Обновить
               </button>
             </div>
 
-            {catLoading && (
+            {catalogQuery.isLoading && (
               <div className="space-y-2">
                 {[1, 2, 3].map((i) => (
                   <div
@@ -707,18 +606,16 @@ export default function AdminGamesPage() {
               </div>
             )}
 
-            {catError && (
+            {catalogError && (
               <div
                 className="rounded-xl p-6 text-center text-sm"
                 style={{ background: "#0a1018", color: "#f87171" }}
               >
-                {catError === "Admin access required"
-                  ? "У тебя нет прав администратора."
-                  : catError}
+                {catalogError}
               </div>
             )}
 
-            {!catLoading && !catError && catalogGames !== null && (
+            {!catalogQuery.isLoading && !catalogError && catalogGames !== undefined && (
               <>
                 {catalogGames.length === 0 ? (
                   <div
@@ -737,11 +634,8 @@ export default function AdminGamesPage() {
                       <CatalogGameRow
                         key={game.id}
                         game={game}
-                        hostToken={hostToken}
-                        onAction={() => {
-                          setCatalogGames(null);
-                          fetchCatalog(hostToken);
-                        }}
+                        onToggle={handleToggleVisibility}
+                        onDelete={handleDeleteGame}
                       />
                     ))}
                   </div>
@@ -751,7 +645,6 @@ export default function AdminGamesPage() {
           </>
         )}
 
-        {/* ── Submissions tab ── */}
         {tab === "submissions" && (
           <>
             <div className="flex gap-2 mb-6">
@@ -782,7 +675,7 @@ export default function AdminGamesPage() {
               ))}
             </div>
 
-            {subLoading && (
+            {submissionsQuery.isLoading && (
               <div className="space-y-4">
                 {[1, 2, 3].map((i) => (
                   <div
@@ -794,18 +687,16 @@ export default function AdminGamesPage() {
               </div>
             )}
 
-            {subError && (
+            {submissionsError && (
               <div
                 className="rounded-xl p-6 text-center text-sm"
                 style={{ background: "#0a1018", color: "#f87171" }}
               >
-                {subError === "Admin access required"
-                  ? "У тебя нет прав администратора."
-                  : subError}
+                {submissionsError}
               </div>
             )}
 
-            {!subLoading && !subError && submissions !== null && (
+            {!submissionsQuery.isLoading && !submissionsError && submissions !== undefined && (
               <>
                 {submissions.length === 0 ? (
                   <div
@@ -824,11 +715,8 @@ export default function AdminGamesPage() {
                       <SubmissionCard
                         key={sub.id}
                         sub={sub}
-                        hostToken={hostToken}
-                        onAction={() => {
-                          setSubmissions(null);
-                          fetchSubmissions(hostToken, statusFilter);
-                        }}
+                        onApprove={handleApprove}
+                        onReject={handleReject}
                       />
                     ))}
                   </div>
