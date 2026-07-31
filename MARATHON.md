@@ -3,7 +3,7 @@
 > **Активный цикл:** Cycle 2 — Web UI  
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл` (cron пн/чт 09:00)  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-07-31 (backlog import: PLAN + HOSTING + gaps)
+> **Последнее обновление:** 2026-07-31 (Cycle 6 REDESIGN + grooming каждые 5 запусков)
 
 ## Как пользоваться
 
@@ -12,7 +12,7 @@
 3. Записывает находки в [TESTLOG.md](./TESTLOG.md).
 4. Базовая верификация: `pnpm typecheck`, api/host-agent tests, `pnpm smoke:invite`.
 
-**Источники задач:** этот файл — единый бэклог для automation; [PLAN.md](./PLAN.md) и [HOSTING.md](./HOSTING.md) — справочники (импорт в Cycle 5 / C3-S09+).
+**Источники задач:** этот файл — единый бэклог для automation; [PLAN.md](./PLAN.md), [REDESIGN.md](./REDESIGN.md) и [HOSTING.md](./HOSTING.md) — справочники (импорт в Cycle 5–6 / grooming каждые 5 запусков).
 
 **Статусы:** `pending` | `in_progress` | `done` | `blocked`  
 **Owner:** `agent` | `human`
@@ -142,9 +142,57 @@
 | P5-2.10 | VDS-игры полкой «Всегда онлайн» | P2 | pending | agent | Отдельная секция в каталоге games |
 | P5-3.9 | Частичное финансирование займов | P2 | pending | agent | Прогресс-бар на заявке; 100% → активация |
 | P5-3.10 | Проценты по займам + напоминания | P2 | pending | agent | Ежедневные проценты; тост за 24ч до срока |
+| P5-1.5 | HUD: живой баланс + минуты до конца (PLAN 1.5) | P1 | pending | agent | Баланс ~15с; жёлтая плашка <2 мин |
+| P5-1.8 | Правый стик на мобильном оверлее (PLAN 1.8) | P2 | pending | agent | Два стика в DataChannel |
+| P5-2.2 | Вход в агент по 6-значному коду (PLAN 2.2) | P1 | pending | agent | Подключение <30с без копирования токена |
+| P5-2.6 | Уведомления о модерации заявок (PLAN 2.6) | P2 | pending | agent | Плашка на дашборде: pending/approved/rejected |
+| P5-3.2 | Депозиты → стабильный USD-кредит (PLAN 3.2) | P2 | pending | agent | Курс в записи депозита; баланс не плавает |
+| P5-3.3 | Долг в профиле и на бирже (PLAN 3.3) | P2 | pending | agent | Секция «Обязательства»; не в кошельке |
+
+## Cycle 6 — REDESIGN import ([REDESIGN.md](./REDESIGN.md))
+
+| ID | Задача | Priority | Status | Owner | Acceptance |
+|----|--------|----------|--------|-------|------------|
+| R6-A1 | Общие компоненты: game-card, host-card, empty-state | P2 | pending | agent | Один компонент карточки на landing/games/library |
+| R6-A3 | SettingsSheet (шестерёнка → Sheet) | P2 | pending | agent | Переиспользуемый settings-sheet.tsx |
+| R6-A4 | Скелетоны вместо fullscreen spinner | P2 | pending | agent | games, hosts, wallet, exchange |
+| R6-B1 | Лендинг: убрать UUID/мусор из полки | P1 | pending | agent | Только каталог с обложкой; ≤6 карточек |
+| R6-B2 | Каталог: фильтры в Sheet, не сайдбар | P2 | pending | agent | Поиск + сетка; фильтры по кнопке |
+| R6-B3 | Русификация жанров (genre-names.ts) | P2 | pending | agent | Нет англ. жанров в UI игрока |
+| R6-B5 | Play HUD: ≤5 элементов, остальное в Sheet | P1 | pending | agent | settings-sheet; play.tsx разгрузить |
+| R6-B6 | Онбординг первого запуска (3 шага) | P3 | pending | agent | localStorage-флаг; один раз |
+
+## Backlog grooming (каждый 5-й запуск automation)
+
+Счётчик запусков: **`marathon_run_count`** в automation memory (`marathon.md`).
+
+**В начале каждого cron-запуска (до основной задачи):**
+1. Прочитать memory → `marathon_run_count` (если нет — `0`) → `+1` → записать обратно.
+2. Если `count % 5 == 0` — **grooming-запуск** (ниже). Иначе — обычная первая `pending` задача.
+3. Grooming не отменяет основную работу: после добавления задач всё равно взять первую `pending` (если осталось время).
+
+**Grooming-запуск (`count % 5 == 0`):**
+1. Просмотреть [PLAN.md](./PLAN.md), [REDESIGN.md](./REDESIGN.md), [HOSTING.md](./HOSTING.md) §10, [TESTLOG.md](./TESTLOG.md) (остаточные пробелы, баги).
+2. Добавить **до 5** новых строк со статусом `pending` (уникальные ID: `P5-*`, `R6-*`, `C*-B*`, `H-*`).
+3. Не дублировать по смыслу; если уже в main — `done` + запись в TESTLOG.
+4. Пометить уже сделанное в ветках — `C4-B01` или сразу `done`.
+5. Commit: `docs(marathon): backlog grooming run <count>`.
+
+**Префиксы ID для новых задач:**
+
+| Префикс | Источник |
+|---------|----------|
+| `P5-X.Y` | PLAN.md фазы 1–3 |
+| `R6-*` | REDESIGN.md блоки A–E |
+| `C3-S*` / `H-*` | HOSTING.md backlog |
+| `C2-B*` / `C4-B*` | Пробелы код ↔ спека ↔ UI |
 
 ## Automation prompt
 
 ```
-Прочитай MARATHON.md. Возьми первую pending задачу. Выполни acceptance. pnpm typecheck && pnpm --filter @workspace/api-server test && pnpm --filter @workspace/host-agent test. Обнови MARATHON.md и TESTLOG.md. Не коммить без запроса.
+Прочитай MARATHON.md. Секция «Backlog grooming»: инкремент marathon_run_count в automation memory.
+Если count кратен 5 — grooming (до 5 новых pending из PLAN/REDESIGN/HOSTING/TESTLOG), commit.
+Затем возьми первую pending задачу в активном цикле. Выполни acceptance.
+pnpm typecheck && pnpm --filter @workspace/api-server test && pnpm --filter @workspace/host-agent test.
+Обнови MARATHON.md и TESTLOG.md. Commit и push.
 ```
