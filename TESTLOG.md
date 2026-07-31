@@ -95,4 +95,24 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: host submissions/VDS/VT OpenAPI, storage ACL, Windows E2E |
+
+## Marathon C2-D02 (2026-07-30) {#marathon-c2-d02}
+
+| Область | Изменение |
+|---|---|
+| OpenAPI | `GET/POST /admin/games/submissions*` + `X-Admin-Secret` на всех `/admin/*` |
+| Codegen | `useAdminListSubmissions`, `useAdminApproveSubmission`, `useAdminRejectSubmission` |
+| Web | `admin/games.tsx` — raw fetch → React Query hooks; `lib/admin-headers.ts` |
+| Verified | web typecheck ok; api-server 22/22 + 3 node; host-agent 12/12 |
+
+## Marathon C2-S02 + C2-S06 (2026-07-31) {#marathon-c2-s02-s06}
+
+| Область | Изменение |
+|---|---|
+| OpenAPI | admin submissions (cherry-pick C2-D02) — `useAdminListSubmissions` и др. |
+| Web admin | `admin/games.tsx` — raw fetch → React Query hooks |
+| Web embed | `embed.tsx` — `createEmbedSession`, `getPublicIceConfig`, `useGetSessionByPlayerToken` |
+| Web routing | `App.tsx` — убран дублирующий `/wallet` из `HostRoutes` (standalone route) |
+| Verified | web typecheck ok; api-server 22/22 + 3 node; host-agent 12/12 |
+| Next | C2-S07 shadcn sr-only RU |
