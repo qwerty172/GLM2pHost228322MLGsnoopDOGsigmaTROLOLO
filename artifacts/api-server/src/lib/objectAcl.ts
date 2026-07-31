@@ -94,6 +94,72 @@ export async function getObjectAclPolicy(
   return JSON.parse(aclPolicy as string);
 }
 
+/** Legacy covers uploaded before ACL metadata existed live under uploads/*. */
+export function isLegacyPublicObjectPath(objectPath: string): boolean {
+  const relative = objectPath.startsWith("/objects/")
+    ? objectPath.slice("/objects/".length)
+    : objectPath.startsWith("objects/")
+      ? objectPath.slice("objects/".length)
+      : objectPath;
+  return relative.startsWith("uploads/");
+}
+
+export type ObjectReadAccessResult =
+  | { allowed: true }
+  | { allowed: false; status: 401 | 403 };
+
+/** Pure decision logic — used by evaluateObjectReadAccess and unit tests. */
+export function decideObjectReadAccess({
+  objectPath,
+  policy,
+  canAccess,
+  userId,
+}: {
+  objectPath: string;
+  policy: ObjectAclPolicy | null;
+  canAccess: boolean;
+  userId?: string;
+}): ObjectReadAccessResult {
+  if (policy) {
+    if (!canAccess) {
+      return { allowed: false, status: userId ? 403 : 401 };
+    }
+    return { allowed: true };
+  }
+
+  if (isLegacyPublicObjectPath(objectPath)) {
+    return { allowed: true };
+  }
+
+  return { allowed: false, status: 401 };
+}
+
+/**
+ * Decide whether an object may be served via GET /storage/objects/*.
+ * - ACL present → enforce canAccessObject
+ * - No ACL + uploads/* → legacy public read
+ * - No ACL + anything else → 401
+ */
+export async function evaluateObjectReadAccess({
+  objectPath,
+  objectFile,
+  userId,
+}: {
+  objectPath: string;
+  objectFile: File;
+  userId?: string;
+}): Promise<ObjectReadAccessResult> {
+  const policy = await getObjectAclPolicy(objectFile);
+  const canAccess = policy
+    ? await canAccessObject({
+        userId,
+        objectFile,
+        requestedPermission: ObjectPermission.READ,
+      })
+    : false;
+  return decideObjectReadAccess({ objectPath, policy, canAccess, userId });
+}
+
 export async function canAccessObject({
   userId,
   objectFile,
