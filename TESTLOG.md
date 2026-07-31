@@ -95,4 +95,15 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, Windows E2E |
+
+## Marathon C1-S06 — Storage ACL (2026-07-31) {#marathon-c1-s06}
+
+| Область | Находка / фикс |
+|---|---|
+| Риск | `GET /storage/objects/*` отдавал **любой** объект без ACL metadata публично — в т.ч. `saves/{playerId}/…` |
+| Legacy covers | Путь `uploads/*` без ACL остаётся публичным (обложки до введения ACL) |
+| Новое поведение | Объекты без ACL вне `uploads/*` → **401 Unauthorized** |
+| Saves | `POST /saves/confirm` и `POST /players/me/saves/:gameId/commit` ставят `visibility: private`, owner `player:{id}` |
+| Clips | Уже private ACL при upload (без изменений) |
+| Тесты | `objectAcl.test.ts` — `isLegacyPublicCoverPath` |
