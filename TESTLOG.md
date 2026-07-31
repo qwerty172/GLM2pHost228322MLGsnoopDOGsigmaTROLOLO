@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-07-31** | C2-S02 embed/admin codegen, C2-S07 shadcn sr-only RU — см. MARATHON.md |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -95,4 +95,6 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Web codegen | **done** | `embed.tsx` → `createEmbedSession`; `admin/games.tsx` → admin hooks; OpenAPI submissions |
+| Web a11y RU | **done** | shadcn `sr-only` в `artifacts/web/src/components/ui/*` |
+| Backlog | [MARATHON.md](./MARATHON.md) — next: C2-D02 OpenAPI gaps |

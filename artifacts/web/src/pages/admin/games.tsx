@@ -4,6 +4,16 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import {
+  adminApproveGameSubmission,
+  adminDeleteGame,
+  adminListGameSubmissions,
+  adminListGames,
+  adminPatchGame,
+  adminRejectGameSubmission,
+  type AdminGameSubmission,
+  type GameListItem,
+} from "@workspace/api-client-react";
+import {
   CheckCircle,
   XCircle,
   Clock,
@@ -14,37 +24,6 @@ import {
   Trash2,
   Gamepad2,
 } from "lucide-react";
-
-type Submission = {
-  id: string;
-  hostId: string;
-  status: string;
-  title: string;
-  slug: string;
-  category: string;
-  genres: string[];
-  description: string;
-  coverImageUrl: string;
-  kind: string;
-  defaultBrowserUrl: string;
-  steamAppId: string | null;
-  reviewedAt: string | null;
-  rejectionReason: string | null;
-  approvedGameId: string | null;
-  createdAt: string;
-  submitterDisplayName: string;
-};
-
-type CatalogGame = {
-  id: string;
-  slug: string;
-  title: string;
-  coverImageUrl: string;
-  genre: string;
-  isHidden: boolean;
-  browserHostUrl: string;
-  createdAt: string;
-};
 
 const ADMIN_SECRET_KEY = "streamline.adminSecret";
 
@@ -79,65 +58,62 @@ function adminHeaders(hostToken: string): Record<string, string> {
   };
 }
 
-async function approveSubmission(
-  id: string,
-  hostToken: string,
-): Promise<{ error?: string; game?: { slug: string } }> {
-  const r = await fetch(
-    `${import.meta.env.BASE_URL}api/admin/games/submissions/${id}/approve`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...adminHeaders(hostToken) },
-      body: JSON.stringify({}),
-    },
-  );
-  return r.json();
+function adminRequest(hostToken: string): RequestInit {
+  return { headers: adminHeaders(hostToken) };
 }
 
-async function rejectSubmission(
-  id: string,
-  reason: string,
-  hostToken: string,
-): Promise<{ error?: string }> {
-  const r = await fetch(
-    `${import.meta.env.BASE_URL}api/admin/games/submissions/${id}/reject`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...adminHeaders(hostToken) },
-      body: JSON.stringify({ reason }),
-    },
-  );
-  return r.json();
+function readApiError(err: unknown): string {
+  if (err && typeof err === "object" && "data" in err) {
+    const data = (err as { data: unknown }).data;
+    if (data && typeof data === "object") {
+      if ("error" in data && typeof (data as { error: unknown }).error === "string") {
+        return (data as { error: string }).error;
+      }
+      if ("message" in data && typeof (data as { message: unknown }).message === "string") {
+        return (data as { message: string }).message;
+      }
+    }
+  }
+  return String(err);
 }
 
-async function toggleVisibility(
-  id: string,
-  currentHidden: boolean,
-  hostToken: string,
-): Promise<{ error?: string; isHidden?: boolean }> {
-  const r = await fetch(
-    `${import.meta.env.BASE_URL}api/admin/games/${id}`,
-    {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...adminHeaders(hostToken) },
-      body: JSON.stringify({ isHidden: !currentHidden }),
-    },
-  );
-  return r.json();
+async function approveSubmission(id: string, hostToken: string) {
+  try {
+    return await adminApproveGameSubmission(id, {}, adminRequest(hostToken));
+  } catch (err) {
+    return { error: readApiError(err) };
+  }
 }
 
-async function deleteGame(
-  id: string,
-  hostToken: string,
-): Promise<{ error?: string; deleted?: boolean }> {
-  const r = await fetch(
-    `${import.meta.env.BASE_URL}api/admin/games/${id}`,
-    {
-      method: "DELETE",
-      headers: adminHeaders(hostToken),
-    },
-  );
-  return r.json();
+async function rejectSubmission(id: string, reason: string, hostToken: string) {
+  try {
+    await adminRejectGameSubmission(id, { reason }, adminRequest(hostToken));
+    return {};
+  } catch (err) {
+    return { error: readApiError(err) };
+  }
+}
+
+async function toggleVisibility(id: string, currentHidden: boolean, hostToken: string) {
+  try {
+    const updated = await adminPatchGame(
+      id,
+      { isHidden: !currentHidden },
+      adminRequest(hostToken),
+    );
+    return { isHidden: updated.isHidden };
+  } catch (err) {
+    return { error: readApiError(err) };
+  }
+}
+
+async function deleteGame(id: string, hostToken: string) {
+  try {
+    await adminDeleteGame(id, adminRequest(hostToken));
+    return { deleted: true as const };
+  } catch (err) {
+    return { error: readApiError(err) };
+  }
 }
 
 function CatalogGameRow({
@@ -145,7 +121,7 @@ function CatalogGameRow({
   hostToken,
   onAction,
 }: {
-  game: CatalogGame;
+  game: GameListItem;
   hostToken: string;
   onAction: () => void;
 }) {
@@ -155,7 +131,7 @@ function CatalogGameRow({
   const handleToggle = async () => {
     setBusy(true);
     try {
-      const res = await toggleVisibility(game.id, game.isHidden, hostToken);
+      const res = await toggleVisibility(game.id, game.isHidden ?? false, hostToken);
       if (res.error) {
         toast.error(res.error);
       } else {
@@ -321,7 +297,7 @@ function SubmissionCard({
   hostToken,
   onAction,
 }: {
-  sub: Submission;
+  sub: AdminGameSubmission;
   hostToken: string;
   onAction: () => void;
 }) {
@@ -333,10 +309,10 @@ function SubmissionCard({
     setBusy(true);
     try {
       const res = await approveSubmission(sub.id, hostToken);
-      if (res.error) {
+      if ("error" in res) {
         toast.error(res.error);
       } else {
-        toast.success(`Игра одобрена: ${res.game?.slug}`);
+        toast.success(`Игра одобрена: ${res.game.slug}`);
         onAction();
       }
     } catch {
@@ -545,11 +521,11 @@ export default function AdminGamesPage() {
     setSubError(null);
   };
 
-  const [submissions, setSubmissions] = useState<Submission[] | null>(null);
+  const [submissions, setSubmissions] = useState<AdminGameSubmission[] | null>(null);
   const [subLoading, setSubLoading] = useState(false);
   const [subError, setSubError] = useState<string | null>(null);
 
-  const [catalogGames, setCatalogGames] = useState<CatalogGame[] | null>(null);
+  const [catalogGames, setCatalogGames] = useState<GameListItem[] | null>(null);
   const [catLoading, setCatLoading] = useState(false);
   const [catError, setCatError] = useState<string | null>(null);
 
@@ -557,19 +533,14 @@ export default function AdminGamesPage() {
     setSubLoading(true);
     setSubError(null);
     try {
-      const r = await fetch(
-        `${import.meta.env.BASE_URL}api/admin/games/submissions?status=${status}`,
-        { headers: adminHeaders(token) },
+      const data = await adminListGameSubmissions(
+        { status: status as "pending" | "approved" | "rejected" | "all" },
+        adminRequest(token),
       );
-      const data = await r.json();
-      if (data.error) {
-        setSubError(data.error);
-        setSubmissions(null);
-      } else {
-        setSubmissions(data);
-      }
+      setSubmissions(data);
     } catch (e) {
-      setSubError(String(e));
+      setSubError(readApiError(e));
+      setSubmissions(null);
     } finally {
       setSubLoading(false);
     }
@@ -579,19 +550,11 @@ export default function AdminGamesPage() {
     setCatLoading(true);
     setCatError(null);
     try {
-      const r = await fetch(
-        `${import.meta.env.BASE_URL}api/admin/games`,
-        { headers: adminHeaders(token) },
-      );
-      const data = await r.json();
-      if (data.error) {
-        setCatError(data.error);
-        setCatalogGames(null);
-      } else {
-        setCatalogGames(data);
-      }
+      const data = await adminListGames(adminRequest(token));
+      setCatalogGames(data);
     } catch (e) {
-      setCatError(String(e));
+      setCatError(readApiError(e));
+      setCatalogGames(null);
     } finally {
       setCatLoading(false);
     }
