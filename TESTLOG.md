@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-07-31** | C2-S02 embed/admin codegen + OpenAPI admin submissions — см. MARATHON.md |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -85,7 +85,15 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 - **Осталось вручную:** полный цикл Steam → сессия → SendInput в реальной игре; kill Electron → disconnect ≤30с на живом стриме
 - **Топ рисков:** Electron `EADDRINUSE` если уже крутится ping-server; video frames в headless/automation иногда 0×0 (в UI HUD P2P ок)
 
-## Marathon 4-cycle audit (2026-07-27) {#marathon-c1}
+## Marathon C2-S02 (2026-07-31) {#marathon-c2-s02}
+
+| Область | Изменение |
+|---|---|
+| OpenAPI | `GET/POST /admin/games/submissions/*`, схемы `AdminSubmissionItem`, approve/reject |
+| embed.tsx | `createEmbedSession`, `getPublicIceConfig`, `useGetSessionByPlayerToken` вместо raw fetch |
+| admin/games.tsx | `useAdminListGames`, `useAdminListSubmissions`, patch/delete/approve/reject mutations |
+| Верификация | web build ok; api-server 22/22 + 3 node; host-agent 12/12 |
+
 
 | Область | Фикс |
 |---|---|
