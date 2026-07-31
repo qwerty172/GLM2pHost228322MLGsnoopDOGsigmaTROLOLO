@@ -5,6 +5,7 @@ import {
   useCreateEmbedSession,
   useGetSessionByPlayerToken,
   getPublicIceConfig,
+  getGetSessionByPlayerTokenQueryKey,
   type CreateEmbedSessionResponse,
 } from "@workspace/api-client-react";
 
@@ -116,6 +117,7 @@ export default function Embed() {
     query: {
       enabled: !!session?.playerToken && !ended,
       refetchInterval: 5000,
+      queryKey: getGetSessionByPlayerTokenQueryKey(session?.playerToken ?? ""),
     },
   });
 

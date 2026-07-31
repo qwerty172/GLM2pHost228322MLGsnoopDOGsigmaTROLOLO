@@ -21,6 +21,8 @@ import {
   useAdminDeleteGame,
   useAdminApproveGameSubmission,
   useAdminRejectGameSubmission,
+  getAdminListGamesQueryKey,
+  getAdminListGameSubmissionsQueryKey,
   type GameListItem,
   type GameSubmissionAdminItem,
   type AdminListGameSubmissionsStatus,
@@ -476,6 +478,7 @@ export default function AdminGamesPage() {
   const catalogQuery = useAdminListGames({
     query: {
       enabled: !!hostToken && tab === "catalog",
+      queryKey: getAdminListGamesQueryKey(),
     },
     request: requestOptions,
   });
@@ -485,6 +488,7 @@ export default function AdminGamesPage() {
     {
       query: {
         enabled: !!hostToken && tab === "submissions",
+        queryKey: getAdminListGameSubmissionsQueryKey({ status: statusFilter }),
       },
       request: requestOptions,
     },
