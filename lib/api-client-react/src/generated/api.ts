@@ -31,6 +31,8 @@ import type {
   BindAgentKey200,
   BindAgentKeyBody,
   ClaimSessionBody,
+  ConfirmUploadBody,
+  ConfirmUploadResponse,
   CreateBrowserHostSessionBody,
   CreateBrowserHostSessionResponse,
   CreateEmbedSessionBody,
@@ -6448,6 +6450,92 @@ export const useRequestUploadUrl = <
   TContext
 > => {
   return useMutation(getRequestUploadUrlMutationOptions(options));
+};
+
+/**
+ * @summary Attach public-read ACL after cover upload
+ */
+export const getConfirmUploadAclUrl = () => {
+  return `/api/storage/uploads/confirm`;
+};
+
+export const confirmUploadAcl = async (
+  confirmUploadBody: ConfirmUploadBody,
+  options?: RequestInit,
+): Promise<ConfirmUploadResponse> => {
+  return customFetch<ConfirmUploadResponse>(getConfirmUploadAclUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(confirmUploadBody),
+  });
+};
+
+export const getConfirmUploadAclMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmUploadAcl>>,
+    TError,
+    { data: BodyType<ConfirmUploadBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof confirmUploadAcl>>,
+  TError,
+  { data: BodyType<ConfirmUploadBody> },
+  TContext
+> => {
+  const mutationKey = ["confirmUploadAcl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof confirmUploadAcl>>,
+    { data: BodyType<ConfirmUploadBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return confirmUploadAcl(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ConfirmUploadAclMutationResult = NonNullable<
+  Awaited<ReturnType<typeof confirmUploadAcl>>
+>;
+export type ConfirmUploadAclMutationBody = BodyType<ConfirmUploadBody>;
+export type ConfirmUploadAclMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Attach public-read ACL after cover upload
+ */
+export const useConfirmUploadAcl = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmUploadAcl>>,
+    TError,
+    { data: BodyType<ConfirmUploadBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof confirmUploadAcl>>,
+  TError,
+  { data: BodyType<ConfirmUploadBody> },
+  TContext
+> => {
+  return useMutation(getConfirmUploadAclMutationOptions(options));
 };
 
 /**

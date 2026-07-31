@@ -94,6 +94,75 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
   }
 });
 
+const ConfirmUploadBody = z.object({
+  objectPath: z.string().min(1),
+});
+
+const ConfirmUploadResponse = z.object({
+  objectPath: z.string(),
+  visibility: z.enum(["public", "private"]),
+});
+
+/**
+ * POST /storage/uploads/confirm
+ *
+ * After a successful presigned PUT, attach a public-read ACL so the cover
+ * is servable via GET /storage/objects/…
+ */
+router.post("/storage/uploads/confirm", async (req: Request, res: Response) => {
+  const token = req.headers["x-host-token"] as string | undefined;
+  if (!token) {
+    res.status(401).json({ error: "Missing X-Host-Token header" });
+    return;
+  }
+
+  const { db, hostsTable } = await import("@workspace/db");
+  const { eq } = await import("drizzle-orm");
+  const [host] = await db
+    .select({ id: hostsTable.id })
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, token));
+  if (!host) {
+    res.status(401).json({ error: "Unknown host token" });
+    return;
+  }
+
+  const parsed = ConfirmUploadBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const apiPrefix = "/api/storage";
+  const normalizedPath = parsed.data.objectPath.startsWith(apiPrefix)
+    ? parsed.data.objectPath.slice(apiPrefix.length)
+    : parsed.data.objectPath;
+
+  if (!normalizedPath.startsWith("/objects/uploads/")) {
+    res.status(400).json({ error: "objectPath must be an uploads cover path" });
+    return;
+  }
+
+  try {
+    const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+      normalizedPath,
+      {
+        owner: `host:${host.id}`,
+        visibility: "public",
+      },
+    );
+
+    res.json(
+      ConfirmUploadResponse.parse({
+        objectPath: `${apiPrefix}${objectPath}`,
+        visibility: "public",
+      }),
+    );
+  } catch (error) {
+    handleStorageError(req, res, error, "Failed to confirm upload ACL");
+  }
+});
+
 /**
  * GET /storage/public-objects/*
  *
@@ -133,7 +202,7 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
  * Serve object entities from PRIVATE_OBJECT_DIR with ACL enforcement.
  * - visibility=public → anyone can READ
  * - visibility=private → owner only
- * - no ACL metadata (legacy covers) → public READ
+ * - no ACL metadata → 403 (legacy public read removed; use confirm + backfill)
  */
 router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {
@@ -143,19 +212,25 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
 
     const policy = await getObjectAclPolicy(objectFile);
-    if (policy) {
-      const userId = await resolveCallerUserId(req);
-      const canAccess = await objectStorageService.canAccessObjectEntity({
-        userId,
-        objectFile,
-        requestedPermission: ObjectPermission.READ,
+    if (!policy) {
+      res.status(403).json({
+        error: "forbidden",
+        message: "Объект без политики ACL недоступен",
       });
-      if (!canAccess) {
-        res.status(userId ? 403 : 401).json({
-          error: userId ? "Forbidden" : "Unauthorized",
-        });
-        return;
-      }
+      return;
+    }
+
+    const userId = await resolveCallerUserId(req);
+    const canAccess = await objectStorageService.canAccessObjectEntity({
+      userId,
+      objectFile,
+      requestedPermission: ObjectPermission.READ,
+    });
+    if (!canAccess) {
+      res.status(userId ? 403 : 401).json({
+        error: userId ? "Forbidden" : "Unauthorized",
+      });
+      return;
     }
 
     const response = await objectStorageService.downloadObject(objectFile);

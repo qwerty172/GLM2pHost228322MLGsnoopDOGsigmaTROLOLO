@@ -3452,6 +3452,22 @@ export const RequestUploadUrlResponse = zod.object({
 });
 
 /**
+ * @summary Attach public-read ACL after cover upload
+ */
+export const ConfirmUploadAclBody = zod.object({
+  objectPath: zod
+    .string()
+    .describe(
+      "Path returned from request-url (e.g. \/api\/storage\/objects\/uploads\/…)",
+    ),
+});
+
+export const ConfirmUploadAclResponse = zod.object({
+  objectPath: zod.string(),
+  visibility: zod.enum(["public", "private"]),
+});
+
+/**
  * @summary Get latest cloud save metadata for a game
  */
 export const GetPlayerGameSaveParams = zod.object({

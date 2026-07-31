@@ -13,7 +13,18 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-07-31** | C1-S06: storage ACL legacy public read закрыт — см. #marathon-c1-s06 |
+
+## Marathon C1-S06 — Storage ACL legacy public read (2026-07-31) {#marathon-c1-s06}
+
+| Изменение | Детали |
+|---|---|
+| GET `/storage/objects/*` | Объекты без ACL metadata → **403** (раньше public READ) |
+| POST `/storage/uploads/confirm` | После presigned PUT хост ставит `visibility: public` на cover |
+| Startup backfill | `runStorageAclBackfill()` — public ACL для cover URL из `games` / `game_submissions` |
+| Тесты | `storageAclPaths.test.ts` — парсинг cover URL → `/objects/…` |
+| OpenAPI | `confirmUploadAcl` + `ConfirmUploadBody/Response` |
+
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -95,4 +106,4 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, central auth middleware, Windows E2E |

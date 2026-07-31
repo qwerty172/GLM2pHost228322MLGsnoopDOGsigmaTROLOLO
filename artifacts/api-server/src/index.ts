@@ -16,6 +16,7 @@ import { startOutboxWorker } from "./lib/outboxWorker";
 import { startMetricsWorker } from "./lib/metricsWorker";
 import { seedGames } from "./lib/seedGames";
 import { runLegacyBackfill } from "./lib/legacyBackfill";
+import { runStorageAclBackfill } from "./lib/storageAcl";
 import { startPgNotifyListener, stopPgNotifyListener, emitPlatformEvent } from "./lib/pgNotify";
 import { initSentry } from "./lib/sentry";
 import { pool } from "@workspace/db";
@@ -62,6 +63,9 @@ function startWorkers() {
   });
   runLegacyBackfill().catch((err) => {
     logger.error({ err }, "Failed to run legacy backfill");
+  });
+  runStorageAclBackfill().catch((err) => {
+    logger.error({ err }, "Failed to run storage ACL backfill");
   });
 }
 
