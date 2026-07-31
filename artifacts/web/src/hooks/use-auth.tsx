@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { authLogin, authLogout, authRefresh } from "@workspace/api-client-react";
 
 interface AuthContextType {
   hostToken: string | null;
@@ -10,6 +11,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const ACCESS_STORAGE = "streamline.accessJwt";
+const AUTH_FETCH_OPTS: RequestInit = { credentials: "include" };
 
 function consumeTokenFromUrl(setHostToken: (token: string | null) => void): void {
   const params = new URLSearchParams(window.location.search);
@@ -25,14 +27,7 @@ function consumeTokenFromUrl(setHostToken: (token: string | null) => void): void
 
 async function exchangeLegacyForJwt(legacyToken: string): Promise<string | null> {
   try {
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ legacyToken }),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { accessToken?: string };
+    const data = await authLogin({ legacyToken }, AUTH_FETCH_OPTS);
     return data.accessToken ?? null;
   } catch {
     return null;
@@ -41,12 +36,7 @@ async function exchangeLegacyForJwt(legacyToken: string): Promise<string | null>
 
 async function refreshAccessJwt(): Promise<string | null> {
   try {
-    const res = await fetch("/api/auth/refresh", {
-      method: "POST",
-      credentials: "include",
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { accessToken?: string };
+    const data = await authRefresh({}, AUTH_FETCH_OPTS);
     return data.accessToken ?? null;
   } catch {
     return null;
@@ -69,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem("streamline.hostToken");
       sessionStorage.removeItem(ACCESS_STORAGE);
       setAccessToken(null);
-      void fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+      void authLogout(AUTH_FETCH_OPTS);
     }
     setToken(token);
   };

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { publicPing } from "@workspace/api-client-react";
 
 const PING_INTERVAL_MS = 60_000;
 
@@ -12,9 +13,8 @@ export function useBrowserPingMs(): number | null {
 
     async function probe() {
       try {
-        const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
         const t0 = Date.now();
-        await fetch(`${base}/api/public/ping`, { cache: "no-store" });
+        await publicPing();
         if (!cancelled) setPingMs(Date.now() - t0);
       } catch {
         /* ignore */

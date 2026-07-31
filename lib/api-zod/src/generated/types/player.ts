@@ -14,6 +14,7 @@ export interface Player {
   internalBalanceLzt: number;
   /** Р—РµР»С‘РЅС‹Р№ вЂ” LZT convertible back to crypto at 200:1 */
   withdrawableBalanceLzt: number;
+  isGuest?: boolean;
   createdAt: Date;
   lastSeenAt: Date;
 }

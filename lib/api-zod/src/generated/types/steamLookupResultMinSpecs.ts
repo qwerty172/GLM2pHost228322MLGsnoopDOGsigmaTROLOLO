@@ -6,8 +6,4 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface RegisterPlayerBody {
-  displayName?: string;
-  /** When true, creates an anonymous guest wallet without displayName */
-  guest?: boolean;
-}
+export type SteamLookupResultMinSpecs = { [key: string]: unknown };

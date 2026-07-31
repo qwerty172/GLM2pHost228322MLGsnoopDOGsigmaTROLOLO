@@ -28,6 +28,10 @@ export type ListGamesParams = {
    */
   liveOnly?: boolean;
   /**
+   * Only return games that have at least one always-on VDS host
+   */
+  vdsOnly?: boolean;
+  /**
    * Case-insensitive substring match against the game title
    */
   search?: string;
