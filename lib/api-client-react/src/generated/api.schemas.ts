@@ -90,6 +90,121 @@ export interface AdminPatchGameBody {
   isHidden?: boolean;
 }
 
+export type GameSubmissionItemStatus =
+  (typeof GameSubmissionItemStatus)[keyof typeof GameSubmissionItemStatus];
+
+export const GameSubmissionItemStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
+export type GameSubmissionItemKind =
+  (typeof GameSubmissionItemKind)[keyof typeof GameSubmissionItemKind];
+
+export const GameSubmissionItemKind = {
+  native: "native",
+  browser: "browser",
+} as const;
+
+/**
+ * @nullable
+ */
+export type GameSubmissionItemPendingHostConfig = {
+  [key: string]: unknown;
+} | null;
+
+export interface GameSubmissionItem {
+  id: string;
+  hostId: string;
+  status: GameSubmissionItemStatus;
+  title: string;
+  slug: string;
+  category: string;
+  genres: string[];
+  description: string;
+  coverImageUrl: string;
+  kind: GameSubmissionItemKind;
+  defaultBrowserUrl: string;
+  /** @nullable */
+  steamAppId?: string | null;
+  /** @nullable */
+  reviewerId?: string | null;
+  /** @nullable */
+  reviewedAt?: string | null;
+  /** @nullable */
+  rejectionReason?: string | null;
+  /** @nullable */
+  approvedGameId?: string | null;
+  /** @nullable */
+  pendingHostConfig?: GameSubmissionItemPendingHostConfig;
+  createdAt: string;
+  submitterDisplayName: string;
+}
+
+export interface AdminApproveGameSubmissionBody {
+  title?: string;
+  slug?: string;
+  category?: string;
+  genres?: string[];
+  description?: string;
+  coverImageUrl?: string;
+  steamAppId?: string;
+}
+
+export interface GameListItem {
+  id: string;
+  slug: string;
+  title: string;
+  coverImageUrl: string;
+  description: string;
+  genre: string;
+  /** Primary catalog category (e.g. action, rpg) */
+  category: string;
+  /** Additional genre tags */
+  genres: string[];
+  createdAt: string;
+  hasMods: boolean;
+  isMultiplayer: boolean;
+  hostSpectatesPlayer: boolean;
+  hasQuests: boolean;
+  /** Number of pending or active sessions matching this game right now */
+  liveSessionCount: number;
+  /** Hosts with this game enabled that currently have a live session */
+  liveHostsCount: number;
+  /** Number of always-on VDS hosts offering this game */
+  vdsHostsCount?: number;
+  /** True when at least one VDS host offers this game */
+  hasVdsHosts?: boolean;
+  /**
+   * Cheapest enabled library price for this game across hosts, in LZT
+   * @nullable
+   */
+  minPricePerMinuteLzt: number | null;
+  /** Same-origin URL of a vendored browser build that a player can host
+directly from their browser tab (no desktop agent). Empty when only
+native-app hosting is supported.
+ */
+  browserHostUrl: string;
+  /** When true the game is excluded from the public catalog (admin-only flag). */
+  isHidden?: boolean;
+}
+
+export interface AdminApproveGameSubmissionResponse {
+  approved: boolean;
+  libraryAutoCreated?: boolean;
+  game?: GameListItem;
+}
+
+export interface AdminRejectGameSubmissionBody {
+  /** @minLength 1 */
+  reason: string;
+}
+
+export interface AdminRejectGameSubmissionResponse {
+  rejected: boolean;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -289,44 +404,6 @@ export interface RegisterHostBody {
 
 export interface RegisterPlayerBody {
   displayName: string;
-}
-
-export interface GameListItem {
-  id: string;
-  slug: string;
-  title: string;
-  coverImageUrl: string;
-  description: string;
-  genre: string;
-  /** Primary catalog category (e.g. action, rpg) */
-  category: string;
-  /** Additional genre tags */
-  genres: string[];
-  createdAt: string;
-  hasMods: boolean;
-  isMultiplayer: boolean;
-  hostSpectatesPlayer: boolean;
-  hasQuests: boolean;
-  /** Number of pending or active sessions matching this game right now */
-  liveSessionCount: number;
-  /** Hosts with this game enabled that currently have a live session */
-  liveHostsCount: number;
-  /** Number of always-on VDS hosts offering this game */
-  vdsHostsCount?: number;
-  /** True when at least one VDS host offers this game */
-  hasVdsHosts?: boolean;
-  /**
-   * Cheapest enabled library price for this game across hosts, in LZT
-   * @nullable
-   */
-  minPricePerMinuteLzt: number | null;
-  /** Same-origin URL of a vendored browser build that a player can host
-directly from their browser tab (no desktop agent). Empty when only
-native-app hosting is supported.
- */
-  browserHostUrl: string;
-  /** When true the game is excluded from the public catalog (admin-only flag). */
-  isHidden?: boolean;
 }
 
 export type GameLiveSessionScheduleMode =
@@ -1473,6 +1550,23 @@ export type ListApplicableQuotasParams = {
 export type GetQuotaParams = {
   ownerToken?: string;
 };
+
+export type AdminListGameSubmissionsParams = {
+  /**
+   * Filter submissions by moderation status
+   */
+  status?: AdminListGameSubmissionsStatus;
+};
+
+export type AdminListGameSubmissionsStatus =
+  (typeof AdminListGameSubmissionsStatus)[keyof typeof AdminListGameSubmissionsStatus];
+
+export const AdminListGameSubmissionsStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+  all: "all",
+} as const;
 
 export type ListMyLoansParams = {
   userToken: string;
