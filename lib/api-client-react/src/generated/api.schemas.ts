@@ -1320,6 +1320,54 @@ export interface CreateEmbedSessionResponse {
   keyBalanceLzt: number;
 }
 
+export interface GameSubmissionItem {
+  id: string;
+  hostId: string;
+  status: string;
+  title: string;
+  slug: string;
+  category: string;
+  genres: string[];
+  description: string;
+  coverImageUrl: string;
+  kind: string;
+  defaultBrowserUrl: string;
+  /** @nullable */
+  steamAppId?: string | null;
+  /** @nullable */
+  reviewedAt?: string | null;
+  /** @nullable */
+  rejectionReason?: string | null;
+  /** @nullable */
+  approvedGameId?: string | null;
+  createdAt: string;
+  submitterDisplayName: string;
+}
+
+export interface AdminApproveGameSubmissionBody {
+  title?: string;
+  slug?: string;
+  category?: string;
+  genres?: string[];
+  description?: string;
+  coverImageUrl?: string;
+  steamAppId?: string;
+}
+
+export interface AdminApproveGameSubmissionResponse {
+  approved: boolean;
+  game?: GameListItem;
+  libraryAutoCreated?: boolean;
+}
+
+export interface AdminRejectGameSubmissionBody {
+  reason: string;
+}
+
+export interface AdminRejectGameSubmissionResponse {
+  rejected: boolean;
+}
+
 export type RequestUploadUrlBodyContentType =
   (typeof RequestUploadUrlBodyContentType)[keyof typeof RequestUploadUrlBodyContentType];
 
@@ -1473,6 +1521,20 @@ export type ListApplicableQuotasParams = {
 export type GetQuotaParams = {
   ownerToken?: string;
 };
+
+export type AdminListGameSubmissionsParams = {
+  status?: AdminListGameSubmissionsStatus;
+};
+
+export type AdminListGameSubmissionsStatus =
+  (typeof AdminListGameSubmissionsStatus)[keyof typeof AdminListGameSubmissionsStatus];
+
+export const AdminListGameSubmissionsStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+  all: "all",
+} as const;
 
 export type ListMyLoansParams = {
   userToken: string;
