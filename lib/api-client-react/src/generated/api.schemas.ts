@@ -1303,6 +1303,51 @@ export interface UpdateHostLibraryEntryBody {
   lastError?: string;
 }
 
+export interface AdminSubmissionItem {
+  id: string;
+  hostId: string;
+  status: string;
+  title: string;
+  slug: string;
+  category: string;
+  genres: string[];
+  description: string;
+  coverImageUrl: string;
+  kind: string;
+  defaultBrowserUrl: string;
+  steamAppId?: string | null;
+  reviewerId?: string | null;
+  reviewedAt?: string | null;
+  rejectionReason?: string | null;
+  approvedGameId?: string | null;
+  createdAt: string;
+  submitterDisplayName: string;
+}
+
+export interface AdminApproveSubmissionBody {
+  title?: string;
+  slug?: string;
+  category?: string;
+  genres?: string[];
+  description?: string;
+  coverImageUrl?: string;
+  steamAppId?: string;
+}
+
+export interface AdminApproveSubmissionResponse {
+  approved: boolean;
+  game: GameListItem;
+  libraryAutoCreated?: boolean;
+}
+
+export interface AdminRejectSubmissionBody {
+  reason: string;
+}
+
+export interface AdminRejectSubmissionResponse {
+  rejected: boolean;
+}
+
 export interface CreateEmbedSessionBody {
   apiKey: string;
   gameSlug: string;
@@ -1473,6 +1518,20 @@ export type ListApplicableQuotasParams = {
 export type GetQuotaParams = {
   ownerToken?: string;
 };
+
+export type AdminListSubmissionsParams = {
+  status?: AdminListSubmissionsStatus;
+};
+
+export type AdminListSubmissionsStatus =
+  (typeof AdminListSubmissionsStatus)[keyof typeof AdminListSubmissionsStatus];
+
+export const AdminListSubmissionsStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+  all: "all",
+} as const;
 
 export type ListMyLoansParams = {
   userToken: string;
