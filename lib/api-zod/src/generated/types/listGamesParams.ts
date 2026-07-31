@@ -28,6 +28,14 @@ export type ListGamesParams = {
    */
   liveOnly?: boolean;
   /**
+   * Only return games offered by at least one always-on VDS host
+   */
+  vdsOnly?: boolean;
+  /**
+   * Filter by primary catalog category (case-insensitive)
+   */
+  category?: string;
+  /**
    * Case-insensitive substring match against the game title
    */
   search?: string;

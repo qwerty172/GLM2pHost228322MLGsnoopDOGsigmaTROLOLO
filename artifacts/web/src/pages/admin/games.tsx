@@ -4,6 +4,16 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import {
+  adminApproveGameSubmission,
+  adminDeleteGame,
+  adminListGameSubmissions,
+  adminListGames,
+  adminPatchGame,
+  adminRejectGameSubmission,
+  type GameListItem,
+  type GameSubmissionAdminItem,
+} from "@workspace/api-client-react";
+import {
   CheckCircle,
   XCircle,
   Clock,
@@ -15,36 +25,9 @@ import {
   Gamepad2,
 } from "lucide-react";
 
-type Submission = {
-  id: string;
-  hostId: string;
-  status: string;
-  title: string;
-  slug: string;
-  category: string;
-  genres: string[];
-  description: string;
-  coverImageUrl: string;
-  kind: string;
-  defaultBrowserUrl: string;
-  steamAppId: string | null;
-  reviewedAt: string | null;
-  rejectionReason: string | null;
-  approvedGameId: string | null;
-  createdAt: string;
-  submitterDisplayName: string;
-};
+type Submission = GameSubmissionAdminItem;
 
-type CatalogGame = {
-  id: string;
-  slug: string;
-  title: string;
-  coverImageUrl: string;
-  genre: string;
-  isHidden: boolean;
-  browserHostUrl: string;
-  createdAt: string;
-};
+type CatalogGame = GameListItem;
 
 const ADMIN_SECRET_KEY = "streamline.adminSecret";
 
@@ -83,15 +66,20 @@ async function approveSubmission(
   id: string,
   hostToken: string,
 ): Promise<{ error?: string; game?: { slug: string } }> {
-  const r = await fetch(
-    `${import.meta.env.BASE_URL}api/admin/games/submissions/${id}/approve`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...adminHeaders(hostToken) },
-      body: JSON.stringify({}),
-    },
-  );
-  return r.json();
+  try {
+    const res = await adminApproveGameSubmission(
+      id,
+      {},
+      { headers: adminHeaders(hostToken) },
+    );
+    return { game: res.game ? { slug: res.game.slug } : undefined };
+  } catch (err) {
+    const data =
+      err && typeof err === "object" && "data" in err
+        ? (err as { data?: { error?: string } }).data
+        : undefined;
+    return { error: data?.error ?? "Ошибка одобрения" };
+  }
 }
 
 async function rejectSubmission(
@@ -99,15 +87,20 @@ async function rejectSubmission(
   reason: string,
   hostToken: string,
 ): Promise<{ error?: string }> {
-  const r = await fetch(
-    `${import.meta.env.BASE_URL}api/admin/games/submissions/${id}/reject`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...adminHeaders(hostToken) },
-      body: JSON.stringify({ reason }),
-    },
-  );
-  return r.json();
+  try {
+    await adminRejectGameSubmission(
+      id,
+      { reason },
+      { headers: adminHeaders(hostToken) },
+    );
+    return {};
+  } catch (err) {
+    const data =
+      err && typeof err === "object" && "data" in err
+        ? (err as { data?: { error?: string } }).data
+        : undefined;
+    return { error: data?.error ?? "Ошибка отклонения" };
+  }
 }
 
 async function toggleVisibility(
@@ -115,29 +108,36 @@ async function toggleVisibility(
   currentHidden: boolean,
   hostToken: string,
 ): Promise<{ error?: string; isHidden?: boolean }> {
-  const r = await fetch(
-    `${import.meta.env.BASE_URL}api/admin/games/${id}`,
-    {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...adminHeaders(hostToken) },
-      body: JSON.stringify({ isHidden: !currentHidden }),
-    },
-  );
-  return r.json();
+  try {
+    const res = await adminPatchGame(
+      id,
+      { isHidden: !currentHidden },
+      { headers: adminHeaders(hostToken) },
+    );
+    return { isHidden: res.isHidden };
+  } catch (err) {
+    const data =
+      err && typeof err === "object" && "data" in err
+        ? (err as { data?: { error?: string } }).data
+        : undefined;
+    return { error: data?.error ?? "Ошибка смены видимости" };
+  }
 }
 
 async function deleteGame(
   id: string,
   hostToken: string,
 ): Promise<{ error?: string; deleted?: boolean }> {
-  const r = await fetch(
-    `${import.meta.env.BASE_URL}api/admin/games/${id}`,
-    {
-      method: "DELETE",
-      headers: adminHeaders(hostToken),
-    },
-  );
-  return r.json();
+  try {
+    await adminDeleteGame(id, { headers: adminHeaders(hostToken) });
+    return { deleted: true };
+  } catch (err) {
+    const data =
+      err && typeof err === "object" && "data" in err
+        ? (err as { data?: { error?: string } }).data
+        : undefined;
+    return { error: data?.error ?? "Ошибка удаления" };
+  }
 }
 
 function CatalogGameRow({
@@ -155,7 +155,7 @@ function CatalogGameRow({
   const handleToggle = async () => {
     setBusy(true);
     try {
-      const res = await toggleVisibility(game.id, game.isHidden, hostToken);
+      const res = await toggleVisibility(game.id, game.isHidden ?? false, hostToken);
       if (res.error) {
         toast.error(res.error);
       } else {
@@ -557,19 +557,18 @@ export default function AdminGamesPage() {
     setSubLoading(true);
     setSubError(null);
     try {
-      const r = await fetch(
-        `${import.meta.env.BASE_URL}api/admin/games/submissions?status=${status}`,
+      const data = await adminListGameSubmissions(
+        { status: status as "pending" | "approved" | "rejected" | "all" },
         { headers: adminHeaders(token) },
       );
-      const data = await r.json();
-      if (data.error) {
-        setSubError(data.error);
-        setSubmissions(null);
-      } else {
-        setSubmissions(data);
-      }
+      setSubmissions(data);
     } catch (e) {
-      setSubError(String(e));
+      const data =
+        e && typeof e === "object" && "data" in e
+          ? (e as { data?: { error?: string } }).data
+          : undefined;
+      setSubError(data?.error ?? String(e));
+      setSubmissions(null);
     } finally {
       setSubLoading(false);
     }
@@ -579,19 +578,15 @@ export default function AdminGamesPage() {
     setCatLoading(true);
     setCatError(null);
     try {
-      const r = await fetch(
-        `${import.meta.env.BASE_URL}api/admin/games`,
-        { headers: adminHeaders(token) },
-      );
-      const data = await r.json();
-      if (data.error) {
-        setCatError(data.error);
-        setCatalogGames(null);
-      } else {
-        setCatalogGames(data);
-      }
+      const data = await adminListGames({ headers: adminHeaders(token) });
+      setCatalogGames(data);
     } catch (e) {
-      setCatError(String(e));
+      const data =
+        e && typeof e === "object" && "data" in e
+          ? (e as { data?: { error?: string } }).data
+          : undefined;
+      setCatError(data?.error ?? String(e));
+      setCatalogGames(null);
     } finally {
       setCatLoading(false);
     }
