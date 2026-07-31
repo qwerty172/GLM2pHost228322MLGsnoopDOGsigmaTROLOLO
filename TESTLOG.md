@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-07-31** | C2-S02 embed/admin codegen — см. #marathon-c2-s02 |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -85,6 +85,16 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 - **Осталось вручную:** полный цикл Steam → сессия → SendInput в реальной игре; kill Electron → disconnect ≤30с на живом стриме
 - **Топ рисков:** Electron `EADDRINUSE` если уже крутится ping-server; video frames в headless/automation иногда 0×0 (в UI HUD P2P ок)
 
+## Marathon C2-S02 (2026-07-31) {#marathon-c2-s02}
+
+| Область | Изменение |
+|---|---|
+| OpenAPI | `GET/POST /admin/games/submissions/*`, `X-Admin-Secret` на admin routes |
+| Codegen | `useAdminListGameSubmissions`, approve/reject mutations |
+| Web admin | `admin/games.tsx` → codegen hooks + `lib/admin-api-headers.ts` |
+| Web embed | `embed.tsx` → `createEmbedSession`, `getPublicIceConfig`, `getSessionByPlayerToken` |
+| api-client-react | `ApiError` re-export |
+
 ## Marathon 4-cycle audit (2026-07-27) {#marathon-c1}
 
 | Область | Фикс |
@@ -95,4 +105,4 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: /wallet route, OpenAPI gaps, storage ACL, Windows E2E |
