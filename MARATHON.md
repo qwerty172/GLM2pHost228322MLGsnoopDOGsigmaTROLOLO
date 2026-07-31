@@ -1,9 +1,9 @@
 # DecentralHub Marathon — живой бэклог
 
-> **Активный цикл:** Wave Regression  
+> **Активный цикл:** Cycle 2 — Web UI  
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл` (cron пн/чт 09:00)  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-07-30
+> **Последнее обновление:** 2026-07-31
 
 ## Как пользоваться
 
