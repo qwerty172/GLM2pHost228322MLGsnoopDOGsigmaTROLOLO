@@ -96,3 +96,13 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
 | Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+
+## Marathon C2-S02 embed/admin codegen (2026-07-31) {#marathon-c2-s02}
+
+| Область | Изменение |
+|---|---|
+| OpenAPI | `adminListSubmissions`, `adminApproveSubmission`, `adminRejectSubmission` + схемы |
+| embed.tsx | `useCreateEmbedSession`, `getPublicIceConfig`, `useGetSessionByPlayerToken` — raw fetch убран |
+| admin/games.tsx | `useAdminListGames`, `useAdminListSubmissions`, patch/delete/approve/reject mutations |
+| lib | `artifacts/web/src/lib/admin-request.ts` — X-Host-Token + X-Admin-Secret helper |
+| Верификация | web typecheck ok; api-server 22/22 + 3 node; host-agent 12/12 |
