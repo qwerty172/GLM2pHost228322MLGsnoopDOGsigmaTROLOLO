@@ -15,6 +15,37 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon C2-D02 — OpenAPI gaps (2026-07-31) {#marathon-c2-d02}
+
+**Задача:** закрыть пробелы между `artifacts/web` (raw `fetch`) и `lib/api-spec/openapi.yaml`.
+
+### Добавлено в OpenAPI + codegen (22 эндпоинта)
+
+| Группа | Эндпоинты |
+|---|---|
+| admin | `GET /admin/games/submissions`, `POST …/approve`, `POST …/reject` (+ `X-Admin-Secret` на всех admin routes) |
+| auth | `POST /auth/login`, `/auth/refresh`, `/auth/logout` |
+| players | `POST /players/upgrade-guest` |
+| sessions | `POST /sessions/by-player-token/{token}/renew-block`, `POST /sessions/{id}/rate` |
+| storage | `POST /storage/clip-upload` |
+| public | `GET /public/games/{slug}/hosts` |
+| games | `GET /games/rawg-search`, `/games/steam-lookup`, `POST /games/submit`, `PATCH /games/submissions/{id}/pending-config` |
+| vds | `POST /quotas/vds/test-connection`, `POST /quotas/{quotaId}/vds`, `GET /vds/mine` |
+| vt | `POST /vt/scan` |
+
+### Остаточные пробелы (backlog → C2-S02 миграция)
+
+- Web всё ещё использует raw `fetch` там, где хуки уже сгенерированы (`landing.tsx`, `play.tsx`, `embed.tsx`, `admin/games.tsx`, …)
+- `PATCH /api/players/me/credit-settings` — вызывается из `profile.tsx`, **эндпоинта в api-server нет** (сломанный toggle кредита)
+
+### Верификация
+
+- `pnpm --filter @workspace/api-spec run codegen` — ok
+- `pnpm --filter @workspace/web typecheck` — ok
+- `pnpm --filter @workspace/api-server test` — 22/22 vitest + 3 node
+- `pnpm --filter @workspace/host-agent test` — 12/12
+- `pnpm typecheck` — api-server падает на pre-existing `lib/auth-verifier` (не связано с C2-D02)
+
 ## Матрица проверок (Windows 2026-07-24)
 
 | Проверка | Статус | Скрипт / как |

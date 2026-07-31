@@ -1347,6 +1347,281 @@ export interface RequestUploadUrlResponse {
   metadata: RequestUploadUrlResponseMetadata;
 }
 
+export interface UpgradeGuestPlayerBody {
+  guestToken: string;
+  /**
+   * @minLength 2
+   * @maxLength 32
+   */
+  displayName: string;
+}
+
+export type GameSearchSuggestionSource =
+  (typeof GameSearchSuggestionSource)[keyof typeof GameSearchSuggestionSource];
+
+export const GameSearchSuggestionSource = {
+  rawg: "rawg",
+  steam: "steam",
+} as const;
+
+export interface GameSearchSuggestion {
+  rawgId: string;
+  title: string;
+  /** @nullable */
+  coverImageUrl?: string | null;
+  genres: string[];
+  /** @nullable */
+  rating?: number | null;
+  /** @nullable */
+  metacritic?: number | null;
+  steamAppId?: string;
+  source?: GameSearchSuggestionSource;
+}
+
+export type SteamLookupResultRecSpecs = { [key: string]: unknown };
+
+export interface SteamLookupResult {
+  steamAppId: string;
+  title: string;
+  coverImageUrl: string;
+  description: string;
+  genres: string[];
+  /** @nullable */
+  metacritic?: number | null;
+  /** @nullable */
+  currentPlayers?: number | null;
+  isFree?: boolean;
+  recSpecs?: SteamLookupResultRecSpecs;
+}
+
+export type SubmitGameBodyKind =
+  (typeof SubmitGameBodyKind)[keyof typeof SubmitGameBodyKind];
+
+export const SubmitGameBodyKind = {
+  native: "native",
+  browser: "browser",
+} as const;
+
+export interface SubmitGameBody {
+  hostToken: string;
+  /** @maxLength 200 */
+  title: string;
+  /** @maxLength 120 */
+  slug?: string;
+  category?: string;
+  genres?: string[];
+  description?: string;
+  coverImageUrl?: string;
+  kind?: SubmitGameBodyKind;
+  defaultBrowserUrl?: string;
+  steamAppId?: string;
+}
+
+export interface GameSubmission {
+  id: string;
+  hostId: string;
+  status: string;
+  title: string;
+  slug: string;
+  category?: string;
+  genres?: string[];
+  description?: string;
+  coverImageUrl?: string;
+  kind?: string;
+  defaultBrowserUrl?: string;
+  /** @nullable */
+  steamAppId?: string | null;
+  /** @nullable */
+  reviewedAt?: string | null;
+  /** @nullable */
+  rejectionReason?: string | null;
+  /** @nullable */
+  approvedGameId?: string | null;
+  createdAt: string;
+  submitterDisplayName?: string;
+}
+
+export interface PendingGameSubmissionConfigBody {
+  hostToken: string;
+  /** @minimum 0 */
+  pricePerMinuteLzt: number;
+  appPath?: string;
+  boundUrl?: string;
+  launchArgs?: string;
+}
+
+export interface AdminApproveGameSubmissionBody {
+  title?: string;
+  slug?: string;
+  category?: string;
+  genres?: string[];
+  description?: string;
+  coverImageUrl?: string;
+  steamAppId?: string;
+}
+
+export interface AdminApproveGameSubmissionResponse {
+  approved: boolean;
+  game: GameListItem;
+  libraryAutoCreated?: boolean;
+}
+
+export interface AdminRejectGameSubmissionBody {
+  /** @minLength 1 */
+  reason: string;
+}
+
+export type RenewSessionBlockBodyBlockMinutes =
+  (typeof RenewSessionBlockBodyBlockMinutes)[keyof typeof RenewSessionBlockBodyBlockMinutes];
+
+export const RenewSessionBlockBodyBlockMinutes = {
+  NUMBER_10: 10,
+  NUMBER_15: 15,
+  NUMBER_25: 25,
+} as const;
+
+export interface RenewSessionBlockBody {
+  playerWalletToken: string;
+  blockMinutes: RenewSessionBlockBodyBlockMinutes;
+}
+
+export interface RateSessionBody {
+  playerWalletToken: string;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  score: number;
+  comment?: string;
+}
+
+export interface RateSessionResponse {
+  ratingAvg: number;
+  ratingCount: number;
+}
+
+export type PublicGameHostStatus =
+  (typeof PublicGameHostStatus)[keyof typeof PublicGameHostStatus];
+
+export const PublicGameHostStatus = {
+  online: "online",
+  available: "available",
+  scheduled: "scheduled",
+} as const;
+
+export type PublicGameHostHostTier =
+  (typeof PublicGameHostHostTier)[keyof typeof PublicGameHostHostTier];
+
+export const PublicGameHostHostTier = {
+  meets_min: "meets_min",
+  above_rec: "above_rec",
+} as const;
+
+export interface PublicGameHost {
+  hostId: string;
+  displayName: string;
+  tags: string[];
+  description?: string;
+  pricePerMinuteLzt: number;
+  pricePerMinuteUsd?: number;
+  status: PublicGameHostStatus;
+  /** @nullable */
+  inviteCode?: string | null;
+  scheduleMode?: string;
+  /** @nullable */
+  pingMs?: number | null;
+  hostTier?: PublicGameHostHostTier;
+}
+
+export interface AuthLoginBody {
+  legacyToken: string;
+}
+
+export interface AuthTokenResponse {
+  accessToken: string;
+  expiresInSec: number;
+}
+
+export interface ClipUploadResponse {
+  objectPath: string;
+  size: number;
+}
+
+export interface TestVdsConnectionBody {
+  ownerToken: string;
+  sshHost: string;
+  sshPort: number;
+  sshUser: string;
+  sshKey: string;
+}
+
+export interface VdsConnectionError {
+  ok: boolean;
+  error: string;
+}
+
+export interface SaveQuotaVdsBody {
+  ownerToken: string;
+  provider: string;
+  sshHost: string;
+  sshPort: number;
+  sshUser: string;
+  sshKey: string;
+}
+
+export interface QuotaVds {
+  id: string;
+  quotaId: string;
+  provider: string;
+  sshHost: string;
+  sshPort: number;
+  sshUser: string;
+  status: string;
+  provisionLog?: string;
+  /** @nullable */
+  lastHealthAt?: string | null;
+  /** @nullable */
+  hostId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type QuotaVdsWithEarnings = QuotaVds & {
+  /** @nullable */
+  quotaTitle?: string | null;
+  earnedLzt: number;
+};
+
+export interface VtScanBody {
+  ownerToken: string;
+  /** @maxLength 2000 */
+  input: string;
+}
+
+export type VtScanResultStatus =
+  (typeof VtScanResultStatus)[keyof typeof VtScanResultStatus];
+
+export const VtScanResultStatus = {
+  clean: "clean",
+  suspicious: "suspicious",
+  malicious: "malicious",
+  unknown: "unknown",
+  error: "error",
+} as const;
+
+export interface VtScanResult {
+  status: VtScanResultStatus;
+  harmless: number;
+  suspicious: number;
+  malicious: number;
+  undetected: number;
+  total: number;
+  permalink: string;
+  sha256?: string;
+  name?: string;
+  errorMessage?: string;
+}
+
 export type GetHostDebtors200 = { [key: string]: unknown };
 
 export type GetHostStreamRelay200 = {
@@ -1395,6 +1670,25 @@ export type GetGameBySlugParams = {
    * When set, only live hosts whose capability tags contain this value are returned.
    */
   tag?: string;
+};
+
+export type RawgSearchGamesParams = {
+  /**
+   * @minLength 2
+   * @maxLength 100
+   */
+  q: string;
+};
+
+export type SteamLookupGameParams = {
+  /**
+   * @pattern ^\d{1,10}$
+   */
+  appId: string;
+};
+
+export type PatchGameSubmissionPendingConfig200 = {
+  saved: boolean;
 };
 
 export type GetSessionParams = {
@@ -1474,8 +1768,34 @@ export type GetQuotaParams = {
   ownerToken?: string;
 };
 
+export type TestQuotaVdsConnection200 = {
+  ok: boolean;
+};
+
+export type ListMyVdsParams = {
+  ownerToken: string;
+};
+
 export type ListMyLoansParams = {
   userToken: string;
+};
+
+export type AdminListGameSubmissionsParams = {
+  status?: AdminListGameSubmissionsStatus;
+};
+
+export type AdminListGameSubmissionsStatus =
+  (typeof AdminListGameSubmissionsStatus)[keyof typeof AdminListGameSubmissionsStatus];
+
+export const AdminListGameSubmissionsStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+  all: "all",
+} as const;
+
+export type AdminRejectGameSubmission200 = {
+  rejected: boolean;
 };
 
 export type AdminDeleteGame200 = {
@@ -1523,6 +1843,14 @@ export type GetPublicIceConfig200 = {
   iceServers: GetPublicIceConfig200IceServersItem[];
 };
 
+export type AuthRefreshBody = {
+  refreshToken?: string;
+};
+
+export type AuthLogout200 = {
+  ok: boolean;
+};
+
 export type GetAgentChallenge200 = {
   challenge: string;
   /** Unix epoch ms when the challenge expires */
@@ -1562,4 +1890,9 @@ export type AgentLoginBody = {
 
 export type AgentLogin200 = {
   hostToken: string;
+};
+
+export type UploadSessionClipBody = {
+  /** WebM clip file (multipart field name "file") */
+  file: string;
 };

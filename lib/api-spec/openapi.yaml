@@ -32,6 +32,12 @@ tags:
     description: Host-agent Ed25519 challenge / bind / login
   - name: storage
     description: Object storage upload URLs and public assets
+  - name: admin
+    description: Platform administrator operations
+  - name: vds
+    description: VDS provisioning and SSH management for quotas
+  - name: vt
+    description: VirusTotal file/URL scanning
 paths:
   /healthz:
     get:
@@ -357,6 +363,37 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /players/upgrade-guest:
+    post:
+      operationId: upgradeGuestPlayer
+      tags: [players]
+      summary: Upgrade a guest player account to a full registered account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpgradeGuestPlayerBody"
+      responses:
+        "200":
+          description: Upgraded player
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+        "400":
+          description: Validation error or account is not a guest
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Guest not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /games:
     get:
       operationId: listGames
@@ -447,6 +484,170 @@ paths:
                 $ref: "#/components/schemas/GameDetail"
         "404":
           description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /games/rawg-search:
+    get:
+      operationId: rawgSearchGames
+      tags: [games]
+      summary: Search external game catalog (RAWG or Steam Store fallback)
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+      responses:
+        "200":
+          description: Search suggestions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GameSearchSuggestion"
+        "400":
+          description: Invalid query
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Upstream search failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /games/steam-lookup:
+    get:
+      operationId: steamLookupGame
+      tags: [games]
+      summary: Fetch Steam Store metadata and player count for an app ID
+      parameters:
+        - in: query
+          name: appId
+          required: true
+          schema:
+            type: string
+            pattern: "^\\d{1,10}$"
+      responses:
+        "200":
+          description: Steam metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SteamLookupResult"
+        "400":
+          description: Invalid appId
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Steam API error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /games/submit:
+    post:
+      operationId: submitGame
+      tags: [games]
+      summary: Host submits a new catalog game for admin review
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitGameBody"
+      responses:
+        "201":
+          description: Submission created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameSubmission"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unknown hostToken
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Duplicate game or too many pending submissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /games/submissions/{id}/pending-config:
+    patch:
+      operationId: patchGameSubmissionPendingConfig
+      tags: [games]
+      summary: Save host launch config before admin approval
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PendingGameSubmissionConfigBody"
+      responses:
+        "200":
+          description: Config saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  saved:
+                    type: boolean
+                required: [saved]
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unknown hostToken
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not your submission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Submission not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Submission already reviewed
           content:
             application/json:
               schema:
@@ -682,6 +883,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /sessions/by-player-token/{playerToken}/renew-block:
+    post:
+      operationId: renewSessionBlock
+      tags: [sessions]
+      summary: Extend an active block-billed session by reserving another block
+      parameters:
+        - in: path
+          name: playerToken
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenewSessionBlockBody"
+      responses:
+        "200":
+          description: Block renewed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          description: Invalid request or insufficient balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Wallet does not match session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /sessions/{id}/end:
     patch:
       operationId: endSession
@@ -714,6 +952,50 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions/{id}/rate:
+    post:
+      operationId: rateSession
+      tags: [sessions]
+      summary: Rate a completed session (player only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RateSessionBody"
+      responses:
+        "200":
+          description: Rating submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateSessionResponse"
+        "400":
+          description: Invalid score or session not ended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Only the session player can rate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Session not found
           content:
             application/json:
               schema:
@@ -1359,6 +1641,124 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /quotas/vds/test-connection:
+    post:
+      operationId: testQuotaVdsConnection
+      tags: [vds, quotas]
+      summary: Test SSH reachability for VDS provisioning (key is not stored)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestVdsConnectionBody"
+      responses:
+        "200":
+          description: Connection OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+        "400":
+          description: Connection failed or host unreachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VdsConnectionError"
+        "403":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /quotas/{quotaId}/vds:
+    post:
+      operationId: saveQuotaVds
+      tags: [vds, quotas]
+      summary: Save or replace VDS SSH config for a quota (owner only)
+      parameters:
+        - in: path
+          name: quotaId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveQuotaVdsBody"
+      responses:
+        "200":
+          description: VDS config saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuotaVds"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not your quota
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Quota not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Encryption unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /vds/mine:
+    get:
+      operationId: listMyVds
+      tags: [vds]
+      summary: List VDS instances owned by the caller across all quotas
+      parameters:
+        - in: query
+          name: ownerToken
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: VDS list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/QuotaVdsWithEarnings"
+        "400":
+          description: ownerToken required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /wallet/{userToken}:
     get:
       operationId: getWallet
@@ -1452,11 +1852,16 @@ paths:
   /admin/games:
     get:
       operationId: adminListGames
-      tags: [games]
-      summary: Admin вЂ” list all games including hidden ones
+      tags: [admin, games]
+      summary: Admin — list all games including hidden ones
       parameters:
         - in: header
           name: X-Host-Token
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Admin-Secret
           required: true
           schema:
             type: string
@@ -1613,11 +2018,197 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /admin/games/submissions:
+    get:
+      operationId: adminListGameSubmissions
+      tags: [admin, games]
+      summary: Admin — list game submissions awaiting review
+      parameters:
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Admin-Secret
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            enum: [pending, approved, rejected, all]
+            default: pending
+      responses:
+        "200":
+          description: Submissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GameSubmission"
+        "400":
+          description: Invalid status filter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/games/submissions/{id}/approve:
+    post:
+      operationId: adminApproveGameSubmission
+      tags: [admin, games]
+      summary: Admin — approve a pending game submission
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Admin-Secret
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminApproveGameSubmissionBody"
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproveGameSubmissionResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Submission not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Already reviewed or slug conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/games/submissions/{id}/reject:
+    post:
+      operationId: adminRejectGameSubmission
+      tags: [admin, games]
+      summary: Admin — reject a pending game submission
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Admin-Secret
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminRejectGameSubmissionBody"
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rejected:
+                    type: boolean
+                required: [rejected]
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Submission not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Already reviewed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /admin/games/{id}:
     patch:
       operationId: adminPatchGame
-      tags: [games]
-      summary: Admin вЂ” edit game metadata and/or toggle is_hidden flag
+      tags: [admin, games]
+      summary: Admin — edit game metadata and/or toggle is_hidden flag
       parameters:
         - in: path
           name: id
@@ -1626,6 +2217,11 @@ paths:
             type: string
         - in: header
           name: X-Host-Token
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Admin-Secret
           required: true
           schema:
             type: string
@@ -1668,8 +2264,8 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
     delete:
       operationId: adminDeleteGame
-      tags: [games]
-      summary: Admin вЂ” permanently delete a game with no session history
+      tags: [admin, games]
+      summary: Admin — permanently delete a game with no session history
       parameters:
         - in: path
           name: id
@@ -1678,6 +2274,11 @@ paths:
             type: string
         - in: header
           name: X-Host-Token
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Admin-Secret
           required: true
           schema:
             type: string
@@ -2044,6 +2645,39 @@ paths:
                       required: [urls]
                 required: [iceServers]
 
+  /public/games/{slug}/hosts:
+    get:
+      operationId: listPublicGameHosts
+      tags: [public]
+      summary: Hosts that have this game enabled in their library
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Hosts for the game
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PublicGameHost"
+        "400":
+          description: slug required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /embed/sessions:
     post:
       operationId: createEmbedSession
@@ -2092,6 +2726,93 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: authLogin
+      tags: [auth]
+      summary: Exchange a legacy host/player token for a JWT access token pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthLoginBody"
+      responses:
+        "200":
+          description: Access token issued (refresh token in httpOnly cookie)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokenResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid legacy token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: JWT not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/refresh:
+    post:
+      operationId: authRefresh
+      tags: [auth]
+      summary: Rotate JWT access token using refresh cookie or body token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        "200":
+          description: New access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokenResponse"
+        "401":
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: JWT not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: authLogout
+      tags: [auth]
+      summary: Revoke refresh token and clear cookie
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
 
   /auth/agent-challenge:
     get:
@@ -2318,6 +3039,91 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /storage/clip-upload:
+    post:
+      operationId: uploadSessionClip
+      tags: [storage]
+      summary: Upload a WebM session clip (multipart form field "file")
+      parameters:
+        - in: header
+          name: X-Player-Wallet-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  description: WebM clip file (multipart field name "file")
+      responses:
+        "200":
+          description: Clip stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClipUploadResponse"
+        "400":
+          description: No file uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or unknown player wallet token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Object storage error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /vt/scan:
+    post:
+      operationId: vtScan
+      tags: [vt]
+      summary: Check a SHA-256 hash or URL against VirusTotal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VtScanBody"
+      responses:
+        "200":
+          description: Scan result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VtScanResult"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: VirusTotal not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /players/me/saves/{gameId}:
     get:
       operationId: getPlayerGameSave
@@ -2409,6 +3215,11 @@ components:
       type: http
       scheme: bearer
       description: Host bearer token (Authorization header)
+    AdminSecret:
+      type: apiKey
+      in: header
+      name: X-Admin-Secret
+      description: Deployment-level admin secret (required with X-Host-Token for admin routes)
   schemas:
     SaveUploadUrlBody:
       type: object
@@ -4430,3 +5241,410 @@ components:
         - uploadURL
         - objectPath
         - metadata
+
+    UpgradeGuestPlayerBody:
+      type: object
+      properties:
+        guestToken:
+          type: string
+        displayName:
+          type: string
+          minLength: 2
+          maxLength: 32
+      required: [guestToken, displayName]
+
+    GameSearchSuggestion:
+      type: object
+      properties:
+        rawgId:
+          type: string
+        title:
+          type: string
+        coverImageUrl:
+          type: ["string", "null"]
+        genres:
+          type: array
+          items:
+            type: string
+        rating:
+          type: ["number", "null"]
+        metacritic:
+          type: ["integer", "null"]
+        steamAppId:
+          type: string
+        source:
+          type: string
+          enum: [rawg, steam]
+      required: [rawgId, title, genres]
+
+    SteamLookupResult:
+      type: object
+      properties:
+        steamAppId:
+          type: string
+        title:
+          type: string
+        coverImageUrl:
+          type: string
+        description:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        metacritic:
+          type: ["integer", "null"]
+        currentPlayers:
+          type: ["integer", "null"]
+        isFree:
+          type: boolean
+        recSpecs:
+          type: object
+          additionalProperties: true
+      required: [steamAppId, title, coverImageUrl, description, genres]
+
+    SubmitGameBody:
+      type: object
+      properties:
+        hostToken:
+          type: string
+        title:
+          type: string
+          maxLength: 200
+        slug:
+          type: string
+          maxLength: 120
+        category:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+        coverImageUrl:
+          type: string
+        kind:
+          type: string
+          enum: [native, browser]
+        defaultBrowserUrl:
+          type: string
+        steamAppId:
+          type: string
+      required: [hostToken, title]
+
+    GameSubmission:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        hostId:
+          type: string
+          format: uuid
+        status:
+          type: string
+        title:
+          type: string
+        slug:
+          type: string
+        category:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+        coverImageUrl:
+          type: string
+        kind:
+          type: string
+        defaultBrowserUrl:
+          type: string
+        steamAppId:
+          type: ["string", "null"]
+        reviewedAt:
+          type: ["string", "null"]
+          format: date-time
+        rejectionReason:
+          type: ["string", "null"]
+        approvedGameId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        submitterDisplayName:
+          type: string
+      required: [id, hostId, status, title, slug, createdAt]
+
+    PendingGameSubmissionConfigBody:
+      type: object
+      properties:
+        hostToken:
+          type: string
+        pricePerMinuteLzt:
+          type: integer
+          minimum: 0
+        appPath:
+          type: string
+        boundUrl:
+          type: string
+        launchArgs:
+          type: string
+      required: [hostToken, pricePerMinuteLzt]
+
+    AdminApproveGameSubmissionBody:
+      type: object
+      properties:
+        title:
+          type: string
+        slug:
+          type: string
+        category:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+        coverImageUrl:
+          type: string
+        steamAppId:
+          type: string
+
+    AdminApproveGameSubmissionResponse:
+      type: object
+      properties:
+        approved:
+          type: boolean
+        game:
+          $ref: "#/components/schemas/GameListItem"
+        libraryAutoCreated:
+          type: boolean
+      required: [approved, game]
+
+    AdminRejectGameSubmissionBody:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+      required: [reason]
+
+    RenewSessionBlockBody:
+      type: object
+      properties:
+        playerWalletToken:
+          type: string
+        blockMinutes:
+          type: integer
+          enum: [10, 15, 25]
+      required: [playerWalletToken, blockMinutes]
+
+    RateSessionBody:
+      type: object
+      properties:
+        playerWalletToken:
+          type: string
+        score:
+          type: number
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+      required: [playerWalletToken, score]
+
+    RateSessionResponse:
+      type: object
+      properties:
+        ratingAvg:
+          type: number
+        ratingCount:
+          type: integer
+      required: [ratingAvg, ratingCount]
+
+    PublicGameHost:
+      type: object
+      properties:
+        hostId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+        pricePerMinuteLzt:
+          type: integer
+        pricePerMinuteUsd:
+          type: number
+        status:
+          type: string
+          enum: [online, available, scheduled]
+        inviteCode:
+          type: ["string", "null"]
+        scheduleMode:
+          type: string
+        pingMs:
+          type: ["integer", "null"]
+        hostTier:
+          type: string
+          enum: [meets_min, above_rec]
+      required:
+        - hostId
+        - displayName
+        - tags
+        - pricePerMinuteLzt
+        - status
+
+    AuthLoginBody:
+      type: object
+      properties:
+        legacyToken:
+          type: string
+      required: [legacyToken]
+
+    AuthTokenResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        expiresInSec:
+          type: integer
+      required: [accessToken, expiresInSec]
+
+    ClipUploadResponse:
+      type: object
+      properties:
+        objectPath:
+          type: string
+        size:
+          type: integer
+      required: [objectPath, size]
+
+    TestVdsConnectionBody:
+      type: object
+      properties:
+        ownerToken:
+          type: string
+        sshHost:
+          type: string
+        sshPort:
+          type: integer
+        sshUser:
+          type: string
+        sshKey:
+          type: string
+      required: [ownerToken, sshHost, sshPort, sshUser, sshKey]
+
+    VdsConnectionError:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        error:
+          type: string
+      required: [ok, error]
+
+    SaveQuotaVdsBody:
+      type: object
+      properties:
+        ownerToken:
+          type: string
+        provider:
+          type: string
+        sshHost:
+          type: string
+        sshPort:
+          type: integer
+        sshUser:
+          type: string
+        sshKey:
+          type: string
+      required: [ownerToken, provider, sshHost, sshPort, sshUser, sshKey]
+
+    QuotaVds:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        quotaId:
+          type: string
+          format: uuid
+        provider:
+          type: string
+        sshHost:
+          type: string
+        sshPort:
+          type: integer
+        sshUser:
+          type: string
+        status:
+          type: string
+        provisionLog:
+          type: string
+        lastHealthAt:
+          type: ["string", "null"]
+          format: date-time
+        hostId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, quotaId, provider, sshHost, sshPort, sshUser, status]
+
+    QuotaVdsWithEarnings:
+      allOf:
+        - $ref: "#/components/schemas/QuotaVds"
+        - type: object
+          properties:
+            quotaTitle:
+              type: ["string", "null"]
+            earnedLzt:
+              type: integer
+          required: [earnedLzt]
+
+    VtScanBody:
+      type: object
+      properties:
+        ownerToken:
+          type: string
+        input:
+          type: string
+          maxLength: 2000
+      required: [ownerToken, input]
+
+    VtScanResult:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [clean, suspicious, malicious, unknown, error]
+        harmless:
+          type: integer
+        suspicious:
+          type: integer
+        malicious:
+          type: integer
+        undetected:
+          type: integer
+        total:
+          type: integer
+        permalink:
+          type: string
+        sha256:
+          type: string
+        name:
+          type: string
+        errorMessage:
+          type: string
+      required: [status, harmless, suspicious, malicious, undetected, total, permalink]
