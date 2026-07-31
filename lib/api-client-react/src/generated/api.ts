@@ -19,8 +19,13 @@ import type {
 import type {
   ActivityItem,
   AddHostLibraryEntryBody,
+  AdminApproveGameSubmissionBody,
+  AdminApproveGameSubmissionResponse,
   AdminDeleteGame200,
+  AdminListGameSubmissionsParams,
   AdminPatchGameBody,
+  AdminRejectGameSubmission200,
+  AdminRejectGameSubmissionBody,
   AgentEventItem,
   AgentLogin200,
   AgentLoginBody,
@@ -28,9 +33,14 @@ import type {
   AiSuggestQuotaSpecsResponse,
   AttachQuotaToSession200,
   AttachQuotaToSessionBody,
+  AuthLoginBody,
+  AuthLogout200,
+  AuthRefreshBody,
+  AuthTokenResponse,
   BindAgentKey200,
   BindAgentKeyBody,
   ClaimSessionBody,
+  ClipUploadResponse,
   CreateBrowserHostSessionBody,
   CreateBrowserHostSessionResponse,
   CreateEmbedSessionBody,
@@ -53,6 +63,8 @@ import type {
   FundLoanResponse,
   GameDetail,
   GameListItem,
+  GameSearchSuggestion,
+  GameSubmission,
   GetAgentChallenge200,
   GetGameBySlugParams,
   GetHostCurrentQuota200,
@@ -77,16 +89,20 @@ import type {
   ListGamesParams,
   ListMyLoansParams,
   ListMyQuotasParams,
+  ListMyVdsParams,
   ListPublicQuotasParams,
   LoanRequest,
   MatchQuotasForHostParams,
   MyLoans,
+  PatchGameSubmissionPendingConfig200,
+  PendingGameSubmissionConfigBody,
   Player,
   PlayerGameSaveCommitBody,
   PlayerGameSaveCommitResponse,
   PlayerGameSaveResponse,
   PlayerGameSaveUploadUrlBody,
   PlayerGameSaveUploadUrlResponse,
+  PublicGameHost,
   PublicHostListItem,
   PublicPing200,
   PublicStats,
@@ -95,8 +111,14 @@ import type {
   QuotaAiChatResponse,
   QuotaDetail,
   QuotaOwnerBody,
+  QuotaVds,
+  QuotaVdsWithEarnings,
+  RateSessionBody,
+  RateSessionResponse,
+  RawgSearchGamesParams,
   RegisterHostBody,
   RegisterPlayerBody,
+  RenewSessionBlockBody,
   RepayLoanBody,
   RepayLoanResponse,
   RequestUploadUrlBody,
@@ -105,13 +127,24 @@ import type {
   SaveConfirmBody,
   SaveConfirmResponse,
   SaveDownloadUrlResponse,
+  SaveQuotaVdsBody,
   SaveUploadUrlBody,
   SaveUploadUrlResponse,
   Session,
   SessionByInviteResponse,
+  SteamLookupGameParams,
+  SteamLookupResult,
+  SubmitGameBody,
+  TestQuotaVdsConnection200,
+  TestVdsConnectionBody,
   UpdateHostConfigBody,
   UpdateHostLibraryEntryBody,
   UpdateQuotaBody,
+  UpgradeGuestPlayerBody,
+  UploadSessionClipBody,
+  VdsConnectionError,
+  VtScanBody,
+  VtScanResult,
   Wallet,
   WalletTransaction,
   Withdrawal,
@@ -1280,6 +1313,92 @@ export function useGetPlayer<
 }
 
 /**
+ * @summary Upgrade a guest player account to a full registered account
+ */
+export const getUpgradeGuestPlayerUrl = () => {
+  return `/api/players/upgrade-guest`;
+};
+
+export const upgradeGuestPlayer = async (
+  upgradeGuestPlayerBody: UpgradeGuestPlayerBody,
+  options?: RequestInit,
+): Promise<Player> => {
+  return customFetch<Player>(getUpgradeGuestPlayerUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(upgradeGuestPlayerBody),
+  });
+};
+
+export const getUpgradeGuestPlayerMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upgradeGuestPlayer>>,
+    TError,
+    { data: BodyType<UpgradeGuestPlayerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upgradeGuestPlayer>>,
+  TError,
+  { data: BodyType<UpgradeGuestPlayerBody> },
+  TContext
+> => {
+  const mutationKey = ["upgradeGuestPlayer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upgradeGuestPlayer>>,
+    { data: BodyType<UpgradeGuestPlayerBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return upgradeGuestPlayer(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpgradeGuestPlayerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upgradeGuestPlayer>>
+>;
+export type UpgradeGuestPlayerMutationBody = BodyType<UpgradeGuestPlayerBody>;
+export type UpgradeGuestPlayerMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Upgrade a guest player account to a full registered account
+ */
+export const useUpgradeGuestPlayer = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upgradeGuestPlayer>>,
+    TError,
+    { data: BodyType<UpgradeGuestPlayerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upgradeGuestPlayer>>,
+  TError,
+  { data: BodyType<UpgradeGuestPlayerBody> },
+  TContext
+> => {
+  return useMutation(getUpgradeGuestPlayerMutationOptions(options));
+};
+
+/**
  * @summary List the games catalog with live-session counts
  */
 export const getListGamesUrl = (params?: ListGamesParams) => {
@@ -1481,6 +1600,374 @@ export function useGetGameBySlug<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Search external game catalog (RAWG or Steam Store fallback)
+ */
+export const getRawgSearchGamesUrl = (params: RawgSearchGamesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/games/rawg-search?${stringifiedParams}`
+    : `/api/games/rawg-search`;
+};
+
+export const rawgSearchGames = async (
+  params: RawgSearchGamesParams,
+  options?: RequestInit,
+): Promise<GameSearchSuggestion[]> => {
+  return customFetch<GameSearchSuggestion[]>(getRawgSearchGamesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getRawgSearchGamesQueryKey = (params?: RawgSearchGamesParams) => {
+  return [`/api/games/rawg-search`, ...(params ? [params] : [])] as const;
+};
+
+export const getRawgSearchGamesQueryOptions = <
+  TData = Awaited<ReturnType<typeof rawgSearchGames>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: RawgSearchGamesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof rawgSearchGames>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getRawgSearchGamesQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof rawgSearchGames>>> = ({
+    signal,
+  }) => rawgSearchGames(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof rawgSearchGames>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type RawgSearchGamesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof rawgSearchGames>>
+>;
+export type RawgSearchGamesQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Search external game catalog (RAWG or Steam Store fallback)
+ */
+
+export function useRawgSearchGames<
+  TData = Awaited<ReturnType<typeof rawgSearchGames>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: RawgSearchGamesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof rawgSearchGames>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getRawgSearchGamesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Fetch Steam Store metadata and player count for an app ID
+ */
+export const getSteamLookupGameUrl = (params: SteamLookupGameParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/games/steam-lookup?${stringifiedParams}`
+    : `/api/games/steam-lookup`;
+};
+
+export const steamLookupGame = async (
+  params: SteamLookupGameParams,
+  options?: RequestInit,
+): Promise<SteamLookupResult> => {
+  return customFetch<SteamLookupResult>(getSteamLookupGameUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSteamLookupGameQueryKey = (params?: SteamLookupGameParams) => {
+  return [`/api/games/steam-lookup`, ...(params ? [params] : [])] as const;
+};
+
+export const getSteamLookupGameQueryOptions = <
+  TData = Awaited<ReturnType<typeof steamLookupGame>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: SteamLookupGameParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof steamLookupGame>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getSteamLookupGameQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof steamLookupGame>>> = ({
+    signal,
+  }) => steamLookupGame(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof steamLookupGame>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type SteamLookupGameQueryResult = NonNullable<
+  Awaited<ReturnType<typeof steamLookupGame>>
+>;
+export type SteamLookupGameQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Fetch Steam Store metadata and player count for an app ID
+ */
+
+export function useSteamLookupGame<
+  TData = Awaited<ReturnType<typeof steamLookupGame>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: SteamLookupGameParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof steamLookupGame>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getSteamLookupGameQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Host submits a new catalog game for admin review
+ */
+export const getSubmitGameUrl = () => {
+  return `/api/games/submit`;
+};
+
+export const submitGame = async (
+  submitGameBody: SubmitGameBody,
+  options?: RequestInit,
+): Promise<GameSubmission> => {
+  return customFetch<GameSubmission>(getSubmitGameUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(submitGameBody),
+  });
+};
+
+export const getSubmitGameMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitGame>>,
+    TError,
+    { data: BodyType<SubmitGameBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitGame>>,
+  TError,
+  { data: BodyType<SubmitGameBody> },
+  TContext
+> => {
+  const mutationKey = ["submitGame"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitGame>>,
+    { data: BodyType<SubmitGameBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return submitGame(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitGameMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitGame>>
+>;
+export type SubmitGameMutationBody = BodyType<SubmitGameBody>;
+export type SubmitGameMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Host submits a new catalog game for admin review
+ */
+export const useSubmitGame = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitGame>>,
+    TError,
+    { data: BodyType<SubmitGameBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitGame>>,
+  TError,
+  { data: BodyType<SubmitGameBody> },
+  TContext
+> => {
+  return useMutation(getSubmitGameMutationOptions(options));
+};
+
+/**
+ * @summary Save host launch config before admin approval
+ */
+export const getPatchGameSubmissionPendingConfigUrl = (id: string) => {
+  return `/api/games/submissions/${id}/pending-config`;
+};
+
+export const patchGameSubmissionPendingConfig = async (
+  id: string,
+  pendingGameSubmissionConfigBody: PendingGameSubmissionConfigBody,
+  options?: RequestInit,
+): Promise<PatchGameSubmissionPendingConfig200> => {
+  return customFetch<PatchGameSubmissionPendingConfig200>(
+    getPatchGameSubmissionPendingConfigUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(pendingGameSubmissionConfigBody),
+    },
+  );
+};
+
+export const getPatchGameSubmissionPendingConfigMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchGameSubmissionPendingConfig>>,
+    TError,
+    { id: string; data: BodyType<PendingGameSubmissionConfigBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof patchGameSubmissionPendingConfig>>,
+  TError,
+  { id: string; data: BodyType<PendingGameSubmissionConfigBody> },
+  TContext
+> => {
+  const mutationKey = ["patchGameSubmissionPendingConfig"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof patchGameSubmissionPendingConfig>>,
+    { id: string; data: BodyType<PendingGameSubmissionConfigBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return patchGameSubmissionPendingConfig(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PatchGameSubmissionPendingConfigMutationResult = NonNullable<
+  Awaited<ReturnType<typeof patchGameSubmissionPendingConfig>>
+>;
+export type PatchGameSubmissionPendingConfigMutationBody =
+  BodyType<PendingGameSubmissionConfigBody>;
+export type PatchGameSubmissionPendingConfigMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Save host launch config before admin approval
+ */
+export const usePatchGameSubmissionPendingConfig = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchGameSubmissionPendingConfig>>,
+    TError,
+    { id: string; data: BodyType<PendingGameSubmissionConfigBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof patchGameSubmissionPendingConfig>>,
+  TError,
+  { id: string; data: BodyType<PendingGameSubmissionConfigBody> },
+  TContext
+> => {
+  return useMutation(
+    getPatchGameSubmissionPendingConfigMutationOptions(options),
+  );
+};
 
 /**
  * @summary Create a new session
@@ -2129,6 +2616,93 @@ export const useClaimSession = <
 };
 
 /**
+ * @summary Extend an active block-billed session by reserving another block
+ */
+export const getRenewSessionBlockUrl = (playerToken: string) => {
+  return `/api/sessions/by-player-token/${playerToken}/renew-block`;
+};
+
+export const renewSessionBlock = async (
+  playerToken: string,
+  renewSessionBlockBody: RenewSessionBlockBody,
+  options?: RequestInit,
+): Promise<Session> => {
+  return customFetch<Session>(getRenewSessionBlockUrl(playerToken), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(renewSessionBlockBody),
+  });
+};
+
+export const getRenewSessionBlockMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof renewSessionBlock>>,
+    TError,
+    { playerToken: string; data: BodyType<RenewSessionBlockBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof renewSessionBlock>>,
+  TError,
+  { playerToken: string; data: BodyType<RenewSessionBlockBody> },
+  TContext
+> => {
+  const mutationKey = ["renewSessionBlock"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof renewSessionBlock>>,
+    { playerToken: string; data: BodyType<RenewSessionBlockBody> }
+  > = (props) => {
+    const { playerToken, data } = props ?? {};
+
+    return renewSessionBlock(playerToken, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RenewSessionBlockMutationResult = NonNullable<
+  Awaited<ReturnType<typeof renewSessionBlock>>
+>;
+export type RenewSessionBlockMutationBody = BodyType<RenewSessionBlockBody>;
+export type RenewSessionBlockMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Extend an active block-billed session by reserving another block
+ */
+export const useRenewSessionBlock = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof renewSessionBlock>>,
+    TError,
+    { playerToken: string; data: BodyType<RenewSessionBlockBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof renewSessionBlock>>,
+  TError,
+  { playerToken: string; data: BodyType<RenewSessionBlockBody> },
+  TContext
+> => {
+  return useMutation(getRenewSessionBlockMutationOptions(options));
+};
+
+/**
  * @summary End an active session (host-authenticated)
  */
 export const getEndSessionUrl = (id: string) => {
@@ -2213,6 +2787,93 @@ export const useEndSession = <
   TContext
 > => {
   return useMutation(getEndSessionMutationOptions(options));
+};
+
+/**
+ * @summary Rate a completed session (player only)
+ */
+export const getRateSessionUrl = (id: string) => {
+  return `/api/sessions/${id}/rate`;
+};
+
+export const rateSession = async (
+  id: string,
+  rateSessionBody: RateSessionBody,
+  options?: RequestInit,
+): Promise<RateSessionResponse> => {
+  return customFetch<RateSessionResponse>(getRateSessionUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(rateSessionBody),
+  });
+};
+
+export const getRateSessionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rateSession>>,
+    TError,
+    { id: string; data: BodyType<RateSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof rateSession>>,
+  TError,
+  { id: string; data: BodyType<RateSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["rateSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof rateSession>>,
+    { id: string; data: BodyType<RateSessionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return rateSession(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RateSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof rateSession>>
+>;
+export type RateSessionMutationBody = BodyType<RateSessionBody>;
+export type RateSessionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Rate a completed session (player only)
+ */
+export const useRateSession = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rateSession>>,
+    TError,
+    { id: string; data: BodyType<RateSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof rateSession>>,
+  TError,
+  { id: string; data: BodyType<RateSessionBody> },
+  TContext
+> => {
+  return useMutation(getRateSessionMutationOptions(options));
 };
 
 /**
@@ -4130,6 +4791,279 @@ export const useQuotaAiChat = <
 };
 
 /**
+ * @summary Test SSH reachability for VDS provisioning (key is not stored)
+ */
+export const getTestQuotaVdsConnectionUrl = () => {
+  return `/api/quotas/vds/test-connection`;
+};
+
+export const testQuotaVdsConnection = async (
+  testVdsConnectionBody: TestVdsConnectionBody,
+  options?: RequestInit,
+): Promise<TestQuotaVdsConnection200> => {
+  return customFetch<TestQuotaVdsConnection200>(
+    getTestQuotaVdsConnectionUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(testVdsConnectionBody),
+    },
+  );
+};
+
+export const getTestQuotaVdsConnectionMutationOptions = <
+  TError = ErrorType<VdsConnectionError | ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof testQuotaVdsConnection>>,
+    TError,
+    { data: BodyType<TestVdsConnectionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof testQuotaVdsConnection>>,
+  TError,
+  { data: BodyType<TestVdsConnectionBody> },
+  TContext
+> => {
+  const mutationKey = ["testQuotaVdsConnection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof testQuotaVdsConnection>>,
+    { data: BodyType<TestVdsConnectionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return testQuotaVdsConnection(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TestQuotaVdsConnectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof testQuotaVdsConnection>>
+>;
+export type TestQuotaVdsConnectionMutationBody =
+  BodyType<TestVdsConnectionBody>;
+export type TestQuotaVdsConnectionMutationError = ErrorType<
+  VdsConnectionError | ErrorResponse
+>;
+
+/**
+ * @summary Test SSH reachability for VDS provisioning (key is not stored)
+ */
+export const useTestQuotaVdsConnection = <
+  TError = ErrorType<VdsConnectionError | ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof testQuotaVdsConnection>>,
+    TError,
+    { data: BodyType<TestVdsConnectionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof testQuotaVdsConnection>>,
+  TError,
+  { data: BodyType<TestVdsConnectionBody> },
+  TContext
+> => {
+  return useMutation(getTestQuotaVdsConnectionMutationOptions(options));
+};
+
+/**
+ * @summary Save or replace VDS SSH config for a quota (owner only)
+ */
+export const getSaveQuotaVdsUrl = (quotaId: string) => {
+  return `/api/quotas/${quotaId}/vds`;
+};
+
+export const saveQuotaVds = async (
+  quotaId: string,
+  saveQuotaVdsBody: SaveQuotaVdsBody,
+  options?: RequestInit,
+): Promise<QuotaVds> => {
+  return customFetch<QuotaVds>(getSaveQuotaVdsUrl(quotaId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(saveQuotaVdsBody),
+  });
+};
+
+export const getSaveQuotaVdsMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveQuotaVds>>,
+    TError,
+    { quotaId: string; data: BodyType<SaveQuotaVdsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof saveQuotaVds>>,
+  TError,
+  { quotaId: string; data: BodyType<SaveQuotaVdsBody> },
+  TContext
+> => {
+  const mutationKey = ["saveQuotaVds"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof saveQuotaVds>>,
+    { quotaId: string; data: BodyType<SaveQuotaVdsBody> }
+  > = (props) => {
+    const { quotaId, data } = props ?? {};
+
+    return saveQuotaVds(quotaId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SaveQuotaVdsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof saveQuotaVds>>
+>;
+export type SaveQuotaVdsMutationBody = BodyType<SaveQuotaVdsBody>;
+export type SaveQuotaVdsMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Save or replace VDS SSH config for a quota (owner only)
+ */
+export const useSaveQuotaVds = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveQuotaVds>>,
+    TError,
+    { quotaId: string; data: BodyType<SaveQuotaVdsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof saveQuotaVds>>,
+  TError,
+  { quotaId: string; data: BodyType<SaveQuotaVdsBody> },
+  TContext
+> => {
+  return useMutation(getSaveQuotaVdsMutationOptions(options));
+};
+
+/**
+ * @summary List VDS instances owned by the caller across all quotas
+ */
+export const getListMyVdsUrl = (params: ListMyVdsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/vds/mine?${stringifiedParams}`
+    : `/api/vds/mine`;
+};
+
+export const listMyVds = async (
+  params: ListMyVdsParams,
+  options?: RequestInit,
+): Promise<QuotaVdsWithEarnings[]> => {
+  return customFetch<QuotaVdsWithEarnings[]>(getListMyVdsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyVdsQueryKey = (params?: ListMyVdsParams) => {
+  return [`/api/vds/mine`, ...(params ? [params] : [])] as const;
+};
+
+export const getListMyVdsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyVds>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: ListMyVdsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMyVds>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMyVdsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyVds>>> = ({
+    signal,
+  }) => listMyVds(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyVds>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyVdsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyVds>>
+>;
+export type ListMyVdsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List VDS instances owned by the caller across all quotas
+ */
+
+export function useListMyVds<
+  TData = Awaited<ReturnType<typeof listMyVds>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: ListMyVdsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMyVds>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyVdsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Wallet overview вЂ” balance, deposit addresses, withdrawal history
  */
 export const getGetWalletUrl = (userToken: string) => {
@@ -4397,7 +5331,7 @@ export const useRequestWithdrawal = <
 };
 
 /**
- * @summary Admin вЂ” list all games including hidden ones
+ * @summary Admin — list all games including hidden ones
  */
 export const getAdminListGamesUrl = () => {
   return `/api/admin/games`;
@@ -4448,7 +5382,7 @@ export type AdminListGamesQueryResult = NonNullable<
 export type AdminListGamesQueryError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Admin вЂ” list all games including hidden ones
+ * @summary Admin — list all games including hidden ones
  */
 
 export function useAdminListGames<
@@ -4901,7 +5835,289 @@ export const useRepayLoan = <
 };
 
 /**
- * @summary Admin вЂ” edit game metadata and/or toggle is_hidden flag
+ * @summary Admin — list game submissions awaiting review
+ */
+export const getAdminListGameSubmissionsUrl = (
+  params?: AdminListGameSubmissionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/games/submissions?${stringifiedParams}`
+    : `/api/admin/games/submissions`;
+};
+
+export const adminListGameSubmissions = async (
+  params?: AdminListGameSubmissionsParams,
+  options?: RequestInit,
+): Promise<GameSubmission[]> => {
+  return customFetch<GameSubmission[]>(getAdminListGameSubmissionsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListGameSubmissionsQueryKey = (
+  params?: AdminListGameSubmissionsParams,
+) => {
+  return [`/api/admin/games/submissions`, ...(params ? [params] : [])] as const;
+};
+
+export const getAdminListGameSubmissionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListGameSubmissions>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: AdminListGameSubmissionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListGameSubmissions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListGameSubmissionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListGameSubmissions>>
+  > = ({ signal }) =>
+    adminListGameSubmissions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListGameSubmissions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListGameSubmissionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListGameSubmissions>>
+>;
+export type AdminListGameSubmissionsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Admin — list game submissions awaiting review
+ */
+
+export function useAdminListGameSubmissions<
+  TData = Awaited<ReturnType<typeof adminListGameSubmissions>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: AdminListGameSubmissionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListGameSubmissions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListGameSubmissionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Admin — approve a pending game submission
+ */
+export const getAdminApproveGameSubmissionUrl = (id: string) => {
+  return `/api/admin/games/submissions/${id}/approve`;
+};
+
+export const adminApproveGameSubmission = async (
+  id: string,
+  adminApproveGameSubmissionBody: AdminApproveGameSubmissionBody,
+  options?: RequestInit,
+): Promise<AdminApproveGameSubmissionResponse> => {
+  return customFetch<AdminApproveGameSubmissionResponse>(
+    getAdminApproveGameSubmissionUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(adminApproveGameSubmissionBody),
+    },
+  );
+};
+
+export const getAdminApproveGameSubmissionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminApproveGameSubmission>>,
+    TError,
+    { id: string; data: BodyType<AdminApproveGameSubmissionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminApproveGameSubmission>>,
+  TError,
+  { id: string; data: BodyType<AdminApproveGameSubmissionBody> },
+  TContext
+> => {
+  const mutationKey = ["adminApproveGameSubmission"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminApproveGameSubmission>>,
+    { id: string; data: BodyType<AdminApproveGameSubmissionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminApproveGameSubmission(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminApproveGameSubmissionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminApproveGameSubmission>>
+>;
+export type AdminApproveGameSubmissionMutationBody =
+  BodyType<AdminApproveGameSubmissionBody>;
+export type AdminApproveGameSubmissionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Admin — approve a pending game submission
+ */
+export const useAdminApproveGameSubmission = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminApproveGameSubmission>>,
+    TError,
+    { id: string; data: BodyType<AdminApproveGameSubmissionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminApproveGameSubmission>>,
+  TError,
+  { id: string; data: BodyType<AdminApproveGameSubmissionBody> },
+  TContext
+> => {
+  return useMutation(getAdminApproveGameSubmissionMutationOptions(options));
+};
+
+/**
+ * @summary Admin — reject a pending game submission
+ */
+export const getAdminRejectGameSubmissionUrl = (id: string) => {
+  return `/api/admin/games/submissions/${id}/reject`;
+};
+
+export const adminRejectGameSubmission = async (
+  id: string,
+  adminRejectGameSubmissionBody: AdminRejectGameSubmissionBody,
+  options?: RequestInit,
+): Promise<AdminRejectGameSubmission200> => {
+  return customFetch<AdminRejectGameSubmission200>(
+    getAdminRejectGameSubmissionUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(adminRejectGameSubmissionBody),
+    },
+  );
+};
+
+export const getAdminRejectGameSubmissionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminRejectGameSubmission>>,
+    TError,
+    { id: string; data: BodyType<AdminRejectGameSubmissionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminRejectGameSubmission>>,
+  TError,
+  { id: string; data: BodyType<AdminRejectGameSubmissionBody> },
+  TContext
+> => {
+  const mutationKey = ["adminRejectGameSubmission"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminRejectGameSubmission>>,
+    { id: string; data: BodyType<AdminRejectGameSubmissionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminRejectGameSubmission(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminRejectGameSubmissionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminRejectGameSubmission>>
+>;
+export type AdminRejectGameSubmissionMutationBody =
+  BodyType<AdminRejectGameSubmissionBody>;
+export type AdminRejectGameSubmissionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Admin — reject a pending game submission
+ */
+export const useAdminRejectGameSubmission = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminRejectGameSubmission>>,
+    TError,
+    { id: string; data: BodyType<AdminRejectGameSubmissionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminRejectGameSubmission>>,
+  TError,
+  { id: string; data: BodyType<AdminRejectGameSubmissionBody> },
+  TContext
+> => {
+  return useMutation(getAdminRejectGameSubmissionMutationOptions(options));
+};
+
+/**
+ * @summary Admin — edit game metadata and/or toggle is_hidden flag
  */
 export const getAdminPatchGameUrl = (id: string) => {
   return `/api/admin/games/${id}`;
@@ -4965,7 +6181,7 @@ export type AdminPatchGameMutationBody = BodyType<AdminPatchGameBody>;
 export type AdminPatchGameMutationError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Admin вЂ” edit game metadata and/or toggle is_hidden flag
+ * @summary Admin — edit game metadata and/or toggle is_hidden flag
  */
 export const useAdminPatchGame = <
   TError = ErrorType<ErrorResponse>,
@@ -4988,7 +6204,7 @@ export const useAdminPatchGame = <
 };
 
 /**
- * @summary Admin вЂ” permanently delete a game with no session history
+ * @summary Admin — permanently delete a game with no session history
  */
 export const getAdminDeleteGameUrl = (id: string) => {
   return `/api/admin/games/${id}`;
@@ -5049,7 +6265,7 @@ export type AdminDeleteGameMutationResult = NonNullable<
 export type AdminDeleteGameMutationError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Admin вЂ” permanently delete a game with no session history
+ * @summary Admin — permanently delete a game with no session history
  */
 export const useAdminDeleteGame = <
   TError = ErrorType<ErrorResponse>,
@@ -5865,6 +7081,94 @@ export function useGetPublicIceConfig<
 }
 
 /**
+ * @summary Hosts that have this game enabled in their library
+ */
+export const getListPublicGameHostsUrl = (slug: string) => {
+  return `/api/public/games/${slug}/hosts`;
+};
+
+export const listPublicGameHosts = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<PublicGameHost[]> => {
+  return customFetch<PublicGameHost[]>(getListPublicGameHostsUrl(slug), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPublicGameHostsQueryKey = (slug: string) => {
+  return [`/api/public/games/${slug}/hosts`] as const;
+};
+
+export const getListPublicGameHostsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPublicGameHosts>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPublicGameHosts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListPublicGameHostsQueryKey(slug);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPublicGameHosts>>
+  > = ({ signal }) => listPublicGameHosts(slug, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!slug,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPublicGameHosts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPublicGameHostsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPublicGameHosts>>
+>;
+export type ListPublicGameHostsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Hosts that have this game enabled in their library
+ */
+
+export function useListPublicGameHosts<
+  TData = Awaited<ReturnType<typeof listPublicGameHosts>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPublicGameHosts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPublicGameHostsQueryOptions(slug, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Create a session funded by a developer API key (embed widget)
  */
 export const getCreateEmbedSessionUrl = () => {
@@ -5948,6 +7252,259 @@ export const useCreateEmbedSession = <
   TContext
 > => {
   return useMutation(getCreateEmbedSessionMutationOptions(options));
+};
+
+/**
+ * @summary Exchange a legacy host/player token for a JWT access token pair
+ */
+export const getAuthLoginUrl = () => {
+  return `/api/auth/login`;
+};
+
+export const authLogin = async (
+  authLoginBody: AuthLoginBody,
+  options?: RequestInit,
+): Promise<AuthTokenResponse> => {
+  return customFetch<AuthTokenResponse>(getAuthLoginUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(authLoginBody),
+  });
+};
+
+export const getAuthLoginMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof authLogin>>,
+    TError,
+    { data: BodyType<AuthLoginBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof authLogin>>,
+  TError,
+  { data: BodyType<AuthLoginBody> },
+  TContext
+> => {
+  const mutationKey = ["authLogin"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof authLogin>>,
+    { data: BodyType<AuthLoginBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return authLogin(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AuthLoginMutationResult = NonNullable<
+  Awaited<ReturnType<typeof authLogin>>
+>;
+export type AuthLoginMutationBody = BodyType<AuthLoginBody>;
+export type AuthLoginMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Exchange a legacy host/player token for a JWT access token pair
+ */
+export const useAuthLogin = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof authLogin>>,
+    TError,
+    { data: BodyType<AuthLoginBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof authLogin>>,
+  TError,
+  { data: BodyType<AuthLoginBody> },
+  TContext
+> => {
+  return useMutation(getAuthLoginMutationOptions(options));
+};
+
+/**
+ * @summary Rotate JWT access token using refresh cookie or body token
+ */
+export const getAuthRefreshUrl = () => {
+  return `/api/auth/refresh`;
+};
+
+export const authRefresh = async (
+  authRefreshBody: AuthRefreshBody,
+  options?: RequestInit,
+): Promise<AuthTokenResponse> => {
+  return customFetch<AuthTokenResponse>(getAuthRefreshUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(authRefreshBody),
+  });
+};
+
+export const getAuthRefreshMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof authRefresh>>,
+    TError,
+    { data: BodyType<AuthRefreshBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof authRefresh>>,
+  TError,
+  { data: BodyType<AuthRefreshBody> },
+  TContext
+> => {
+  const mutationKey = ["authRefresh"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof authRefresh>>,
+    { data: BodyType<AuthRefreshBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return authRefresh(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AuthRefreshMutationResult = NonNullable<
+  Awaited<ReturnType<typeof authRefresh>>
+>;
+export type AuthRefreshMutationBody = BodyType<AuthRefreshBody>;
+export type AuthRefreshMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Rotate JWT access token using refresh cookie or body token
+ */
+export const useAuthRefresh = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof authRefresh>>,
+    TError,
+    { data: BodyType<AuthRefreshBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof authRefresh>>,
+  TError,
+  { data: BodyType<AuthRefreshBody> },
+  TContext
+> => {
+  return useMutation(getAuthRefreshMutationOptions(options));
+};
+
+/**
+ * @summary Revoke refresh token and clear cookie
+ */
+export const getAuthLogoutUrl = () => {
+  return `/api/auth/logout`;
+};
+
+export const authLogout = async (
+  options?: RequestInit,
+): Promise<AuthLogout200> => {
+  return customFetch<AuthLogout200>(getAuthLogoutUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAuthLogoutMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof authLogout>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof authLogout>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["authLogout"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof authLogout>>,
+    void
+  > = () => {
+    return authLogout(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AuthLogoutMutationResult = NonNullable<
+  Awaited<ReturnType<typeof authLogout>>
+>;
+
+export type AuthLogoutMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Revoke refresh token and clear cookie
+ */
+export const useAuthLogout = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof authLogout>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof authLogout>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getAuthLogoutMutationOptions(options));
 };
 
 /**
@@ -6448,6 +8005,180 @@ export const useRequestUploadUrl = <
   TContext
 > => {
   return useMutation(getRequestUploadUrlMutationOptions(options));
+};
+
+/**
+ * @summary Upload a WebM session clip (multipart form field "file")
+ */
+export const getUploadSessionClipUrl = () => {
+  return `/api/storage/clip-upload`;
+};
+
+export const uploadSessionClip = async (
+  uploadSessionClipBody: UploadSessionClipBody,
+  options?: RequestInit,
+): Promise<ClipUploadResponse> => {
+  const formData = new FormData();
+  formData.append(`file`, uploadSessionClipBody.file);
+
+  return customFetch<ClipUploadResponse>(getUploadSessionClipUrl(), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getUploadSessionClipMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadSessionClip>>,
+    TError,
+    { data: BodyType<UploadSessionClipBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof uploadSessionClip>>,
+  TError,
+  { data: BodyType<UploadSessionClipBody> },
+  TContext
+> => {
+  const mutationKey = ["uploadSessionClip"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof uploadSessionClip>>,
+    { data: BodyType<UploadSessionClipBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return uploadSessionClip(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UploadSessionClipMutationResult = NonNullable<
+  Awaited<ReturnType<typeof uploadSessionClip>>
+>;
+export type UploadSessionClipMutationBody = BodyType<UploadSessionClipBody>;
+export type UploadSessionClipMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Upload a WebM session clip (multipart form field "file")
+ */
+export const useUploadSessionClip = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadSessionClip>>,
+    TError,
+    { data: BodyType<UploadSessionClipBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof uploadSessionClip>>,
+  TError,
+  { data: BodyType<UploadSessionClipBody> },
+  TContext
+> => {
+  return useMutation(getUploadSessionClipMutationOptions(options));
+};
+
+/**
+ * @summary Check a SHA-256 hash or URL against VirusTotal
+ */
+export const getVtScanUrl = () => {
+  return `/api/vt/scan`;
+};
+
+export const vtScan = async (
+  vtScanBody: VtScanBody,
+  options?: RequestInit,
+): Promise<VtScanResult> => {
+  return customFetch<VtScanResult>(getVtScanUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(vtScanBody),
+  });
+};
+
+export const getVtScanMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof vtScan>>,
+    TError,
+    { data: BodyType<VtScanBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof vtScan>>,
+  TError,
+  { data: BodyType<VtScanBody> },
+  TContext
+> => {
+  const mutationKey = ["vtScan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof vtScan>>,
+    { data: BodyType<VtScanBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return vtScan(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type VtScanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof vtScan>>
+>;
+export type VtScanMutationBody = BodyType<VtScanBody>;
+export type VtScanMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Check a SHA-256 hash or URL against VirusTotal
+ */
+export const useVtScan = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof vtScan>>,
+    TError,
+    { data: BodyType<VtScanBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof vtScan>>,
+  TError,
+  { data: BodyType<VtScanBody> },
+  TContext
+> => {
+  return useMutation(getVtScanMutationOptions(options));
 };
 
 /**
