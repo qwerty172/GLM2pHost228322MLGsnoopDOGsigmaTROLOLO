@@ -233,6 +233,15 @@ router.post("/saves/confirm", async (req: Request, res: Response) => {
         },
       });
 
+    try {
+      await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
+        owner: `player:${playerId}`,
+        visibility: "private",
+      });
+    } catch (aclErr) {
+      req.log.warn({ err: aclErr }, "Failed to set save ACL (object still stored)");
+    }
+
     res.json(ConfirmResponse.parse({ saved: true, objectPath }));
   } catch (error) {
     handleStorageError(req, res, error, "Failed to confirm save upload");
@@ -388,19 +397,30 @@ router.post(
       );
 
     const version = parsed.data.version ?? (existing ? existing.version + 1 : 1);
+    const objectPath = `/objects/${parsed.data.storageKey}`;
 
     if (existing) {
       const [updated] = await db
         .update(playerGameSavesTable)
         .set({
           storageKey: parsed.data.storageKey,
-          objectPath: `/objects/${parsed.data.storageKey}`,
+          objectPath,
           sizeBytes: parsed.data.sizeBytes,
           version,
           updatedAt: new Date(),
         })
         .where(eq(playerGameSavesTable.id, existing.id))
         .returning();
+
+      try {
+        await storage.trySetObjectEntityAclPolicy(objectPath, {
+          owner: `player:${player.id}`,
+          visibility: "private",
+        });
+      } catch (aclErr) {
+        req.log.warn({ err: aclErr }, "Failed to set save ACL (object still stored)");
+      }
+
       res.json({ ok: true, save: updated });
       return;
     }
@@ -411,12 +431,22 @@ router.post(
         playerId: player.id,
         gameId,
         storageKey: parsed.data.storageKey,
-        objectPath: `/objects/${parsed.data.storageKey}`,
+        objectPath,
         sizeBytes: parsed.data.sizeBytes,
         version,
         contentHash: "",
       })
       .returning();
+
+    try {
+      await storage.trySetObjectEntityAclPolicy(objectPath, {
+        owner: `player:${player.id}`,
+        visibility: "private",
+      });
+    } catch (aclErr) {
+      req.log.warn({ err: aclErr }, "Failed to set save ACL (object still stored)");
+    }
+
     res.status(201).json({ ok: true, save: created });
   },
 );

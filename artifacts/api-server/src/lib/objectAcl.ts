@@ -94,6 +94,49 @@ export async function getObjectAclPolicy(
   return JSON.parse(aclPolicy as string);
 }
 
+/**
+ * Cover images uploaded before ACL metadata existed live under uploads/.
+ * They remain publicly readable; all other objects without ACL are denied.
+ */
+export function isLegacyPublicCoverPath(entityId: string): boolean {
+  return entityId.startsWith("uploads/");
+}
+
+export type ObjectReadAccess =
+  | { allowed: true }
+  | { allowed: false; status: 401 | 403 };
+
+/**
+ * Resolve READ access for GET /storage/objects/*.
+ * Legacy covers (uploads/*, no ACL) stay public; everything else needs ACL.
+ */
+export async function evaluateObjectReadAccess({
+  userId,
+  objectFile,
+  entityId,
+}: {
+  userId?: string;
+  objectFile: File;
+  entityId: string;
+}): Promise<ObjectReadAccess> {
+  const aclPolicy = await getObjectAclPolicy(objectFile);
+  if (!aclPolicy) {
+    return isLegacyPublicCoverPath(entityId)
+      ? { allowed: true }
+      : { allowed: false, status: 401 };
+  }
+
+  const canAccess = await canAccessObject({
+    userId,
+    objectFile,
+    requestedPermission: ObjectPermission.READ,
+  });
+  if (canAccess) {
+    return { allowed: true };
+  }
+  return { allowed: false, status: userId ? 403 : 401 };
+}
+
 export async function canAccessObject({
   userId,
   objectFile,
