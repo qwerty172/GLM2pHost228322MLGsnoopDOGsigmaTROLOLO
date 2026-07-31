@@ -3,7 +3,7 @@
 > **Активный цикл:** Cycle 2 — Web UI  
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл` (cron пн/чт 09:00)  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-07-31 (Cycle 6 REDESIGN + grooming каждые 5 запусков)
+> **Последнее обновление:** 2026-07-31 (Cycle 7 OpenAPI/CI + ~35 новых pending)
 
 ## Как пользоваться
 
@@ -161,6 +161,58 @@
 | R6-B3 | Русификация жанров (genre-names.ts) | P2 | pending | agent | Нет англ. жанров в UI игрока |
 | R6-B5 | Play HUD: ≤5 элементов, остальное в Sheet | P1 | pending | agent | settings-sheet; play.tsx разгрузить |
 | R6-B6 | Онбординг первого запуска (3 шага) | P3 | pending | agent | localStorage-флаг; один раз |
+| R6-A2 | Единая шкала плотности (токены отступов) | P3 | pending | agent | index.css; заголовки страниц единообразны |
+| R6-B4 | game-detail: один CTA «Играть», иерархия | P2 | pending | agent | Главная кнопка ≤1с взгляда |
+| R6-C1 | Дашборд хоста: статус-первый экран | P1 | pending | agent | Агент+деньги сверху; setup в шит |
+| R6-C2 | Библиотека: таблица + Dialog добавления | P2 | pending | agent | 20 игр на экран; ⋯ меню |
+| R6-C3 | Setup хоста: степпер 3 шага | P2 | pending | agent | Скачай → подключи → игры |
+| R6-C4 | browser-play бейдж «Тестовый режим» | P3 | pending | agent | Убрать из основной nav |
+| R6-D1 | Кошелёк: вывод/пополнение в Dialog | P2 | pending | agent | Две кнопки + история на главном |
+| R6-D2 | История: группировка по сессии + игра | P2 | pending | agent | wallet-history.tsx |
+| R6-D3 | Профиль: статистика + empty-state | P2 | pending | agent | «Сыграй первую игру» → каталог |
+| R6-D4 | Биржа: вкладки должник/кредитор | P2 | pending | agent | exchange.tsx |
+| R6-D5 | Квоты: форма в 3 шага | P2 | pending | agent | quota-new wizard |
+| R6-E1 | Nav: ≤4 элемента, остальное в дропдаун | P2 | pending | agent | site-nav.tsx mobile+desktop |
+| R6-E2 | Empty-state на всех списках | P2 | pending | agent | A.1 компонент везде |
+| R6-E4 | Адаптив 375px проход | P2 | pending | agent | Нет горизонтального скролла |
+| R6-E5 | Скриншоты до/после в docs/redesign | P3 | pending | agent | human review |
+
+## Cycle 7 — OpenAPI, codegen & CI
+
+> Контракт API ↔ web ↔ CI. Связано с C2-D02, C4-S02, C4-S07.
+
+| ID | Задача | Priority | Status | Owner | Acceptance |
+|----|--------|----------|--------|-------|------------|
+| O7-01 | CI: codegen guard при изменении openapi.yaml | P0 | pending | agent | PR fail если нет `pnpm api-spec codegen` |
+| O7-02 | CI: smoke:invite + signaling-smoke в pipeline | P1 | pending | agent | job после unit-тестов с postgres |
+| O7-03 | Скрипт OpenAPI drift (routes vs yaml) | P1 | pending | agent | `scripts/openapi-drift.mjs`; отчёт в TESTLOG |
+| O7-04 | CI: grep raw `fetch` на /api без codegen (warning) | P2 | pending | agent | artifacts/web; allowlist agent-local |
+| O7-05 | raw fetch → hooks: hosts, browser-play, ice-prewarm | P1 | pending | agent | C2-B02 продолжение |
+| O7-06 | raw fetch → hooks: use-auth, use-player-wallet | P1 | pending | agent | login/refresh/logout/upgrade-guest |
+| O7-07 | raw fetch → hooks: quota-new, library, vt-scanner | P2 | pending | agent | Остаток после C2-S02 |
+| O7-08 | i18n guard: англ. строки в pages (CI) | P2 | pending | agent | Fail на новые en UI strings |
+| O7-09 | Dependabot/Renovate для pnpm | P2 | pending | agent | .github/dependabot.yml |
+| O7-10 | OpenAPI: ws-ticket auth header в spec | P2 | pending | agent | Bearer/cookie documented |
+| O7-11 | Zod request validate на новых POST routes | P2 | pending | agent | Паттерн из api-zod на 3 route |
+| O7-12 | api-client-react: export ApiError единообразно | P3 | pending | agent | Все страницы ловят typed errors |
+
+## Cycle 5 — PLAN import (продолжение)
+
+| ID | Задача | Priority | Status | Owner | Acceptance |
+|----|--------|----------|--------|-------|------------|
+| P5-1.1 | E2E ввод игрока SendInput (PLAN 1.1) | P0 | blocked | human | Windows + реальная игра; см. C3-D03 |
+| P5-1.6 | Таймер блока после F5 (PLAN 1.6) | P1 | pending | agent | blockMinsRemaining в API + play HUD |
+| P5-1.9 | Пинг в каталоге каждые 60с (PLAN 1.9) | P2 | pending | agent | hosts + game-detail; cleanup on unmount |
+| P5-1.10 | «Игра снова онлайн» уведомление (PLAN 1.10) | P2 | pending | agent | Кнопка на game-detail + poll/WebNotify |
+| P5-2.3 | Отзыв ключа агента с дашборда (PLAN 2.3) | P1 | pending | agent | 401 в агенте → «получи новый ключ» |
+| P5-2.4 | Активные сессии в библиотеке (PLAN 2.4) | P2 | pending | agent | Счётчик + «завершить» на игру |
+| P5-2.7 | Валидация обложек ≥300×170 (PLAN 2.7) | P2 | pending | agent | storage + submissions |
+| P5-3.1 | Авто-воркер крипто-выплат (PLAN 3.1) | P1 | pending | agent | retry + статус в кошельке |
+| P5-3.5 | История блочных списаний в кошельке (PLAN 3.5) | P2 | pending | agent | Одна строка на блок с игрой |
+| P5-3.6 | Brute-force guard токенов (PLAN 3.6) | P1 | pending | agent | 10 fail → 429 escalating |
+| P5-B01 | Пагинация истории кошелька >100 (PLAN defer) | P3 | pending | agent | cursor/load more |
+| P5-B02 | Picker thumbnails в модалке (HOSTING §10) | P2 | pending | agent | desktopCapturer preview в picker |
+| P5-B03 | Авто-обновление агента (после P5-2.1) | P3 | pending | agent | electron-updater или аналог |
 
 ## Backlog grooming (каждый 5-й запуск automation)
 
@@ -186,6 +238,8 @@
 | `R6-*` | REDESIGN.md блоки A–E |
 | `C3-S*` / `H-*` | HOSTING.md backlog |
 | `C2-B*` / `C4-B*` | Пробелы код ↔ спека ↔ UI |
+| `O7-*` | OpenAPI, codegen, CI guards |
+| `P5-B*` | PLAN defer + HOSTING improvements |
 
 ## Automation prompt
 
