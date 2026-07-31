@@ -1460,6 +1460,12 @@ paths:
           required: true
           schema:
             type: string
+        - in: header
+          name: X-Admin-Secret
+          required: true
+          schema:
+            type: string
+          description: Deployment-level admin secret (ADMIN_SECRET env)
       responses:
         "200":
           description: All games
@@ -1477,6 +1483,211 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "403":
           description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: ADMIN_SECRET not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/games/submissions:
+    get:
+      operationId: adminListSubmissions
+      tags: [games]
+      summary: Admin — list host game submissions
+      parameters:
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Admin-Secret
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, approved, rejected, all]
+            default: pending
+      responses:
+        "200":
+          description: Submissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GameSubmission"
+        "400":
+          description: Invalid status filter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: ADMIN_SECRET not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/games/submissions/{id}/approve:
+    post:
+      operationId: adminApproveSubmission
+      tags: [games]
+      summary: Admin — approve a pending game submission
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Admin-Secret
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminApproveSubmissionBody"
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproveSubmissionResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Submission not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Slug conflict or submission not pending
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: ADMIN_SECRET not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/games/submissions/{id}/reject:
+    post:
+      operationId: adminRejectSubmission
+      tags: [games]
+      summary: Admin — reject a pending game submission
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Admin-Secret
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminRejectSubmissionBody"
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminRejectSubmissionResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Submission not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Submission not pending
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: ADMIN_SECRET not configured
           content:
             application/json:
               schema:
@@ -1629,6 +1840,11 @@ paths:
           required: true
           schema:
             type: string
+        - in: header
+          name: X-Admin-Secret
+          required: true
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -1678,6 +1894,11 @@ paths:
             type: string
         - in: header
           name: X-Host-Token
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Admin-Secret
           required: true
           schema:
             type: string
@@ -2395,6 +2616,11 @@ components:
       in: header
       name: X-Host-Token
       description: Host authentication token
+    AdminSecret:
+      type: apiKey
+      in: header
+      name: X-Admin-Secret
+      description: Deployment-level admin secret (ADMIN_SECRET env)
     UserToken:
       type: apiKey
       in: header
@@ -2566,6 +2792,118 @@ components:
         isHidden:
           type: boolean
           description: Set to true to hide from public catalog; false to restore visibility.
+
+    GameSubmission:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        hostId:
+          type: string
+          format: uuid
+        status:
+          type: string
+        title:
+          type: string
+        slug:
+          type: string
+        category:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+        coverImageUrl:
+          type: string
+        kind:
+          type: string
+        defaultBrowserUrl:
+          type: string
+        steamAppId:
+          type: ["string", "null"]
+        reviewerId:
+          type: ["string", "null"]
+          format: uuid
+        reviewedAt:
+          type: ["string", "null"]
+          format: date-time
+        rejectionReason:
+          type: ["string", "null"]
+        approvedGameId:
+          type: ["string", "null"]
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        submitterDisplayName:
+          type: string
+      required:
+        - id
+        - hostId
+        - status
+        - title
+        - slug
+        - category
+        - genres
+        - description
+        - coverImageUrl
+        - kind
+        - defaultBrowserUrl
+        - createdAt
+        - submitterDisplayName
+
+    AdminApproveSubmissionBody:
+      type: object
+      properties:
+        title:
+          type: string
+        slug:
+          type: string
+        category:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+        coverImageUrl:
+          type: string
+        steamAppId:
+          type: string
+
+    AdminApproveSubmissionResponse:
+      type: object
+      properties:
+        approved:
+          type: boolean
+        game:
+          $ref: "#/components/schemas/GameListItem"
+        libraryAutoCreated:
+          type: boolean
+      required:
+        - approved
+        - game
+
+    AdminRejectSubmissionBody:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+      required:
+        - reason
+
+    AdminRejectSubmissionResponse:
+      type: object
+      properties:
+        rejected:
+          type: boolean
+      required:
+        - rejected
 
     HealthStatus:
       type: object

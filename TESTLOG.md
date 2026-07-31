@@ -96,3 +96,11 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
 | Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+
+## Marathon C2 codegen (2026-07-31) {#marathon-c2}
+
+| ID | Результат |
+|---|---|
+| C2-S02 | OpenAPI: admin submissions (list/approve/reject) + `X-Admin-Secret`; codegen hooks; `embed.tsx` → `createEmbedSession` / `getPublicIceConfig` / `getSessionByPlayerToken`; `admin/games.tsx` → hooks + `admin-api-headers.ts`; `ApiError` экспортирован из api-client-react |
+| C2-S06 | `/wallet` standalone route уже в `App.tsx` (`StandaloneWallet`) — verified |
+| verify | `pnpm --filter @workspace/web typecheck` OK; api-server 22+3 tests; host-agent 12 tests |
