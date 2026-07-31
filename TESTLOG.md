@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-07-31** | C2-S02 embed/admin codegen; C2-S06 /wallet route verified — см. MARATHON.md |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -85,7 +85,16 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 - **Осталось вручную:** полный цикл Steam → сессия → SendInput в реальной игре; kill Electron → disconnect ≤30с на живом стриме
 - **Топ рисков:** Electron `EADDRINUSE` если уже крутится ping-server; video frames в headless/automation иногда 0×0 (в UI HUD P2P ок)
 
-## Marathon 4-cycle audit (2026-07-27) {#marathon-c1}
+## Marathon C2-S02 embed/admin codegen (2026-07-31) {#marathon-c2-s02}
+
+| Область | Изменение |
+|---|---|
+| OpenAPI | `GET /admin/games/submissions`, approve/reject; `X-Admin-Secret` на admin routes |
+| embed.tsx | `createEmbedSession`, `getPublicIceConfig`, `getSessionByPlayerToken` (без raw fetch) |
+| admin/games.tsx | `useAdminListGames`, `useAdminListGameSubmissions`, codegen mutations |
+| api-client-react | экспорт `ApiError`; helper `artifacts/web/src/lib/admin-request.ts` |
+| C2-S06 | `/wallet` — `StandaloneWallet` в `App.tsx`, smoke `pages-api-smoke.sh` |
+
 
 | Область | Фикс |
 |---|---|
