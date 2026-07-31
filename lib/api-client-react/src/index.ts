@@ -4,5 +4,6 @@ export {
   setBaseUrl,
   setAuthTokenGetter,
   setUserTokensGetter,
+  ApiError,
 } from "./custom-fetch";
 export type { AuthTokenGetter, UserTokensGetter } from "./custom-fetch";
