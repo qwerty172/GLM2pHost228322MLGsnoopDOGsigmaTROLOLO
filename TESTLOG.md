@@ -95,4 +95,14 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: storage ACL, /wallet route, Windows E2E |
+
+## Marathon C2-S02 — embed/admin codegen (2026-07-31)
+
+| Область | Изменение |
+|---|---|
+| OpenAPI | +3 admin submission endpoints (`list`, `approve`, `reject`); `X-Admin-Secret` на всех `/admin/*` |
+| embed.tsx | `createEmbedSession`, `getPublicIceConfig`, `useGetSessionByPlayerToken` вместо raw fetch |
+| admin/games.tsx | `useAdminListGames`, `useAdminListSubmissions`, patch/delete/approve/reject mutations |
+| lib | `admin-api-headers.ts` — общий хелпер X-Host-Token + X-Admin-Secret |
+| api-client-react | экспорт `ApiError` для обработки ошибок в UI |
