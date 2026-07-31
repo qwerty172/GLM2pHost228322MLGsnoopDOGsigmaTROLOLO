@@ -5,7 +5,9 @@
  * P2P Cloud Gaming signaling, session, and wallet API
  * OpenAPI spec version: 0.1.0
  */
+import type { PublicHostListItemGamesItem } from "./publicHostListItemGamesItem";
 import type { PublicHostListItemHostTier } from "./publicHostListItemHostTier";
+import type { PublicHostListItemPcSpecs } from "./publicHostListItemPcSpecs";
 
 /**
  * Anonymous-safe view of a live host
@@ -29,6 +31,17 @@ export interface PublicHostListItem {
    * @nullable
    */
   inviteCode: string | null;
+  /** True when the agent sent a heartbeat within the last 2 minutes */
+  isOnline?: boolean;
+  /**
+   * Host-to-server RTT measured at last heartbeat
+   * @nullable
+   */
+  pingMs?: number | null;
   /** Strength badge vs the site-wide baseline. below_min hosts are excluded from this list entirely. */
   hostTier?: PublicHostListItemHostTier;
+  /** Enabled library entries for this host */
+  games?: PublicHostListItemGamesItem[];
+  /** @nullable */
+  pcSpecs?: PublicHostListItemPcSpecs;
 }

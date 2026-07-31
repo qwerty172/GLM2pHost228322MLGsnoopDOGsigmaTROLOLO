@@ -16,12 +16,13 @@ import {
   Server,
 } from "lucide-react";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   useGetPublicStats,
   getGetPublicStatsQueryKey,
   useListGames,
   getListGamesQueryKey,
+  useListPublicHosts,
+  getListPublicHostsQueryKey,
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
@@ -54,17 +55,13 @@ type LiveHost = {
 };
 
 function useLiveHosts() {
-  const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
-  return useQuery<LiveHost[]>({
-    queryKey: ["live-hosts-landing"],
-    queryFn: async () => {
-      const res = await fetch(`${base}/api/hosts`);
-      if (!res.ok) return [];
-      return res.json();
+  return useListPublicHosts({
+    query: {
+      queryKey: getListPublicHostsQueryKey(),
+      refetchInterval: 30_000,
+      staleTime: 15_000,
     },
-    refetchInterval: 30_000,
-    staleTime: 15_000,
-  });
+  }) as { data: LiveHost[] | undefined };
 }
 
 export default function Landing() {

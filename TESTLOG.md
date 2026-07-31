@@ -95,4 +95,23 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: C2-S07 shadcn sr-only RU, storage ACL, Windows E2E |
+
+## Marathon C2-S02 + C2-S06 (2026-07-31) {#marathon-c2-s02}
+
+| Задача | Изменение |
+|---|---|
+| C2-S02 embed | `embed.tsx`: `createEmbedSession`, `getPublicIceConfig`, `useGetSessionByPlayerToken` |
+| C2-S02 admin | OpenAPI: `adminListSubmissions` / approve / reject; `admin/games.tsx` → React Query hooks |
+| C2-S06 wallet | Единый `/wallet` маршрут: `HostLayout` для хостов, `SiteNav` для игроков; убран дубликат из `HostRoutes` |
+| verify | web typecheck ok; api-server 22/22 + 3 node; host-agent 12/12 |
+
+## Marathon C2-D02 OpenAPI gaps (2026-07-31) {#marathon-c2-d02}
+
+| Область | Изменение |
+|---|---|
+| OpenAPI | JWT `auth/login`, `auth/refresh`, `auth/logout`; `players/upgrade-guest`; `games/steam-lookup`; `public/games/{slug}/hosts`; `sessions/{id}/rate`; `renew-block`; `listGames?vdsOnly`; расширен `PublicHostListItem` |
+| codegen | `pnpm --filter @workspace/api-spec run codegen` |
+| Web migrate | landing, games, play, game-detail, hosts, ice-prewarm, use-auth, use-player-wallet, use-browser-ping, browser-play → codegen hooks |
+| Остаток P2 | `quota-new`, `profile`, `host/library`, `vt-scanner`, `storage/clip-upload` — в C4-S02 |
+| verify | web typecheck ok; api-server 22/22; host-agent 12/12 |

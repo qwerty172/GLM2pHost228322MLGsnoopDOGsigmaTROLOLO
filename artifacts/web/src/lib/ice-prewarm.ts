@@ -1,5 +1,7 @@
 // ICE prewarm cache — gather candidates before the player navigates to /play.
 
+import { getPublicIceConfig } from "@workspace/api-client-react";
+
 type PrewarmEntry = {
   pc: RTCPeerConnection;
   iceServers: RTCIceServer[];
@@ -11,12 +13,9 @@ const PREWARM_TTL_MS = 120_000;
 
 async function fetchIceServers(): Promise<RTCIceServer[]> {
   try {
-    const res = await fetch(`${import.meta.env.BASE_URL}api/public/ice-config`);
-    if (res.ok) {
-      const json = (await res.json()) as { iceServers?: RTCIceServer[] };
-      if (Array.isArray(json.iceServers) && json.iceServers.length > 0) {
-        return json.iceServers;
-      }
+    const json = await getPublicIceConfig();
+    if (Array.isArray(json.iceServers) && json.iceServers.length > 0) {
+      return json.iceServers;
     }
   } catch {
     /* fallback below */
