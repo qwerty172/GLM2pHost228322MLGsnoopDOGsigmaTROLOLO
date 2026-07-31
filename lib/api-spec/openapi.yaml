@@ -394,6 +394,18 @@ paths:
             type: boolean
           description: Only return games that have at least one live session right now
         - in: query
+          name: vdsOnly
+          required: false
+          schema:
+            type: boolean
+          description: Only return games offered by at least one always-on VDS host
+        - in: query
+          name: category
+          required: false
+          schema:
+            type: string
+          description: Filter by primary catalog category (case-insensitive)
+        - in: query
           name: search
           required: false
           schema:
@@ -1482,6 +1494,182 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /admin/games/submissions:
+    get:
+      operationId: adminListGameSubmissions
+      tags: [games]
+      summary: Admin — list game catalog submissions
+      parameters:
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            enum: [pending, approved, rejected, all]
+            default: pending
+          description: Filter by moderation status
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Admin-Secret
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Submissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GameSubmissionAdminItem"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/games/submissions/{id}/approve:
+    post:
+      operationId: adminApproveGameSubmission
+      tags: [games]
+      summary: Admin — approve a game submission and create catalog entry
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Admin-Secret
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminApproveGameSubmissionBody"
+      responses:
+        "200":
+          description: Submission approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproveGameSubmissionResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Submission not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Slug conflict or already reviewed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/games/submissions/{id}/reject:
+    post:
+      operationId: adminRejectGameSubmission
+      tags: [games]
+      summary: Admin — reject a game submission
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Admin-Secret
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminRejectGameSubmissionBody"
+      responses:
+        "200":
+          description: Submission rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminRejectGameSubmissionResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Submission not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Already reviewed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /loans/requests:
     get:
       operationId: listLoanRequests
@@ -2318,6 +2506,50 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /players/me/credit-settings:
+    patch:
+      operationId: patchPlayerCreditSettings
+      tags: [players]
+      summary: Toggle player gaming credit line on/off
+      parameters:
+        - in: header
+          name: X-User-Token
+          required: true
+          schema:
+            type: string
+          description: Player wallet token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerCreditSettingsBody"
+      responses:
+        "200":
+          description: Updated credit settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerCreditSettingsResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing player token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Player not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /players/me/saves/{gameId}:
     get:
       operationId: getPlayerGameSave
@@ -2405,6 +2637,11 @@ components:
       in: header
       name: X-Player-Token
       description: Player authentication token
+    AdminSecret:
+      type: apiKey
+      in: header
+      name: X-Admin-Secret
+      description: Deployment-level admin secret (required alongside X-Host-Token for admin routes)
     BearerAuth:
       type: http
       scheme: bearer
@@ -2566,6 +2803,127 @@ components:
         isHidden:
           type: boolean
           description: Set to true to hide from public catalog; false to restore visibility.
+
+    GameSubmissionAdminItem:
+      type: object
+      properties:
+        id:
+          type: string
+        hostId:
+          type: string
+        status:
+          type: string
+        title:
+          type: string
+        slug:
+          type: string
+        category:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+        coverImageUrl:
+          type: string
+        kind:
+          type: string
+        defaultBrowserUrl:
+          type: string
+        steamAppId:
+          type: ["string", "null"]
+        reviewedAt:
+          type: ["string", "null"]
+          format: date-time
+        rejectionReason:
+          type: ["string", "null"]
+        approvedGameId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        submitterDisplayName:
+          type: string
+      required:
+        - id
+        - hostId
+        - status
+        - title
+        - slug
+        - category
+        - genres
+        - description
+        - coverImageUrl
+        - kind
+        - defaultBrowserUrl
+        - createdAt
+        - submitterDisplayName
+
+    AdminApproveGameSubmissionBody:
+      type: object
+      properties:
+        title:
+          type: string
+        slug:
+          type: string
+        category:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+        coverImageUrl:
+          type: string
+        steamAppId:
+          type: string
+
+    AdminApproveGameSubmissionResponse:
+      type: object
+      properties:
+        approved:
+          type: boolean
+        game:
+          $ref: "#/components/schemas/GameListItem"
+        libraryAutoCreated:
+          type: boolean
+      required:
+        - approved
+
+    AdminRejectGameSubmissionBody:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+      required:
+        - reason
+
+    AdminRejectGameSubmissionResponse:
+      type: object
+      properties:
+        rejected:
+          type: boolean
+      required:
+        - rejected
+
+    PlayerCreditSettingsBody:
+      type: object
+      properties:
+        creditEnabled:
+          type: boolean
+      required:
+        - creditEnabled
+
+    PlayerCreditSettingsResponse:
+      type: object
+      properties:
+        creditLimitLzt:
+          type: integer
+      required:
+        - creditLimitLzt
 
     HealthStatus:
       type: object
@@ -3444,6 +3802,30 @@ components:
         - depositAddresses
         - recentWithdrawals
 
+    PublicHostGameItem:
+      type: object
+      description: Enabled library game on a public host listing
+      properties:
+        gameId:
+          type: string
+        slug:
+          type: string
+        title:
+          type: string
+        coverImageUrl:
+          type: string
+        genre:
+          type: string
+        pricePerMinuteLzt:
+          type: integer
+      required:
+        - gameId
+        - slug
+        - title
+        - coverImageUrl
+        - genre
+        - pricePerMinuteLzt
+
     PublicHostListItem:
       type: object
       description: Anonymous-safe view of a live host
@@ -3476,6 +3858,32 @@ components:
           description: >
             Capability invite code for /play/i/{inviteCode}. Raw playerToken is
             never exposed on public host lists.
+        isOnline:
+          type: boolean
+          description: True when the host agent sent a heartbeat within the last 2 minutes
+        games:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicHostGameItem"
+        pingMs:
+          type: ["integer", "null"]
+          description: RTT from host agent to API (ms), null until first measured heartbeat
+        pcSpecs:
+          type: ["object", "null"]
+          description: PC hardware specs reported by the host agent
+          properties:
+            gpu:
+              type: string
+            cpu:
+              type: string
+            ramGb:
+              type: number
+            cpuCores:
+              type: number
+            downloadMbps:
+              type: number
+            uploadMbps:
+              type: number
         hostTier:
           type: string
           enum: [meets_min, above_rec]
@@ -3491,6 +3899,10 @@ components:
         - minutePriceUsd
         - status
         - inviteCode
+        - isOnline
+        - games
+        - pingMs
+        - hostTier
 
     PublicStats:
       type: object

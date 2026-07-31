@@ -1,4 +1,4 @@
-import type * as React from "react";
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,13 +15,15 @@ import {
   Play,
   Server,
 } from "lucide-react";
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import type * as React from "react";
 import {
   useGetPublicStats,
   getGetPublicStatsQueryKey,
   useListGames,
   getListGamesQueryKey,
+  useListPublicHosts,
+  getListPublicHostsQueryKey,
+  type PublicHostListItem,
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
@@ -41,38 +43,20 @@ function coverSrc(url: string | null | undefined): string | null {
   return `${import.meta.env.BASE_URL}${url.replace(/^\//, "")}`;
 }
 
-type LiveHost = {
-  id: string;
-  displayName: string;
-  boundAppLabel: string;
-  pricePerHourUsd: number;
-  minutePriceUsd: number;
-  status: string;
-  inviteCode: string | null;
-  tags: string[];
-  games: Array<{ slug: string; title: string; coverImageUrl: string; genre: string; pricePerMinuteLzt: number }>;
-};
-
-function useLiveHosts() {
-  const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
-  return useQuery<LiveHost[]>({
-    queryKey: ["live-hosts-landing"],
-    queryFn: async () => {
-      const res = await fetch(`${base}/api/hosts`);
-      if (!res.ok) return [];
-      return res.json();
-    },
-    refetchInterval: 30_000,
-    staleTime: 15_000,
-  });
-}
+type LiveHost = PublicHostListItem;
 
 export default function Landing() {
   const [shareLink, setShareLink] = useState("");
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [, navigate] = useLocation();
   const { playerWalletToken, registerGuest } = usePlayerWallet();
-  const { data: liveHosts } = useLiveHosts();
+  const { data: liveHosts } = useListPublicHosts({
+    query: {
+      queryKey: getListPublicHostsQueryKey(),
+      refetchInterval: 30_000,
+      staleTime: 15_000,
+    },
+  });
   const { data: stats } = useGetPublicStats({
     query: {
       queryKey: getGetPublicStatsQueryKey(),

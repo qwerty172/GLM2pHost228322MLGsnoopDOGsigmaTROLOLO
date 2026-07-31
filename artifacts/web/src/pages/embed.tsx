@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearch } from "wouter";
 import { Loader2, AlertCircle, WifiOff } from "lucide-react";
+import {
+  createEmbedSession,
+  getPublicIceConfig,
+  getSessionByPlayerToken,
+  type CreateEmbedSessionResponse,
+} from "@workspace/api-client-react";
 
 // ---------------------------------------------------------------------------
 // Embeddable widget (task-125): third-party sites drop this page into an
@@ -13,15 +19,7 @@ import { Loader2, AlertCircle, WifiOff } from "lucide-react";
 //   resolution, bitrateKbps (optional)
 // ---------------------------------------------------------------------------
 
-type EmbedSession = {
-  sessionId: string;
-  playerToken: string;
-  gameSlug: string;
-  gameTitle: string;
-  hostDisplayName: string;
-  ratePerMinuteLzt: number;
-  keyBalanceLzt: number;
-};
+type EmbedSession = CreateEmbedSessionResponse;
 
 type EmbedApiError = { error: string; message: string };
 
@@ -93,20 +91,23 @@ export default function Embed() {
     startedRef.current = false;
     void (async () => {
       try {
-        const res = await fetch(`${import.meta.env.BASE_URL}api/embed/sessions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ apiKey, gameSlug, resolution, bitrateKbps }),
+        const data = await createEmbedSession({
+          apiKey,
+          gameSlug,
+          resolution,
+          bitrateKbps,
         });
-        const json = (await res.json()) as EmbedSession | EmbedApiError;
         if (cancelled) return;
-        if (!res.ok) {
-          setError(json as EmbedApiError);
-          return;
-        }
-        setSession(json as EmbedSession);
-      } catch {
-        if (!cancelled) {
+        setSession(data);
+      } catch (err) {
+        if (cancelled) return;
+        const apiErr =
+          err && typeof err === "object" && "data" in err
+            ? (err as { data?: EmbedApiError }).data
+            : undefined;
+        if (apiErr?.error) {
+          setError(apiErr);
+        } else {
           setError({
             error: "network_error",
             message: "Не удалось связаться с игровым сервером",
@@ -186,12 +187,9 @@ export default function Embed() {
 
       let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
       try {
-        const cfgRes = await fetch(`${import.meta.env.BASE_URL}api/public/ice-config`);
-        if (cfgRes.ok) {
-          const cfgJson = (await cfgRes.json()) as { iceServers?: RTCIceServer[] };
-          const valid = (cfgJson.iceServers ?? []).filter((s) => s && s.urls);
-          if (valid.length > 0) iceServers = valid;
-        }
+        const cfgJson = await getPublicIceConfig();
+        const valid = (cfgJson.iceServers ?? []).filter((s) => s && s.urls);
+        if (valid.length > 0) iceServers = valid;
       } catch {
         // fall back to default STUN
       }
@@ -230,9 +228,8 @@ export default function Embed() {
   useEffect(() => {
     if (!session || ended) return;
     const id = setInterval(() => {
-      void fetch(`${import.meta.env.BASE_URL}api/sessions/by-player-token/${session.playerToken}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((s: { status?: string; endReason?: string | null } | null) => {
+      void getSessionByPlayerToken(session.playerToken)
+        .then((s) => {
           if (s?.status === "ended") {
             setEnded({ reason: s.endReason ?? "ended" });
             cleanupConnection();
