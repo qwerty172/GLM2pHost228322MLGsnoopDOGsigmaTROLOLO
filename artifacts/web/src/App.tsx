@@ -24,6 +24,7 @@ import ExchangePage from "@/pages/exchange";
 import { HostLayout } from "@/components/layout";
 import { SiteNav } from "@/components/site-nav";
 import { HostAuthGuard } from "@/components/host-auth-guard";
+import { useAuth } from "@/hooks/use-auth";
 import ProfilePage from "@/pages/profile";
 import Embed from "@/pages/embed";
 
@@ -44,7 +45,6 @@ function HostRoutes() {
           <Route path="/host" component={Dashboard} />
           <Route path="/host/setup" component={SetupSession} />
           <Route path="/host/library" component={HostLibrary} />
-          <Route path="/wallet" component={WalletPage} />
           <Route component={NotFound} />
         </Switch>
       </HostLayout>
@@ -54,6 +54,16 @@ function HostRoutes() {
 
 /** Standalone wallet page — accessible to all users (no HostAuthGuard). */
 function StandaloneWallet() {
+  const { hostToken } = useAuth();
+
+  if (hostToken) {
+    return (
+      <HostLayout>
+        <WalletPage />
+      </HostLayout>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col text-slate-300" style={{ background: "#06090e" }}>
       <SiteNav activePath="/wallet" />
