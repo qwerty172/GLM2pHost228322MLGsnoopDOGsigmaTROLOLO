@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearch } from "wouter";
 import { Loader2, AlertCircle, WifiOff } from "lucide-react";
+import {
+  createEmbedSession,
+  type CreateEmbedSessionResponse,
+} from "@workspace/api-client-react";
 
 // ---------------------------------------------------------------------------
 // Embeddable widget (task-125): third-party sites drop this page into an
@@ -13,19 +17,28 @@ import { Loader2, AlertCircle, WifiOff } from "lucide-react";
 //   resolution, bitrateKbps (optional)
 // ---------------------------------------------------------------------------
 
-type EmbedSession = {
-  sessionId: string;
-  playerToken: string;
-  gameSlug: string;
-  gameTitle: string;
-  hostDisplayName: string;
-  ratePerMinuteLzt: number;
-  keyBalanceLzt: number;
-};
-
 type EmbedApiError = { error: string; message: string };
 
 const isDev = import.meta.env.DEV;
+
+function readEmbedApiError(err: unknown): EmbedApiError | null {
+  if (err && typeof err === "object" && "data" in err) {
+    const data = (err as { data: unknown }).data;
+    if (
+      data &&
+      typeof data === "object" &&
+      "error" in data &&
+      typeof (data as EmbedApiError).error === "string"
+    ) {
+      const payload = data as EmbedApiError;
+      return {
+        error: payload.error,
+        message: typeof payload.message === "string" ? payload.message : payload.error,
+      };
+    }
+  }
+  return null;
+}
 
 function mapEmbedError(error: EmbedApiError): { title: string; detail: string } {
   switch (error.error) {
@@ -65,7 +78,7 @@ export default function Embed() {
   const bitrateKbpsParam = Number(params.get("bitrateKbps"));
   const bitrateKbps = Number.isFinite(bitrateKbpsParam) && bitrateKbpsParam > 0 ? bitrateKbpsParam : undefined;
 
-  const [session, setSession] = useState<EmbedSession | null>(null);
+  const [session, setSession] = useState<CreateEmbedSessionResponse | null>(null);
   const [error, setError] = useState<EmbedApiError | null>(null);
   const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>("new");
   const [ended, setEnded] = useState<{ reason: string } | null>(null);
@@ -93,25 +106,23 @@ export default function Embed() {
     startedRef.current = false;
     void (async () => {
       try {
-        const res = await fetch(`${import.meta.env.BASE_URL}api/embed/sessions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ apiKey, gameSlug, resolution, bitrateKbps }),
+        const created = await createEmbedSession({
+          apiKey,
+          gameSlug,
+          resolution,
+          bitrateKbps,
         });
-        const json = (await res.json()) as EmbedSession | EmbedApiError;
         if (cancelled) return;
-        if (!res.ok) {
-          setError(json as EmbedApiError);
-          return;
-        }
-        setSession(json as EmbedSession);
-      } catch {
-        if (!cancelled) {
-          setError({
+        setSession(created);
+      } catch (err) {
+        if (cancelled) return;
+        const apiError = readEmbedApiError(err);
+        setError(
+          apiError ?? {
             error: "network_error",
             message: "Не удалось связаться с игровым сервером",
-          });
-        }
+          },
+        );
       }
     })();
     return () => {

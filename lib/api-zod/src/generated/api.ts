@@ -3195,6 +3195,142 @@ export const AdminDeleteGameResponse = zod.object({
 });
 
 /**
+ * @summary Admin — list game catalog submissions
+ */
+export const adminListGameSubmissionsQueryStatusDefault = `pending`;
+
+export const AdminListGameSubmissionsQueryParams = zod.object({
+  status: zod
+    .enum(["pending", "approved", "rejected", "all"])
+    .default(adminListGameSubmissionsQueryStatusDefault),
+});
+
+export const AdminListGameSubmissionsHeader = zod.object({
+  "X-Host-Token": zod.string(),
+});
+
+export const AdminListGameSubmissionsResponseItem = zod.object({
+  id: zod.string().uuid(),
+  hostId: zod.string().uuid(),
+  status: zod.string(),
+  title: zod.string(),
+  slug: zod.string(),
+  category: zod.string(),
+  genres: zod.array(zod.string()),
+  description: zod.string(),
+  coverImageUrl: zod.string(),
+  kind: zod.string(),
+  defaultBrowserUrl: zod.string(),
+  steamAppId: zod.string().nullish(),
+  reviewerId: zod.string().uuid().nullish(),
+  reviewedAt: zod.coerce.date().nullish(),
+  rejectionReason: zod.string().nullish(),
+  approvedGameId: zod.string().uuid().nullish(),
+  createdAt: zod.coerce.date(),
+  submitterDisplayName: zod.string(),
+});
+export const AdminListGameSubmissionsResponse = zod.array(
+  AdminListGameSubmissionsResponseItem,
+);
+
+/**
+ * @summary Admin — approve a pending game submission
+ */
+export const AdminApproveGameSubmissionParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const AdminApproveGameSubmissionHeader = zod.object({
+  "X-Host-Token": zod.string(),
+});
+
+export const AdminApproveGameSubmissionBody = zod.object({
+  title: zod.string().optional(),
+  slug: zod.string().optional(),
+  category: zod.string().optional(),
+  genres: zod.array(zod.string()).optional(),
+  description: zod.string().optional(),
+  coverImageUrl: zod.string().optional(),
+  steamAppId: zod.string().optional(),
+});
+
+export const AdminApproveGameSubmissionResponse = zod.object({
+  approved: zod.boolean(),
+  game: zod.object({
+    id: zod.string(),
+    slug: zod.string(),
+    title: zod.string(),
+    coverImageUrl: zod.string(),
+    description: zod.string(),
+    genre: zod.string(),
+    category: zod
+      .string()
+      .describe("Primary catalog category (e.g. action, rpg)"),
+    genres: zod.array(zod.string()).describe("Additional genre tags"),
+    createdAt: zod.coerce.date(),
+    hasMods: zod.boolean(),
+    isMultiplayer: zod.boolean(),
+    hostSpectatesPlayer: zod.boolean(),
+    hasQuests: zod.boolean(),
+    liveSessionCount: zod
+      .number()
+      .describe(
+        "Number of pending or active sessions matching this game right now",
+      ),
+    liveHostsCount: zod
+      .number()
+      .describe(
+        "Hosts with this game enabled that currently have a live session",
+      ),
+    vdsHostsCount: zod
+      .number()
+      .optional()
+      .describe("Number of always-on VDS hosts offering this game"),
+    hasVdsHosts: zod
+      .boolean()
+      .optional()
+      .describe("True when at least one VDS host offers this game"),
+    minPricePerMinuteLzt: zod
+      .number()
+      .nullable()
+      .describe(
+        "Cheapest enabled library price for this game across hosts, in LZT",
+      ),
+    browserHostUrl: zod
+      .string()
+      .describe(
+        "Same-origin URL of a vendored browser build that a player can host\ndirectly from their browser tab (no desktop agent). Empty when only\nnative-app hosting is supported.\n",
+      ),
+    isHidden: zod
+      .boolean()
+      .optional()
+      .describe(
+        "When true the game is excluded from the public catalog (admin-only flag).",
+      ),
+  }),
+  libraryAutoCreated: zod.boolean().optional(),
+});
+
+/**
+ * @summary Admin — reject a pending game submission
+ */
+export const AdminRejectGameSubmissionParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const AdminRejectGameSubmissionHeader = zod.object({
+  "X-Host-Token": zod.string(),
+});
+
+export const AdminRejectGameSubmissionBody = zod.object({
+  reason: zod.string().min(1),
+});
+
+export const AdminRejectGameSubmissionResponse = zod.object({
+  rejected: zod.boolean(),
+});
+
+/**
  * @summary Agent heartbeat вЂ” refresh lastSeenAt (and optional pingMs)
  */
 export const HostHeartbeatBody = zod.object({
