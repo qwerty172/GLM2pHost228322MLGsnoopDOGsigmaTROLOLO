@@ -3,7 +3,7 @@
 > **Активный цикл:** Wave Regression  
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл` (cron пн/чт 09:00)  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-07-27
+> **Последнее обновление:** 2026-07-31
 
 ## Как пользоваться
 
@@ -26,7 +26,7 @@
 | C1-S03 | Объединить timingSafe модули | P1 | done | agent | Один timingSafe.ts |
 | C1-S04 | Workers audit | P1 | done | agent | TESTLOG |
 | C1-S05 | Signaling WS auth audit | P0 | done | agent | ws-ticket documented |
-| C1-S06 | Storage ACL legacy public read | P1 | pending | agent | Backlog |
+| C1-S06 | Storage ACL legacy public read | P1 | done | agent | uploads/* legacy public; saves/clips без ACL → 401; ACL на confirm |
 | C1-S07 | Rate limits enrich + loans read | P2 | done | agent | enrichLimiter + readLimiter |
 | C1-S08 | joinCodes deprecation | P2 | done | agent | Deprecation header |
 | C1-D01 | Smoke + ledger | P0 | done | agent | CI |
@@ -47,7 +47,7 @@
 | C2-S03 | landing hosts dup | P2 | done | agent |
 | C2-S04 | RU browser-play | P1 | done | agent |
 | C2-S05 | a11y player | P1 | done | agent |
-| C2-S06 | /wallet route | P2 | pending | agent |
+| C2-S06 | /wallet route | P2 | done | agent |
 | C2-S07 | shadcn sr-only RU | P3 | pending | agent |
 | C2-S08 | nav Играть | P2 | done | agent |
 | C2-D01 | pages-api-smoke | P1 | done | agent |
@@ -115,6 +115,16 @@
 | REG-03 | Windows manual | blocked | human |
 | REG-04 | TESTLOG summary | done | agent |
 | REG-05 | TESTPLAN 5-7 | done | agent |
+
+## Groomed backlog (2026-07-31)
+
+| ID | Задача | Priority | Status | Owner | Источник |
+|----|--------|----------|--------|-------|----------|
+| H-07 | Unit tests capture/focus guard | P2 | pending | agent | HOSTING §10 |
+| P5-01 | История блочных списаний в кошельке | P2 | pending | agent | PLAN 3.5 |
+| P5-02 | Защита от брутфорса токенов | P1 | pending | agent | PLAN 3.6 |
+| R6-A1 | Карточки game/host — единый компонент | P2 | pending | agent | REDESIGN A.1 |
+| R6-B2 | Каталог: фильтры в Sheet | P2 | pending | agent | REDESIGN B.2 |
 
 ## Automation prompt
 
