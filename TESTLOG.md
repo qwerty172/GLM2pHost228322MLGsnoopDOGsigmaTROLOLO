@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-07-31** | C2-S02 codegen + C2-S06 /host/wallet — см. MARATHON.md |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -84,6 +84,13 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 - **Работает end-to-end (Windows):** pages UI, signaling, session lifecycle, billing tick, browser-host P2P, agent ping/auth/zip, Electron start + SendInput init
 - **Осталось вручную:** полный цикл Steam → сессия → SendInput в реальной игре; kill Electron → disconnect ≤30с на живом стриме
 - **Топ рисков:** Electron `EADDRINUSE` если уже крутится ping-server; video frames в headless/automation иногда 0×0 (в UI HUD P2P ок)
+
+## Marathon Cycle 2 (2026-07-31) {#marathon-c2}
+
+| ID | Что сделано |
+|---|---|
+| C2-S02 | OpenAPI: `adminListSubmissions`, approve/reject; `embed.tsx` → `createEmbedSession` + `getPublicIceConfig`; `admin/games.tsx` → React Query hooks |
+| C2-S06 | Кошелёк хоста: `/host/wallet` в HostLayout (без HostAuthGuard для игроков `/wallet` остаётся standalone); smoke: `/host/wallet` |
 
 ## Marathon 4-cycle audit (2026-07-27) {#marathon-c1}
 
