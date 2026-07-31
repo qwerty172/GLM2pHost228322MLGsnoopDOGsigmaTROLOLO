@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-07-31** | C2-S07: shadcn sr-only/aria RU; backlog — [MARATHON.md](./MARATHON.md) |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -84,6 +84,17 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 - **Работает end-to-end (Windows):** pages UI, signaling, session lifecycle, billing tick, browser-host P2P, agent ping/auth/zip, Electron start + SendInput init
 - **Осталось вручную:** полный цикл Steam → сессия → SendInput в реальной игре; kill Electron → disconnect ≤30с на живом стриме
 - **Топ рисков:** Electron `EADDRINUSE` если уже крутится ping-server; video frames в headless/automation иногда 0×0 (в UI HUD P2P ок)
+
+## Marathon C2-S07 — shadcn a11y RU (2026-07-31) {#marathon-c2-s07}
+
+| Компонент | Было (EN) | Стало (RU) |
+|---|---|---|
+| `sidebar.tsx` | Toggle Sidebar, Sidebar | Переключить боковую панель, Боковая панель |
+| `sheet.tsx`, `dialog.tsx` | Close | Закрыть |
+| `pagination.tsx` | pagination, Go to previous/next page, More pages | Навигация по страницам, Перейти на предыдущую/следующую страницу, Ещё страницы |
+| `carousel.tsx` | Previous/Next slide | Предыдущий/Следующий слайд |
+| `breadcrumb.tsx` | breadcrumb, More | Навигационная цепочка, Ещё |
+| `spinner.tsx` | Loading | Загрузка |
 
 ## Marathon 4-cycle audit (2026-07-27) {#marathon-c1}
 
