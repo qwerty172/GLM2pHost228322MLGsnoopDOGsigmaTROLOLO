@@ -3,13 +3,12 @@
 
 import { EventEmitter } from "node:events";
 import { log } from "./logger";
+import {
+  validateLimitedUserLaunch,
+  type LimitedUserConfig,
+} from "./limited-user-guards";
 
-export interface LimitedUserConfig {
-  enabled: boolean;
-  username: string;
-  password: string;
-  domain?: string;
-}
+export type { LimitedUserConfig } from "./limited-user-guards";
 
 /** Minimal process handle used by app-launcher (spawn ChildProcess or WinProcessHandle). */
 export interface ManagedProcess {
@@ -85,11 +84,9 @@ export function launchWithLimitedUser(
   cwd: string,
   creds: LimitedUserConfig,
 ): LimitedLaunchResult {
-  if (process.platform !== "win32") {
-    return { ok: false, error: "Limited user launch is Windows-only" };
-  }
-  if (!creds.enabled || !creds.username || !creds.password) {
-    return { ok: false, error: "Limited user credentials not configured" };
+  const guard = validateLimitedUserLaunch(creds);
+  if (!guard.ok) {
+    return { ok: false, error: guard.error };
   }
 
   try {
