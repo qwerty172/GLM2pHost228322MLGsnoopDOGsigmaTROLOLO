@@ -95,4 +95,15 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: storage ACL, Windows E2E, host-agent limited-user |
+
+## Marathon Cycle 2 — Web UI codegen (2026-08-01) {#marathon-c2-codegen}
+
+| Задача | Результат |
+|---|---|
+| C2-S02 embed/admin | `embed.tsx` → `createEmbedSession`, `getPublicIceConfig`, `getSessionByPlayerToken`; `admin/games.tsx` → hooks |
+| C2-D02 OpenAPI | `/admin/games/submissions` list/approve/reject в openapi.yaml + codegen |
+| C2-S06 /wallet | `StandaloneWallet` в `App.tsx` (уже был) — verified |
+| C2-S07 sr-only RU | shadcn `Close`/`More`/carousel/sidebar → русские sr-only |
+| api-client | `setHostTokenGetter`, `setAdminSecretGetter` в custom-fetch + main.tsx |
+| verify | `pnpm --filter @workspace/web typecheck`; api-server 22/22; host-agent 12/12 |

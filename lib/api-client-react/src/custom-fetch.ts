@@ -17,6 +17,8 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _hostTokenGetter: AuthTokenGetter | null = null;
+let _adminSecretGetter: AuthTokenGetter | null = null;
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -42,6 +44,23 @@ export function setBaseUrl(url: string | null): void {
  */
 export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
   _authTokenGetter = getter;
+}
+
+/**
+ * Register a getter that supplies the host token for `X-Host-Token` header.
+ * Required for admin routes that do not accept Authorization Bearer alone.
+ * Pass `null` to clear the getter.
+ */
+export function setHostTokenGetter(getter: AuthTokenGetter | null): void {
+  _hostTokenGetter = getter;
+}
+
+/**
+ * Register a getter that supplies the admin secret for `X-Admin-Secret` header.
+ * Pass `null` to clear the getter.
+ */
+export function setAdminSecretGetter(getter: AuthTokenGetter | null): void {
+  _adminSecretGetter = getter;
 }
 
 // ---------------------------------------------------------------------------
@@ -450,6 +469,20 @@ export async function customFetch<T = unknown>(
     const token = await _authTokenGetter();
     if (token) {
       headers.set("authorization", `Bearer ${token}`);
+    }
+  }
+
+  if (_hostTokenGetter && !headers.has("x-host-token")) {
+    const hostToken = await _hostTokenGetter();
+    if (hostToken) {
+      headers.set("x-host-token", hostToken);
+    }
+  }
+
+  if (_adminSecretGetter && !headers.has("x-admin-secret")) {
+    const adminSecret = await _adminSecretGetter();
+    if (adminSecret) {
+      headers.set("x-admin-secret", adminSecret);
     }
   }
 
