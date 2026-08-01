@@ -1,9 +1,9 @@
 # DecentralHub Marathon — живой бэклог
 
-> **Активный цикл:** Wave Regression  
+> **Активный цикл:** Cycle 2 — Web UI  
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл` (cron пн/чт 09:00)  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-07-27
+> **Последнее обновление:** 2026-08-01
 
 ## Как пользоваться
 
@@ -43,15 +43,15 @@
 | ID | Задача | Priority | Status | Owner |
 |----|--------|----------|--------|-------|
 | C2-S01 | Raw fetch audit | P1 | done | agent |
-| C2-S02 | embed/admin codegen | P1 | pending | agent |
+| C2-S02 | embed/admin codegen | P1 | done | agent |
 | C2-S03 | landing hosts dup | P2 | done | agent |
 | C2-S04 | RU browser-play | P1 | done | agent |
 | C2-S05 | a11y player | P1 | done | agent |
-| C2-S06 | /wallet route | P2 | pending | agent |
+| C2-S06 | /wallet route | P2 | done | agent |
 | C2-S07 | shadcn sr-only RU | P3 | pending | agent |
 | C2-S08 | nav Играть | P2 | done | agent |
 | C2-D01 | pages-api-smoke | P1 | done | agent |
-| C2-D02 | OpenAPI gaps | P1 | pending | agent |
+| C2-D02 | OpenAPI gaps | P1 | done | agent |
 | C2-D03 | invite flow | P1 | done | agent |
 | C2-F01 | browser-play RU | P1 | done | agent |
 | C2-F02 | play a11y | P1 | done | agent |
