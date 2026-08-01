@@ -20,6 +20,7 @@ import {
 import {
   startRtmpRelay,
   stopRtmpRelay,
+  syncRtmpWindowTitle,
   fetchStreamRelayConfig,
 } from "./rtmp-relay";
 import { createPingServer, PING_PORT, PING_PORT_FALLBACKS, LOCAL_INPUT_SECRET } from "./ping-server";
@@ -277,7 +278,13 @@ async function startAgent(): Promise<void> {
   ipcMain.handle("agent:get-gamepad-status", () => getGamepadInjectorStatus());
 
   ipcMain.on("capture:set-source", (_e, title: unknown) => {
-    currentCaptureTitle = typeof title === "string" ? title : "";
+    const next = typeof title === "string" ? title : "";
+    const changed = next !== currentCaptureTitle;
+    currentCaptureTitle = next;
+    if (changed && next) {
+      const result = syncRtmpWindowTitle(next);
+      if (!result.ok) log("warn", `[rtmp] sync title failed: ${result.error ?? "unknown"}`);
+    }
   });
 
   ipcMain.on("status:set", (_e, status: unknown, message?: unknown) => {
@@ -350,7 +357,7 @@ async function startAgent(): Promise<void> {
     setExitCallback(() => {
       mainWindow?.webContents.send("app:game-exited");
     });
-    return launchApp(cfg);
+    return await launchApp(cfg);
   });
 
   // Library-based launch: renderer passes the specific entry to launch.
@@ -363,7 +370,7 @@ async function startAgent(): Promise<void> {
     setExitCallback(() => {
       mainWindow?.webContents.send("app:game-exited");
     });
-    return launchEntry(entry);
+    return await launchEntry(entry);
   });
 
   ipcMain.on("app:kill", () => killApp());
