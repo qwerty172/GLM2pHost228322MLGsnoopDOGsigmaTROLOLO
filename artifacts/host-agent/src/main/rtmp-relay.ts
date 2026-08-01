@@ -3,8 +3,13 @@
 
 import { spawn, type ChildProcess } from "node:child_process";
 import { log } from "./logger";
+import { buildGdigrabInput, buildRtmpUrl } from "./rtmp-relay-helpers";
+
+export { buildGdigrabInput, buildRtmpUrl } from "./rtmp-relay-helpers";
 
 let ffmpegProc: ChildProcess | null = null;
+let activeRelayConfig: StreamRelayConfig | null = null;
+let activeCaptureTitle = "";
 
 export interface StreamRelayConfig {
   streamPlatform: string;
@@ -16,7 +21,7 @@ export function isRelayRunning(): boolean {
   return ffmpegProc != null && ffmpegProc.exitCode == null;
 }
 
-export function stopRtmpRelay(): void {
+function stopFfmpegProc(): void {
   if (!ffmpegProc) return;
   try {
     ffmpegProc.kill("SIGTERM");
@@ -24,39 +29,42 @@ export function stopRtmpRelay(): void {
     /* ignore */
   }
   ffmpegProc = null;
+}
+
+export function stopRtmpRelay(): void {
+  stopFfmpegProc();
+  activeRelayConfig = null;
+  activeCaptureTitle = "";
   log("info", "[rtmp] Relay stopped");
 }
 
-function buildRtmpUrl(streamUrl: string, streamKey: string): string {
-  const base = streamUrl.replace(/\/$/, "");
-  if (base.includes("{stream_key}")) {
-    return base.replace("{stream_key}", streamKey);
+/** Restart ffmpeg when WebRTC capture source changes mid-stream. */
+export function syncRtmpCaptureSource(windowTitle: string): boolean {
+  const title = windowTitle.trim();
+  if (title === activeCaptureTitle) return false;
+  activeCaptureTitle = title;
+  // Empty title = session teardown; status:idle will stop the relay.
+  if (!title || !activeRelayConfig || !isRelayRunning()) return false;
+
+  stopFfmpegProc();
+  const result = spawnRtmpRelay(activeRelayConfig, title || undefined);
+  if (!result.ok) {
+    log("warn", `[rtmp] Resync failed: ${result.error ?? "unknown"}`);
+    activeRelayConfig = null;
+    return false;
   }
-  return `${base}/${streamKey}`;
+  log("info", `[rtmp] Resynced capture source → ${buildGdigrabInput(title)}`);
+  return true;
 }
 
-export function startRtmpRelay(
+function spawnRtmpRelay(
   cfg: StreamRelayConfig,
-  opts?: { windowTitle?: string },
+  windowTitle?: string,
 ): { ok: boolean; error?: string } {
-  if (process.platform !== "win32") {
-    return { ok: false, error: "RTMP relay only supported on Windows" };
-  }
   const url = (cfg.streamUrl ?? "").trim();
   const key = (cfg.streamKey ?? "").trim();
-  if (!url || !key) {
-    return { ok: false, error: "streamUrl and streamKey required" };
-  }
-  if (isRelayRunning()) {
-    return { ok: true };
-  }
-
   const outUrl = buildRtmpUrl(url, key);
-  // Prefer the same window title WebRTC is capturing; fall back to full desktop.
-  const title = (opts?.windowTitle ?? "").trim();
-  const grabInput = title
-    ? `title=${title.replace(/[=:,]/g, " ")}`
-    : "desktop";
+  const grabInput = buildGdigrabInput(windowTitle);
   const args = [
     "-f",
     "gdigrab",
@@ -95,6 +103,31 @@ export function startRtmpRelay(
   } catch (err) {
     return { ok: false, error: String(err) };
   }
+}
+
+export function startRtmpRelay(
+  cfg: StreamRelayConfig,
+  opts?: { windowTitle?: string },
+): { ok: boolean; error?: string } {
+  if (process.platform !== "win32") {
+    return { ok: false, error: "RTMP relay only supported on Windows" };
+  }
+  const url = (cfg.streamUrl ?? "").trim();
+  const key = (cfg.streamKey ?? "").trim();
+  if (!url || !key) {
+    return { ok: false, error: "streamUrl and streamKey required" };
+  }
+
+  const title = (opts?.windowTitle ?? "").trim();
+  activeRelayConfig = cfg;
+  activeCaptureTitle = title;
+
+  if (isRelayRunning()) {
+    // Capture source may have changed since the relay started.
+    stopFfmpegProc();
+  }
+
+  return spawnRtmpRelay(cfg, title || undefined);
 }
 
 export async function fetchStreamRelayConfig(

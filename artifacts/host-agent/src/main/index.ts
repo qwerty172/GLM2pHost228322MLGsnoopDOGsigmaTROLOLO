@@ -21,6 +21,7 @@ import {
   startRtmpRelay,
   stopRtmpRelay,
   fetchStreamRelayConfig,
+  syncRtmpCaptureSource,
 } from "./rtmp-relay";
 import { createPingServer, PING_PORT, PING_PORT_FALLBACKS, LOCAL_INPUT_SECRET } from "./ping-server";
 import { launchApp, launchEntry, killApp, setExitCallback } from "./app-launcher";
@@ -278,6 +279,7 @@ async function startAgent(): Promise<void> {
 
   ipcMain.on("capture:set-source", (_e, title: unknown) => {
     currentCaptureTitle = typeof title === "string" ? title : "";
+    syncRtmpCaptureSource(currentCaptureTitle);
   });
 
   ipcMain.on("status:set", (_e, status: unknown, message?: unknown) => {
