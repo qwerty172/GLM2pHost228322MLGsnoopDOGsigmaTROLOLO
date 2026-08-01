@@ -133,7 +133,7 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
  * Serve object entities from PRIVATE_OBJECT_DIR with ACL enforcement.
  * - visibility=public → anyone can READ
  * - visibility=private → owner only
- * - no ACL metadata (legacy covers) → public READ
+ * - no ACL metadata (legacy) → denied (403)
  */
 router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {
@@ -143,19 +143,25 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
 
     const policy = await getObjectAclPolicy(objectFile);
-    if (policy) {
-      const userId = await resolveCallerUserId(req);
-      const canAccess = await objectStorageService.canAccessObjectEntity({
-        userId,
-        objectFile,
-        requestedPermission: ObjectPermission.READ,
+    if (!policy) {
+      res.status(403).json({
+        error: "Forbidden",
+        message: "Объект без ACL — доступ закрыт",
       });
-      if (!canAccess) {
-        res.status(userId ? 403 : 401).json({
-          error: userId ? "Forbidden" : "Unauthorized",
-        });
-        return;
-      }
+      return;
+    }
+
+    const userId = await resolveCallerUserId(req);
+    const canAccess = await objectStorageService.canAccessObjectEntity({
+      userId,
+      objectFile,
+      requestedPermission: ObjectPermission.READ,
+    });
+    if (!canAccess) {
+      res.status(userId ? 403 : 401).json({
+        error: userId ? "Forbidden" : "Unauthorized",
+      });
+      return;
     }
 
     const response = await objectStorageService.downloadObject(objectFile);

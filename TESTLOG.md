@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-08-01** | C1-S06: storage ACL legacy public read closed — см. #marathon-c1-s06 |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -95,4 +95,14 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: C1-F05, OpenAPI gaps, Windows E2E |
+
+## Marathon C1-S06 — storage ACL (2026-08-01) {#marathon-c1-s06}
+
+| Изменение | Детали |
+|---|---|
+| GET `/api/storage/objects/*` | Объекты без ACL metadata → **403** (раньше public READ для legacy covers) |
+| Saves | ACL `private` + owner `player:{id}` на `/saves/confirm` и `/players/me/saves/:gameId/commit` |
+| Covers | При `/games/submit` — ACL `public` для storage path обложки |
+| Tests | `objectAcl.test.ts` — 9 кейсов (canAccessObject + path parsing) |
+| Verify | api-server vitest 31/31; host-agent test 12/12 |

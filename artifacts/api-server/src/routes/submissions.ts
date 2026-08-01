@@ -7,6 +7,8 @@ import {
   gamesTable,
   gameSubmissionsTable,
 } from "@workspace/db";
+import { ObjectStorageService } from "../lib/objectStorage";
+import { ensureObjectAclIfMissing } from "../lib/storageRouteHelpers";
 
 const router: IRouter = Router();
 
@@ -89,6 +91,18 @@ router.post("/games/submit", async (req, res): Promise<void> => {
   if (!host) {
     res.status(401).json({ error: "Unknown hostToken" });
     return;
+  }
+
+  if (body.coverImageUrl.trim()) {
+    try {
+      await ensureObjectAclIfMissing(
+        new ObjectStorageService(),
+        body.coverImageUrl,
+        { owner: `host:${host.id}`, visibility: "public" },
+      );
+    } catch {
+      // Storage not configured in this environment.
+    }
   }
 
   const normalizedTitle = body.title.trim();

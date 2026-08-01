@@ -2,7 +2,13 @@ import type { Request, Response } from "express";
 import {
   ObjectNotFoundError,
   ObjectStorageNotConfiguredError,
+  ObjectStorageService,
 } from "./objectStorage";
+import {
+  getObjectAclPolicy,
+  setObjectAclPolicy,
+  type ObjectAclPolicy,
+} from "./objectAcl";
 import { hostTokenFromRequest } from "./requestToken";
 
 export function respondStorageUnavailable(res: Response): void {
@@ -67,4 +73,36 @@ export async function resolveCallerUserId(req: Request): Promise<string | undefi
   const playerId = await resolvePlayerIdFromRequest(req);
   if (playerId) return `player:${playerId}`;
   return undefined;
+}
+
+/** Map client cover/object URL to internal `/objects/...` path. */
+export function storageObjectPathFromClientUrl(urlOrPath: string): string | null {
+  const trimmed = urlOrPath.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("/api/storage/objects/")) {
+    return trimmed.slice("/api/storage".length);
+  }
+  if (trimmed.startsWith("/objects/")) {
+    return trimmed;
+  }
+  return null;
+}
+
+/** Set ACL when object exists but has no policy yet (legacy uploads). */
+export async function ensureObjectAclIfMissing(
+  service: ObjectStorageService,
+  clientUrlOrPath: string,
+  policy: ObjectAclPolicy,
+): Promise<void> {
+  const objectPath = storageObjectPathFromClientUrl(clientUrlOrPath);
+  if (!objectPath) return;
+  try {
+    const file = await service.getObjectEntityFile(objectPath);
+    const existing = await getObjectAclPolicy(file);
+    if (!existing) {
+      await setObjectAclPolicy(file, policy);
+    }
+  } catch {
+    // Object may not exist yet or storage is unavailable.
+  }
 }

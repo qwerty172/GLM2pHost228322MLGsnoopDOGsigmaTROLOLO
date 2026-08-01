@@ -207,6 +207,15 @@ router.post("/saves/confirm", async (req: Request, res: Response) => {
       return;
     }
 
+    try {
+      await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
+        owner: `player:${playerId}`,
+        visibility: "private",
+      });
+    } catch (aclErr) {
+      req.log.warn({ err: aclErr }, "Failed to set save ACL on confirm");
+    }
+
     const now = new Date();
     await db
       .insert(playerGameSavesTable)
@@ -388,6 +397,16 @@ router.post(
       );
 
     const version = parsed.data.version ?? (existing ? existing.version + 1 : 1);
+    const commitObjectPath = `/objects/${parsed.data.storageKey}`;
+
+    try {
+      await objectStorageService.trySetObjectEntityAclPolicy(commitObjectPath, {
+        owner: `player:${player.id}`,
+        visibility: "private",
+      });
+    } catch (aclErr) {
+      req.log.warn({ err: aclErr }, "Failed to set save ACL on commit");
+    }
 
     if (existing) {
       const [updated] = await db
