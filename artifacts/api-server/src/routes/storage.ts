@@ -2,12 +2,11 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import { z } from "zod/v4";
 import { ObjectStorageService, ObjectNotFoundError, ObjectStorageNotConfiguredError } from "../lib/objectStorage";
-import { ObjectPermission, getObjectAclPolicy } from "../lib/objectAcl";
 import {
   handleStorageError,
   respondStorageUnavailable,
-  resolveCallerUserId,
 } from "../lib/storageRouteHelpers";
+import { enforceObjectReadAccess } from "../lib/storageObjectAccess";
 import multer from "multer";
 
 const ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -36,6 +35,16 @@ const RequestUploadUrlResponse = z.object({
     size: z.number(),
     contentType: z.string(),
   }),
+});
+
+const ConfirmUploadBody = z.object({
+  objectPath: z
+    .string()
+    .min(1)
+    .refine(
+      (p) => p.startsWith("/api/storage/objects/uploads/"),
+      "objectPath must be a cover upload under /api/storage/objects/uploads/",
+    ),
 });
 
 const router: IRouter = Router();
@@ -95,6 +104,49 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
 });
 
 /**
+ * POST /storage/uploads/confirm
+ *
+ * After PUT to the presigned URL, attach a public-read ACL so covers are
+ * served via GET /storage/objects/* (legacy objects without ACL are denied).
+ */
+router.post("/storage/uploads/confirm", async (req: Request, res: Response) => {
+  const token = req.headers["x-host-token"] as string | undefined;
+  if (!token) {
+    res.status(401).json({ error: "Missing X-Host-Token header" });
+    return;
+  }
+
+  const { db, hostsTable } = await import("@workspace/db");
+  const { eq } = await import("drizzle-orm");
+  const [host] = await db
+    .select({ id: hostsTable.id })
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, token));
+  if (!host) {
+    res.status(401).json({ error: "Unknown host token" });
+    return;
+  }
+
+  const parsed = ConfirmUploadBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const rawPath = parsed.data.objectPath.replace(/^\/api\/storage/, "");
+
+  try {
+    const normalized = await objectStorageService.trySetObjectEntityAclPolicy(rawPath, {
+      owner: `host:${host.id}`,
+      visibility: "public",
+    });
+    res.json({ objectPath: `/api/storage${normalized}` });
+  } catch (error) {
+    handleStorageError(req, res, error, "Failed to confirm upload");
+  }
+});
+
+/**
  * GET /storage/public-objects/*
  *
  * Serve public assets from PUBLIC_OBJECT_SEARCH_PATHS.
@@ -133,7 +185,7 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
  * Serve object entities from PRIVATE_OBJECT_DIR with ACL enforcement.
  * - visibility=public → anyone can READ
  * - visibility=private → owner only
- * - no ACL metadata (legacy covers) → public READ
+ * - no ACL metadata → 403 (legacy public-read bypass removed)
  */
 router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {
@@ -142,20 +194,12 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     const objectPath = `/objects/${wildcardPath}`;
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
 
-    const policy = await getObjectAclPolicy(objectFile);
-    if (policy) {
-      const userId = await resolveCallerUserId(req);
-      const canAccess = await objectStorageService.canAccessObjectEntity({
-        userId,
-        objectFile,
-        requestedPermission: ObjectPermission.READ,
+    const access = await enforceObjectReadAccess(req, objectFile, objectStorageService);
+    if (!access.allowed) {
+      res.status(access.status).json({
+        error: access.status === 401 ? "Unauthorized" : "Forbidden",
       });
-      if (!canAccess) {
-        res.status(userId ? 403 : 401).json({
-          error: userId ? "Forbidden" : "Unauthorized",
-        });
-        return;
-      }
+      return;
     }
 
     const response = await objectStorageService.downloadObject(objectFile);

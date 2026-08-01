@@ -1347,6 +1347,15 @@ export interface RequestUploadUrlResponse {
   metadata: RequestUploadUrlResponseMetadata;
 }
 
+export interface ConfirmStorageUploadBody {
+  /** Path returned by request-url (must be under /api/storage/objects/uploads/) */
+  objectPath: string;
+}
+
+export interface ConfirmStorageUploadResponse {
+  objectPath: string;
+}
+
 export type GetHostDebtors200 = { [key: string]: unknown };
 
 export type GetHostStreamRelay200 = {
