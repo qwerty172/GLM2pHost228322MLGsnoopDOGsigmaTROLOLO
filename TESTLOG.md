@@ -96,3 +96,13 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
 | Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+
+## Marathon Cycle 2 — C2-S06 (2026-08-01) {#marathon-c2-s06}
+
+| Проверка | Статус | Как |
+|---|---|---|
+| `/wallet` standalone route (без HostAuthGuard) | verified | `App.tsx` → `StandaloneWallet` + `SiteNav` |
+| Гостевой кошелёк на `/wallet` | verified | `wallet.tsx` → `registerGuest()` CTA |
+| pages-api-smoke `/wallet` | verified | `scripts/pages-api-smoke.sh` |
+| typecheck | verified | `pnpm typecheck` |
+| api-server + host-agent tests | verified | 22 vitest + 12 node tests |
