@@ -5,6 +5,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { log } from "./logger";
 
 let ffmpegProc: ChildProcess | null = null;
+let activeRelayConfig: StreamRelayConfig | null = null;
 
 export interface StreamRelayConfig {
   streamPlatform: string;
@@ -17,14 +18,28 @@ export function isRelayRunning(): boolean {
 }
 
 export function stopRtmpRelay(): void {
-  if (!ffmpegProc) return;
+  if (!ffmpegProc) {
+    activeRelayConfig = null;
+    return;
+  }
   try {
     ffmpegProc.kill("SIGTERM");
   } catch {
     /* ignore */
   }
   ffmpegProc = null;
+  activeRelayConfig = null;
   log("info", "[rtmp] Relay stopped");
+}
+
+/** Restart ffmpeg when WebRTC capture title changes mid-stream. */
+export function syncRtmpWindowTitle(windowTitle?: string): { ok: boolean; error?: string } {
+  if (!activeRelayConfig || !isRelayRunning()) {
+    return { ok: true };
+  }
+  const cfg = activeRelayConfig;
+  stopRtmpRelay();
+  return startRtmpRelay(cfg, { windowTitle });
 }
 
 function buildRtmpUrl(streamUrl: string, streamKey: string): string {
@@ -87,6 +102,7 @@ export function startRtmpRelay(
       log("error", `[rtmp] ffmpeg error: ${String(err)}`);
       ffmpegProc = null;
     });
+    activeRelayConfig = cfg;
     log(
       "info",
       `[rtmp] Relay started → ${cfg.streamPlatform || "custom"} (${url}) source=${grabInput}`,

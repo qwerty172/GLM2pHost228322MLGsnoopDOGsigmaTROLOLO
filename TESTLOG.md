@@ -96,3 +96,10 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
 | Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+
+## Marathon Cycle 3 (2026-08-01) {#marathon-c3}
+
+| ID | Задача | Результат |
+|---|---|---|
+| C3-S05 | limited-user launch | `spawnNativeApp` async: при `limitedUser.enabled` вызывает `launchWithLimitedUser`, fallback на обычный `spawn`; `launchApp`/`launchEntry` async |
+| C3-S06 | RTMP drift | `syncRtmpWindowTitle` в `rtmp-relay.ts`; `capture:set-source` перезапускает ffmpeg с тем же ingest и новым `gdigrab title=` |
