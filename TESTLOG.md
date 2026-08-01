@@ -96,3 +96,12 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
 | Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+
+## Marathon C3-S05 — limited-user launch (2026-08-01) {#marathon-c3-s05}
+
+| Проверка | Результат |
+|---|---|
+| `tryLimitedLaunch` в `spawnNativeApp` | wired: при `limitedUser.enabled` → `launchWithLimitedUser`, иначе стандартный `spawn` |
+| Fallback | при ошибке limited-user — warn + обычный spawn |
+| `launchApp` / `launchEntry` | async, await `spawnNativeApp` |
+| Unit tests | `pnpm --filter @workspace/host-agent test` — ping-server 12/12; host-agent typecheck ok |

@@ -45,27 +45,6 @@ export function clearExitCallback(): void {
   exitCallback = null;
 }
 
-function spawnNativeApp(
-  appPath: string,
-  args: string[],
-  cwd: string,
-): ChildProcess {
-  // Limited Windows user launch when configured (P0b).
-  void loadConfig().then((cfg) => {
-    const lu = cfg.limitedUser;
-    if (lu?.enabled) {
-      log("info", `[limited-user] Configured for ${lu.username}`);
-    }
-  });
-
-  return spawn(appPath, args, {
-    cwd,
-    detached: false,
-    stdio: "ignore",
-    windowsHide: false,
-  });
-}
-
 async function tryLimitedLaunch(
   appPath: string,
   args: string[],
@@ -75,11 +54,27 @@ async function tryLimitedLaunch(
   const lu = cfg.limitedUser;
   if (!lu?.enabled) return null;
   const result = launchWithLimitedUser(appPath, args, cwd, lu as LimitedUserConfig);
-  if (!result.ok || !result.pid) {
+  if (!result.ok || !result.child) {
     log("warn", `[limited-user] Fallback to standard spawn: ${result.error}`);
     return null;
   }
-  return null;
+  return result.child;
+}
+
+async function spawnNativeApp(
+  appPath: string,
+  args: string[],
+  cwd: string,
+): Promise<ChildProcess> {
+  const limited = await tryLimitedLaunch(appPath, args, cwd);
+  if (limited) return limited;
+
+  return spawn(appPath, args, {
+    cwd,
+    detached: false,
+    stdio: "ignore",
+    windowsHide: false,
+  });
 }
 
 function fireExit(): void {
@@ -158,9 +153,9 @@ export function isRunning(): boolean {
 
 // Library-based launch: takes a GameEntryLaunch (from hostGamesTable).
 // Browser games open in the default browser; native games spawn the exe.
-export function launchEntry(
+export async function launchEntry(
   entry: GameEntryLaunch,
-): { ok: boolean; pid?: number; error?: string } {
+): Promise<{ ok: boolean; pid?: number; error?: string }> {
   const url = (entry.boundUrl ?? "").trim();
   if (url.length > 0) {
     try {
@@ -189,7 +184,7 @@ export function launchEntry(
     stopBrowserWatch();
     const args = parseArgs(entry.launchArgs ?? "");
     const cwd = path.dirname(entry.appPath);
-    const child = spawnNativeApp(entry.appPath, args, cwd);
+    const child = await spawnNativeApp(entry.appPath, args, cwd);
     child.on("exit", (code, signal) => {
       log("info", `[library] Game exited code=${code} signal=${signal}`);
       current = null;
@@ -212,9 +207,9 @@ export function launchEntry(
 
 // Legacy single-game launch using the host's HostConfig (boundUrl / appPath / appArgs).
 // Preserved for backward compat with hosts that have no multi-game library.
-export function launchApp(
+export async function launchApp(
   config: HostConfig,
-): { ok: boolean; pid?: number; error?: string } {
+): Promise<{ ok: boolean; pid?: number; error?: string }> {
   const url = (config.boundUrl ?? "").trim();
   if (url.length > 0) {
     try {
@@ -243,7 +238,7 @@ export function launchApp(
     stopBrowserWatch();
     const args = parseArgs(config.appArgs ?? "");
     const cwd = path.dirname(config.appPath);
-    const child = spawnNativeApp(config.appPath, args, cwd);
+    const child = await spawnNativeApp(config.appPath, args, cwd);
     child.on("exit", (code, signal) => {
       log("info", `Target app exited code=${code} signal=${signal}`);
       current = null;
