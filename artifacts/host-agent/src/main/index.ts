@@ -20,6 +20,7 @@ import {
 import {
   startRtmpRelay,
   stopRtmpRelay,
+  syncRtmpWindowTitle,
   fetchStreamRelayConfig,
 } from "./rtmp-relay";
 import { createPingServer, PING_PORT, PING_PORT_FALLBACKS, LOCAL_INPUT_SECRET } from "./ping-server";
@@ -278,6 +279,7 @@ async function startAgent(): Promise<void> {
 
   ipcMain.on("capture:set-source", (_e, title: unknown) => {
     currentCaptureTitle = typeof title === "string" ? title : "";
+    syncRtmpWindowTitle(currentCaptureTitle);
   });
 
   ipcMain.on("status:set", (_e, status: unknown, message?: unknown) => {
