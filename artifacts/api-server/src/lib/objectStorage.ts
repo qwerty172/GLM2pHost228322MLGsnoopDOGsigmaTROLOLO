@@ -276,6 +276,19 @@ export class ObjectStorageService {
     return normalizedPath;
   }
 
+  /** Set ACL on a namespaced object key (e.g. saves/player/game/save.zip). */
+  async trySetObjectAclForKey(
+    relativeKey: string,
+    aclPolicy: ObjectAclPolicy,
+  ): Promise<void> {
+    const privateObjectDir = this.getPrivateObjectDir();
+    const fullPath = `${privateObjectDir}/${relativeKey}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    const bucket = objectStorageClient.bucket(bucketName);
+    const objectFile = bucket.file(objectName);
+    await setObjectAclPolicy(objectFile, aclPolicy);
+  }
+
   async canAccessObjectEntity({
     userId,
     objectFile,
