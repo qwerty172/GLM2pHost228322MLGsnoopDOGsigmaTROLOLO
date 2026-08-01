@@ -207,6 +207,15 @@ router.post("/saves/confirm", async (req: Request, res: Response) => {
       return;
     }
 
+    try {
+      await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
+        owner: `player:${playerId}`,
+        visibility: "private",
+      });
+    } catch (aclErr) {
+      req.log.warn({ err: aclErr }, "Failed to set save ACL (object still stored)");
+    }
+
     const now = new Date();
     await db
       .insert(playerGameSavesTable)
@@ -375,6 +384,16 @@ router.post(
     if (!parsed.data.storageKey.startsWith(expectedPrefix)) {
       res.status(403).json({ error: "Invalid storageKey" });
       return;
+    }
+
+    const objectPath = `/objects/${parsed.data.storageKey}`;
+    try {
+      await storage.trySetObjectEntityAclPolicy(objectPath, {
+        owner: `player:${player.id}`,
+        visibility: "private",
+      });
+    } catch (aclErr) {
+      req.log.warn({ err: aclErr }, "Failed to set player save ACL");
     }
 
     const [existing] = await db
