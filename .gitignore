@@ -60,3 +60,6 @@ Thumbs.db
 
 # Screenshot/asset dumps from Replit sessions
 attached_assets/
+
+# ViGEmClient.dll — fetched via artifacts/host-agent/scripts/fetch-vigem-dll.mjs
+artifacts/host-agent/native/ViGEmClient.dll

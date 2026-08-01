@@ -61,6 +61,10 @@ pnpm --filter @workspace/host-agent run package:win
 Output: `artifacts/host-agent/release/Cloud Gaming Host Agent-Setup-X.Y.Z.exe`
 (NSIS installer, x64).
 
+`ViGEmClient.dll` is bundled automatically when packaging (`pnpm run fetch:vigem`
+downloads it, or copy manually — see `native/README.md`). Hosts still need the
+**ViGEmBus** kernel driver for touch gamepad injection.
+
 ## Files
 
 - `src/main/` — Electron main process (tray, config, app launcher, input

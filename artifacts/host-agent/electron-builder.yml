@@ -15,6 +15,11 @@ files:
 
 asar: true
 
+# ViGEmClient.dll (MIT) — optional; run scripts/fetch-vigem-dll.mjs before package:win
+extraResources:
+  - from: native/ViGEmClient.dll
+    to: ViGEmClient.dll
+
 win:
   target:
     - target: nsis

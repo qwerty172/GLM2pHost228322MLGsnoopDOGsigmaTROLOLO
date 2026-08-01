@@ -5,6 +5,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { log } from "./logger";
 
 let ffmpegProc: ChildProcess | null = null;
+let activeRelayConfig: StreamRelayConfig | null = null;
 
 export interface StreamRelayConfig {
   streamPlatform: string;
@@ -24,6 +25,7 @@ export function stopRtmpRelay(): void {
     /* ignore */
   }
   ffmpegProc = null;
+  activeRelayConfig = null;
   log("info", "[rtmp] Relay stopped");
 }
 
@@ -51,6 +53,7 @@ export function startRtmpRelay(
     return { ok: true };
   }
 
+  activeRelayConfig = cfg;
   const outUrl = buildRtmpUrl(url, key);
   // Prefer the same window title WebRTC is capturing; fall back to full desktop.
   const title = (opts?.windowTitle ?? "").trim();
@@ -82,10 +85,12 @@ export function startRtmpRelay(
     ffmpegProc.on("exit", (code) => {
       log("info", `[rtmp] ffmpeg exited code=${code}`);
       ffmpegProc = null;
+      activeRelayConfig = null;
     });
     ffmpegProc.on("error", (err) => {
       log("error", `[rtmp] ffmpeg error: ${String(err)}`);
       ffmpegProc = null;
+      activeRelayConfig = null;
     });
     log(
       "info",
@@ -95,6 +100,16 @@ export function startRtmpRelay(
   } catch (err) {
     return { ok: false, error: String(err) };
   }
+}
+
+/** Restart ffmpeg when WebRTC capture target changes so RTMP stays in sync. */
+export function syncRtmpWindowTitle(windowTitle: string): void {
+  const cfg = activeRelayConfig;
+  if (!cfg || !isRelayRunning()) return;
+  const title = windowTitle.trim();
+  log("info", `[rtmp] Sync capture title → "${title || "desktop"}"`);
+  stopRtmpRelay();
+  startRtmpRelay(cfg, { windowTitle: title || undefined });
 }
 
 export async function fetchStreamRelayConfig(
