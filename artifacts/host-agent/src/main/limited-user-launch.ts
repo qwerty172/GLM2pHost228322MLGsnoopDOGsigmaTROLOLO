@@ -16,7 +16,7 @@ export function launchWithLimitedUser(
   args: string[],
   cwd: string,
   creds: LimitedUserConfig,
-): { ok: boolean; pid?: number; error?: string } {
+): { ok: boolean; child?: ChildProcess; error?: string } {
   if (process.platform !== "win32") {
     return { ok: false, error: "Limited user launch is Windows-only" };
   }
@@ -50,8 +50,11 @@ export function launchWithLimitedUser(
       },
     });
 
-    log("info", `[limited-user] Launched under ${domain}\\${creds.username} pid=${child.pid}`);
-    return { ok: true, pid: child.pid ?? undefined };
+    log(
+      "info",
+      `[limited-user] Launched under ${domain}\\${creds.username} pid=${child.pid}`,
+    );
+    return { ok: true, child };
   } catch (err) {
     return { ok: false, error: String(err) };
   }

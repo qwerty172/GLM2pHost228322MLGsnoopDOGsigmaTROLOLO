@@ -400,7 +400,7 @@ SELECT id, status, ended_at FROM sessions WHERE status = 'active' AND ended_at I
 | H-01 | Match по title, не HWND/PID | backlog |
 | H-02 | Browser watch: любой Chrome = alive | backlog |
 | H-03 | `captureMode: native` не реализован | coerce → chromium |
-| H-04 | Limited-user launch не подключён | MARATHON C3-S05 |
+| H-04 | Limited-user launch не подключён | done (C3-S05) |
 | H-05 | RTMP relay drift от WebRTC source | MARATHON C3-S06 |
 | H-06 | Renderer 3300+ строк | MARATHON C3-S08 |
 | H-07 | Unit tests capture/focus | backlog |
