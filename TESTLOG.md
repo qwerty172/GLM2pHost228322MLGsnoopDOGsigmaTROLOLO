@@ -13,7 +13,17 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-08-01** | C3-S05 limited-user launch wired; см. MARATHON.md |
+
+## Marathon C3-S05 — limited-user launch (2026-08-01)
+
+| Проверка | Статус | Детали |
+|---|---|---|
+| `spawnNativeApp` → `tryLimitedLaunch` | done | При `limitedUser.enabled` в config.json |
+| Fallback на стандартный spawn | done | warn + spawn при ошибке limited-user |
+| `launchApp` / `launchEntry` async | done | IPC handlers await |
+| host-agent tests | verified | 12/12 ping-server |
+| api-server tests | verified | 22 vitest + 3 node:test |
 
 ## Матрица проверок (Windows 2026-07-24)
 

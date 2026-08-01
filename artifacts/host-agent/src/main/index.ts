@@ -350,7 +350,7 @@ async function startAgent(): Promise<void> {
     setExitCallback(() => {
       mainWindow?.webContents.send("app:game-exited");
     });
-    return launchApp(cfg);
+    return await launchApp(cfg);
   });
 
   // Library-based launch: renderer passes the specific entry to launch.
@@ -363,7 +363,7 @@ async function startAgent(): Promise<void> {
     setExitCallback(() => {
       mainWindow?.webContents.send("app:game-exited");
     });
-    return launchEntry(entry);
+    return await launchEntry(entry);
   });
 
   ipcMain.on("app:kill", () => killApp());
