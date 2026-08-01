@@ -1,0 +1,32 @@
+import type { HostConfig, LibraryEntry, SaveSyncRequest } from "../shared/messages";
+
+/** Mutable session/runtime state shared across renderer modules. */
+export const session = {
+  pc: null as RTCPeerConnection | null,
+  ws: null as WebSocket | null,
+  captureStream: null as MediaStream | null,
+  dataChannel: null as RTCDataChannel | null,
+  captureWidth: 1920,
+  captureHeight: 1080,
+  hostStatsTimer: null as ReturnType<typeof setInterval> | null,
+  currentSessionId: null as string | null,
+  currentConfig: null as HostConfig | null,
+  currentGameId: null as string | null,
+  activeSaveSyncContext: null as SaveSyncRequest | null,
+  isStreaming: false,
+  gamepadWarnedOnce: false,
+  wsReconnectTimer: null as ReturnType<typeof setTimeout> | null,
+  currentCaptureSourceName: "",
+  previewWs: null as WebSocket | null,
+  previewPc: null as RTCPeerConnection | null,
+  previewOwnStream: null as MediaStream | null,
+  guardPollTimer: null as ReturnType<typeof setInterval> | null,
+  libraryEntries: [] as LibraryEntry[],
+  libraryRefreshTimer: null as ReturnType<typeof setInterval> | null,
+  pendingTeardown: null as ReturnType<typeof setTimeout> | null,
+  currentSteamTab: "catalog" as "catalog" | "new" | "added",
+  steamIsFirstScan: true,
+  steamGames: [] as import("../shared/messages").SteamScanGame[],
+  steamScanInFlight: false,
+  steamEligibleItems: [] as Array<{ gameId: string; title: string; appPath: string | null }>,
+};

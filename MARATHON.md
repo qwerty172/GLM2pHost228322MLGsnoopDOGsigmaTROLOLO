@@ -3,7 +3,7 @@
 > **Активный цикл:** Wave Regression  
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл` (cron пн/чт 09:00)  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-07-27
+> **Последнее обновление:** 2026-08-01
 
 ## Как пользоваться
 
@@ -66,10 +66,10 @@
 | C3-S02 | pushSave confirm | P0 | done | agent |
 | C3-S03 | focus-guard | P1 | done | agent |
 | C3-S04 | captureMode native | P1 | done | agent |
-| C3-S05 | limited-user launch | P2 | pending | agent |
-| C3-S06 | RTMP drift | P2 | pending | agent |
-| C3-S07 | ViGEm packaging | P2 | pending | agent |
-| C3-S08 | renderer split | P3 | pending | agent |
+| C3-S05 | limited-user launch | P2 | done | agent |
+| C3-S06 | RTMP drift | P2 | done | agent |
+| C3-S07 | ViGEm packaging | P2 | done | agent |
+| C3-S08 | renderer split | P3 | done | agent |
 | C3-D01 | unit tests | P1 | done | agent |
 | C3-D02 | agent-api-smoke | P1 | done | agent |
 | C3-D03 | Windows E2E | P0 | blocked | human |
