@@ -207,6 +207,15 @@ router.post("/saves/confirm", async (req: Request, res: Response) => {
       return;
     }
 
+    try {
+      await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
+        owner: `player:${playerId}`,
+        visibility: "private",
+      });
+    } catch (aclErr) {
+      req.log.warn({ err: aclErr }, "Failed to set save ACL (metadata still saved)");
+    }
+
     const now = new Date();
     await db
       .insert(playerGameSavesTable)
@@ -388,13 +397,23 @@ router.post(
       );
 
     const version = parsed.data.version ?? (existing ? existing.version + 1 : 1);
+    const objectPath = `/objects/${parsed.data.storageKey}`;
+
+    try {
+      await storage.trySetObjectEntityAclPolicy(objectPath, {
+        owner: `player:${player.id}`,
+        visibility: "private",
+      });
+    } catch (aclErr) {
+      req.log.warn({ err: aclErr }, "Failed to set save ACL (metadata still saved)");
+    }
 
     if (existing) {
       const [updated] = await db
         .update(playerGameSavesTable)
         .set({
           storageKey: parsed.data.storageKey,
-          objectPath: `/objects/${parsed.data.storageKey}`,
+          objectPath,
           sizeBytes: parsed.data.sizeBytes,
           version,
           updatedAt: new Date(),
@@ -411,7 +430,7 @@ router.post(
         playerId: player.id,
         gameId,
         storageKey: parsed.data.storageKey,
-        objectPath: `/objects/${parsed.data.storageKey}`,
+        objectPath,
         sizeBytes: parsed.data.sizeBytes,
         version,
         contentHash: "",

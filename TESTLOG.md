@@ -95,4 +95,14 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, Windows E2E |
+
+## Marathon C1-S06 — Storage ACL (2026-08-01) {#marathon-c1-s06}
+
+| Изменение | Детали |
+|---|---|
+| `GET /storage/objects/*` | Объекты без ACL metadata → 401 (legacy public read закрыт) |
+| `POST /saves/confirm` | После upload выставляется `visibility: private`, owner `player:{id}` |
+| `POST /players/me/saves/:gameId/commit` | То же ACL на commit |
+| Тесты | `objectAcl.test.ts` — 7 кейсов (no-ACL deny, public/private/owner) |
+| Верификация | `pnpm --filter @workspace/api-server test` (29/29), host-agent 12/12 |
