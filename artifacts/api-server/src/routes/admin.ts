@@ -13,20 +13,13 @@ import {
 import { addToLibrary } from "../lib/hostLibrary";
 import { rateLimit, ipKey } from "../lib/rateLimit";
 import { timingSafeEqualString } from "../lib/timingSafe";
+import { hostTokenFromRequest } from "../lib/requestToken";
 
 const router: IRouter = Router();
 
 // ---------------------------------------------------------------------------
 // Auth helpers
 // ---------------------------------------------------------------------------
-
-function getHostFromAuthHeader(req: {
-  headers: Record<string, string | string[] | undefined>;
-}): string | null {
-  const auth = req.headers["x-host-token"];
-  if (!auth) return null;
-  return Array.isArray(auth) ? auth[0] : auth;
-}
 
 // IP-keyed limiter across ALL admin routes — blocks brute-forcing of both
 // the admin secret and host tokens against this surface.
@@ -62,7 +55,7 @@ const requireAdmin: RequestHandler = async (req, res, next) => {
     return;
   }
 
-  const token = getHostFromAuthHeader(req);
+  const token = hostTokenFromRequest(req);
   if (!token) {
     res.status(401).json({ error: "Missing X-Host-Token header" });
     return;
