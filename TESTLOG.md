@@ -13,7 +13,17 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-08-01** | C2-S02 embed/admin codegen — OpenAPI admin submissions, setAdminSecretGetter, embed + admin/games на codegen hooks |
+
+## Marathon C2-S02 embed/admin codegen (2026-08-01)
+
+| Область | Изменение |
+|---|---|
+| OpenAPI | `GET/POST /admin/games/submissions/*`, схемы `GameSubmissionListItem` |
+| api-client-react | `setHostTokenGetter`, `setAdminSecretGetter`, `ApiError` export |
+| embed.tsx | `createEmbedSession`, `getPublicIceConfig`, `useGetSessionByPlayerToken` |
+| admin/games.tsx | `useAdminListGames`, `useAdminListSubmissions`, approve/reject/patch/delete hooks |
+| verify | `pnpm typecheck` (web), api-server + host-agent tests green |
 
 ## Матрица проверок (Windows 2026-07-24)
 
