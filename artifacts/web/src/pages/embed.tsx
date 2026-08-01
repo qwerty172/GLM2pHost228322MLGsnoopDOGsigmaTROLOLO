@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearch } from "wouter";
 import { Loader2, AlertCircle, WifiOff } from "lucide-react";
+import {
+  ApiError,
+  createEmbedSession,
+  type CreateEmbedSessionResponse,
+} from "@workspace/api-client-react";
 
 // ---------------------------------------------------------------------------
 // Embeddable widget (task-125): third-party sites drop this page into an
@@ -13,15 +18,7 @@ import { Loader2, AlertCircle, WifiOff } from "lucide-react";
 //   resolution, bitrateKbps (optional)
 // ---------------------------------------------------------------------------
 
-type EmbedSession = {
-  sessionId: string;
-  playerToken: string;
-  gameSlug: string;
-  gameTitle: string;
-  hostDisplayName: string;
-  ratePerMinuteLzt: number;
-  keyBalanceLzt: number;
-};
+type EmbedSession = CreateEmbedSessionResponse;
 
 type EmbedApiError = { error: string; message: string };
 
@@ -93,25 +90,28 @@ export default function Embed() {
     startedRef.current = false;
     void (async () => {
       try {
-        const res = await fetch(`${import.meta.env.BASE_URL}api/embed/sessions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ apiKey, gameSlug, resolution, bitrateKbps }),
+        const created = await createEmbedSession({
+          apiKey,
+          gameSlug,
+          ...(resolution ? { resolution } : {}),
+          ...(bitrateKbps ? { bitrateKbps } : {}),
         });
-        const json = (await res.json()) as EmbedSession | EmbedApiError;
         if (cancelled) return;
-        if (!res.ok) {
-          setError(json as EmbedApiError);
+        setSession(created);
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof ApiError) {
+          const data = err.data as { error?: string; message?: string } | null;
+          setError({
+            error: data?.error ?? "unknown",
+            message: data?.message ?? err.message,
+          });
           return;
         }
-        setSession(json as EmbedSession);
-      } catch {
-        if (!cancelled) {
-          setError({
-            error: "network_error",
-            message: "Не удалось связаться с игровым сервером",
-          });
-        }
+        setError({
+          error: "network_error",
+          message: "Не удалось связаться с игровым сервером",
+        });
       }
     })();
     return () => {
