@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { setAuthTokenGetter, setUserTokensGetter } from "@workspace/api-client-react";
+import { setAuthTokenGetter, setHostTokenGetter, setUserTokensGetter } from "@workspace/api-client-react";
 import App from "./App";
 import "./index.css";
 import { initSentry } from "./lib/sentry";
@@ -15,5 +15,6 @@ setUserTokensGetter(() => [
 
 // Host /me routes authenticate via Authorization Bearer (preferred over path tokens).
 setAuthTokenGetter(() => localStorage.getItem("streamline.hostToken"));
+setHostTokenGetter(() => localStorage.getItem("streamline.hostToken"));
 
 createRoot(document.getElementById("root")!).render(<App />);

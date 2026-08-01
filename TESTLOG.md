@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-08-01** | C2-D02 admin submissions OpenAPI + codegen; C2-S06 /wallet standalone; см. MARATHON.md |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -95,4 +95,12 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: storage ACL, shadcn sr-only RU, Windows E2E |
+
+## Marathon Cycle 2 (2026-08-01) {#marathon-c2}
+
+| ID | Результат |
+|---|---|
+| C2-D02 | OpenAPI: `/admin/games/submissions` list/approve/reject + схемы `GameSubmission`; codegen hooks; `admin/games.tsx` без raw fetch |
+| C2-S06 | Standalone `/wallet` (SiteNav + WalletPage без HostAuthGuard) — `App.tsx` + `pages-api-smoke.sh` |
+| C2-S02 | Admin panel полностью на codegen (`useAdminListGames`, patch/delete, submissions) + `setHostTokenGetter` / `setAdminSecretGetter` |
