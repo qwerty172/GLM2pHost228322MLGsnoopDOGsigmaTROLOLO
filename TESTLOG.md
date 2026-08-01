@@ -13,7 +13,16 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-08-01** | C3-S05 limited-user launch wired; см. MARATHON.md |
+
+## Marathon C3-S05 — limited-user launch (2026-08-01) {#marathon-c3-s05}
+
+| Проверка | Результат |
+|---|---|
+| `launchWithLimitedUser` | `CreateProcessWithLogonW` через koffi; fallback на `spawn` при ошибке |
+| `app-launcher` | `spawnNativeApp` вызывает limited launch при `config.limitedUser.enabled` |
+| Unit tests | `test/limited-user-launch.test.mjs` — non-Win32 reject + parseArgs |
+| Ручная верификация | Windows + локальный пользователь DecentralHubPlayer — **human** |
 
 ## Матрица проверок (Windows 2026-07-24)
 

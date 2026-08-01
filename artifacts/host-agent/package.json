@@ -11,7 +11,7 @@
     "start": "pnpm run build && electron .",
     "dev": "pnpm run build && electron . --dev",
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
-    "test": "pnpm run build:main && node --test test/ping-server.test.mjs",
+    "test": "pnpm run build:main && node --test test/*.test.mjs",
     "package:win": "pnpm run build && electron-builder --win --x64 --config electron-builder.yml"
   },
   "dependencies": {
