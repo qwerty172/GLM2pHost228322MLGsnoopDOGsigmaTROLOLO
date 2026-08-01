@@ -95,4 +95,13 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — C3-S08 renderer split done 2026-08-01 |
+
+## Marathon C3-S08 renderer split (2026-08-01) {#marathon-c3-s08}
+
+| Проверка | Статус | Детали |
+|---|---|---|
+| renderer modules | done | `index.ts` 84 строк; модули: session, steam, capture, library, auth, … |
+| typecheck | done | `pnpm --filter @workspace/host-agent run typecheck` |
+| host-agent test | done | 12/12 ping-server |
+| build:renderer | done | tsc + copy-renderer-assets |
