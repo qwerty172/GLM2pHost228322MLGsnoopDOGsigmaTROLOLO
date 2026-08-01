@@ -233,6 +233,15 @@ router.post("/saves/confirm", async (req: Request, res: Response) => {
         },
       });
 
+    try {
+      await objectStorageService.trySetObjectAclForKey(storageKey, {
+        owner: `player:${playerId}`,
+        visibility: "private",
+      });
+    } catch (aclErr) {
+      req.log.warn({ err: aclErr }, "Failed to set save ACL (metadata still saved)");
+    }
+
     res.json(ConfirmResponse.parse({ saved: true, objectPath }));
   } catch (error) {
     handleStorageError(req, res, error, "Failed to confirm save upload");
@@ -388,6 +397,15 @@ router.post(
       );
 
     const version = parsed.data.version ?? (existing ? existing.version + 1 : 1);
+
+    try {
+      await objectStorageService.trySetObjectAclForKey(parsed.data.storageKey, {
+        owner: `player:${player.id}`,
+        visibility: "private",
+      });
+    } catch (aclErr) {
+      req.log.warn({ err: aclErr }, "Failed to set save ACL (commit still saved)");
+    }
 
     if (existing) {
       const [updated] = await db
