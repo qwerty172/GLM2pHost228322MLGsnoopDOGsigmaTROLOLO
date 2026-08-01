@@ -279,7 +279,9 @@ async function billOnceInner(): Promise<void> {
         // Player was debited blockReservedLzt at claim; pay the host each tick
         // from that reserve without further player balance debits.
         if (session.blockMinutes && session.blockReservedLzt) {
-          if (minutesInto >= session.blockMinutes) {
+          // End only when the block is already fully billed. Using `>=` here
+          // would skip the final prepaid minute (minutesInto === blockMinutes).
+          if (minutesInto > session.blockMinutes) {
             await tx
               .update(sessionsTable)
               .set({
@@ -324,11 +326,24 @@ async function billOnceInner(): Promise<void> {
             },
           ]);
 
-          const minsLeft = session.blockMinutes - minutesInto;
           await tx
             .update(sessionsTable)
             .set({ lastBilledAt: now })
             .where(eq(sessionsTable.id, session.id));
+
+          if (minutesInto >= session.blockMinutes) {
+            await tx
+              .update(sessionsTable)
+              .set({
+                status: "ended",
+                endedAt: now,
+                endReason: "block_expired",
+              })
+              .where(eq(sessionsTable.id, session.id));
+            return "block_expired";
+          }
+
+          const minsLeft = session.blockMinutes - minutesInto;
           return { blockWarning: minsLeft === 2 };
         }
 
