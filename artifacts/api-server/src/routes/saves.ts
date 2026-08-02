@@ -18,6 +18,7 @@ import {
   respondStorageUnavailable,
   resolveHostIdFromRequest,
   resolvePlayerIdFromRequest,
+  extractObjectEntityPath,
 } from "../lib/storageRouteHelpers";
 import { randomUUID } from "node:crypto";
 
@@ -233,6 +234,15 @@ router.post("/saves/confirm", async (req: Request, res: Response) => {
         },
       });
 
+    try {
+      await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
+        owner: `player:${playerId}`,
+        visibility: "private",
+      });
+    } catch (aclErr) {
+      req.log.warn({ err: aclErr }, "Failed to set save ACL on confirm");
+    }
+
     res.json(ConfirmResponse.parse({ saved: true, objectPath }));
   } catch (error) {
     handleStorageError(req, res, error, "Failed to confirm save upload");
@@ -388,6 +398,16 @@ router.post(
       );
 
     const version = parsed.data.version ?? (existing ? existing.version + 1 : 1);
+    const objectPath = `/objects/${parsed.data.storageKey}`;
+
+    try {
+      await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
+        owner: `player:${player.id}`,
+        visibility: "private",
+      });
+    } catch (aclErr) {
+      req.log.warn({ err: aclErr }, "Failed to set save ACL on commit");
+    }
 
     if (existing) {
       const [updated] = await db

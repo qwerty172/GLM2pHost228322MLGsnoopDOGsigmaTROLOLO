@@ -13,8 +13,11 @@ import {
 import { addToLibrary } from "../lib/hostLibrary";
 import { rateLimit, ipKey } from "../lib/rateLimit";
 import { timingSafeEqualString } from "../lib/timingSafe";
+import { ObjectStorageService } from "../lib/objectStorage";
+import { extractObjectEntityPath } from "../lib/storageRouteHelpers";
 
 const router: IRouter = Router();
+const objectStorageService = new ObjectStorageService();
 
 // ---------------------------------------------------------------------------
 // Auth helpers
@@ -264,6 +267,19 @@ router.post(
           : `Твоя заявка «${game.title}» одобрена и добавлена в каталог.`,
       })
       .where(eq(hostsTable.id, sub.hostId));
+
+    const coverUrl = overrides.coverImageUrl ?? sub.coverImageUrl;
+    const coverObjectPath = extractObjectEntityPath(coverUrl);
+    if (coverObjectPath) {
+      try {
+        await objectStorageService.trySetObjectEntityAclPolicy(coverObjectPath, {
+          owner: `host:${sub.hostId}`,
+          visibility: "public",
+        });
+      } catch (aclErr) {
+        req.log.warn({ err: aclErr }, "Failed to set cover ACL on approve");
+      }
+    }
 
     res.json({ approved: true, game, libraryAutoCreated });
   },
