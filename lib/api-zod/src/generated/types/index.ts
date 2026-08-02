@@ -8,8 +8,15 @@
 
 export * from "./activityItem";
 export * from "./addHostLibraryEntryBody";
+export * from "./adminApproveSubmissionBody";
+export * from "./adminApproveSubmissionResponse";
 export * from "./adminDeleteGame200";
+export * from "./adminGameSubmission";
+export * from "./adminListGameSubmissionsParams";
+export * from "./adminListGameSubmissionsStatus";
 export * from "./adminPatchGameBody";
+export * from "./adminRejectGameSubmission200";
+export * from "./adminRejectSubmissionBody";
 export * from "./agentEventItem";
 export * from "./agentLogin200";
 export * from "./agentLoginBody";
