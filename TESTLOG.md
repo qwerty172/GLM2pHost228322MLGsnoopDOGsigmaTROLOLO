@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-08-02** | C2-S02 embed/admin codegen: OpenAPI admin submissions + codegen hooks; embed.tsx и admin/games.tsx без raw fetch |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -95,4 +95,14 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps (C2-D02), /wallet route, Windows E2E |
+
+## Marathon C2-S02 embed/admin codegen (2026-08-02) {#marathon-c2-s02}
+
+| Область | Изменение |
+|---|---|
+| OpenAPI | `GET/POST /admin/games/submissions/*` + схемы `GameSubmissionItem`, approve/reject bodies |
+| Codegen | `useAdminListGameSubmissions`, `adminApproveGameSubmission`, `adminRejectGameSubmission` |
+| embed.tsx | `createEmbedSession`, `getPublicIceConfig`, `getSessionByPlayerToken` вместо raw fetch |
+| admin/games.tsx | `useAdminListGames`, `useAdminListGameSubmissions`, `adminPatchGame`, `adminDeleteGame` |
+| Verify | `pnpm typecheck` ok; api-server 22/22; host-agent 12/12 |

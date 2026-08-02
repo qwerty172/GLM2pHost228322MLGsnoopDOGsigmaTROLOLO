@@ -8,8 +8,14 @@
 
 export * from "./activityItem";
 export * from "./addHostLibraryEntryBody";
+export * from "./adminApproveSubmissionBody";
+export * from "./adminApproveSubmissionResponse";
 export * from "./adminDeleteGame200";
+export * from "./adminListGameSubmissionsParams";
+export * from "./adminListGameSubmissionsStatus";
 export * from "./adminPatchGameBody";
+export * from "./adminRejectGameSubmission200";
+export * from "./adminRejectSubmissionBody";
 export * from "./agentEventItem";
 export * from "./agentLogin200";
 export * from "./agentLoginBody";
@@ -52,6 +58,8 @@ export * from "./gameDetail";
 export * from "./gameListItem";
 export * from "./gameLiveSession";
 export * from "./gameLiveSessionScheduleMode";
+export * from "./gameSubmissionItem";
+export * from "./gameSubmissionItemKind";
 export * from "./getAgentChallenge200";
 export * from "./getGameBySlugParams";
 export * from "./getHostCurrentQuota200";
