@@ -13,7 +13,7 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-08-02** | C1-S06 storage ACL: deny orphan objects; legacy catalog covers only |
 
 ## Матрица проверок (Windows 2026-07-24)
 
@@ -95,4 +95,13 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, central auth middleware, Windows E2E |
+
+## Marathon C1-S06 — storage ACL (2026-08-02) {#marathon-c1-s06}
+
+| Изменение | Детали |
+|---|---|
+| `GET /storage/objects/*` | Объекты без ACL больше не world-readable; исключение — обложки из `games` / `game_submissions` |
+| `POST /storage/uploads/confirm` | После presigned PUT хост выставляет `visibility: public` на cover-ассеты |
+| Тесты | `storageAcl.test.ts` — `decideObjectReadAccess`, `toStorageApiPath` |
+| Регресс | api-server 29/29, host-agent 12/12 |

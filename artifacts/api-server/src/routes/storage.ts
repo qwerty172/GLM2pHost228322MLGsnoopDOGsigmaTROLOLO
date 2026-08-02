@@ -2,12 +2,13 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import { z } from "zod/v4";
 import { ObjectStorageService, ObjectNotFoundError, ObjectStorageNotConfiguredError } from "../lib/objectStorage";
-import { ObjectPermission, getObjectAclPolicy } from "../lib/objectAcl";
 import {
   handleStorageError,
   respondStorageUnavailable,
   resolveCallerUserId,
+  resolveHostIdFromRequest,
 } from "../lib/storageRouteHelpers";
+import { canReadStorageObject } from "../lib/storageAclHelpers";
 import multer from "multer";
 
 const ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -36,6 +37,10 @@ const RequestUploadUrlResponse = z.object({
     size: z.number(),
     contentType: z.string(),
   }),
+});
+
+const ConfirmUploadBody = z.object({
+  objectPath: z.string().min(1),
 });
 
 const router: IRouter = Router();
@@ -128,12 +133,49 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
 });
 
 /**
+ * POST /storage/uploads/confirm
+ *
+ * After uploading to the presigned URL, set public-read ACL on cover assets.
+ */
+router.post("/storage/uploads/confirm", async (req: Request, res: Response) => {
+  const hostId = await resolveHostIdFromRequest(req);
+  if (!hostId) {
+    res.status(401).json({ error: "Missing or unknown host token" });
+    return;
+  }
+
+  const parsed = ConfirmUploadBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const { objectPath } = parsed.data;
+  if (!objectPath.startsWith("/api/storage/objects/")) {
+    res.status(400).json({ error: "objectPath must start with /api/storage/objects/" });
+    return;
+  }
+
+  const rawPath = objectPath.replace(/^\/api\/storage/, "");
+
+  try {
+    await objectStorageService.trySetObjectEntityAclPolicy(rawPath, {
+      owner: `host:${hostId}`,
+      visibility: "public",
+    });
+    res.json({ objectPath });
+  } catch (error) {
+    handleStorageError(req, res, error, "Failed to confirm upload ACL");
+  }
+});
+
+/**
  * GET /storage/objects/*
  *
  * Serve object entities from PRIVATE_OBJECT_DIR with ACL enforcement.
  * - visibility=public → anyone can READ
  * - visibility=private → owner only
- * - no ACL metadata (legacy covers) → public READ
+ * - no ACL metadata → only catalog-referenced legacy covers stay public
  */
 router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {
@@ -142,20 +184,18 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     const objectPath = `/objects/${wildcardPath}`;
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
 
-    const policy = await getObjectAclPolicy(objectFile);
-    if (policy) {
-      const userId = await resolveCallerUserId(req);
-      const canAccess = await objectStorageService.canAccessObjectEntity({
-        userId,
-        objectFile,
-        requestedPermission: ObjectPermission.READ,
+    const userId = await resolveCallerUserId(req);
+    const canAccess = await canReadStorageObject({
+      objectFile,
+      objectPath,
+      userId,
+      objectStorageService,
+    });
+    if (!canAccess) {
+      res.status(userId ? 403 : 401).json({
+        error: userId ? "Forbidden" : "Unauthorized",
       });
-      if (!canAccess) {
-        res.status(userId ? 403 : 401).json({
-          error: userId ? "Forbidden" : "Unauthorized",
-        });
-        return;
-      }
+      return;
     }
 
     const response = await objectStorageService.downloadObject(objectFile);
