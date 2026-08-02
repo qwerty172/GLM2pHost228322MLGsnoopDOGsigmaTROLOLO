@@ -1347,6 +1347,22 @@ export interface RequestUploadUrlResponse {
   metadata: RequestUploadUrlResponseMetadata;
 }
 
+export interface ConfirmUploadBody {
+  objectPath: string;
+}
+
+export type ConfirmUploadResponseVisibility =
+  (typeof ConfirmUploadResponseVisibility)[keyof typeof ConfirmUploadResponseVisibility];
+
+export const ConfirmUploadResponseVisibility = {
+  public: "public",
+} as const;
+
+export interface ConfirmUploadResponse {
+  objectPath: string;
+  visibility: ConfirmUploadResponseVisibility;
+}
+
 export type GetHostDebtors200 = { [key: string]: unknown };
 
 export type GetHostStreamRelay200 = {
