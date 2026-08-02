@@ -3,9 +3,13 @@ import { Readable } from "stream";
 import { z } from "zod/v4";
 import { ObjectStorageService, ObjectNotFoundError, ObjectStorageNotConfiguredError } from "../lib/objectStorage";
 import { ObjectPermission, getObjectAclPolicy } from "../lib/objectAcl";
+import { hostTokenFromRequest } from "../lib/requestToken";
+import {
+  isLegacyPublicUploadPath,
+  normalizeStorageObjectPath,
+} from "../lib/storageAcl";
 import {
   handleStorageError,
-  respondStorageUnavailable,
   resolveCallerUserId,
 } from "../lib/storageRouteHelpers";
 import multer from "multer";
@@ -38,6 +42,15 @@ const RequestUploadUrlResponse = z.object({
   }),
 });
 
+const ConfirmUploadBody = z.object({
+  objectPath: z.string().min(1),
+});
+
+const ConfirmUploadResponse = z.object({
+  objectPath: z.string(),
+  confirmed: z.literal(true),
+});
+
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 
@@ -49,10 +62,9 @@ const objectStorageService = new ObjectStorageService();
  * Then uploads the file directly to the returned presigned URL.
  */
 router.post("/storage/uploads/request-url", async (req: Request, res: Response) => {
-  // Require an authenticated host token for upload URL issuance.
-  const token = req.headers["x-host-token"] as string | undefined;
+  const token = hostTokenFromRequest(req);
   if (!token) {
-    res.status(401).json({ error: "Missing X-Host-Token header" });
+    res.status(401).json({ error: "Missing host token in Authorization or X-Host-Token" });
     return;
   }
 
@@ -95,6 +107,63 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
 });
 
 /**
+ * POST /storage/uploads/confirm
+ *
+ * After uploading a cover to the presigned URL, the host confirms the object
+ * and sets a public-read ACL so it can be served without legacy fallback.
+ */
+router.post("/storage/uploads/confirm", async (req: Request, res: Response) => {
+  const token = hostTokenFromRequest(req);
+  if (!token) {
+    res.status(401).json({ error: "Missing host token in Authorization or X-Host-Token" });
+    return;
+  }
+
+  const parsed = ConfirmUploadBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const { db, hostsTable } = await import("@workspace/db");
+  const { eq } = await import("drizzle-orm");
+  const [host] = await db
+    .select({ id: hostsTable.id })
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, token));
+  if (!host) {
+    res.status(401).json({ error: "Unknown host token" });
+    return;
+  }
+
+  const objectPath = normalizeStorageObjectPath(parsed.data.objectPath);
+  const wildcardPath = objectPath.replace(/^\/objects\//, "");
+  if (!isLegacyPublicUploadPath(wildcardPath)) {
+    res.status(400).json({ error: "objectPath must be /objects/uploads/{uuid}" });
+    return;
+  }
+
+  try {
+    const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+    const [exists] = await objectFile.exists();
+    if (!exists) {
+      res.status(404).json({ error: "Object not found" });
+      return;
+    }
+
+    const normalizedPath = await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
+      owner: `host:${host.id}`,
+      visibility: "public",
+    });
+
+    const apiPath = `/api/storage${normalizedPath}`;
+    res.json(ConfirmUploadResponse.parse({ objectPath: apiPath, confirmed: true }));
+  } catch (error) {
+    handleStorageError(req, res, error, "Failed to confirm upload");
+  }
+});
+
+/**
  * GET /storage/public-objects/*
  *
  * Serve public assets from PUBLIC_OBJECT_SEARCH_PATHS.
@@ -133,7 +202,7 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
  * Serve object entities from PRIVATE_OBJECT_DIR with ACL enforcement.
  * - visibility=public → anyone can READ
  * - visibility=private → owner only
- * - no ACL metadata (legacy covers) → public READ
+ * - no ACL metadata (legacy covers) → public READ only for /objects/uploads/{uuid}
  */
 router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {
@@ -156,6 +225,9 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
         });
         return;
       }
+    } else if (!isLegacyPublicUploadPath(wildcardPath)) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
     }
 
     const response = await objectStorageService.downloadObject(objectFile);
