@@ -4,9 +4,13 @@ import { z } from "zod/v4";
 import { ObjectStorageService, ObjectNotFoundError, ObjectStorageNotConfiguredError } from "../lib/objectStorage";
 import { ObjectPermission, getObjectAclPolicy } from "../lib/objectAcl";
 import {
+  isLegacyPublicUploadPath,
+  normalizeStorageObjectPath,
+} from "../lib/storageAcl";
+import {
   handleStorageError,
-  respondStorageUnavailable,
   resolveCallerUserId,
+  resolveHostIdFromRequest,
 } from "../lib/storageRouteHelpers";
 import multer from "multer";
 
@@ -38,6 +42,15 @@ const RequestUploadUrlResponse = z.object({
   }),
 });
 
+const ConfirmUploadBody = z.object({
+  objectPath: z.string().min(1),
+});
+
+const ConfirmUploadResponse = z.object({
+  objectPath: z.string(),
+  visibility: z.literal("public"),
+});
+
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 
@@ -49,21 +62,9 @@ const objectStorageService = new ObjectStorageService();
  * Then uploads the file directly to the returned presigned URL.
  */
 router.post("/storage/uploads/request-url", async (req: Request, res: Response) => {
-  // Require an authenticated host token for upload URL issuance.
-  const token = req.headers["x-host-token"] as string | undefined;
-  if (!token) {
-    res.status(401).json({ error: "Missing X-Host-Token header" });
-    return;
-  }
-
-  const { db, hostsTable } = await import("@workspace/db");
-  const { eq } = await import("drizzle-orm");
-  const [host] = await db
-    .select({ id: hostsTable.id })
-    .from(hostsTable)
-    .where(eq(hostsTable.hostToken, token));
-  if (!host) {
-    res.status(401).json({ error: "Unknown host token" });
+  const hostId = await resolveHostIdFromRequest(req);
+  if (!hostId) {
+    res.status(401).json({ error: "Missing or unknown host token" });
     return;
   }
 
@@ -91,6 +92,50 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
     );
   } catch (error) {
     handleStorageError(req, res, error, "Failed to generate upload URL");
+  }
+});
+
+/**
+ * POST /storage/uploads/confirm
+ *
+ * After a successful presigned PUT, mark the cover upload as publicly readable.
+ */
+router.post("/storage/uploads/confirm", async (req: Request, res: Response) => {
+  const hostId = await resolveHostIdFromRequest(req);
+  if (!hostId) {
+    res.status(401).json({ error: "Missing or unknown host token" });
+    return;
+  }
+
+  const parsed = ConfirmUploadBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const normalizedPath = normalizeStorageObjectPath(parsed.data.objectPath);
+  if (!normalizedPath || !isLegacyPublicUploadPath(normalizedPath)) {
+    res.status(400).json({ error: "objectPath must reference /objects/uploads/{uuid}" });
+    return;
+  }
+
+  try {
+    const confirmedPath = await objectStorageService.trySetObjectEntityAclPolicy(
+      normalizedPath,
+      {
+        owner: `host:${hostId}`,
+        visibility: "public",
+      },
+    );
+
+    res.json(
+      ConfirmUploadResponse.parse({
+        objectPath: `/api/storage${confirmedPath}`,
+        visibility: "public",
+      }),
+    );
+  } catch (error) {
+    handleStorageError(req, res, error, "Failed to confirm upload");
   }
 });
 
@@ -133,7 +178,7 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
  * Serve object entities from PRIVATE_OBJECT_DIR with ACL enforcement.
  * - visibility=public → anyone can READ
  * - visibility=private → owner only
- * - no ACL metadata (legacy covers) → public READ
+ * - no ACL metadata → public READ only for legacy `/objects/uploads/{uuid}` covers
  */
 router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {
@@ -156,6 +201,12 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
         });
         return;
       }
+    } else if (!isLegacyPublicUploadPath(objectPath)) {
+      const userId = await resolveCallerUserId(req);
+      res.status(userId ? 403 : 401).json({
+        error: userId ? "Forbidden" : "Unauthorized",
+      });
+      return;
     }
 
     const response = await objectStorageService.downloadObject(objectFile);
