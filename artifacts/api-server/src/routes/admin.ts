@@ -11,6 +11,7 @@ import {
   sessionsTable,
 } from "@workspace/db";
 import { addToLibrary } from "../lib/hostLibrary";
+import { ensureObjectAclFromUrl } from "../lib/storageAcl";
 import { rateLimit, ipKey } from "../lib/rateLimit";
 import { timingSafeEqualString } from "../lib/timingSafe";
 
@@ -209,6 +210,8 @@ router.post(
       return;
     }
 
+    const coverImageUrl = overrides.coverImageUrl ?? sub.coverImageUrl;
+
     const [game] = await db
       .insert(gamesTable)
       .values({
@@ -217,7 +220,7 @@ router.post(
         category: overrides.category ?? sub.category,
         genres: overrides.genres ?? sub.genres,
         description: overrides.description ?? sub.description,
-        coverImageUrl: overrides.coverImageUrl ?? sub.coverImageUrl,
+        coverImageUrl,
         steamAppId: overrides.steamAppId ?? sub.steamAppId ?? undefined,
         // Copy kind → browserHostUrl for browser games.
         browserHostUrl:
@@ -228,6 +231,17 @@ router.post(
     if (!game) {
       res.status(500).json({ error: "Failed to create game" });
       return;
+    }
+
+    if (coverImageUrl) {
+      try {
+        await ensureObjectAclFromUrl(coverImageUrl, {
+          owner: `host:${sub.hostId}`,
+          visibility: "public",
+        });
+      } catch (aclErr) {
+        req.log.warn({ err: aclErr }, "Failed to set cover ACL on approve");
+      }
     }
 
     await db
