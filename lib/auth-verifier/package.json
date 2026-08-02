@@ -7,12 +7,16 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "express": "^4.21.2",
     "drizzle-orm": "catalog:",
+    "express": "^4.21.2",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
-    "@types/node": "catalog:"
+    "@types/node": "catalog:",
+    "tsx": "catalog:"
+  },
+  "scripts": {
+    "test": "node --import tsx --test src/**/*.test.ts"
   }
 }
