@@ -13,6 +13,10 @@ import {
 import { addToLibrary } from "../lib/hostLibrary";
 import { rateLimit, ipKey } from "../lib/rateLimit";
 import { timingSafeEqualString } from "../lib/timingSafe";
+import {
+  normalizeObjectEntityPath,
+  trySetStorageObjectAcl,
+} from "../lib/storageAcl";
 
 const router: IRouter = Router();
 
@@ -228,6 +232,15 @@ router.post(
     if (!game) {
       res.status(500).json({ error: "Failed to create game" });
       return;
+    }
+
+    const coverUrl = overrides.coverImageUrl ?? sub.coverImageUrl;
+    const coverObjectPath = normalizeObjectEntityPath(coverUrl);
+    if (coverObjectPath) {
+      await trySetStorageObjectAcl(coverObjectPath, {
+        owner: `host:${sub.hostId}`,
+        visibility: "public",
+      });
     }
 
     await db
