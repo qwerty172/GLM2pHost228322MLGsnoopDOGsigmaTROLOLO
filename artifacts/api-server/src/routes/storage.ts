@@ -5,8 +5,8 @@ import { ObjectStorageService, ObjectNotFoundError, ObjectStorageNotConfiguredEr
 import { ObjectPermission, getObjectAclPolicy } from "../lib/objectAcl";
 import {
   isCatalogCoverObjectPath,
-  normalizeStorageObjectPath,
 } from "../lib/catalogCoverPaths";
+import { normalizeStorageObjectPath } from "../lib/storageObjectPath";
 import {
   handleStorageError,
   respondStorageUnavailable,

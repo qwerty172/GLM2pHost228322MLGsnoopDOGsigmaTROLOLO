@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeStorageObjectPath } from "../lib/catalogCoverPaths.js";
+import { normalizeStorageObjectPath } from "../lib/storageObjectPath.js";
 
 describe("normalizeStorageObjectPath", () => {
   it("normalizes API-facing paths", () => {
