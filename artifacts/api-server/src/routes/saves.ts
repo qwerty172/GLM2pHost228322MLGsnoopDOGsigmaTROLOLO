@@ -19,6 +19,7 @@ import {
   resolveHostIdFromRequest,
   resolvePlayerIdFromRequest,
 } from "../lib/storageRouteHelpers";
+import { trySetSavePrivateAcl } from "../lib/storageAclHelpers";
 import { randomUUID } from "node:crypto";
 
 const MAX_SAVE_SIZE_BYTES = 500 * 1024 * 1024;
@@ -233,6 +234,12 @@ router.post("/saves/confirm", async (req: Request, res: Response) => {
         },
       });
 
+    try {
+      await trySetSavePrivateAcl(objectStorageService, objectPath, playerId);
+    } catch (aclErr) {
+      req.log.warn({ err: aclErr }, "Failed to set save ACL (metadata still saved)");
+    }
+
     res.json(ConfirmResponse.parse({ saved: true, objectPath }));
   } catch (error) {
     handleStorageError(req, res, error, "Failed to confirm save upload");
@@ -389,18 +396,27 @@ router.post(
 
     const version = parsed.data.version ?? (existing ? existing.version + 1 : 1);
 
+    const objectPath = `/objects/${parsed.data.storageKey}`;
+
     if (existing) {
       const [updated] = await db
         .update(playerGameSavesTable)
         .set({
           storageKey: parsed.data.storageKey,
-          objectPath: `/objects/${parsed.data.storageKey}`,
+          objectPath,
           sizeBytes: parsed.data.sizeBytes,
           version,
           updatedAt: new Date(),
         })
         .where(eq(playerGameSavesTable.id, existing.id))
         .returning();
+
+      try {
+        await trySetSavePrivateAcl(storage, objectPath, player.id);
+      } catch (aclErr) {
+        req.log.warn({ err: aclErr }, "Failed to set save ACL (metadata still saved)");
+      }
+
       res.json({ ok: true, save: updated });
       return;
     }
@@ -411,12 +427,19 @@ router.post(
         playerId: player.id,
         gameId,
         storageKey: parsed.data.storageKey,
-        objectPath: `/objects/${parsed.data.storageKey}`,
+        objectPath,
         sizeBytes: parsed.data.sizeBytes,
         version,
         contentHash: "",
       })
       .returning();
+
+    try {
+      await trySetSavePrivateAcl(storage, objectPath, player.id);
+    } catch (aclErr) {
+      req.log.warn({ err: aclErr }, "Failed to set save ACL (metadata still saved)");
+    }
+
     res.status(201).json({ ok: true, save: created });
   },
 );
