@@ -1347,6 +1347,15 @@ export interface RequestUploadUrlResponse {
   metadata: RequestUploadUrlResponseMetadata;
 }
 
+export interface ConfirmUploadBody {
+  objectPath: string;
+}
+
+export interface ConfirmUploadResponse {
+  objectPath: string;
+  confirmed: boolean;
+}
+
 export type GetHostDebtors200 = { [key: string]: unknown };
 
 export type GetHostStreamRelay200 = {
