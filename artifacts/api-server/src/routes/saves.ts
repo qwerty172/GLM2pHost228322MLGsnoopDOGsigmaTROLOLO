@@ -19,6 +19,7 @@ import {
   resolveHostIdFromRequest,
   resolvePlayerIdFromRequest,
 } from "../lib/storageRouteHelpers";
+import { tryApplySavePrivateAcl } from "../lib/objectEntityAcl";
 import { randomUUID } from "node:crypto";
 
 const MAX_SAVE_SIZE_BYTES = 500 * 1024 * 1024;
@@ -233,6 +234,8 @@ router.post("/saves/confirm", async (req: Request, res: Response) => {
         },
       });
 
+    await tryApplySavePrivateAcl(objectStorageService, objectPath, playerId);
+
     res.json(ConfirmResponse.parse({ saved: true, objectPath }));
   } catch (error) {
     handleStorageError(req, res, error, "Failed to confirm save upload");
@@ -388,19 +391,21 @@ router.post(
       );
 
     const version = parsed.data.version ?? (existing ? existing.version + 1 : 1);
+    const objectPath = `/objects/${parsed.data.storageKey}`;
 
     if (existing) {
       const [updated] = await db
         .update(playerGameSavesTable)
         .set({
           storageKey: parsed.data.storageKey,
-          objectPath: `/objects/${parsed.data.storageKey}`,
+          objectPath,
           sizeBytes: parsed.data.sizeBytes,
           version,
           updatedAt: new Date(),
         })
         .where(eq(playerGameSavesTable.id, existing.id))
         .returning();
+      await tryApplySavePrivateAcl(storage, objectPath, player.id);
       res.json({ ok: true, save: updated });
       return;
     }
@@ -411,12 +416,13 @@ router.post(
         playerId: player.id,
         gameId,
         storageKey: parsed.data.storageKey,
-        objectPath: `/objects/${parsed.data.storageKey}`,
+        objectPath,
         sizeBytes: parsed.data.sizeBytes,
         version,
         contentHash: "",
       })
       .returning();
+    await tryApplySavePrivateAcl(storage, objectPath, player.id);
     res.status(201).json({ ok: true, save: created });
   },
 );
