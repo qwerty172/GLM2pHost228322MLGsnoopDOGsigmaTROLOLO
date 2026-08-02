@@ -19,6 +19,7 @@ import {
   resolveHostIdFromRequest,
   resolvePlayerIdFromRequest,
 } from "../lib/storageRouteHelpers";
+import { applyStorageObjectAcl } from "../lib/storageAclHelpers";
 import { randomUUID } from "node:crypto";
 
 const MAX_SAVE_SIZE_BYTES = 500 * 1024 * 1024;
@@ -233,6 +234,15 @@ router.post("/saves/confirm", async (req: Request, res: Response) => {
         },
       });
 
+    try {
+      await applyStorageObjectAcl(objectPath, {
+        owner: `player:${playerId}`,
+        visibility: "private",
+      });
+    } catch (aclErr) {
+      req.log.warn({ err: aclErr }, "Failed to set save ACL on confirm");
+    }
+
     res.json(ConfirmResponse.parse({ saved: true, objectPath }));
   } catch (error) {
     handleStorageError(req, res, error, "Failed to confirm save upload");
@@ -389,18 +399,30 @@ router.post(
 
     const version = parsed.data.version ?? (existing ? existing.version + 1 : 1);
 
+    const objectPath = `/objects/${parsed.data.storageKey}`;
+
     if (existing) {
       const [updated] = await db
         .update(playerGameSavesTable)
         .set({
           storageKey: parsed.data.storageKey,
-          objectPath: `/objects/${parsed.data.storageKey}`,
+          objectPath,
           sizeBytes: parsed.data.sizeBytes,
           version,
           updatedAt: new Date(),
         })
         .where(eq(playerGameSavesTable.id, existing.id))
         .returning();
+
+      try {
+        await applyStorageObjectAcl(objectPath, {
+          owner: `player:${player.id}`,
+          visibility: "private",
+        });
+      } catch (aclErr) {
+        req.log.warn({ err: aclErr }, "Failed to set save ACL on commit");
+      }
+
       res.json({ ok: true, save: updated });
       return;
     }
@@ -411,12 +433,22 @@ router.post(
         playerId: player.id,
         gameId,
         storageKey: parsed.data.storageKey,
-        objectPath: `/objects/${parsed.data.storageKey}`,
+        objectPath,
         sizeBytes: parsed.data.sizeBytes,
         version,
         contentHash: "",
       })
       .returning();
+
+    try {
+      await applyStorageObjectAcl(objectPath, {
+        owner: `player:${player.id}`,
+        visibility: "private",
+      });
+    } catch (aclErr) {
+      req.log.warn({ err: aclErr }, "Failed to set save ACL on commit");
+    }
+
     res.status(201).json({ ok: true, save: created });
   },
 );

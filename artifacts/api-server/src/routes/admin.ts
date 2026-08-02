@@ -13,6 +13,7 @@ import {
 import { addToLibrary } from "../lib/hostLibrary";
 import { rateLimit, ipKey } from "../lib/rateLimit";
 import { timingSafeEqualString } from "../lib/timingSafe";
+import { applyCoverImageAcl } from "../lib/storageAclHelpers";
 
 const router: IRouter = Router();
 
@@ -195,6 +196,8 @@ router.post(
       overrides.slug || sub.slug || slugify(title);
     const finalSlug = slugify(rawSlug) || slugify(title);
 
+    const coverImageUrl = overrides.coverImageUrl ?? sub.coverImageUrl;
+
     // Ensure slug is unique.
     const [existing] = await db
       .select({ id: gamesTable.id })
@@ -217,7 +220,7 @@ router.post(
         category: overrides.category ?? sub.category,
         genres: overrides.genres ?? sub.genres,
         description: overrides.description ?? sub.description,
-        coverImageUrl: overrides.coverImageUrl ?? sub.coverImageUrl,
+        coverImageUrl,
         steamAppId: overrides.steamAppId ?? sub.steamAppId ?? undefined,
         // Copy kind → browserHostUrl for browser games.
         browserHostUrl:
@@ -228,6 +231,17 @@ router.post(
     if (!game) {
       res.status(500).json({ error: "Failed to create game" });
       return;
+    }
+
+    if (coverImageUrl) {
+      try {
+        await applyCoverImageAcl(coverImageUrl, {
+          owner: `host:${sub.hostId}`,
+          visibility: "public",
+        });
+      } catch (err) {
+        req.log.warn({ err }, "Failed to set public cover ACL on approve");
+      }
     }
 
     await db

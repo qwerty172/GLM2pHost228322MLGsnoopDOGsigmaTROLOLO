@@ -44,7 +44,17 @@
 | **invite-flow smoke script** | **added** | `pnpm smoke:invite` |
 | **marathon W3 dedup** | **done** | inviteCode канон, joinCode deprecated, OpenAPI+hooks, ws-ticket route |
 | **marathon W4 UX** | **done** | agent --bind-code, setup advanced banner, agent port discovery |
-| **marathon W5 infra** | **done** | .env.example Redis/JWT/Sentry/migrations docs, worker math tests |
+| **marathon C1-S06** | **done** | storage ACL: legacy public read закрыт; saves private на confirm/commit; covers private→public на submit/approve; objectAcl.test.ts (7) |
+
+## Marathon C1-S06 — Storage ACL (2026-08-02) {#marathon-c1-s06}
+
+| Изменение | Детали |
+|---|---|
+| GET `/storage/objects/*` | Объекты без ACL metadata → 403 (раньше public read) |
+| saves confirm/commit | `visibility: private`, owner `player:{id}` |
+| games submit | cover в object storage → private ACL, owner `host:{id}` |
+| admin approve | cover → public ACL для каталога |
+| Тесты | `objectAcl.test.ts` — evaluateObjectAccess + parseStorageObjectPath |
 
 ## Баги
 
@@ -95,4 +105,4 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: OpenAPI gaps, storage ACL, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: C1-F05, C2-S02, OpenAPI gaps, Windows E2E |
