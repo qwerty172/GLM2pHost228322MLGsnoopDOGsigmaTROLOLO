@@ -3452,6 +3452,21 @@ export const RequestUploadUrlResponse = zod.object({
 });
 
 /**
+ * @summary Confirm a cover upload and set public ACL
+ */
+export const ConfirmStorageUploadBody = zod.object({
+  objectPath: zod
+    .string()
+    .describe(
+      "API path returned from request-url (e.g. \/api\/storage\/objects\/uploads\/…)",
+    ),
+});
+
+export const ConfirmStorageUploadResponse = zod.object({
+  objectPath: zod.string(),
+});
+
+/**
  * @summary Get latest cloud save metadata for a game
  */
 export const GetPlayerGameSaveParams = zod.object({

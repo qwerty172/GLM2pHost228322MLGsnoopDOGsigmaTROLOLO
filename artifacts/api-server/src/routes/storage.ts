@@ -3,10 +3,12 @@ import { Readable } from "stream";
 import { z } from "zod/v4";
 import { ObjectStorageService, ObjectNotFoundError, ObjectStorageNotConfiguredError } from "../lib/objectStorage";
 import { ObjectPermission, getObjectAclPolicy } from "../lib/objectAcl";
+import { isLegacyCatalogCover } from "../lib/legacyCoverAcl";
 import {
   handleStorageError,
   respondStorageUnavailable,
   resolveCallerUserId,
+  resolveHostIdFromRequest,
 } from "../lib/storageRouteHelpers";
 import multer from "multer";
 
@@ -36,6 +38,14 @@ const RequestUploadUrlResponse = z.object({
     size: z.number(),
     contentType: z.string(),
   }),
+});
+
+const ConfirmUploadBody = z.object({
+  objectPath: z.string().min(1),
+});
+
+const ConfirmUploadResponse = z.object({
+  objectPath: z.string(),
 });
 
 const router: IRouter = Router();
@@ -128,12 +138,51 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
 });
 
 /**
+ * POST /storage/uploads/confirm
+ *
+ * After uploading via presigned URL, set public ACL on cover images.
+ */
+router.post("/storage/uploads/confirm", async (req: Request, res: Response) => {
+  const hostId = await resolveHostIdFromRequest(req);
+  if (!hostId) {
+    res.status(401).json({ error: "Missing or unknown X-Host-Token header" });
+    return;
+  }
+
+  const parsed = ConfirmUploadBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const apiPath = parsed.data.objectPath.replace(/^\/api\/storage/, "");
+  if (!apiPath.startsWith("/objects/uploads/")) {
+    res.status(400).json({ error: "objectPath must be a cover upload under /objects/uploads/" });
+    return;
+  }
+
+  try {
+    const normalizedPath = await objectStorageService.trySetObjectEntityAclPolicy(apiPath, {
+      owner: `host:${hostId}`,
+      visibility: "public",
+    });
+    res.json(
+      ConfirmUploadResponse.parse({
+        objectPath: `/api/storage${normalizedPath}`,
+      }),
+    );
+  } catch (error) {
+    handleStorageError(req, res, error, "Failed to confirm upload");
+  }
+});
+
+/**
  * GET /storage/objects/*
  *
  * Serve object entities from PRIVATE_OBJECT_DIR with ACL enforcement.
  * - visibility=public → anyone can READ
  * - visibility=private → owner only
- * - no ACL metadata (legacy covers) → public READ
+ * - no ACL metadata → deny unless referenced as a catalog cover (legacy)
  */
 router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {
@@ -154,6 +203,12 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
         res.status(userId ? 403 : 401).json({
           error: userId ? "Forbidden" : "Unauthorized",
         });
+        return;
+      }
+    } else {
+      const isCatalogCover = await isLegacyCatalogCover(objectPath);
+      if (!isCatalogCover) {
+        res.status(403).json({ error: "Forbidden" });
         return;
       }
     }
