@@ -13,6 +13,10 @@ import { DiscordProvider } from "./providers/discord.js";
 import { startLinkFlow, confirmLinkToken } from "./link.js";
 import { createChallenge, submitCode, getChallengeStatus } from "./challenge.js";
 import type { VerifierConfig, ProviderName, UserType } from "./types.js";
+import {
+  telegramWebhookAuthorized,
+  discordWebhookAuthorized,
+} from "./webhookAuth.js";
 
 export type AuthUser = { userId: string; userType: UserType };
 export type GetUser = (req: Request) => AuthUser | null | Promise<AuthUser | null>;
@@ -79,11 +83,19 @@ export function createVerifierRouter(cfg: VerifierConfig, getUser: GetUser): Rou
   // ── POST /challenge/:id/verify ───────────────────────────────────────────
   // Body: { provider: "telegram" | "discord", code: "123456" }
   router.post("/challenge/:id/verify", requireUser, async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const provider = req.body?.provider as ProviderName | undefined;
     const code = req.body?.code as string | undefined;
     if (!provider || !code) {
       return json(res, 400, { error: "provider and code are required" });
+    }
+    const { userId, userType } = user(req);
+    const challenge = await cfg.db.getChallenge(id);
+    if (!challenge) {
+      return json(res, 404, { error: "Challenge not found" });
+    }
+    if (challenge.userId !== userId || challenge.userType !== userType) {
+      return json(res, 403, { error: "Forbidden" });
     }
     const result = await submitCode(cfg, id, provider, code);
     json(res, result.ok ? 200 : 400, result);
@@ -91,14 +103,26 @@ export function createVerifierRouter(cfg: VerifierConfig, getUser: GetUser): Rou
 
   // ── GET /challenge/:id ───────────────────────────────────────────────────
   router.get("/challenge/:id", requireUser, async (req: Request, res: Response) => {
-    const status = await getChallengeStatus(cfg, req.params.id);
+    const id = String(req.params.id);
+    const { userId, userType } = user(req);
+    const challenge = await cfg.db.getChallenge(id);
+    if (!challenge) {
+      return json(res, 404, { error: "Challenge not found" });
+    }
+    if (challenge.userId !== userId || challenge.userType !== userType) {
+      return json(res, 403, { error: "Forbidden" });
+    }
+    const status = await getChallengeStatus(cfg, id);
     json(res, 200, { status });
   });
 
   // ── POST /webhooks/telegram ──────────────────────────────────────────────
   // Telegram pushes updates here (set via setWebhook).
-  // No auth — validated by Telegram's IP range in production (or a secret token).
+  // Validated with the secret_token configured at webhook registration.
   router.post("/webhooks/telegram", async (req: Request, res: Response) => {
+    if (!telegramWebhookAuthorized(req, cfg.webhookSecrets?.telegram)) {
+      return json(res, 401, { error: "Unauthorized" });
+    }
     const update = TelegramProvider.parseUpdate(req.body);
     // Always respond 200 to Telegram immediately
     res.status(200).json({ ok: true });
@@ -148,6 +172,9 @@ export function createVerifierRouter(cfg: VerifierConfig, getUser: GetUser): Rou
   // ── POST /webhooks/discord ───────────────────────────────────────────────
   // Discord sends DM MESSAGE_CREATE events here via a gateway bot or webhook.
   router.post("/webhooks/discord", async (req: Request, res: Response) => {
+    if (!discordWebhookAuthorized(req, cfg.webhookSecrets?.discord)) {
+      return json(res, 401, { error: "Unauthorized" });
+    }
     const msg = DiscordProvider.parseMessage(req.body);
     res.status(200).json({ ok: true });
     if (!msg) return;

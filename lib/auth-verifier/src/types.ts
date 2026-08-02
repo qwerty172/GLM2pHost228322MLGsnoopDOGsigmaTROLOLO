@@ -69,6 +69,13 @@ export interface VerifierDb {
   setTrustLevel(userId: string, userType: UserType, level: number): Promise<void>;
 }
 
+export interface VerifierWebhookSecrets {
+  /** Validated via `X-Telegram-Bot-Api-Secret-Token` on incoming updates. */
+  telegram?: string;
+  /** Validated via `X-Discord-Webhook-Secret` on incoming events. */
+  discord?: string;
+}
+
 export interface VerifierConfig {
   db: VerifierDb;
   providers: OtpProvider[];
@@ -76,4 +83,6 @@ export interface VerifierConfig {
   otpTtlSec?: number;
   /** Link token TTL in seconds, default 600 (10 min) */
   linkTtlSec?: number;
+  /** Shared secrets for bot webhook endpoints — required for link/OTP delivery. */
+  webhookSecrets?: VerifierWebhookSecrets;
 }

@@ -52,12 +52,16 @@ export class TelegramProvider implements OtpProvider {
    * Register a webhook URL with Telegram so updates are pushed to your server.
    * Call this once on startup if TELEGRAM_WEBHOOK_URL is set.
    */
-  async setWebhook(webhookUrl: string): Promise<void> {
+  async setWebhook(webhookUrl: string, secretToken?: string): Promise<void> {
     const url = `https://api.telegram.org/bot${this.botToken}/setWebhook`;
+    const body: Record<string, string> = { url: webhookUrl };
+    if (secretToken) {
+      body.secret_token = secretToken;
+    }
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: webhookUrl }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) {
       const body = await res.text();

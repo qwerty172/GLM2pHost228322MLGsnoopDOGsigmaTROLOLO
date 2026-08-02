@@ -28,21 +28,21 @@ export const verifierDb: VerifierDb = {
   async consumeLinkToken(token) {
     const now = new Date();
     const [row] = await db
-      .select()
-      .from(verifierLinkTokensTable)
+      .update(verifierLinkTokensTable)
+      .set({ consumedAt: now })
       .where(
         and(
           eq(verifierLinkTokensTable.token, token.toUpperCase()),
           isNull(verifierLinkTokensTable.consumedAt),
           gt(verifierLinkTokensTable.expiresAt, now),
         ),
-      );
+      )
+      .returning({
+        userId: verifierLinkTokensTable.userId,
+        userType: verifierLinkTokensTable.userType,
+        provider: verifierLinkTokensTable.provider,
+      });
     if (!row) return null;
-
-    await db
-      .update(verifierLinkTokensTable)
-      .set({ consumedAt: now })
-      .where(eq(verifierLinkTokensTable.id, row.id));
 
     return {
       userId: row.userId,
