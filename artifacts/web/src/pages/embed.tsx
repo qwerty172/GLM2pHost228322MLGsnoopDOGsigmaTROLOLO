@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearch } from "wouter";
 import { Loader2, AlertCircle, WifiOff } from "lucide-react";
+import {
+  createEmbedSession,
+  type CreateEmbedSessionResponse,
+} from "@workspace/api-client-react";
 
 // ---------------------------------------------------------------------------
 // Embeddable widget (task-125): third-party sites drop this page into an
@@ -13,17 +17,24 @@ import { Loader2, AlertCircle, WifiOff } from "lucide-react";
 //   resolution, bitrateKbps (optional)
 // ---------------------------------------------------------------------------
 
-type EmbedSession = {
-  sessionId: string;
-  playerToken: string;
-  gameSlug: string;
-  gameTitle: string;
-  hostDisplayName: string;
-  ratePerMinuteLzt: number;
-  keyBalanceLzt: number;
-};
+type EmbedSession = CreateEmbedSessionResponse;
 
 type EmbedApiError = { error: string; message: string };
+
+function extractEmbedError(err: unknown): EmbedApiError {
+  const data =
+    err && typeof err === "object" && "data" in err
+      ? (err as { data: unknown }).data
+      : null;
+  if (data && typeof data === "object" && data !== null && "error" in data) {
+    const e = data as { error: string; message?: string };
+    return { error: e.error, message: e.message ?? "" };
+  }
+  return {
+    error: "network_error",
+    message: "Не удалось связаться с игровым сервером",
+  };
+}
 
 const isDev = import.meta.env.DEV;
 
@@ -93,24 +104,17 @@ export default function Embed() {
     startedRef.current = false;
     void (async () => {
       try {
-        const res = await fetch(`${import.meta.env.BASE_URL}api/embed/sessions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ apiKey, gameSlug, resolution, bitrateKbps }),
+        const json = await createEmbedSession({
+          apiKey,
+          gameSlug,
+          resolution,
+          bitrateKbps,
         });
-        const json = (await res.json()) as EmbedSession | EmbedApiError;
         if (cancelled) return;
-        if (!res.ok) {
-          setError(json as EmbedApiError);
-          return;
-        }
-        setSession(json as EmbedSession);
-      } catch {
+        setSession(json);
+      } catch (err) {
         if (!cancelled) {
-          setError({
-            error: "network_error",
-            message: "Не удалось связаться с игровым сервером",
-          });
+          setError(extractEmbedError(err));
         }
       }
     })();
