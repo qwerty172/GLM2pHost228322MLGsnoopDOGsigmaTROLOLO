@@ -13,8 +13,11 @@ import {
 import { addToLibrary } from "../lib/hostLibrary";
 import { rateLimit, ipKey } from "../lib/rateLimit";
 import { timingSafeEqualString } from "../lib/timingSafe";
+import { ObjectStorageService } from "../lib/objectStorage";
+import { tryApplyCoverPublicAcl } from "../lib/objectEntityAcl";
 
 const router: IRouter = Router();
+const objectStorage = new ObjectStorageService();
 
 // ---------------------------------------------------------------------------
 // Auth helpers
@@ -228,6 +231,15 @@ router.post(
     if (!game) {
       res.status(500).json({ error: "Failed to create game" });
       return;
+    }
+
+    const coverUrl = overrides.coverImageUrl ?? sub.coverImageUrl;
+    if (coverUrl) {
+      await tryApplyCoverPublicAcl(
+        objectStorage,
+        coverUrl,
+        `host:${sub.hostId}`,
+      );
     }
 
     await db
