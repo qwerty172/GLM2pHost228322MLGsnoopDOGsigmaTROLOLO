@@ -13,6 +13,7 @@ import {
 import { addToLibrary } from "../lib/hostLibrary";
 import { rateLimit, ipKey } from "../lib/rateLimit";
 import { timingSafeEqualString } from "../lib/timingSafe";
+import { tryApplyObjectAclFromPath } from "../lib/storageAcl";
 
 const router: IRouter = Router();
 
@@ -230,6 +231,14 @@ router.post(
       return;
     }
 
+    const coverUrl = overrides.coverImageUrl ?? sub.coverImageUrl;
+    if (coverUrl.startsWith("/")) {
+      await tryApplyObjectAclFromPath(coverUrl, {
+        owner: `host:${sub.hostId}`,
+        visibility: "public",
+      });
+    }
+
     await db
       .update(gameSubmissionsTable)
       .set({
@@ -428,6 +437,14 @@ router.patch(
     if (Object.keys(update).length === 0) {
       res.json(game);
       return;
+    }
+
+    if (d.coverImageUrl !== undefined && d.coverImageUrl.startsWith("/")) {
+      const adminHostId = (req as { adminHostId?: string }).adminHostId;
+      await tryApplyObjectAclFromPath(d.coverImageUrl, {
+        owner: adminHostId ? `host:${adminHostId}` : `game:${game.id}`,
+        visibility: "public",
+      });
     }
 
     const [updated] = await db

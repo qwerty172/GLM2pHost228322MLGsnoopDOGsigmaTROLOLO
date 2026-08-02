@@ -7,6 +7,7 @@ import {
   gamesTable,
   gameSubmissionsTable,
 } from "@workspace/db";
+import { tryApplyObjectAclFromPath } from "../lib/storageAcl";
 
 const router: IRouter = Router();
 
@@ -175,6 +176,13 @@ router.post("/games/submit", async (req, res): Promise<void> => {
       steamAppId: body.steamAppId ?? undefined,
     })
     .returning();
+
+  if (body.coverImageUrl.startsWith("/")) {
+    await tryApplyObjectAclFromPath(body.coverImageUrl, {
+      owner: `host:${host.id}`,
+      visibility: "private",
+    });
+  }
 
   res.status(201).json(sub);
 });
