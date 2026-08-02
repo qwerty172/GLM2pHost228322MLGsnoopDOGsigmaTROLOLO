@@ -84,6 +84,13 @@ async function resolveHostSession(req: Request, sessionId: string) {
   if (!session.claimedByPlayerId) {
     return { ok: false as const, status: 409, message: "Session has no claimed player" };
   }
+  if (session.status !== "active") {
+    return {
+      ok: false as const,
+      status: 409,
+      message: "Save sync is only allowed during an active session",
+    };
+  }
   if (session.isTest) {
     return { ok: false as const, status: 409, message: "Test sessions skip save sync" };
   }
