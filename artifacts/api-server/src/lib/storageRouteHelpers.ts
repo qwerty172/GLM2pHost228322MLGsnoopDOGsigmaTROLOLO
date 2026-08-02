@@ -68,3 +68,15 @@ export async function resolveCallerUserId(req: Request): Promise<string | undefi
   if (playerId) return `player:${playerId}`;
   return undefined;
 }
+
+/** Normalize `/api/storage/objects/…` or `/objects/…` to `/objects/…`. */
+export function extractObjectEntityPath(urlOrPath: string): string | null {
+  if (!urlOrPath.startsWith("/")) return null;
+  if (urlOrPath.startsWith("/api/storage/objects/")) {
+    return `/objects/${urlOrPath.slice("/api/storage/objects/".length)}`;
+  }
+  if (urlOrPath.startsWith("/objects/")) {
+    return urlOrPath;
+  }
+  return null;
+}

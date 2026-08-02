@@ -7,8 +7,11 @@ import {
   gamesTable,
   gameSubmissionsTable,
 } from "@workspace/db";
+import { ObjectStorageService } from "../lib/objectStorage";
+import { extractObjectEntityPath } from "../lib/storageRouteHelpers";
 
 const router: IRouter = Router();
+const objectStorageService = new ObjectStorageService();
 
 const MAX_PENDING_PER_HOST = 5;
 const MAX_COVER_URL_LENGTH = 2048;
@@ -175,6 +178,18 @@ router.post("/games/submit", async (req, res): Promise<void> => {
       steamAppId: body.steamAppId ?? undefined,
     })
     .returning();
+
+  const coverObjectPath = extractObjectEntityPath(body.coverImageUrl);
+  if (coverObjectPath) {
+    try {
+      await objectStorageService.trySetObjectEntityAclPolicy(coverObjectPath, {
+        owner: `host:${host.id}`,
+        visibility: "public",
+      });
+    } catch (aclErr) {
+      req.log.warn({ err: aclErr }, "Failed to set cover ACL on submit");
+    }
+  }
 
   res.status(201).json(sub);
 });
