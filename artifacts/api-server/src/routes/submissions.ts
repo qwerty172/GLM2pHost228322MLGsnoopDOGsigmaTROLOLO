@@ -7,6 +7,7 @@ import {
   gamesTable,
   gameSubmissionsTable,
 } from "@workspace/db";
+import { trySetCoverImagePublicAcl } from "../lib/storageAclHelpers";
 
 const router: IRouter = Router();
 
@@ -175,6 +176,14 @@ router.post("/games/submit", async (req, res): Promise<void> => {
       steamAppId: body.steamAppId ?? undefined,
     })
     .returning();
+
+  if (body.coverImageUrl) {
+    try {
+      await trySetCoverImagePublicAcl(body.coverImageUrl, host.id);
+    } catch (aclErr) {
+      req.log.warn({ err: aclErr }, "Failed to set cover ACL on submit");
+    }
+  }
 
   res.status(201).json(sub);
 });

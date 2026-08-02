@@ -13,6 +13,7 @@ import {
 import { addToLibrary } from "../lib/hostLibrary";
 import { rateLimit, ipKey } from "../lib/rateLimit";
 import { timingSafeEqualString } from "../lib/timingSafe";
+import { trySetCoverImagePublicAcl } from "../lib/storageAclHelpers";
 
 const router: IRouter = Router();
 
@@ -228,6 +229,15 @@ router.post(
     if (!game) {
       res.status(500).json({ error: "Failed to create game" });
       return;
+    }
+
+    const coverUrl = overrides.coverImageUrl ?? sub.coverImageUrl;
+    if (coverUrl) {
+      try {
+        await trySetCoverImagePublicAcl(coverUrl, sub.hostId);
+      } catch (aclErr) {
+        req.log.warn({ err: aclErr }, "Failed to set cover ACL on approve");
+      }
     }
 
     await db
