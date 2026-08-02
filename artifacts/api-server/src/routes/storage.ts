@@ -7,7 +7,12 @@ import {
   handleStorageError,
   respondStorageUnavailable,
   resolveCallerUserId,
+  resolveHostIdFromRequest,
 } from "../lib/storageRouteHelpers";
+import {
+  isLegacyPublicCoverObjectPath,
+  normalizeStorageObjectPath,
+} from "../lib/storageAcl";
 import multer from "multer";
 
 const ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -36,6 +41,15 @@ const RequestUploadUrlResponse = z.object({
     size: z.number(),
     contentType: z.string(),
   }),
+});
+
+const ConfirmUploadBody = z.object({
+  objectPath: z.string().min(1),
+});
+
+const ConfirmUploadResponse = z.object({
+  objectPath: z.string(),
+  visibility: z.enum(["public"]),
 });
 
 const router: IRouter = Router();
@@ -95,6 +109,51 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
 });
 
 /**
+ * POST /storage/uploads/confirm
+ *
+ * After uploading a cover to the presigned URL, mark it public so it can be
+ * served without legacy ACL fallback on non-upload paths.
+ */
+router.post("/storage/uploads/confirm", async (req: Request, res: Response) => {
+  const hostId = await resolveHostIdFromRequest(req);
+  if (!hostId) {
+    res.status(401).json({ error: "Missing or unknown host token" });
+    return;
+  }
+
+  const parsed = ConfirmUploadBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const normalizedPath = normalizeStorageObjectPath(parsed.data.objectPath);
+  if (!normalizedPath || !isLegacyPublicCoverObjectPath(normalizedPath)) {
+    res.status(400).json({
+      error: "objectPath must point to /objects/uploads/{id}",
+    });
+    return;
+  }
+
+  try {
+    await objectStorageService.trySetObjectEntityAclPolicy(normalizedPath, {
+      owner: `host:${hostId}`,
+      visibility: "public",
+    });
+
+    const objectPath = `/api/storage${normalizedPath}`;
+    res.json(
+      ConfirmUploadResponse.parse({
+        objectPath,
+        visibility: "public",
+      }),
+    );
+  } catch (error) {
+    handleStorageError(req, res, error, "Failed to confirm upload");
+  }
+});
+
+/**
  * GET /storage/public-objects/*
  *
  * Serve public assets from PUBLIC_OBJECT_SEARCH_PATHS.
@@ -133,7 +192,7 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
  * Serve object entities from PRIVATE_OBJECT_DIR with ACL enforcement.
  * - visibility=public → anyone can READ
  * - visibility=private → owner only
- * - no ACL metadata (legacy covers) → public READ
+ * - no ACL metadata → public READ only for legacy covers under /objects/uploads/{id}
  */
 router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {
@@ -156,6 +215,12 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
         });
         return;
       }
+    } else if (!isLegacyPublicCoverObjectPath(objectPath)) {
+      const userId = await resolveCallerUserId(req);
+      res.status(userId ? 403 : 401).json({
+        error: userId ? "Forbidden" : "Unauthorized",
+      });
+      return;
     }
 
     const response = await objectStorageService.downloadObject(objectFile);
