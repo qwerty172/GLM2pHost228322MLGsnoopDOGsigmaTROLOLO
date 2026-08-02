@@ -21,6 +21,8 @@ import {
   useAdminListSubmissions,
   useAdminPatchGame,
   useAdminRejectSubmission,
+  getAdminListGamesQueryKey,
+  getAdminListSubmissionsQueryKey,
   type AdminGameSubmission,
   type GameListItem,
 } from "@workspace/api-client-react";
@@ -480,7 +482,10 @@ export default function AdminGamesPage() {
     error: catQueryError,
     refetch: refetchCatalog,
   } = useAdminListGames({
-    query: { enabled: !!hostToken && tab === "catalog" },
+    query: {
+      enabled: !!hostToken && tab === "catalog",
+      queryKey: getAdminListGamesQueryKey(),
+    },
     request,
   });
 
@@ -492,7 +497,10 @@ export default function AdminGamesPage() {
   } = useAdminListSubmissions(
     { status: statusFilter },
     {
-      query: { enabled: !!hostToken && tab === "submissions" },
+      query: {
+        enabled: !!hostToken && tab === "submissions",
+        queryKey: getAdminListSubmissionsQueryKey({ status: statusFilter }),
+      },
       request,
     },
   );
