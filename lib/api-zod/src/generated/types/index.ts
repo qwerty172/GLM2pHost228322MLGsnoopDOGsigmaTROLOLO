@@ -27,6 +27,8 @@ export * from "./bindAgentKey200";
 export * from "./bindAgentKeyBody";
 export * from "./claimSessionBody";
 export * from "./claimSessionBodyPaymentSource";
+export * from "./confirmUploadBody";
+export * from "./confirmUploadResponse";
 export * from "./createBrowserHostSessionBody";
 export * from "./createBrowserHostSessionResponse";
 export * from "./createEmbedSessionBody";

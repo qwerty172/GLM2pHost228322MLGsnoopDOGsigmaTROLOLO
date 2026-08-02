@@ -3590,6 +3590,19 @@ export const RequestUploadUrlResponse = zod.object({
 });
 
 /**
+ * @summary Confirm a cover upload and set public ACL
+ */
+export const ConfirmUploadBody = zod.object({
+  objectPath: zod
+    .string()
+    .describe("API-facing object path returned from request-url"),
+});
+
+export const ConfirmUploadResponse = zod.object({
+  objectPath: zod.string(),
+});
+
+/**
  * @summary Get latest cloud save metadata for a game
  */
 export const GetPlayerGameSaveParams = zod.object({

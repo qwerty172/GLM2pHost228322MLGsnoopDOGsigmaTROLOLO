@@ -4,9 +4,14 @@ import { z } from "zod/v4";
 import { ObjectStorageService, ObjectNotFoundError, ObjectStorageNotConfiguredError } from "../lib/objectStorage";
 import { ObjectPermission, getObjectAclPolicy } from "../lib/objectAcl";
 import {
+  isCatalogCoverObjectPath,
+} from "../lib/catalogCoverPaths";
+import { normalizeStorageObjectPath } from "../lib/storageObjectPath";
+import {
   handleStorageError,
   respondStorageUnavailable,
   resolveCallerUserId,
+  resolveHostIdFromRequest,
 } from "../lib/storageRouteHelpers";
 import multer from "multer";
 
@@ -36,6 +41,14 @@ const RequestUploadUrlResponse = z.object({
     size: z.number(),
     contentType: z.string(),
   }),
+});
+
+const ConfirmUploadBody = z.object({
+  objectPath: z.string().min(1),
+});
+
+const ConfirmUploadResponse = z.object({
+  objectPath: z.string(),
 });
 
 const router: IRouter = Router();
@@ -133,7 +146,7 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
  * Serve object entities from PRIVATE_OBJECT_DIR with ACL enforcement.
  * - visibility=public → anyone can READ
  * - visibility=private → owner only
- * - no ACL metadata (legacy covers) → public READ
+ * - no ACL metadata → catalog covers in games/submissions stay public; orphans denied
  */
 router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {
@@ -156,6 +169,12 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
         });
         return;
       }
+    } else {
+      const isCatalogCover = await isCatalogCoverObjectPath(objectPath);
+      if (!isCatalogCover) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
     }
 
     const response = await objectStorageService.downloadObject(objectFile);
@@ -171,6 +190,46 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     }
   } catch (error) {
     handleStorageError(req, res, error, "Failed to serve object");
+  }
+});
+
+/**
+ * POST /storage/uploads/confirm
+ *
+ * After a successful presigned PUT, set public ACL on a cover upload.
+ */
+router.post("/storage/uploads/confirm", async (req: Request, res: Response) => {
+  const hostId = await resolveHostIdFromRequest(req);
+  if (!hostId) {
+    res.status(401).json({ error: "Missing X-Host-Token header" });
+    return;
+  }
+
+  const parsed = ConfirmUploadBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const normalized = normalizeStorageObjectPath(parsed.data.objectPath);
+  if (!normalized) {
+    res.status(400).json({ error: "Invalid objectPath" });
+    return;
+  }
+
+  try {
+    await objectStorageService.trySetObjectEntityAclPolicy(normalized, {
+      owner: `host:${hostId}`,
+      visibility: "public",
+    });
+
+    res.json(
+      ConfirmUploadResponse.parse({
+        objectPath: `/api/storage${normalized}`,
+      }),
+    );
+  } catch (error) {
+    handleStorageError(req, res, error, "Failed to confirm upload");
   }
 });
 

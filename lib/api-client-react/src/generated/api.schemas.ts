@@ -1396,6 +1396,15 @@ export interface RequestUploadUrlResponse {
   metadata: RequestUploadUrlResponseMetadata;
 }
 
+export interface ConfirmUploadBody {
+  /** API-facing object path returned from request-url */
+  objectPath: string;
+}
+
+export interface ConfirmUploadResponse {
+  objectPath: string;
+}
+
 export type GetHostDebtors200 = { [key: string]: unknown };
 
 export type GetHostStreamRelay200 = {
