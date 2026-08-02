@@ -6,7 +6,11 @@ import { ObjectPermission, getObjectAclPolicy } from "../lib/objectAcl";
 import {
   isCatalogCoverObjectPath,
 } from "../lib/catalogCoverPaths";
-import { normalizeStorageObjectPath } from "../lib/storageObjectPath";
+import {
+  isCoverUploadObjectPath,
+  normalizeStorageObjectPath,
+} from "../lib/storageObjectPath";
+import { getObjectAclPolicy } from "../lib/objectAcl";
 import {
   handleStorageError,
   respondStorageUnavailable,
@@ -211,6 +215,11 @@ router.post("/storage/uploads/confirm", async (req: Request, res: Response) => {
     return;
   }
 
+  if (!isCoverUploadObjectPath(parsed.data.objectPath)) {
+    res.status(400).json({ error: "Invalid objectPath" });
+    return;
+  }
+
   const normalized = normalizeStorageObjectPath(parsed.data.objectPath);
   if (!normalized) {
     res.status(400).json({ error: "Invalid objectPath" });
@@ -218,8 +227,16 @@ router.post("/storage/uploads/confirm", async (req: Request, res: Response) => {
   }
 
   try {
+    const objectFile = await objectStorageService.getObjectEntityFile(normalized);
+    const existingPolicy = await getObjectAclPolicy(objectFile);
+    const callerUserId = `host:${hostId}`;
+    if (existingPolicy && existingPolicy.owner !== callerUserId) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+
     await objectStorageService.trySetObjectEntityAclPolicy(normalized, {
-      owner: `host:${hostId}`,
+      owner: callerUserId,
       visibility: "public",
     });
 

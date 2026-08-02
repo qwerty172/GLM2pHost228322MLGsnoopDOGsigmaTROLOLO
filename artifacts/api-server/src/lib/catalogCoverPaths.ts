@@ -1,6 +1,9 @@
 import { db, gamesTable, gameSubmissionsTable } from "@workspace/db";
 import { or, sql } from "drizzle-orm";
-import { normalizeStorageObjectPath } from "./storageObjectPath";
+import {
+  isCoverUploadObjectPath,
+  normalizeStorageObjectPath,
+} from "./storageObjectPath";
 
 function coverUrlMatchesObject(coverImageUrl: unknown, objectPath: string): boolean {
   if (typeof coverImageUrl !== "string" || !coverImageUrl.trim()) return false;
@@ -13,6 +16,8 @@ function coverUrlMatchesObject(coverImageUrl: unknown, objectPath: string): bool
  * Legacy rows without ACL metadata remain publicly readable only via this check.
  */
 export async function isCatalogCoverObjectPath(objectPath: string): Promise<boolean> {
+  if (!isCoverUploadObjectPath(objectPath)) return false;
+
   const normalized = normalizeStorageObjectPath(objectPath);
   if (!normalized) return false;
 
