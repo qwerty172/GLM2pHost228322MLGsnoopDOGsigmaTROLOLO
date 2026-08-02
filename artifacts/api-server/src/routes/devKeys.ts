@@ -1,13 +1,11 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod/v4";
 import { eq } from "drizzle-orm";
-import { db, devKeysTable, hostsTable } from "@workspace/db";
+import { db, devKeysTable } from "@workspace/db";
 import { generateToken } from "../lib/tokens";
 import { ensureDepositAddressesForOwner } from "../lib/walletOwner";
 import { rateLimit, ipKey } from "../lib/rateLimit";
-import { timingSafeEqualString } from "../lib/timingSafe";
-import { hostTokenFromRequest } from "../lib/hostAuth";
-import type { Request } from "express";
+import { authorizeDevKeyCreate } from "../lib/devKeyAuth";
 
 const router: IRouter = Router();
 
@@ -24,47 +22,6 @@ const createDevKeyLimiter = rateLimit({
   max: 5,
   keyFn: ipKey,
 });
-
-/**
- * Dev-key minting requires either:
- *  - DEV_KEYS_CREATE_SECRET (or ADMIN_SECRET) via X-Dev-Key-Secret / X-Admin-Secret, or
- *  - a host token flagged isAdmin.
- * In non-production without a secret, set ALLOW_OPEN_DEV_KEY_CREATE=1 for local smoke.
- */
-async function authorizeDevKeyCreate(
-  req: Request,
-): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
-  const secret = process.env.DEV_KEYS_CREATE_SECRET ?? process.env.ADMIN_SECRET;
-  const providedRaw =
-    req.headers["x-dev-key-secret"] ?? req.headers["x-admin-secret"];
-  const provided = Array.isArray(providedRaw) ? providedRaw[0] : providedRaw;
-  if (secret && provided && timingSafeEqualString(provided, secret)) {
-    return { ok: true };
-  }
-
-  const hostToken = hostTokenFromRequest(req);
-  if (hostToken) {
-    const [row] = await db
-      .select({ isAdmin: hostsTable.isAdmin })
-      .from(hostsTable)
-      .where(eq(hostsTable.hostToken, hostToken));
-    if (row?.isAdmin === 1) return { ok: true };
-  }
-
-  if (
-    process.env.NODE_ENV !== "production" &&
-    process.env.ALLOW_OPEN_DEV_KEY_CREATE === "1"
-  ) {
-    return { ok: true };
-  }
-
-  return {
-    ok: false,
-    status: 401,
-    error:
-      "Dev key creation requires X-Dev-Key-Secret / admin host token (or ALLOW_OPEN_DEV_KEY_CREATE=1 in non-production)",
-  };
-}
 
 // POST /dev-keys — mint a new API key + LZT wallet for a third-party developer.
 router.post("/dev-keys", createDevKeyLimiter, async (req, res): Promise<void> => {
@@ -121,6 +78,12 @@ router.post("/dev-keys", createDevKeyLimiter, async (req, res): Promise<void> =>
 
 // PATCH /dev-keys/:apiKey/rules — update host-selection rules / status.
 router.patch("/dev-keys/:apiKey/rules", async (req, res): Promise<void> => {
+  const auth = await authorizeDevKeyCreate(req);
+  if (!auth.ok) {
+    res.status(auth.status).json({ error: auth.error });
+    return;
+  }
+
   const paramsSchema = z.object({ apiKey: z.string().min(1) });
   const params = paramsSchema.safeParse(req.params);
   if (!params.success) {
