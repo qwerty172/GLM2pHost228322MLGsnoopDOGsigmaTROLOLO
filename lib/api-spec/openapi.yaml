@@ -1460,6 +1460,11 @@ paths:
           required: true
           schema:
             type: string
+        - in: header
+          name: X-Admin-Secret
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           description: All games
@@ -1477,6 +1482,185 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "403":
           description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/games/submissions:
+    get:
+      operationId: adminListGameSubmissions
+      tags: [games]
+      summary: Admin — list game catalog submissions
+      parameters:
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Admin-Secret
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, approved, rejected, all]
+            default: pending
+      responses:
+        "200":
+          description: Submissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GameSubmissionListItem"
+        "400":
+          description: Invalid status filter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/games/submissions/{id}/approve:
+    post:
+      operationId: adminApproveGameSubmission
+      tags: [games]
+      summary: Admin — approve a pending game submission
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Admin-Secret
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminApproveGameSubmissionBody"
+      responses:
+        "200":
+          description: Submission approved and game created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApproveGameSubmissionResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Submission not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Submission already processed or slug conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/games/submissions/{id}/reject:
+    post:
+      operationId: adminRejectGameSubmission
+      tags: [games]
+      summary: Admin — reject a pending game submission
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Admin-Secret
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminRejectGameSubmissionBody"
+      responses:
+        "200":
+          description: Submission rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminRejectGameSubmissionResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Submission not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Submission already processed
           content:
             application/json:
               schema:
@@ -1629,6 +1813,11 @@ paths:
           required: true
           schema:
             type: string
+        - in: header
+          name: X-Admin-Secret
+          required: true
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -1678,6 +1867,11 @@ paths:
             type: string
         - in: header
           name: X-Host-Token
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Admin-Secret
           required: true
           schema:
             type: string
@@ -2409,6 +2603,11 @@ components:
       type: http
       scheme: bearer
       description: Host bearer token (Authorization header)
+    AdminSecret:
+      type: apiKey
+      in: header
+      name: X-Admin-Secret
+      description: Deployment-level admin secret (required alongside host admin flag)
   schemas:
     SaveUploadUrlBody:
       type: object
@@ -2566,6 +2765,114 @@ components:
         isHidden:
           type: boolean
           description: Set to true to hide from public catalog; false to restore visibility.
+
+    GameSubmissionListItem:
+      type: object
+      properties:
+        id:
+          type: string
+        hostId:
+          type: string
+        status:
+          type: string
+        title:
+          type: string
+        slug:
+          type: string
+        category:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+        coverImageUrl:
+          type: string
+        kind:
+          type: string
+        defaultBrowserUrl:
+          type: string
+        steamAppId:
+          type: ["string", "null"]
+        reviewerId:
+          type: ["string", "null"]
+        reviewedAt:
+          type: ["string", "null"]
+          format: date-time
+        rejectionReason:
+          type: ["string", "null"]
+        approvedGameId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        submitterDisplayName:
+          type: string
+      required:
+        - id
+        - hostId
+        - status
+        - title
+        - slug
+        - category
+        - genres
+        - description
+        - coverImageUrl
+        - kind
+        - defaultBrowserUrl
+        - createdAt
+        - submitterDisplayName
+
+    AdminApproveGameSubmissionBody:
+      type: object
+      properties:
+        title:
+          type: string
+        slug:
+          type: string
+        category:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+        coverImageUrl:
+          type: string
+        steamAppId:
+          type: string
+
+    AdminApproveGameSubmissionResponse:
+      type: object
+      properties:
+        approved:
+          type: boolean
+        game:
+          $ref: "#/components/schemas/GameListItem"
+        libraryAutoCreated:
+          type: boolean
+      required:
+        - approved
+        - game
+
+    AdminRejectGameSubmissionBody:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+      required:
+        - reason
+
+    AdminRejectGameSubmissionResponse:
+      type: object
+      properties:
+        rejected:
+          type: boolean
+      required:
+        - rejected
 
     HealthStatus:
       type: object
