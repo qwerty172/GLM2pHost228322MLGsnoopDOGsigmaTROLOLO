@@ -94,6 +94,19 @@ export async function getObjectAclPolicy(
   return JSON.parse(aclPolicy as string);
 }
 
+/** Cover images uploaded before ACL metadata — only flat `/objects/uploads/{id}` paths. */
+export function isLegacyPublicCoverObjectPath(objectPath: string): boolean {
+  const prefix = "/objects/uploads/";
+  if (!objectPath.startsWith(prefix)) {
+    return false;
+  }
+  const objectId = objectPath.slice(prefix.length);
+  if (!objectId || objectId.includes("/") || objectId.includes("..")) {
+    return false;
+  }
+  return true;
+}
+
 export async function canAccessObject({
   userId,
   objectFile,
