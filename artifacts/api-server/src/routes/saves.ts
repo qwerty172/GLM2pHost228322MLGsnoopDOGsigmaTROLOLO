@@ -19,6 +19,7 @@ import {
   resolveHostIdFromRequest,
   resolvePlayerIdFromRequest,
 } from "../lib/storageRouteHelpers";
+import { trySetSavePrivateAcl } from "../lib/storageAclHelpers";
 import { randomUUID } from "node:crypto";
 
 const MAX_SAVE_SIZE_BYTES = 500 * 1024 * 1024;
@@ -207,6 +208,12 @@ router.post("/saves/confirm", async (req: Request, res: Response) => {
       return;
     }
 
+    try {
+      await trySetSavePrivateAcl(objectPath, playerId);
+    } catch (aclErr) {
+      req.log.warn({ err: aclErr }, "Failed to set save ACL (metadata still saved)");
+    }
+
     const now = new Date();
     await db
       .insert(playerGameSavesTable)
@@ -388,6 +395,13 @@ router.post(
       );
 
     const version = parsed.data.version ?? (existing ? existing.version + 1 : 1);
+    const objectPath = `/objects/${parsed.data.storageKey}`;
+
+    try {
+      await trySetSavePrivateAcl(objectPath, player.id);
+    } catch (aclErr) {
+      req.log.warn({ err: aclErr }, "Failed to set save ACL (metadata still saved)");
+    }
 
     if (existing) {
       const [updated] = await db
