@@ -94,16 +94,15 @@ export async function getObjectAclPolicy(
   return JSON.parse(aclPolicy as string);
 }
 
-export async function canAccessObject({
+export function evaluateObjectAccess({
+  aclPolicy,
   userId,
-  objectFile,
   requestedPermission,
 }: {
+  aclPolicy: ObjectAclPolicy | null;
   userId?: string;
-  objectFile: File;
   requestedPermission: ObjectPermission;
-}): Promise<boolean> {
-  const aclPolicy = await getObjectAclPolicy(objectFile);
+}): boolean {
   if (!aclPolicy) {
     return false;
   }
@@ -121,6 +120,30 @@ export async function canAccessObject({
 
   if (aclPolicy.owner === userId) {
     return true;
+  }
+
+  return false;
+}
+
+export async function canAccessObject({
+  userId,
+  objectFile,
+  requestedPermission,
+}: {
+  userId?: string;
+  objectFile: File;
+  requestedPermission: ObjectPermission;
+}): Promise<boolean> {
+  const aclPolicy = await getObjectAclPolicy(objectFile);
+
+  if (
+    evaluateObjectAccess({ aclPolicy, userId, requestedPermission })
+  ) {
+    return true;
+  }
+
+  if (!aclPolicy || !userId) {
+    return false;
   }
 
   for (const rule of aclPolicy.aclRules || []) {
