@@ -13,6 +13,7 @@ import {
 import { addToLibrary } from "../lib/hostLibrary";
 import { rateLimit, ipKey } from "../lib/rateLimit";
 import { timingSafeEqualString } from "../lib/timingSafe";
+import { tryApplyObjectAcl } from "../lib/storageRouteHelpers";
 
 const router: IRouter = Router();
 
@@ -194,6 +195,7 @@ router.post(
     const rawSlug =
       overrides.slug || sub.slug || slugify(title);
     const finalSlug = slugify(rawSlug) || slugify(title);
+    const coverImageUrl = overrides.coverImageUrl ?? sub.coverImageUrl;
 
     // Ensure slug is unique.
     const [existing] = await db
@@ -217,7 +219,7 @@ router.post(
         category: overrides.category ?? sub.category,
         genres: overrides.genres ?? sub.genres,
         description: overrides.description ?? sub.description,
-        coverImageUrl: overrides.coverImageUrl ?? sub.coverImageUrl,
+        coverImageUrl,
         steamAppId: overrides.steamAppId ?? sub.steamAppId ?? undefined,
         // Copy kind → browserHostUrl for browser games.
         browserHostUrl:
@@ -239,6 +241,13 @@ router.post(
         approvedGameId: game.id,
       })
       .where(eq(gameSubmissionsTable.id, id));
+
+    if (coverImageUrl) {
+      await tryApplyObjectAcl(coverImageUrl, {
+        owner: `host:${sub.hostId}`,
+        visibility: "public",
+      }, req);
+    }
 
     // If the submitter pre-configured a library entry, auto-create it now.
     let libraryAutoCreated = false;

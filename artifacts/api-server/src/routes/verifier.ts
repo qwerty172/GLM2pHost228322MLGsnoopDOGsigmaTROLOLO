@@ -13,7 +13,7 @@ import {
   DiscordProvider,
 } from "@workspace/auth-verifier";
 import { verifierDb } from "../lib/verifierDb.js";
-import { resolveAuthUser } from "./auth.js";
+import { resolveAuthUser } from "../lib/authMiddleware.js";
 import type { Request } from "express";
 
 const telegramToken = process.env.TELEGRAM_BOT_TOKEN;

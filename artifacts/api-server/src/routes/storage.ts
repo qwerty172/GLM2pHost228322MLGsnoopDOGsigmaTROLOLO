@@ -2,12 +2,13 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import { z } from "zod/v4";
 import { ObjectStorageService, ObjectNotFoundError, ObjectStorageNotConfiguredError } from "../lib/objectStorage";
-import { ObjectPermission, getObjectAclPolicy } from "../lib/objectAcl";
+import { ObjectPermission } from "../lib/objectAcl";
 import {
   handleStorageError,
   respondStorageUnavailable,
   resolveCallerUserId,
 } from "../lib/storageRouteHelpers";
+import { requireHostMiddleware, type AuthenticatedRequest } from "../lib/authMiddleware";
 import multer from "multer";
 
 const ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -48,22 +49,10 @@ const objectStorageService = new ObjectStorageService();
  * The client sends JSON metadata (name, size, contentType) — NOT the file.
  * Then uploads the file directly to the returned presigned URL.
  */
-router.post("/storage/uploads/request-url", async (req: Request, res: Response) => {
-  // Require an authenticated host token for upload URL issuance.
-  const token = req.headers["x-host-token"] as string | undefined;
-  if (!token) {
-    res.status(401).json({ error: "Missing X-Host-Token header" });
-    return;
-  }
-
-  const { db, hostsTable } = await import("@workspace/db");
-  const { eq } = await import("drizzle-orm");
-  const [host] = await db
-    .select({ id: hostsTable.id })
-    .from(hostsTable)
-    .where(eq(hostsTable.hostToken, token));
+router.post("/storage/uploads/request-url", requireHostMiddleware(), async (req: Request, res: Response) => {
+  const host = (req as AuthenticatedRequest).authHost;
   if (!host) {
-    res.status(401).json({ error: "Unknown host token" });
+    res.status(401).json({ error: "Unauthorized" });
     return;
   }
 
@@ -133,7 +122,7 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
  * Serve object entities from PRIVATE_OBJECT_DIR with ACL enforcement.
  * - visibility=public → anyone can READ
  * - visibility=private → owner only
- * - no ACL metadata (legacy covers) → public READ
+ * - no ACL metadata (legacy) → denied (401/403)
  */
 router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {
@@ -142,20 +131,17 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     const objectPath = `/objects/${wildcardPath}`;
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
 
-    const policy = await getObjectAclPolicy(objectFile);
-    if (policy) {
-      const userId = await resolveCallerUserId(req);
-      const canAccess = await objectStorageService.canAccessObjectEntity({
-        userId,
-        objectFile,
-        requestedPermission: ObjectPermission.READ,
+    const userId = await resolveCallerUserId(req);
+    const canAccess = await objectStorageService.canAccessObjectEntity({
+      userId,
+      objectFile,
+      requestedPermission: ObjectPermission.READ,
+    });
+    if (!canAccess) {
+      res.status(userId ? 403 : 401).json({
+        error: userId ? "Forbidden" : "Unauthorized",
       });
-      if (!canAccess) {
-        res.status(userId ? 403 : 401).json({
-          error: userId ? "Forbidden" : "Unauthorized",
-        });
-        return;
-      }
+      return;
     }
 
     const response = await objectStorageService.downloadObject(objectFile);

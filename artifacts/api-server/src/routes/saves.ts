@@ -18,6 +18,7 @@ import {
   respondStorageUnavailable,
   resolveHostIdFromRequest,
   resolvePlayerIdFromRequest,
+  tryApplyObjectAcl,
 } from "../lib/storageRouteHelpers";
 import { randomUUID } from "node:crypto";
 
@@ -207,6 +208,11 @@ router.post("/saves/confirm", async (req: Request, res: Response) => {
       return;
     }
 
+    await tryApplyObjectAcl(objectPath, {
+      owner: `player:${playerId}`,
+      visibility: "private",
+    }, req);
+
     const now = new Date();
     await db
       .insert(playerGameSavesTable)
@@ -388,6 +394,12 @@ router.post(
       );
 
     const version = parsed.data.version ?? (existing ? existing.version + 1 : 1);
+    const objectPath = `/objects/${parsed.data.storageKey}`;
+
+    await tryApplyObjectAcl(objectPath, {
+      owner: `player:${player.id}`,
+      visibility: "private",
+    }, req);
 
     if (existing) {
       const [updated] = await db

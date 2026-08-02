@@ -85,13 +85,13 @@ export function createVerifierRouter(cfg: VerifierConfig, getUser: GetUser): Rou
     if (!provider || !code) {
       return json(res, 400, { error: "provider and code are required" });
     }
-    const result = await submitCode(cfg, id, provider, code);
+    const result = await submitCode(cfg, String(id), provider, code);
     json(res, result.ok ? 200 : 400, result);
   });
 
   // ── GET /challenge/:id ───────────────────────────────────────────────────
   router.get("/challenge/:id", requireUser, async (req: Request, res: Response) => {
-    const status = await getChallengeStatus(cfg, req.params.id);
+    const status = await getChallengeStatus(cfg, String(req.params.id));
     json(res, 200, { status });
   });
 

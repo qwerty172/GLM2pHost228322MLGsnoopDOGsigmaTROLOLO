@@ -1,7 +1,9 @@
 import type { Request, Response } from "express";
+import type { ObjectAclPolicy } from "./objectAcl";
 import {
   ObjectNotFoundError,
   ObjectStorageNotConfiguredError,
+  ObjectStorageService,
 } from "./objectStorage";
 import { hostTokenFromRequest } from "./requestToken";
 
@@ -67,4 +69,33 @@ export async function resolveCallerUserId(req: Request): Promise<string | undefi
   const playerId = await resolvePlayerIdFromRequest(req);
   if (playerId) return `player:${playerId}`;
   return undefined;
+}
+
+/** Normalize `/api/storage/objects/…` or `/objects/…` to `/objects/…`. */
+export function toObjectEntityPath(coverOrStorageUrl: string): string | null {
+  const trimmed = coverOrStorageUrl.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("/objects/")) return trimmed;
+  const apiPrefix = "/api/storage/objects/";
+  const idx = trimmed.indexOf(apiPrefix);
+  if (idx >= 0) {
+    return `/objects/${trimmed.slice(idx + apiPrefix.length)}`;
+  }
+  return null;
+}
+
+/** Best-effort ACL write for a storage-backed cover or object path. */
+export async function tryApplyObjectAcl(
+  coverOrStorageUrl: string,
+  aclPolicy: ObjectAclPolicy,
+  req?: Request,
+): Promise<void> {
+  const entityPath = toObjectEntityPath(coverOrStorageUrl);
+  if (!entityPath) return;
+  try {
+    const storage = new ObjectStorageService();
+    await storage.trySetObjectEntityAclPolicy(entityPath, aclPolicy);
+  } catch (err) {
+    req?.log?.warn({ err, entityPath }, "Failed to set object ACL");
+  }
 }
