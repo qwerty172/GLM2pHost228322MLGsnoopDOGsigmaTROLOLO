@@ -3,7 +3,7 @@
 > **Активный цикл:** Cycle 2 — Web UI  
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл` (cron **пн/чт 09:00 UTC** — `0 9 * * 1,4`)  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-02 (grooming: дедупликация, мерж C1-S06 + C2-S02)
+> **Последнее обновление:** 2026-08-02 (C2-S06 /wallet route)
 
 ## Как пользоваться
 
@@ -52,7 +52,7 @@
 | C2-S03 | landing hosts dup | P2 | done | agent |
 | C2-S04 | RU browser-play | P1 | done | agent |
 | C2-S05 | a11y player + skip-link | P1 | done | agent |
-| C2-S06 | /wallet route | P2 | pending | agent |
+| C2-S06 | /wallet route | P2 | done | agent |
 | C2-S07 | shadcn sr-only RU | P3 | pending | agent |
 | C2-S08 | nav Играть | P2 | done | agent |
 | C2-D01 | pages-api-smoke | P1 | done | agent |

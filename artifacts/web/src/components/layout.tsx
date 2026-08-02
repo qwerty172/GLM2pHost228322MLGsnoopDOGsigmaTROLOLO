@@ -10,7 +10,7 @@ export function HostLayout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: "/host", label: "Дашборд", icon: LayoutDashboard },
     { href: "/host/library", label: "Моя библиотека", icon: Library },
-    { href: "/wallet", label: "Кошелёк", icon: Wallet },
+    { href: "/host/wallet", label: "Кошелёк", icon: Wallet },
   ];
 
   return (
@@ -18,7 +18,7 @@ export function HostLayout({ children }: { children: React.ReactNode }) {
       className="min-h-screen flex flex-col text-slate-300"
       style={{ background: "#06090e" }}
     >
-      <SiteNav activePath={location.startsWith("/wallet") ? "/wallet" : "/host"} />
+      <SiteNav activePath={location.startsWith("/host/wallet") ? "/host/wallet" : "/host"} />
       <div
         className="border-b"
         style={{
