@@ -3,7 +3,7 @@
 > **Активный цикл:** Wave Regression  
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл` (cron пн/чт 09:00)  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-07-27
+> **Последнее обновление:** 2026-08-02
 
 ## Как пользоваться
 
@@ -26,7 +26,7 @@
 | C1-S03 | Объединить timingSafe модули | P1 | done | agent | Один timingSafe.ts |
 | C1-S04 | Workers audit | P1 | done | agent | TESTLOG |
 | C1-S05 | Signaling WS auth audit | P0 | done | agent | ws-ticket documented |
-| C1-S06 | Storage ACL legacy public read | P1 | pending | agent | Backlog |
+| C1-S06 | Storage ACL legacy public read | P1 | done | agent | Legacy read только uploads/*; confirm endpoint |
 | C1-S07 | Rate limits enrich + loans read | P2 | done | agent | enrichLimiter + readLimiter |
 | C1-S08 | joinCodes deprecation | P2 | done | agent | Deprecation header |
 | C1-D01 | Smoke + ledger | P0 | done | agent | CI |
