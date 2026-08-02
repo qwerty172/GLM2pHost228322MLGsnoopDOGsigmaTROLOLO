@@ -7,6 +7,10 @@ import {
   gamesTable,
   gameSubmissionsTable,
 } from "@workspace/db";
+import {
+  normalizeObjectEntityPath,
+  trySetStorageObjectAcl,
+} from "../lib/storageAcl";
 
 const router: IRouter = Router();
 
@@ -157,6 +161,14 @@ router.post("/games/submit", async (req, res): Promise<void> => {
       error: `You already have ${MAX_PENDING_PER_HOST} pending submissions. Wait for them to be reviewed before submitting more.`,
     });
     return;
+  }
+
+  const coverObjectPath = normalizeObjectEntityPath(body.coverImageUrl);
+  if (coverObjectPath) {
+    await trySetStorageObjectAcl(coverObjectPath, {
+      owner: `host:${host.id}`,
+      visibility: "public",
+    });
   }
 
   const [sub] = await db

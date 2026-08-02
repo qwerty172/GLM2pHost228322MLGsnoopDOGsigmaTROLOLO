@@ -19,6 +19,10 @@ import {
   resolveHostIdFromRequest,
   resolvePlayerIdFromRequest,
 } from "../lib/storageRouteHelpers";
+import {
+  normalizeObjectEntityPath,
+  trySetStorageObjectAcl,
+} from "../lib/storageAcl";
 import { randomUUID } from "node:crypto";
 
 const MAX_SAVE_SIZE_BYTES = 500 * 1024 * 1024;
@@ -207,6 +211,11 @@ router.post("/saves/confirm", async (req: Request, res: Response) => {
       return;
     }
 
+    await trySetStorageObjectAcl(objectPath, {
+      owner: `player:${playerId}`,
+      visibility: "private",
+    });
+
     const now = new Date();
     await db
       .insert(playerGameSavesTable)
@@ -388,6 +397,12 @@ router.post(
       );
 
     const version = parsed.data.version ?? (existing ? existing.version + 1 : 1);
+    const objectPath = `/objects/${parsed.data.storageKey}`;
+
+    await trySetStorageObjectAcl(objectPath, {
+      owner: `player:${player.id}`,
+      visibility: "private",
+    });
 
     if (existing) {
       const [updated] = await db
