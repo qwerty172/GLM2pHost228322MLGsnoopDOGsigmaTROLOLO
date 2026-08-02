@@ -72,6 +72,93 @@ export interface ExchangeJoinCodeResponse {
   sessionId: string;
 }
 
+export interface GameSubmissionItem {
+  id: string;
+  hostId: string;
+  status: string;
+  title: string;
+  slug: string;
+  category: string;
+  genres: string[];
+  description: string;
+  coverImageUrl: string;
+  kind: string;
+  defaultBrowserUrl: string;
+  /** @nullable */
+  steamAppId?: string | null;
+  /** @nullable */
+  reviewedAt?: string | null;
+  /** @nullable */
+  rejectionReason?: string | null;
+  /** @nullable */
+  approvedGameId?: string | null;
+  createdAt: string;
+  submitterDisplayName: string;
+}
+
+export interface AdminApproveSubmissionBody {
+  title?: string;
+  slug?: string;
+  category?: string;
+  genres?: string[];
+  description?: string;
+  coverImageUrl?: string;
+  steamAppId?: string;
+}
+
+export interface GameListItem {
+  id: string;
+  slug: string;
+  title: string;
+  coverImageUrl: string;
+  description: string;
+  genre: string;
+  /** Primary catalog category (e.g. action, rpg) */
+  category: string;
+  /** Additional genre tags */
+  genres: string[];
+  createdAt: string;
+  hasMods: boolean;
+  isMultiplayer: boolean;
+  hostSpectatesPlayer: boolean;
+  hasQuests: boolean;
+  /** Number of pending or active sessions matching this game right now */
+  liveSessionCount: number;
+  /** Hosts with this game enabled that currently have a live session */
+  liveHostsCount: number;
+  /** Number of always-on VDS hosts offering this game */
+  vdsHostsCount?: number;
+  /** True when at least one VDS host offers this game */
+  hasVdsHosts?: boolean;
+  /**
+   * Cheapest enabled library price for this game across hosts, in LZT
+   * @nullable
+   */
+  minPricePerMinuteLzt: number | null;
+  /** Same-origin URL of a vendored browser build that a player can host
+directly from their browser tab (no desktop agent). Empty when only
+native-app hosting is supported.
+ */
+  browserHostUrl: string;
+  /** When true the game is excluded from the public catalog (admin-only flag). */
+  isHidden?: boolean;
+}
+
+export interface AdminApproveSubmissionResponse {
+  approved: boolean;
+  game: GameListItem;
+  libraryAutoCreated?: boolean;
+}
+
+export interface AdminRejectSubmissionBody {
+  /** @minLength 1 */
+  reason: string;
+}
+
+export interface AdminRejectSubmissionResponse {
+  rejected: boolean;
+}
+
 export interface AdminPatchGameBody {
   /** @minLength 1 */
   title?: string;
@@ -289,44 +376,6 @@ export interface RegisterHostBody {
 
 export interface RegisterPlayerBody {
   displayName: string;
-}
-
-export interface GameListItem {
-  id: string;
-  slug: string;
-  title: string;
-  coverImageUrl: string;
-  description: string;
-  genre: string;
-  /** Primary catalog category (e.g. action, rpg) */
-  category: string;
-  /** Additional genre tags */
-  genres: string[];
-  createdAt: string;
-  hasMods: boolean;
-  isMultiplayer: boolean;
-  hostSpectatesPlayer: boolean;
-  hasQuests: boolean;
-  /** Number of pending or active sessions matching this game right now */
-  liveSessionCount: number;
-  /** Hosts with this game enabled that currently have a live session */
-  liveHostsCount: number;
-  /** Number of always-on VDS hosts offering this game */
-  vdsHostsCount?: number;
-  /** True when at least one VDS host offers this game */
-  hasVdsHosts?: boolean;
-  /**
-   * Cheapest enabled library price for this game across hosts, in LZT
-   * @nullable
-   */
-  minPricePerMinuteLzt: number | null;
-  /** Same-origin URL of a vendored browser build that a player can host
-directly from their browser tab (no desktop agent). Empty when only
-native-app hosting is supported.
- */
-  browserHostUrl: string;
-  /** When true the game is excluded from the public catalog (admin-only flag). */
-  isHidden?: boolean;
 }
 
 export type GameLiveSessionScheduleMode =
@@ -1491,6 +1540,20 @@ export type AdminDeleteGame200 = {
   deleted: boolean;
   id: string;
 };
+
+export type AdminListGameSubmissionsParams = {
+  status?: AdminListGameSubmissionsStatus;
+};
+
+export type AdminListGameSubmissionsStatus =
+  (typeof AdminListGameSubmissionsStatus)[keyof typeof AdminListGameSubmissionsStatus];
+
+export const AdminListGameSubmissionsStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+  all: "all",
+} as const;
 
 export type HostHeartbeatBody = {
   /** Fallback when X-Host-Token header is absent */
