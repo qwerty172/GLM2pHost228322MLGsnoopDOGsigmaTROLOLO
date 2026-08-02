@@ -923,30 +923,48 @@ router.patch("/sessions/:id/end", async (req, res): Promise<void> => {
 
   const now = new Date();
 
-  // Block session early-exit refund via shared billing helper (includes ledger).
-  if (
-    existing.blockMinutes &&
-    existing.blockReservedLzt &&
-    existing.claimedByPlayerId &&
-    existing.status === "active"
-  ) {
-    try {
-      await db.transaction(async (tx) => {
-        const minutesUsed = await countSessionMinutesUsed(tx, existing.id);
-        await refundBlockRemainder(tx, existing, minutesUsed);
-      });
-    } catch (err) {
-      req.log.error({ err, sessionId: existing.id }, "Block refund failed during session end");
-    }
+  // Atomically claim end (pending or active → ended) and refund any unused
+  // block reserve. Pending sessions can be claimed before WebRTC connects;
+  // skipping them left the player's prepaid block permanently locked.
+  let session: typeof sessionsTable.$inferSelect | undefined;
+  try {
+    session = await db.transaction(async (tx) => {
+      const [ended] = await tx
+        .update(sessionsTable)
+        .set({ status: "ended", endedAt: now })
+        .where(
+          and(
+            eq(sessionsTable.id, params.data.id),
+            or(
+              eq(sessionsTable.status, "active"),
+              eq(sessionsTable.status, "pending"),
+            ),
+          ),
+        )
+        .returning();
+      if (!ended) return undefined;
+
+      if (
+        ended.blockMinutes &&
+        ended.blockReservedLzt &&
+        ended.claimedByPlayerId
+      ) {
+        const minutesUsed = await countSessionMinutesUsed(tx, ended.id);
+        await refundBlockRemainder(tx, ended, minutesUsed);
+      }
+      return ended;
+    });
+  } catch (err) {
+    req.log.error({ err, sessionId: existing.id }, "Block refund failed during session end");
+    res.status(500).json({ error: "Failed to end session" });
+    return;
   }
 
-  const [session] = await db
-    .update(sessionsTable)
-    .set({ status: "ended", endedAt: now })
-    .where(eq(sessionsTable.id, params.data.id))
-    .returning();
-
   if (!session) {
+    if (existing.status === "ended") {
+      res.json(EndSessionResponse.parse(serialize(existing)));
+      return;
+    }
     res.status(404).json({ error: "Session not found" });
     return;
   }

@@ -1,4 +1,5 @@
 import { lt, eq, and, inArray, isNotNull, or, notInArray } from "drizzle-orm";
+import type { InferSelectModel } from "drizzle-orm";
 import { db, sessionsTable, hostsTable, hostGamesTable } from "@workspace/db";
 import { logger } from "./logger";
 import {
@@ -37,20 +38,55 @@ async function healthCheck(): Promise<void> {
   }
 }
 
-// ── 1. End stale active sessions ────────────────────────────────────────────
+// ── 1. End stale active/pending sessions ────────────────────────────────────
+
+const STALE_SESSION_STATUSES = ["active", "pending"] as const;
+
+async function endStaleSession(
+  session: InferSelectModel<typeof sessionsTable>,
+  now: Date,
+): Promise<boolean> {
+  let ended = false;
+  await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(sessionsTable)
+      .set({ status: "ended", endedAt: now, endReason: "host_offline" })
+      .where(
+        and(
+          eq(sessionsTable.id, session.id),
+          inArray(sessionsTable.status, [...STALE_SESSION_STATUSES]),
+        ),
+      )
+      .returning();
+    if (!row) return;
+    ended = true;
+
+    if (
+      row.blockMinutes &&
+      row.blockReservedLzt &&
+      row.claimedByPlayerId
+    ) {
+      const minutesUsed = await countSessionMinutesUsed(tx, row.id);
+      await refundBlockRemainder(tx, row, minutesUsed);
+    }
+  });
+  return ended;
+}
 
 async function sessionCheck(): Promise<void> {
   const cutoff = new Date(Date.now() - HOST_TIMEOUT_MS);
 
   // Include embed/dev-key sessions — they have no claimedByPlayerId but still
-  // burn the host while the agent is offline.
+  // burn the host while the agent is offline. Pending sessions are included
+  // too: a player can claim before WebRTC connects, leaving the host slot
+  // locked indefinitely if we only watched active sessions.
   const staleSessions = await db
     .select({ session: sessionsTable })
     .from(sessionsTable)
     .innerJoin(hostsTable, eq(sessionsTable.hostId, hostsTable.id))
     .where(
       and(
-        eq(sessionsTable.status, "active"),
+        inArray(sessionsTable.status, [...STALE_SESSION_STATUSES]),
         or(
           isNotNull(sessionsTable.claimedByPlayerId),
           isNotNull(sessionsTable.devKeyId),
@@ -66,30 +102,9 @@ async function sessionCheck(): Promise<void> {
 
   for (const { session } of staleSessions) {
     try {
-      await db.transaction(async (tx) => {
-        // Claim end: only transition active → ended once.
-        const ended = await tx
-          .update(sessionsTable)
-          .set({ status: "ended", endedAt: now, endReason: "host_offline" })
-          .where(
-            and(
-              eq(sessionsTable.id, session.id),
-              eq(sessionsTable.status, "active"),
-            ),
-          )
-          .returning({ id: sessionsTable.id });
-        if (ended.length === 0) return;
-
-        if (
-          session.blockMinutes &&
-          session.blockReservedLzt &&
-          session.claimedByPlayerId
-        ) {
-          const minutesUsed = await countSessionMinutesUsed(tx, session.id);
-          await refundBlockRemainder(tx, session, minutesUsed);
-        }
-      });
-      ids.push(session.id);
+      if (await endStaleSession(session, now)) {
+        ids.push(session.id);
+      }
     } catch (err) {
       logger.error(
         { err, sessionId: session.id },
