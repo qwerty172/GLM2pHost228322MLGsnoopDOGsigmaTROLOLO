@@ -13,7 +13,7 @@
 | Дата | 2026-08-03 11:00 UTC |
 | Task ID | sync |
 | Результат | reconcile PASS (14/14); сканер 51 raw → 13 grouped M-NN в очереди |
-| Commit | 54df4a4 |
+| Commit | b662450 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
