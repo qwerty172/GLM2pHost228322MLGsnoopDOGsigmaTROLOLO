@@ -15,7 +15,7 @@
 | Дата | 2026-08-03 12:52 UTC |
 | Task ID | M-08 |
 | Результат | OpenAPI POST /sessions/{id}/metrics + codegen |
-| Commit | (this run) |
+| Commit | a7c497d |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
