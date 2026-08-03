@@ -1,27 +1,56 @@
 # DecentralHub Marathon — живой бэклог
 
-> **Активный цикл:** Cycle 2 — Web UI  
+> **Активный цикл:** Cycle 2 — Web UI (первая pending: **C2-S06**)  
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл` (cron **пн/чт 09:00 UTC** — `0 9 * * 1,4`)  
+> **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-02 (grooming: дедупликация, мерж C1-S06 + C2-S02)
+> **Последнее обновление:** 2026-08-03
+
+## Last run (automation)
+
+| Поле | Значение |
+|------|----------|
+| Дата | — |
+| Task ID | — |
+| Результат | — |
+| Commit | — |
+
+> Automation: **обновляй эту таблицу** в конце каждого запуска.
+
+---
+
+## Сейчас в очереди (pending в активном цикле)
+
+1. `C2-S06` — /wallet route  
+2. `C2-S07` — shadcn sr-only RU  
+3. `C2-D02` — OpenAPI gaps  
+4. `C1-F05` — Central auth middleware (backlog после Cycle 2)  
+5. …остальные `pending` ниже по файлу
+
+**Не трогать:** `done`, `blocked`, `skipped`, `owner: human`.
+
+---
 
 ## Как пользоваться
 
 1. **Сначала** `git pull origin main` — работать только от актуального `main`.
-2. В **активном цикле** (см. заголовок) возьми **первую** задачу со статусом `pending`.
-3. Перед началом: `git log --oneline main --grep="<ID>"` — если задача уже смержена, пометь `done` и **не** создавай новый PR.
-4. Переведи в `in_progress` → выполни acceptance → `done` или `blocked`.
-5. Запиши находки в [TESTLOG.md](./TESTLOG.md).
-6. Верификация: `pnpm typecheck`, `pnpm --filter @workspace/api-server test`, `pnpm --filter @workspace/host-agent test`.
-7. **Один PR на задачу.** Дублирующие DRAFT-PR закрывать с комментарием «superseded by #N».
+2. В **активном цикле** возьми **одну** первую задачу со статусом `pending`.
+3. **Пропускай** `done`, `blocked`, `skipped`. Если ID уже в Last run как `done` — не повторяй.
+4. Перед кодом: `git log --oneline main --grep="<ID>"` — если уже смержено, только обнови статус.
+5. `in_progress` старше 24 ч → `pending` или `blocked` с причиной.
+6. Переведи в `in_progress` → выполни acceptance → `done` или `blocked`.
+7. Запиши в [TESTLOG.md](./TESTLOG.md). Верификация: `pnpm typecheck`, api/host-agent tests.
+8. **Обязательно commit+push** `MARATHON.md` + `TESTLOG.md` (иначе следующий run повторит задачу).
+9. Код — один PR на задачу. Дублирующие DRAFT-PR закрывать «superseded by #N».
+10. Если `pending` в активном цикле нет → `Marathon idle`, код не менять.
 
 **Статусы:** `pending` | `in_progress` | `done` | `blocked` | `skipped`  
 **Owner:** `agent` | `human`
 
 ### Анти-дубли (важно)
 
-- Строки `*-F*` (fix-wave) **удалены** — они дублировали `*-S*`. Не восстанавливать.
-- `UX-08` = `C2-S05` skip-link — оставлен только в Wave UX как `done`.
+- Строки `*-F*` (fix-wave) **удалены** — дублировали `*-S*`. Не восстанавливать.
+- `UX-08` = `C2-S05` skip-link — только в Wave UX как `skipped`.
 - Если `main` уже содержит фикс, а MARATHON ещё `pending` → только обновить статус, без кода.
 
 ---
@@ -35,13 +64,13 @@
 | C1-S03 | Объединить timingSafe модули | P1 | done | agent | Один timingSafe.ts |
 | C1-S04 | Workers audit | P1 | done | agent | TESTLOG |
 | C1-S05 | Signaling WS auth audit | P0 | done | agent | ws-ticket documented |
-| C1-S06 | Storage ACL legacy public read | P1 | done | agent | Orphan 403; catalog public; POST /storage/uploads/confirm — **merged #164** |
+| C1-S06 | Storage ACL legacy public read | P1 | done | agent | Orphan 403; catalog public; **merged #164** |
 | C1-S07 | Rate limits enrich + loans read | P2 | done | agent | enrichLimiter + readLimiter |
 | C1-S08 | joinCodes deprecation | P2 | done | agent | Deprecation header |
 | C1-D01 | Smoke + ledger | P0 | done | agent | CI |
 | C1-D02 | Economy E2E | P1 | done | agent | vitest |
 | C1-D03 | Security pass | P1 | done | agent | SSE closed |
-| C1-F05 | Central auth middleware | P2 | pending | agent | Backlog — **следующая после Cycle 2** |
+| C1-F05 | Central auth middleware | P2 | pending | agent | Backlog — после Cycle 2 |
 
 ## Cycle 2 — Web UI ← **активный**
 
@@ -91,7 +120,7 @@
 | C4-D02 | quotas/vds/embed | blocked | human |
 | C4-D03 | CI hardening | done | agent |
 
-## Wave UX (пауза — вернуться после Cycle 2)
+## Wave UX (пауза — после Cycle 2)
 
 | ID | Task | Status |
 |----|------|--------|
@@ -114,12 +143,30 @@
 | REG-04 | TESTLOG summary | done | agent |
 | REG-05 | TESTPLAN 5-7 | done | agent |
 
-## Automation prompt
+---
+
+## Automation prompt (вставить в Cursor Automations)
 
 ```
 git pull origin main
-Прочитай MARATHON.md. Активный цикл указан в заголовке. Возьми первую pending в активном цикле.
-Перед кодом: git log --oneline main --grep="<ID>" — если уже смержено, только обнови статус.
-Выполни acceptance. pnpm typecheck && pnpm --filter @workspace/api-server test && pnpm --filter @workspace/host-agent test.
-Обнови MARATHON.md и TESTLOG.md. Один PR на задачу. Закрой свои дублирующие DRAFT-PR.
+Прочитай MARATHON.md. Активный цикл в заголовке. Memory выключена.
+
+ВЫБОР ЗАДАЧИ (одна за запуск):
+- Пропускай done, blocked, skipped, owner: human.
+- Первая pending в АКТИВНОМ цикле (сейчас Cycle 2 → C2-S06).
+- git log --oneline main --grep="<ID>" — если уже в main, только статус done, без кода.
+- Если in_progress = Last run ID — продолжи; in_progress >24ч без прогресса → pending/blocked.
+- Нет pending в активном цикле → ответь "Marathon idle", код не трогать.
+
+ВЫПОЛНЕНИЕ:
+1. in_progress → acceptance → pnpm typecheck && api/host-agent tests
+2. done/blocked + строка в TESTLOG.md
+3. Обнови таблицу "Last run" в MARATHON.md
+
+ОБЯЗАТЕЛЬНО (иначе повтор на следующем cron):
+git add MARATHON.md TESTLOG.md
+git commit -m "chore(marathon): <ID> <кратко>"
+git push origin main
+
+Код — отдельный PR если нужен. Один PR на задачу. Закрой дублирующие DRAFT-PR.
 ```
