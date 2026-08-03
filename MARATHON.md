@@ -15,7 +15,7 @@
 | Дата | 2026-08-03 12:44 UTC |
 | Task ID | M-07 |
 | Результат | OpenAPI GET /public/games + codegen |
-| Commit | 5888f86 |
+| Commit | 6b700d2 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
