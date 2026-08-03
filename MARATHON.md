@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-03 (M-12 done; vt OpenAPI 2 routes)
+> **Последнее обновление:** 2026-08-03 (M-13 done; renderer unit tests)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 13:16 UTC |
-| Task ID | M-12 |
-| Результат | OpenAPI vt scan/lookup + codegen |
-| Commit | 872a7ac |
+| Дата | 2026-08-03 13:28 UTC |
+| Task ID | M-13 |
+| Результат | host-agent renderer unit tests (18 modules, 54 tests) |
+| Commit | (this run) |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -25,8 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** **1 M-NN pending** (см. таблицу ниже). Сканер:
-- **1 grouped** (M-12 vt.ts закрыт)
+**Wave Maintenance:** **0 M-NN pending** — scanner idle (rawHits=0).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -244,7 +243,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-10 | C | OpenAPI gap: routes/submissions.ts (3 routes) | `routes/submissions.ts` | c:artifacts/api-server/src/routes/submissions.ts | done | agent |
 | M-11 | C | OpenAPI gap: routes/vds.ts (5 routes) | `routes/vds.ts` | c:artifacts/api-server/src/routes/vds.ts | done | agent |
 | M-12 | C | OpenAPI gap: routes/vt.ts (2 routes) | `routes/vt.ts` | c:artifacts/api-server/src/routes/vt.ts | done | agent |
-| M-13 | E | host-agent renderer: unit-тесты (18 модулей) | `renderer/*.ts` | e:renderer | pending | agent |
+| M-13 | E | host-agent renderer: unit-тесты (18 модулей) | `renderer/*.ts` | e:renderer | done | agent |
 
 
 > Automation: `--sync-marathon` пересобирает pending из сканера (сохраняет done/in_progress).

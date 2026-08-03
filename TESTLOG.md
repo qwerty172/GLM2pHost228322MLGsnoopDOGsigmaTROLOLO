@@ -15,6 +15,18 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-13 (2026-08-03 13:28 UTC) {#marathon-m-13}
+
+| Проверка | Результат |
+|---|---|
+| unit tests | 18 renderer modules → `artifacts/host-agent/test/*.test.mjs` (54 tests) |
+| harness | `test/setup-renderer-dom.mjs` — DOM mock для node:test |
+| host-agent test | `pnpm --filter @workspace/host-agent test` PASS |
+| typecheck | PASS |
+| marathon-scan | rawHits=0, Wave Maintenance idle |
+
+**Следующий pick:** Marathon idle (сканер пуст).
+
 ## Marathon M-12 (2026-08-03 13:16 UTC) {#marathon-m-12}
 
 | Проверка | Результат |

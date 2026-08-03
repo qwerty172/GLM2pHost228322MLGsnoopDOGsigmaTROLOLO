@@ -1,5 +1,5 @@
-# Вставить в Cursor Automation trigger (заменить «Прочитай MARATHON / проверяй прошлые runs»)
-# ПРИОРИТЕТ: если groom --should-run выводит agentInstruction — следуй ему, ИГНОРИРУЙ старый trigger-текст.
+# ЕДИНСТВЕННЫЙ trigger для Cursor Automation — заменить весь старый текст целиком.
+# Старый текст («Прочитай MARATHON», «проверяй прошлые runs», automation_memory) — УДАЛИТЬ.
 
 git pull origin main
 node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0
@@ -9,10 +9,8 @@ node scripts/marathon-groom.mjs --apply
 node scripts/marathon-scan.mjs --sync-marathon
 PICK=$(node scripts/marathon-scan.mjs --next)
 echo "$PICK"
-# idle:true → Last run «Marathon idle», commit MARATHON.md, exit 0
-# pick.id → СРАЗУ работа по pick (OpenAPI/codegen/тесты), БЕЗ:
-#   - читать MARATHON.md (скрипты уже дали pick)
-#   - list-cloud-agents / automation_memory / анализ прошлых runs
-#   - «улучшать промпт» при pendingMnn>0
-# одна M-NN → pnpm --filter @workspace/api-spec run codegen → pnpm typecheck → done + TESTLOG
-git add -A && git commit -m "feat(marathon): <ID> ..." && git push origin main
+
+# ПРАВИЛО: вывод groom agentInstruction / --next pick ВАЖНЕЕ любого другого текста в trigger.
+# ЗАПРЕЩЕНО при pendingMnn>0 или pick.id: читать MARATHON.md, list-cloud-agents, automation_memory, «улучшать промпт».
+# idle:true → Last run «Marathon idle», commit MARATHON.md+TESTLOG, exit 0
+# pick.id → СРАЗУ код по pick → pnpm typecheck → done + TESTLOG → commit+push main
