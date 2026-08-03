@@ -377,10 +377,254 @@ export const UpdateHostConfigResponse = zod.object({
 });
 
 /**
+ * Legacy path. Header auth (Authorization Bearer / X-Host-Token) is required and must match the path hostToken.
+
+ * @summary [Legacy] Update host config — prefer PATCH /hosts/me/config
+ */
+export const UpdateHostConfigLegacyParams = zod.object({
+  hostToken: zod.coerce.string(),
+});
+
+export const updateHostConfigLegacyBodyScheduleJsonItemDayMin = 0;
+export const updateHostConfigLegacyBodyScheduleJsonItemDayMax = 6;
+
+export const updateHostConfigLegacyBodyScheduleJsonItemStartMinMin = 0;
+export const updateHostConfigLegacyBodyScheduleJsonItemStartMinMax = 1440;
+
+export const updateHostConfigLegacyBodyScheduleJsonItemEndMinMin = 0;
+export const updateHostConfigLegacyBodyScheduleJsonItemEndMinMax = 1440;
+
+export const updateHostConfigLegacyBodyCreditMinutesPerNewPlayerMin = 0;
+export const updateHostConfigLegacyBodyCreditMinutesPerNewPlayerMax = 1440;
+
+export const updateHostConfigLegacyBodyCreditMaxLztPerPlayerMin = 0;
+
+export const UpdateHostConfigLegacyBody = zod
+  .object({
+    gameId: zod.string().nullish(),
+    boundAppPath: zod.string().optional(),
+    boundUrl: zod
+      .string()
+      .optional()
+      .describe(
+        "URL of a browser game; mutually exclusive with boundAppPath at runtime.",
+      ),
+    boundAppLabel: zod.string().optional(),
+    description: zod.string().optional(),
+    tags: zod.array(zod.string()).optional(),
+    launchPriceUsd: zod.number().optional(),
+    minutePriceUsd: zod.number().optional(),
+    scheduleMode: zod.enum(["always", "scheduled"]).optional(),
+    scheduleJson: zod
+      .array(
+        zod
+          .object({
+            day: zod
+              .number()
+              .min(updateHostConfigLegacyBodyScheduleJsonItemDayMin)
+              .max(updateHostConfigLegacyBodyScheduleJsonItemDayMax)
+              .describe("0 = Sunday вЂ¦ 6 = Saturday"),
+            startMin: zod
+              .number()
+              .min(updateHostConfigLegacyBodyScheduleJsonItemStartMinMin)
+              .max(updateHostConfigLegacyBodyScheduleJsonItemStartMinMax),
+            endMin: zod
+              .number()
+              .min(updateHostConfigLegacyBodyScheduleJsonItemEndMinMin)
+              .max(updateHostConfigLegacyBodyScheduleJsonItemEndMinMax),
+          })
+          .describe("A single weekly availability window (UTC)."),
+      )
+      .optional(),
+    streamPlatform: zod.string().optional(),
+    streamUrl: zod.string().optional(),
+    streamKey: zod
+      .string()
+      .optional()
+      .describe("Pass empty string to clear the stored key."),
+    creditMinutesPerNewPlayer: zod
+      .number()
+      .min(updateHostConfigLegacyBodyCreditMinutesPerNewPlayerMin)
+      .max(updateHostConfigLegacyBodyCreditMinutesPerNewPlayerMax)
+      .optional()
+      .describe(
+        "Host service credit policy. When > 0, this host extends short-term in-game credit to new players who run out of LZT mid-session, up to this many minutes of play. Set to 0 to disable.",
+      ),
+    creditMaxLztPerPlayer: zod
+      .number()
+      .min(updateHostConfigLegacyBodyCreditMaxLztPerPlayerMin)
+      .optional()
+      .describe(
+        "Maximum LZT this host will credit to any single borrower. Acts as a\nper-borrower cap on host service credit.\n",
+      ),
+  })
+  .describe("Partial update вЂ” omit a field to leave it unchanged.");
+
+export const updateHostConfigLegacyResponseScheduleJsonItemDayMin = 0;
+export const updateHostConfigLegacyResponseScheduleJsonItemDayMax = 6;
+
+export const updateHostConfigLegacyResponseScheduleJsonItemStartMinMin = 0;
+export const updateHostConfigLegacyResponseScheduleJsonItemStartMinMax = 1440;
+
+export const updateHostConfigLegacyResponseScheduleJsonItemEndMinMin = 0;
+export const updateHostConfigLegacyResponseScheduleJsonItemEndMinMax = 1440;
+
+export const UpdateHostConfigLegacyResponse = zod.object({
+  id: zod.string(),
+  hostToken: zod.string(),
+  displayName: zod.string(),
+  internalBalanceLzt: zod
+    .number()
+    .describe("РЎРёРЅРёР№ вЂ” internal LZT, cannot be withdrawn"),
+  withdrawableBalanceLzt: zod
+    .number()
+    .describe("Р—РµР»С‘РЅС‹Р№ вЂ” LZT convertible back to crypto at 200:1"),
+  gameId: zod
+    .string()
+    .nullable()
+    .describe("Catalog game this host is bound to"),
+  boundAppPath: zod
+    .string()
+    .describe("Absolute Windows path to the .exe the agent will launch"),
+  boundUrl: zod
+    .string()
+    .describe(
+      "URL of a browser game the agent will open. When set, takes precedence over boundAppPath.",
+    ),
+  boundAppLabel: zod
+    .string()
+    .describe("Friendly label shown in the games library"),
+  description: zod.string(),
+  tags: zod
+    .array(zod.string())
+    .describe("Capability tags shown as badges and used as library filters"),
+  launchPriceUsd: zod
+    .number()
+    .describe("Charged once when a player joins (may be negative)"),
+  minutePriceUsd: zod
+    .number()
+    .describe("Charged per minute while streaming (may be negative)"),
+  scheduleMode: zod.enum(["always", "scheduled"]),
+  scheduleJson: zod.array(
+    zod
+      .object({
+        day: zod
+          .number()
+          .min(updateHostConfigLegacyResponseScheduleJsonItemDayMin)
+          .max(updateHostConfigLegacyResponseScheduleJsonItemDayMax)
+          .describe("0 = Sunday вЂ¦ 6 = Saturday"),
+        startMin: zod
+          .number()
+          .min(updateHostConfigLegacyResponseScheduleJsonItemStartMinMin)
+          .max(updateHostConfigLegacyResponseScheduleJsonItemStartMinMax),
+        endMin: zod
+          .number()
+          .min(updateHostConfigLegacyResponseScheduleJsonItemEndMinMin)
+          .max(updateHostConfigLegacyResponseScheduleJsonItemEndMinMax),
+      })
+      .describe("A single weekly availability window (UTC)."),
+  ),
+  streamPlatform: zod
+    .string()
+    .describe('e.g. \"twitch\", \"youtube\", \"rtmp\"'),
+  streamUrl: zod.string(),
+  streamKeySet: zod
+    .boolean()
+    .describe(
+      "True if a stream key is stored. The key itself is never returned.",
+    ),
+  creditMinutesPerNewPlayer: zod
+    .number()
+    .describe(
+      "Host service credit policy вЂ” minutes of play extended on credit to new players who run out mid-session. 0 disables auto-credit.",
+    ),
+  creditMaxLztPerPlayer: zod
+    .number()
+    .describe("Per-borrower cap on host service credit, in LZT."),
+  createdAt: zod.coerce.date(),
+  lastSeenAt: zod.coerce.date(),
+  hostTier: zod
+    .enum(["below_min", "meets_min", "above_rec"])
+    .describe(
+      "Quick general strength badge vs the site-wide baseline hardware profile (not tied to a specific quota)",
+    ),
+  scheduleAutoDisabledReason: zod
+    .string()
+    .nullable()
+    .describe(
+      "Set by the schedule watchdog when it auto-deactivated this host's schedule due to a missed wake-up window. Null once cleared by the hoster saving config again.",
+    ),
+  scheduleAutoDisabledAt: zod.coerce.date().nullable(),
+  lastSubmissionStatus: zod
+    .string()
+    .nullable()
+    .describe(
+      "Latest game submission outcome (pending \/ approved \/ rejected)",
+    ),
+  lastSubmissionNote: zod
+    .string()
+    .describe("Human-readable note about the last submission outcome"),
+  gamesContributed: zod
+    .number()
+    .describe("Count of approved catalog submissions from this host"),
+  isAdmin: zod.boolean().describe("Platform administrator flag"),
+  agentKeyBound: zod
+    .boolean()
+    .describe(
+      "True when an Ed25519 agent public key is bound (key itself is never returned)",
+    ),
+  pcSpecs: zod
+    .object({
+      gpu: zod.string().optional(),
+      cpu: zod.string().optional(),
+      ramGb: zod.number().optional(),
+      cpuCores: zod.number().optional(),
+      downloadMbps: zod.number().optional(),
+      uploadMbps: zod.number().optional(),
+    })
+    .nullable()
+    .describe("PC hardware specs reported by the host agent"),
+  pingMs: zod
+    .number()
+    .nullish()
+    .describe(
+      "RTT from host agent to API (ms), null until first measured heartbeat",
+    ),
+  ratingAvg: zod.number().nullish(),
+  ratingCount: zod.number().optional(),
+});
+
+/**
  * Authenticate with Authorization Bearer / X-Host-Token / X-User-Token.
  * @summary List players who owe this host (negative balance loans)
  */
 export const GetHostDebtorsResponse = zod.record(zod.string(), zod.unknown());
+
+/**
+ * Legacy path. Header auth (Authorization Bearer / X-Host-Token) is required and must match the path hostToken.
+
+ * @summary [Legacy] List host debtors — prefer GET /hosts/me/debtors
+ */
+export const GetHostDebtorsLegacyParams = zod.object({
+  hostToken: zod.coerce.string(),
+});
+
+export const GetHostDebtorsLegacyResponse = zod.object({
+  debtors: zod.array(
+    zod.object({
+      loanId: zod.string().optional(),
+      playerId: zod.string().optional(),
+      playerDisplayName: zod.string().nullish(),
+      principalLzt: zod.number().optional(),
+      outstandingLzt: zod.number().optional(),
+      repaidLzt: zod.number().optional(),
+      status: zod.string().optional(),
+      startedAt: zod.coerce.date().optional(),
+      dueAt: zod.coerce.date().optional(),
+    }),
+  ),
+  totalOutstandingLzt: zod.number(),
+});
 
 /**
  * Authenticate with Authorization Bearer / X-Host-Token / X-User-Token.
@@ -390,6 +634,21 @@ export const GetHostStreamRelayResponse = zod.object({
   streamPlatform: zod.string().optional(),
   streamUrl: zod.string().optional(),
   streamKey: zod.string().optional(),
+});
+
+/**
+ * Legacy path. X-Host-Token / Bearer header is required and must match the path hostToken.
+
+ * @summary [Legacy] RTMP restream credentials — prefer GET /hosts/me/stream-relay
+ */
+export const GetHostStreamRelayLegacyParams = zod.object({
+  hostToken: zod.coerce.string(),
+});
+
+export const GetHostStreamRelayLegacyResponse = zod.object({
+  streamPlatform: zod.string(),
+  streamUrl: zod.string(),
+  streamKey: zod.string(),
 });
 
 /**
@@ -3529,6 +3788,138 @@ export const AdminRejectGameSubmissionBody = zod.object({
 
 export const AdminRejectGameSubmissionResponse = zod.object({
   rejected: zod.boolean(),
+});
+
+/**
+ * Authenticate with Authorization Bearer host token, or pass hostToken in the JSON body.
+
+ * @summary Agent reports PC hardware specs (GPU, CPU, RAM)
+ */
+export const updateHostPcSpecsBodyGpuMax = 256;
+
+export const updateHostPcSpecsBodyCpuMax = 256;
+
+export const updateHostPcSpecsBodyRamGbMin = 0;
+export const updateHostPcSpecsBodyRamGbMax = 65536;
+
+export const UpdateHostPcSpecsBody = zod.object({
+  hostToken: zod
+    .string()
+    .optional()
+    .describe("Fallback when Authorization Bearer header is absent"),
+  gpu: zod.string().max(updateHostPcSpecsBodyGpuMax),
+  cpu: zod.string().max(updateHostPcSpecsBodyCpuMax),
+  ramGb: zod
+    .number()
+    .min(updateHostPcSpecsBodyRamGbMin)
+    .max(updateHostPcSpecsBodyRamGbMax),
+});
+
+export const UpdateHostPcSpecsResponse = zod.object({
+  ok: zod.boolean(),
+  pcSpecs: zod.record(zod.string(), zod.unknown()),
+});
+
+/**
+ * Requires X-Host-Token or X-Token header.
+ * @summary Upload speed test — agent POSTs binary payload
+ */
+export const HostSpeedtestUploadResponse = zod.object({
+  ok: zod.boolean(),
+  uploadMbps: zod.number().nullish(),
+});
+
+/**
+ * Requires X-Host-Token or X-Token header. Query `bytes` (64 KiB–2 MiB, default 512 KiB).
+ * @summary Download speed test — server sends binary payload
+ */
+export const hostSpeedtestDownloadQueryBytesMin = 65536;
+export const hostSpeedtestDownloadQueryBytesMax = 2097152;
+
+export const HostSpeedtestDownloadQueryParams = zod.object({
+  bytes: zod.coerce
+    .number()
+    .min(hostSpeedtestDownloadQueryBytesMin)
+    .max(hostSpeedtestDownloadQueryBytesMax)
+    .optional(),
+});
+
+/**
+ * Compares agent-reported Steam games against the catalog and host PC tier. Authenticate with Authorization Bearer / X-User-Token, or hostToken in body.
+
+ * @summary Check which Steam library games this host can auto-host
+ */
+export const checkSteamAutoHostableBodySteamGamesItemAppIdRegExp = new RegExp(
+  "^\\d+$",
+);
+export const checkSteamAutoHostableBodySteamGamesMax = 500;
+
+export const CheckSteamAutoHostableBody = zod.object({
+  hostToken: zod.string().optional(),
+  steamGames: zod
+    .array(
+      zod.object({
+        appId: zod
+          .string()
+          .regex(checkSteamAutoHostableBodySteamGamesItemAppIdRegExp),
+        name: zod.string(),
+        bestExePath: zod.string().nullish(),
+      }),
+    )
+    .min(1)
+    .max(checkSteamAutoHostableBodySteamGamesMax),
+});
+
+export const CheckSteamAutoHostableResponse = zod.object({
+  eligible: zod.array(
+    zod.object({
+      gameId: zod.string(),
+      title: zod.string(),
+      coverImageUrl: zod.string(),
+      appPath: zod.string().nullish(),
+      tier: zod.string(),
+      steamAppId: zod.string(),
+    }),
+  ),
+  skipped: zod.array(
+    zod.object({
+      appId: zod.string(),
+      name: zod.string(),
+      reason: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * Authenticate with Authorization Bearer / X-User-Token, or hostToken in body.
+
+ * @summary Bulk add/enable games in the host library
+ */
+export const bulkPublishHostLibraryBodyItemsItemPricePerMinuteLztMin = 0;
+
+export const bulkPublishHostLibraryBodyItemsMax = 100;
+
+export const BulkPublishHostLibraryBody = zod.object({
+  hostToken: zod.string().optional(),
+  items: zod
+    .array(
+      zod.object({
+        gameId: zod.string().uuid(),
+        appPath: zod.string().optional(),
+        pricePerMinuteLzt: zod
+          .number()
+          .min(bulkPublishHostLibraryBodyItemsItemPricePerMinuteLztMin)
+          .optional(),
+      }),
+    )
+    .min(1)
+    .max(bulkPublishHostLibraryBodyItemsMax),
+});
+
+export const BulkPublishHostLibraryResponse = zod.object({
+  added: zod.array(zod.string()),
+  updated: zod.array(zod.string()),
+  total: zod.number(),
 });
 
 /**

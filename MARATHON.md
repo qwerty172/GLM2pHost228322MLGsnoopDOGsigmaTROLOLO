@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-03 (самоулучшение: marathon-groom.mjs)
+> **Последнее обновление:** 2026-08-03 (M-04 hosts.ts OpenAPI)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 11:57 UTC |
-| Task ID | M-03 |
-| Результат | done — OpenAPI `GET /events/stream` (SSE); codegen OK; 10 M-NN pending |
-| Commit | ce3750b |
+| Дата | 2026-08-03 12:00 UTC |
+| Task ID | M-04 |
+| Результат | done — OpenAPI 8 routes `routes/hosts.ts`; codegen OK; 9 M-NN pending |
+| Commit | 3f986c4 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -25,8 +25,8 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** **10 M-NN pending** (см. таблицу ниже). Сканер группирует сырые хиты:
-- **10 raw** (по одному route/файлу) → **10 grouped** (M-03 events.ts закрыт)
+**Wave Maintenance:** **9 M-NN pending** (см. таблицу ниже). Сканер группирует сырые хиты:
+- **9 raw** (по одному route/файлу) → **9 grouped** (M-04 hosts.ts закрыт)
 - 144 raw (10 runs назад) — ложные: vendor `public/games/`, неверный `/api` prefix в OpenAPI-сканере
 
 **Workflow:**
@@ -236,7 +236,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-01 | C | OpenAPI gap: routes/downloads.ts (2 routes) | `routes/downloads.ts` | c:artifacts/api-server/src/routes/downloads.ts | done | agent |
 | M-02 | C | OpenAPI gap: routes/enrich.ts (1 route) | `routes/enrich.ts` | c:artifacts/api-server/src/routes/enrich.ts | done | agent |
 | M-03 | C | OpenAPI gap: routes/events.ts (1 route) | `routes/events.ts` | c:artifacts/api-server/src/routes/events.ts | done | agent |
-| M-04 | C | OpenAPI gap: routes/hosts.ts (8 routes) | `routes/hosts.ts` | c:artifacts/api-server/src/routes/hosts.ts | pending | agent |
+| M-04 | C | OpenAPI gap: routes/hosts.ts (8 routes) | `routes/hosts.ts` | c:artifacts/api-server/src/routes/hosts.ts | done | agent |
 | M-05 | C | OpenAPI gap: routes/players.ts (1 route) | `routes/players.ts` | c:artifacts/api-server/src/routes/players.ts | pending | agent |
 | M-06 | C | OpenAPI gap: routes/premium.ts (1 route) | `routes/premium.ts` | c:artifacts/api-server/src/routes/premium.ts | pending | agent |
 | M-07 | C | OpenAPI gap: routes/public.ts (1 route) | `routes/public.ts` | c:artifacts/api-server/src/routes/public.ts | pending | agent |
