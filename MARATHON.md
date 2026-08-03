@@ -15,7 +15,7 @@
 | Дата | 2026-08-03 12:16 UTC |
 | Task ID | M-04 + meta |
 | Результат | done — OpenAPI 8 routes `routes/hosts.ts`; groom: pr_in_flight + 45min; 9 M-NN pending |
-| Commit | (this run) |
+| Commit | 98f318b |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
