@@ -7,11 +7,6 @@ import {
   useGetWallet,
   getGetWalletQueryKey,
   getSessionByInvite,
-  issueWsTicket,
-  getPublicIceConfig,
-  renewSessionBlock,
-  rateSession,
-  ApiError,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +19,11 @@ import { TouchOverlay } from "@/components/TouchOverlay";
 import { KeyboardOverlay } from "@/components/KeyboardOverlay";
 import { toast } from "sonner";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import {
+  ICE_CONNECTION_LABELS,
+  ICE_TONE_STYLES,
+  type IceConnectionKind,
+} from "@/lib/connection-labels";
 
 const LZT_PER_USDT = 200;
 type PaymentSource = "auto" | "blue" | "green";
@@ -254,7 +254,7 @@ export default function Play() {
   const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>("new");
   const [isPlaying, setIsPlaying] = useState(false);
   const [showAudioPrompt, setShowAudioPrompt] = useState(false);
-  const [iceType, setIceType] = useState<"relay" | "srflx" | "host" | null>(null);
+  const [iceType, setIceType] = useState<IceConnectionKind | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
   const [e2eRtt, setE2eRtt] = useState<number | null>(null);
   const [dataChannelOpen, setDataChannelOpen] = useState(false);
@@ -333,6 +333,7 @@ export default function Play() {
   const wsReconnectDelayRef = useRef<number>(1000);
   const wsReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wsUrlRef = useRef<string>("");
+  const relayHintShownRef = useRef(false);
 
   // Clip recording ring-buffer
   const clipChunksRef = useRef<Blob[]>([]);
@@ -778,15 +779,22 @@ export default function Play() {
     const wsSessionId = session?.id;
     if (wsSessionId) {
       try {
-        const { wsTicket } = await issueWsTicket(
-          { role: "player", sessionId: wsSessionId },
-          {
-            headers: { "x-player-wallet-token": playerWalletToken },
+        const ticketRes = await fetch(`${import.meta.env.BASE_URL}api/auth/ws-ticket`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-player-wallet-token": playerWalletToken,
           },
-        );
-        wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&wsTicket=${encodeURIComponent(wsTicket)}&sessionId=${encodeURIComponent(wsSessionId)}`;
+          body: JSON.stringify({ role: "player", sessionId: wsSessionId }),
+        });
+        if (ticketRes.ok) {
+          const { wsTicket } = await ticketRes.json() as { wsTicket: string };
+          wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&wsTicket=${encodeURIComponent(wsTicket)}&sessionId=${encodeURIComponent(wsSessionId)}`;
+        } else {
+          // JWT not configured on server — fall back to legacy token path.
+          wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&playerToken=${encodeURIComponent(playerToken)}&playerWalletToken=${encodeURIComponent(playerWalletToken)}`;
+        }
       } catch {
-        // JWT not configured on server — fall back to legacy token path.
         wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&playerToken=${encodeURIComponent(playerToken)}&playerWalletToken=${encodeURIComponent(playerWalletToken)}`;
       }
     } else {
@@ -797,9 +805,12 @@ export default function Play() {
     // Fetch ICE server config (STUN + optional TURN) from the API.
     let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
     try {
-      const cfgJson = await getPublicIceConfig();
-      if (Array.isArray(cfgJson.iceServers) && cfgJson.iceServers.length > 0) {
-        iceServers = cfgJson.iceServers;
+      const cfgRes = await fetch(`${import.meta.env.BASE_URL}api/public/ice-config`);
+      if (cfgRes.ok) {
+        const cfgJson = (await cfgRes.json()) as { iceServers: RTCIceServer[] };
+        if (Array.isArray(cfgJson.iceServers) && cfgJson.iceServers.length > 0) {
+          iceServers = cfgJson.iceServers;
+        }
       }
     } catch {
       devWarn("[ice] Failed to fetch ICE config, using default STUN only");
@@ -824,7 +835,11 @@ export default function Play() {
                   const t = r.candidateType as string;
                   const mapped = t === "relay" ? "relay" : t === "srflx" ? "srflx" : "host";
                   devLog(`[ice] connection type: ${mapped}`);
-                  setIceType(mapped as "relay" | "srflx" | "host");
+                  setIceType(mapped as IceConnectionKind);
+                  if (mapped === "relay" && !relayHintShownRef.current) {
+                    relayHintShownRef.current = true;
+                    toast.info(ICE_CONNECTION_LABELS.relay.hint, { duration: 8000 });
+                  }
                 }
               });
             }
@@ -961,21 +976,26 @@ export default function Play() {
       if (!playerToken || !playerWalletToken || renewBlockLoading) return;
       setRenewBlockLoading(true);
       try {
-        const data = await renewSessionBlock(playerToken, {
-          playerWalletToken,
-          blockMinutes: minutes,
-        });
-        const bm = data.blockMinutes;
+        const res = await fetch(
+          `${import.meta.env.BASE_URL}api/sessions/by-player-token/${encodeURIComponent(playerToken)}/renew-block`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ playerWalletToken, blockMinutes: minutes }),
+          },
+        );
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast.error(data.error || "Не удалось продлить блок");
+          return;
+        }
+        const bm = data.blockMinutes as number | undefined;
         if (bm != null) setBlockMinsLeft(bm);
         setPlayDock("none");
         blockWarningShownRef.current = false;
         toast.success(`Блок продлён на ${minutes} мин`);
-      } catch (err) {
-        const msg =
-          err instanceof ApiError
-            ? (err.data as { error?: string } | null)?.error
-            : undefined;
-        toast.error(msg || "Не удалось продлить блок");
+      } catch {
+        toast.error("Ошибка сети");
       } finally {
         setRenewBlockLoading(false);
       }
@@ -986,23 +1006,29 @@ export default function Play() {
   const submitRating = useCallback(async () => {
     if (!session?.id || !playerWalletToken || ratingSubmitted) return;
     try {
-      await rateSession(session.id, {
-        playerWalletToken,
-        score: ratingScore,
-      });
-      setRatingSubmitted(true);
-      setPlayDock((d) => (d === "rating" ? "none" : d));
-      toast.success("Спасибо за оценку!");
-    } catch (err) {
-      if (err instanceof ApiError) {
-        const code = (err.data as { error?: string } | null)?.error;
-        if (code === "already_rated") {
-          setRatingSubmitted(true);
-          setPlayDock((d) => (d === "rating" ? "none" : d));
+      const res = await fetch(
+        `${import.meta.env.BASE_URL}api/sessions/${session.id}/rate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            playerWalletToken,
+            score: ratingScore,
+          }),
+        },
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.error !== "already_rated") {
+          toast.error("Не удалось отправить оценку");
           return;
         }
       }
-      toast.error("Не удалось отправить оценку");
+      setRatingSubmitted(true);
+      setPlayDock((d) => (d === "rating" ? "none" : d));
+      toast.success("Спасибо за оценку!");
+    } catch {
+      toast.error("Ошибка сети");
     }
   }, [session?.id, playerWalletToken, ratingScore, ratingSubmitted]);
 
@@ -1719,18 +1745,21 @@ export default function Play() {
                           ? "ИНИЦИАЛИЗАЦИЯ"
                           : "ПОДКЛЮЧЕНИЕ"}
           </Badge>
-          {iceType && !reconnecting && (
-            <Badge
-              variant="outline"
-              className="bg-black/50 backdrop-blur font-mono text-[10px]"
-              style={{
-                borderColor: iceType === "relay" ? "#a855f7" : "#22c55e",
-                color: iceType === "relay" ? "#c084fc" : "#86efac",
-              }}
-            >
-              {iceType === "relay" ? "TURN" : iceType === "srflx" ? "STUN" : "P2P"}
-            </Badge>
-          )}
+          {iceType && !reconnecting && (() => {
+            const meta = ICE_CONNECTION_LABELS[iceType];
+            const tone = ICE_TONE_STYLES[meta.tone];
+            return (
+              <Badge
+                variant="outline"
+                className="bg-black/50 backdrop-blur font-mono text-[10px] max-w-[10rem] truncate"
+                style={{ borderColor: tone.border, color: tone.color }}
+                title={meta.hint}
+                data-testid="badge-connection-type"
+              >
+                {meta.short}
+              </Badge>
+            );
+          })()}
           {/* E2E RTT indicator */}
           {e2eRtt !== null && !reconnecting && (
             <Badge
