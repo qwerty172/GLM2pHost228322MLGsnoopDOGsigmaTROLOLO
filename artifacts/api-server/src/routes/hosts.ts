@@ -653,6 +653,15 @@ router.get(
       res.status(400).json({ error: params.error.message });
       return;
     }
+    const headerTok = hostTokenFromRequest(req);
+    if (!headerTok || headerTok !== params.data.hostToken) {
+      res.status(401).json({
+        error: "host_auth_required",
+        message:
+          "Use GET /hosts/me/library with Authorization: Bearer <hostToken>",
+      });
+      return;
+    }
     const [host] = await db
       .select({ id: hostsTable.id })
       .from(hostsTable)
@@ -672,6 +681,15 @@ router.post(
     const params = GetHostParams.safeParse(req.params);
     if (!params.success) {
       res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const headerTok = hostTokenFromRequest(req);
+    if (!headerTok || headerTok !== params.data.hostToken) {
+      res.status(401).json({
+        error: "host_auth_required",
+        message:
+          "Use POST /hosts/me/library with Authorization: Bearer <hostToken>",
+      });
       return;
     }
     const body = AddLibraryEntryBody.safeParse(req.body);
@@ -713,6 +731,15 @@ router.patch(
       res.status(400).json({ error: params.error.message });
       return;
     }
+    const headerTok = hostTokenFromRequest(req);
+    if (!headerTok || headerTok !== params.data.hostToken) {
+      res.status(401).json({
+        error: "host_auth_required",
+        message:
+          "Use PATCH /hosts/me/library/:gameId with Authorization: Bearer <hostToken>",
+      });
+      return;
+    }
     const body = UpdateLibraryEntryBody.safeParse(req.body);
     if (!body.success) {
       res.status(400).json({ error: body.error.message });
@@ -745,6 +772,15 @@ router.delete(
     const params = LibraryGameIdParam.safeParse(req.params);
     if (!params.success) {
       res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const headerTok = hostTokenFromRequest(req);
+    if (!headerTok || headerTok !== params.data.hostToken) {
+      res.status(401).json({
+        error: "host_auth_required",
+        message:
+          "Use DELETE /hosts/me/library/:gameId with Authorization: Bearer <hostToken>",
+      });
       return;
     }
     const [host] = await db

@@ -893,6 +893,37 @@ export async function drawFromSystemAccount(
 
 export { adjustUserBucket, adjustSystem, writeLedger };
 
+/** UTC date key for a weekly interest cycle (payOnce runs on Sunday 00:00 UTC). */
+export function interestCycleKey(now: Date): string {
+  const y = now.getUTCFullYear();
+  const m = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(now.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** Returns true if this owner already received interest for the given cycle. */
+export async function hasInterestPayoutForCycle(
+  tx: DbTx,
+  ownerType: "host" | "player",
+  ownerId: string,
+  cycleKey: string,
+): Promise<boolean> {
+  const [row] = await tx
+    .select({ id: ledgerTable.id })
+    .from(ledgerTable)
+    .where(
+      and(
+        eq(ledgerTable.kind, "interest_payout"),
+        eq(ledgerTable.ownerType, ownerType),
+        eq(ledgerTable.ownerId, ownerId),
+        eq(ledgerTable.refType, "interest_cycle"),
+        eq(ledgerTable.refId, cycleKey),
+      ),
+    )
+    .limit(1);
+  return !!row;
+}
+
 /** Returns true if block reserve was already debited for this session. */
 export async function hasBlockReserveLedger(
   tx: DbTx,

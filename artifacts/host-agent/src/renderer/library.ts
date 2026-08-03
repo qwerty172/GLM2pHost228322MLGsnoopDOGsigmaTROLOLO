@@ -69,7 +69,10 @@ export function renderLibraryEntry(entry: LibraryEntry): HTMLLIElement {
           `${cfg.apiBaseUrl.replace(/\/$/, "")}/api/hosts/${encodeURIComponent(cfg.hostToken)}/library/${encodeURIComponent(entry.gameId)}`,
           {
             method: "PATCH",
-            headers: { "content-type": "application/json" },
+            headers: {
+              "content-type": "application/json",
+              "x-host-token": cfg.hostToken,
+            },
             body: JSON.stringify({ appPath: picked }),
           },
         );

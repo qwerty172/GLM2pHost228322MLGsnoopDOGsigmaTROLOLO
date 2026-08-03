@@ -54,7 +54,10 @@ async function addSteamGameAndSelect(game: SteamScanGame): Promise<void> {
       `${base}/api/hosts/${encodeURIComponent(cfg.hostToken)}/library`,
       {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "x-host-token": cfg.hostToken,
+        },
         body: JSON.stringify({
           gameId: game.catalogGame.id,
           pricePerMinuteLzt: 5,
@@ -439,7 +442,10 @@ steamRecommendAddBtn.addEventListener("click", async () => {
         `${base}/api/hosts/${encodeURIComponent(cfg.hostToken)}/library`,
         {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: {
+          "content-type": "application/json",
+          "x-host-token": cfg.hostToken,
+        },
           body: JSON.stringify({
             gameId: game.catalogGame.id,
             pricePerMinuteLzt: 5,
@@ -495,7 +501,10 @@ steamAddLibraryBtn.addEventListener("click", async () => {
         `${base}/api/hosts/${encodeURIComponent(cfg.hostToken)}/library`,
         {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: {
+          "content-type": "application/json",
+          "x-host-token": cfg.hostToken,
+        },
           body: JSON.stringify({
             gameId: game.catalogGame.id,
             pricePerMinuteLzt: 5,
@@ -559,7 +568,10 @@ steamSubmitReviewBtn.addEventListener("click", async () => {
     try {
       const resp = await fetch(`${base}/api/games/submit`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "x-host-token": cfg.hostToken,
+        },
         body: JSON.stringify({
           hostToken: cfg.hostToken,
           title: game.name,
@@ -577,7 +589,10 @@ steamSubmitReviewBtn.addEventListener("click", async () => {
         if (subData.id) {
           fetch(`${base}/api/games/submissions/${encodeURIComponent(subData.id)}/pending-config`, {
             method: "PATCH",
-            headers: { "content-type": "application/json" },
+            headers: {
+          "content-type": "application/json",
+          "x-host-token": cfg.hostToken,
+        },
             body: JSON.stringify({
               hostToken: cfg.hostToken,
               pricePerMinuteLzt: 5,
