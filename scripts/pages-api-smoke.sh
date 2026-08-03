@@ -74,7 +74,7 @@ check GET /api/hosts/@me/library 200 "" "X-User-Token: $HOST_TOKEN"
 check GET /api/hosts/me/current-quota 200 "" "X-User-Token: $HOST_TOKEN"
 
 # Web shell pages (SPA index)
-for path in / /games /games/rogue-fable-3 /hosts /wallet /profile /exchange \
+for path in / /games /games/rogue-fable-3 /hosts /wallet /host/wallet /profile /exchange \
   /quotas /quotas/new /host/setup /host /host/library /embed; do
   check_web "$path"
 done

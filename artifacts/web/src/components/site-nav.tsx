@@ -32,6 +32,7 @@ type NavKey =
   | "/hosts"
   | "/quotas"
   | "/host"
+  | "/host/wallet"
   | "/wallet"
   | "/exchange"
   | "/profile";
@@ -75,7 +76,10 @@ export function SiteNav({ activePath }: Props) {
   const [, navigate] = useLocation();
 
   const isActive = (path: string) => activePath === path;
-  const isHostActive = activePath === "/host" || activePath === "/wallet";
+  const isHostActive =
+    activePath === "/host" ||
+    activePath === "/host/wallet" ||
+    activePath === "/wallet";
   const hideGuestBanner =
     typeof activePath === "string" &&
     (activePath.startsWith("/play") || activePath.startsWith("/host/play"));
@@ -313,7 +317,10 @@ export function SiteNav({ activePath }: Props) {
 }
 
 function MobileMenu({ activePath }: { activePath?: string }) {
-  const isHostActive = activePath === "/host" || activePath === "/wallet";
+  const isHostActive =
+    activePath === "/host" ||
+    activePath === "/host/wallet" ||
+    activePath === "/wallet";
 
   return (
     <div
