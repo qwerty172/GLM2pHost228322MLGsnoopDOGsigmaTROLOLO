@@ -142,27 +142,51 @@ if (existsSync(rendererDir)) {
 }
 
 // --- assign IDs M-NN (continue from existing in MARATHON.md) -------------
-let nextId = 1;
+let marathonMd = "";
 try {
-  const md = readFileSync("MARATHON.md", "utf8");
-  const ids = [...md.matchAll(/\bM-(\d+)\b/g)].map((m) => parseInt(m[1], 10));
-  if (ids.length) nextId = Math.max(...ids) + 1;
+  marathonMd = readFileSync("MARATHON.md", "utf8");
 } catch {}
-for (const c of candidates) c.id = `M-${String(nextId++).padStart(2, "0")}`;
+
+// Skip candidates already done/in_progress in Wave Maintenance table (anti-repeat).
+const doneOrActive = new Set();
+for (const line of marathonMd.split("\n")) {
+  if (!/^\|\s*M-\d+/.test(line)) continue;
+  if (!/\|\s*(done|in_progress)\s*\|/i.test(line)) continue;
+  const fileM = line.match(/`([^`]+)`/);
+  if (fileM) doneOrActive.add(fileM[1]);
+}
+
+const CAT_ORDER = { B: 0, C: 1, A: 2, E: 3, D: 4 };
+const filtered = candidates
+  .filter((c) => !doneOrActive.has(c.file))
+  .sort((a, b) => (CAT_ORDER[a.cat] ?? 9) - (CAT_ORDER[b.cat] ?? 9));
+
+let nextId = 1;
+const ids = [...marathonMd.matchAll(/\bM-(\d+)\b/g)].map((m) => parseInt(m[1], 10));
+if (ids.length) nextId = Math.max(...ids) + 1;
+for (const c of filtered) c.id = `M-${String(nextId++).padStart(2, "0")}`;
+
+const NEXT = process.argv.includes("--next");
 
 // --- output --------------------------------------------------------------
-if (PICK) {
-  if (!candidates.length) {
-    console.log(JSON.stringify({ found: 0 }));
+if (NEXT || PICK) {
+  if (!filtered.length) {
+    console.log(JSON.stringify({ found: 0, skipped: candidates.length - filtered.length, idle: true }));
   } else {
-    const c = candidates[PICK - 1] || candidates[0];
-    console.log(JSON.stringify({ found: candidates.length, pick: c }, null, 2));
+    const c = PICK ? filtered[PICK - 1] || filtered[0] : filtered[0];
+    console.log(
+      JSON.stringify(
+        { found: filtered.length, skipped: candidates.length - filtered.length, pick: c },
+        null,
+        2,
+      ),
+    );
   }
 } else {
-  console.log(`# Marathon scan — ${candidates.length} candidate task(s)\n`);
+  console.log(`# Marathon scan — ${filtered.length} new candidate(s) (${candidates.length - filtered.length} skipped as done/in_progress)\n`);
   console.log("| ID | Cat | Задача | Файл | Детали |");
   console.log("|----|-----|--------|------|--------|");
-  for (const c of candidates) {
+  for (const c of filtered) {
     console.log(`| ${c.id} | ${c.cat} | ${c.title} | \`${c.file}\` | ${c.detail.replace(/\|/g, "\\|")} |`);
   }
   console.log(`\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug leftover, E=нет теста.`);

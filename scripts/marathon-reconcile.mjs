@@ -94,6 +94,8 @@ for (const t of tasks) {
 }
 
 console.log(`\n${flips.length} task(s) should flip to done.`);
+const doneCount = tasks.filter((t) => t.status === "done" && EVIDENCE[t.id]).length;
+console.log(`${doneCount} legacy task(s) with evidence marked done — automation MUST NOT re-run them.`);
 if (!APPLY) {
   console.log("Run with --apply to rewrite MARATHON.md statuses.");
 } else if (flips.length) {
