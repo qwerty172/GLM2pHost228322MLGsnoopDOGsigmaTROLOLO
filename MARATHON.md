@@ -15,7 +15,7 @@
 | Дата | 2026-08-03 12:12 UTC |
 | Task ID | meta |
 | Результат | skipped (recent run) — groom fix: убран pending_work bypass, добавлен pr_in_flight; M-04 PR #182 in flight |
-| Commit | pending |
+| Commit | c7c32e4 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
