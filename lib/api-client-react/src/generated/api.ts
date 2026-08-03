@@ -78,6 +78,7 @@ import type {
   FundLoanResponse,
   GameDetail,
   GameListItem,
+  GameSubmission,
   GameSubmissionItem,
   GetAgentChallenge200,
   GetGameBySlugParams,
@@ -105,6 +106,7 @@ import type {
   ListApplicableQuotasParams,
   ListAppliedQuotasParams,
   ListGamesParams,
+  ListMyGameSubmissionsParams,
   ListMyLoansParams,
   ListMyQuotasParams,
   ListPublicGamesParams,
@@ -112,6 +114,8 @@ import type {
   LoanRequest,
   MatchQuotasForHostParams,
   MyLoans,
+  PendingConfigSavedResponse,
+  PendingHostConfigBody,
   Player,
   PlayerGameSaveCommitBody,
   PlayerGameSaveCommitResponse,
@@ -157,6 +161,8 @@ import type {
   SteamAutoHostableResponse,
   SteamLookupParams,
   SteamLookupResult,
+  SubmitGameBody,
+  SubmitGameConflictResponse,
   UpdateHostConfigBody,
   UpdateHostLibraryEntryBody,
   UpdateHostPcSpecs200,
@@ -2401,6 +2407,294 @@ export function useSteamLookup<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getSteamLookupQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Any authenticated host may submit a pending catalog entry. Rate-limited to 5 pending submissions per host. `hostToken` in the JSON body identifies the submitter.
+
+ * @summary Host — propose a new catalog game entry
+ */
+export const getSubmitGameUrl = () => {
+  return `/api/games/submit`;
+};
+
+export const submitGame = async (
+  submitGameBody: SubmitGameBody,
+  options?: RequestInit,
+): Promise<GameSubmission> => {
+  return customFetch<GameSubmission>(getSubmitGameUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(submitGameBody),
+  });
+};
+
+export const getSubmitGameMutationOptions = <
+  TError = ErrorType<ErrorResponse | SubmitGameConflictResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitGame>>,
+    TError,
+    { data: BodyType<SubmitGameBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitGame>>,
+  TError,
+  { data: BodyType<SubmitGameBody> },
+  TContext
+> => {
+  const mutationKey = ["submitGame"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitGame>>,
+    { data: BodyType<SubmitGameBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return submitGame(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitGameMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitGame>>
+>;
+export type SubmitGameMutationBody = BodyType<SubmitGameBody>;
+export type SubmitGameMutationError = ErrorType<
+  ErrorResponse | SubmitGameConflictResponse
+>;
+
+/**
+ * @summary Host — propose a new catalog game entry
+ */
+export const useSubmitGame = <
+  TError = ErrorType<ErrorResponse | SubmitGameConflictResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitGame>>,
+    TError,
+    { data: BodyType<SubmitGameBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitGame>>,
+  TError,
+  { data: BodyType<SubmitGameBody> },
+  TContext
+> => {
+  return useMutation(getSubmitGameMutationOptions(options));
+};
+
+/**
+ * Stores host launch configuration on a pending submission so the platform can auto-create a library entry on admin approval.
+
+ * @summary Host — save launch config while submission is pending
+ */
+export const getPatchGameSubmissionPendingConfigUrl = (id: string) => {
+  return `/api/games/submissions/${id}/pending-config`;
+};
+
+export const patchGameSubmissionPendingConfig = async (
+  id: string,
+  pendingHostConfigBody: PendingHostConfigBody,
+  options?: RequestInit,
+): Promise<PendingConfigSavedResponse> => {
+  return customFetch<PendingConfigSavedResponse>(
+    getPatchGameSubmissionPendingConfigUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(pendingHostConfigBody),
+    },
+  );
+};
+
+export const getPatchGameSubmissionPendingConfigMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchGameSubmissionPendingConfig>>,
+    TError,
+    { id: string; data: BodyType<PendingHostConfigBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof patchGameSubmissionPendingConfig>>,
+  TError,
+  { id: string; data: BodyType<PendingHostConfigBody> },
+  TContext
+> => {
+  const mutationKey = ["patchGameSubmissionPendingConfig"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof patchGameSubmissionPendingConfig>>,
+    { id: string; data: BodyType<PendingHostConfigBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return patchGameSubmissionPendingConfig(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PatchGameSubmissionPendingConfigMutationResult = NonNullable<
+  Awaited<ReturnType<typeof patchGameSubmissionPendingConfig>>
+>;
+export type PatchGameSubmissionPendingConfigMutationBody =
+  BodyType<PendingHostConfigBody>;
+export type PatchGameSubmissionPendingConfigMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Host — save launch config while submission is pending
+ */
+export const usePatchGameSubmissionPendingConfig = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchGameSubmissionPendingConfig>>,
+    TError,
+    { id: string; data: BodyType<PendingHostConfigBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof patchGameSubmissionPendingConfig>>,
+  TError,
+  { id: string; data: BodyType<PendingHostConfigBody> },
+  TContext
+> => {
+  return useMutation(
+    getPatchGameSubmissionPendingConfigMutationOptions(options),
+  );
+};
+
+/**
+ * Authenticate with X-Host-Token header or hostToken query parameter.
+
+ * @summary Host — list own game catalog submissions
+ */
+export const getListMyGameSubmissionsUrl = (
+  params?: ListMyGameSubmissionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/games/submissions/my?${stringifiedParams}`
+    : `/api/games/submissions/my`;
+};
+
+export const listMyGameSubmissions = async (
+  params?: ListMyGameSubmissionsParams,
+  options?: RequestInit,
+): Promise<GameSubmission[]> => {
+  return customFetch<GameSubmission[]>(getListMyGameSubmissionsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyGameSubmissionsQueryKey = (
+  params?: ListMyGameSubmissionsParams,
+) => {
+  return [`/api/games/submissions/my`, ...(params ? [params] : [])] as const;
+};
+
+export const getListMyGameSubmissionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyGameSubmissions>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListMyGameSubmissionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMyGameSubmissions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListMyGameSubmissionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMyGameSubmissions>>
+  > = ({ signal }) =>
+    listMyGameSubmissions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyGameSubmissions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyGameSubmissionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyGameSubmissions>>
+>;
+export type ListMyGameSubmissionsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Host — list own game catalog submissions
+ */
+
+export function useListMyGameSubmissions<
+  TData = Awaited<ReturnType<typeof listMyGameSubmissions>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListMyGameSubmissionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMyGameSubmissions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyGameSubmissionsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
