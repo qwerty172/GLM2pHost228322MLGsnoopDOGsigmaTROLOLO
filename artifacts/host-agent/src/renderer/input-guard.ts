@@ -5,7 +5,7 @@ export function updateInputGuardBadge(
   st: {
     foregroundAllowed: boolean;
     inputBlocked: boolean;
-    guardDisabled: boolean;
+    browserGuard: boolean;
     active: boolean;
   },
 ): void {
@@ -20,11 +20,18 @@ export function updateInputGuardBadge(
     inputGuardBadge.style.background = "rgba(239,68,68,0.15)";
     inputGuardBadge.style.color = "#fca5a5";
     inputGuardBadge.style.borderColor = "rgba(239,68,68,0.35)";
-  } else if (st.guardDisabled) {
-    inputGuardBadge.textContent = "Ввод активен (браузер)";
-    inputGuardBadge.style.background = "rgba(34,197,94,0.15)";
-    inputGuardBadge.style.color = "#86efac";
-    inputGuardBadge.style.borderColor = "rgba(34,197,94,0.35)";
+  } else if (st.browserGuard) {
+    if (st.foregroundAllowed) {
+      inputGuardBadge.textContent = "Ввод активен (браузер)";
+      inputGuardBadge.style.background = "rgba(34,197,94,0.15)";
+      inputGuardBadge.style.color = "#86efac";
+      inputGuardBadge.style.borderColor = "rgba(34,197,94,0.35)";
+    } else {
+      inputGuardBadge.textContent = "Браузер не в фокусе — ввод заблокирован";
+      inputGuardBadge.style.background = "rgba(234,179,8,0.15)";
+      inputGuardBadge.style.color = "#fde047";
+      inputGuardBadge.style.borderColor = "rgba(234,179,8,0.35)";
+    }
   } else if (st.foregroundAllowed) {
     inputGuardBadge.textContent = "Ввод активен";
     inputGuardBadge.style.background = "rgba(34,197,94,0.15)";

@@ -3,27 +3,30 @@
 // controlling arbitrary windows on the host desktop.
 
 import { log } from "./logger";
+import { isBrowserExeName } from "./browser-exe-names";
+
+export { isBrowserExeName, BROWSER_EXE_NAMES } from "./browser-exe-names";
 
 export interface FocusGuardStatus {
-  /** Guard is configured (allowedPid set or guard explicitly disabled). */
+  /** Guard is configured (allowedPid set or browser guard active). */
   active: boolean;
   /** Root PID of the launched game process (null for browser-URL launches). */
   allowedPid: number | null;
-  /** Guard disabled (browser games) — input always allowed unless panic-blocked. */
-  guardDisabled: boolean;
-  /** Foreground window belongs to allowed process tree. */
+  /** Browser-game guard: only allow input when a browser owns the foreground. */
+  browserGuard: boolean;
+  /** Foreground window belongs to allowed process tree / browser. */
   foregroundAllowed: boolean;
   /** Panic hotkey or manual block — all input denied. */
   inputBlocked: boolean;
 }
-
 let allowedPid: number | null = null;
-let guardDisabled = false;
+let browserGuard = false;
 let inputBlocked = false;
 let lastDenyLogAt = 0;
 
 type Win32Guard = {
   getForegroundPid: () => number | null;
+  getExeNameForPid: (pid: number) => string | null;
   isPidAllowed: (foregroundPid: number, rootPid: number) => boolean;
 };
 
@@ -76,10 +79,14 @@ function initWin32(): Win32Guard | null {
       return pid > 0 ? pid : null;
     }
 
-    function buildParentMap(): Map<number, number> {
-      const map = new Map<number, number>();
+    function buildProcessMaps(): {
+      parents: Map<number, number>;
+      exeNames: Map<number, string>;
+    } {
+      const parents = new Map<number, number>();
+      const exeNames = new Map<number, string>();
       const snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-      if (!snapshot) return map;
+      if (!snapshot) return { parents, exeNames };
       try {
         const entry = {
           dwSize: koffi.sizeof(PROCESSENTRY32),
@@ -95,18 +102,28 @@ function initWin32(): Win32Guard | null {
         };
         if (Process32First(snapshot, entry)) {
           do {
-            map.set(entry.th32ProcessID, entry.th32ParentProcessID);
+            parents.set(entry.th32ProcessID, entry.th32ParentProcessID);
+            const raw = Buffer.from(entry.szExeFile as number[]);
+            const nul = raw.indexOf(0);
+            const name = raw
+              .subarray(0, nul >= 0 ? nul : raw.length)
+              .toString("utf8")
+              .trim();
+            if (name) exeNames.set(entry.th32ProcessID, name);
           } while (Process32Next(snapshot, entry));
         }
       } finally {
         CloseHandle(snapshot);
       }
-      return map;
+      return { parents, exeNames };
     }
 
-    function isDescendantOf(childPid: number, rootPid: number): boolean {
+    function isDescendantOf(
+      childPid: number,
+      rootPid: number,
+      parents: Map<number, number>,
+    ): boolean {
       if (childPid === rootPid) return true;
-      const parents = buildParentMap();
       let cur = childPid;
       const seen = new Set<number>();
       while (cur > 0 && !seen.has(cur)) {
@@ -121,8 +138,14 @@ function initWin32(): Win32Guard | null {
 
     win32 = {
       getForegroundPid,
-      isPidAllowed: (foregroundPid, rootPid) =>
-        isDescendantOf(foregroundPid, rootPid),
+      getExeNameForPid: (pid) => {
+        const { exeNames } = buildProcessMaps();
+        return exeNames.get(pid) ?? null;
+      },
+      isPidAllowed: (foregroundPid, rootPid) => {
+        const { parents } = buildProcessMaps();
+        return isDescendantOf(foregroundPid, rootPid, parents);
+      },
     };
     return win32;
   } catch (err) {
@@ -133,19 +156,19 @@ function initWin32(): Win32Guard | null {
 
 export function setAllowedTarget(
   pid: number | null,
-  opts?: { guardDisabled?: boolean },
+  opts?: { browserGuard?: boolean },
 ): void {
   allowedPid = pid;
-  guardDisabled = opts?.guardDisabled ?? false;
+  browserGuard = opts?.browserGuard ?? false;
   log(
     "info",
-    `[focus-guard] allowedPid=${pid ?? "none"} guardDisabled=${guardDisabled}`,
+    `[focus-guard] allowedPid=${pid ?? "none"} browserGuard=${browserGuard}`,
   );
 }
 
 export function clearAllowedTarget(): void {
   allowedPid = null;
-  guardDisabled = false;
+  browserGuard = false;
   log("info", "[focus-guard] cleared");
 }
 
@@ -158,9 +181,28 @@ export function isInputBlocked(): boolean {
   return inputBlocked;
 }
 
+function isForegroundBrowser(): boolean {
+  if (process.platform !== "win32") return true;
+
+  const w = initWin32();
+  if (!w) return false;
+
+  const fgPid = w.getForegroundPid();
+  if (fgPid === null) return false;
+
+  const exeName = w.getExeNameForPid(fgPid);
+  if (!exeName) return false;
+  return isBrowserExeName(exeName);
+}
+
 export function isInputAllowed(): boolean {
   if (inputBlocked) return false;
-  if (guardDisabled || allowedPid === null) return true;
+
+  if (browserGuard) {
+    return isForegroundBrowser();
+  }
+
+  if (allowedPid === null) return true;
 
   if (process.platform !== "win32") return true;
 
@@ -176,14 +218,14 @@ export function getFocusGuardStatus(): FocusGuardStatus {
   let foregroundAllowed = true;
   if (inputBlocked) {
     foregroundAllowed = false;
-  } else if (!guardDisabled && allowedPid !== null) {
+  } else if (browserGuard || allowedPid !== null) {
     foregroundAllowed = isInputAllowed();
   }
 
   return {
-    active: allowedPid !== null || guardDisabled,
+    active: allowedPid !== null || browserGuard,
     allowedPid,
-    guardDisabled,
+    browserGuard,
     foregroundAllowed,
     inputBlocked,
   };
