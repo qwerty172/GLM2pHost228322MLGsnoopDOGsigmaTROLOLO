@@ -395,6 +395,18 @@ router.get(
       return;
     }
 
+    // Legacy path: header must match path token — URL-only hostToken leaks
+    // playerToken for active sessions (signaling hijack).
+    const headerTok = hostTokenFromRequest(req);
+    if (!headerTok || headerTok !== params.data.hostToken) {
+      res.status(401).json({
+        error: "host_auth_required",
+        message:
+          "Use GET /api/hosts/@me/sessions with Authorization or X-Host-Token",
+      });
+      return;
+    }
+
     const [host] = await db
       .select()
       .from(hostsTable)
