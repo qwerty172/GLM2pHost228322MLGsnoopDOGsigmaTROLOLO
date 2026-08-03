@@ -41,12 +41,24 @@ import {
   refundBlockRemainder,
 } from "../lib/sessionBilling";
 import { sendSignalingMessage } from "../lib/signaling";
-import { submitSessionRating, recordBlockReserveLedger } from "../lib/ratings";
-import { writeLedger } from "../lib/economy";
+import { submitSessionRating } from "../lib/ratings";
+import {
+  adjustUserBucket,
+  debitBlockReserve,
+  writeLedger,
+} from "../lib/economy";
 import { randomUUID } from "node:crypto";
 import { z } from "zod/v4";
+import { shouldApplyBlockOnClaim } from "../lib/sessionsClaim";
 
 const router: IRouter = Router();
+
+class ClaimConflictError extends Error {
+  constructor() {
+    super("claim_conflict");
+    this.name = "ClaimConflictError";
+  }
+}
 
 // Claim links a session to a wallet and can charge a launch fee. IP-keyed so
 // session-token / wallet-token guessing hits the wall fast.
@@ -749,42 +761,6 @@ router.post(
       return;
     }
 
-    // Reserve the block amount: debit the player immediately so the funds are
-    // locked. The billing worker will refund unused minutes on early exit.
-    if (blockReservedLzt !== null && blockReservedLzt > 0 && !isReclaimBySamePlayer) {
-      const bucket = effectivePicked ?? "balance";
-      const playerCol =
-        bucket === "green"
-          ? playersTable.withdrawableBalanceLzt
-          : playersTable.internalBalanceLzt;
-      const debitResult = await db
-        .update(playersTable)
-        .set(
-          bucket === "green"
-            ? { withdrawableBalanceLzt: sql`${playersTable.withdrawableBalanceLzt} - ${blockReservedLzt}` }
-            : { internalBalanceLzt: sql`${playersTable.internalBalanceLzt} - ${blockReservedLzt}` },
-        )
-        .where(
-          and(
-            eq(playersTable.id, player.id),
-            sql`${playerCol} >= ${blockReservedLzt + launchFeeLzt}`,
-          ),
-        )
-        .returning({ id: playersTable.id });
-      if (debitResult.length === 0) {
-        res.status(400).json({ error: "Insufficient balance to reserve the block" });
-        return;
-      }
-      const ledgerBucket = bucket === "green" ? "green" : "blue";
-      await recordBlockReserveLedger({
-        playerId: player.id,
-        sessionId: session.id,
-        amountLzt: blockReservedLzt,
-        bucket: ledgerBucket,
-        note: `block reserve: ${blockMinutes} мин`,
-      });
-    }
-
     if (picked === null && minBalanceLzt > 0 && blockReservedLzt === null) {
       res.status(400).json({
         error: `Insufficient LZT — need at least ${minBalanceLzt} LZT in a single ${session.paymentSource === "auto" ? "(green or blue)" : session.paymentSource} bucket to start`,
@@ -792,28 +768,62 @@ router.post(
       return;
     }
 
-    const [updated] = await db
-      .update(sessionsTable)
-      .set({
-        claimedByPlayerId: player.id,
-        ...(blockMinutes !== null
-          ? { blockMinutes, blockReservedLzt: blockReservedLzt ?? 0 }
-          : {}),
-      })
-      .where(
-        and(
-          eq(sessionsTable.id, session.id),
-          or(
-            isNull(sessionsTable.claimedByPlayerId),
-            eq(sessionsTable.claimedByPlayerId, player.id),
-          ),
-        ),
-      )
-      .returning();
+    // Reserve the block amount and claim atomically so a losing concurrent
+    // claimant does not keep a debited reserve. Block fields are only set on
+    // the initial claim — reconnect must not mint prepaid reserve for free.
+    let updated: typeof sessionsTable.$inferSelect;
+    try {
+      updated = await db.transaction(async (tx) => {
+        if (blockReservedLzt !== null && blockReservedLzt > 0 && !isReclaimBySamePlayer) {
+          const userBucket = (effectivePicked ?? "blue") === "green" ? "cash" : "balance";
+          const debit = await debitBlockReserve(tx, {
+            playerId: player.id,
+            sessionId: session.id,
+            amountLzt: blockReservedLzt,
+            bucket: userBucket,
+          });
+          if (!debit.ok) {
+            throw new Error("Insufficient balance to reserve the block");
+          }
+        }
 
-    if (!updated) {
-      res.status(409).json({ error: "Session already claimed by another player" });
-      return;
+        const [row] = await tx
+          .update(sessionsTable)
+          .set({
+            claimedByPlayerId: player.id,
+            ...(shouldApplyBlockOnClaim(isReclaimBySamePlayer, blockMinutes)
+              ? { blockMinutes, blockReservedLzt: blockReservedLzt ?? 0 }
+              : {}),
+          })
+          .where(
+            and(
+              eq(sessionsTable.id, session.id),
+              or(
+                isNull(sessionsTable.claimedByPlayerId),
+                eq(sessionsTable.claimedByPlayerId, player.id),
+              ),
+            ),
+          )
+          .returning();
+
+        if (!row) {
+          throw new ClaimConflictError();
+        }
+        return row;
+      });
+    } catch (err) {
+      if (err instanceof ClaimConflictError) {
+        res.status(409).json({ error: "Session already claimed by another player" });
+        return;
+      }
+      if (
+        err instanceof Error &&
+        err.message === "Insufficient balance to reserve the block"
+      ) {
+        res.status(400).json({ error: err.message });
+        return;
+      }
+      throw err;
     }
 
     // One-time launch fee transfer (no-op if launchPriceUsd is 0). Skipped on
@@ -827,11 +837,41 @@ router.post(
         paymentSource: session.paymentSource,
       });
       if (!fee.ok) {
-        // Roll back the claim so the player isn't stuck.
-        await db
-          .update(sessionsTable)
-          .set({ claimedByPlayerId: null })
-          .where(eq(sessionsTable.id, updated.id));
+        // Roll back the claim and refund any block reserve debited above.
+        await db.transaction(async (tx) => {
+          await tx
+            .update(sessionsTable)
+            .set({
+              claimedByPlayerId: null,
+              ...(shouldApplyBlockOnClaim(isReclaimBySamePlayer, blockMinutes)
+                ? { blockMinutes: null, blockReservedLzt: null }
+                : {}),
+            })
+            .where(eq(sessionsTable.id, updated.id));
+
+          if (
+            blockReservedLzt !== null &&
+            blockReservedLzt > 0 &&
+            !isReclaimBySamePlayer &&
+            effectivePicked !== null
+          ) {
+            const userBucket = effectivePicked === "green" ? "cash" : "balance";
+            await adjustUserBucket(tx, "player", player.id, userBucket, blockReservedLzt);
+            await writeLedger(tx, [
+              {
+                groupId: randomUUID(),
+                kind: "block_reserve_reversal",
+                ownerType: "player",
+                ownerId: player.id,
+                bucket: userBucket,
+                deltaLzt: blockReservedLzt,
+                refType: "session",
+                refId: updated.id,
+                note: "block reserve rollback: launch fee failed",
+              },
+            ]);
+          }
+        });
         res.status(400).json({ error: fee.reason ?? "Launch fee failed" });
         return;
       }
