@@ -25,6 +25,8 @@
 | codegen | `pnpm --filter @workspace/api-spec run codegen` OK |
 | marathon-scan | hosts.ts больше не в raw hits (9/9) |
 | typecheck | `pnpm typecheck` OK |
+| dedup | cherry-pick из PR #181 (не #180 — дубль) |
+| meta | groom `--should-run`: убран `pending_work` bypass → нет параллельных run/PR |
 
 **Следующий pick:** M-05 `routes/players.ts`.
 

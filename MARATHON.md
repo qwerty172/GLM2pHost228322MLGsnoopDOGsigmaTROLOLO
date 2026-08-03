@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-03 (M-04 hosts.ts OpenAPI)
+> **Последнее обновление:** 2026-08-03 (M-04 merge + groom anti-parallel)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 12:00 UTC |
-| Task ID | M-04 |
-| Результат | done — OpenAPI 8 routes `routes/hosts.ts`; codegen OK; 9 M-NN pending |
-| Commit | (this run) |
+| Дата | 2026-08-03 12:08 UTC |
+| Task ID | M-04 + meta |
+| Результат | done — OpenAPI 8 routes hosts.ts; groom anti-parallel; typecheck OK; 9 M-NN pending |
+| Commit | 9cd6178 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -265,13 +265,13 @@ git add MARATHON.md && git commit -m "chore(marathon): groom+sync" && git push o
 Прочитай MARATHON.md. Memory выключена.
 
 КАЖДЫЙ RUN:
-0. --should-run exit 2 → обнови Last run «skipped (recent idle)», commit+push MARATHON, выход БЕЗ кода. Pending M-NN не блокирует run.
+0. --should-run exit 2 → обнови Last run «skipped (recent)», commit+push MARATHON, выход БЕЗ кода. Интервал 45 мин между run (pending не отменяет).
 1. Legacy done/blocked/skipped — НЕ ТРОГАТЬ.
 2. groom --apply: если raw_explosion или баг сканера → почини marathon-scan.mjs, skip ложные задачи, commit meta. M-NN в этот run можно пропустить.
 3. node scripts/marathon-scan.mjs --next
    - idle:true → Marathon idle, обнови Last run, выход.
-   - иначе pick = первая pending M-NN.
-4. Перед кодом: rg/git log — если уже в main → done без кода (лишняя работа).
+   - иначе pick = первая pending M-NN → **сразу** Status `in_progress` + commit+push MARATHON (блокирует параллельные run).
+4. Перед кодом: rg/git log — если уже в main → done без кода. Если open PR с тем же M-NN (`gh pr list --search "M-NN in:title" --state open`) → cherry-pick, не переписывай.
 5. in_progress → выполни → pnpm typecheck → done + TESTLOG.
 6. Обнови Last run. commit && push.
 
