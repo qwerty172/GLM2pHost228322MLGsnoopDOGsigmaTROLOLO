@@ -15,6 +15,10 @@ import {
   resolveSavePathCandidates,
   type DiscoverSavePathsOpts,
 } from "./save-paths";
+import {
+  getAllowedSaveRoots,
+  resolveSafeExtractTarget,
+} from "./save-sync-paths";
 
 import type { SaveSyncResult } from "../shared/messages";
 
@@ -89,14 +93,20 @@ async function extractSaveZip(buffer: Buffer, targetPaths: string[]): Promise<vo
   const entries = zip.getEntries();
   if (entries.length === 0) return;
 
+  const allowedRoots = await getAllowedSaveRoots(targetPaths);
+  if (allowedRoots.length === 0) {
+    throw new Error("No allowed save paths for extraction");
+  }
+
   await clearSavePaths(targetPaths);
 
   for (const entry of entries) {
     if (entry.isDirectory) continue;
-    const entryName = entry.entryName.replace(/\//g, path.sep);
-    const absolutePath = path.isAbsolute(entryName)
-      ? path.normalize(entryName)
-      : path.normalize(path.join(process.cwd(), entryName));
+    const absolutePath = resolveSafeExtractTarget(entry.entryName, allowedRoots);
+    if (!absolutePath) {
+      log("warn", `[save-sync] Skipping zip entry outside save paths: ${entry.entryName}`);
+      continue;
+    }
     await fs.mkdir(path.dirname(absolutePath), { recursive: true });
     await fs.writeFile(absolutePath, entry.getData());
   }
