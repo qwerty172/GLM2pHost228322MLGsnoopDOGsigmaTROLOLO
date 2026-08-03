@@ -95,7 +95,7 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: C2-S07 sr-only RU, C2-D02 OpenAPI gaps, C1-F05 auth middleware, C3-S05–S08 agent, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: C2-D02 OpenAPI gaps, C1-F05 auth middleware, C3-S05–S08 agent, Windows E2E |
 
 ## Marathon C1-S06 — storage ACL (2026-08-02) {#marathon-c1-s06}
 
@@ -135,7 +135,7 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 |---|---|---|---|
 | C4-S07 | pending | **done** | `lib/api-client-react` в root tsconfig; `pnpm typecheck` зелёный в CI |
 | UX-02 | pending | **done** | `dashboard.tsx`: `AgentTroubleshootChecklist`, `AgentEventsCard`, agent telemetry |
-| C2-S07 | pending | pending | sr-only в shadcn ui всё ещё EN ("Close", "Toggle Sidebar", …) |
+| C2-S07 | pending | **done** | sr-only и aria-label в `artifacts/web/src/components/ui/*` переведены на RU |
 | C2-D02 | pending | pending | ~18+ web routes отсутствуют в `openapi.yaml` |
 | C1-F05 | pending | pending | `requireAuth()` не подключён централизованно |
 | C3-S05 | pending | pending | `tryLimitedLaunch()` есть, но не вызывается из `launchApp` |
@@ -146,3 +146,15 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | UX-03 | pending | pending | нет user-facing TURN/STUN hints при ошибке соединения |
 | UX-05 | pending | pending | quota forms — минимальная client validation |
 | UX-06 | pending | pending | нет централизованного API error → RU mapper |
+
+## C2-S07 — shadcn sr-only RU (2026-08-03) {#marathon-c2-s07}
+
+| Изменение | Детали |
+|---|---|
+| `dialog.tsx`, `sheet.tsx` | sr-only «Закрыть» |
+| `sidebar.tsx` | sr-only, aria-label, title «Переключить боковую панель»; SheetTitle/Description RU |
+| `breadcrumb.tsx` | sr-only «Ещё», aria-label «Навигационная цепочка» |
+| `pagination.tsx` | sr-only, aria-label, видимый текст «Назад»/«Далее» |
+| `carousel.tsx` | sr-only «Предыдущий/Следующий слайд» |
+| `spinner.tsx` | aria-label «Загрузка» |
+| Верификация | `pnpm typecheck` |

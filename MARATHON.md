@@ -1,19 +1,19 @@
 # DecentralHub Marathon — живой бэклог
 
-> **Активный цикл:** Cycle 2 — Web UI (первая pending: **C2-S07**)  
+> **Активный цикл:** Cycle 2 — Web UI (первая pending: **C2-D02**)  
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл` (cron **пн/чт 09:00 UTC** — `0 9 * * 1,4`)  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-03 (grooming: аудит pending → done C4-S07, UX-02)
+> **Последнее обновление:** 2026-08-03 (C2-S07 shadcn sr-only RU)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
 | Дата | 2026-08-03 |
-| Task ID | grooming |
+| Task ID | C2-S07 |
 | Результат | done |
-| Commit | chore(marathon): audit pending statuses |
+| Commit | feat(web): shadcn sr-only и aria-label на русском |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -21,10 +21,9 @@
 
 ## Сейчас в очереди (pending)
 
-### Cycle 2 — Web UI ← **активный** (2 pending)
+### Cycle 2 — Web UI ← **активный** (1 pending)
 
-1. `C2-S07` — shadcn sr-only RU  
-2. `C2-D02` — OpenAPI gaps (web-facing routes)
+1. `C2-D02` — OpenAPI gaps (web-facing routes)
 
 ### Backlog других циклов
 
@@ -97,7 +96,7 @@
 | C2-S04 | RU browser-play | P1 | done | agent |
 | C2-S05 | a11y player + skip-link | P1 | done | agent |
 | C2-S06 | /wallet route | P2 | done | agent |
-| C2-S07 | shadcn sr-only RU | P3 | pending | agent |
+| C2-S07 | shadcn sr-only RU | P3 | done | agent |
 | C2-S08 | nav Играть | P2 | done | agent |
 | C2-D01 | pages-api-smoke | P1 | done | agent |
 | C2-D02 | OpenAPI gaps | P1 | pending | agent |
@@ -168,7 +167,7 @@ git pull origin main
 
 ВЫБОР ЗАДАЧИ (одна за запуск):
 - Пропускай done, blocked, skipped, owner: human.
-- Первая pending в АКТИВНОМ цикле (сейчас Cycle 2 → C2-S07).
+- Первая pending в АКТИВНОМ цикле (сейчас Cycle 2 → C2-D02).
 - git log --oneline main --grep="<ID>" — если уже в main, только статус done, без кода.
 - Если in_progress = Last run ID — продолжи; in_progress >24ч без прогресса → pending/blocked.
 - Нет pending в активном цикле → ответь "Marathon idle", код не трогать.
