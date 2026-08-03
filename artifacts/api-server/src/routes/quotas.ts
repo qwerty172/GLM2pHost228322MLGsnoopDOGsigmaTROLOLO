@@ -928,10 +928,13 @@ router.post("/quotas/:id/publish", async (req, res): Promise<void> => {
 
   try {
     const result = await db.transaction(async (tx) => {
+      // SELECT … FOR UPDATE — block concurrent publish so sponsor escrow is
+      // locked at most once (pause/close already use this pattern).
       const [quota] = await tx
         .select()
         .from(quotasTable)
-        .where(eq(quotasTable.id, id));
+        .where(eq(quotasTable.id, id))
+        .for("update");
       if (!quota) return { http: 404 as const, error: "Quota not found" };
       if (quota.ownerId !== owner.id || quota.ownerType !== owner.type) {
         return { http: 403 as const, error: "Not your quota" };
