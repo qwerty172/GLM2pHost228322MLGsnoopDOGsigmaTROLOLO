@@ -15,7 +15,7 @@
 | Дата | 2026-08-03 12:00 UTC |
 | Task ID | M-04 |
 | Результат | done — OpenAPI 8 routes `routes/hosts.ts`; codegen OK; 9 M-NN pending |
-| Commit | (this run) |
+| Commit | 3f986c4 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
