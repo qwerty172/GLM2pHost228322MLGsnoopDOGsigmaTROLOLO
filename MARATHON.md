@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-03 (самоулучшение: marathon-groom.mjs)
+> **Последнее обновление:** 2026-08-03 (M-04 merge + groom anti-parallel)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 11:57 UTC |
-| Task ID | M-03 |
-| Результат | done — OpenAPI `GET /events/stream` (SSE); codegen OK; 10 M-NN pending |
-| Commit | ce3750b |
+| Дата | 2026-08-03 12:08 UTC |
+| Task ID | M-04 + meta |
+| Результат | done — OpenAPI 8 routes hosts.ts; groom anti-parallel; typecheck OK; 9 M-NN pending |
+| Commit | 9cd6178 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -25,8 +25,8 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** **10 M-NN pending** (см. таблицу ниже). Сканер группирует сырые хиты:
-- **10 raw** (по одному route/файлу) → **10 grouped** (M-03 events.ts закрыт)
+**Wave Maintenance:** **9 M-NN pending** (см. таблицу ниже). Сканер группирует сырые хиты:
+- **9 raw** (по одному route/файлу) → **9 grouped** (M-04 hosts.ts закрыт)
 - 144 raw (10 runs назад) — ложные: vendor `public/games/`, неверный `/api` prefix в OpenAPI-сканере
 
 **Workflow:**
@@ -236,7 +236,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-01 | C | OpenAPI gap: routes/downloads.ts (2 routes) | `routes/downloads.ts` | c:artifacts/api-server/src/routes/downloads.ts | done | agent |
 | M-02 | C | OpenAPI gap: routes/enrich.ts (1 route) | `routes/enrich.ts` | c:artifacts/api-server/src/routes/enrich.ts | done | agent |
 | M-03 | C | OpenAPI gap: routes/events.ts (1 route) | `routes/events.ts` | c:artifacts/api-server/src/routes/events.ts | done | agent |
-| M-04 | C | OpenAPI gap: routes/hosts.ts (8 routes) | `routes/hosts.ts` | c:artifacts/api-server/src/routes/hosts.ts | pending | agent |
+| M-04 | C | OpenAPI gap: routes/hosts.ts (8 routes) | `routes/hosts.ts` | c:artifacts/api-server/src/routes/hosts.ts | done | agent |
 | M-05 | C | OpenAPI gap: routes/players.ts (1 route) | `routes/players.ts` | c:artifacts/api-server/src/routes/players.ts | pending | agent |
 | M-06 | C | OpenAPI gap: routes/premium.ts (1 route) | `routes/premium.ts` | c:artifacts/api-server/src/routes/premium.ts | pending | agent |
 | M-07 | C | OpenAPI gap: routes/public.ts (1 route) | `routes/public.ts` | c:artifacts/api-server/src/routes/public.ts | pending | agent |
@@ -265,13 +265,13 @@ git add MARATHON.md && git commit -m "chore(marathon): groom+sync" && git push o
 Прочитай MARATHON.md. Memory выключена.
 
 КАЖДЫЙ RUN:
-0. --should-run exit 2 → обнови Last run «skipped (recent idle)», commit+push MARATHON, выход БЕЗ кода. Pending M-NN не блокирует run.
+0. --should-run exit 2 → обнови Last run «skipped (recent)», commit+push MARATHON, выход БЕЗ кода. Интервал 45 мин между run (pending не отменяет).
 1. Legacy done/blocked/skipped — НЕ ТРОГАТЬ.
 2. groom --apply: если raw_explosion или баг сканера → почини marathon-scan.mjs, skip ложные задачи, commit meta. M-NN в этот run можно пропустить.
 3. node scripts/marathon-scan.mjs --next
    - idle:true → Marathon idle, обнови Last run, выход.
-   - иначе pick = первая pending M-NN.
-4. Перед кодом: rg/git log — если уже в main → done без кода (лишняя работа).
+   - иначе pick = первая pending M-NN → **сразу** Status `in_progress` + commit+push MARATHON (блокирует параллельные run).
+4. Перед кодом: rg/git log — если уже в main → done без кода. Если open PR с тем же M-NN (`gh pr list --search "M-NN in:title" --state open`) → cherry-pick, не переписывай.
 5. in_progress → выполни → pnpm typecheck → done + TESTLOG.
 6. Обнови Last run. commit && push.
 
