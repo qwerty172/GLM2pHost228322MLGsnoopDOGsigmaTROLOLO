@@ -42,6 +42,25 @@ function taskLastTouchMs(taskId) {
   }
 }
 
+function nextPendingId(rows) {
+  const row = rows.find((r) => r.status === "pending");
+  return row?.id ?? null;
+}
+
+/** Open PR с тем же M-NN в title — другой run уже в работе. */
+function hasOpenPrForTask(taskId) {
+  if (!taskId) return false;
+  try {
+    const out = execSync(
+      `gh pr list --state open --search "${taskId} in:title" --json number --jq length`,
+      { encoding: "utf8", timeout: 20000 },
+    ).trim();
+    return parseInt(out, 10) > 0;
+  } catch {
+    return false;
+  }
+}
+
 function replaceRowStatus(line, newStatus) {
   return line.replace(/\|\s*(pending|in_progress|done|blocked|skipped)\s*\|/i, `| ${newStatus} |`);
 }
@@ -64,22 +83,26 @@ if (SHOULD_RUN) {
   const lastRun = parseLastRun();
   const hasInProgress = state.existingRows.some((r) => r.status === "in_progress");
   const pendingMnn = state.existingRows.filter((r) => r.status === "pending").length;
+  const nextId = nextPendingId(state.existingRows);
+  const prInFlight = hasOpenPrForTask(nextId);
   const ageMs = lastRun.ms ? Date.now() - lastRun.ms : MIN_RUN_INTERVAL_MS + 1;
   const recent = lastRun.ms > 0 && ageMs < MIN_RUN_INTERVAL_MS;
-  const lastWasNoWork = /idle|skipped|reconcile/i.test(lastRun.result);
-  // Пропуск только если недавний run без продуктовой работы и нет in_progress
-  const skip = recent && !hasInProgress && (lastWasNoWork || pendingMnn === 0);
+  // Cron каждую минуту: ждать MIN_RUN_INTERVAL между run, кроме активного in_progress в MARATHON.
+  // pending M-NN НЕ отменяет интервал — иначе параллельные run и дубли PR.
+  const skip = recent && !hasInProgress;
   const payload = {
     shouldRun: !skip,
     reason: skip
-      ? "recent_idle_run"
+      ? prInFlight
+        ? "pr_in_flight"
+        : "recent_run"
       : hasInProgress
         ? "in_progress_active"
-        : pendingMnn > 0 && recent
-          ? "pending_work"
-          : "ok",
+        : "ok",
     ageMin: lastRun.ms ? Math.round(ageMs / 60000) : null,
     pendingMnn,
+    nextPending: nextId,
+    prInFlight,
     minIntervalMin: MIN_RUN_INTERVAL_MS / 60000,
   };
   console.log(JSON.stringify(payload));

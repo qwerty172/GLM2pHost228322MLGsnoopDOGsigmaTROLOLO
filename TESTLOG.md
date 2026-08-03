@@ -15,6 +15,18 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon meta (2026-08-03 12:12 UTC) {#marathon-meta-groom-pr-inflight}
+
+**Задача:** groom `--should-run` — убрать `pending_work` bypass (дубли PR каждую минуту).
+
+| Проверка | Результат |
+|---|---|
+| should-run | exit 2, reason `pr_in_flight` (M-04 PR #182) |
+| groom fix | всегда 45 мин интервал, кроме `in_progress` в MARATHON |
+| pr_in_flight | `gh pr list --search "M-04 in:title"` → skip без кода |
+
+**Следующий pick:** M-04 `routes/hosts.ts` (дождаться merge PR #182 или cherry-pick).
+
 ## Marathon M-03 (2026-08-03 11:57 UTC) {#marathon-m-03}
 
 **Задача:** OpenAPI gap `routes/events.ts` — `GET /events/stream` (SSE).
