@@ -40,9 +40,19 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
+**Три команды — и можно работать:**
+
+```bash
+pnpm setup    # .env, Docker postgres+redis, зависимости, схема БД
+pnpm dev      # API :8080 + Web :5000
+pnpm smoke    # проверка API (когда dev запущен)
+```
+
+Опционально позже: `pnpm typecheck`, `pnpm infra` (только Docker), coturn/TURN в `.env`.
+
 Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
 
-**Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
+**Пошаговая инструкция (Windows, свой PostgreSQL):** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
 
 **Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN (обход страниц в браузере).
 
@@ -50,7 +60,7 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 - Node.js 20+
 - pnpm 9+
-- PostgreSQL 16
+- Docker (рекомендуется — поднимает PostgreSQL 16 + Redis) *или* свой PostgreSQL 16
 - Git Bash / WSL (для Windows) или Linux/macOS
 
 ### Клонирование
