@@ -213,6 +213,52 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /hosts/{hostToken}/config:
+    patch:
+      operationId: updateHostConfigLegacy
+      tags: [hosts]
+      summary: "[Legacy] Update host config — prefer PATCH /hosts/me/config"
+      description: >
+        Legacy path. Header auth (Authorization Bearer / X-Host-Token) is required
+        and must match the path hostToken.
+      parameters:
+        - in: path
+          name: hostToken
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateHostConfigBody"
+      responses:
+        "200":
+          description: Updated host
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Host"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Host auth required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /hosts/me/debtors:
     get:
       operationId: getHostDebtors
@@ -229,6 +275,40 @@ paths:
                 additionalProperties: true
         "401":
           description: Host auth required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /hosts/{hostToken}/debtors:
+    get:
+      operationId: getHostDebtorsLegacy
+      tags: [hosts]
+      summary: "[Legacy] List host debtors — prefer GET /hosts/me/debtors"
+      description: >
+        Legacy path. Header auth (Authorization Bearer / X-Host-Token) is required
+        and must match the path hostToken.
+      parameters:
+        - in: path
+          name: hostToken
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Debtors list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HostDebtorsResponse"
+        "401":
+          description: Host auth required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Host not found
           content:
             application/json:
               schema:
@@ -256,6 +336,45 @@ paths:
                     type: string
         "401":
           description: Host auth required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /hosts/{hostToken}/stream-relay:
+    get:
+      operationId: getHostStreamRelayLegacy
+      tags: [hosts]
+      summary: "[Legacy] RTMP restream credentials — prefer GET /hosts/me/stream-relay"
+      description: >
+        Legacy path. X-Host-Token / Bearer header is required and must match the path hostToken.
+      parameters:
+        - in: path
+          name: hostToken
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Stream relay config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HostStreamRelayResponse"
+        "401":
+          description: Host auth required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Stream relay not configured or host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Encryption unavailable
           content:
             application/json:
               schema:
@@ -2172,6 +2291,209 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /hosts/me/pc-specs:
+    post:
+      operationId: updateHostPcSpecs
+      tags: [hosts]
+      summary: Agent reports PC hardware specs (GPU, CPU, RAM)
+      description: >
+        Authenticate with Authorization Bearer host token, or pass hostToken in the JSON body.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateHostPcSpecsBody"
+      responses:
+        "200":
+          description: Specs saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  pcSpecs:
+                    type: object
+                    additionalProperties: true
+                required: [ok, pcSpecs]
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing hostToken
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /hosts/me/speedtest:
+    post:
+      operationId: hostSpeedtestUpload
+      tags: [hosts]
+      summary: Upload speed test — agent POSTs binary payload
+      description: Requires X-Host-Token or X-Token header.
+      security:
+        - HostToken: []
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Speed measured
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  uploadMbps:
+                    type: ["integer", "null"]
+                required: [ok]
+        "400":
+          description: Missing host token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /hosts/me/speedtest/download:
+    get:
+      operationId: hostSpeedtestDownload
+      tags: [hosts]
+      summary: Download speed test — server sends binary payload
+      description: Requires X-Host-Token or X-Token header. Query `bytes` (64 KiB–2 MiB, default 512 KiB).
+      security:
+        - HostToken: []
+      parameters:
+        - in: query
+          name: bytes
+          required: false
+          schema:
+            type: integer
+            minimum: 65536
+            maximum: 2097152
+      responses:
+        "200":
+          description: Binary payload for throughput measurement
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Missing host token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /hosts/me/steam-auto-hostable:
+    post:
+      operationId: checkSteamAutoHostable
+      tags: [hosts]
+      summary: Check which Steam library games this host can auto-host
+      description: >
+        Compares agent-reported Steam games against the catalog and host PC tier.
+        Authenticate with Authorization Bearer / X-User-Token, or hostToken in body.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SteamAutoHostableBody"
+      responses:
+        "200":
+          description: Eligible and skipped games
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SteamAutoHostableResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing hostToken
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /hosts/me/library/bulk-publish:
+    post:
+      operationId: bulkPublishHostLibrary
+      tags: [hosts]
+      summary: Bulk add/enable games in the host library
+      description: >
+        Authenticate with Authorization Bearer / X-User-Token, or hostToken in body.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkPublishLibraryBody"
+      responses:
+        "200":
+          description: Bulk publish result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkPublishLibraryResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing hostToken
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /hosts/heartbeat:
     post:
       operationId: hostHeartbeat
@@ -3725,6 +4047,162 @@ components:
           description: |
             Maximum LZT this host will credit to any single borrower. Acts as a
             per-borrower cap on host service credit.
+
+    UpdateHostPcSpecsBody:
+      type: object
+      properties:
+        hostToken:
+          type: string
+          description: Fallback when Authorization Bearer header is absent
+        gpu:
+          type: string
+          maxLength: 256
+        cpu:
+          type: string
+          maxLength: 256
+        ramGb:
+          type: integer
+          minimum: 0
+          maximum: 65536
+      required: [gpu, cpu, ramGb]
+
+    HostDebtorsResponse:
+      type: object
+      properties:
+        debtors:
+          type: array
+          items:
+            type: object
+            properties:
+              loanId:
+                type: string
+              playerId:
+                type: string
+              playerDisplayName:
+                type: ["string", "null"]
+              principalLzt:
+                type: integer
+              outstandingLzt:
+                type: integer
+              repaidLzt:
+                type: integer
+              status:
+                type: string
+              startedAt:
+                type: string
+                format: date-time
+              dueAt:
+                type: string
+                format: date-time
+        totalOutstandingLzt:
+          type: integer
+      required: [debtors, totalOutstandingLzt]
+
+    HostStreamRelayResponse:
+      type: object
+      properties:
+        streamPlatform:
+          type: string
+        streamUrl:
+          type: string
+        streamKey:
+          type: string
+      required: [streamPlatform, streamUrl, streamKey]
+
+    SteamAutoHostableBody:
+      type: object
+      properties:
+        hostToken:
+          type: string
+        steamGames:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            type: object
+            properties:
+              appId:
+                type: string
+                pattern: "^\\d+$"
+              name:
+                type: string
+              bestExePath:
+                type: ["string", "null"]
+            required: [appId, name]
+      required: [steamGames]
+
+    SteamAutoHostableResponse:
+      type: object
+      properties:
+        eligible:
+          type: array
+          items:
+            type: object
+            properties:
+              gameId:
+                type: string
+              title:
+                type: string
+              coverImageUrl:
+                type: string
+              appPath:
+                type: ["string", "null"]
+              tier:
+                type: string
+              steamAppId:
+                type: string
+            required: [gameId, title, coverImageUrl, tier, steamAppId]
+        skipped:
+          type: array
+          items:
+            type: object
+            properties:
+              appId:
+                type: string
+              name:
+                type: string
+              reason:
+                type: string
+            required: [appId, name, reason]
+      required: [eligible, skipped]
+
+    BulkPublishLibraryBody:
+      type: object
+      properties:
+        hostToken:
+          type: string
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: object
+            properties:
+              gameId:
+                type: string
+                format: uuid
+              appPath:
+                type: string
+              pricePerMinuteLzt:
+                type: integer
+                minimum: 0
+            required: [gameId]
+      required: [items]
+
+    BulkPublishLibraryResponse:
+      type: object
+      properties:
+        added:
+          type: array
+          items:
+            type: string
+        updated:
+          type: array
+          items:
+            type: string
+        total:
+          type: integer
+      required: [added, updated, total]
 
     Player:
       type: object
