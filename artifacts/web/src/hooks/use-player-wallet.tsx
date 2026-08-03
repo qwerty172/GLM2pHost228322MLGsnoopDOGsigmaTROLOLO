@@ -83,3 +83,14 @@ export function usePlayerWallet(): PlayerWalletState {
     upgradeGuest,
   };
 }
+
+/** Silently creates a guest wallet on mount when none exists — no toast on success. */
+export function useEnsurePlayerWallet(): void {
+  const { playerWalletToken, registerGuest } = usePlayerWallet();
+
+  useEffect(() => {
+    if (!playerWalletToken) {
+      void registerGuest();
+    }
+  }, [playerWalletToken, registerGuest]);
+}

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { usePlayerWallet, useEnsurePlayerWallet } from "@/hooks/use-player-wallet";
 import {
   useGetWallet,
   useRequestWithdrawal,
@@ -223,6 +223,7 @@ function LeafIcon({ className }: { className?: string }) {
 }
 
 export default function WalletPage() {
+  useEnsurePlayerWallet();
   const { hostToken } = useAuth();
   const { playerWalletToken, registerGuest } = usePlayerWallet();
   const walletToken = playerWalletToken ?? hostToken ?? "";
@@ -310,7 +311,7 @@ export default function WalletPage() {
             <Wallet className="h-8 w-8 text-slate-600 mx-auto" />
             <p className="text-sm text-slate-300 font-medium">Кошелёк ещё не создан</p>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              Нажми «Играть» у хоста — гостевой кошелёк создастся сам. Или создай его сейчас.
+              Кошелёк создаётся автоматически. Если страница пустая — подожди секунду или нажми кнопку ниже.
             </p>
             <div className="flex items-center justify-center gap-2 mt-3">
               <Link href="/hosts">

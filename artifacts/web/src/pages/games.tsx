@@ -6,7 +6,7 @@ import {
   useCreateBrowserHostSession,
   type GameListItem,
 } from "@workspace/api-client-react";
-import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { usePlayerWallet, useEnsurePlayerWallet } from "@/hooks/use-player-wallet";
 import { formatApiError } from "@/lib/api-errors";
 import { toast } from "sonner";
 import {
@@ -65,6 +65,7 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 export default function GamesPage() {
+  useEnsurePlayerWallet();
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [liveOnly, setLiveOnly] = useState(false);
@@ -514,17 +515,21 @@ const BROWSER_HOST_URL_STORAGE_PREFIX = "streamline.browserHostUrl:";
 
 function GameCard({ game, vdsBadge }: { game: GameEnriched; vdsBadge?: boolean }) {
   const [, navigate] = useLocation();
-  const { playerWalletToken, isRegistering } = usePlayerWallet();
+  const { playerWalletToken, isRegistering, registerGuest } = usePlayerWallet();
   const createBrowserHost = useCreateBrowserHostSession();
 
   const handleHost = async () => {
-    if (!playerWalletToken) {
-      toast.error("Создаём кошелёк, попробуй ещё раз через секунду");
+    let token = playerWalletToken;
+    if (!token) {
+      token = await registerGuest();
+    }
+    if (!token) {
+      toast.error("Не удалось создать кошелёк — попробуй ещё раз");
       return;
     }
     try {
       const res = await createBrowserHost.mutateAsync({
-        data: { playerWalletToken, gameSlug: game.slug },
+        data: { playerWalletToken: token, gameSlug: game.slug },
       });
       try {
         localStorage.setItem(HOST_TOKEN_STORAGE_PREFIX + res.session.id, res.hostToken);
