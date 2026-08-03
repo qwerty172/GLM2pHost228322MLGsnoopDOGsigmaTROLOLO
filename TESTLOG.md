@@ -289,3 +289,18 @@ Cron automation: `git pull origin main` → `marathon-reconcile.mjs --apply` →
 | blocked human | C3-D03, C4-S06/D02, REG-03 |
 
 Все изменения зачтены в `main`. Код не менялся.
+
+## Marathon reconcile idle (2026-08-03 11:23 UTC) {#marathon-reconcile-idle-1123}
+
+Cron automation: `git pull origin main` → `marathon-reconcile.mjs --apply` → `marathon-groom.mjs --apply` → `marathon-scan.mjs --sync-marathon`.
+
+| Проверка | Результат |
+|---|---|
+| git pull | main up to date (40378c0) |
+| reconcile evidence | 14/14 PASS — flip не требуется |
+| groom | 0 issues, 0 auto-fix |
+| legacy agent pending | 0 — все cycles 1–4, Wave UX, Wave Regression зачтены |
+| Wave Maintenance | 13 M-NN pending (M-01…M-13) — следующий pick M-01 |
+| blocked human | C3-D03, C4-S06/D02, REG-03 |
+
+Все изменения зачтены в `main`. Код не менялся.
