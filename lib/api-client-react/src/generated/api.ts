@@ -106,6 +106,7 @@ import type {
   ListGamesParams,
   ListMyLoansParams,
   ListMyQuotasParams,
+  ListPublicGamesParams,
   ListPublicQuotasParams,
   LoanRequest,
   MatchQuotasForHostParams,
@@ -119,6 +120,7 @@ import type {
   PostAgentTelemetry200,
   PremiumPurchaseBody,
   PremiumPurchaseResponse,
+  PublicGameCatalogItem,
   PublicGameHostItem,
   PublicHostListItem,
   PublicPing200,
@@ -7789,6 +7791,100 @@ export function useGetPublicIceConfig<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetPublicIceConfigQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Public games catalog with category, search, and liveOnly filters
+ */
+export const getListPublicGamesUrl = (params?: ListPublicGamesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/public/games?${stringifiedParams}`
+    : `/api/public/games`;
+};
+
+export const listPublicGames = async (
+  params?: ListPublicGamesParams,
+  options?: RequestInit,
+): Promise<PublicGameCatalogItem[]> => {
+  return customFetch<PublicGameCatalogItem[]>(getListPublicGamesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPublicGamesQueryKey = (params?: ListPublicGamesParams) => {
+  return [`/api/public/games`, ...(params ? [params] : [])] as const;
+};
+
+export const getListPublicGamesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPublicGames>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListPublicGamesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPublicGames>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListPublicGamesQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listPublicGames>>> = ({
+    signal,
+  }) => listPublicGames(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPublicGames>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPublicGamesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPublicGames>>
+>;
+export type ListPublicGamesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Public games catalog with category, search, and liveOnly filters
+ */
+
+export function useListPublicGames<
+  TData = Awaited<ReturnType<typeof listPublicGames>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListPublicGamesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPublicGames>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPublicGamesQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
