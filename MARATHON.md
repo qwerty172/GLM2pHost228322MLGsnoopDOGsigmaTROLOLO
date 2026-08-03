@@ -4,27 +4,43 @@
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл` (cron **пн/чт 09:00 UTC** — `0 9 * * 1,4`)  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-03
+> **Последнее обновление:** 2026-08-03 (grooming: аудит pending → done C4-S07, UX-02)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
 | Дата | 2026-08-03 |
-| Task ID | C2-S06 |
+| Task ID | grooming |
 | Результат | done |
-| Commit | fix(auth-verifier) + feat(web): C2-S06 /wallet route |
+| Commit | chore(marathon): audit pending statuses |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
 ---
 
-## Сейчас в очереди (pending в активном цикле)
+## Сейчас в очереди (pending)
+
+### Cycle 2 — Web UI ← **активный** (2 pending)
 
 1. `C2-S07` — shadcn sr-only RU  
-2. `C2-D02` — OpenAPI gaps  
-3. `C1-F05` — Central auth middleware (backlog после Cycle 2)  
-4. …остальные `pending` ниже по файлу
+2. `C2-D02` — OpenAPI gaps (web-facing routes)
+
+### Backlog других циклов
+
+| ID | Задача | Цикл |
+|----|--------|------|
+| C1-F05 | Central auth middleware | Cycle 1 |
+| C3-S05 | limited-user launch | Cycle 3 |
+| C3-S06 | RTMP drift | Cycle 3 |
+| C3-S07 | ViGEm packaging | Cycle 3 |
+| C3-S08 | renderer split | Cycle 3 |
+| C4-S02 | OpenAPI parity (full) | Cycle 4 |
+| UX-03 | TURN/STUN hints | Wave UX |
+| UX-05 | quotas validation | Wave UX |
+| UX-06 | API errors RU | Wave UX |
+
+**Blocked (human):** C3-D03, C4-S06, C4-D02, REG-03
 
 **Не трогать:** `done`, `blocked`, `skipped`, `owner: human`.
 
@@ -113,7 +129,7 @@
 | C4-S04 | scripts parity | done | agent |
 | C4-S05 | .env.example | done | agent |
 | C4-S06 | TESTPLAN phase 6 | blocked | human |
-| C4-S07 | api-client typecheck | pending | agent |
+| C4-S07 | api-client typecheck | done | agent |
 | C4-S08 | dist hygiene | done | agent |
 | C4-D01 | full regression | done | agent |
 | C4-D02 | quotas/vds/embed | blocked | human |
@@ -124,7 +140,7 @@
 | ID | Task | Status |
 |----|------|--------|
 | UX-01 | setup bind docs | done |
-| UX-02 | dashboard agent | pending |
+| UX-02 | dashboard agent | done |
 | UX-03 | TURN/STUN hints | pending |
 | UX-04 | wallet labels | done |
 | UX-05 | quotas validation | pending |
@@ -152,7 +168,7 @@ git pull origin main
 
 ВЫБОР ЗАДАЧИ (одна за запуск):
 - Пропускай done, blocked, skipped, owner: human.
-- Первая pending в АКТИВНОМ цикле (сейчас Cycle 2 → C2-S06).
+- Первая pending в АКТИВНОМ цикле (сейчас Cycle 2 → C2-S07).
 - git log --oneline main --grep="<ID>" — если уже в main, только статус done, без кода.
 - Если in_progress = Last run ID — продолжи; in_progress >24ч без прогресса → pending/blocked.
 - Нет pending в активном цикле → ответь "Marathon idle", код не трогать.
