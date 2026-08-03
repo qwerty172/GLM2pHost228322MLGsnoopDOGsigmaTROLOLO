@@ -15,7 +15,7 @@
 | Дата | 2026-08-03 13:22 UTC |
 | Task ID | M-13 |
 | Результат | host-agent renderer unit tests (18 modules, 35 tests) |
-| Commit | (pending) |
+| Commit | eb78778 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
