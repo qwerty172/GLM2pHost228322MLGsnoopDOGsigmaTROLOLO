@@ -6,7 +6,7 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-03 (meta groom mark-skipped)
+> **Последнее обновление:** 2026-08-03 (prompt: should-run первым в полном шаблоне)
 
 ## Last run (automation)
 
@@ -259,27 +259,29 @@ Automation **каждый run** создаёт и выполняет одну н
 ```
 git pull origin main
 node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0
+# exit 2 = STOP: commit+push MARATHON только если Result изменился; Date Last run НЕ менять; reconcile/sync/M-NN НЕ делать
 node scripts/marathon-reconcile.mjs --apply
 node scripts/marathon-groom.mjs --apply
 node scripts/marathon-scan.mjs --sync-marathon
 git add MARATHON.md && git commit -m "chore(marathon): groom+sync" && git push origin main || true
 Прочитай MARATHON.md. Memory выключена.
---should-run exit 2 → commit+push MARATHON если изменился Result, выход БЕЗ кода (Date Last run НЕ менять).
 Иначе: одна M-NN (M-05…) или meta. pnpm typecheck → done + TESTLOG → push main.
 Проверяй прошлые run: дубли PR / skip без should-run → чини groom/prompt.
 ```
 
 **Полный:**
+```
 git pull origin main
+node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0   # ПЕРВЫМ после pull; skip: recent_run / pr_in_flight
+# exit 2 = STOP: commit+push MARATHON если Result изменился; Date НЕ менять; дальше НЕ идти
 node scripts/marathon-reconcile.mjs --apply   # legacy done, БЕЗ кода
 node scripts/marathon-groom.mjs --apply        # meta: phantom/stale/drift, только MARATHON
-node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0   # skip: recent_run / pr_in_flight (cron каждую минуту)
 node scripts/marathon-scan.mjs --sync-marathon # обновить pending M-NN
 git add MARATHON.md && git commit -m "chore(marathon): groom+sync" && git push origin main || true
 Прочитай MARATHON.md. Memory выключена.
 
 КАЖДЫЙ RUN:
-0. **ПЕРВЫМ:** `node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0` — exit 2 = skip, Result обновлён, **Date не менять**, выход БЕЗ кода.
+0. **ПЕРВЫМ:** `node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0` — exit 2 = skip, Result обновлён, **Date не менять**, **СТОП** (reconcile/sync/M-NN/meta не делать).
 1. Legacy done/blocked/skipped — НЕ ТРОГАТЬ.
 2. groom --apply: если raw_explosion или баг сканера → почини marathon-scan.mjs, skip ложные задачи, commit meta. M-NN в этот run можно пропустить.
 3. node scripts/marathon-scan.mjs --next
@@ -292,3 +294,5 @@ git add MARATHON.md && git commit -m "chore(marathon): groom+sync" && git push o
 Один M-NN или одно meta-улучшение за run. Push в main.
 Проверяй прошлые run: дубли PR / reconcile idle без M-NN → улучши groom/prompt.
 ```
+
+> **Важно:** текст Automation **должен** включать `should-run --mark-skipped` в первых двух шагах. Без этого cron каждую минуту запускает полный run и дублирует meta/PR.
