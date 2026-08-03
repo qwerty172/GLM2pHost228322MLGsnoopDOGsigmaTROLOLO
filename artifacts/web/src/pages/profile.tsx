@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearch } from "wouter";
+import { Link, useSearch } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
 import { Switch } from "@/components/ui/switch";
@@ -219,12 +219,17 @@ function HistoryTab({ walletToken }: { walletToken: string | null }) {
 
   if (!walletToken) {
     return (
-      <div className="mt-10 flex flex-col items-center gap-2 text-slate-500">
+      <div className="mt-10 flex flex-col items-center gap-3 text-slate-500">
         <History className="w-8 h-8 opacity-40" />
         <p className="text-sm">История транзакций пуста.</p>
         <p className="text-xs text-slate-600">
-          Зайдите в каталог игр или на главную — кошелёк создастся автоматически.
+          Зайдите в каталог игр — кошелёк создастся автоматически.
         </p>
+        <Link href="/games">
+          <Button size="sm" className="mt-1 bg-sky-600 hover:bg-sky-500 text-white">
+            Перейти в каталог игр
+          </Button>
+        </Link>
       </div>
     );
   }
@@ -245,9 +250,15 @@ function HistoryTab({ walletToken }: { walletToken: string | null }) {
 
   if (!txs || txs.length === 0) {
     return (
-      <div className="mt-10 flex flex-col items-center gap-2 text-slate-500">
+      <div className="mt-10 flex flex-col items-center gap-3 text-slate-500">
         <History className="w-8 h-8 opacity-40" />
         <p className="text-sm">История транзакций пуста.</p>
+        <p className="text-xs text-slate-600">Сыграй первую сессию — транзакции появятся здесь.</p>
+        <Link href="/games">
+          <Button size="sm" className="mt-1 bg-sky-600 hover:bg-sky-500 text-white">
+            Выбрать игру
+          </Button>
+        </Link>
       </div>
     );
   }

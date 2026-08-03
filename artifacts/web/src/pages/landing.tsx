@@ -25,6 +25,7 @@ import {
   getListPublicHostsQueryKey,
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
+import { GuestCreditHint } from "@/components/guest-credit-hint";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
 
 function formatInt(n: number): string {
@@ -216,6 +217,10 @@ export default function Landing() {
                 Стать хостом
               </Button>
             </Link>
+          </div>
+
+          <div className="mt-4">
+            <GuestCreditHint />
           </div>
 
           <div className="mt-5">
