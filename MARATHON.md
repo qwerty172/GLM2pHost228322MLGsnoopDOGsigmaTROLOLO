@@ -15,7 +15,7 @@
 | Дата | 2026-08-03 12:39 UTC |
 | Task ID | M-06 |
 | Результат | OpenAPI POST /premium/purchase + codegen |
-| Commit | (pending) |
+| Commit | 8561062 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
