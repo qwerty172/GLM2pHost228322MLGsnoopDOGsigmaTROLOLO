@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq, gt, ilike, inArray, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gt, ilike, inArray, isNull, ne, sql } from "drizzle-orm";
 import {
   db,
   gamesTable,
@@ -371,9 +371,11 @@ router.post("/public/sessions", publicSessionsLimiter, async (req, res): Promise
   }
 
   // Find the best active session for this host, preferring the requested game.
+  // Embed/dev-key sessions are excluded — they are not joinable via invite codes.
   const conditions = [
     ne(sessionsTable.status, "ended"),
     eq(sessionsTable.hostId, hostId),
+    isNull(sessionsTable.devKeyId),
   ] as ReturnType<typeof eq>[];
 
   if (gameId) {
@@ -401,6 +403,7 @@ router.post("/public/sessions", publicSessionsLimiter, async (req, res): Promise
           and(
             ne(sessionsTable.status, "ended"),
             eq(sessionsTable.hostId, hostId),
+            isNull(sessionsTable.devKeyId),
           ),
         )
         .orderBy(desc(sessionsTable.createdAt))
