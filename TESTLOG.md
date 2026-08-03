@@ -189,3 +189,16 @@ Cron automation: `git pull origin main` → `marathon-reconcile.mjs --apply`.
 | blocked human | C3-D03, C4-S06/D02, REG-03 |
 
 TESTLOG grooming table синхронизирована с merge-backlog — все agent-задачи зачтены.
+
+## Marathon reconcile idle (2026-08-03 10:53 UTC) {#marathon-reconcile-idle-1053}
+
+Cron automation: `git pull origin main` → `marathon-reconcile.mjs --apply`.
+
+| Проверка | Результат |
+|---|---|
+| reconcile evidence | 14/14 PASS — статусы уже `done`, flip не требуется |
+| pending agent tasks | 0 — Marathon idle |
+| blocked human | C3-D03, C4-S06/D02, REG-03 |
+| main sync | fast-forward +21 commits (merge-backlog + Wave Maintenance scripts) |
+
+Все agent-задачи cycles 1–4, Wave UX и Wave Regression зачтены в `main`.
