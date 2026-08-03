@@ -12,7 +12,20 @@ import { execSync } from "node:child_process";
 
 const MARATHON = "MARATHON.md";
 const APPLY = process.argv.includes("--apply");
+const SHOULD_RUN = process.argv.includes("--should-run");
 const STALE_HOURS = 24;
+/** Минимальный интервал между run без in_progress (защита от cron каждую минуту). */
+const MIN_RUN_INTERVAL_MS = 45 * 60 * 1000;
+
+function parseLastRun() {
+  const md = readFileSync(MARATHON, "utf8");
+  const dateM = md.match(/\|\s*Дата\s*\|\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})\s*UTC\s*\|/);
+  const resultM = md.match(/\|\s*Результат\s*\|\s*([^|]+)\s*\|/);
+  return {
+    ms: dateM ? Date.parse(`${dateM[1].replace(" ", "T")}:00Z`) : 0,
+    result: resultM ? resultM[1].trim() : "",
+  };
+}
 
 function loadState() {
   const r = spawnSync("node", ["scripts/marathon-scan.mjs", "--json-state"], { encoding: "utf8" });
@@ -46,6 +59,32 @@ const state = loadState();
 const scannerKeys = new Set(state.scannerKeys);
 const issues = [];
 const fixes = [];
+
+if (SHOULD_RUN) {
+  const lastRun = parseLastRun();
+  const hasInProgress = state.existingRows.some((r) => r.status === "in_progress");
+  const pendingMnn = state.existingRows.filter((r) => r.status === "pending").length;
+  const ageMs = lastRun.ms ? Date.now() - lastRun.ms : MIN_RUN_INTERVAL_MS + 1;
+  const recent = lastRun.ms > 0 && ageMs < MIN_RUN_INTERVAL_MS;
+  const lastWasNoWork = /idle|skipped|reconcile/i.test(lastRun.result);
+  // Пропуск только если недавний run без продуктовой работы и нет in_progress
+  const skip = recent && !hasInProgress && (lastWasNoWork || pendingMnn === 0);
+  const payload = {
+    shouldRun: !skip,
+    reason: skip
+      ? "recent_idle_run"
+      : hasInProgress
+        ? "in_progress_active"
+        : pendingMnn > 0 && recent
+          ? "pending_work"
+          : "ok",
+    ageMin: lastRun.ms ? Math.round(ageMs / 60000) : null,
+    pendingMnn,
+    minIntervalMin: MIN_RUN_INTERVAL_MS / 60000,
+  };
+  console.log(JSON.stringify(payload));
+  process.exit(skip ? 2 : 0);
+}
 
 // 1. Phantom pending — в таблице, но сканер больше не видит проблему
 for (const row of state.existingRows.filter((r) => r.status === "pending")) {

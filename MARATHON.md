@@ -1,7 +1,9 @@
 # DecentralHub Marathon — живой бэклог
 
 > **Активный цикл:** Wave Maintenance (каждый run — scan + одна M-NN)  
-> **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл` (cron **пн/чт 09:00 UTC** — `0 9 * * 1,4`)  
+> **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл`  
+> **Cron (факт):** `0/1 * * * *` (каждую минуту) — **использовать `marathon-groom.mjs --should-run`** чтобы не дублировать run  
+> **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Последнее обновление:** 2026-08-03 (самоулучшение: marathon-groom.mjs)
@@ -10,10 +12,10 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 11:48 UTC |
-| Task ID | M-01 |
-| Результат | done — OpenAPI `/downloads/host-agent.zip` + `/downloads/host-agent.exe`; codegen OK |
-| Commit | f44129c |
+| Дата | 2026-08-03 11:55 UTC |
+| Task ID | M-02 |
+| Результат | done — OpenAPI `GET /games/rawg-search`; codegen OK; groom `--should-run` |
+| Commit | a66609c |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -23,11 +25,12 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** **12 M-NN pending** (см. таблицу ниже). Сканер группирует сырые хиты:
-- **12 raw** (по одному route/файлу) → **12 grouped** (C по route-файлу, E — один блок на renderer)
+**Wave Maintenance:** **11 M-NN pending** (см. таблицу ниже). Сканер группирует сырые хиты:
+- **11 raw** (по одному route/файлу) → **11 grouped** (M-02 enrich.ts закрыт)
 - 144 raw (10 runs назад) — ложные: vendor `public/games/`, неверный `/api` prefix в OpenAPI-сканере
 
 **Workflow:**
+- `node scripts/marathon-groom.mjs --should-run` — skip run если Last run <45 мин (cron каждую минуту)
 - `node scripts/marathon-groom.mjs --apply` — meta: phantom/stale/drift, лишние pending → skip
 - `node scripts/marathon-scan.mjs --sync-marathon` — обновить таблицу M-NN из сканера (группировка)
 - `node scripts/marathon-scan.mjs --next` — первая **pending** из таблицы
@@ -231,7 +234,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | ID | Cat | Задача | Файл | Key | Status | Owner |
 |----|-----|--------|------|-----|--------|-------|
 | M-01 | C | OpenAPI gap: routes/downloads.ts (2 routes) | `routes/downloads.ts` | c:artifacts/api-server/src/routes/downloads.ts | done | agent |
-| M-02 | C | OpenAPI gap: routes/enrich.ts (1 route) | `routes/enrich.ts` | c:artifacts/api-server/src/routes/enrich.ts | pending | agent |
+| M-02 | C | OpenAPI gap: routes/enrich.ts (1 route) | `routes/enrich.ts` | c:artifacts/api-server/src/routes/enrich.ts | done | agent |
 | M-03 | C | OpenAPI gap: routes/events.ts (1 route) | `routes/events.ts` | c:artifacts/api-server/src/routes/events.ts | pending | agent |
 | M-04 | C | OpenAPI gap: routes/hosts.ts (8 routes) | `routes/hosts.ts` | c:artifacts/api-server/src/routes/hosts.ts | pending | agent |
 | M-05 | C | OpenAPI gap: routes/players.ts (1 route) | `routes/players.ts` | c:artifacts/api-server/src/routes/players.ts | pending | agent |
@@ -256,11 +259,13 @@ Automation **каждый run** создаёт и выполняет одну н
 git pull origin main
 node scripts/marathon-reconcile.mjs --apply   # legacy done, БЕЗ кода
 node scripts/marathon-groom.mjs --apply        # meta: phantom/stale/drift, только MARATHON
+node scripts/marathon-groom.mjs --should-run || exit 0   # skip если Last run <45 мин (cron каждую минуту)
 node scripts/marathon-scan.mjs --sync-marathon # обновить pending M-NN
 git add MARATHON.md && git commit -m "chore(marathon): groom+sync" && git push origin main || true
 Прочитай MARATHON.md. Memory выключена.
 
 КАЖДЫЙ RUN:
+0. --should-run exit 2 → обнови Last run «skipped (recent idle)», commit+push MARATHON, выход БЕЗ кода. Pending M-NN не блокирует run.
 1. Legacy done/blocked/skipped — НЕ ТРОГАТЬ.
 2. groom --apply: если raw_explosion или баг сканера → почини marathon-scan.mjs, skip ложные задачи, commit meta. M-NN в этот run можно пропустить.
 3. node scripts/marathon-scan.mjs --next
@@ -271,4 +276,5 @@ git add MARATHON.md && git commit -m "chore(marathon): groom+sync" && git push o
 6. Обнови Last run. commit && push.
 
 Один M-NN или одно meta-улучшение за run. Push в main.
+Проверяй прошлые run: повтор idle/reconcile без M-NN → улучши groom/prompt.
 ```

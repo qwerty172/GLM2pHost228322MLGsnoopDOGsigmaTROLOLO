@@ -15,6 +15,21 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-02 (2026-08-03 11:55 UTC) {#marathon-m-02}
+
+**Задача:** OpenAPI gap `routes/enrich.ts` — `GET /games/rawg-search`.
+
+| Проверка | Результат |
+|---|---|
+| openapi.yaml | path `/games/rawg-search` + schema `RawgSearchResultItem` |
+| codegen | `pnpm --filter @workspace/api-spec run codegen` OK |
+| marathon-scan | enrich.ts больше не в raw hits (11/11) |
+| typecheck | `pnpm typecheck` OK |
+
+**Meta:** `marathon-groom.mjs --should-run` — защита от дублирующих cron-run (<45 мин).
+
+**Следующий pick:** M-03 `routes/events.ts`.
+
 ## Marathon M-01 (2026-08-03 11:48 UTC) {#marathon-m-01}
 
 **Задача:** OpenAPI gap `routes/downloads.ts` — `GET /downloads/host-agent.zip`, `GET /downloads/host-agent.exe`.
