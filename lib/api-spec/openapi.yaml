@@ -2901,6 +2901,40 @@ paths:
                       required: [urls]
                 required: [iceServers]
 
+  /public/games:
+    get:
+      operationId: listPublicGames
+      tags: [public]
+      summary: Public games catalog with category, search, and liveOnly filters
+      parameters:
+        - in: query
+          name: category
+          required: false
+          schema:
+            type: string
+          description: Filter by primary catalog category (exact match)
+        - in: query
+          name: search
+          required: false
+          schema:
+            type: string
+          description: Case-insensitive substring match against the game title
+        - in: query
+          name: liveOnly
+          required: false
+          schema:
+            type: boolean
+          description: When true, only return games with at least one live session
+      responses:
+        "200":
+          description: Public games catalog
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PublicGameCatalogItem"
+
   /public/games/{slug}/hosts:
     get:
       operationId: listPublicGameHosts
@@ -4532,6 +4566,58 @@ components:
       required:
         - steamAppId
         - title
+
+    PublicGameCatalogItem:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        title:
+          type: string
+        coverImageUrl:
+          type: string
+        description:
+          type: string
+        genre:
+          type: string
+        category:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        steamAppId:
+          type: ["integer", "null"]
+        hasMods:
+          type: boolean
+        isMultiplayer:
+          type: boolean
+        hostSpectatesPlayer:
+          type: boolean
+        hasQuests:
+          type: boolean
+        browserHostUrl:
+          type: string
+        liveSessionCount:
+          type: integer
+          description: Number of pending or active sessions matching this game right now
+      required:
+        - id
+        - slug
+        - title
+        - coverImageUrl
+        - description
+        - genre
+        - category
+        - genres
+        - hasMods
+        - isMultiplayer
+        - hostSpectatesPlayer
+        - hasQuests
+        - browserHostUrl
+        - liveSessionCount
 
     PublicGameHostItem:
       type: object

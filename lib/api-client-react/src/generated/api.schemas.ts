@@ -607,6 +607,26 @@ export interface SteamLookupResult {
   minSpecs?: SteamLookupResultMinSpecs;
 }
 
+export interface PublicGameCatalogItem {
+  id: string;
+  slug: string;
+  title: string;
+  coverImageUrl: string;
+  description: string;
+  genre: string;
+  category: string;
+  genres: string[];
+  /** @nullable */
+  steamAppId?: number | null;
+  hasMods: boolean;
+  isMultiplayer: boolean;
+  hostSpectatesPlayer: boolean;
+  hasQuests: boolean;
+  browserHostUrl: string;
+  /** Number of pending or active sessions matching this game right now */
+  liveSessionCount: number;
+}
+
 export type PublicGameHostItemStatus =
   (typeof PublicGameHostItemStatus)[keyof typeof PublicGameHostItemStatus];
 
@@ -2027,6 +2047,21 @@ export type GetPublicIceConfig200IceServersItem = {
 
 export type GetPublicIceConfig200 = {
   iceServers: GetPublicIceConfig200IceServersItem[];
+};
+
+export type ListPublicGamesParams = {
+  /**
+   * Filter by primary catalog category (exact match)
+   */
+  category?: string;
+  /**
+   * Case-insensitive substring match against the game title
+   */
+  search?: string;
+  /**
+   * When true, only return games with at least one live session
+   */
+  liveOnly?: boolean;
 };
 
 export type GetAgentChallenge200 = {

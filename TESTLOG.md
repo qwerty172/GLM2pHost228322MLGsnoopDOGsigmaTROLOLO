@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-07 (2026-08-03 12:44 UTC) {#marathon-m-07}
+
+| Проверка | Результат |
+|---|---|
+| OpenAPI | `GET /public/games` + PublicGameCatalogItem |
+| codegen | orval → api-client-react + api-zod (`listPublicGames`) |
+| typecheck | PASS |
+| marathon-scan | public.ts больше не в raw hits (6/6) |
+
+**Следующий pick:** M-08 `routes/sessions.ts`.
+
 ## Marathon M-06 (2026-08-03 12:39 UTC) {#marathon-m-06}
 
 | Проверка | Результат |

@@ -2,7 +2,7 @@
 
 > **Активный цикл:** Wave Maintenance (каждый run — scan + одна M-NN)  
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл`  
-> **Cron (факт):** `0/1 * * * *` (каждую минуту) — **каждый run выполняет одну M-NN**, без интервального skip  
+> **Cron (факт):** `0/2 * * * *` (каждые 2 мин) — **каждый run выполняет одну M-NN**, без интервального skip  
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
@@ -12,10 +12,10 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 12:39 UTC |
-| Task ID | M-06 |
-| Результат | OpenAPI POST /premium/purchase + codegen |
-| Commit | 8561062 |
+| Дата | 2026-08-03 12:44 UTC |
+| Task ID | M-07 |
+| Результат | OpenAPI GET /public/games + codegen |
+| Commit | 6b700d2 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -25,8 +25,8 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** **7 M-NN pending** (см. таблицу ниже). Сканер группирует сырые хиты:
-- **7 raw** (по одному route/файлу) → **7 grouped** (M-06 premium.ts закрыт)
+**Wave Maintenance:** **6 M-NN pending** (см. таблицу ниже). Сканер группирует сырые хиты:
+- **6 raw** (по одному route/файлу) → **6 grouped** (M-07 public.ts закрыт)
 - 144 raw (10 runs назад) — ложные: vendor `public/games/`, неверный `/api` prefix в OpenAPI-сканере
 
 **Workflow:**
@@ -239,7 +239,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-04 | C | OpenAPI gap: routes/hosts.ts (8 routes) | `routes/hosts.ts` | c:artifacts/api-server/src/routes/hosts.ts | done | agent |
 | M-05 | C | OpenAPI gap: routes/players.ts (1 route) | `routes/players.ts` | c:artifacts/api-server/src/routes/players.ts | done | agent |
 | M-06 | C | OpenAPI gap: routes/premium.ts (1 route) | `routes/premium.ts` | c:artifacts/api-server/src/routes/premium.ts | done | agent |
-| M-07 | C | OpenAPI gap: routes/public.ts (1 route) | `routes/public.ts` | c:artifacts/api-server/src/routes/public.ts | pending | agent |
+| M-07 | C | OpenAPI gap: routes/public.ts (1 route) | `routes/public.ts` | c:artifacts/api-server/src/routes/public.ts | done | agent |
 | M-08 | C | OpenAPI gap: routes/sessions.ts (1 route) | `routes/sessions.ts` | c:artifacts/api-server/src/routes/sessions.ts | pending | agent |
 | M-09 | C | OpenAPI gap: routes/storage.ts (3 routes) | `routes/storage.ts` | c:artifacts/api-server/src/routes/storage.ts | pending | agent |
 | M-10 | C | OpenAPI gap: routes/submissions.ts (3 routes) | `routes/submissions.ts` | c:artifacts/api-server/src/routes/submissions.ts | pending | agent |
@@ -262,12 +262,14 @@ node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0
 node scripts/marathon-reconcile.mjs --apply
 node scripts/marathon-groom.mjs --apply
 node scripts/marathon-scan.mjs --sync-marathon
-git add MARATHON.md && git commit -m "chore(marathon): groom+sync" && git push origin main || true
 node scripts/marathon-scan.mjs --next
-# idle:true → обнови Last run «Marathon idle», exit 0
-# иначе: одна M-NN → pnpm typecheck → done + TESTLOG → push main
+# idle:true → Last run «Marathon idle», commit MARATHON.md, exit 0
+# pendingMnn>0 → СРАЗУ делай pick.id (OpenAPI/codegen), НЕ meta/промпт/прошлые runs
+# одна M-NN → pnpm --filter @workspace/api-spec run codegen → pnpm typecheck → done + TESTLOG
+git add -A && git commit -m "feat(marathon): <ID> ..." && git push origin main
 ```
-> **Не полагайся на «прочитай MARATHON.md» без скриптов выше** — иначе токены уходят на explore, а не на M-NN.
+> **Запрещено при pending M-NN:** читать MARATHON.md целиком, list-cloud-agents, automation_memory, «улучшать промпт» — скрипты уже дали pick.
+> **Meta-улучшения** — только если groom нашёл phantom/stale/drift/raw_explosion и pending=0.
 
 **Полный:**
 ```
