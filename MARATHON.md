@@ -12,10 +12,10 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 13:38 UTC |
-| Task ID | M-13 |
-| Результат | host-agent renderer: 18 unit-тестов (49 pass) |
-| Commit | b60ecc8 |
+| Дата | 2026-08-03 13:44 UTC |
+| Task ID | idle |
+| Результат | Marathon idle — сканер пуст, 0 pending M-NN |
+| Commit | (pending) |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
