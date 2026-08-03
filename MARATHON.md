@@ -1,19 +1,19 @@
 # DecentralHub Marathon — живой бэклог
 
-> **Активный цикл:** Cycle 4 — Cross-cutting (первая pending: **C4-S02**)  
+> **Активный цикл:** Cycle 4 — Cross-cutting (**Marathon idle** — agent-задач нет)  
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл` (cron **пн/чт 09:00 UTC** — `0 9 * * 1,4`)  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-03 (merge backlog: 11 задач → main)
+> **Последнее обновление:** 2026-08-03 (C4-S02 OpenAPI parity → done)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
 | Дата | 2026-08-03 |
-| Task ID | merge-backlog |
+| Task ID | C4-S02 |
 | Результат | done |
-| Commit | merge: C1-F05, C2-S07/D02, C3-S05–S08, UX-03/05/06 → main |
+| Commit | feat(api-spec): C4-S02 OpenAPI parity — auth pairing, agent-telemetry, dev-keys |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -21,9 +21,7 @@
 
 ## Сейчас в очереди (pending)
 
-### Cycle 4 ← **активный** (1 pending agent)
-
-1. `C4-S02` — OpenAPI parity (полная: admin/auth/agent/dev routes)
+**Нет pending agent-задач** — Marathon idle.
 
 ### Blocked (human — не трогать automation)
 
@@ -34,7 +32,7 @@
 | C4-D02 | quotas/vds/embed | = C4-S06 |
 | REG-03 | Windows manual | Wave Regression |
 
-**Cycles 1–3 и Wave UX — agent-задачи завершены.** Следующий agent-run → C4-S02 или `Marathon idle`.
+**Cycles 1–4 и Wave UX — agent-задачи завершены.** Следующий agent-run → Marathon idle (код не менять).
 
 ---
 
@@ -119,7 +117,7 @@
 | ID | Задача | Status | Owner |
 |----|--------|--------|-------|
 | C4-S01 | schema drift | done | agent |
-| C4-S02 | OpenAPI parity | pending | agent |
+| C4-S02 | OpenAPI parity | done | agent |
 | C4-S03 | CI gaps | done | agent |
 | C4-S04 | scripts parity | done | agent |
 | C4-S05 | .env.example | done | agent |

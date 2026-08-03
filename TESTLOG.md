@@ -142,7 +142,7 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | C3-S06 | pending | pending | частичный sync title→RTMP, drift WebRTC↔gdigrab остаётся |
 | C3-S07 | pending | pending | `ViGEmClient.dll` не в electron-builder extraResources |
 | C3-S08 | pending | pending | renderer monolith 3238 строк |
-| C4-S02 | pending | pending | полная OpenAPI parity не достигнута |
+| C4-S02 | pending | **done** | admin/auth/agent/dev routes в openapi.yaml + codegen |
 | UX-03 | pending | pending | нет user-facing TURN/STUN hints при ошибке соединения |
 | UX-05 | pending | pending | quota forms — минимальная client validation |
 | UX-06 | pending | pending | нет централизованного API error → RU mapper |
@@ -163,4 +163,17 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 
 Верификация: `pnpm typecheck` ✅; api-server 7/7; host-agent 12/12; codegen regen.
 
-**Остаётся:** C4-S02 (полная OpenAPI parity ~35 routes). Blocked human: C3-D03, C4-S06/D02, REG-03.
+**Остаётся:** Blocked human: C3-D03, C4-S06/D02, REG-03. Agent backlog — Marathon idle.
+
+## Marathon C4-S02 — OpenAPI parity (2026-08-03) {#marathon-c4-s02}
+
+Задача: полная OpenAPI parity для admin/auth/agent/dev routes.
+
+| Область | Статус | Детали |
+|---|---|---|
+| admin | done | 6/6 routes (submissions approve/reject уже в spec) |
+| auth | done | +login/refresh/logout (C2-D02), +agent-pairing-code/status/pair |
+| agent | done | +POST /agent-telemetry (GET agent-events уже был) |
+| dev | done | +POST /dev-keys, PATCH /dev-keys/{apiKey}/rules |
+
+Верификация: `pnpm --filter @workspace/api-spec run codegen`; `pnpm typecheck` ✅; api-server 39/39; host-agent 12/12.
