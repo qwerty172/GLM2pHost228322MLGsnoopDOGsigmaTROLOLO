@@ -11,7 +11,7 @@
     "start": "pnpm run build && electron .",
     "dev": "pnpm run build && electron . --dev",
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
-    "test": "pnpm run build:main && node --test test/ping-server.test.mjs",
+    "test": "pnpm run build && node --test test/*.test.mjs",
     "fetch:vigem": "node scripts/fetch-vigem-dll.mjs",
     "package:win": "pnpm run build && node scripts/fetch-vigem-dll.mjs && electron-builder --win --x64 --config electron-builder.yml --publish never"
   },
@@ -28,6 +28,7 @@
     "@types/ws": "^8.5.13",
     "electron": "^39.8.5",
     "electron-builder": "^25.1.8",
+    "linkedom": "^0.18.13",
     "typescript": "^5.6.3"
   }
 }

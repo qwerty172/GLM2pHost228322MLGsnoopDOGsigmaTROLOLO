@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-13 (2026-08-03 13:38 UTC) {#marathon-m-13}
+
+| Проверка | Результат |
+|---|---|
+| unit tests | 18 renderer modules → 19 test files, 49 tests PASS |
+| deps | linkedom (DOM stub для renderer-тестов) |
+| typecheck | PASS (@workspace/host-agent) |
+| marathon-scan | renderer/*.ts больше не в raw hits — Marathon idle |
+
+**Следующий pick:** idle (сканер пуст).
+
 ## Marathon M-12 (2026-08-03 13:16 UTC) {#marathon-m-12}
 
 | Проверка | Результат |
