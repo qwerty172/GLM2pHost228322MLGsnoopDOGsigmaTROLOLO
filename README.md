@@ -40,9 +40,31 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
+**Три команды — и работает:**
+
+```bash
+pnpm setup    # .env, секреты, Docker postgres+redis (если есть), install, db push
+pnpm dev      # API :8080 + Web :5000
+pnpm smoke    # smoke-тест API (в другом терминале, пока dev запущен)
+```
+
+Открой http://localhost:5000 · API health: http://localhost:8080/api/healthz
+
+**На потом (не нужно для первого запуска):**
+
+| Команда | Когда |
+|---|---|
+| `pnpm setup:full` | Полная проверка типов после setup |
+| `pnpm infra` / `pnpm infra:down` | Только Docker postgres + redis |
+| `pnpm infra:full` | + coturn (WebRTC/TURN) |
+| `pnpm run typecheck` | CI-уровень typecheck |
+| `pnpm test` | Unit-тесты api-server |
+
+Старые обёртки `./scripts/setup-local.sh` и `./scripts/dev-local.sh` вызывают ту же логику.
+
 Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
 
-**Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
+**Пошаговая инструкция (Windows, свой Postgres):** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
 
 **Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN (обход страниц в браузере).
 
@@ -50,45 +72,33 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 - Node.js 20+
 - pnpm 9+
-- PostgreSQL 16
+- Docker (рекомендуется — `pnpm setup` поднимет postgres + redis) **или** свой PostgreSQL 16
 - Git Bash / WSL (для Windows) или Linux/macOS
 
-### Клонирование
+### Первичная настройка (автоматическая)
 
 ```bash
-git clone https://github.com/qwerty172/glm2phost228322mlgsnoopdogsigmatrololo.git decentral-hub
-cd decentral-hub
-```
-
-### Первичная настройка
-
-**Windows (cmd или двойной клик):**
-
-```bat
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
+pnpm setup
+pnpm dev
+```
+
+`pnpm setup` создаёт `.env`, генерирует `WALLET_ENCRYPTION_KEY` и `JWT_SECRET`, при наличии Docker — поднимает postgres/redis и применяет схему БД.
+
+**Без Docker:** отредактируй `DATABASE_URL` в `.env` и снова `pnpm setup`.
+
+<details>
+<summary>Ручная настройка (Windows cmd / старые скрипты)</summary>
+
+```bat
 copy .env.example .env
 notepad .env
 scripts\setup-local.bat
 scripts\dev-local.bat
 ```
 
-**Git Bash / Linux / macOS:**
-
-```bash
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-cp .env.example .env
-# отредактируй DATABASE_URL
-
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
-```
-
-Подробнее — [LOCAL_SETUP.md](./LOCAL_SETUP.md).
+</details>
 
 ### Переменные окружения (`.env`)
 
@@ -103,15 +113,16 @@ chmod +x scripts/*.sh
 
 `.env` подхватывается автоматически через `dotenv-cli` в dev-скриптах. На Replit переменные задаёт платформа.
 
-### Запуск (два терминала или один скрипт)
-
-**Вариант A — скрипт (Git Bash / Linux / macOS):**
+### Запуск
 
 ```bash
-./scripts/dev-local.sh
+pnpm dev
+# или: ./scripts/dev-local.sh
 ```
 
-**Вариант B — вручную:**
+Два процесса (API + Web) в одном терминале. Ctrl+C — остановить оба.
+
+**Вручную (два терминала):**
 
 ```bash
 # Терминал 1: API (порт 8080)
@@ -126,8 +137,8 @@ pnpm --filter @workspace/web run dev
 ### Smoke-тест API (фаза 1)
 
 ```bash
-./scripts/smoke-api.sh
-# или: ./scripts/smoke-api.sh http://localhost:8080
+pnpm smoke
+# или: ./scripts/smoke-api.sh
 ```
 
 ### Сборка production
