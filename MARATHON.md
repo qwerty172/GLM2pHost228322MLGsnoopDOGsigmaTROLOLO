@@ -12,10 +12,10 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 12:00 UTC |
+| Дата | 2026-08-03 12:05 UTC |
 | Task ID | M-04 |
-| Результат | done — OpenAPI 8 routes `routes/hosts.ts`; codegen OK; 9 M-NN pending |
-| Commit | (this run) |
+| Результат | done — OpenAPI 8 routes `routes/hosts.ts`; cherry-pick PR #180; typecheck OK; 9 M-NN pending |
+| Commit | 733044f |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -271,7 +271,7 @@ git add MARATHON.md && git commit -m "chore(marathon): groom+sync" && git push o
 3. node scripts/marathon-scan.mjs --next
    - idle:true → Marathon idle, обнови Last run, выход.
    - иначе pick = первая pending M-NN.
-4. Перед кодом: rg/git log — если уже в main → done без кода (лишняя работа).
+4. Перед кодом: rg/git log — если уже в main → done без кода. Если есть open PR с тем же M-NN (`gh pr list --search "M-NN" --state open`) → cherry-pick коммит, не переписывай.
 5. in_progress → выполни → pnpm typecheck → done + TESTLOG.
 6. Обнови Last run. commit && push.
 
