@@ -19,7 +19,7 @@ echo "==> API-сервер (порт из .env, обычно 8080)"
 pnpm --filter @workspace/api-server run dev &
 API_PID=$!
 
-echo "==> Web (http://localhost:5000, прокси /api -> API)"
+echo "==> Web (http://localhost:${WEB_PORT:-5000}, прокси /api -> API)"
 pnpm --filter @workspace/web run dev &
 WEB_PID=$!
 

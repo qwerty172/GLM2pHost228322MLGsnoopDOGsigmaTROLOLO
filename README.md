@@ -40,78 +40,55 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
-Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
+**Три команды — и работает:**
 
-**Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
+```bash
+git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
+cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
+pnpm setup    # Docker (postgres+redis) + секреты + install + схема БД
+pnpm dev      # API :8080 + Web :5000
+pnpm smoke    # проверка API (в другом терминале, пока dev запущен)
+```
 
-**Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN (обход страниц в браузере).
+Открой http://localhost:5000
+
+**Windows (cmd):** `scripts\setup-local.bat` → `scripts\dev-local.bat` (нужен [Docker Desktop](https://www.docker.com/products/docker-desktop/) или свой PostgreSQL).
+
+**Без Docker:** установи PostgreSQL 16, укажи `DATABASE_URL` в `.env`, затем `pnpm setup`.
+
+Полный план тестирования — [`TESTPLAN.md`](./TESTPLAN.md). Подробности — [`LOCAL_SETUP.md`](./LOCAL_SETUP.md).
+
+### Команды
+
+| Команда | Что делает |
+|---|---|
+| `pnpm setup` | Первичная настройка (один раз) |
+| `pnpm dev` | API + Web для разработки |
+| `pnpm smoke` | Smoke-тест API |
+| `pnpm db:up` | Только Docker: postgres + redis |
+| `pnpm typecheck` | Проверка типов (по желанию) |
 
 ### Требования
 
-- Node.js 20+
-- pnpm 9+
-- PostgreSQL 16
-- Git Bash / WSL (для Windows) или Linux/macOS
-
-### Клонирование
-
-```bash
-git clone https://github.com/qwerty172/glm2phost228322mlgsnoopdogsigmatrololo.git decentral-hub
-cd decentral-hub
-```
-
-### Первичная настройка
-
-**Windows (cmd или двойной клик):**
-
-```bat
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-copy .env.example .env
-notepad .env
-scripts\setup-local.bat
-scripts\dev-local.bat
-```
-
-**Git Bash / Linux / macOS:**
-
-```bash
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-cp .env.example .env
-# отредактируй DATABASE_URL
-
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
-```
-
-Подробнее — [LOCAL_SETUP.md](./LOCAL_SETUP.md).
+- Node.js 20+, pnpm 10+
+- Docker (рекомендуется) **или** PostgreSQL 16
+- Git Bash / WSL (Windows) или Linux/macOS
 
 ### Переменные окружения (`.env`)
 
+Создаётся автоматически при `pnpm setup`. Ключевые поля:
+
 | Переменная | Назначение |
 |---|---|
-| `DATABASE_URL` | PostgreSQL, база `decentral_hub` |
+| `DATABASE_URL` | PostgreSQL (Docker: подставляется сам) |
 | `PORT` | API-сервер (8080) |
-| `WALLET_ENCRYPTION_KEY` | 32-байт hex, обязателен для кошелька |
-| `ADMIN_SECRET` | Секрет admin-роутов (`X-Admin-Secret`) |
-| `API_PROXY_TARGET` | Куда Vite проксирует `/api` (http://localhost:8080) |
-| `BASE_PATH` | Базовый путь web (`/`) |
+| `WEB_PORT` | Web dev-сервер (5000) |
+| `WALLET_ENCRYPTION_KEY` | Кошелёк (генерируется при setup) |
+| `JWT_SECRET` | Авторизация (генерируется при setup) |
 
-`.env` подхватывается автоматически через `dotenv-cli` в dev-скриптах. На Replit переменные задаёт платформа.
+`.env` подхватывается через `dotenv-cli` в dev-скриптах.
 
-### Запуск (два терминала или один скрипт)
-
-**Вариант A — скрипт (Git Bash / Linux / macOS):**
-
-```bash
-./scripts/dev-local.sh
-```
-
-**Вариант B — вручную:**
+### Запуск вручную (два терминала)
 
 ```bash
 # Терминал 1: API (порт 8080)
@@ -119,15 +96,6 @@ pnpm --filter @workspace/api-server run dev
 
 # Терминал 2: Web (порт 5000, прокси /api -> :8080)
 pnpm --filter @workspace/web run dev
-```
-
-Открой http://localhost:5000
-
-### Smoke-тест API (фаза 1)
-
-```bash
-./scripts/smoke-api.sh
-# или: ./scripts/smoke-api.sh http://localhost:8080
 ```
 
 ### Сборка production
