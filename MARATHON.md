@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-03 (M-07 done; groom: DRAFT PR не блокирует run)
+> **Последнее обновление:** 2026-08-03 (M-08 done; POST /sessions/{id}/metrics OpenAPI)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 12:48 UTC |
-| Task ID | M-07 |
-| Результат | OpenAPI GET /public/games + codegen; groom: DRAFT PR не блокирует |
-| Commit | 33b4f23 |
+| Дата | 2026-08-03 12:56 UTC |
+| Task ID | M-08 |
+| Результат | OpenAPI POST /sessions/{id}/metrics + codegen |
+| Commit | d178d71 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -25,9 +25,8 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** **6 M-NN pending** (см. таблицу ниже). Сканер группирует сырые хиты:
-- **6 raw** (по одному route/файлу) → **6 grouped** (M-07 public.ts закрыт)
-- 144 raw (10 runs назад) — ложные: vendor `public/games/`, неверный `/api` prefix в OpenAPI-сканере
+**Wave Maintenance:** **5 M-NN pending** (см. таблицу ниже). Сканер:
+- **5 grouped** (M-08 sessions.ts закрыт)
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -240,7 +239,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-05 | C | OpenAPI gap: routes/players.ts (1 route) | `routes/players.ts` | c:artifacts/api-server/src/routes/players.ts | done | agent |
 | M-06 | C | OpenAPI gap: routes/premium.ts (1 route) | `routes/premium.ts` | c:artifacts/api-server/src/routes/premium.ts | done | agent |
 | M-07 | C | OpenAPI gap: routes/public.ts (1 route) | `routes/public.ts` | c:artifacts/api-server/src/routes/public.ts | done | agent |
-| M-08 | C | OpenAPI gap: routes/sessions.ts (1 route) | `routes/sessions.ts` | c:artifacts/api-server/src/routes/sessions.ts | pending | agent |
+| M-08 | C | OpenAPI gap: routes/sessions.ts (1 route) | `routes/sessions.ts` | c:artifacts/api-server/src/routes/sessions.ts | done | agent |
 | M-09 | C | OpenAPI gap: routes/storage.ts (3 routes) | `routes/storage.ts` | c:artifacts/api-server/src/routes/storage.ts | pending | agent |
 | M-10 | C | OpenAPI gap: routes/submissions.ts (3 routes) | `routes/submissions.ts` | c:artifacts/api-server/src/routes/submissions.ts | pending | agent |
 | M-11 | C | OpenAPI gap: routes/vds.ts (5 routes) | `routes/vds.ts` | c:artifacts/api-server/src/routes/vds.ts | pending | agent |
@@ -255,22 +254,23 @@ Automation **каждый run** создаёт и выполняет одну н
 
 ## Automation prompt (вставить в Cursor Automations)
 
-**Короткий (рекомендуется для cron — вставить в Automation как есть):**
+**Короткий (ЕДИНСТВЕННЫЙ — вставить в Automation trigger, заменить старый «Прочитай MARATHON»):**
 ```
 git pull origin main
 node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0
 node scripts/marathon-reconcile.mjs --apply
 node scripts/marathon-groom.mjs --apply
 node scripts/marathon-scan.mjs --sync-marathon
-node scripts/marathon-scan.mjs --next
-# idle:true → Last run «Marathon idle», commit MARATHON.md, exit 0
-# pendingMnn>0 → СРАЗУ делай pick.id (OpenAPI/codegen), НЕ meta/промпт/прошлые runs
+PICK=$(node scripts/marathon-scan.mjs --next)
+echo "$PICK"
+# idle:true → обнови Last run «Marathon idle», commit MARATHON.md, exit 0
+# pick.id → СРАЗУ OpenAPI/codegen для pick, НЕ читать MARATHON, НЕ list-cloud-agents, НЕ «улучшать промпт»
 # одна M-NN → pnpm --filter @workspace/api-spec run codegen → pnpm typecheck → done + TESTLOG
 git add -A && git commit -m "feat(marathon): <ID> ..." && git push origin main
 ```
-> **Запрещено при pending M-NN:** читать MARATHON.md целиком, list-cloud-agents, automation_memory, «улучшать промпт» — скрипты уже дали pick.
-> **Meta-улучшения** — только если groom нашёл phantom/stale/drift/raw_explosion и pending=0.
-> **pr_in_flight** — только non-DRAFT PR; DRAFT не блокирует (cherry-pick в main вместо ожидания).
+> **ЗАПРЕЩЕНО при pendingMnn>0:** «Прочитай MARATHON.md», list-cloud-agents, automation_memory, анализ прошлых runs, правка промпта — это жжёт токены впустую. Скрипты уже дали pick.
+> **Meta-улучшения** — только если groom нашёл phantom/stale/drift/raw_explosion **и** pending=0.
+> **pr_in_flight** — только non-DRAFT PR; DRAFT не блокирует.
 
 **Полный:**
 ```

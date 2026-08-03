@@ -976,6 +976,65 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /sessions/{id}/metrics:
+    post:
+      operationId: postSessionMetrics
+      tags: [sessions]
+      summary: Submit WebRTC quality metrics for a session
+      description: |
+        Host (Authorization Bearer or hostToken) or player (X-Player-Token) may
+        report streaming quality samples during an active session.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: hostToken
+          required: false
+          schema:
+            type: string
+          description: Host auth alternative to Bearer header
+        - in: header
+          name: X-Player-Token
+          required: false
+          schema:
+            type: string
+          description: Player session token auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostSessionMetricsBody"
+      responses:
+        "201":
+          description: Metrics recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostSessionMetricsResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /sessions/by-invite/{inviteCode}:
     get:
       operationId: getSessionByInvite
@@ -4491,6 +4550,52 @@ components:
       required:
         - ratingAvg
         - ratingCount
+
+    SessionMetricSample:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [player, host]
+        sampledAt:
+          type: string
+          format: date-time
+        rttMs:
+          type: integer
+        bitrateKbps:
+          type: integer
+        fps:
+          type: integer
+        packetLossPct:
+          type: number
+        framesDropped:
+          type: integer
+        iceCandidateType:
+          type: string
+        jitterMs:
+          type: integer
+      required:
+        - role
+
+    PostSessionMetricsBody:
+      type: object
+      properties:
+        samples:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/SessionMetricSample"
+      required:
+        - samples
+
+    PostSessionMetricsResponse:
+      type: object
+      properties:
+        inserted:
+          type: integer
+      required:
+        - inserted
 
     PlatformEvent:
       type: object

@@ -118,6 +118,9 @@ import type {
   PlayerGameSaveUploadUrlBody,
   PlayerGameSaveUploadUrlResponse,
   PostAgentTelemetry200,
+  PostSessionMetricsBody,
+  PostSessionMetricsParams,
+  PostSessionMetricsResponse,
   PremiumPurchaseBody,
   PremiumPurchaseResponse,
   PublicGameCatalogItem,
@@ -2870,6 +2873,135 @@ export const useRateSession = <
   TContext
 > => {
   return useMutation(getRateSessionMutationOptions(options));
+};
+
+/**
+ * Host (Authorization Bearer or hostToken) or player (X-Player-Token) may
+report streaming quality samples during an active session.
+
+ * @summary Submit WebRTC quality metrics for a session
+ */
+export const getPostSessionMetricsUrl = (
+  id: string,
+  params?: PostSessionMetricsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/sessions/${id}/metrics?${stringifiedParams}`
+    : `/api/sessions/${id}/metrics`;
+};
+
+export const postSessionMetrics = async (
+  id: string,
+  postSessionMetricsBody: PostSessionMetricsBody,
+  params?: PostSessionMetricsParams,
+  options?: RequestInit,
+): Promise<PostSessionMetricsResponse> => {
+  return customFetch<PostSessionMetricsResponse>(
+    getPostSessionMetricsUrl(id, params),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(postSessionMetricsBody),
+    },
+  );
+};
+
+export const getPostSessionMetricsMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof postSessionMetrics>>,
+    TError,
+    {
+      id: string;
+      data: BodyType<PostSessionMetricsBody>;
+      params?: PostSessionMetricsParams;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof postSessionMetrics>>,
+  TError,
+  {
+    id: string;
+    data: BodyType<PostSessionMetricsBody>;
+    params?: PostSessionMetricsParams;
+  },
+  TContext
+> => {
+  const mutationKey = ["postSessionMetrics"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof postSessionMetrics>>,
+    {
+      id: string;
+      data: BodyType<PostSessionMetricsBody>;
+      params?: PostSessionMetricsParams;
+    }
+  > = (props) => {
+    const { id, data, params } = props ?? {};
+
+    return postSessionMetrics(id, data, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PostSessionMetricsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof postSessionMetrics>>
+>;
+export type PostSessionMetricsMutationBody = BodyType<PostSessionMetricsBody>;
+export type PostSessionMetricsMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Submit WebRTC quality metrics for a session
+ */
+export const usePostSessionMetrics = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof postSessionMetrics>>,
+    TError,
+    {
+      id: string;
+      data: BodyType<PostSessionMetricsBody>;
+      params?: PostSessionMetricsParams;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof postSessionMetrics>>,
+  TError,
+  {
+    id: string;
+    data: BodyType<PostSessionMetricsBody>;
+    params?: PostSessionMetricsParams;
+  },
+  TContext
+> => {
+  return useMutation(getPostSessionMetricsMutationOptions(options));
 };
 
 /**

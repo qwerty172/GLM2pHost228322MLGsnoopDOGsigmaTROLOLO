@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-08 (2026-08-03 12:56 UTC) {#marathon-m-08}
+
+| Проверка | Результат |
+|---|---|
+| OpenAPI | `POST /sessions/{id}/metrics` + SessionMetricSample/PostSessionMetricsBody/Response |
+| codegen | orval → api-client-react + api-zod (`postSessionMetrics`) |
+| typecheck | PASS |
+| marathon-scan | sessions.ts больше не в raw hits (5/5) |
+
+**Следующий pick:** M-09 `routes/storage.ts`.
+
 ## Marathon M-07 (2026-08-03 12:48 UTC) {#marathon-m-07}
 
 | Проверка | Результат |

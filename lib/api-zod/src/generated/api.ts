@@ -1401,6 +1401,51 @@ export const RateSessionResponse = zod.object({
 });
 
 /**
+ * Host (Authorization Bearer or hostToken) or player (X-Player-Token) may
+report streaming quality samples during an active session.
+
+ * @summary Submit WebRTC quality metrics for a session
+ */
+export const PostSessionMetricsParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const PostSessionMetricsQueryParams = zod.object({
+  hostToken: zod.coerce
+    .string()
+    .optional()
+    .describe("Host auth alternative to Bearer header"),
+});
+
+export const PostSessionMetricsHeader = zod.object({
+  "X-Player-Token": zod
+    .string()
+    .optional()
+    .describe("Player session token auth"),
+});
+
+export const postSessionMetricsBodySamplesMax = 50;
+
+export const PostSessionMetricsBody = zod.object({
+  samples: zod
+    .array(
+      zod.object({
+        role: zod.enum(["player", "host"]),
+        sampledAt: zod.coerce.date().optional(),
+        rttMs: zod.number().optional(),
+        bitrateKbps: zod.number().optional(),
+        fps: zod.number().optional(),
+        packetLossPct: zod.number().optional(),
+        framesDropped: zod.number().optional(),
+        iceCandidateType: zod.string().optional(),
+        jitterMs: zod.number().optional(),
+      }),
+    )
+    .min(1)
+    .max(postSessionMetricsBodySamplesMax),
+});
+
+/**
  * @summary Resolve a public invite code to session details (player play link)
  */
 export const GetSessionByInviteParams = zod.object({
