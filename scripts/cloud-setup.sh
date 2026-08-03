@@ -22,6 +22,8 @@ if [[ ! -f .env ]]; then
   sed -i "s|^DATABASE_URL=.*|DATABASE_URL=postgresql://postgres:postgres@localhost:5432/decentral_hub|" .env
   sed -i "s|^WALLET_ENCRYPTION_KEY=.*|WALLET_ENCRYPTION_KEY=$KEY|" .env
   sed -i "s|^ADMIN_SECRET=.*|ADMIN_SECRET=cloud-dev-secret|" .env
+  JWT=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+  sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$JWT|" .env
 fi
 
 echo "==> pnpm install"

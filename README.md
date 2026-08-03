@@ -38,96 +38,70 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ---
 
-## Быстрый старт (локально)
+## Быстрый старт (3 команды)
 
-Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
+```bash
+git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
+cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
 
-**Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
+pnpm db:up    # PostgreSQL + Redis в Docker (или свой Postgres — см. ниже)
+pnpm setup    # .env, зависимости, схема БД
+pnpm dev      # API :8080 + Web :5000
+```
 
-**Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN (обход страниц в браузере).
+Открой http://localhost:5000 — готово.
+
+| Команда | Что делает |
+|---|---|
+| `pnpm db:up` | Docker: Postgres + Redis (можно пропустить, если Postgres уже есть) |
+| `pnpm setup` | Создаёт `.env`, генерирует секреты, `pnpm install`, миграции |
+| `pnpm dev` | Запускает API и Web одновременно |
+| `pnpm smoke` | Smoke-тест API (healthz, games, guest) |
+
+Полный план тестирования — [`TESTPLAN.md`](./TESTPLAN.md). Пошаговая инструкция — [`LOCAL_SETUP.md`](./LOCAL_SETUP.md).
 
 ### Требования
 
-- Node.js 20+
-- pnpm 9+
-- PostgreSQL 16
-- Git Bash / WSL (для Windows) или Linux/macOS
+- Node.js 20+, pnpm 9+
+- **Docker** (рекомендуется) — `pnpm db:up` поднимает Postgres и Redis
+- Или PostgreSQL 16 вручную: `createdb decentral_hub`, поправь `DATABASE_URL` в `.env`
 
-### Клонирование
-
-```bash
-git clone https://github.com/qwerty172/glm2phost228322mlgsnoopdogsigmatrololo.git decentral-hub
-cd decentral-hub
-```
-
-### Первичная настройка
-
-**Windows (cmd или двойной клик):**
+### Windows
 
 ```bat
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-copy .env.example .env
-notepad .env
-scripts\setup-local.bat
-scripts\dev-local.bat
+pnpm db:up
+pnpm setup
+pnpm dev
 ```
 
-**Git Bash / Linux / macOS:**
-
-```bash
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-cp .env.example .env
-# отредактируй DATABASE_URL
-
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
-```
-
-Подробнее — [LOCAL_SETUP.md](./LOCAL_SETUP.md).
+Или `scripts\setup-local.bat` и `scripts\dev-local.bat` — то же самое.
 
 ### Переменные окружения (`.env`)
 
+Создаётся автоматически при `pnpm setup`. Ключевые:
+
 | Переменная | Назначение |
 |---|---|
-| `DATABASE_URL` | PostgreSQL, база `decentral_hub` |
+| `DATABASE_URL` | PostgreSQL (дефолт под Docker: `decentral_hub:decentral_hub@localhost:5432`) |
 | `PORT` | API-сервер (8080) |
-| `WALLET_ENCRYPTION_KEY` | 32-байт hex, обязателен для кошелька |
-| `ADMIN_SECRET` | Секрет admin-роутов (`X-Admin-Secret`) |
+| `WEB_PORT` | Web dev-сервер (5000) |
+| `WALLET_ENCRYPTION_KEY` | Генерируется при setup |
+| `JWT_SECRET` | Генерируется при setup |
 | `API_PROXY_TARGET` | Куда Vite проксирует `/api` (http://localhost:8080) |
-| `BASE_PATH` | Базовый путь web (`/`) |
 
-`.env` подхватывается автоматически через `dotenv-cli` в dev-скриптах. На Replit переменные задаёт платформа.
+Остальное (TURN, Sentry, VirusTotal) — на потом, для локальной разработки не нужно.
 
-### Запуск (два терминала или один скрипт)
-
-**Вариант A — скрипт (Git Bash / Linux / macOS):**
+### Запуск по отдельности
 
 ```bash
-./scripts/dev-local.sh
+pnpm --filter @workspace/api-server run dev   # только API
+pnpm --filter @workspace/web run dev          # только Web
 ```
 
-**Вариант B — вручную:**
+### Smoke-тест API
 
 ```bash
-# Терминал 1: API (порт 8080)
-pnpm --filter @workspace/api-server run dev
-
-# Терминал 2: Web (порт 5000, прокси /api -> :8080)
-pnpm --filter @workspace/web run dev
-```
-
-Открой http://localhost:5000
-
-### Smoke-тест API (фаза 1)
-
-```bash
-./scripts/smoke-api.sh
-# или: ./scripts/smoke-api.sh http://localhost:8080
+pnpm smoke
 ```
 
 ### Сборка production
@@ -148,6 +122,26 @@ pnpm --filter @workspace/api-spec run codegen
 ```bash
 pnpm run typecheck
 ```
+
+---
+
+## Быстрый старт (legacy / подробнее)
+
+<details>
+<summary>Старые скрипты и ручной запуск</summary>
+
+**Git Bash / Linux / macOS:**
+
+```bash
+chmod +x scripts/*.sh
+./scripts/setup-local.sh
+./scripts/dev-local.sh
+./scripts/smoke-api.sh
+```
+
+**Переменные:** `.env` подхватывается через `dotenv-cli` в dev-скриптах.
+
+</details>
 
 ---
 
