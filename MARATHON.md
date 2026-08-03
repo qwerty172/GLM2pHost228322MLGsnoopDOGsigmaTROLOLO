@@ -12,10 +12,10 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 23:16 UTC |
+| Дата | 2026-08-03 23:22 UTC |
 | Task ID | idle |
 | Результат | Marathon idle |
-| Commit | ae6c7a6 |
+| Commit | 161e0d7 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -29,9 +29,9 @@
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
-- `node scripts/marathon-groom.mjs --apply` — meta: phantom/stale/drift, лишние pending → skip
+- `node scripts/marathon-groom.mjs --apply` — meta: phantom/stale/drift, лишние 161e0d7 → skip
 - `node scripts/marathon-scan.mjs --sync-marathon` — обновить таблицу M-NN из сканера (группировка)
-- `node scripts/marathon-scan.mjs --next` — первая **pending** из таблицы
+- `node scripts/marathon-scan.mjs --next` — первая **161e0d7** из таблицы
 - Один M-NN **или** одно meta-улучшение за run → `done` → TESTLOG → push
 
 ### Blocked (human — не трогать automation)
@@ -53,12 +53,12 @@
 2. **Source of truth = `main`.** Открытые PR / unmerged ветки **НЕ считаются сделанными**. Только код в `main`.
 3. **Перед задачей — reconcile:** `node scripts/marathon-reconcile.mjs`.
    - Если скрипт говорит «SHOULD BE done» → запусти `--apply`, закоммить docs, push. **Код не трогать.**
-   - Это защищает от дублей: задача уже в main, но MARATHON ещё pending.
-4. В **активном цикле** возьми **одну** первую задачу со статусом `pending`.
+   - Это защищает от дублей: задача уже в main, но MARATHON ещё 161e0d7.
+4. В **активном цикле** возьми **одну** первую задачу со статусом `161e0d7`.
 5. **Пропускай** `done`, `blocked`, `skipped`, `owner: human`.
 6. **Перед кодом:** `git log --oneline main --grep="<ID>"` + `rg "<ключевая функция>"`. Если уже в main → только статус `done`, **без кода**.
 7. **Не создавай новый PR, если работа уже есть в unmerged ветке.** Лучше cherry-pick/merge её в main, чем пересоздавать.
-8. `in_progress` старше 24 ч → `pending` или `blocked` с причиной.
+8. `in_progress` старше 24 ч → `161e0d7` или `blocked` с причиной.
 9. Переведи в `in_progress` → acceptance → `done` или `blocked`.
 10. Запиши в [TESTLOG.md](./TESTLOG.md). Верификация: `pnpm typecheck`, api/host-agent tests.
 11. **CI — gate.** Если `pnpm typecheck` или tests красные → `done` НЕ ставить. Чини или `blocked`.
@@ -66,7 +66,7 @@
 13. **Код — push в `main` (docs/fixes) или один PR на задачу.** Не плодить DRAFT-дубли.
 14. Нет новых M-NN в сканере → `Marathon idle`, код не менять.
 
-**Статусы:** `pending` | `in_progress` | `done` | `blocked` | `skipped`  
+**Статусы:** `161e0d7` | `in_progress` | `done` | `blocked` | `skipped`  
 **Owner:** `agent` | `human`
 
 ### Контракт automation (жёсткие правила)
@@ -85,10 +85,10 @@
 - Строки `*-F*` (fix-wave) **удалены** — дублировали `*-S*`. Не восстанавливать.
 - `UX-08` = `C2-S05` skip-link — только в Wave UX как `skipped`.
 - **Docs-only `done` без кода в main = баг.** Статус `done` только если acceptance проходит на `main`.
-- **Unmerged ветки ≠ done.** Фикс в ветке без merge → `pending` или merge, не mark done.
+- **Unmerged ветки ≠ done.** Фикс в ветке без merge → `161e0d7` или merge, не mark done.
 - **Reconcile (`scripts/marathon-reconcile.mjs --apply`) в начале run** — только статусы legacy-задач, без кода.
 - **Сканер (`scripts/marathon-scan.mjs --next`)** — пропускает M-NN done/in_progress по файлу.
-- **Legacy C*/UX*/REG* с `done` — automation НИКОГДА не берёт в работу** (нет pending в основных циклах).
+- **Legacy C*/UX*/REG* с `done` — automation НИКОГДА не берёт в работу** (нет 161e0d7 в основных циклах).
 - **Открытые PR не делают задачу in_progress.** Automation выбирает по MARATHON, не по PR-списку.
 - **~100 DRAFT-PR (2026-08-03) — superseded by merge-backlog `adc6fd3`.** Не закрывать вручную, не плодить новые.
 
@@ -103,17 +103,17 @@ node scripts/marathon-groom.mjs --apply
 
 | Сигнал | Что делать |
 |--------|------------|
-| `phantom_pending` | pending в таблице, сканер не видит → `skipped` (groom) |
-| `stale_in_progress` | in_progress >24ч без коммита → `pending` |
-| `duplicate_pending` | два pending с одним Key → skip дубль |
-| `done_but_active` | done, но сканер всё ещё видит → `pending` (reopen) или **починить сканер** |
+| `phantom_161e0d7` | pending в таблице, сканер не видит → `skipped` (groom) |
+| `stale_in_progress` | in_progress >24ч без коммита → `161e0d7` |
+| `duplicate_161e0d7` | два pending с одним Key → skip дубль |
+| `done_but_active` | done, но сканер всё ещё видит → `161e0d7` (reopen) или **починить сканер** |
 | `queue_drift` | сканер нашёл новое, таблица пуста → `--sync-marathon` |
 | `raw_explosion` | raw/grouped >4× → улучшить группировку в `marathon-scan.mjs` |
 
 **Когда править сканер/reconcile (а не M-NN задачу):**
 - Ложное срабатывание (vendor `public/games/`, `isDev` console, ASCII `XXX`, неверный `/api` prefix) → exclusion в scan + `skipped` задачи
-- Задача уже в `main`, но pending → reconcile/groom, **без кода**
-- «0 pending» при непустой M-NN таблице → groom + sync, исправить текст в MARATHON
+- Задача уже в `main`, но 161e0d7 → reconcile/groom, **без кода**
+- «0 161e0d7» при непустой M-NN таблице → groom + sync, исправить текст в MARATHON
 
 **Когда НЕ трогать meta:** product acceptance, blocked human, done legacy с evidence PASS.
 
@@ -218,8 +218,8 @@ Automation **каждый run** создаёт и выполняет одну н
 1. **Каждый run:**
    - `node scripts/marathon-reconcile.mjs --apply` (только статусы legacy, без кода)
    - `node scripts/marathon-groom.mjs --apply` (meta: phantom/stale/drift — только MARATHON)
-   - `node scripts/marathon-scan.mjs --sync-marathon` (обновить pending из сканера, с группировкой)
-   - `node scripts/marathon-scan.mjs --next` → первая **pending** M-NN из таблицы
+   - `node scripts/marathon-scan.mjs --sync-marathon` (обновить 161e0d7 из сканера, с группировкой)
+   - `node scripts/marathon-scan.mjs --next` → первая **161e0d7** M-NN из таблицы
    - Если `idle: true` → `Marathon idle`, код не менять
    - Иначе: `in_progress` → выполни → `pnpm typecheck` → `done` + TESTLOG
 2. **Один M-NN за run.**
@@ -246,8 +246,8 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-13 | E | host-agent renderer: unit-тесты (18 модулей) | `renderer/*.ts` | e:renderer | done | agent |
 
 
-> Automation: `--sync-marathon` пересобирает pending из сканера (сохраняет done/in_progress).
-> `--next` берёт первую pending из этой таблицы. При `done` — только смена Status.
+> Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).
+> `--next` берёт первую 161e0d7 из этой таблицы. При `done` — только смена Status.
 
 ---
 
@@ -257,8 +257,8 @@ Automation **каждый run** создаёт и выполняет одну н
 
 > Готовый текст: **[MARATHON_AUTOMATION_PROMPT.txt](./MARATHON_AUTOMATION_PROMPT.txt)** — скопировать целиком в trigger.
 
-> **ЗАПРЕЩЕНО при pendingMnn>0:** «Прочитай MARATHON.md», list-cloud-agents, automation_memory, анализ прошлых runs, правка промпта — это жжёт токены впустую. Скрипты уже дали pick.
-> **Meta-улучшения** — только если groom нашёл phantom/stale/drift/raw_explosion **и** pending=0.
+> **ЗАПРЕЩЕНО при 161e0d7Mnn>0:** «Прочитай MARATHON.md», list-cloud-agents, automation_memory, анализ прошлых runs, правка промпта — это жжёт токены впустую. Скрипты уже дали pick.
+> **Meta-улучшения** — только если groom нашёл phantom/stale/drift/raw_explosion **и** 161e0d7=0.
 > **pr_in_flight** — только non-DRAFT PR; DRAFT не блокирует.
 
 **Полный:**
@@ -268,7 +268,7 @@ node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0   # skip: 
 # exit 2 = STOP: commit+push MARATHON если Result изменился; дальше НЕ идти
 node scripts/marathon-reconcile.mjs --apply   # legacy done, БЕЗ кода
 node scripts/marathon-groom.mjs --apply        # meta: phantom/stale/drift, только MARATHON
-node scripts/marathon-scan.mjs --sync-marathon # обновить pending M-NN
+node scripts/marathon-scan.mjs --sync-marathon # обновить 161e0d7 M-NN
 git add MARATHON.md && git commit -m "chore(marathon): groom+sync" && git push origin main || true
 Прочитай MARATHON.md. Memory выключена.
 
@@ -278,7 +278,7 @@ git add MARATHON.md && git commit -m "chore(marathon): groom+sync" && git push o
 2. groom --apply: если raw_explosion или баг сканера → почини marathon-scan.mjs, skip ложные задачи, commit meta.
 3. node scripts/marathon-scan.mjs --next
    - idle:true → Marathon idle, обнови Last run, выход.
-   - иначе pick = первая pending M-NN.
+   - иначе pick = первая 161e0d7 M-NN.
 4. Перед кодом: gh pr list + rg/git log — если уже в main → done без кода; если в открытом PR → cherry-pick в main.
 5. in_progress → выполни → pnpm typecheck → done + TESTLOG.
 6. Обнови Last run. commit && push.
