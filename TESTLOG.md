@@ -202,3 +202,16 @@ Cron automation: `git pull origin main` → `marathon-reconcile.mjs --apply`.
 | main sync | fast-forward +21 commits (merge-backlog + Wave Maintenance scripts) |
 
 Все agent-задачи cycles 1–4, Wave UX и Wave Regression зачтены в `main`.
+
+## Marathon reconcile idle (2026-08-03 10:56 UTC) {#marathon-reconcile-idle-1056}
+
+Cron automation: `git pull origin main` → `marathon-reconcile.mjs --apply` → `marathon-scan.mjs --next`.
+
+| Проверка | Результат |
+|---|---|
+| reconcile evidence | 14/14 PASS — flip не требуется |
+| marathon-scan | исправлен (vendor games + нормализация путей OpenAPI); legacy idle |
+| pending agent tasks | 0 — Marathon idle (legacy) |
+| blocked human | C3-D03, C4-S06/D02, REG-03 |
+
+Все изменения зачтены в `main`.

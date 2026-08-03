@@ -73,7 +73,7 @@ const todoHits = rg("\\b(TODO|FIXME|XXX|HACK)\\b", ["artifacts", "lib"], "-n");
 for (const line of (todoHits || "").split("\n")) {
   const m = line.match(/^([^:]+):(\d+):\s*(.*)$/);
   if (!m) continue;
-  if (/node_modules|\/dist\//.test(m[1])) continue;
+  if (/node_modules|\/dist\/|\/public\/games\//.test(m[1])) continue;
   candidates.push({
     cat: "B",
     title: "TODO/FIXME в коде",
@@ -83,22 +83,28 @@ for (const line of (todoHits || "").split("\n")) {
 }
 
 // --- C. Express routes missing from OpenAPI -------------------------------
+function normalizeApiPath(p) {
+  let bare = p.replace(/:(\w+)/g, "{$1}");
+  if (bare.startsWith("/api/")) bare = bare.slice(4);
+  else if (bare === "/api") bare = "/";
+  return bare;
+}
+
 try {
   const spec = readFileSync("lib/api-spec/openapi.yaml", "utf8");
   const specPaths = new Set();
-  for (const m of spec.matchAll(/^\s*\/api\/[^\s:]+/gm)) specPaths.add(m[0].trim());
+  for (const m of spec.matchAll(/^\s*\/[^\s:#]+/gm)) specPaths.add(normalizeApiPath(m[0].trim()));
   const routeFiles = walk("artifacts/api-server/src/routes").filter((f) => f.endsWith(".ts"));
   for (const f of routeFiles) {
     const txt = readFileSync(f, "utf8");
     for (const m of txt.matchAll(/router\.(get|post|put|patch|delete)\(\s*["`]([^"`]+)/g)) {
-      let p = m[2].replace(/:(\w+)/g, "{$1}");
-      if (!p.startsWith("/api")) p = "/api" + p;
+      const p = normalizeApiPath(m[2]);
       if (!specPaths.has(p)) {
         candidates.push({
           cat: "C",
           title: "OpenAPI gap — route без spec",
           file: f,
-          detail: `${m[1].toUpperCase()} ${p}`,
+          detail: `${m[1].toUpperCase()} /api${p}`,
         });
       }
     }
