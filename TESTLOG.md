@@ -231,20 +231,6 @@ Cron automation: `git pull origin main` → `marathon-reconcile.mjs --apply` →
 
 Команды: `marathon-scan.mjs --sync-marathon`, `--next` читает очередь из MARATHON.md.
 
-<<<<<<< HEAD
-## Marathon reconcile idle (2026-08-03 11:05 UTC) {#marathon-reconcile-idle-1105}
-
-Cron automation: `git pull origin main` → `marathon-reconcile.mjs --apply` → `marathon-scan.mjs --sync-marathon`.
-
-| Проверка | Результат |
-|---|---|
-| reconcile evidence | 14/14 PASS — flip не требуется |
-| legacy agent pending | 0 — все cycles 1–4, Wave UX, Wave Regression зачтены |
-| Wave Maintenance | 13 M-NN pending (M-01…M-13) — следующий pick M-01 |
-| blocked human | C3-D03, C4-S06/D02, REG-03 |
-
-Все изменения зачтены в `main`.
-=======
 ## Marathon meta self-groom (2026-08-03 11:05 UTC) {#marathon-meta-groom-1105}
 
 Добавлен `scripts/marathon-groom.mjs` — automation чинит сам процесс.
@@ -259,4 +245,32 @@ Cron automation: `git pull origin main` → `marathon-reconcile.mjs --apply` →
 | raw_explosion | флаг: улучшить группировку scan |
 
 Workflow run: reconcile → **groom** → sync → next. Лимит: 1 M-NN или 1 meta за run.
->>>>>>> 92c4196 (feat(marathon): самоулучшение — marathon-groom.mjs)
+
+## Marathon reconcile idle (2026-08-03 11:05 UTC) {#marathon-reconcile-idle-1105}
+
+Cron automation: `git pull origin main` → `marathon-reconcile.mjs --apply` → `marathon-scan.mjs --sync-marathon`.
+
+| Проверка | Результат |
+|---|---|
+| reconcile evidence | 14/14 PASS — flip не требуется |
+| legacy agent pending | 0 — все cycles 1–4, Wave UX, Wave Regression зачтены |
+| Wave Maintenance | 13 M-NN pending (M-01…M-13) — следующий pick M-01 |
+| blocked human | C3-D03, C4-S06/D02, REG-03 |
+
+Все изменения зачтены в `main`.
+
+## Marathon reconcile idle (2026-08-03 11:11 UTC) {#marathon-reconcile-idle-1111}
+
+Cron automation: `git pull origin main` → `marathon-reconcile.mjs --apply` → `marathon-groom.mjs --apply` → `marathon-scan.mjs --sync-marathon`.
+
+| Проверка | Результат |
+|---|---|
+| git pull | main up to date (35682b1) |
+| reconcile evidence | 14/14 PASS — flip не требуется |
+| groom | 0 issues, 0 auto-fix |
+| legacy agent pending | 0 — все cycles 1–4, Wave UX, Wave Regression зачтены |
+| Wave Maintenance | 13 M-NN pending (M-01…M-13) — следующий pick M-01 |
+| merge conflict | исправлен в MARATHON.md + TESTLOG.md (HEAD vs meta) |
+| blocked human | C3-D03, C4-S06/D02, REG-03 |
+
+Все изменения зачтены в `main`. Код не менялся.

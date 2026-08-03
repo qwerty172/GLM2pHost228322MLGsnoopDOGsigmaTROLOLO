@@ -10,16 +10,10 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 11:05 UTC |
-<<<<<<< HEAD
+| Дата | 2026-08-03 11:11 UTC |
 | Task ID | reconcile |
-| Результат | reconcile PASS (14/14) — все legacy зачтены; M-NN очередь 13 pending |
-| Commit | 85f8c87 |
-=======
-| Task ID | meta |
-| Результат | добавлен marathon-groom.mjs — самоулучшение процесса |
-| Commit | *(этот run)* |
->>>>>>> 92c4196 (feat(marathon): самоулучшение — marathon-groom.mjs)
+| Результат | reconcile PASS (14/14) — все изменения зачтены; groom 0 issues; M-NN 13 pending |
+| Commit | 08999ff |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
