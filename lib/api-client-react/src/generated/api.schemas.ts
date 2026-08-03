@@ -358,6 +358,104 @@ per-borrower cap on host service credit.
   creditMaxLztPerPlayer?: number;
 }
 
+export interface UpdateHostPcSpecsBody {
+  /** Fallback when Authorization Bearer header is absent */
+  hostToken?: string;
+  /** @maxLength 256 */
+  gpu: string;
+  /** @maxLength 256 */
+  cpu: string;
+  /**
+   * @minimum 0
+   * @maximum 65536
+   */
+  ramGb: number;
+}
+
+export type HostDebtorsResponseDebtorsItem = {
+  loanId?: string;
+  playerId?: string;
+  /** @nullable */
+  playerDisplayName?: string | null;
+  principalLzt?: number;
+  outstandingLzt?: number;
+  repaidLzt?: number;
+  status?: string;
+  startedAt?: string;
+  dueAt?: string;
+};
+
+export interface HostDebtorsResponse {
+  debtors: HostDebtorsResponseDebtorsItem[];
+  totalOutstandingLzt: number;
+}
+
+export interface HostStreamRelayResponse {
+  streamPlatform: string;
+  streamUrl: string;
+  streamKey: string;
+}
+
+export type SteamAutoHostableBodySteamGamesItem = {
+  /** @pattern ^\d+$ */
+  appId: string;
+  name: string;
+  /** @nullable */
+  bestExePath?: string | null;
+};
+
+export interface SteamAutoHostableBody {
+  hostToken?: string;
+  /**
+   * @minItems 1
+   * @maxItems 500
+   */
+  steamGames: SteamAutoHostableBodySteamGamesItem[];
+}
+
+export type SteamAutoHostableResponseEligibleItem = {
+  gameId: string;
+  title: string;
+  coverImageUrl: string;
+  /** @nullable */
+  appPath?: string | null;
+  tier: string;
+  steamAppId: string;
+};
+
+export type SteamAutoHostableResponseSkippedItem = {
+  appId: string;
+  name: string;
+  reason: string;
+};
+
+export interface SteamAutoHostableResponse {
+  eligible: SteamAutoHostableResponseEligibleItem[];
+  skipped: SteamAutoHostableResponseSkippedItem[];
+}
+
+export type BulkPublishLibraryBodyItemsItem = {
+  gameId: string;
+  appPath?: string;
+  /** @minimum 0 */
+  pricePerMinuteLzt?: number;
+};
+
+export interface BulkPublishLibraryBody {
+  hostToken?: string;
+  /**
+   * @minItems 1
+   * @maxItems 100
+   */
+  items: BulkPublishLibraryBodyItemsItem[];
+}
+
+export interface BulkPublishLibraryResponse {
+  added: string[];
+  updated: string[];
+  total: number;
+}
+
 export interface Player {
   id: string;
   playerToken: string;
@@ -1841,6 +1939,27 @@ export const AdminListGameSubmissionsStatus = {
   rejected: "rejected",
   all: "all",
 } as const;
+
+export type UpdateHostPcSpecs200PcSpecs = { [key: string]: unknown };
+
+export type UpdateHostPcSpecs200 = {
+  ok: boolean;
+  pcSpecs: UpdateHostPcSpecs200PcSpecs;
+};
+
+export type HostSpeedtestUpload200 = {
+  ok: boolean;
+  /** @nullable */
+  uploadMbps?: number | null;
+};
+
+export type HostSpeedtestDownloadParams = {
+  /**
+   * @minimum 65536
+   * @maximum 2097152
+   */
+  bytes?: number;
+};
 
 export type HostHeartbeatBody = {
   /** Fallback when X-Host-Token header is absent */
