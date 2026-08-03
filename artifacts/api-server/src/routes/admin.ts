@@ -13,7 +13,7 @@ import {
 import { addToLibrary } from "../lib/hostLibrary";
 import { rateLimit, ipKey } from "../lib/rateLimit";
 import { timingSafeEqualString } from "../lib/timingSafe";
-import { tryApplyObjectAcl } from "../lib/storageRouteHelpers";
+import { tryApplyPublicCoverAcl } from "../lib/storageRouteHelpers";
 
 const router: IRouter = Router();
 
@@ -243,10 +243,7 @@ router.post(
       .where(eq(gameSubmissionsTable.id, id));
 
     if (coverImageUrl) {
-      await tryApplyObjectAcl(coverImageUrl, {
-        owner: `host:${sub.hostId}`,
-        visibility: "public",
-      }, req);
+      await tryApplyPublicCoverAcl(coverImageUrl, sub.hostId, req);
     }
 
     // If the submitter pre-configured a library entry, auto-create it now.

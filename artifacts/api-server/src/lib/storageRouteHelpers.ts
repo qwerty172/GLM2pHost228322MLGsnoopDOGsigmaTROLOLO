@@ -1,11 +1,13 @@
 import type { Request, Response } from "express";
 import type { ObjectAclPolicy } from "./objectAcl";
+import { getObjectAclPolicy } from "./objectAcl";
 import {
   ObjectNotFoundError,
   ObjectStorageNotConfiguredError,
   ObjectStorageService,
 } from "./objectStorage";
 import { hostTokenFromRequest } from "./requestToken";
+import { isCoverUploadObjectPath } from "./storageObjectPath";
 
 export function respondStorageUnavailable(res: Response): void {
   res.status(503).json({
@@ -84,7 +86,7 @@ export function toObjectEntityPath(coverOrStorageUrl: string): string | null {
   return null;
 }
 
-/** Best-effort ACL write for a storage-backed cover or object path. */
+/** Best-effort ACL write for a storage-backed object path. */
 export async function tryApplyObjectAcl(
   coverOrStorageUrl: string,
   aclPolicy: ObjectAclPolicy,
@@ -97,5 +99,42 @@ export async function tryApplyObjectAcl(
     await storage.trySetObjectEntityAclPolicy(entityPath, aclPolicy);
   } catch (err) {
     req?.log?.warn({ err, entityPath }, "Failed to set object ACL");
+  }
+}
+
+/**
+ * Set public ACL on a cover upload path only.
+ * Rejects non-upload namespaces and objects owned by another principal.
+ */
+export async function tryApplyPublicCoverAcl(
+  coverOrStorageUrl: string,
+  hostId: string,
+  req?: Request,
+): Promise<void> {
+  const entityPath = toObjectEntityPath(coverOrStorageUrl);
+  if (!entityPath) return;
+  if (!isCoverUploadObjectPath(entityPath)) {
+    req?.log?.warn({ entityPath }, "Rejected public cover ACL on non-upload path");
+    return;
+  }
+
+  const owner = `host:${hostId}`;
+  try {
+    const storage = new ObjectStorageService();
+    const objectFile = await storage.getObjectEntityFile(entityPath);
+    const existing = await getObjectAclPolicy(objectFile);
+    if (existing?.owner && existing.owner !== owner) {
+      req?.log?.warn(
+        { entityPath, existingOwner: existing.owner },
+        "Rejected public cover ACL overwrite",
+      );
+      return;
+    }
+    await storage.trySetObjectEntityAclPolicy(entityPath, {
+      owner,
+      visibility: "public",
+    });
+  } catch (err) {
+    req?.log?.warn({ err, entityPath }, "Failed to set public cover ACL");
   }
 }
