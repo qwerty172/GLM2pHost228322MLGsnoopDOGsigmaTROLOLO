@@ -10,10 +10,10 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 11:14 UTC |
+| Дата | 2026-08-03 11:17 UTC |
 | Task ID | reconcile |
-| Результат | reconcile PASS (14/14) — все изменения зачтены; groom 0 issues; M-NN 13 pending |
-| Commit | a91bf47 |
+| Результат | reconcile PASS (14/14) — все изменения зачтены; groom 0 issues; sync 13 M-NN pending |
+| Commit | f5a919d |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
