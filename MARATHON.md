@@ -12,10 +12,10 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 12:26 UTC |
+| Дата | 2026-08-03 12:30 UTC |
 | Task ID | meta |
-| Результат | skipped (recent_run)|
-| Commit | 2bf24bc |
+| Результат | prompt: should-run первым в полном шаблоне; STOP на exit 2 (не делать reconcile после skip) |
+| Commit | pending |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
