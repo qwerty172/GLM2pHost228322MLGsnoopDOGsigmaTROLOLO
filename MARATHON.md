@@ -4,16 +4,16 @@
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл` (cron **пн/чт 09:00 UTC** — `0 9 * * 1,4`)  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-03 (Wave Maintenance: каждый run, без чередования)
+> **Последнее обновление:** 2026-08-03 (Wave Maintenance: группировка M-NN + sync в таблицу)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 10:59 UTC |
-| Task ID | idle |
-| Результат | reconcile PASS (14/14), все изменения в main зачтены |
-| Commit | 4bd4a79 |
+| Дата | 2026-08-03 11:00 UTC |
+| Task ID | sync |
+| Результат | reconcile PASS (14/14); сканер 51 raw → 13 grouped M-NN в очереди |
+| Commit | *(этот run)* |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -23,10 +23,14 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance** (каждый run automation: scan → одна M-NN):
-- `node scripts/marathon-scan.mjs --next` — первая **новая** задача (пропускает done/in_progress)
-- Один M-NN за run → `done` → TESTLOG → push
-- Если сканер пуст → `Marathon idle`
+**Wave Maintenance:** **13 M-NN pending** (см. таблицу ниже). Сканер группирует сырые хиты:
+- **51 raw** (по одному route/файлу) → **13 grouped** (C по route-файлу, E — один блок на renderer)
+- 144 raw (10 runs назад) — ложные: vendor `public/games/`, неверный `/api` prefix в OpenAPI-сканере
+
+**Workflow:**
+- `node scripts/marathon-scan.mjs --sync-marathon` — обновить таблицу M-NN из сканера (группировка)
+- `node scripts/marathon-scan.mjs --next` — первая **pending** из таблицы (или новая из сканера)
+- Один M-NN за run → `in_progress` → `done` → TESTLOG → push
 
 ### Blocked (human — не трогать automation)
 
@@ -37,7 +41,7 @@
 | C4-D02 | quotas/vds/embed | = C4-S06 |
 | REG-03 | Windows manual | Wave Regression |
 
-**Cycles 1–4 и Wave UX — agent-задачи завершены.** Следующий run → Wave Maintenance (M-NN).
+**Cycles 1–4 и Wave UX — agent-задачи завершены.** Активная очередь: **M-01…M-13** (Wave Maintenance).
 
 ---
 
@@ -184,22 +188,36 @@ Automation **каждый run** создаёт и выполняет одну н
 
 1. **Каждый run:**
    - `node scripts/marathon-reconcile.mjs --apply` (только статусы legacy, без кода)
-   - `node scripts/marathon-scan.mjs --next` → одна **новая** M-NN (skip done/in_progress)
-   - Если `idle: true` в JSON → `Marathon idle`, код не менять
-   - Иначе: добавь строку в таблицу `in_progress` → выполни → `pnpm typecheck` → `done` + TESTLOG
+   - `node scripts/marathon-scan.mjs --sync-marathon` (обновить pending из сканера, с группировкой)
+   - `node scripts/marathon-scan.mjs --next` → первая **pending** M-NN из таблицы
+   - Если `idle: true` → `Marathon idle`, код не менять
+   - Иначе: `in_progress` → выполни → `pnpm typecheck` → `done` + TESTLOG
 2. **Один M-NN за run.**
 3. **Никогда не повторять:** legacy `done`, M-NN `done`/`in_progress`, blocked human.
-4. Приоритет категорий (в сканере): B TODO → C OpenAPI → A RU → E тест → D debug.
-5. Категории: `A`=RU-строки, `B`=TODO/FIXME, `C`=OpenAPI gap, `D`=debug, `E`=нет теста.
+4. **Группировка:** C = по route-файлу; E = все renderer-модули одной задачей; vendor `public/games/` и `isDev` console — исключены.
+5. Приоритет категорий: B TODO → C OpenAPI → A RU → E тест → D debug.
 
 ### Очередь M-NN
 
-| ID | Cat | Задача | Файл | Status | Owner |
-|----|-----|--------|------|--------|-------|
-| — | — | *(сканер `scripts/marathon-scan.mjs` добавит строки сюда)* | — | — | — |
+| ID | Cat | Задача | Файл | Key | Status | Owner |
+|----|-----|--------|------|-----|--------|-------|
+| M-01 | C | OpenAPI gap: routes/downloads.ts (2 routes) | `routes/downloads.ts` | c:artifacts/api-server/src/routes/downloads.ts | pending | agent |
+| M-02 | C | OpenAPI gap: routes/enrich.ts (1 route) | `routes/enrich.ts` | c:artifacts/api-server/src/routes/enrich.ts | pending | agent |
+| M-03 | C | OpenAPI gap: routes/events.ts (1 route) | `routes/events.ts` | c:artifacts/api-server/src/routes/events.ts | pending | agent |
+| M-04 | C | OpenAPI gap: routes/hosts.ts (8 routes) | `routes/hosts.ts` | c:artifacts/api-server/src/routes/hosts.ts | pending | agent |
+| M-05 | C | OpenAPI gap: routes/players.ts (1 route) | `routes/players.ts` | c:artifacts/api-server/src/routes/players.ts | pending | agent |
+| M-06 | C | OpenAPI gap: routes/premium.ts (1 route) | `routes/premium.ts` | c:artifacts/api-server/src/routes/premium.ts | pending | agent |
+| M-07 | C | OpenAPI gap: routes/public.ts (1 route) | `routes/public.ts` | c:artifacts/api-server/src/routes/public.ts | pending | agent |
+| M-08 | C | OpenAPI gap: routes/sessions.ts (1 route) | `routes/sessions.ts` | c:artifacts/api-server/src/routes/sessions.ts | pending | agent |
+| M-09 | C | OpenAPI gap: routes/storage.ts (3 routes) | `routes/storage.ts` | c:artifacts/api-server/src/routes/storage.ts | pending | agent |
+| M-10 | C | OpenAPI gap: routes/submissions.ts (3 routes) | `routes/submissions.ts` | c:artifacts/api-server/src/routes/submissions.ts | pending | agent |
+| M-11 | C | OpenAPI gap: routes/vds.ts (5 routes) | `routes/vds.ts` | c:artifacts/api-server/src/routes/vds.ts | pending | agent |
+| M-12 | C | OpenAPI gap: routes/vt.ts (2 routes) | `routes/vt.ts` | c:artifacts/api-server/src/routes/vt.ts | pending | agent |
+| M-13 | E | host-agent renderer: unit-тесты (18 модулей) | `renderer/*.ts` | e:renderer | pending | agent |
 
-> Automation: при создании задачи замени последнюю строку-плейсхолдер на реальную M-NN.
-> При `done` оставь строку, добавь новую ниже.
+
+> Automation: `--sync-marathon` пересобирает pending из сканера (сохраняет done/in_progress).
+> `--next` берёт первую pending из этой таблицы. При `done` — только смена Status.
 
 ---
 
@@ -208,22 +226,17 @@ Automation **каждый run** создаёт и выполняет одну н
 ```
 git pull origin main
 node scripts/marathon-reconcile.mjs --apply   # только статусы legacy done, БЕЗ кода
-git add MARATHON.md && git commit -m "chore(marathon): reconcile" && git push origin main || true
+node scripts/marathon-scan.mjs --sync-marathon  # обновить pending M-NN (группировка)
+git add MARATHON.md && git commit -m "chore(marathon): sync queue" && git push origin main || true
 Прочитай MARATHON.md. Memory выключена.
 
-КАЖДЫЙ RUN (без чередования):
-1. Legacy C*/UX*/REG* со статусом done/blocked/skipped — НЕ ТРОГАТЬ, не брать в работу.
+КАЖДЫЙ RUN:
+1. Legacy C*/UX*/REG* done/blocked/skipped — НЕ ТРОГАТЬ.
 2. node scripts/marathon-scan.mjs --next
-   - idle:true → "Marathon idle", обнови Last run, выход (код не менять).
-   - иначе pick = одна НОВАЯ M-NN (сканер уже пропустил done/in_progress).
-3. Добавь M-NN в таблицу Wave Maintenance (in_progress) → выполни → pnpm typecheck → done + TESTLOG.
+   - idle:true → Marathon idle, обнови Last run, выход.
+   - иначе pick = первая pending M-NN из таблицы Wave Maintenance.
+3. Status → in_progress → выполни → pnpm typecheck → done + TESTLOG.
 4. Обнови Last run. git add MARATHON.md TESTLOG.md && commit && push.
 
-ЗАПРЕЩЕНО:
-- Повторять задачи со статусом done (legacy и M-NN).
-- Брать pending из старых циклов — все done, только Wave Maintenance.
-- Создавать PR/ветки. Push в main.
-- Трогать open PR.
-
-Один M-NN за run.
+Один M-NN за run. Push в main.
 ```

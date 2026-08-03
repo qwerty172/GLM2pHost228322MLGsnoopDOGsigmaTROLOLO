@@ -215,3 +215,18 @@ Cron automation: `git pull origin main` → `marathon-reconcile.mjs --apply` →
 | blocked human | C3-D03, C4-S06/D02, REG-03 |
 
 Все изменения зачтены в `main`.
+
+## Marathon M-NN queue sync (2026-08-03 11:00 UTC) {#marathon-mnn-sync-1100}
+
+Ручной run: группировка сканера + seed таблицы Wave Maintenance.
+
+| Метрика | Было | Стало |
+|---|---|---|
+| raw hits сканера | 144 (ложные: vendor games, /api prefix) → 51 | 13 grouped |
+| pending M-NN в MARATHON | 0 (только placeholder) | **13** (M-01…M-13) |
+| legacy agent pending | 0 | 0 (idle) |
+
+**Группировка:** C OpenAPI — по route-файлу (29 routes → 12 задач); E renderer — 18 модулей → 1 задача.
+**Следующий pick:** M-01 `routes/downloads.ts` (2 OpenAPI routes).
+
+Команды: `marathon-scan.mjs --sync-marathon`, `--next` читает очередь из MARATHON.md.
