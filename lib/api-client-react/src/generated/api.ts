@@ -44,6 +44,8 @@ import type {
   AuthTokenResponse,
   BindAgentKey200,
   BindAgentKeyBody,
+  BulkPublishLibraryBody,
+  BulkPublishLibraryResponse,
   ClaimSessionBody,
   ConfirmUploadBody,
   ConfirmUploadResponse,
@@ -86,10 +88,14 @@ import type {
   GetSessionParams,
   HealthStatus,
   Host,
+  HostDebtorsResponse,
   HostHeartbeat200,
   HostHeartbeatBody,
   HostLibraryEntry,
+  HostSpeedtestDownloadParams,
+  HostSpeedtestUpload200,
   HostStats,
+  HostStreamRelayResponse,
   IssueAgentBindCodeResponse,
   IssueWsTicketBody,
   IssueWsTicketResponse,
@@ -137,10 +143,14 @@ import type {
   SaveUploadUrlResponse,
   Session,
   SessionByInviteResponse,
+  SteamAutoHostableBody,
+  SteamAutoHostableResponse,
   SteamLookupParams,
   SteamLookupResult,
   UpdateHostConfigBody,
   UpdateHostLibraryEntryBody,
+  UpdateHostPcSpecs200,
+  UpdateHostPcSpecsBody,
   UpdateQuotaBody,
   UpgradeGuestPlayerBody,
   Wallet,
@@ -715,6 +725,95 @@ export const useUpdateHostConfig = <
 };
 
 /**
+ * Legacy path. Header auth (Authorization Bearer / X-Host-Token) is required and must match the path hostToken.
+
+ * @summary [Legacy] Update host config — prefer PATCH /hosts/me/config
+ */
+export const getUpdateHostConfigLegacyUrl = (hostToken: string) => {
+  return `/api/hosts/${hostToken}/config`;
+};
+
+export const updateHostConfigLegacy = async (
+  hostToken: string,
+  updateHostConfigBody: UpdateHostConfigBody,
+  options?: RequestInit,
+): Promise<Host> => {
+  return customFetch<Host>(getUpdateHostConfigLegacyUrl(hostToken), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateHostConfigBody),
+  });
+};
+
+export const getUpdateHostConfigLegacyMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateHostConfigLegacy>>,
+    TError,
+    { hostToken: string; data: BodyType<UpdateHostConfigBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateHostConfigLegacy>>,
+  TError,
+  { hostToken: string; data: BodyType<UpdateHostConfigBody> },
+  TContext
+> => {
+  const mutationKey = ["updateHostConfigLegacy"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateHostConfigLegacy>>,
+    { hostToken: string; data: BodyType<UpdateHostConfigBody> }
+  > = (props) => {
+    const { hostToken, data } = props ?? {};
+
+    return updateHostConfigLegacy(hostToken, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateHostConfigLegacyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateHostConfigLegacy>>
+>;
+export type UpdateHostConfigLegacyMutationBody = BodyType<UpdateHostConfigBody>;
+export type UpdateHostConfigLegacyMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary [Legacy] Update host config — prefer PATCH /hosts/me/config
+ */
+export const useUpdateHostConfigLegacy = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateHostConfigLegacy>>,
+    TError,
+    { hostToken: string; data: BodyType<UpdateHostConfigBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateHostConfigLegacy>>,
+  TError,
+  { hostToken: string; data: BodyType<UpdateHostConfigBody> },
+  TContext
+> => {
+  return useMutation(getUpdateHostConfigLegacyMutationOptions(options));
+};
+
+/**
  * Authenticate with Authorization Bearer / X-Host-Token / X-User-Token.
  * @summary List players who owe this host (negative balance loans)
  */
@@ -791,6 +890,100 @@ export function useGetHostDebtors<
 }
 
 /**
+ * Legacy path. Header auth (Authorization Bearer / X-Host-Token) is required and must match the path hostToken.
+
+ * @summary [Legacy] List host debtors — prefer GET /hosts/me/debtors
+ */
+export const getGetHostDebtorsLegacyUrl = (hostToken: string) => {
+  return `/api/hosts/${hostToken}/debtors`;
+};
+
+export const getHostDebtorsLegacy = async (
+  hostToken: string,
+  options?: RequestInit,
+): Promise<HostDebtorsResponse> => {
+  return customFetch<HostDebtorsResponse>(
+    getGetHostDebtorsLegacyUrl(hostToken),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetHostDebtorsLegacyQueryKey = (hostToken: string) => {
+  return [`/api/hosts/${hostToken}/debtors`] as const;
+};
+
+export const getGetHostDebtorsLegacyQueryOptions = <
+  TData = Awaited<ReturnType<typeof getHostDebtorsLegacy>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  hostToken: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHostDebtorsLegacy>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetHostDebtorsLegacyQueryKey(hostToken);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getHostDebtorsLegacy>>
+  > = ({ signal }) =>
+    getHostDebtorsLegacy(hostToken, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!hostToken,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getHostDebtorsLegacy>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetHostDebtorsLegacyQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getHostDebtorsLegacy>>
+>;
+export type GetHostDebtorsLegacyQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary [Legacy] List host debtors — prefer GET /hosts/me/debtors
+ */
+
+export function useGetHostDebtorsLegacy<
+  TData = Awaited<ReturnType<typeof getHostDebtorsLegacy>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  hostToken: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHostDebtorsLegacy>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetHostDebtorsLegacyQueryOptions(hostToken, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * Authenticate with Authorization Bearer / X-Host-Token / X-User-Token.
  * @summary RTMP restream credentials for the authenticated host
  */
@@ -858,6 +1051,103 @@ export function useGetHostStreamRelay<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetHostStreamRelayQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Legacy path. X-Host-Token / Bearer header is required and must match the path hostToken.
+
+ * @summary [Legacy] RTMP restream credentials — prefer GET /hosts/me/stream-relay
+ */
+export const getGetHostStreamRelayLegacyUrl = (hostToken: string) => {
+  return `/api/hosts/${hostToken}/stream-relay`;
+};
+
+export const getHostStreamRelayLegacy = async (
+  hostToken: string,
+  options?: RequestInit,
+): Promise<HostStreamRelayResponse> => {
+  return customFetch<HostStreamRelayResponse>(
+    getGetHostStreamRelayLegacyUrl(hostToken),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetHostStreamRelayLegacyQueryKey = (hostToken: string) => {
+  return [`/api/hosts/${hostToken}/stream-relay`] as const;
+};
+
+export const getGetHostStreamRelayLegacyQueryOptions = <
+  TData = Awaited<ReturnType<typeof getHostStreamRelayLegacy>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  hostToken: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHostStreamRelayLegacy>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetHostStreamRelayLegacyQueryKey(hostToken);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getHostStreamRelayLegacy>>
+  > = ({ signal }) =>
+    getHostStreamRelayLegacy(hostToken, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!hostToken,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getHostStreamRelayLegacy>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetHostStreamRelayLegacyQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getHostStreamRelayLegacy>>
+>;
+export type GetHostStreamRelayLegacyQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary [Legacy] RTMP restream credentials — prefer GET /hosts/me/stream-relay
+ */
+
+export function useGetHostStreamRelayLegacy<
+  TData = Awaited<ReturnType<typeof getHostStreamRelayLegacy>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  hostToken: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHostStreamRelayLegacy>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetHostStreamRelayLegacyQueryOptions(
+    hostToken,
+    options,
+  );
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -6066,6 +6356,472 @@ export const useAdminRejectGameSubmission = <
   TContext
 > => {
   return useMutation(getAdminRejectGameSubmissionMutationOptions(options));
+};
+
+/**
+ * Authenticate with Authorization Bearer host token, or pass hostToken in the JSON body.
+
+ * @summary Agent reports PC hardware specs (GPU, CPU, RAM)
+ */
+export const getUpdateHostPcSpecsUrl = () => {
+  return `/api/hosts/me/pc-specs`;
+};
+
+export const updateHostPcSpecs = async (
+  updateHostPcSpecsBody: UpdateHostPcSpecsBody,
+  options?: RequestInit,
+): Promise<UpdateHostPcSpecs200> => {
+  return customFetch<UpdateHostPcSpecs200>(getUpdateHostPcSpecsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateHostPcSpecsBody),
+  });
+};
+
+export const getUpdateHostPcSpecsMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateHostPcSpecs>>,
+    TError,
+    { data: BodyType<UpdateHostPcSpecsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateHostPcSpecs>>,
+  TError,
+  { data: BodyType<UpdateHostPcSpecsBody> },
+  TContext
+> => {
+  const mutationKey = ["updateHostPcSpecs"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateHostPcSpecs>>,
+    { data: BodyType<UpdateHostPcSpecsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateHostPcSpecs(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateHostPcSpecsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateHostPcSpecs>>
+>;
+export type UpdateHostPcSpecsMutationBody = BodyType<UpdateHostPcSpecsBody>;
+export type UpdateHostPcSpecsMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Agent reports PC hardware specs (GPU, CPU, RAM)
+ */
+export const useUpdateHostPcSpecs = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateHostPcSpecs>>,
+    TError,
+    { data: BodyType<UpdateHostPcSpecsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateHostPcSpecs>>,
+  TError,
+  { data: BodyType<UpdateHostPcSpecsBody> },
+  TContext
+> => {
+  return useMutation(getUpdateHostPcSpecsMutationOptions(options));
+};
+
+/**
+ * Requires X-Host-Token or X-Token header.
+ * @summary Upload speed test — agent POSTs binary payload
+ */
+export const getHostSpeedtestUploadUrl = () => {
+  return `/api/hosts/me/speedtest`;
+};
+
+export const hostSpeedtestUpload = async (
+  hostSpeedtestUploadBody: Blob,
+  options?: RequestInit,
+): Promise<HostSpeedtestUpload200> => {
+  return customFetch<HostSpeedtestUpload200>(getHostSpeedtestUploadUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/octet-stream",
+      ...options?.headers,
+    },
+    body: JSON.stringify(hostSpeedtestUploadBody),
+  });
+};
+
+export const getHostSpeedtestUploadMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof hostSpeedtestUpload>>,
+    TError,
+    { data: BodyType<Blob> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof hostSpeedtestUpload>>,
+  TError,
+  { data: BodyType<Blob> },
+  TContext
+> => {
+  const mutationKey = ["hostSpeedtestUpload"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof hostSpeedtestUpload>>,
+    { data: BodyType<Blob> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return hostSpeedtestUpload(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type HostSpeedtestUploadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof hostSpeedtestUpload>>
+>;
+export type HostSpeedtestUploadMutationBody = BodyType<Blob>;
+export type HostSpeedtestUploadMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Upload speed test — agent POSTs binary payload
+ */
+export const useHostSpeedtestUpload = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof hostSpeedtestUpload>>,
+    TError,
+    { data: BodyType<Blob> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof hostSpeedtestUpload>>,
+  TError,
+  { data: BodyType<Blob> },
+  TContext
+> => {
+  return useMutation(getHostSpeedtestUploadMutationOptions(options));
+};
+
+/**
+ * Requires X-Host-Token or X-Token header. Query `bytes` (64 KiB–2 MiB, default 512 KiB).
+ * @summary Download speed test — server sends binary payload
+ */
+export const getHostSpeedtestDownloadUrl = (
+  params?: HostSpeedtestDownloadParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/hosts/me/speedtest/download?${stringifiedParams}`
+    : `/api/hosts/me/speedtest/download`;
+};
+
+export const hostSpeedtestDownload = async (
+  params?: HostSpeedtestDownloadParams,
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getHostSpeedtestDownloadUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getHostSpeedtestDownloadQueryKey = (
+  params?: HostSpeedtestDownloadParams,
+) => {
+  return [
+    `/api/hosts/me/speedtest/download`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getHostSpeedtestDownloadQueryOptions = <
+  TData = Awaited<ReturnType<typeof hostSpeedtestDownload>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: HostSpeedtestDownloadParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof hostSpeedtestDownload>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getHostSpeedtestDownloadQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof hostSpeedtestDownload>>
+  > = ({ signal }) =>
+    hostSpeedtestDownload(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof hostSpeedtestDownload>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type HostSpeedtestDownloadQueryResult = NonNullable<
+  Awaited<ReturnType<typeof hostSpeedtestDownload>>
+>;
+export type HostSpeedtestDownloadQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Download speed test — server sends binary payload
+ */
+
+export function useHostSpeedtestDownload<
+  TData = Awaited<ReturnType<typeof hostSpeedtestDownload>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: HostSpeedtestDownloadParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof hostSpeedtestDownload>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getHostSpeedtestDownloadQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Compares agent-reported Steam games against the catalog and host PC tier. Authenticate with Authorization Bearer / X-User-Token, or hostToken in body.
+
+ * @summary Check which Steam library games this host can auto-host
+ */
+export const getCheckSteamAutoHostableUrl = () => {
+  return `/api/hosts/me/steam-auto-hostable`;
+};
+
+export const checkSteamAutoHostable = async (
+  steamAutoHostableBody: SteamAutoHostableBody,
+  options?: RequestInit,
+): Promise<SteamAutoHostableResponse> => {
+  return customFetch<SteamAutoHostableResponse>(
+    getCheckSteamAutoHostableUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(steamAutoHostableBody),
+    },
+  );
+};
+
+export const getCheckSteamAutoHostableMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof checkSteamAutoHostable>>,
+    TError,
+    { data: BodyType<SteamAutoHostableBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof checkSteamAutoHostable>>,
+  TError,
+  { data: BodyType<SteamAutoHostableBody> },
+  TContext
+> => {
+  const mutationKey = ["checkSteamAutoHostable"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof checkSteamAutoHostable>>,
+    { data: BodyType<SteamAutoHostableBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return checkSteamAutoHostable(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CheckSteamAutoHostableMutationResult = NonNullable<
+  Awaited<ReturnType<typeof checkSteamAutoHostable>>
+>;
+export type CheckSteamAutoHostableMutationBody =
+  BodyType<SteamAutoHostableBody>;
+export type CheckSteamAutoHostableMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Check which Steam library games this host can auto-host
+ */
+export const useCheckSteamAutoHostable = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof checkSteamAutoHostable>>,
+    TError,
+    { data: BodyType<SteamAutoHostableBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof checkSteamAutoHostable>>,
+  TError,
+  { data: BodyType<SteamAutoHostableBody> },
+  TContext
+> => {
+  return useMutation(getCheckSteamAutoHostableMutationOptions(options));
+};
+
+/**
+ * Authenticate with Authorization Bearer / X-User-Token, or hostToken in body.
+
+ * @summary Bulk add/enable games in the host library
+ */
+export const getBulkPublishHostLibraryUrl = () => {
+  return `/api/hosts/me/library/bulk-publish`;
+};
+
+export const bulkPublishHostLibrary = async (
+  bulkPublishLibraryBody: BulkPublishLibraryBody,
+  options?: RequestInit,
+): Promise<BulkPublishLibraryResponse> => {
+  return customFetch<BulkPublishLibraryResponse>(
+    getBulkPublishHostLibraryUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(bulkPublishLibraryBody),
+    },
+  );
+};
+
+export const getBulkPublishHostLibraryMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkPublishHostLibrary>>,
+    TError,
+    { data: BodyType<BulkPublishLibraryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bulkPublishHostLibrary>>,
+  TError,
+  { data: BodyType<BulkPublishLibraryBody> },
+  TContext
+> => {
+  const mutationKey = ["bulkPublishHostLibrary"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bulkPublishHostLibrary>>,
+    { data: BodyType<BulkPublishLibraryBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return bulkPublishHostLibrary(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BulkPublishHostLibraryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bulkPublishHostLibrary>>
+>;
+export type BulkPublishHostLibraryMutationBody =
+  BodyType<BulkPublishLibraryBody>;
+export type BulkPublishHostLibraryMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Bulk add/enable games in the host library
+ */
+export const useBulkPublishHostLibrary = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkPublishHostLibrary>>,
+    TError,
+    { data: BodyType<BulkPublishLibraryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof bulkPublishHostLibrary>>,
+  TError,
+  { data: BodyType<BulkPublishLibraryBody> },
+  TContext
+> => {
+  return useMutation(getBulkPublishHostLibraryMutationOptions(options));
 };
 
 /**
