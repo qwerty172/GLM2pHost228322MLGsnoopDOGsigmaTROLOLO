@@ -15,7 +15,7 @@
 | Дата | 2026-08-03 12:38 UTC |
 | Task ID | M-05 |
 | Результат | OpenAPI POST /players/claim-guest + groom: убран recent_run skip |
-| Commit | pending |
+| Commit | 7e610f7 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
