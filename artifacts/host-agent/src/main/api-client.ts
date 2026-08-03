@@ -9,6 +9,13 @@ function base(apiBaseUrl: string): string {
   return apiBaseUrl.replace(/\/$/, "");
 }
 
+function hostAuthHeaders(hostToken: string): Record<string, string> {
+  return {
+    "content-type": "application/json",
+    "x-host-token": hostToken,
+  };
+}
+
 // Fetch this host's current schedule config from the server (source of
 // truth — the web dashboard writes it there directly). Returns null on
 // network/auth errors so callers can skip and retry on the next cycle.
@@ -43,7 +50,7 @@ export async function fetchLibrary(
   try {
     const url = `${base(apiBaseUrl)}/api/hosts/${encodeURIComponent(hostToken)}/library`;
     const resp = await fetch(url, {
-      headers: { "content-type": "application/json" },
+      headers: hostAuthHeaders(hostToken),
     });
     if (!resp.ok) {
       log("warn", `fetchLibrary HTTP ${resp.status}`);
@@ -99,7 +106,7 @@ export async function patchLocalAvailability(
     const url = `${base(apiBaseUrl)}/api/hosts/${encodeURIComponent(hostToken)}/library/${encodeURIComponent(gameId)}`;
     await fetch(url, {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
+      headers: hostAuthHeaders(hostToken),
       body: JSON.stringify({
         localAvailable,
         lastError: lastError ?? "",

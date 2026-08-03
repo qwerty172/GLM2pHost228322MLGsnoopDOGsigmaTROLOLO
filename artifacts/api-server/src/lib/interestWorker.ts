@@ -20,6 +20,8 @@ import {
   systemAccountBalance,
   writeLedger,
   SYSTEM_INTEREST_RESERVE,
+  interestCycleKey,
+  hasInterestPayoutForCycle,
 } from "./economy";
 import { randomUUID } from "node:crypto";
 
@@ -45,6 +47,8 @@ const RATE_HUNDREDTH_BPS = Number(
 const FRACTION_SCALE = 10_000;
 let timer: NodeJS.Timeout | null = null;
 let stopped = false;
+// Overlap guard: skip a tick if the previous run is still in flight.
+let isPaying = false;
 
 function msUntilNextRun(from: Date = new Date()): number {
   const next = new Date(
@@ -68,6 +72,17 @@ function msUntilNextRun(from: Date = new Date()): number {
 }
 
 async function payOnce(now: Date = new Date()): Promise<void> {
+  if (isPaying) return;
+  isPaying = true;
+  try {
+    await payOnceInner(now);
+  } finally {
+    isPaying = false;
+  }
+}
+
+async function payOnceInner(now: Date): Promise<void> {
+  const cycleKey = interestCycleKey(now);
   const reserveBefore = await db.transaction((tx) =>
     systemAccountBalance(tx, SYSTEM_INTEREST_RESERVE),
   );
@@ -81,34 +96,61 @@ async function payOnce(now: Date = new Date()): Promise<void> {
     const rows = await db
       .select({
         id: tbl.id,
-        balance: tbl.internalBalanceLzt,
-        sample: tbl.interestSampleLzt,
-        fraction: tbl.pendingInterestFractionLzt,
       })
       .from(tbl);
     for (const u of rows) {
-      // Time-weighted average over the week, capped below at 0 to avoid the
-      // mid-cycle "user just registered" sample=0 case overstating payout
-      // (it actually understates — still defensible).
-      const avg = Math.max(0, Math.floor((u.sample + u.balance) / 2));
-      if (avg <= 0 && u.fraction <= 0) {
-        // Refresh the sample so we always reflect the latest balance even
-        // when no payout happens this cycle.
-        if (u.sample !== u.balance) {
-          await db
-            .update(tbl)
-            .set({ interestSampleLzt: u.balance })
-            .where(eq(tbl.id, u.id));
-        }
-        continue;
-      }
-      const scaledNew = avg * RATE_HUNDREDTH_BPS;
-      const totalScaled = scaledNew + u.fraction;
-      const wholeLzt = Math.floor(totalScaled / FRACTION_SCALE);
-      const remainder = totalScaled - wholeLzt * FRACTION_SCALE;
-
       try {
         await db.transaction(async (tx) => {
+          const [locked] = await tx
+            .select({
+              id: tbl.id,
+              balance: tbl.internalBalanceLzt,
+              sample: tbl.interestSampleLzt,
+              fraction: tbl.pendingInterestFractionLzt,
+            })
+            .from(tbl)
+            .where(eq(tbl.id, u.id))
+            .for("update");
+          if (!locked) return;
+
+          if (
+            await hasInterestPayoutForCycle(
+              tx,
+              ownerType,
+              locked.id,
+              cycleKey,
+            )
+          ) {
+            if (locked.sample !== locked.balance) {
+              await tx
+                .update(tbl)
+                .set({ interestSampleLzt: locked.balance })
+                .where(eq(tbl.id, locked.id));
+            }
+            return;
+          }
+
+          // Time-weighted average over the week, capped below at 0 to avoid the
+          // mid-cycle "user just registered" sample=0 case overstating payout
+          // (it actually understates — still defensible).
+          const avg = Math.max(
+            0,
+            Math.floor((locked.sample + locked.balance) / 2),
+          );
+          if (avg <= 0 && locked.fraction <= 0) {
+            if (locked.sample !== locked.balance) {
+              await tx
+                .update(tbl)
+                .set({ interestSampleLzt: locked.balance })
+                .where(eq(tbl.id, locked.id));
+            }
+            return;
+          }
+          const scaledNew = avg * RATE_HUNDREDTH_BPS;
+          const totalScaled = scaledNew + locked.fraction;
+          const wholeLzt = Math.floor(totalScaled / FRACTION_SCALE);
+          const remainder = totalScaled - wholeLzt * FRACTION_SCALE;
+
           if (wholeLzt > 0) {
             const ok = await drawFromSystemAccount(
               tx,
@@ -116,15 +158,13 @@ async function payOnce(now: Date = new Date()): Promise<void> {
               wholeLzt,
             );
             if (!ok) {
-              // Not enough reserve — stash the whole accumulator in the
-              // fraction so we can pay it next cycle.
               await tx
                 .update(tbl)
                 .set({
                   pendingInterestFractionLzt: totalScaled,
-                  interestSampleLzt: u.balance,
+                  interestSampleLzt: locked.balance,
                 })
-                .where(eq(tbl.id, u.id));
+                .where(eq(tbl.id, locked.id));
               return;
             }
             await tx
@@ -132,20 +172,20 @@ async function payOnce(now: Date = new Date()): Promise<void> {
               .set({
                 internalBalanceLzt: sql`${tbl.internalBalanceLzt} + ${wholeLzt}`,
                 pendingInterestFractionLzt: remainder,
-                interestSampleLzt: u.balance + wholeLzt,
+                interestSampleLzt: locked.balance + wholeLzt,
               })
-              .where(eq(tbl.id, u.id));
+              .where(eq(tbl.id, locked.id));
             const groupId = randomUUID();
             await writeLedger(tx, [
               {
                 groupId,
                 kind: "interest_payout",
                 ownerType,
-                ownerId: u.id,
+                ownerId: locked.id,
                 bucket: "balance",
                 deltaLzt: wholeLzt,
-                refType: "system_account",
-                refId: SYSTEM_INTEREST_RESERVE,
+                refType: "interest_cycle",
+                refId: cycleKey,
                 note: `avg=${avg}`,
               },
               {
@@ -164,9 +204,9 @@ async function payOnce(now: Date = new Date()): Promise<void> {
               .update(tbl)
               .set({
                 pendingInterestFractionLzt: remainder,
-                interestSampleLzt: u.balance,
+                interestSampleLzt: locked.balance,
               })
-              .where(eq(tbl.id, u.id));
+              .where(eq(tbl.id, locked.id));
           }
         });
       } catch (err) {
@@ -177,7 +217,7 @@ async function payOnce(now: Date = new Date()): Promise<void> {
       }
     }
   }
-  logger.info({ now }, "Weekly interest cycle complete");
+  logger.info({ now, cycleKey }, "Weekly interest cycle complete");
 }
 
 function scheduleNext(): void {
