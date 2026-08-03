@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-06 (2026-08-03 12:39 UTC) {#marathon-m-06}
+
+| Проверка | Результат |
+|---|---|
+| OpenAPI | `POST /premium/purchase` + PremiumPurchaseBody/Response |
+| codegen | orval → api-client-react + api-zod |
+| typecheck | PASS |
+| marathon-scan | premium.ts больше не в raw hits (7/7) |
+
+**Следующий pick:** M-07 `routes/public.ts`.
+
 ## Marathon meta (2026-08-03 12:38 UTC) {#marathon-meta-no-recent-run}
 
 **Проблема:** cron каждую минуту, но `recent_run` (45min) пропускал run при 9 pending M-NN.

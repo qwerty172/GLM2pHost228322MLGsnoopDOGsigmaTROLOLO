@@ -136,6 +136,8 @@ export * from "./playerGameSaveResponseSave";
 export * from "./playerGameSaveUploadUrlBody";
 export * from "./playerGameSaveUploadUrlResponse";
 export * from "./postAgentTelemetry200";
+export * from "./premiumPurchaseBody";
+export * from "./premiumPurchaseResponse";
 export * from "./publicGameHostItem";
 export * from "./publicGameHostItemHostTier";
 export * from "./publicGameHostItemStatus";

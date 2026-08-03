@@ -12,10 +12,10 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 12:38 UTC |
-| Task ID | M-05 |
-| Результат | OpenAPI POST /players/claim-guest + groom: убран recent_run skip |
-| Commit | 7e610f7 |
+| Дата | 2026-08-03 12:39 UTC |
+| Task ID | M-06 |
+| Результат | OpenAPI POST /premium/purchase + codegen |
+| Commit | (pending) |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -25,8 +25,8 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** **8 M-NN pending** (см. таблицу ниже). Сканер группирует сырые хиты:
-- **8 raw** (по одному route/файлу) → **8 grouped** (M-05 players.ts закрыт)
+**Wave Maintenance:** **7 M-NN pending** (см. таблицу ниже). Сканер группирует сырые хиты:
+- **7 raw** (по одному route/файлу) → **7 grouped** (M-06 premium.ts закрыт)
 - 144 raw (10 runs назад) — ложные: vendor `public/games/`, неверный `/api` prefix в OpenAPI-сканере
 
 **Workflow:**
@@ -238,7 +238,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-03 | C | OpenAPI gap: routes/events.ts (1 route) | `routes/events.ts` | c:artifacts/api-server/src/routes/events.ts | done | agent |
 | M-04 | C | OpenAPI gap: routes/hosts.ts (8 routes) | `routes/hosts.ts` | c:artifacts/api-server/src/routes/hosts.ts | done | agent |
 | M-05 | C | OpenAPI gap: routes/players.ts (1 route) | `routes/players.ts` | c:artifacts/api-server/src/routes/players.ts | done | agent |
-| M-06 | C | OpenAPI gap: routes/premium.ts (1 route) | `routes/premium.ts` | c:artifacts/api-server/src/routes/premium.ts | pending | agent |
+| M-06 | C | OpenAPI gap: routes/premium.ts (1 route) | `routes/premium.ts` | c:artifacts/api-server/src/routes/premium.ts | done | agent |
 | M-07 | C | OpenAPI gap: routes/public.ts (1 route) | `routes/public.ts` | c:artifacts/api-server/src/routes/public.ts | pending | agent |
 | M-08 | C | OpenAPI gap: routes/sessions.ts (1 route) | `routes/sessions.ts` | c:artifacts/api-server/src/routes/sessions.ts | pending | agent |
 | M-09 | C | OpenAPI gap: routes/storage.ts (3 routes) | `routes/storage.ts` | c:artifacts/api-server/src/routes/storage.ts | pending | agent |
@@ -255,18 +255,19 @@ Automation **каждый run** создаёт и выполняет одну н
 
 ## Automation prompt (вставить в Cursor Automations)
 
-**Короткий (рекомендуется для cron):**
+**Короткий (рекомендуется для cron — вставить в Automation как есть):**
 ```
 git pull origin main
 node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0
-# exit 2 = STOP только pr_in_flight / in_progress; commit+push MARATHON если Result изменился
 node scripts/marathon-reconcile.mjs --apply
 node scripts/marathon-groom.mjs --apply
 node scripts/marathon-scan.mjs --sync-marathon
 git add MARATHON.md && git commit -m "chore(marathon): groom+sync" && git push origin main || true
-Прочитай MARATHON.md. Memory выключена.
-Одна M-NN или meta. pnpm typecheck → done + TESTLOG → push main.
+node scripts/marathon-scan.mjs --next
+# idle:true → обнови Last run «Marathon idle», exit 0
+# иначе: одна M-NN → pnpm typecheck → done + TESTLOG → push main
 ```
+> **Не полагайся на «прочитай MARATHON.md» без скриптов выше** — иначе токены уходят на explore, а не на M-NN.
 
 **Полный:**
 ```

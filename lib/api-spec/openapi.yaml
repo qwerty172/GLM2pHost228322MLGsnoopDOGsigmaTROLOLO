@@ -20,6 +20,8 @@ tags:
     description: Session lifecycle and discovery
   - name: wallet
     description: Crypto wallet, balances, deposits, withdrawals
+  - name: premium
+    description: Premium subscription purchases (internal LZT)
   - name: games
     description: Catalog of games available to stream
   - name: quotas
@@ -1876,6 +1878,40 @@ paths:
                 $ref: "#/components/schemas/Withdrawal"
         "400":
           description: Invalid request (e.g. insufficient balance)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /premium/purchase:
+    post:
+      operationId: purchasePremium
+      tags: [premium]
+      summary: Purchase premium subscription days with internal LZT
+      description: >
+        Debits `internalBalanceLzt` (600 LZT per day) and extends `premiumUntil`
+        from the later of now or the current premium end. Rate-limited to 4 requests/min.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PremiumPurchaseBody"
+      responses:
+        "201":
+          description: Premium extended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PremiumPurchaseResponse"
+        "400":
+          description: Invalid request or insufficient balance
           content:
             application/json:
               schema:
@@ -4336,6 +4372,34 @@ components:
         - playerToken
         - transferredInternalLzt
         - transferredWithdrawableLzt
+
+    PremiumPurchaseBody:
+      type: object
+      properties:
+        userToken:
+          type: string
+          description: Host or player wallet token
+        days:
+          type: integer
+          minimum: 1
+          maximum: 1825
+          description: Number of premium days to purchase (600 LZT each)
+      required:
+        - userToken
+        - days
+
+    PremiumPurchaseResponse:
+      type: object
+      properties:
+        premiumUntil:
+          type: string
+          format: date-time
+        costLzt:
+          type: integer
+          description: Total internal LZT debited
+      required:
+        - premiumUntil
+        - costLzt
 
     AuthLoginBody:
       type: object

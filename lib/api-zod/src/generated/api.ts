@@ -3365,6 +3365,22 @@ export const RequestWithdrawalBody = zod.object({
 });
 
 /**
+ * Debits `internalBalanceLzt` (600 LZT per day) and extends `premiumUntil` from the later of now or the current premium end. Rate-limited to 4 requests/min.
+
+ * @summary Purchase premium subscription days with internal LZT
+ */
+export const purchasePremiumBodyDaysMax = 1825;
+
+export const PurchasePremiumBody = zod.object({
+  userToken: zod.string().describe("Host or player wallet token"),
+  days: zod
+    .number()
+    .min(1)
+    .max(purchasePremiumBodyDaysMax)
+    .describe("Number of premium days to purchase (600 LZT each)"),
+});
+
+/**
  * @summary Admin вЂ” list all games including hidden ones
  */
 export const AdminListGamesHeader = zod.object({

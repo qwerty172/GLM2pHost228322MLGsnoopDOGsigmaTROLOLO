@@ -117,6 +117,8 @@ import type {
   PlayerGameSaveUploadUrlBody,
   PlayerGameSaveUploadUrlResponse,
   PostAgentTelemetry200,
+  PremiumPurchaseBody,
+  PremiumPurchaseResponse,
   PublicGameHostItem,
   PublicHostListItem,
   PublicPing200,
@@ -5486,6 +5488,94 @@ export const useRequestWithdrawal = <
   TContext
 > => {
   return useMutation(getRequestWithdrawalMutationOptions(options));
+};
+
+/**
+ * Debits `internalBalanceLzt` (600 LZT per day) and extends `premiumUntil` from the later of now or the current premium end. Rate-limited to 4 requests/min.
+
+ * @summary Purchase premium subscription days with internal LZT
+ */
+export const getPurchasePremiumUrl = () => {
+  return `/api/premium/purchase`;
+};
+
+export const purchasePremium = async (
+  premiumPurchaseBody: PremiumPurchaseBody,
+  options?: RequestInit,
+): Promise<PremiumPurchaseResponse> => {
+  return customFetch<PremiumPurchaseResponse>(getPurchasePremiumUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(premiumPurchaseBody),
+  });
+};
+
+export const getPurchasePremiumMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof purchasePremium>>,
+    TError,
+    { data: BodyType<PremiumPurchaseBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof purchasePremium>>,
+  TError,
+  { data: BodyType<PremiumPurchaseBody> },
+  TContext
+> => {
+  const mutationKey = ["purchasePremium"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof purchasePremium>>,
+    { data: BodyType<PremiumPurchaseBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return purchasePremium(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PurchasePremiumMutationResult = NonNullable<
+  Awaited<ReturnType<typeof purchasePremium>>
+>;
+export type PurchasePremiumMutationBody = BodyType<PremiumPurchaseBody>;
+export type PurchasePremiumMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Purchase premium subscription days with internal LZT
+ */
+export const usePurchasePremium = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof purchasePremium>>,
+    TError,
+    { data: BodyType<PremiumPurchaseBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof purchasePremium>>,
+  TError,
+  { data: BodyType<PremiumPurchaseBody> },
+  TContext
+> => {
+  return useMutation(getPurchasePremiumMutationOptions(options));
 };
 
 /**

@@ -499,6 +499,23 @@ export interface ClaimGuestPlayerResponse {
   transferredWithdrawableLzt: number;
 }
 
+export interface PremiumPurchaseBody {
+  /** Host or player wallet token */
+  userToken: string;
+  /**
+   * Number of premium days to purchase (600 LZT each)
+   * @minimum 1
+   * @maximum 1825
+   */
+  days: number;
+}
+
+export interface PremiumPurchaseResponse {
+  premiumUntil: string;
+  /** Total internal LZT debited */
+  costLzt: number;
+}
+
 export interface AuthLoginBody {
   legacyToken: string;
 }
