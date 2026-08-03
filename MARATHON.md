@@ -13,7 +13,7 @@
 | Дата | 2026-08-03 11:33 UTC |
 | Task ID | reconcile |
 | Результат | reconcile PASS (14/14) — все изменения зачтены; groom 0 issues; sync 13 M-NN pending |
-| Commit | ab23ea1 |
+| Commit | e38f949 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
