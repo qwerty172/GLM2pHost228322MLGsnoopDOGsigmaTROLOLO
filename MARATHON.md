@@ -14,7 +14,7 @@
 |------|----------|
 | Дата | 2026-08-03 12:30 UTC |
 | Task ID | meta |
-| Результат | prompt: should-run первым в полном шаблоне; STOP на exit 2 (не делать reconcile после skip) |
+| Результат | skipped (recent_run)|
 | Commit | 70f3259 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
