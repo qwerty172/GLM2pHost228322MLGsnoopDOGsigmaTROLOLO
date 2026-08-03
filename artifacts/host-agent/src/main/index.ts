@@ -310,10 +310,13 @@ async function startAgent(): Promise<void> {
     })();
   });
 
-  ipcMain.handle("input:set-guard", (_e, pid: number | null, guardDisabled?: boolean) => {
-    setAllowedTarget(pid, { guardDisabled: guardDisabled ?? false });
-    return getFocusGuardStatus();
-  });
+  ipcMain.handle(
+    "input:set-guard",
+    (_e, pid: number | null, browserGuard?: boolean) => {
+      setAllowedTarget(pid, { browserGuard: browserGuard ?? false });
+      return getFocusGuardStatus();
+    },
+  );
   ipcMain.handle("input:clear-guard", () => {
     clearAllowedTarget();
     return getFocusGuardStatus();

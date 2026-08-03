@@ -179,7 +179,7 @@ export async function launchEntry(
       }
       void shell.openExternal(parsed.toString());
       lastWasUrl = true;
-      setAllowedTarget(null, { guardDisabled: true });
+      setAllowedTarget(null, { browserGuard: true });
       startBrowserWatch(parsed.toString());
       log("info", `[library] Opened browser URL ${parsed.toString()}`);
       return { ok: true };
@@ -234,7 +234,7 @@ export async function launchApp(
       }
       void shell.openExternal(parsed.toString());
       lastWasUrl = true;
-      setAllowedTarget(null, { guardDisabled: true });
+      setAllowedTarget(null, { browserGuard: true });
       startBrowserWatch(parsed.toString());
       log("info", `Opened browser URL ${parsed.toString()}`);
       return { ok: true };

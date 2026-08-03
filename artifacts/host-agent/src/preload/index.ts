@@ -13,25 +13,25 @@ const api = {
   },
   setInputGuard: (
     pid: number | null,
-    guardDisabled?: boolean,
+    browserGuard?: boolean,
   ): Promise<{
     active: boolean;
     allowedPid: number | null;
-    guardDisabled: boolean;
+    browserGuard: boolean;
     foregroundAllowed: boolean;
     inputBlocked: boolean;
-  }> => ipcRenderer.invoke("input:set-guard", pid, guardDisabled),
+  }> => ipcRenderer.invoke("input:set-guard", pid, browserGuard),
   clearInputGuard: (): Promise<{
     active: boolean;
     allowedPid: number | null;
-    guardDisabled: boolean;
+    browserGuard: boolean;
     foregroundAllowed: boolean;
     inputBlocked: boolean;
   }> => ipcRenderer.invoke("input:clear-guard"),
   getInputGuardStatus: (): Promise<{
     active: boolean;
     allowedPid: number | null;
-    guardDisabled: boolean;
+    browserGuard: boolean;
     foregroundAllowed: boolean;
     inputBlocked: boolean;
   }> => ipcRenderer.invoke("input:get-guard-status"),

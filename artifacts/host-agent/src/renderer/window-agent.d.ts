@@ -21,25 +21,25 @@ declare global {
       injectInput: (event: InputEvent) => void;
       setInputGuard: (
         pid: number | null,
-        guardDisabled?: boolean,
+        browserGuard?: boolean,
       ) => Promise<{
         active: boolean;
         allowedPid: number | null;
-        guardDisabled: boolean;
+        browserGuard: boolean;
         foregroundAllowed: boolean;
         inputBlocked: boolean;
       }>;
       clearInputGuard: () => Promise<{
         active: boolean;
         allowedPid: number | null;
-        guardDisabled: boolean;
+        browserGuard: boolean;
         foregroundAllowed: boolean;
         inputBlocked: boolean;
       }>;
       getInputGuardStatus: () => Promise<{
         active: boolean;
         allowedPid: number | null;
-        guardDisabled: boolean;
+        browserGuard: boolean;
         foregroundAllowed: boolean;
         inputBlocked: boolean;
       }>;
