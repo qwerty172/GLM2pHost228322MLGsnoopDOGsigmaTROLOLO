@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 import { SiteNav } from "@/components/site-nav";
 import { useAuth } from "@/hooks/use-auth";
+import { formatApiError } from "@/lib/api-errors";
 import {
   Card,
   CardHeader,
@@ -93,7 +94,7 @@ export default function QuotaDetailPage() {
       toast.success("Квота опубликована");
       invalidate();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Ошибка");
+      toast.error(formatApiError(err, "Ошибка"));
     }
   };
   const doPause = async () => {
@@ -103,7 +104,7 @@ export default function QuotaDetailPage() {
       toast.success("Поставлено на паузу");
       invalidate();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Ошибка");
+      toast.error(formatApiError(err, "Ошибка"));
     }
   };
   const doClose = async () => {
@@ -113,7 +114,7 @@ export default function QuotaDetailPage() {
       toast.success("Квота закрыта, эскроу возвращён");
       invalidate();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Ошибка");
+      toast.error(formatApiError(err, "Ошибка"));
     }
   };
   const doRegen = async () => {
@@ -123,7 +124,7 @@ export default function QuotaDetailPage() {
       toast.success("Новый код выпущен");
       invalidate();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Ошибка");
+      toast.error(formatApiError(err, "Ошибка"));
     }
   };
 

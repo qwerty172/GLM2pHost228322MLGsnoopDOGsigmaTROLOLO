@@ -7,6 +7,7 @@ import {
   type GameListItem,
 } from "@workspace/api-client-react";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { formatApiError } from "@/lib/api-errors";
 import { toast } from "sonner";
 import {
   Activity,
@@ -93,11 +94,13 @@ export default function GamesPage() {
     query: { queryKey: getListGamesQueryKey(apiParams) },
   });
 
-  const vdsParams = { vdsOnly: true, liveOnly: true };
-  const { data: vdsGamesRaw } = useListGames(vdsParams, {
-    query: { queryKey: getListGamesQueryKey(vdsParams) },
-  });
-  const vdsGames = (vdsGamesRaw ?? []) as GameEnriched[];
+  const [vdsGames, setVdsGames] = useState<GameEnriched[]>([]);
+  useEffect(() => {
+    void fetch(`${import.meta.env.BASE_URL}api/games?vdsOnly=true&liveOnly=true`)
+      .then((r) => r.json())
+      .then((data) => setVdsGames((data ?? []) as GameEnriched[]))
+      .catch(() => setVdsGames([]));
+  }, []);
 
   const games = (rawGames ?? []) as GameEnriched[];
 
@@ -529,7 +532,7 @@ function GameCard({ game, vdsBadge }: { game: GameEnriched; vdsBadge?: boolean }
       } catch { /* ignore */ }
       navigate(`/host/play/${res.session.id}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не удалось создать сессию хоста");
+      toast.error(formatApiError(err, "Не удалось создать сессию хоста"));
     }
   };
 

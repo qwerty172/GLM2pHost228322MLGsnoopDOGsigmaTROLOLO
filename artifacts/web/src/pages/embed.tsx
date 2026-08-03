@@ -1,13 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { formatApiErrorPanel } from "@/lib/api-errors";
 import { useSearch } from "wouter";
 import { Loader2, AlertCircle, WifiOff } from "lucide-react";
-import {
-  createEmbedSession,
-  getPublicIceConfig,
-  useGetSessionByPlayerToken,
-  getGetSessionByPlayerTokenQueryKey,
-  type CreateEmbedSessionResponse,
-} from "@workspace/api-client-react";
 
 // ---------------------------------------------------------------------------
 // Embeddable widget (task-125): third-party sites drop this page into an
@@ -20,56 +14,25 @@ import {
 //   resolution, bitrateKbps (optional)
 // ---------------------------------------------------------------------------
 
+type EmbedSession = {
+  sessionId: string;
+  playerToken: string;
+  gameSlug: string;
+  gameTitle: string;
+  hostDisplayName: string;
+  ratePerMinuteLzt: number;
+  keyBalanceLzt: number;
+};
+
 type EmbedApiError = { error: string; message: string };
 
 const isDev = import.meta.env.DEV;
 
-function parseEmbedApiError(err: unknown): EmbedApiError {
-  if (err && typeof err === "object" && "data" in err) {
-    const data = (err as { data: unknown }).data;
-    if (data && typeof data === "object" && "error" in data) {
-      return {
-        error: String((data as { error: unknown }).error),
-        message:
-          "message" in data && (data as { message: unknown }).message != null
-            ? String((data as { message: unknown }).message)
-            : "",
-      };
-    }
-  }
-  return {
-    error: "network_error",
-    message: "Не удалось связаться с игровым сервером",
-  };
-}
-
 function mapEmbedError(error: EmbedApiError): { title: string; detail: string } {
-  switch (error.error) {
-    case "key_balance_exhausted":
-      return {
-        title: "Баланс API-ключа исчерпан",
-        detail: error.message || "Пополните кошелёк ключа, чтобы продолжить.",
-      };
-    case "invalid_api_key":
-      return { title: "Неверный API-ключ", detail: error.message };
-    case "key_disabled":
-      return { title: "API-ключ отключён", detail: error.message };
-    case "missing_params":
-      return {
-        title: "Не хватает параметров",
-        detail: "Укажите apiKey и game в query-параметрах.",
-      };
-    case "network_error":
-      return {
-        title: "Ошибка сети",
-        detail: error.message || "Не удалось связаться с сервером.",
-      };
-    default:
-      return {
-        title: "Не удалось начать сессию",
-        detail: error.message || error.error,
-      };
-  }
+  return formatApiErrorPanel(error, {
+    title: "Не удалось начать сессию",
+    detail: "Попробуйте позже или проверьте параметры.",
+  });
 }
 
 export default function Embed() {
@@ -81,7 +44,7 @@ export default function Embed() {
   const bitrateKbpsParam = Number(params.get("bitrateKbps"));
   const bitrateKbps = Number.isFinite(bitrateKbpsParam) && bitrateKbpsParam > 0 ? bitrateKbpsParam : undefined;
 
-  const [session, setSession] = useState<CreateEmbedSessionResponse | null>(null);
+  const [session, setSession] = useState<EmbedSession | null>(null);
   const [error, setError] = useState<EmbedApiError | null>(null);
   const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>("new");
   const [ended, setEnded] = useState<{ reason: string } | null>(null);
@@ -92,14 +55,6 @@ export default function Embed() {
   const startedRef = useRef(false);
   const wsReconnectDelayRef = useRef(1000);
   const wsReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const { data: sessionStatus } = useGetSessionByPlayerToken(session?.playerToken ?? "", {
-    query: {
-      enabled: !!session?.playerToken && !ended,
-      queryKey: getGetSessionByPlayerTokenQueryKey(session?.playerToken ?? ""),
-      refetchInterval: 5_000,
-    },
-  });
 
   // 1. Create the session (host selection + balance check happen server-side).
   useEffect(() => {
@@ -117,15 +72,25 @@ export default function Embed() {
     startedRef.current = false;
     void (async () => {
       try {
-        const data = await createEmbedSession({
-          apiKey,
-          gameSlug,
-          resolution,
-          bitrateKbps,
+        const res = await fetch(`${import.meta.env.BASE_URL}api/embed/sessions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ apiKey, gameSlug, resolution, bitrateKbps }),
         });
-        if (!cancelled) setSession(data);
-      } catch (err) {
-        if (!cancelled) setError(parseEmbedApiError(err));
+        const json = (await res.json()) as EmbedSession | EmbedApiError;
+        if (cancelled) return;
+        if (!res.ok) {
+          setError(json as EmbedApiError);
+          return;
+        }
+        setSession(json as EmbedSession);
+      } catch {
+        if (!cancelled) {
+          setError({
+            error: "network_error",
+            message: "Не удалось связаться с игровым сервером",
+          });
+        }
       }
     })();
     return () => {
@@ -200,9 +165,12 @@ export default function Embed() {
 
       let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
       try {
-        const cfg = await getPublicIceConfig();
-        const valid = (cfg.iceServers ?? []).filter((s) => s && s.urls);
-        if (valid.length > 0) iceServers = valid;
+        const cfgRes = await fetch(`${import.meta.env.BASE_URL}api/public/ice-config`);
+        if (cfgRes.ok) {
+          const cfgJson = (await cfgRes.json()) as { iceServers?: RTCIceServer[] };
+          const valid = (cfgJson.iceServers ?? []).filter((s) => s && s.urls);
+          if (valid.length > 0) iceServers = valid;
+        }
       } catch {
         // fall back to default STUN
       }
@@ -239,12 +207,20 @@ export default function Embed() {
   // 3. Poll session status so we can surface "key balance exhausted" and
   // other end reasons explicitly, per task-125 requirements.
   useEffect(() => {
-    if (!session || ended || !sessionStatus) return;
-    if (sessionStatus.status === "ended") {
-      setEnded({ reason: sessionStatus.endReason ?? "ended" });
-      cleanupConnection();
-    }
-  }, [session, ended, sessionStatus, cleanupConnection]);
+    if (!session || ended) return;
+    const id = setInterval(() => {
+      void fetch(`${import.meta.env.BASE_URL}api/sessions/by-player-token/${session.playerToken}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((s: { status?: string; endReason?: string | null } | null) => {
+          if (s?.status === "ended") {
+            setEnded({ reason: s.endReason ?? "ended" });
+            cleanupConnection();
+          }
+        })
+        .catch(() => {});
+    }, 5000);
+    return () => clearInterval(id);
+  }, [session, ended, cleanupConnection]);
 
   if (error) {
     const mapped = mapEmbedError(error);

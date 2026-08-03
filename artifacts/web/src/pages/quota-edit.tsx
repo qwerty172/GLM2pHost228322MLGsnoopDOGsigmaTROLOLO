@@ -8,6 +8,7 @@ import {
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import { useAuth } from "@/hooks/use-auth";
+import { formatApiError } from "@/lib/api-errors";
 import {
   Card,
   CardHeader,
@@ -159,7 +160,7 @@ export default function QuotaEditPage() {
       toast.success("Изменения сохранены");
       navigate(`/quotas/${quota.id}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Ошибка");
+      toast.error(formatApiError(err, "Ошибка"));
     }
   };
 
@@ -300,9 +301,7 @@ export default function QuotaEditPage() {
                               });
                               toast.success("Привязка к API-ключу снята");
                             } catch (err) {
-                              toast.error(
-                                err instanceof Error ? err.message : "Ошибка",
-                              );
+                              toast.error(formatApiError(err, "Ошибка"));
                             }
                           }}
                         >

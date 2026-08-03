@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { formatApiError } from "@/lib/api-errors";
 import {
   DndContext,
   closestCenter,
@@ -1036,7 +1037,7 @@ function AddGameModal({
       handleClose();
       onAdded();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не удалось добавить игру");
+      toast.error(formatApiError(err, "Не удалось добавить игру"));
     } finally {
       setSubmitting(false);
     }
@@ -1192,7 +1193,7 @@ export default function HostLibrary() {
       });
       invalidateLibrary();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не удалось переключить");
+      toast.error(formatApiError(err, "Не удалось переключить"));
     } finally {
       setToggling(null);
     }
@@ -1209,7 +1210,7 @@ export default function HostLibrary() {
       setEditEntry(null);
       invalidateLibrary();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не удалось сохранить");
+      toast.error(formatApiError(err, "Не удалось сохранить"));
     }
   };
 
@@ -1229,7 +1230,7 @@ export default function HostLibrary() {
           ? (err as { status: number }).status
           : 0;
       if (status === 409) toast.error("Нельзя удалить: идёт активная сессия");
-      else toast.error(err instanceof Error ? err.message : "Не удалось удалить");
+      else toast.error(formatApiError(err, "Не удалось удалить"));
     }
   };
 
