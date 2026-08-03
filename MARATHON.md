@@ -15,7 +15,7 @@
 | Дата | 2026-08-03 15:26 UTC |
 | Task ID | idle |
 | Результат | Marathon idle |
-| Commit | (pending) |
+| Commit | daff921 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
