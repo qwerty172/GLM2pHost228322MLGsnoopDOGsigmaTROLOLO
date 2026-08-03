@@ -115,6 +115,8 @@ export * from "./loan";
 export * from "./loanRequest";
 export * from "./matchQuotasForHostParams";
 export * from "./myLoans";
+export * from "./platformEvent";
+export * from "./platformEventPayload";
 export * from "./player";
 export * from "./playerGameSaveCommitBody";
 export * from "./playerGameSaveCommitResponse";

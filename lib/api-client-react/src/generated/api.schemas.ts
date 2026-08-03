@@ -428,6 +428,18 @@ export interface RateSessionResponse {
   ratingCount: number;
 }
 
+export type PlatformEventPayload = { [key: string]: unknown };
+
+/**
+ * Platform-wide notification payload delivered over SSE.
+ */
+export interface PlatformEvent {
+  /** Event type (e.g. connected, host_last_seen) */
+  type: string;
+  payload: PlatformEventPayload;
+  at: string;
+}
+
 export type RawgSearchResultItemSource =
   (typeof RawgSearchResultItemSource)[keyof typeof RawgSearchResultItemSource];
 

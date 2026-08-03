@@ -15,6 +15,19 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-03 (2026-08-03 11:57 UTC) {#marathon-m-03}
+
+**Задача:** OpenAPI gap `routes/events.ts` — `GET /events/stream` (SSE).
+
+| Проверка | Результат |
+|---|---|
+| openapi.yaml | path `/events/stream` + schema `PlatformEvent` + tag `events` |
+| codegen | `pnpm --filter @workspace/api-spec run codegen` OK |
+| marathon-scan | events.ts больше не в raw hits (10/10) |
+| typecheck | `pnpm typecheck` OK |
+
+**Следующий pick:** M-04 `routes/hosts.ts`.
+
 ## Marathon M-02 (2026-08-03 11:55 UTC) {#marathon-m-02}
 
 **Задача:** OpenAPI gap `routes/enrich.ts` — `GET /games/rawg-search`.

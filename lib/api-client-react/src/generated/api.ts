@@ -387,6 +387,83 @@ export function useDownloadHostAgentExe<
 }
 
 /**
+ * Long-lived SSE connection fanning out Postgres NOTIFY payloads to all connected clients. Sends an initial `connected` event on connect, then `: keepalive` comment lines every 25 seconds. Clients should reconnect automatically on disconnect (browser EventSource does this by default).
+
+ * @summary Server-Sent Events stream of platform notifications
+ */
+export const getStreamPlatformEventsUrl = () => {
+  return `/api/events/stream`;
+};
+
+export const streamPlatformEvents = async (
+  options?: RequestInit,
+): Promise<string> => {
+  return customFetch<string>(getStreamPlatformEventsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getStreamPlatformEventsQueryKey = () => {
+  return [`/api/events/stream`] as const;
+};
+
+export const getStreamPlatformEventsQueryOptions = <
+  TData = Awaited<ReturnType<typeof streamPlatformEvents>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof streamPlatformEvents>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getStreamPlatformEventsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof streamPlatformEvents>>
+  > = ({ signal }) => streamPlatformEvents({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof streamPlatformEvents>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type StreamPlatformEventsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof streamPlatformEvents>>
+>;
+export type StreamPlatformEventsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Server-Sent Events stream of platform notifications
+ */
+
+export function useStreamPlatformEvents<
+  TData = Awaited<ReturnType<typeof streamPlatformEvents>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof streamPlatformEvents>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getStreamPlatformEventsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Register a new host
  */
 export const getRegisterHostUrl = () => {

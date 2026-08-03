@@ -12,10 +12,10 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 11:55 UTC |
-| Task ID | M-02 |
-| Результат | done — OpenAPI `GET /games/rawg-search`; codegen OK; groom `--should-run` |
-| Commit | a66609c |
+| Дата | 2026-08-03 11:57 UTC |
+| Task ID | M-03 |
+| Результат | done — OpenAPI `GET /events/stream` (SSE); codegen OK; 10 M-NN pending |
+| Commit | (pending) |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -25,8 +25,8 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** **11 M-NN pending** (см. таблицу ниже). Сканер группирует сырые хиты:
-- **11 raw** (по одному route/файлу) → **11 grouped** (M-02 enrich.ts закрыт)
+**Wave Maintenance:** **10 M-NN pending** (см. таблицу ниже). Сканер группирует сырые хиты:
+- **10 raw** (по одному route/файлу) → **10 grouped** (M-03 events.ts закрыт)
 - 144 raw (10 runs назад) — ложные: vendor `public/games/`, неверный `/api` prefix в OpenAPI-сканере
 
 **Workflow:**
@@ -235,7 +235,7 @@ Automation **каждый run** создаёт и выполняет одну н
 |----|-----|--------|------|-----|--------|-------|
 | M-01 | C | OpenAPI gap: routes/downloads.ts (2 routes) | `routes/downloads.ts` | c:artifacts/api-server/src/routes/downloads.ts | done | agent |
 | M-02 | C | OpenAPI gap: routes/enrich.ts (1 route) | `routes/enrich.ts` | c:artifacts/api-server/src/routes/enrich.ts | done | agent |
-| M-03 | C | OpenAPI gap: routes/events.ts (1 route) | `routes/events.ts` | c:artifacts/api-server/src/routes/events.ts | pending | agent |
+| M-03 | C | OpenAPI gap: routes/events.ts (1 route) | `routes/events.ts` | c:artifacts/api-server/src/routes/events.ts | done | agent |
 | M-04 | C | OpenAPI gap: routes/hosts.ts (8 routes) | `routes/hosts.ts` | c:artifacts/api-server/src/routes/hosts.ts | pending | agent |
 | M-05 | C | OpenAPI gap: routes/players.ts (1 route) | `routes/players.ts` | c:artifacts/api-server/src/routes/players.ts | pending | agent |
 | M-06 | C | OpenAPI gap: routes/premium.ts (1 route) | `routes/premium.ts` | c:artifacts/api-server/src/routes/premium.ts | pending | agent |
