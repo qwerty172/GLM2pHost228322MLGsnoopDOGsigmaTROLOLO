@@ -43,6 +43,7 @@ import {
 import { sendSignalingMessage } from "../lib/signaling";
 import { submitSessionRating, recordBlockReserveLedger } from "../lib/ratings";
 import { writeLedger } from "../lib/economy";
+import { isPublicInviteSession } from "../lib/sessionInviteAccess";
 import { randomUUID } from "node:crypto";
 import { z } from "zod/v4";
 
@@ -966,6 +967,10 @@ router.get("/sessions/by-invite/:inviteCode", async (req, res): Promise<void> =>
     .from(sessionsTable)
     .where(eq(sessionsTable.inviteCode, inviteCode));
   if (!session) {
+    res.status(404).json({ error: "Invite not found" });
+    return;
+  }
+  if (!isPublicInviteSession(session)) {
     res.status(404).json({ error: "Invite not found" });
     return;
   }

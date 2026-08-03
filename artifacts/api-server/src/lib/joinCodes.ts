@@ -1,6 +1,7 @@
 import { eq, and, gt } from "drizzle-orm";
 import { db, joinCodesTable, sessionsTable } from "@workspace/db";
 import { generateJoinCode } from "./tokens";
+import { isPublicInviteSession } from "./sessionInviteAccess";
 
 /** Join codes remain valid for 15 minutes; reusable until expiry (F5/reconnect). */
 export const JOIN_CODE_TTL_MS = 15 * 60 * 1000;
@@ -45,13 +46,14 @@ export async function exchangeJoinCode(
       expiresAt: joinCodesTable.expiresAt,
       playerToken: sessionsTable.playerToken,
       status: sessionsTable.status,
+      devKeyId: sessionsTable.devKeyId,
     })
     .from(joinCodesTable)
     .innerJoin(sessionsTable, eq(joinCodesTable.sessionId, sessionsTable.id))
     .where(eq(joinCodesTable.code, normalized))
     .limit(1);
 
-  if (!row || row.expiresAt <= now || row.status === "ended") return null;
+  if (!row || row.expiresAt <= now || !isPublicInviteSession(row)) return null;
   return { playerToken: row.playerToken, sessionId: row.sessionId };
 }
 
