@@ -12,10 +12,10 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 11:57 UTC |
-| Task ID | M-03 |
-| Результат | done — OpenAPI `GET /events/stream` (SSE); codegen OK; 10 M-NN pending |
-| Commit | ce3750b |
+| Дата | 2026-08-03 12:12 UTC |
+| Task ID | meta |
+| Результат | skipped (recent run) — groom fix: убран pending_work bypass, добавлен pr_in_flight; M-04 PR #182 in flight |
+| Commit | c7c32e4 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -25,9 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** **10 M-NN pending** (см. таблицу ниже). Сканер группирует сырые хиты:
-- **10 raw** (по одному route/файлу) → **10 grouped** (M-03 events.ts закрыт)
-- 144 raw (10 runs назад) — ложные: vendor `public/games/`, неверный `/api` prefix в OpenAPI-сканере
+**Wave Maintenance:** **10 M-NN pending** (см. таблицу ниже). M-04 `hosts.ts` — **PR #182 in flight** (дубли #180/#181 superseded).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run` — skip run если Last run <45 мин (cron каждую минуту)
@@ -259,19 +257,19 @@ Automation **каждый run** создаёт и выполняет одну н
 git pull origin main
 node scripts/marathon-reconcile.mjs --apply   # legacy done, БЕЗ кода
 node scripts/marathon-groom.mjs --apply        # meta: phantom/stale/drift, только MARATHON
-node scripts/marathon-groom.mjs --should-run || exit 0   # skip если Last run <45 мин (cron каждую минуту)
+node scripts/marathon-groom.mjs --should-run || exit 0   # skip если Last run <45 мин (cron каждую минуту); exit 2 = recent_run или pr_in_flight
 node scripts/marathon-scan.mjs --sync-marathon # обновить pending M-NN
 git add MARATHON.md && git commit -m "chore(marathon): groom+sync" && git push origin main || true
 Прочитай MARATHON.md. Memory выключена.
 
 КАЖДЫЙ RUN:
-0. --should-run exit 2 → обнови Last run «skipped (recent idle)», commit+push MARATHON, выход БЕЗ кода. Pending M-NN не блокирует run.
+0. --should-run exit 2 → обнови Last run «skipped (recent run)», commit+push MARATHON, выход БЕЗ кода. Pending M-NN не отменяет 45-мин интервал. Если pr_in_flight — не дублируй PR.
 1. Legacy done/blocked/skipped — НЕ ТРОГАТЬ.
 2. groom --apply: если raw_explosion или баг сканера → почини marathon-scan.mjs, skip ложные задачи, commit meta. M-NN в этот run можно пропустить.
 3. node scripts/marathon-scan.mjs --next
    - idle:true → Marathon idle, обнови Last run, выход.
    - иначе pick = первая pending M-NN.
-4. Перед кодом: rg/git log — если уже в main → done без кода (лишняя работа).
+4. Перед кодом: rg/git log — если уже в main → done без кода. Если open PR с тем же M-NN → skip, не дублируй.
 5. in_progress → выполни → pnpm typecheck → done + TESTLOG.
 6. Обнови Last run. commit && push.
 
