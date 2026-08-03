@@ -15,7 +15,7 @@
 | Дата | 2026-08-03 13:50 UTC |
 | Task ID | idle |
 | Результат | Marathon idle — сканер пуст, 0 pending M-NN |
-| Commit | a422b9b |
+| Commit | 6cfff08 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
