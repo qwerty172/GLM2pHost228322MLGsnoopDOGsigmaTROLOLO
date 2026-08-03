@@ -14,7 +14,7 @@
 |------|----------|
 | Дата | 2026-08-03 12:26 UTC |
 | Task ID | meta |
-| Результат | groom `--mark-skipped` — Result без сброса Date (фикс 45min таймера); короткий automation prompt |
+| Результат | skipped (recent_run)|
 | Commit | 2bf24bc |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
