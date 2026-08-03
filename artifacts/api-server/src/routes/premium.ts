@@ -45,10 +45,13 @@ router.post("/premium/purchase", purchaseLimiter, async (req, res): Promise<void
       const tbl = userTbl(owner.type);
       // Atomic debit: WHERE balance >= cost closes the TOCTOU window between
       // a balance read and the write (concurrent purchases / billing ticks).
+      // Debit and extend premiumUntil in one UPDATE so concurrent purchases
+      // each stack days from the latest row (no lost-update on premiumUntil).
       const debited = await tx
         .update(tbl)
         .set({
           internalBalanceLzt: sql`${tbl.internalBalanceLzt} - ${cost}`,
+          premiumUntil: sql`GREATEST(COALESCE(${tbl.premiumUntil}, NOW()), NOW()) + (${days} * INTERVAL '1 day')`,
         })
         .where(
           and(
@@ -63,16 +66,7 @@ router.post("/premium/purchase", purchaseLimiter, async (req, res): Promise<void
       if (!debited[0]) {
         throw new Error("Insufficient balance");
       }
-      const now = new Date();
-      const base =
-        debited[0].premiumUntil && debited[0].premiumUntil > now
-          ? debited[0].premiumUntil
-          : now;
-      const newUntil = new Date(base.getTime() + days * 24 * 3600 * 1000);
-      await tx
-        .update(tbl)
-        .set({ premiumUntil: newUntil })
-        .where(eq(tbl.id, owner.id));
+      const newUntil = debited[0].premiumUntil!;
       await adjustSystem(tx, SYSTEM_PLATFORM_FEES, cost);
       const groupId = randomUUID();
       await writeLedger(tx, [
