@@ -15,7 +15,7 @@
 | Дата | 2026-08-03 11:57 UTC |
 | Task ID | M-03 |
 | Результат | done — OpenAPI `GET /events/stream` (SSE); codegen OK; 10 M-NN pending |
-| Commit | (pending) |
+| Commit | ce3750b |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
