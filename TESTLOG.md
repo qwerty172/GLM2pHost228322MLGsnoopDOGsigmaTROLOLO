@@ -177,3 +177,15 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | dev | done | +POST /dev-keys, PATCH /dev-keys/{apiKey}/rules |
 
 Верификация: `pnpm --filter @workspace/api-spec run codegen`; `pnpm typecheck` ✅; api-server 39/39; host-agent 12/12.
+
+## Marathon reconcile idle (2026-08-03 10:44 UTC) {#marathon-reconcile-idle}
+
+Cron automation: `git pull origin main` → `marathon-reconcile.mjs --apply`.
+
+| Проверка | Результат |
+|---|---|
+| reconcile evidence | 14/14 PASS (включая C4-S02 auto-check) |
+| pending agent tasks | 0 — Marathon idle |
+| blocked human | C3-D03, C4-S06/D02, REG-03 |
+
+TESTLOG grooming table синхронизирована с merge-backlog — все agent-задачи зачтены.
