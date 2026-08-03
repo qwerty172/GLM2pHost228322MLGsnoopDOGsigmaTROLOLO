@@ -24,7 +24,8 @@
 | openapi.yaml | 8 paths + schemas (`UpdateHostPcSpecsBody`, `HostDebtorsResponse`, `SteamAutoHostable*`, `BulkPublish*`) |
 | codegen | `pnpm --filter @workspace/api-spec run codegen` OK |
 | marathon-scan | hosts.ts больше не в raw hits (9/9) |
-| typecheck | `pnpm typecheck` OK |
+| typecheck | `@workspace/api-server` + codegen OK |
+| meta | groom `--should-run`: `pr_in_flight` + 45min interval (фикс дублей PR #180–182) |
 
 **Следующий pick:** M-05 `routes/players.ts`.
 
