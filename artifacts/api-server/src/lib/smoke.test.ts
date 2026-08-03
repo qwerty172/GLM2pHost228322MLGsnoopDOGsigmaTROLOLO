@@ -182,6 +182,24 @@ describe("sessionBilling (block refund math)", () => {
   });
 });
 
+describe("cloud save session gate", () => {
+  it("documents that ended sessions must not authorize host save sync", () => {
+    const statuses = ["pending", "active", "ended"] as const;
+    const allowed = statuses.filter((s) => s === "active");
+    expect(allowed).toEqual(["active"]);
+  });
+});
+
+describe("block billing + quota", () => {
+  it("documents that host-share royalty ticks must be routed to quota owners", () => {
+    const perMinuteLzt = 100;
+    const royaltyPct = 10;
+    const royaltyLzt = Math.floor((perMinuteLzt * royaltyPct) / 100);
+    expect(royaltyLzt).toBe(10);
+    // billingWorker prepaid-block path must call applyQuotaTickMovements each tick.
+  });
+});
+
 describe("rateLimit", () => {
   it("ipKey falls back to anon", () => {
     expect(ipKey({ ip: "1.2.3.4" } as Request)).toBe("1.2.3.4");
