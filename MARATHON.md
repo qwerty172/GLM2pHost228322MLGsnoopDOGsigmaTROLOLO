@@ -1,6 +1,6 @@
 # DecentralHub Marathon — живой бэклог
 
-> **Активный цикл:** Cycle 2 — Web UI (первая pending: **C2-S06**)  
+> **Активный цикл:** Cycle 2 — Web UI (первая pending: **C2-S07**)  
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл` (cron **пн/чт 09:00 UTC** — `0 9 * * 1,4`)  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
@@ -10,10 +10,10 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | — |
-| Task ID | — |
-| Результат | — |
-| Commit | — |
+| Дата | 2026-08-03 |
+| Task ID | C2-S06 |
+| Результат | done |
+| Commit | feat(web): C2-S06 — /wallet и /host/wallet |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -21,9 +21,8 @@
 
 ## Сейчас в очереди (pending в активном цикле)
 
-1. `C2-S06` — /wallet route  
-2. `C2-S07` — shadcn sr-only RU  
-3. `C2-D02` — OpenAPI gaps  
+1. `C2-S07` — shadcn sr-only RU  
+2. `C2-D02` — OpenAPI gaps  
 4. `C1-F05` — Central auth middleware (backlog после Cycle 2)  
 5. …остальные `pending` ниже по файлу
 
@@ -81,7 +80,7 @@
 | C2-S03 | landing hosts dup | P2 | done | agent |
 | C2-S04 | RU browser-play | P1 | done | agent |
 | C2-S05 | a11y player + skip-link | P1 | done | agent |
-| C2-S06 | /wallet route | P2 | pending | agent |
+| C2-S06 | /wallet route | P2 | done | agent |
 | C2-S07 | shadcn sr-only RU | P3 | pending | agent |
 | C2-S08 | nav Играть | P2 | done | agent |
 | C2-D01 | pages-api-smoke | P1 | done | agent |

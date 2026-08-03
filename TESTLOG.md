@@ -95,7 +95,7 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: central auth middleware, /wallet route, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: central auth middleware, shadcn sr-only RU, Windows E2E |
 
 ## Marathon C1-S06 — storage ACL (2026-08-02) {#marathon-c1-s06}
 
@@ -114,3 +114,14 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | `embed.tsx` | `createEmbedSession`, `getPublicIceConfig`, `useGetSessionByPlayerToken` — raw fetch убран |
 | `admin/games.tsx` | `useAdminListGames`, `useAdminListGameSubmissions`, imperative mutations через codegen |
 | Верификация | `pnpm --filter @workspace/web typecheck`; api-server + host-agent tests |
+
+## Marathon C2-S06 /wallet route (2026-08-03) {#marathon-c2-s06}
+
+| Изменение | Детали |
+|---|---|
+| `/wallet` | Standalone для игроков — без `HostAuthGuard` |
+| `/host/wallet` | Кошелёк в панели хоста — внутри `HostLayout` + `HostAuthGuard` |
+| `layout.tsx` | Навигация хоста ведёт на `/host/wallet` |
+| `site-nav.tsx` | `isHostActive` учитывает `/host/wallet` и `/wallet` |
+| `pages-api-smoke.sh` | Добавлен smoke для `/host/wallet` |
+| Верификация | `pnpm typecheck`; api-server 29/29, host-agent 12/12 |
