@@ -554,6 +554,38 @@ export interface RateSessionResponse {
   ratingCount: number;
 }
 
+export type SessionMetricSampleRole =
+  (typeof SessionMetricSampleRole)[keyof typeof SessionMetricSampleRole];
+
+export const SessionMetricSampleRole = {
+  player: "player",
+  host: "host",
+} as const;
+
+export interface SessionMetricSample {
+  role: SessionMetricSampleRole;
+  sampledAt?: string;
+  rttMs?: number;
+  bitrateKbps?: number;
+  fps?: number;
+  packetLossPct?: number;
+  framesDropped?: number;
+  iceCandidateType?: string;
+  jitterMs?: number;
+}
+
+export interface PostSessionMetricsBody {
+  /**
+   * @minItems 1
+   * @maxItems 50
+   */
+  samples: SessionMetricSample[];
+}
+
+export interface PostSessionMetricsResponse {
+  inserted: number;
+}
+
 export type PlatformEventPayload = { [key: string]: unknown };
 
 /**

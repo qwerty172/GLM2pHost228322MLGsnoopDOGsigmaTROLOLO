@@ -1401,6 +1401,42 @@ export const RateSessionResponse = zod.object({
 });
 
 /**
+ * Host authenticates with `Authorization: Bearer <hostToken>`.
+Player authenticates with `X-Player-Token` header.
+
+ * @summary Ingest WebRTC quality samples for a session (host or player)
+ */
+export const PostSessionMetricsParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const PostSessionMetricsHeader = zod.object({
+  Authorization: zod.string().optional().describe("Bearer host token"),
+  "X-Player-Token": zod.string().optional().describe("Session player token"),
+});
+
+export const postSessionMetricsBodySamplesMax = 50;
+
+export const PostSessionMetricsBody = zod.object({
+  samples: zod
+    .array(
+      zod.object({
+        role: zod.enum(["player", "host"]),
+        sampledAt: zod.coerce.date().optional(),
+        rttMs: zod.number().optional(),
+        bitrateKbps: zod.number().optional(),
+        fps: zod.number().optional(),
+        packetLossPct: zod.number().optional(),
+        framesDropped: zod.number().optional(),
+        iceCandidateType: zod.string().optional(),
+        jitterMs: zod.number().optional(),
+      }),
+    )
+    .min(1)
+    .max(postSessionMetricsBodySamplesMax),
+});
+
+/**
  * @summary Resolve a public invite code to session details (player play link)
  */
 export const GetSessionByInviteParams = zod.object({
