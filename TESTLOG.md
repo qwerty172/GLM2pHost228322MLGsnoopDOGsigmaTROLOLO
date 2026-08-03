@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-13 (2026-08-03 13:32 UTC) {#marathon-m-13}
+
+| Проверка | Результат |
+|---|---|
+| unit tests | 18 renderer modules → `artifacts/host-agent/test/*.test.mjs` (linkedom env) |
+| host-agent test | PASS (45 tests: ping-server + renderer) |
+| typecheck | PASS |
+| marathon-scan | renderer больше не в raw hits (0/0) — Wave Maintenance idle |
+
+**Следующий pick:** Marathon idle (сканер пуст).
+
 ## Marathon M-12 (2026-08-03 13:16 UTC) {#marathon-m-12}
 
 | Проверка | Результат |
