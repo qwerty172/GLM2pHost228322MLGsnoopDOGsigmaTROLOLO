@@ -1,4 +1,4 @@
-import { lt, eq, and, inArray, isNotNull, or, notInArray } from "drizzle-orm";
+import { lt, eq, and, inArray, notInArray } from "drizzle-orm";
 import { db, sessionsTable, hostsTable, hostGamesTable } from "@workspace/db";
 import { logger } from "./logger";
 import {
@@ -37,24 +37,24 @@ async function healthCheck(): Promise<void> {
   }
 }
 
-// ── 1. End stale active sessions ────────────────────────────────────────────
+// ── 1. End stale active/pending sessions ────────────────────────────────────
+
+/** Session statuses cleaned up when the host agent stops heartbeating. */
+export const STALE_SESSION_STATUSES = ["active", "pending"] as const;
 
 async function sessionCheck(): Promise<void> {
   const cutoff = new Date(Date.now() - HOST_TIMEOUT_MS);
 
-  // Include embed/dev-key sessions — they have no claimedByPlayerId but still
-  // burn the host while the agent is offline.
+  // End every non-ended session for an offline host — including unclaimed
+  // lobby sessions (no claimedByPlayerId / devKeyId). Those otherwise pin
+  // host_busy forever because creation only checks status <> 'ended'.
   const staleSessions = await db
     .select({ session: sessionsTable })
     .from(sessionsTable)
     .innerJoin(hostsTable, eq(sessionsTable.hostId, hostsTable.id))
     .where(
       and(
-        eq(sessionsTable.status, "active"),
-        or(
-          isNotNull(sessionsTable.claimedByPlayerId),
-          isNotNull(sessionsTable.devKeyId),
-        ),
+        inArray(sessionsTable.status, [...STALE_SESSION_STATUSES]),
         lt(hostsTable.lastSeenAt, cutoff),
       ),
     );
@@ -74,7 +74,7 @@ async function sessionCheck(): Promise<void> {
           .where(
             and(
               eq(sessionsTable.id, session.id),
-              eq(sessionsTable.status, "active"),
+              inArray(sessionsTable.status, [...STALE_SESSION_STATUSES]),
             ),
           )
           .returning({ id: sessionsTable.id });
