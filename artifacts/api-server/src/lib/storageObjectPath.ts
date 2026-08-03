@@ -1,3 +1,11 @@
+const COVER_UPLOAD_PATH_RE = /^\/objects\/uploads\/[0-9a-f-]{36}$/i;
+
+/** True only for presigned cover uploads under `/objects/uploads/{uuid}`. */
+export function isCoverUploadObjectPath(objectPath: string): boolean {
+  const normalized = normalizeStorageObjectPath(objectPath);
+  return normalized != null && COVER_UPLOAD_PATH_RE.test(normalized);
+}
+
 /** Normalize client-facing storage paths to `/objects/...` form. */
 export function normalizeStorageObjectPath(urlOrPath: string): string | null {
   const trimmed = urlOrPath.trim();

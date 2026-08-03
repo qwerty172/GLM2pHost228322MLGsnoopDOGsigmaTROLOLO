@@ -107,9 +107,15 @@ export function syncRtmpWindowTitle(windowTitle: string): void {
   const cfg = activeRelayConfig;
   if (!cfg || !isRelayRunning()) return;
   const title = windowTitle.trim();
-  log("info", `[rtmp] Sync capture title → "${title || "desktop"}"`);
+  if (!title) {
+    // Session teardown clears the capture title — stop relay instead of
+    // briefly restreaming the full desktop to the ingest URL.
+    stopRtmpRelay();
+    return;
+  }
+  log("info", `[rtmp] Sync capture title → "${title}"`);
   stopRtmpRelay();
-  startRtmpRelay(cfg, { windowTitle: title || undefined });
+  startRtmpRelay(cfg, { windowTitle: title });
 }
 
 export async function fetchStreamRelayConfig(

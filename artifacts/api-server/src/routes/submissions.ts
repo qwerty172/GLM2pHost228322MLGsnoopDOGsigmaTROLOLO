@@ -7,7 +7,7 @@ import {
   gamesTable,
   gameSubmissionsTable,
 } from "@workspace/db";
-import { tryApplyObjectAcl } from "../lib/storageRouteHelpers";
+import { tryApplyPublicCoverAcl } from "../lib/storageRouteHelpers";
 
 const router: IRouter = Router();
 
@@ -178,10 +178,7 @@ router.post("/games/submit", async (req, res): Promise<void> => {
     .returning();
 
   if (body.coverImageUrl) {
-    await tryApplyObjectAcl(body.coverImageUrl, {
-      owner: `host:${host.id}`,
-      visibility: "public",
-    }, req);
+    await tryApplyPublicCoverAcl(body.coverImageUrl, host.id, req);
   }
 
   res.status(201).json(sub);
