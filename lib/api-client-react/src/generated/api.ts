@@ -49,6 +49,7 @@ import type {
   ClaimGuestPlayerBody,
   ClaimGuestPlayerResponse,
   ClaimSessionBody,
+  ClipUploadResponse,
   ConfirmUploadBody,
   ConfirmUploadResponse,
   CreateBrowserHostSessionBody,
@@ -162,6 +163,7 @@ import type {
   UpdateHostPcSpecsBody,
   UpdateQuotaBody,
   UpgradeGuestPlayerBody,
+  UploadStorageClipBody,
   Wallet,
   WalletTransaction,
   Withdrawal,
@@ -9540,6 +9542,251 @@ export const useConfirmUpload = <
   TContext
 > => {
   return useMutation(getConfirmUploadMutationOptions(options));
+};
+
+/**
+ * Unconditionally public assets — no authentication or ACL checks. Path after `/storage/public-objects/` is the relative file path within public search paths.
+
+ * @summary Serve a public object from PUBLIC_OBJECT_SEARCH_PATHS
+ */
+export const getGetStoragePublicObjectUrl = () => {
+  return `/api/storage/public-objects/*filePath`;
+};
+
+export const getStoragePublicObject = async (
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getGetStoragePublicObjectUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetStoragePublicObjectQueryKey = () => {
+  return [`/api/storage/public-objects/*filePath`] as const;
+};
+
+export const getGetStoragePublicObjectQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStoragePublicObject>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getStoragePublicObject>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetStoragePublicObjectQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getStoragePublicObject>>
+  > = ({ signal }) => getStoragePublicObject({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStoragePublicObject>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStoragePublicObjectQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStoragePublicObject>>
+>;
+export type GetStoragePublicObjectQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Serve a public object from PUBLIC_OBJECT_SEARCH_PATHS
+ */
+
+export function useGetStoragePublicObject<
+  TData = Awaited<ReturnType<typeof getStoragePublicObject>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getStoragePublicObject>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStoragePublicObjectQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Objects in PRIVATE_OBJECT_DIR. Public ACL or catalog cover paths allow anonymous read; private objects require owner auth via wallet or player token headers.
+
+ * @summary Serve a private object with ACL enforcement
+ */
+export const getGetStorageObjectUrl = () => {
+  return `/api/storage/objects/*path`;
+};
+
+export const getStorageObject = async (
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getGetStorageObjectUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetStorageObjectQueryKey = () => {
+  return [`/api/storage/objects/*path`] as const;
+};
+
+export const getGetStorageObjectQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStorageObject>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getStorageObject>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetStorageObjectQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getStorageObject>>
+  > = ({ signal }) => getStorageObject({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStorageObject>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStorageObjectQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStorageObject>>
+>;
+export type GetStorageObjectQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Serve a private object with ACL enforcement
+ */
+
+export function useGetStorageObject<
+  TData = Awaited<ReturnType<typeof getStorageObject>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getStorageObject>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStorageObjectQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Authenticated players upload clip files via multipart/form-data with a single `file` field. Requires X-Player-Wallet-Token header.
+
+ * @summary Upload a WebM clip (multipart)
+ */
+export const getUploadStorageClipUrl = () => {
+  return `/api/storage/clip-upload`;
+};
+
+export const uploadStorageClip = async (
+  uploadStorageClipBody: UploadStorageClipBody,
+  options?: RequestInit,
+): Promise<ClipUploadResponse> => {
+  const formData = new FormData();
+  formData.append(`file`, uploadStorageClipBody.file);
+
+  return customFetch<ClipUploadResponse>(getUploadStorageClipUrl(), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getUploadStorageClipMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadStorageClip>>,
+    TError,
+    { data: BodyType<UploadStorageClipBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof uploadStorageClip>>,
+  TError,
+  { data: BodyType<UploadStorageClipBody> },
+  TContext
+> => {
+  const mutationKey = ["uploadStorageClip"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof uploadStorageClip>>,
+    { data: BodyType<UploadStorageClipBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return uploadStorageClip(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UploadStorageClipMutationResult = NonNullable<
+  Awaited<ReturnType<typeof uploadStorageClip>>
+>;
+export type UploadStorageClipMutationBody = BodyType<UploadStorageClipBody>;
+export type UploadStorageClipMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Upload a WebM clip (multipart)
+ */
+export const useUploadStorageClip = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadStorageClip>>,
+    TError,
+    { data: BodyType<UploadStorageClipBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof uploadStorageClip>>,
+  TError,
+  { data: BodyType<UploadStorageClipBody> },
+  TContext
+> => {
+  return useMutation(getUploadStorageClipMutationOptions(options));
 };
 
 /**

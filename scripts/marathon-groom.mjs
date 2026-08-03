@@ -115,6 +115,11 @@ if (SHOULD_RUN) {
     nextPending: nextId,
     prInFlight,
     hasInProgress,
+    agentInstruction: skip
+      ? `STOP: ${prInFlight ? "pr_in_flight" : "in_progress_active"} — commit MARATHON if needed, exit`
+      : nextId
+        ? `EXECUTE ${nextId} only: OpenAPI/codegen or code per marathon-scan --next. NO read MARATHON, NO list-cloud-agents, NO prompt meta, NO automation_memory`
+        : "Marathon idle — update Last run, exit",
   };
   console.log(JSON.stringify(payload));
   if (skip && MARK_SKIPPED) {

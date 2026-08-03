@@ -1850,6 +1850,13 @@ export interface ConfirmUploadResponse {
   objectPath: string;
 }
 
+export interface ClipUploadResponse {
+  /** API-facing path to serve the clip via GET /storage/objects/* */
+  objectPath: string;
+  /** Uploaded clip size in bytes */
+  size: number;
+}
+
 export type GetHostDebtors200 = { [key: string]: unknown };
 
 export type GetHostStreamRelay200 = {
@@ -2156,4 +2163,9 @@ export type AgentLogin200 = {
 export type PostAgentTelemetry200 = {
   ok: boolean;
   stored: number;
+};
+
+export type UploadStorageClipBody = {
+  /** WebM or other video clip (max 200 MB) */
+  file: Blob;
 };

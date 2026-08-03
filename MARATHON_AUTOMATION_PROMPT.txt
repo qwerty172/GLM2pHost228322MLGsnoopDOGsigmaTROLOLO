@@ -1,0 +1,13 @@
+# Вставить в Cursor Automation trigger (заменить «Прочитай MARATHON / проверяй прошлые runs»)
+
+git pull origin main
+node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0
+node scripts/marathon-reconcile.mjs --apply
+node scripts/marathon-groom.mjs --apply
+node scripts/marathon-scan.mjs --sync-marathon
+PICK=$(node scripts/marathon-scan.mjs --next)
+echo "$PICK"
+# idle:true → обнови Last run «Marathon idle», commit MARATHON.md, exit 0
+# pick.id → СРАЗУ OpenAPI/codegen для pick, НЕ читать MARATHON, НЕ list-cloud-agents, НЕ automation_memory, НЕ «улучшать промпт»
+# одна M-NN → pnpm --filter @workspace/api-spec run codegen → pnpm typecheck → done + TESTLOG
+git add -A && git commit -m "feat(marathon): <ID> ..." && git push origin main

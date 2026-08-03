@@ -4534,6 +4534,55 @@ export const ConfirmUploadResponse = zod.object({
 });
 
 /**
+ * Unconditionally public assets — no authentication or ACL checks. Path after `/storage/public-objects/` is the relative file path within public search paths.
+
+ * @summary Serve a public object from PUBLIC_OBJECT_SEARCH_PATHS
+ */
+export const GetStoragePublicObjectParams = zod.object({
+  filePath: zod.coerce
+    .string()
+    .describe("Relative path within public object search paths"),
+});
+
+/**
+ * Objects in PRIVATE_OBJECT_DIR. Public ACL or catalog cover paths allow anonymous read; private objects require owner auth via wallet or player token headers.
+
+ * @summary Serve a private object with ACL enforcement
+ */
+export const GetStorageObjectParams = zod.object({
+  path: zod.coerce.string().describe("Object path segment after `\/objects\/`"),
+});
+
+export const GetStorageObjectHeader = zod.object({
+  "X-Player-Wallet-Token": zod
+    .string()
+    .optional()
+    .describe("Player wallet token for ACL owner check"),
+  "X-User-Token": zod
+    .string()
+    .optional()
+    .describe("Unified wallet token alternative for ACL owner check"),
+});
+
+/**
+ * Authenticated players upload clip files via multipart/form-data with a single `file` field. Requires X-Player-Wallet-Token header.
+
+ * @summary Upload a WebM clip (multipart)
+ */
+export const UploadStorageClipBody = zod.object({
+  file: zod.instanceof(File).describe("WebM or other video clip (max 200 MB)"),
+});
+
+export const UploadStorageClipResponse = zod.object({
+  objectPath: zod
+    .string()
+    .describe(
+      "API-facing path to serve the clip via GET \/storage\/objects\/\*",
+    ),
+  size: zod.number().describe("Uploaded clip size in bytes"),
+});
+
+/**
  * @summary Get latest cloud save metadata for a game
  */
 export const GetPlayerGameSaveParams = zod.object({

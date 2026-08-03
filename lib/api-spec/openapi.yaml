@@ -3633,6 +3633,158 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /storage/public-objects/*filePath:
+    get:
+      operationId: getStoragePublicObject
+      tags: [storage]
+      summary: Serve a public object from PUBLIC_OBJECT_SEARCH_PATHS
+      description: >
+        Unconditionally public assets — no authentication or ACL checks.
+        Path after `/storage/public-objects/` is the relative file path within
+        public search paths.
+      parameters:
+        - in: path
+          name: filePath
+          required: true
+          schema:
+            type: string
+          description: Relative path within public object search paths
+      responses:
+        "200":
+          description: Object bytes (content-type from storage backend)
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Object storage unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /storage/objects/*path:
+    get:
+      operationId: getStorageObject
+      tags: [storage]
+      summary: Serve a private object with ACL enforcement
+      description: >
+        Objects in PRIVATE_OBJECT_DIR. Public ACL or catalog cover paths allow
+        anonymous read; private objects require owner auth via wallet or player
+        token headers.
+      parameters:
+        - in: path
+          name: path
+          required: true
+          schema:
+            type: string
+          description: Object path segment after `/objects/`
+        - in: header
+          name: X-Player-Wallet-Token
+          required: false
+          schema:
+            type: string
+          description: Player wallet token for ACL owner check
+        - in: header
+          name: X-User-Token
+          required: false
+          schema:
+            type: string
+          description: Unified wallet token alternative for ACL owner check
+      responses:
+        "200":
+          description: Object bytes (content-type from storage backend)
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "401":
+          description: Unauthorized (private object, no valid caller)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Object not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Object storage unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /storage/clip-upload:
+    post:
+      operationId: uploadStorageClip
+      tags: [storage]
+      summary: Upload a WebM clip (multipart)
+      description: >
+        Authenticated players upload clip files via multipart/form-data with a
+        single `file` field. Requires X-Player-Wallet-Token header.
+      security:
+        - PlayerWalletToken: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: WebM or other video clip (max 200 MB)
+              required: [file]
+      responses:
+        "200":
+          description: Clip stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClipUploadResponse"
+        "400":
+          description: No file or validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or unknown player wallet token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Object storage PUT failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Object storage unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /players/me/saves/{gameId}:
     get:
       operationId: getPlayerGameSave
@@ -3720,6 +3872,11 @@ components:
       in: header
       name: X-Player-Token
       description: Player authentication token
+    PlayerWalletToken:
+      type: apiKey
+      in: header
+      name: X-Player-Wallet-Token
+      description: Player wallet token (clips, saves, unified wallet auth)
     BearerAuth:
       type: http
       scheme: bearer
@@ -6530,3 +6687,16 @@ components:
           type: string
       required:
         - objectPath
+
+    ClipUploadResponse:
+      type: object
+      properties:
+        objectPath:
+          type: string
+          description: API-facing path to serve the clip via GET /storage/objects/*
+        size:
+          type: integer
+          description: Uploaded clip size in bytes
+      required:
+        - objectPath
+        - size

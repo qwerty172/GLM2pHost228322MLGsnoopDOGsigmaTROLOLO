@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-03 (M-08 done; POST /sessions/{id}/metrics OpenAPI)
+> **Последнее обновление:** 2026-08-03 (M-09 done; storage OpenAPI public-objects/objects/clip-upload)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 12:56 UTC |
-| Task ID | M-08 |
-| Результат | OpenAPI POST /sessions/{id}/metrics + codegen |
-| Commit | aeab3d3 |
+| Дата | 2026-08-03 13:00 UTC |
+| Task ID | M-09 |
+| Результат | OpenAPI storage public-objects/objects/clip-upload + codegen |
+| Commit | (this run) |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -25,8 +25,8 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** **5 M-NN pending** (см. таблицу ниже). Сканер:
-- **5 grouped** (M-08 sessions.ts закрыт)
+**Wave Maintenance:** **4 M-NN pending** (см. таблицу ниже). Сканер:
+- **4 grouped** (M-09 storage.ts закрыт)
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -240,7 +240,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-06 | C | OpenAPI gap: routes/premium.ts (1 route) | `routes/premium.ts` | c:artifacts/api-server/src/routes/premium.ts | done | agent |
 | M-07 | C | OpenAPI gap: routes/public.ts (1 route) | `routes/public.ts` | c:artifacts/api-server/src/routes/public.ts | done | agent |
 | M-08 | C | OpenAPI gap: routes/sessions.ts (1 route) | `routes/sessions.ts` | c:artifacts/api-server/src/routes/sessions.ts | done | agent |
-| M-09 | C | OpenAPI gap: routes/storage.ts (3 routes) | `routes/storage.ts` | c:artifacts/api-server/src/routes/storage.ts | pending | agent |
+| M-09 | C | OpenAPI gap: routes/storage.ts (3 routes) | `routes/storage.ts` | c:artifacts/api-server/src/routes/storage.ts | done | agent |
 | M-10 | C | OpenAPI gap: routes/submissions.ts (3 routes) | `routes/submissions.ts` | c:artifacts/api-server/src/routes/submissions.ts | pending | agent |
 | M-11 | C | OpenAPI gap: routes/vds.ts (5 routes) | `routes/vds.ts` | c:artifacts/api-server/src/routes/vds.ts | pending | agent |
 | M-12 | C | OpenAPI gap: routes/vt.ts (2 routes) | `routes/vt.ts` | c:artifacts/api-server/src/routes/vt.ts | pending | agent |
@@ -255,19 +255,9 @@ Automation **каждый run** создаёт и выполняет одну н
 ## Automation prompt (вставить в Cursor Automations)
 
 **Короткий (ЕДИНСТВЕННЫЙ — вставить в Automation trigger, заменить старый «Прочитай MARATHON»):**
-```
-git pull origin main
-node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0
-node scripts/marathon-reconcile.mjs --apply
-node scripts/marathon-groom.mjs --apply
-node scripts/marathon-scan.mjs --sync-marathon
-PICK=$(node scripts/marathon-scan.mjs --next)
-echo "$PICK"
-# idle:true → обнови Last run «Marathon idle», commit MARATHON.md, exit 0
-# pick.id → СРАЗУ OpenAPI/codegen для pick, НЕ читать MARATHON, НЕ list-cloud-agents, НЕ «улучшать промпт»
-# одна M-NN → pnpm --filter @workspace/api-spec run codegen → pnpm typecheck → done + TESTLOG
-git add -A && git commit -m "feat(marathon): <ID> ..." && git push origin main
-```
+
+> Готовый текст: **[MARATHON_AUTOMATION_PROMPT.txt](./MARATHON_AUTOMATION_PROMPT.txt)** — скопировать целиком в trigger.
+
 > **ЗАПРЕЩЕНО при pendingMnn>0:** «Прочитай MARATHON.md», list-cloud-agents, automation_memory, анализ прошлых runs, правка промпта — это жжёт токены впустую. Скрипты уже дали pick.
 > **Meta-улучшения** — только если groom нашёл phantom/stale/drift/raw_explosion **и** pending=0.
 > **pr_in_flight** — только non-DRAFT PR; DRAFT не блокирует.
