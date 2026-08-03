@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-10 (2026-08-03 13:08 UTC) {#marathon-m-10}
+
+| Проверка | Результат |
+|---|---|
+| OpenAPI | `POST /games/submit`, `PATCH /games/submissions/{id}/pending-config`, `GET /games/submissions/my` + SubmitGameBody/HostGameSubmission schemas |
+| codegen | orval → api-client-react + api-zod (`submitGame`, `patchSubmissionPendingConfig`, `listMyGameSubmissions`) |
+| typecheck | PASS |
+| marathon-scan | submissions.ts больше не в raw hits (3/3) |
+
+**Следующий pick:** M-11 `routes/vds.ts`.
+
 ## Marathon M-09 (2026-08-03 13:00 UTC) {#marathon-m-09}
 
 | Проверка | Результат |
