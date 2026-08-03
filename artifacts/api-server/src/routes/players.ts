@@ -125,6 +125,8 @@ router.get("/players/:playerToken", playerReadLimiter, async (req, res): Promise
 // POST /players/claim-guest
 // Called by the desktop agent when a host registers: transfers guest balance +
 // session history to the host account, then deactivates the guest token.
+// Security: the guest must have claimed at least one session on this host —
+// a bare hostToken is not enough to steal an arbitrary guest wallet.
 router.post("/players/claim-guest", claimGuestLimiter, async (req, res): Promise<void> => {
   const guestToken = (req.body?.guestToken as string | undefined)?.trim() ?? "";
   const hostToken = (req.body?.hostToken as string | undefined)?.trim() ?? "";
@@ -134,7 +136,6 @@ router.post("/players/claim-guest", claimGuestLimiter, async (req, res): Promise
     return;
   }
 
-  // Validate host token.
   const [host] = await db
     .select()
     .from(hostsTable)
@@ -145,73 +146,101 @@ router.post("/players/claim-guest", claimGuestLimiter, async (req, res): Promise
     return;
   }
 
-  // Find the guest player.
-  const [guest] = await db
-    .select()
-    .from(playersTable)
-    .where(
-      and(
-        eq(playersTable.playerToken, guestToken),
-        eq(playersTable.isGuest, true),
-      ),
+  try {
+    const result = await db.transaction(async (tx) => {
+      const [guest] = await tx
+        .select()
+        .from(playersTable)
+        .where(
+          and(
+            eq(playersTable.playerToken, guestToken),
+            eq(playersTable.isGuest, true),
+          ),
+        )
+        .for("update");
+
+      if (!guest) {
+        return {
+          status: 404 as const,
+          error: "Guest player not found or token is not a guest",
+        };
+      }
+
+      const [sessionLink] = await tx
+        .select({ id: sessionsTable.id })
+        .from(sessionsTable)
+        .where(
+          and(
+            eq(sessionsTable.hostId, host.id),
+            eq(sessionsTable.claimedByPlayerId, guest.id),
+          ),
+        )
+        .limit(1);
+
+      if (!sessionLink) {
+        return {
+          status: 403 as const,
+          error: "Guest has no session history with this host",
+        };
+      }
+
+      const newToken = generateToken();
+      const [fullPlayer] = await tx
+        .insert(playersTable)
+        .values({
+          playerToken: newToken,
+          displayName: host.displayName,
+          isGuest: false,
+          creditLimitLzt: DEFAULT_CREDIT_LIMIT_LZT,
+          internalBalanceLzt: guest.internalBalanceLzt,
+          withdrawableBalanceLzt: guest.withdrawableBalanceLzt,
+        })
+        .returning();
+
+      if (!fullPlayer) {
+        throw new Error("Failed to create full player account");
+      }
+
+      await tx
+        .update(sessionsTable)
+        .set({ claimedByPlayerId: fullPlayer.id })
+        .where(eq(sessionsTable.claimedByPlayerId, guest.id));
+
+      await tx
+        .update(playersTable)
+        .set({
+          internalBalanceLzt: 0,
+          withdrawableBalanceLzt: 0,
+          displayName: `[claimed] ${guest.displayName}`,
+          playerToken: `__claimed_${guest.playerToken}`,
+        })
+        .where(eq(playersTable.id, guest.id));
+
+      return { status: 200 as const, guest, fullPlayer };
+    });
+
+    if (result.status !== 200) {
+      res.status(result.status).json({ error: result.error });
+      return;
+    }
+
+    const { guest, fullPlayer } = result;
+    await ensureDepositAddressesForOwner("player", fullPlayer.id);
+
+    req.log.info(
+      { guestId: guest.id, fullPlayerId: fullPlayer.id, hostId: host.id },
+      "Guest account claimed by host",
     );
 
-  if (!guest) {
-    res.status(404).json({ error: "Guest player not found or token is not a guest" });
-    return;
+    res.status(200).json({
+      playerToken: fullPlayer.playerToken,
+      transferredInternalLzt: guest.internalBalanceLzt,
+      transferredWithdrawableLzt: guest.withdrawableBalanceLzt,
+    });
+  } catch (err) {
+    req.log.error({ err }, "claim-guest transaction failed");
+    res.status(500).json({ error: "Failed to claim guest account" });
   }
-
-  // Find or create a full player account linked to the host.
-  // For now we create a new full player that inherits the guest balance.
-  const newToken = generateToken();
-  const [fullPlayer] = await db
-    .insert(playersTable)
-    .values({
-      playerToken: newToken,
-      displayName: host.displayName,
-      isGuest: false,
-      creditLimitLzt: DEFAULT_CREDIT_LIMIT_LZT,
-      internalBalanceLzt: guest.internalBalanceLzt,
-      withdrawableBalanceLzt: guest.withdrawableBalanceLzt,
-    })
-    .returning();
-
-  if (!fullPlayer) {
-    res.status(500).json({ error: "Failed to create full player account" });
-    return;
-  }
-
-  // Transfer session history: reassign sessions claimed by the guest player to
-  // the new full player account so the host can see complete session history.
-  await db
-    .update(sessionsTable)
-    .set({ claimedByPlayerId: fullPlayer.id })
-    .where(eq(sessionsTable.claimedByPlayerId, guest.id));
-
-  // Deactivate the guest player by zeroing out their balance and marking inactive
-  // via renaming the token so it can no longer be used.
-  await db
-    .update(playersTable)
-    .set({
-      internalBalanceLzt: 0,
-      withdrawableBalanceLzt: 0,
-      displayName: `[claimed] ${guest.displayName}`,
-      playerToken: `__claimed_${guest.playerToken}`,
-    })
-    .where(eq(playersTable.id, guest.id));
-
-  await ensureDepositAddressesForOwner("player", fullPlayer.id);
-
-  req.log.info(
-    { guestId: guest.id, fullPlayerId: fullPlayer.id, hostId: host.id },
-    "Guest account claimed by host",
-  );
-
-  res.status(200).json({
-    playerToken: fullPlayer.playerToken,
-    transferredInternalLzt: guest.internalBalanceLzt,
-    transferredWithdrawableLzt: guest.withdrawableBalanceLzt,
-  });
 });
 
 const upgradeGuestLimiter = rateLimit({
