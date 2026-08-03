@@ -15,6 +15,20 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-04 (2026-08-03 12:00 UTC) {#marathon-m-04}
+
+**Задача:** OpenAPI gap `routes/hosts.ts` — 8 маршрутов (legacy config/debtors/stream-relay, pc-specs, speedtest, steam-auto-hostable, bulk-publish).
+
+| Проверка | Результат |
+|---|---|
+| openapi.yaml | 8 paths + schemas (`UpdateHostPcSpecsBody`, `HostDebtorsResponse`, `SteamAutoHostable*`, `BulkPublish*`) |
+| codegen | `pnpm --filter @workspace/api-spec run codegen` OK |
+| marathon-scan | hosts.ts больше не в raw hits (9/9) |
+| typecheck | `@workspace/api-server` + codegen OK |
+| meta | groom `--should-run`: `pr_in_flight` + 45min interval (фикс дублей PR #180–182) |
+
+**Следующий pick:** M-05 `routes/players.ts`.
+
 ## Marathon M-03 (2026-08-03 11:57 UTC) {#marathon-m-03}
 
 **Задача:** OpenAPI gap `routes/events.ts` — `GET /events/stream` (SSE).
