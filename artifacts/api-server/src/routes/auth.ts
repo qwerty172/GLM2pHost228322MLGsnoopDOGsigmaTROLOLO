@@ -124,24 +124,29 @@ router.post("/auth/refresh", refreshLimiter, async (req, res): Promise<void> => 
   }
   const tokenHash = hashRefreshToken(raw);
   const now = new Date();
-  const [row] = await db
-    .select()
-    .from(refreshTokensTable)
-    .where(
-      and(
-        eq(refreshTokensTable.tokenHash, tokenHash),
-        isNull(refreshTokensTable.revokedAt),
-        gt(refreshTokensTable.expiresAt, now),
-      ),
-    );
+  // Atomically revoke — concurrent refresh with the same cookie must not mint
+  // two valid access tokens (stolen refresh tokens bypass rotation).
+  const row = await db.transaction(async (tx) => {
+    const [revoked] = await tx
+      .update(refreshTokensTable)
+      .set({ revokedAt: now })
+      .where(
+        and(
+          eq(refreshTokensTable.tokenHash, tokenHash),
+          isNull(refreshTokensTable.revokedAt),
+          gt(refreshTokensTable.expiresAt, now),
+        ),
+      )
+      .returning({
+        userId: refreshTokensTable.userId,
+        userType: refreshTokensTable.userType,
+      });
+    return revoked ?? null;
+  });
   if (!row) {
     res.status(401).json({ error: "Invalid refresh token" });
     return;
   }
-  await db
-    .update(refreshTokensTable)
-    .set({ revokedAt: now })
-    .where(eq(refreshTokensTable.id, row.id));
   const userType = row.userType as UserType;
   const pair = await issueTokenPair(row.userId, userType, res);
   res.json({ accessToken: pair.accessToken, expiresInSec: 15 * 60 });
