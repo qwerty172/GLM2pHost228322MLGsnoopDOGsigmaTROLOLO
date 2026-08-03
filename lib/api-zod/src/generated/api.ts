@@ -4123,6 +4123,47 @@ export const GetPublicIceConfigResponse = zod.object({
 });
 
 /**
+ * @summary Public games catalog with category, search, and liveOnly filters
+ */
+export const ListPublicGamesQueryParams = zod.object({
+  category: zod.coerce
+    .string()
+    .optional()
+    .describe("Filter by primary catalog category (exact match)"),
+  search: zod.coerce
+    .string()
+    .optional()
+    .describe("Case-insensitive substring match against the game title"),
+  liveOnly: zod.coerce
+    .boolean()
+    .optional()
+    .describe("When true, only return games with at least one live session"),
+});
+
+export const ListPublicGamesResponseItem = zod.object({
+  id: zod.string(),
+  slug: zod.string(),
+  title: zod.string(),
+  coverImageUrl: zod.string(),
+  description: zod.string(),
+  genre: zod.string(),
+  category: zod.string(),
+  genres: zod.array(zod.string()),
+  steamAppId: zod.number().nullish(),
+  hasMods: zod.boolean(),
+  isMultiplayer: zod.boolean(),
+  hostSpectatesPlayer: zod.boolean(),
+  hasQuests: zod.boolean(),
+  browserHostUrl: zod.string(),
+  liveSessionCount: zod
+    .number()
+    .describe(
+      "Number of pending or active sessions matching this game right now",
+    ),
+});
+export const ListPublicGamesResponse = zod.array(ListPublicGamesResponseItem);
+
+/**
  * @summary Hosts offering a game in their library, with live-session status
  */
 export const ListPublicGameHostsParams = zod.object({

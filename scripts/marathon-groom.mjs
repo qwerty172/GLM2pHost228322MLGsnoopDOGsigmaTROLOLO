@@ -61,12 +61,12 @@ function nextPendingId(rows) {
   return row?.id ?? null;
 }
 
-/** Open PR с тем же M-NN в title — другой run уже в работе. */
+/** Open non-draft PR с тем же M-NN в title — другой run уже в работе. DRAFT не блокирует. */
 function hasOpenPrForTask(taskId) {
   if (!taskId) return false;
   try {
     const out = execSync(
-      `gh pr list --state open --search "${taskId} in:title" --json number --jq length`,
+      `gh pr list --state open --search "${taskId} in:title" --json isDraft --jq '[.[] | select(.isDraft==false)] | length'`,
       { encoding: "utf8", timeout: 20000 },
     ).trim();
     return parseInt(out, 10) > 0;
