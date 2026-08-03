@@ -101,8 +101,8 @@ export function ensureEnvFile() {
   return false;
 }
 
-/** Fill empty secrets and docker-friendly DATABASE_URL when appropriate. */
-export function ensureDevSecrets({ preferDocker = true } = {}) {
+/** Fill empty secrets and sensible DATABASE_URL when still a placeholder. */
+export function ensureDevSecrets() {
   const updates = {};
   const env = readEnvFile();
 
@@ -116,12 +116,9 @@ export function ensureDevSecrets({ preferDocker = true } = {}) {
   }
 
   const db = env.DATABASE_URL?.trim() ?? "";
-  if (
-    preferDocker &&
-    (!db || PLACEHOLDER_DB.test(db) || db.includes("user:password"))
-  ) {
+  if (!db || PLACEHOLDER_DB.test(db) || db.includes("user:password")) {
     updates.DATABASE_URL = DOCKER_DATABASE_URL;
-    log("DATABASE_URL → docker postgres (decentral_hub/decentral_hub)");
+    log("DATABASE_URL → postgresql://decentral_hub:***@localhost:5432/decentral_hub");
   }
 
   if (Object.keys(updates).length > 0) writeEnvFile(updates);

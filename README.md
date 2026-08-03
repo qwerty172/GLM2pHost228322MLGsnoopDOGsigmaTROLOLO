@@ -43,10 +43,12 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 **Три команды — и работает:**
 
 ```bash
-pnpm setup    # .env, секреты, Docker postgres+redis (если есть), install, db push
-pnpm dev      # API :8080 + Web :5000
-pnpm smoke    # smoke-тест API (в другом терминале, пока dev запущен)
+pnpm bootstrap   # .env, секреты, Docker postgres+redis (если есть), install, db push
+pnpm dev         # API :8080 + Web :5000
+pnpm smoke       # smoke-тест API (в другом терминале, пока dev запущен)
 ```
+
+> `pnpm bootstrap` = `pnpm run setup` (у `pnpm setup` встроенная команда pnpm — используй `bootstrap` или `run setup`).
 
 Открой http://localhost:5000 · API health: http://localhost:8080/api/healthz
 
@@ -80,13 +82,13 @@ pnpm smoke    # smoke-тест API (в другом терминале, пока
 ```bash
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-pnpm setup
+pnpm bootstrap
 pnpm dev
 ```
 
-`pnpm setup` создаёт `.env`, генерирует `WALLET_ENCRYPTION_KEY` и `JWT_SECRET`, при наличии Docker — поднимает postgres/redis и применяет схему БД.
+`pnpm bootstrap` создаёт `.env`, генерирует `WALLET_ENCRYPTION_KEY` и `JWT_SECRET`, при наличии Docker — поднимает postgres/redis и применяет схему БД.
 
-**Без Docker:** отредактируй `DATABASE_URL` в `.env` и снова `pnpm setup`.
+**Без Docker:** `pnpm bootstrap --no-docker` (нужен свой PostgreSQL; placeholder DATABASE_URL подставится автоматически).
 
 <details>
 <summary>Ручная настройка (Windows cmd / старые скрипты)</summary>

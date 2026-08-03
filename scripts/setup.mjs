@@ -46,7 +46,7 @@ async function main() {
     warn("Docker не найден — убедись что PostgreSQL запущен и DATABASE_URL в .env верный");
   }
 
-  ensureDevSecrets({ preferDocker: startedDocker });
+  ensureDevSecrets();
 
   log("\n==> pnpm install");
   await runInherit("pnpm", ["install"]);
