@@ -12,10 +12,10 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 12:16 UTC |
+| Дата | 2026-08-03 12:24 UTC |
 | Task ID | M-04 + meta |
-| Результат | done — OpenAPI 8 routes `routes/hosts.ts`; groom: pr_in_flight + 45min; 9 M-NN pending |
-| Commit | (this run) |
+| Результат | done — cherry-pick M-04 в main; groom pr_in_flight; typecheck OK; 9 M-NN pending |
+| Commit | ef07ccb |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
