@@ -11,9 +11,9 @@
 | Поле | Значение |
 |------|----------|
 | Дата | 2026-08-03 |
-| Task ID | C4-S02 |
-| Результат | done |
-| Commit | feat(api-spec): C4-S02 OpenAPI parity — auth pairing, agent-telemetry, dev-keys |
+| Task ID | idle |
+| Результат | idle — backlog в main, agent-задач нет |
+| Commit | merge marathon backlog → main (C4-S02 + cycles 1–4 + Wave UX) |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -161,7 +161,7 @@ git pull origin main
 
 ВЫБОР ЗАДАЧИ (одна за запуск):
 - Пропускай done, blocked, skipped, owner: human.
-- Первая pending в АКТИВНОМ цикле (сейчас Cycle 4 → C4-S02).
+- Первая pending в АКТИВНОМ цикле (сейчас Marathon idle — нет pending).
 - git log --oneline main --grep="<ID>" — если уже в main, только статус done, без кода.
 - rg ключевые символы задачи в main — не дублируй unmerged ветки.
 - Если in_progress = Last run ID — продолжи; in_progress >24ч → pending/blocked.
