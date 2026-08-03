@@ -1,10 +1,10 @@
 # DecentralHub Marathon — живой бэклог
 
-> **Активный цикл:** Cycle 4 — Cross-cutting (**Marathon idle** — agent-задач нет)  
+> **Активный цикл:** Wave Maintenance (automation-generated, каждый 2-й run)  
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл` (cron **пн/чт 09:00 UTC** — `0 9 * * 1,4`)  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-03 (C4-S02 OpenAPI parity → done)
+> **Последнее обновление:** 2026-08-03 (Wave Maintenance + scan/reconcile scripts)
 
 ## Last run (automation)
 
@@ -21,7 +21,11 @@
 
 ## Сейчас в очереди (pending)
 
-**Нет pending agent-задач** — Marathon idle.
+**Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
+
+**Wave Maintenance** (каждый 2-й run automation сам создаёт M-NN через `scripts/marathon-scan.mjs`):
+- ~145 кандидатов (TODO/FIXME, OpenAPI gaps, RU-строки, debug leftovers, нет тестов)
+- Один за run → `done` → TESTLOG → push
 
 ### Blocked (human — не трогать automation)
 
@@ -32,7 +36,7 @@
 | C4-D02 | quotas/vds/embed | = C4-S06 |
 | REG-03 | Windows manual | Wave Regression |
 
-**Cycles 1–4 и Wave UX — agent-задачи завершены.** Следующий agent-run → Marathon idle (код не менять).
+**Cycles 1–4 и Wave UX — agent-задачи завершены.** Следующий agent-run → Wave Maintenance (scan) или idle.
 
 ---
 
@@ -131,7 +135,7 @@
 | C3-D02 | agent-api-smoke | P1 | done | agent |
 | C3-D03 | Windows E2E | P0 | blocked | human |
 
-## Cycle 4 — Cross-cutting ← **активный**
+## Cycle 4 — Cross-cutting ✅
 
 | ID | Задача | Status | Owner |
 |----|--------|--------|-------|
@@ -170,6 +174,31 @@
 | REG-04 | TESTLOG summary | done | agent |
 | REG-05 | TESTPLAN 5-7 | done | agent |
 
+## Wave Maintenance ← **активный** (automation-generated)
+
+Automation **сам создаёт** задачи здесь каждый **второй** запуск (когда нет pending в основных циклах).
+
+### Правила самосоздания
+
+1. **Каждый второй run** (чередование: run N = reconcile/idle, run N+1 = scan+create+do):
+   - `node scripts/marathon-scan.mjs` → список кандидатов (ID `M-NN`)
+   - Возьми **одного** кандидата (по приоритету: B TODO/FIXME → C OpenAPI gap → A RU-строка → E нет теста → D debug)
+   - Добавь строку в таблицу ниже со статусом `in_progress`
+   - Выполни, верифицируй (`pnpm typecheck`), `done` + строка в TESTLOG.md
+2. **Один M-NN за run.** Не плодить пачку.
+3. **Skip** кандидатов, которые уже есть в таблице как `done`/`in_progress`.
+4. Если сканер пуст → `Marathon idle`.
+5. Категории: `A`=RU-строки, `B`=TODO/FIXME, `C`=OpenAPI gap, `D`=debug leftover, `E`=нет теста.
+
+### Очередь M-NN
+
+| ID | Cat | Задача | Файл | Status | Owner |
+|----|-----|--------|------|--------|-------|
+| — | — | *(сканер `scripts/marathon-scan.mjs` добавит строки сюда)* | — | — | — |
+
+> Automation: при создании задачи замени последнюю строку-плейсхолдер на реальную M-NN.
+> При `done` оставь строку, добавь новую ниже.
+
 ---
 
 ## Automation prompt (вставить в Cursor Automations)
@@ -180,14 +209,22 @@ node scripts/marathon-reconcile.mjs --apply   # закрывает рассин�
 git add MARATHON.md TESTLOG.md && git commit -m "chore(marathon): reconcile" && git push origin main || true
 Прочитай MARATHON.md. Активный цикл в заголовке. Memory выключена.
 
-ВЫБОР ЗАДАЧИ (одна за запуск):
+РЕЖИМ ЗАПУСКА (чередование каждый второй run):
+- Нечётный run (1,3,5…): если нет pending в основных циклах → "Marathon idle", код не трогать.
+- Чётный run (2,4,6…): Wave Maintenance — САМ СОЗДАЁШЬ задачу:
+    1. node scripts/marathon-scan.mjs            # список кандидатов M-NN
+    2. Возьми ОДНОГО (приоритет: B TODO → C OpenAPI gap → A RU → E тест → D debug)
+    3. Пропускай M-NN, уже done/in_progress в таблице Wave Maintenance
+    4. Добавь строку в MARATHON.md (Wave Maintenance) со статусом in_progress
+    5. Выполни, верифицируй (pnpm typecheck), → done + строка в TESTLOG.md
+    6. Если сканер пуст → "Marathon idle"
+
+ВЫБОР ЗАДАЧИ (основные циклы, если есть pending):
 - Пропускай done, blocked, skipped, owner: human.
-- Первая pending в АКТИВНОМ цикле (сейчас Marathon idle — нет pending).
+- Первая pending в АКТИВНОМ цикле.
 - git log --oneline main --grep="<ID>" — если уже в main, только статус done, без кода.
 - rg ключевые символы задачи в main — не дублируй unmerged ветки.
 - Открытые PR игнорируй. Они не делают задачу in_progress.
-- Если in_progress = Last run ID — продолжи; in_progress >24ч → pending/blocked.
-- Нет pending agent-задач → "Marathon idle", код не трогать.
 
 ВЫПОЛНЕНИЕ:
 1. in_progress → acceptance → pnpm typecheck && api/host-agent tests
@@ -200,4 +237,5 @@ git commit -m "chore(marathon): <ID> <кратко>"
 git push origin main
 
 Код — push в main или один PR. Не создавай DRAFT-дубли. Открытые PR не трогать.
+Один M-NN за run. Не плодить пачку.
 ```
