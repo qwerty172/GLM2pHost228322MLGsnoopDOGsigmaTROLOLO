@@ -15,7 +15,7 @@
 | Дата | 2026-08-03 13:38 UTC |
 | Task ID | M-13 |
 | Результат | host-agent renderer: 18 unit-тестов (49 pass) |
-| Commit | *(this run)* |
+| Commit | b60ecc8 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
