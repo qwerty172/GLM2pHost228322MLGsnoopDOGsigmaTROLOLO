@@ -811,6 +811,146 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /games/submit:
+    post:
+      operationId: submitGame
+      tags: [games]
+      summary: Host — propose a new catalog game entry
+      description: >
+        Any authenticated host may submit a pending catalog entry. Rate-limited to
+        5 pending submissions per host. `hostToken` in the JSON body identifies the
+        submitter.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitGameBody"
+      responses:
+        "201":
+          description: Submission created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameSubmission"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unknown hostToken
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Duplicate game or pending submission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmitGameConflictResponse"
+        "429":
+          description: Too many pending submissions for this host
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /games/submissions/{id}/pending-config:
+    patch:
+      operationId: patchGameSubmissionPendingConfig
+      tags: [games]
+      summary: Host — save launch config while submission is pending
+      description: >
+        Stores host launch configuration on a pending submission so the platform
+        can auto-create a library entry on admin approval.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PendingHostConfigBody"
+      responses:
+        "200":
+          description: Config saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingConfigSavedResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unknown hostToken
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not your submission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Submission not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Submission is not pending
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /games/submissions/my:
+    get:
+      operationId: listMyGameSubmissions
+      tags: [games]
+      summary: Host — list own game catalog submissions
+      description: >
+        Authenticate with X-Host-Token header or hostToken query parameter.
+      parameters:
+        - in: header
+          name: X-Host-Token
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: hostToken
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Submissions for the authenticated host
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GameSubmission"
+        "401":
+          description: Missing or unknown host token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /sessions:
     post:
       operationId: createSession
@@ -4006,6 +4146,200 @@ components:
         - playerToken
         - sessionId
 
+
+    SubmitGameBody:
+      type: object
+      properties:
+        hostToken:
+          type: string
+          minLength: 1
+          description: Host authentication token identifying the submitter
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        slug:
+          type: string
+          maxLength: 120
+          description: Optional slug; auto-generated from title on approve if omitted
+        category:
+          type: string
+          maxLength: 80
+          default: ""
+        genres:
+          type: array
+          items:
+            type: string
+            maxLength: 60
+          maxItems: 10
+          default: []
+        description:
+          type: string
+          maxLength: 4000
+          default: ""
+        coverImageUrl:
+          type: string
+          maxLength: 2048
+          default: ""
+          description: External http(s) URL or object-storage path from a prior upload
+        kind:
+          type: string
+          enum: [native, browser]
+          default: native
+        defaultBrowserUrl:
+          type: string
+          maxLength: 2048
+          default: ""
+          description: Required when kind is browser
+        steamAppId:
+          type: string
+          maxLength: 20
+      required:
+        - hostToken
+        - title
+
+    GameSubmission:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        hostId:
+          type: string
+          format: uuid
+        status:
+          type: string
+        title:
+          type: string
+        slug:
+          type: string
+        category:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+        coverImageUrl:
+          type: string
+        kind:
+          type: string
+        defaultBrowserUrl:
+          type: string
+        steamAppId:
+          type: ["string", "null"]
+        reviewerId:
+          type: ["string", "null"]
+          format: uuid
+        reviewedAt:
+          type: ["string", "null"]
+          format: date-time
+        rejectionReason:
+          type: ["string", "null"]
+        approvedGameId:
+          type: ["string", "null"]
+          format: uuid
+        pendingHostConfig:
+          $ref: "#/components/schemas/PendingHostConfig"
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - hostId
+        - status
+        - title
+        - slug
+        - category
+        - genres
+        - description
+        - coverImageUrl
+        - kind
+        - defaultBrowserUrl
+        - createdAt
+
+    SubmitGameConflictResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        existingGame:
+          type: object
+          properties:
+            id:
+              type: string
+            slug:
+              type: string
+            title:
+              type: string
+          required: [id, slug, title]
+        existingSubmission:
+          type: object
+          properties:
+            id:
+              type: string
+            title:
+              type: string
+          required: [id, title]
+      required:
+        - error
+
+    PendingHostConfig:
+      type: object
+      properties:
+        pricePerMinuteLzt:
+          type: number
+          minimum: 0
+          maximum: 200000
+        appPath:
+          type: string
+          maxLength: 1024
+        boundUrl:
+          type: string
+          maxLength: 2048
+        launchArgs:
+          type: string
+          maxLength: 1024
+      required:
+        - pricePerMinuteLzt
+        - appPath
+        - boundUrl
+        - launchArgs
+
+    PendingHostConfigBody:
+      type: object
+      properties:
+        hostToken:
+          type: string
+          minLength: 1
+        pricePerMinuteLzt:
+          type: number
+          minimum: 0
+          maximum: 200000
+        appPath:
+          type: string
+          maxLength: 1024
+          default: ""
+        boundUrl:
+          type: string
+          maxLength: 2048
+          default: ""
+        launchArgs:
+          type: string
+          maxLength: 1024
+          default: ""
+      required:
+        - hostToken
+        - pricePerMinuteLzt
+
+    PendingConfigSavedResponse:
+      type: object
+      properties:
+        saved:
+          type: boolean
+      required:
+        - saved
 
     GameSubmissionItem:
       type: object

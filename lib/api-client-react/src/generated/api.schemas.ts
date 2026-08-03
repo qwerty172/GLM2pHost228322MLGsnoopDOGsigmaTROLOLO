@@ -72,6 +72,128 @@ export interface ExchangeJoinCodeResponse {
   sessionId: string;
 }
 
+export type SubmitGameBodyKind =
+  (typeof SubmitGameBodyKind)[keyof typeof SubmitGameBodyKind];
+
+export const SubmitGameBodyKind = {
+  native: "native",
+  browser: "browser",
+} as const;
+
+export interface SubmitGameBody {
+  /**
+   * Host authentication token identifying the submitter
+   * @minLength 1
+   */
+  hostToken: string;
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  title: string;
+  /**
+   * Optional slug; auto-generated from title on approve if omitted
+   * @maxLength 120
+   */
+  slug?: string;
+  /** @maxLength 80 */
+  category?: string;
+  /** @maxItems 10 */
+  genres?: string[];
+  /** @maxLength 4000 */
+  description?: string;
+  /**
+   * External http(s) URL or object-storage path from a prior upload
+   * @maxLength 2048
+   */
+  coverImageUrl?: string;
+  kind?: SubmitGameBodyKind;
+  /**
+   * Required when kind is browser
+   * @maxLength 2048
+   */
+  defaultBrowserUrl?: string;
+  /** @maxLength 20 */
+  steamAppId?: string;
+}
+
+export interface PendingHostConfig {
+  /**
+   * @minimum 0
+   * @maximum 200000
+   */
+  pricePerMinuteLzt: number;
+  /** @maxLength 1024 */
+  appPath: string;
+  /** @maxLength 2048 */
+  boundUrl: string;
+  /** @maxLength 1024 */
+  launchArgs: string;
+}
+
+export interface GameSubmission {
+  id: string;
+  hostId: string;
+  status: string;
+  title: string;
+  slug: string;
+  category: string;
+  genres: string[];
+  description: string;
+  coverImageUrl: string;
+  kind: string;
+  defaultBrowserUrl: string;
+  /** @nullable */
+  steamAppId?: string | null;
+  /** @nullable */
+  reviewerId?: string | null;
+  /** @nullable */
+  reviewedAt?: string | null;
+  /** @nullable */
+  rejectionReason?: string | null;
+  /** @nullable */
+  approvedGameId?: string | null;
+  pendingHostConfig?: PendingHostConfig;
+  createdAt: string;
+}
+
+export type SubmitGameConflictResponseExistingGame = {
+  id: string;
+  slug: string;
+  title: string;
+};
+
+export type SubmitGameConflictResponseExistingSubmission = {
+  id: string;
+  title: string;
+};
+
+export interface SubmitGameConflictResponse {
+  error: string;
+  existingGame?: SubmitGameConflictResponseExistingGame;
+  existingSubmission?: SubmitGameConflictResponseExistingSubmission;
+}
+
+export interface PendingHostConfigBody {
+  /** @minLength 1 */
+  hostToken: string;
+  /**
+   * @minimum 0
+   * @maximum 200000
+   */
+  pricePerMinuteLzt: number;
+  /** @maxLength 1024 */
+  appPath?: string;
+  /** @maxLength 2048 */
+  boundUrl?: string;
+  /** @maxLength 1024 */
+  launchArgs?: string;
+}
+
+export interface PendingConfigSavedResponse {
+  saved: boolean;
+}
+
 export interface GameSubmissionItem {
   id: string;
   hostId: string;
@@ -1925,6 +2047,10 @@ export type SteamLookupParams = {
    * @pattern ^\d{1,10}$
    */
   appId: string;
+};
+
+export type ListMyGameSubmissionsParams = {
+  hostToken?: string;
 };
 
 export type GetSessionParams = {

@@ -1218,6 +1218,184 @@ export const SteamLookupResponse = zod.object({
 });
 
 /**
+ * Any authenticated host may submit a pending catalog entry. Rate-limited to 5 pending submissions per host. `hostToken` in the JSON body identifies the submitter.
+
+ * @summary Host — propose a new catalog game entry
+ */
+
+export const submitGameBodyTitleMax = 200;
+
+export const submitGameBodySlugMax = 120;
+
+export const submitGameBodyCategoryDefault = ``;
+export const submitGameBodyCategoryMax = 80;
+
+export const submitGameBodyGenresItemMax = 60;
+
+export const submitGameBodyGenresDefault = [];
+export const submitGameBodyGenresMax = 10;
+
+export const submitGameBodyDescriptionDefault = ``;
+export const submitGameBodyDescriptionMax = 4000;
+
+export const submitGameBodyCoverImageUrlDefault = ``;
+export const submitGameBodyCoverImageUrlMax = 2048;
+
+export const submitGameBodyKindDefault = `native`;
+export const submitGameBodyDefaultBrowserUrlDefault = ``;
+export const submitGameBodyDefaultBrowserUrlMax = 2048;
+
+export const submitGameBodySteamAppIdMax = 20;
+
+export const SubmitGameBody = zod.object({
+  hostToken: zod
+    .string()
+    .min(1)
+    .describe("Host authentication token identifying the submitter"),
+  title: zod.string().min(1).max(submitGameBodyTitleMax),
+  slug: zod
+    .string()
+    .max(submitGameBodySlugMax)
+    .optional()
+    .describe("Optional slug; auto-generated from title on approve if omitted"),
+  category: zod
+    .string()
+    .max(submitGameBodyCategoryMax)
+    .default(submitGameBodyCategoryDefault),
+  genres: zod
+    .array(zod.string().max(submitGameBodyGenresItemMax))
+    .max(submitGameBodyGenresMax)
+    .default(submitGameBodyGenresDefault),
+  description: zod
+    .string()
+    .max(submitGameBodyDescriptionMax)
+    .default(submitGameBodyDescriptionDefault),
+  coverImageUrl: zod
+    .string()
+    .max(submitGameBodyCoverImageUrlMax)
+    .default(submitGameBodyCoverImageUrlDefault)
+    .describe(
+      "External http(s) URL or object-storage path from a prior upload",
+    ),
+  kind: zod.enum(["native", "browser"]).default(submitGameBodyKindDefault),
+  defaultBrowserUrl: zod
+    .string()
+    .max(submitGameBodyDefaultBrowserUrlMax)
+    .default(submitGameBodyDefaultBrowserUrlDefault)
+    .describe("Required when kind is browser"),
+  steamAppId: zod.string().max(submitGameBodySteamAppIdMax).optional(),
+});
+
+/**
+ * Stores host launch configuration on a pending submission so the platform can auto-create a library entry on admin approval.
+
+ * @summary Host — save launch config while submission is pending
+ */
+export const PatchGameSubmissionPendingConfigParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const patchGameSubmissionPendingConfigBodyPricePerMinuteLztMin = 0;
+export const patchGameSubmissionPendingConfigBodyPricePerMinuteLztMax = 200000;
+
+export const patchGameSubmissionPendingConfigBodyAppPathDefault = ``;
+export const patchGameSubmissionPendingConfigBodyAppPathMax = 1024;
+
+export const patchGameSubmissionPendingConfigBodyBoundUrlDefault = ``;
+export const patchGameSubmissionPendingConfigBodyBoundUrlMax = 2048;
+
+export const patchGameSubmissionPendingConfigBodyLaunchArgsDefault = ``;
+export const patchGameSubmissionPendingConfigBodyLaunchArgsMax = 1024;
+
+export const PatchGameSubmissionPendingConfigBody = zod.object({
+  hostToken: zod.string().min(1),
+  pricePerMinuteLzt: zod
+    .number()
+    .min(patchGameSubmissionPendingConfigBodyPricePerMinuteLztMin)
+    .max(patchGameSubmissionPendingConfigBodyPricePerMinuteLztMax),
+  appPath: zod
+    .string()
+    .max(patchGameSubmissionPendingConfigBodyAppPathMax)
+    .default(patchGameSubmissionPendingConfigBodyAppPathDefault),
+  boundUrl: zod
+    .string()
+    .max(patchGameSubmissionPendingConfigBodyBoundUrlMax)
+    .default(patchGameSubmissionPendingConfigBodyBoundUrlDefault),
+  launchArgs: zod
+    .string()
+    .max(patchGameSubmissionPendingConfigBodyLaunchArgsMax)
+    .default(patchGameSubmissionPendingConfigBodyLaunchArgsDefault),
+});
+
+export const PatchGameSubmissionPendingConfigResponse = zod.object({
+  saved: zod.boolean(),
+});
+
+/**
+ * Authenticate with X-Host-Token header or hostToken query parameter.
+
+ * @summary Host — list own game catalog submissions
+ */
+export const ListMyGameSubmissionsQueryParams = zod.object({
+  hostToken: zod.coerce.string().optional(),
+});
+
+export const ListMyGameSubmissionsHeader = zod.object({
+  "X-Host-Token": zod.string().optional(),
+});
+
+export const listMyGameSubmissionsResponsePendingHostConfigPricePerMinuteLztMin = 0;
+export const listMyGameSubmissionsResponsePendingHostConfigPricePerMinuteLztMax = 200000;
+
+export const listMyGameSubmissionsResponsePendingHostConfigAppPathMax = 1024;
+
+export const listMyGameSubmissionsResponsePendingHostConfigBoundUrlMax = 2048;
+
+export const listMyGameSubmissionsResponsePendingHostConfigLaunchArgsMax = 1024;
+
+export const ListMyGameSubmissionsResponseItem = zod.object({
+  id: zod.string().uuid(),
+  hostId: zod.string().uuid(),
+  status: zod.string(),
+  title: zod.string(),
+  slug: zod.string(),
+  category: zod.string(),
+  genres: zod.array(zod.string()),
+  description: zod.string(),
+  coverImageUrl: zod.string(),
+  kind: zod.string(),
+  defaultBrowserUrl: zod.string(),
+  steamAppId: zod.string().nullish(),
+  reviewerId: zod.string().uuid().nullish(),
+  reviewedAt: zod.coerce.date().nullish(),
+  rejectionReason: zod.string().nullish(),
+  approvedGameId: zod.string().uuid().nullish(),
+  pendingHostConfig: zod
+    .object({
+      pricePerMinuteLzt: zod
+        .number()
+        .min(listMyGameSubmissionsResponsePendingHostConfigPricePerMinuteLztMin)
+        .max(
+          listMyGameSubmissionsResponsePendingHostConfigPricePerMinuteLztMax,
+        ),
+      appPath: zod
+        .string()
+        .max(listMyGameSubmissionsResponsePendingHostConfigAppPathMax),
+      boundUrl: zod
+        .string()
+        .max(listMyGameSubmissionsResponsePendingHostConfigBoundUrlMax),
+      launchArgs: zod
+        .string()
+        .max(listMyGameSubmissionsResponsePendingHostConfigLaunchArgsMax),
+    })
+    .optional(),
+  createdAt: zod.coerce.date(),
+});
+export const ListMyGameSubmissionsResponse = zod.array(
+  ListMyGameSubmissionsResponseItem,
+);
+
+/**
  * @summary Create a new session
  */
 export const CreateSessionBody = zod.object({
