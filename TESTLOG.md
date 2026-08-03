@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-11 (2026-08-03 13:12 UTC) {#marathon-m-11}
+
+| Проверка | Результат |
+|---|---|
+| OpenAPI | `POST /quotas/vds/test-connection`, `POST/GET/DELETE /quotas/{quotaId}/vds`, `GET /vds/mine` + QuotaVds/VdsSaveBody schemas |
+| codegen | orval → `testQuotaVdsConnection`, `saveQuotaVds`, `getQuotaVds`, `deleteQuotaVds`, `listMyVds` |
+| typecheck | PASS |
+| marathon-scan | vds.ts больше не в raw hits (2/2) |
+
+**Следующий pick:** M-12 `routes/vt.ts`.
+
 ## Marathon M-10 (2026-08-03 13:08 UTC) {#marathon-m-10}
 
 | Проверка | Результат |

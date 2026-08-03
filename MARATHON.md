@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-03 (M-10 done; submissions submit/pending-config/my OpenAPI)
+> **Последнее обновление:** 2026-08-03 (M-11 done; vds OpenAPI 5 routes)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 13:08 UTC |
-| Task ID | M-10 |
-| Результат | OpenAPI submissions submit/pending-config/my + codegen |
-| Commit | 26d3fce |
+| Дата | 2026-08-03 13:12 UTC |
+| Task ID | M-11 |
+| Результат | OpenAPI vds test-connection/CRUD/mine + codegen |
+| Commit | (this run) |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -25,8 +25,8 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** **3 M-NN pending** (см. таблицу ниже). Сканер:
-- **3 grouped** (M-10 submissions.ts закрыт)
+**Wave Maintenance:** **2 M-NN pending** (см. таблицу ниже). Сканер:
+- **2 grouped** (M-11 vds.ts закрыт)
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -242,7 +242,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-08 | C | OpenAPI gap: routes/sessions.ts (1 route) | `routes/sessions.ts` | c:artifacts/api-server/src/routes/sessions.ts | done | agent |
 | M-09 | C | OpenAPI gap: routes/storage.ts (3 routes) | `routes/storage.ts` | c:artifacts/api-server/src/routes/storage.ts | done | agent |
 | M-10 | C | OpenAPI gap: routes/submissions.ts (3 routes) | `routes/submissions.ts` | c:artifacts/api-server/src/routes/submissions.ts | done | agent |
-| M-11 | C | OpenAPI gap: routes/vds.ts (5 routes) | `routes/vds.ts` | c:artifacts/api-server/src/routes/vds.ts | pending | agent |
+| M-11 | C | OpenAPI gap: routes/vds.ts (5 routes) | `routes/vds.ts` | c:artifacts/api-server/src/routes/vds.ts | done | agent |
 | M-12 | C | OpenAPI gap: routes/vt.ts (2 routes) | `routes/vt.ts` | c:artifacts/api-server/src/routes/vt.ts | pending | agent |
 | M-13 | E | host-agent renderer: unit-тесты (18 модулей) | `renderer/*.ts` | e:renderer | pending | agent |
 

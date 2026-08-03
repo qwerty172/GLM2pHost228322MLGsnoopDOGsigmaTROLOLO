@@ -65,6 +65,7 @@ import type {
   CreateSessionBody,
   CreateTestSessionBody,
   CreateTestSessionResponse,
+  DeleteQuotaVdsParams,
   DetachQuotaFromSession200,
   DetachQuotaFromSessionBody,
   DevKeyCreateBody,
@@ -87,6 +88,7 @@ import type {
   GetHostStreamRelay200,
   GetPublicIceConfig200,
   GetQuotaParams,
+  GetQuotaVdsParams,
   GetSaveDownloadUrlParams,
   GetSessionParams,
   HealthStatus,
@@ -109,6 +111,7 @@ import type {
   ListMyGameSubmissionsParams,
   ListMyLoansParams,
   ListMyQuotasParams,
+  ListMyVdsParams,
   ListPublicGamesParams,
   ListPublicQuotasParams,
   LoanRequest,
@@ -136,6 +139,8 @@ import type {
   QuotaAiChatResponse,
   QuotaDetail,
   QuotaOwnerBody,
+  QuotaVds,
+  QuotaVdsMineItem,
   RateSessionBody,
   RateSessionResponse,
   RawgSearchParams,
@@ -169,6 +174,11 @@ import type {
   UpdateQuotaBody,
   UpgradeGuestPlayerBody,
   UploadStorageClipBody,
+  VdsDeleteResponse,
+  VdsSaveBody,
+  VdsTestConnectionBody,
+  VdsTestConnectionError,
+  VdsTestConnectionOk,
   Wallet,
   WalletTransaction,
   Withdrawal,
@@ -5648,6 +5658,485 @@ export const useQuotaAiChat = <
 > => {
   return useMutation(getQuotaAiChatMutationOptions(options));
 };
+
+/**
+ * @summary Test SSH reachability for a VDS host (key is not stored)
+ */
+export const getTestQuotaVdsConnectionUrl = () => {
+  return `/api/quotas/vds/test-connection`;
+};
+
+export const testQuotaVdsConnection = async (
+  vdsTestConnectionBody: VdsTestConnectionBody,
+  options?: RequestInit,
+): Promise<VdsTestConnectionOk> => {
+  return customFetch<VdsTestConnectionOk>(getTestQuotaVdsConnectionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(vdsTestConnectionBody),
+  });
+};
+
+export const getTestQuotaVdsConnectionMutationOptions = <
+  TError = ErrorType<VdsTestConnectionError | ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof testQuotaVdsConnection>>,
+    TError,
+    { data: BodyType<VdsTestConnectionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof testQuotaVdsConnection>>,
+  TError,
+  { data: BodyType<VdsTestConnectionBody> },
+  TContext
+> => {
+  const mutationKey = ["testQuotaVdsConnection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof testQuotaVdsConnection>>,
+    { data: BodyType<VdsTestConnectionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return testQuotaVdsConnection(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TestQuotaVdsConnectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof testQuotaVdsConnection>>
+>;
+export type TestQuotaVdsConnectionMutationBody =
+  BodyType<VdsTestConnectionBody>;
+export type TestQuotaVdsConnectionMutationError = ErrorType<
+  VdsTestConnectionError | ErrorResponse
+>;
+
+/**
+ * @summary Test SSH reachability for a VDS host (key is not stored)
+ */
+export const useTestQuotaVdsConnection = <
+  TError = ErrorType<VdsTestConnectionError | ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof testQuotaVdsConnection>>,
+    TError,
+    { data: BodyType<VdsTestConnectionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof testQuotaVdsConnection>>,
+  TError,
+  { data: BodyType<VdsTestConnectionBody> },
+  TContext
+> => {
+  return useMutation(getTestQuotaVdsConnectionMutationOptions(options));
+};
+
+/**
+ * @summary Save or replace VDS SSH config for a quota (owner only)
+ */
+export const getSaveQuotaVdsUrl = (quotaId: string) => {
+  return `/api/quotas/${quotaId}/vds`;
+};
+
+export const saveQuotaVds = async (
+  quotaId: string,
+  vdsSaveBody: VdsSaveBody,
+  options?: RequestInit,
+): Promise<QuotaVds> => {
+  return customFetch<QuotaVds>(getSaveQuotaVdsUrl(quotaId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(vdsSaveBody),
+  });
+};
+
+export const getSaveQuotaVdsMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveQuotaVds>>,
+    TError,
+    { quotaId: string; data: BodyType<VdsSaveBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof saveQuotaVds>>,
+  TError,
+  { quotaId: string; data: BodyType<VdsSaveBody> },
+  TContext
+> => {
+  const mutationKey = ["saveQuotaVds"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof saveQuotaVds>>,
+    { quotaId: string; data: BodyType<VdsSaveBody> }
+  > = (props) => {
+    const { quotaId, data } = props ?? {};
+
+    return saveQuotaVds(quotaId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SaveQuotaVdsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof saveQuotaVds>>
+>;
+export type SaveQuotaVdsMutationBody = BodyType<VdsSaveBody>;
+export type SaveQuotaVdsMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Save or replace VDS SSH config for a quota (owner only)
+ */
+export const useSaveQuotaVds = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveQuotaVds>>,
+    TError,
+    { quotaId: string; data: BodyType<VdsSaveBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof saveQuotaVds>>,
+  TError,
+  { quotaId: string; data: BodyType<VdsSaveBody> },
+  TContext
+> => {
+  return useMutation(getSaveQuotaVdsMutationOptions(options));
+};
+
+/**
+ * @summary Get VDS config for a quota (owner only; SSH key never returned)
+ */
+export const getGetQuotaVdsUrl = (
+  quotaId: string,
+  params: GetQuotaVdsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/quotas/${quotaId}/vds?${stringifiedParams}`
+    : `/api/quotas/${quotaId}/vds`;
+};
+
+export const getQuotaVds = async (
+  quotaId: string,
+  params: GetQuotaVdsParams,
+  options?: RequestInit,
+): Promise<QuotaVds> => {
+  return customFetch<QuotaVds>(getGetQuotaVdsUrl(quotaId, params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetQuotaVdsQueryKey = (
+  quotaId: string,
+  params?: GetQuotaVdsParams,
+) => {
+  return [`/api/quotas/${quotaId}/vds`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetQuotaVdsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getQuotaVds>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  quotaId: string,
+  params: GetQuotaVdsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getQuotaVds>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetQuotaVdsQueryKey(quotaId, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getQuotaVds>>> = ({
+    signal,
+  }) => getQuotaVds(quotaId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!quotaId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getQuotaVds>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetQuotaVdsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getQuotaVds>>
+>;
+export type GetQuotaVdsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get VDS config for a quota (owner only; SSH key never returned)
+ */
+
+export function useGetQuotaVds<
+  TData = Awaited<ReturnType<typeof getQuotaVds>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  quotaId: string,
+  params: GetQuotaVdsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getQuotaVds>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetQuotaVdsQueryOptions(quotaId, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Remove VDS config from a quota (owner only)
+ */
+export const getDeleteQuotaVdsUrl = (
+  quotaId: string,
+  params: DeleteQuotaVdsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/quotas/${quotaId}/vds?${stringifiedParams}`
+    : `/api/quotas/${quotaId}/vds`;
+};
+
+export const deleteQuotaVds = async (
+  quotaId: string,
+  params: DeleteQuotaVdsParams,
+  options?: RequestInit,
+): Promise<VdsDeleteResponse> => {
+  return customFetch<VdsDeleteResponse>(getDeleteQuotaVdsUrl(quotaId, params), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteQuotaVdsMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteQuotaVds>>,
+    TError,
+    { quotaId: string; params: DeleteQuotaVdsParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteQuotaVds>>,
+  TError,
+  { quotaId: string; params: DeleteQuotaVdsParams },
+  TContext
+> => {
+  const mutationKey = ["deleteQuotaVds"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteQuotaVds>>,
+    { quotaId: string; params: DeleteQuotaVdsParams }
+  > = (props) => {
+    const { quotaId, params } = props ?? {};
+
+    return deleteQuotaVds(quotaId, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteQuotaVdsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteQuotaVds>>
+>;
+
+export type DeleteQuotaVdsMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Remove VDS config from a quota (owner only)
+ */
+export const useDeleteQuotaVds = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteQuotaVds>>,
+    TError,
+    { quotaId: string; params: DeleteQuotaVdsParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteQuotaVds>>,
+  TError,
+  { quotaId: string; params: DeleteQuotaVdsParams },
+  TContext
+> => {
+  return useMutation(getDeleteQuotaVdsMutationOptions(options));
+};
+
+/**
+ * @summary List VDS instances across all quotas owned by the caller
+ */
+export const getListMyVdsUrl = (params: ListMyVdsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/vds/mine?${stringifiedParams}`
+    : `/api/vds/mine`;
+};
+
+export const listMyVds = async (
+  params: ListMyVdsParams,
+  options?: RequestInit,
+): Promise<QuotaVdsMineItem[]> => {
+  return customFetch<QuotaVdsMineItem[]>(getListMyVdsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyVdsQueryKey = (params?: ListMyVdsParams) => {
+  return [`/api/vds/mine`, ...(params ? [params] : [])] as const;
+};
+
+export const getListMyVdsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyVds>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: ListMyVdsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMyVds>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMyVdsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyVds>>> = ({
+    signal,
+  }) => listMyVds(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyVds>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyVdsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyVds>>
+>;
+export type ListMyVdsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List VDS instances across all quotas owned by the caller
+ */
+
+export function useListMyVds<
+  TData = Awaited<ReturnType<typeof listMyVds>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: ListMyVdsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMyVds>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyVdsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Wallet overview вЂ” balance, deposit addresses, withdrawal history

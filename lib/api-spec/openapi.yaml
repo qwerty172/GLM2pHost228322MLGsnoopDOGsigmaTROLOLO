@@ -26,6 +26,8 @@ tags:
     description: Catalog of games available to stream
   - name: quotas
     description: Quota preset-contracts (royalty / sponsor) attachable to sessions
+  - name: vds
+    description: Quota-attached VDS provisioning over SSH
   - name: loans
     description: P2P loan marketplace (request, fund, repay)
   - name: public
@@ -1992,6 +1994,208 @@ paths:
                 $ref: "#/components/schemas/QuotaAiChatResponse"
         "500":
           description: AI error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /quotas/vds/test-connection:
+    post:
+      operationId: testQuotaVdsConnection
+      tags: [vds, quotas]
+      summary: Test SSH reachability for a VDS host (key is not stored)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VdsTestConnectionBody"
+      responses:
+        "200":
+          description: SSH connection succeeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VdsTestConnectionOk"
+        "400":
+          description: Validation error, private host, or SSH failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VdsTestConnectionError"
+        "403":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VdsTestConnectionError"
+
+  /quotas/{quotaId}/vds:
+    post:
+      operationId: saveQuotaVds
+      tags: [vds, quotas]
+      summary: Save or replace VDS SSH config for a quota (owner only)
+      parameters:
+        - in: path
+          name: quotaId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VdsSaveBody"
+      responses:
+        "200":
+          description: VDS config updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuotaVds"
+        "201":
+          description: VDS config created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuotaVds"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not authenticated or not quota owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Quota not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: SSH key encryption unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      operationId: getQuotaVds
+      tags: [vds, quotas]
+      summary: Get VDS config for a quota (owner only; SSH key never returned)
+      parameters:
+        - in: path
+          name: quotaId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: ownerToken
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: VDS config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuotaVds"
+        "400":
+          description: ownerToken required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not authenticated or not quota owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Quota or VDS not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteQuotaVds
+      tags: [vds, quotas]
+      summary: Remove VDS config from a quota (owner only)
+      parameters:
+        - in: path
+          name: quotaId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: ownerToken
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: VDS removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VdsDeleteResponse"
+        "400":
+          description: ownerToken required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not authenticated or not quota owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /vds/mine:
+    get:
+      operationId: listMyVds
+      tags: [vds]
+      summary: List VDS instances across all quotas owned by the caller
+      parameters:
+        - in: query
+          name: ownerToken
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: VDS list with quota title and host earnings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/QuotaVdsMineItem"
+        "400":
+          description: ownerToken required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not authenticated
           content:
             application/json:
               schema:
@@ -7007,3 +7211,142 @@ components:
       required:
         - objectPath
         - size
+
+    VdsTestConnectionBody:
+      type: object
+      properties:
+        ownerToken:
+          type: string
+        sshHost:
+          type: string
+        sshPort:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          default: 22
+        sshUser:
+          type: string
+        sshKey:
+          type: string
+          description: Raw private key (never stored by test-connection)
+      required:
+        - ownerToken
+        - sshHost
+        - sshUser
+        - sshKey
+
+    VdsTestConnectionOk:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+      required:
+        - ok
+
+    VdsTestConnectionError:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          enum: [false]
+        error:
+          type: string
+      required:
+        - ok
+
+    VdsSaveBody:
+      type: object
+      properties:
+        ownerToken:
+          type: string
+        provider:
+          type: string
+          default: ssh
+        sshHost:
+          type: string
+        sshPort:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          default: 22
+        sshUser:
+          type: string
+        sshKey:
+          type: string
+          description: Raw private key; stored encrypted server-side
+      required:
+        - ownerToken
+        - sshHost
+        - sshUser
+        - sshKey
+
+    QuotaVds:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        quotaId:
+          type: string
+          format: uuid
+        provider:
+          type: string
+        sshHost:
+          type: string
+        sshPort:
+          type: integer
+        sshUser:
+          type: string
+        status:
+          type: string
+          description: pending | provisioning | online | offline | error
+        provisionLog:
+          type: string
+        lastHealthAt:
+          type: ["string", "null"]
+          format: date-time
+        hostId:
+          type: ["string", "null"]
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - quotaId
+        - provider
+        - sshHost
+        - sshPort
+        - sshUser
+        - status
+        - provisionLog
+        - lastHealthAt
+        - hostId
+        - createdAt
+        - updatedAt
+
+    QuotaVdsMineItem:
+      allOf:
+        - $ref: "#/components/schemas/QuotaVds"
+        - type: object
+          properties:
+            quotaTitle:
+              type: ["string", "null"]
+            earnedLzt:
+              type: integer
+          required:
+            - quotaTitle
+            - earnedLzt
+
+    VdsDeleteResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+      required:
+        - ok

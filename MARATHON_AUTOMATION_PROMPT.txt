@@ -1,4 +1,5 @@
 # Вставить в Cursor Automation trigger (заменить «Прочитай MARATHON / проверяй прошлые runs»)
+# ПРИОРИТЕТ: если groom --should-run выводит agentInstruction — следуй ему, ИГНОРИРУЙ старый trigger-текст.
 
 git pull origin main
 node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0

@@ -1962,6 +1962,70 @@ export interface ClipUploadResponse {
   size: number;
 }
 
+export interface VdsTestConnectionBody {
+  ownerToken: string;
+  sshHost: string;
+  /**
+   * @minimum 1
+   * @maximum 65535
+   */
+  sshPort?: number;
+  sshUser: string;
+  /** Raw private key (never stored by test-connection) */
+  sshKey: string;
+}
+
+export interface VdsTestConnectionOk {
+  ok: boolean;
+}
+
+export interface VdsTestConnectionError {
+  ok: boolean;
+  error?: string;
+}
+
+export interface VdsSaveBody {
+  ownerToken: string;
+  provider?: string;
+  sshHost: string;
+  /**
+   * @minimum 1
+   * @maximum 65535
+   */
+  sshPort?: number;
+  sshUser: string;
+  /** Raw private key; stored encrypted server-side */
+  sshKey: string;
+}
+
+export interface QuotaVds {
+  id: string;
+  quotaId: string;
+  provider: string;
+  sshHost: string;
+  sshPort: number;
+  sshUser: string;
+  /** pending | provisioning | online | offline | error */
+  status: string;
+  provisionLog: string;
+  /** @nullable */
+  lastHealthAt: string | null;
+  /** @nullable */
+  hostId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type QuotaVdsMineItem = QuotaVds & {
+  /** @nullable */
+  quotaTitle: string | null;
+  earnedLzt: number;
+};
+
+export interface VdsDeleteResponse {
+  ok: boolean;
+}
+
 export type GetHostDebtors200 = { [key: string]: unknown };
 
 export type GetHostStreamRelay200 = {
@@ -2121,6 +2185,18 @@ export type ListApplicableQuotasParams = {
 
 export type GetQuotaParams = {
   ownerToken?: string;
+};
+
+export type GetQuotaVdsParams = {
+  ownerToken: string;
+};
+
+export type DeleteQuotaVdsParams = {
+  ownerToken: string;
+};
+
+export type ListMyVdsParams = {
+  ownerToken: string;
 };
 
 export type ListMyLoansParams = {

@@ -3463,6 +3463,148 @@ export const QuotaAiChatResponse = zod.object({
 });
 
 /**
+ * @summary Test SSH reachability for a VDS host (key is not stored)
+ */
+export const testQuotaVdsConnectionBodySshPortDefault = 22;
+export const testQuotaVdsConnectionBodySshPortMax = 65535;
+
+export const TestQuotaVdsConnectionBody = zod.object({
+  ownerToken: zod.string(),
+  sshHost: zod.string(),
+  sshPort: zod
+    .number()
+    .min(1)
+    .max(testQuotaVdsConnectionBodySshPortMax)
+    .default(testQuotaVdsConnectionBodySshPortDefault),
+  sshUser: zod.string(),
+  sshKey: zod
+    .string()
+    .describe("Raw private key (never stored by test-connection)"),
+});
+
+export const TestQuotaVdsConnectionResponse = zod.object({
+  ok: zod.literal(true),
+});
+
+/**
+ * @summary Save or replace VDS SSH config for a quota (owner only)
+ */
+export const SaveQuotaVdsParams = zod.object({
+  quotaId: zod.coerce.string().uuid(),
+});
+
+export const saveQuotaVdsBodyProviderDefault = `ssh`;
+export const saveQuotaVdsBodySshPortDefault = 22;
+export const saveQuotaVdsBodySshPortMax = 65535;
+
+export const SaveQuotaVdsBody = zod.object({
+  ownerToken: zod.string(),
+  provider: zod.string().default(saveQuotaVdsBodyProviderDefault),
+  sshHost: zod.string(),
+  sshPort: zod
+    .number()
+    .min(1)
+    .max(saveQuotaVdsBodySshPortMax)
+    .default(saveQuotaVdsBodySshPortDefault),
+  sshUser: zod.string(),
+  sshKey: zod
+    .string()
+    .describe("Raw private key; stored encrypted server-side"),
+});
+
+export const SaveQuotaVdsResponse = zod.object({
+  id: zod.string().uuid(),
+  quotaId: zod.string().uuid(),
+  provider: zod.string(),
+  sshHost: zod.string(),
+  sshPort: zod.number(),
+  sshUser: zod.string(),
+  status: zod
+    .string()
+    .describe("pending | provisioning | online | offline | error"),
+  provisionLog: zod.string(),
+  lastHealthAt: zod.coerce.date().nullable(),
+  hostId: zod.string().uuid().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Get VDS config for a quota (owner only; SSH key never returned)
+ */
+export const GetQuotaVdsParams = zod.object({
+  quotaId: zod.coerce.string().uuid(),
+});
+
+export const GetQuotaVdsQueryParams = zod.object({
+  ownerToken: zod.coerce.string(),
+});
+
+export const GetQuotaVdsResponse = zod.object({
+  id: zod.string().uuid(),
+  quotaId: zod.string().uuid(),
+  provider: zod.string(),
+  sshHost: zod.string(),
+  sshPort: zod.number(),
+  sshUser: zod.string(),
+  status: zod
+    .string()
+    .describe("pending | provisioning | online | offline | error"),
+  provisionLog: zod.string(),
+  lastHealthAt: zod.coerce.date().nullable(),
+  hostId: zod.string().uuid().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Remove VDS config from a quota (owner only)
+ */
+export const DeleteQuotaVdsParams = zod.object({
+  quotaId: zod.coerce.string().uuid(),
+});
+
+export const DeleteQuotaVdsQueryParams = zod.object({
+  ownerToken: zod.coerce.string(),
+});
+
+export const DeleteQuotaVdsResponse = zod.object({
+  ok: zod.literal(true),
+});
+
+/**
+ * @summary List VDS instances across all quotas owned by the caller
+ */
+export const ListMyVdsQueryParams = zod.object({
+  ownerToken: zod.coerce.string(),
+});
+
+export const ListMyVdsResponseItem = zod
+  .object({
+    id: zod.string().uuid(),
+    quotaId: zod.string().uuid(),
+    provider: zod.string(),
+    sshHost: zod.string(),
+    sshPort: zod.number(),
+    sshUser: zod.string(),
+    status: zod
+      .string()
+      .describe("pending | provisioning | online | offline | error"),
+    provisionLog: zod.string(),
+    lastHealthAt: zod.coerce.date().nullable(),
+    hostId: zod.string().uuid().nullable(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      quotaTitle: zod.string().nullable(),
+      earnedLzt: zod.number(),
+    }),
+  );
+export const ListMyVdsResponse = zod.array(ListMyVdsResponseItem);
+
+/**
  * @summary Wallet overview вЂ” balance, deposit addresses, withdrawal history
  */
 export const GetWalletParams = zod.object({
