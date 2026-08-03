@@ -10,17 +10,10 @@
 
 | Поле | Значение |
 |------|----------|
-<<<<<<< HEAD
-| Дата | 2026-08-03 11:42 UTC |
-| Task ID | reconcile |
-| Результат | reconcile PASS (14/14) — все изменения зачтены; groom 0 issues; sync 13 M-NN pending |
-| Commit | 96ea253 |
-=======
 | Дата | 2026-08-03 11:48 UTC |
 | Task ID | M-01 |
 | Результат | done — OpenAPI `/downloads/host-agent.zip` + `/downloads/host-agent.exe`; codegen OK |
-| Commit | 3c9db2b |
->>>>>>> 6dd713f (feat(api-spec): M-01 — OpenAPI downloads endpoints (host-agent zip/exe))
+| Commit | f44129c |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
