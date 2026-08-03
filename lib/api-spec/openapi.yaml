@@ -30,6 +30,8 @@ tags:
     description: Embeddable widget sessions funded by developer API keys
   - name: auth
     description: Host-agent Ed25519 challenge / bind / login
+  - name: dev
+    description: Developer API keys for embed integrations
   - name: storage
     description: Object storage upload URLs and public assets
 paths:
@@ -2736,6 +2738,217 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /auth/agent-pairing-code:
+    post:
+      operationId: issueAgentPairingCode
+      tags: [auth]
+      summary: Host dashboard issues a 6-digit pairing code for the desktop agent
+      parameters:
+        - in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+          description: Bearer host token
+      responses:
+        "200":
+          description: Pairing code issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentPairingCodeResponse"
+        "401":
+          description: Host token required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/agent-pairing-status:
+    get:
+      operationId: getAgentPairingStatus
+      tags: [auth]
+      summary: Poll pairing state after showing a code in the dashboard
+      parameters:
+        - in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+          description: Bearer host token
+      responses:
+        "200":
+          description: Current pairing status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentPairingStatusResponse"
+        "401":
+          description: Host token required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/agent-pair:
+    post:
+      operationId: agentPair
+      tags: [auth]
+      summary: Agent submits a 6-digit pairing code and receives hostToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentPairBody"
+      responses:
+        "200":
+          description: Paired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentPairResponse"
+        "400":
+          description: Invalid body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid or expired pairing code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /agent-telemetry:
+    post:
+      operationId: postAgentTelemetry
+      tags: [auth]
+      summary: Host agent pushes noteworthy events (startup, fatal errors, injector failures)
+      parameters:
+        - in: header
+          name: X-Host-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentTelemetryBody"
+      responses:
+        "200":
+          description: Events stored
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, stored]
+                properties:
+                  ok:
+                    type: boolean
+                  stored:
+                    type: integer
+        "400":
+          description: Invalid body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Host token required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /dev-keys:
+    post:
+      operationId: createDevKey
+      tags: [dev]
+      summary: Mint a developer API key and LZT wallet
+      parameters:
+        - in: header
+          name: X-Dev-Key-Secret
+          schema:
+            type: string
+          description: Shared secret (or X-Admin-Secret / admin host token)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DevKeyCreateBody"
+      responses:
+        "201":
+          description: Dev key created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DevKeyResponse"
+        "400":
+          description: Invalid body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /dev-keys/{apiKey}/rules:
+    patch:
+      operationId: patchDevKeyRules
+      tags: [dev]
+      summary: Update host-selection rules, status, or display name for a dev key
+      parameters:
+        - in: path
+          name: apiKey
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DevKeyPatchBody"
+      responses:
+        "200":
+          description: Updated dev key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DevKeySummary"
+        "400":
+          description: Invalid body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: API key not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /storage/uploads/request-url:
     post:
       operationId: requestUploadUrl
@@ -4031,6 +4244,146 @@ components:
         - level
         - message
         - createdAt
+
+    AgentPairingCodeResponse:
+      type: object
+      required: [code, expiresAt]
+      properties:
+        code:
+          type: string
+          pattern: "^\\d{6}$"
+        expiresAt:
+          type: string
+          format: date-time
+
+    AgentPairingStatusResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [paired, pending, expired]
+        pairedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+
+    AgentPairBody:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          pattern: "^\\d{6}$"
+        agentPubkey:
+          type: string
+          description: Optional hex-encoded Ed25519 public key to bind during pairing
+
+    AgentPairResponse:
+      type: object
+      required: [hostToken, displayName]
+      properties:
+        hostToken:
+          type: string
+        displayName:
+          type: string
+
+    AgentTelemetryBody:
+      type: object
+      properties:
+        agentVersion:
+          type: string
+          maxLength: 64
+        events:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            type: object
+            required: [level, message]
+            properties:
+              level:
+                type: string
+                enum: [info, warn, error, fatal]
+              message:
+                type: string
+                minLength: 1
+                maxLength: 4000
+              occurredAt:
+                type: string
+                format: date-time
+      required: [events]
+
+    DevKeyHostRules:
+      type: object
+      properties:
+        maxPricePerMinuteLzt:
+          type: integer
+          minimum: 0
+        tags:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            minLength: 1
+
+    DevKeyCreateBody:
+      type: object
+      properties:
+        displayName:
+          type: string
+          maxLength: 200
+        hostRules:
+          $ref: "#/components/schemas/DevKeyHostRules"
+
+    DevKeyPatchBody:
+      type: object
+      properties:
+        hostRules:
+          $ref: "#/components/schemas/DevKeyHostRules"
+        status:
+          type: string
+          enum: [active, disabled]
+        displayName:
+          type: string
+          maxLength: 200
+
+    DevKeySummary:
+      type: object
+      required: [apiKey, displayName, status, hostRules]
+      properties:
+        apiKey:
+          type: string
+        displayName:
+          type: string
+        status:
+          type: string
+        hostRules:
+          $ref: "#/components/schemas/DevKeyHostRules"
+
+    DevKeyResponse:
+      allOf:
+        - $ref: "#/components/schemas/DevKeySummary"
+        - type: object
+          required:
+            - internalBalanceLzt
+            - withdrawableBalanceLzt
+            - depositAddresses
+            - createdAt
+          properties:
+            internalBalanceLzt:
+              type: integer
+            withdrawableBalanceLzt:
+              type: integer
+            depositAddresses:
+              type: array
+              items:
+                $ref: "#/components/schemas/DepositAddress"
+            createdAt:
+              type: string
+              format: date-time
 
     DepositAddress:
       type: object

@@ -730,6 +730,104 @@ export interface AgentEventItem {
   createdAt: string;
 }
 
+export interface AgentPairingCodeResponse {
+  /** @pattern ^\d{6}$ */
+  code: string;
+  expiresAt: string;
+}
+
+export type AgentPairingStatusResponseStatus =
+  (typeof AgentPairingStatusResponseStatus)[keyof typeof AgentPairingStatusResponseStatus];
+
+export const AgentPairingStatusResponseStatus = {
+  paired: "paired",
+  pending: "pending",
+  expired: "expired",
+} as const;
+
+export interface AgentPairingStatusResponse {
+  status: AgentPairingStatusResponseStatus;
+  pairedAt?: string;
+  expiresAt?: string;
+}
+
+export interface AgentPairBody {
+  /** @pattern ^\d{6}$ */
+  code: string;
+  /** Optional hex-encoded Ed25519 public key to bind during pairing */
+  agentPubkey?: string;
+}
+
+export interface AgentPairResponse {
+  hostToken: string;
+  displayName: string;
+}
+
+export type AgentTelemetryBodyEventsItemLevel =
+  (typeof AgentTelemetryBodyEventsItemLevel)[keyof typeof AgentTelemetryBodyEventsItemLevel];
+
+export const AgentTelemetryBodyEventsItemLevel = {
+  info: "info",
+  warn: "warn",
+  error: "error",
+  fatal: "fatal",
+} as const;
+
+export type AgentTelemetryBodyEventsItem = {
+  level: AgentTelemetryBodyEventsItemLevel;
+  /**
+   * @minLength 1
+   * @maxLength 4000
+   */
+  message: string;
+  occurredAt?: string;
+};
+
+export interface AgentTelemetryBody {
+  /** @maxLength 64 */
+  agentVersion?: string;
+  /**
+   * @minItems 1
+   * @maxItems 20
+   */
+  events: AgentTelemetryBodyEventsItem[];
+}
+
+export interface DevKeyHostRules {
+  /** @minimum 0 */
+  maxPricePerMinuteLzt?: number;
+  /** @maxItems 20 */
+  tags?: string[];
+}
+
+export interface DevKeyCreateBody {
+  /** @maxLength 200 */
+  displayName?: string;
+  hostRules?: DevKeyHostRules;
+}
+
+export type DevKeyPatchBodyStatus =
+  (typeof DevKeyPatchBodyStatus)[keyof typeof DevKeyPatchBodyStatus];
+
+export const DevKeyPatchBodyStatus = {
+  active: "active",
+  disabled: "disabled",
+} as const;
+
+export interface DevKeyPatchBody {
+  hostRules?: DevKeyHostRules;
+  status?: DevKeyPatchBodyStatus;
+  /** @maxLength 200 */
+  displayName?: string;
+}
+
+export interface DevKeySummary {
+  apiKey: string;
+  displayName: string;
+  status: string;
+  hostRules: DevKeyHostRules;
+}
+
 export interface DepositAddress {
   /** USDT_TRC20 | NANO | SOL */
   currency: string;
@@ -738,6 +836,13 @@ export interface DepositAddress {
   network: string;
   minDeposit: number;
 }
+
+export type DevKeyResponse = DevKeySummary & {
+  internalBalanceLzt: number;
+  withdrawableBalanceLzt: number;
+  depositAddresses: DepositAddress[];
+  createdAt: string;
+};
 
 export interface Withdrawal {
   id: string;
@@ -1781,4 +1886,9 @@ export type AgentLoginBody = {
 
 export type AgentLogin200 = {
   hostToken: string;
+};
+
+export type PostAgentTelemetry200 = {
+  ok: boolean;
+  stored: number;
 };

@@ -29,6 +29,11 @@ import type {
   AgentEventItem,
   AgentLogin200,
   AgentLoginBody,
+  AgentPairBody,
+  AgentPairResponse,
+  AgentPairingCodeResponse,
+  AgentPairingStatusResponse,
+  AgentTelemetryBody,
   AiSuggestQuotaSpecsBody,
   AiSuggestQuotaSpecsResponse,
   AttachQuotaToSession200,
@@ -57,6 +62,10 @@ import type {
   CreateTestSessionResponse,
   DetachQuotaFromSession200,
   DetachQuotaFromSessionBody,
+  DevKeyCreateBody,
+  DevKeyPatchBody,
+  DevKeyResponse,
+  DevKeySummary,
   EndSessionBody,
   ErrorResponse,
   ExchangeJoinCodeResponse,
@@ -99,6 +108,7 @@ import type {
   PlayerGameSaveResponse,
   PlayerGameSaveUploadUrlBody,
   PlayerGameSaveUploadUrlResponse,
+  PostAgentTelemetry200,
   PublicGameHostItem,
   PublicHostListItem,
   PublicPing200,
@@ -7361,6 +7371,510 @@ export const useAgentLogin = <
   TContext
 > => {
   return useMutation(getAgentLoginMutationOptions(options));
+};
+
+/**
+ * @summary Host dashboard issues a 6-digit pairing code for the desktop agent
+ */
+export const getIssueAgentPairingCodeUrl = () => {
+  return `/api/auth/agent-pairing-code`;
+};
+
+export const issueAgentPairingCode = async (
+  options?: RequestInit,
+): Promise<AgentPairingCodeResponse> => {
+  return customFetch<AgentPairingCodeResponse>(getIssueAgentPairingCodeUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getIssueAgentPairingCodeMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof issueAgentPairingCode>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof issueAgentPairingCode>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["issueAgentPairingCode"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof issueAgentPairingCode>>,
+    void
+  > = () => {
+    return issueAgentPairingCode(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type IssueAgentPairingCodeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof issueAgentPairingCode>>
+>;
+
+export type IssueAgentPairingCodeMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Host dashboard issues a 6-digit pairing code for the desktop agent
+ */
+export const useIssueAgentPairingCode = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof issueAgentPairingCode>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof issueAgentPairingCode>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getIssueAgentPairingCodeMutationOptions(options));
+};
+
+/**
+ * @summary Poll pairing state after showing a code in the dashboard
+ */
+export const getGetAgentPairingStatusUrl = () => {
+  return `/api/auth/agent-pairing-status`;
+};
+
+export const getAgentPairingStatus = async (
+  options?: RequestInit,
+): Promise<AgentPairingStatusResponse> => {
+  return customFetch<AgentPairingStatusResponse>(
+    getGetAgentPairingStatusUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAgentPairingStatusQueryKey = () => {
+  return [`/api/auth/agent-pairing-status`] as const;
+};
+
+export const getGetAgentPairingStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAgentPairingStatus>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentPairingStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAgentPairingStatusQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAgentPairingStatus>>
+  > = ({ signal }) => getAgentPairingStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentPairingStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAgentPairingStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAgentPairingStatus>>
+>;
+export type GetAgentPairingStatusQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Poll pairing state after showing a code in the dashboard
+ */
+
+export function useGetAgentPairingStatus<
+  TData = Awaited<ReturnType<typeof getAgentPairingStatus>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentPairingStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAgentPairingStatusQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Agent submits a 6-digit pairing code and receives hostToken
+ */
+export const getAgentPairUrl = () => {
+  return `/api/auth/agent-pair`;
+};
+
+export const agentPair = async (
+  agentPairBody: AgentPairBody,
+  options?: RequestInit,
+): Promise<AgentPairResponse> => {
+  return customFetch<AgentPairResponse>(getAgentPairUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(agentPairBody),
+  });
+};
+
+export const getAgentPairMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof agentPair>>,
+    TError,
+    { data: BodyType<AgentPairBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof agentPair>>,
+  TError,
+  { data: BodyType<AgentPairBody> },
+  TContext
+> => {
+  const mutationKey = ["agentPair"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof agentPair>>,
+    { data: BodyType<AgentPairBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return agentPair(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AgentPairMutationResult = NonNullable<
+  Awaited<ReturnType<typeof agentPair>>
+>;
+export type AgentPairMutationBody = BodyType<AgentPairBody>;
+export type AgentPairMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Agent submits a 6-digit pairing code and receives hostToken
+ */
+export const useAgentPair = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof agentPair>>,
+    TError,
+    { data: BodyType<AgentPairBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof agentPair>>,
+  TError,
+  { data: BodyType<AgentPairBody> },
+  TContext
+> => {
+  return useMutation(getAgentPairMutationOptions(options));
+};
+
+/**
+ * @summary Host agent pushes noteworthy events (startup, fatal errors, injector failures)
+ */
+export const getPostAgentTelemetryUrl = () => {
+  return `/api/agent-telemetry`;
+};
+
+export const postAgentTelemetry = async (
+  agentTelemetryBody: AgentTelemetryBody,
+  options?: RequestInit,
+): Promise<PostAgentTelemetry200> => {
+  return customFetch<PostAgentTelemetry200>(getPostAgentTelemetryUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(agentTelemetryBody),
+  });
+};
+
+export const getPostAgentTelemetryMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof postAgentTelemetry>>,
+    TError,
+    { data: BodyType<AgentTelemetryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof postAgentTelemetry>>,
+  TError,
+  { data: BodyType<AgentTelemetryBody> },
+  TContext
+> => {
+  const mutationKey = ["postAgentTelemetry"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof postAgentTelemetry>>,
+    { data: BodyType<AgentTelemetryBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return postAgentTelemetry(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PostAgentTelemetryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof postAgentTelemetry>>
+>;
+export type PostAgentTelemetryMutationBody = BodyType<AgentTelemetryBody>;
+export type PostAgentTelemetryMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Host agent pushes noteworthy events (startup, fatal errors, injector failures)
+ */
+export const usePostAgentTelemetry = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof postAgentTelemetry>>,
+    TError,
+    { data: BodyType<AgentTelemetryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof postAgentTelemetry>>,
+  TError,
+  { data: BodyType<AgentTelemetryBody> },
+  TContext
+> => {
+  return useMutation(getPostAgentTelemetryMutationOptions(options));
+};
+
+/**
+ * @summary Mint a developer API key and LZT wallet
+ */
+export const getCreateDevKeyUrl = () => {
+  return `/api/dev-keys`;
+};
+
+export const createDevKey = async (
+  devKeyCreateBody: DevKeyCreateBody,
+  options?: RequestInit,
+): Promise<DevKeyResponse> => {
+  return customFetch<DevKeyResponse>(getCreateDevKeyUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(devKeyCreateBody),
+  });
+};
+
+export const getCreateDevKeyMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createDevKey>>,
+    TError,
+    { data: BodyType<DevKeyCreateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createDevKey>>,
+  TError,
+  { data: BodyType<DevKeyCreateBody> },
+  TContext
+> => {
+  const mutationKey = ["createDevKey"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createDevKey>>,
+    { data: BodyType<DevKeyCreateBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createDevKey(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateDevKeyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createDevKey>>
+>;
+export type CreateDevKeyMutationBody = BodyType<DevKeyCreateBody>;
+export type CreateDevKeyMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Mint a developer API key and LZT wallet
+ */
+export const useCreateDevKey = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createDevKey>>,
+    TError,
+    { data: BodyType<DevKeyCreateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createDevKey>>,
+  TError,
+  { data: BodyType<DevKeyCreateBody> },
+  TContext
+> => {
+  return useMutation(getCreateDevKeyMutationOptions(options));
+};
+
+/**
+ * @summary Update host-selection rules, status, or display name for a dev key
+ */
+export const getPatchDevKeyRulesUrl = (apiKey: string) => {
+  return `/api/dev-keys/${apiKey}/rules`;
+};
+
+export const patchDevKeyRules = async (
+  apiKey: string,
+  devKeyPatchBody: DevKeyPatchBody,
+  options?: RequestInit,
+): Promise<DevKeySummary> => {
+  return customFetch<DevKeySummary>(getPatchDevKeyRulesUrl(apiKey), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(devKeyPatchBody),
+  });
+};
+
+export const getPatchDevKeyRulesMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchDevKeyRules>>,
+    TError,
+    { apiKey: string; data: BodyType<DevKeyPatchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof patchDevKeyRules>>,
+  TError,
+  { apiKey: string; data: BodyType<DevKeyPatchBody> },
+  TContext
+> => {
+  const mutationKey = ["patchDevKeyRules"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof patchDevKeyRules>>,
+    { apiKey: string; data: BodyType<DevKeyPatchBody> }
+  > = (props) => {
+    const { apiKey, data } = props ?? {};
+
+    return patchDevKeyRules(apiKey, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PatchDevKeyRulesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof patchDevKeyRules>>
+>;
+export type PatchDevKeyRulesMutationBody = BodyType<DevKeyPatchBody>;
+export type PatchDevKeyRulesMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update host-selection rules, status, or display name for a dev key
+ */
+export const usePatchDevKeyRules = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchDevKeyRules>>,
+    TError,
+    { apiKey: string; data: BodyType<DevKeyPatchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof patchDevKeyRules>>,
+  TError,
+  { apiKey: string; data: BodyType<DevKeyPatchBody> },
+  TContext
+> => {
+  return useMutation(getPatchDevKeyRulesMutationOptions(options));
 };
 
 /**

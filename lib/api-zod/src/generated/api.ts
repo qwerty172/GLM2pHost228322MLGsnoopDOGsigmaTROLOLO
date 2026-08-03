@@ -3797,6 +3797,171 @@ export const AgentLoginResponse = zod.object({
 });
 
 /**
+ * @summary Host dashboard issues a 6-digit pairing code for the desktop agent
+ */
+export const IssueAgentPairingCodeHeader = zod.object({
+  Authorization: zod.string().describe("Bearer host token"),
+});
+
+export const issueAgentPairingCodeResponseCodeRegExp = new RegExp("^\\d{6}$");
+
+export const IssueAgentPairingCodeResponse = zod.object({
+  code: zod.string().regex(issueAgentPairingCodeResponseCodeRegExp),
+  expiresAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Poll pairing state after showing a code in the dashboard
+ */
+export const GetAgentPairingStatusHeader = zod.object({
+  Authorization: zod.string().describe("Bearer host token"),
+});
+
+export const GetAgentPairingStatusResponse = zod.object({
+  status: zod.enum(["paired", "pending", "expired"]),
+  pairedAt: zod.coerce.date().optional(),
+  expiresAt: zod.coerce.date().optional(),
+});
+
+/**
+ * @summary Agent submits a 6-digit pairing code and receives hostToken
+ */
+export const agentPairBodyCodeRegExp = new RegExp("^\\d{6}$");
+
+export const AgentPairBody = zod.object({
+  code: zod.string().regex(agentPairBodyCodeRegExp),
+  agentPubkey: zod
+    .string()
+    .optional()
+    .describe("Optional hex-encoded Ed25519 public key to bind during pairing"),
+});
+
+export const AgentPairResponse = zod.object({
+  hostToken: zod.string(),
+  displayName: zod.string(),
+});
+
+/**
+ * @summary Host agent pushes noteworthy events (startup, fatal errors, injector failures)
+ */
+export const PostAgentTelemetryHeader = zod.object({
+  "X-Host-Token": zod.string(),
+});
+
+export const postAgentTelemetryBodyAgentVersionMax = 64;
+
+export const postAgentTelemetryBodyEventsItemMessageMax = 4000;
+
+export const postAgentTelemetryBodyEventsMax = 20;
+
+export const PostAgentTelemetryBody = zod.object({
+  agentVersion: zod
+    .string()
+    .max(postAgentTelemetryBodyAgentVersionMax)
+    .optional(),
+  events: zod
+    .array(
+      zod.object({
+        level: zod.enum(["info", "warn", "error", "fatal"]),
+        message: zod
+          .string()
+          .min(1)
+          .max(postAgentTelemetryBodyEventsItemMessageMax),
+        occurredAt: zod.coerce.date().optional(),
+      }),
+    )
+    .min(1)
+    .max(postAgentTelemetryBodyEventsMax),
+});
+
+export const PostAgentTelemetryResponse = zod.object({
+  ok: zod.boolean(),
+  stored: zod.number(),
+});
+
+/**
+ * @summary Mint a developer API key and LZT wallet
+ */
+export const CreateDevKeyHeader = zod.object({
+  "X-Dev-Key-Secret": zod
+    .string()
+    .optional()
+    .describe("Shared secret (or X-Admin-Secret \/ admin host token)"),
+});
+
+export const createDevKeyBodyDisplayNameMax = 200;
+
+export const createDevKeyBodyHostRulesMaxPricePerMinuteLztMin = 0;
+
+export const createDevKeyBodyHostRulesTagsMax = 20;
+
+export const CreateDevKeyBody = zod.object({
+  displayName: zod.string().max(createDevKeyBodyDisplayNameMax).optional(),
+  hostRules: zod
+    .object({
+      maxPricePerMinuteLzt: zod
+        .number()
+        .min(createDevKeyBodyHostRulesMaxPricePerMinuteLztMin)
+        .optional(),
+      tags: zod
+        .array(zod.string().min(1))
+        .max(createDevKeyBodyHostRulesTagsMax)
+        .optional(),
+    })
+    .optional(),
+});
+
+/**
+ * @summary Update host-selection rules, status, or display name for a dev key
+ */
+export const PatchDevKeyRulesParams = zod.object({
+  apiKey: zod.coerce.string(),
+});
+
+export const patchDevKeyRulesBodyHostRulesMaxPricePerMinuteLztMin = 0;
+
+export const patchDevKeyRulesBodyHostRulesTagsMax = 20;
+
+export const patchDevKeyRulesBodyDisplayNameMax = 200;
+
+export const PatchDevKeyRulesBody = zod.object({
+  hostRules: zod
+    .object({
+      maxPricePerMinuteLzt: zod
+        .number()
+        .min(patchDevKeyRulesBodyHostRulesMaxPricePerMinuteLztMin)
+        .optional(),
+      tags: zod
+        .array(zod.string().min(1))
+        .max(patchDevKeyRulesBodyHostRulesTagsMax)
+        .optional(),
+    })
+    .optional(),
+  status: zod.enum(["active", "disabled"]).optional(),
+  displayName: zod.string().max(patchDevKeyRulesBodyDisplayNameMax).optional(),
+});
+
+export const patchDevKeyRulesResponseHostRulesMaxPricePerMinuteLztMin = 0;
+
+export const patchDevKeyRulesResponseHostRulesTagsMax = 20;
+
+export const PatchDevKeyRulesResponse = zod.object({
+  apiKey: zod.string(),
+  displayName: zod.string(),
+  status: zod.string(),
+  hostRules: zod.object({
+    maxPricePerMinuteLzt: zod
+      .number()
+      .min(patchDevKeyRulesResponseHostRulesMaxPricePerMinuteLztMin)
+      .optional(),
+    tags: zod
+      .array(zod.string().min(1))
+      .max(patchDevKeyRulesResponseHostRulesTagsMax)
+      .optional(),
+  }),
+});
+
+/**
  * @summary Request a presigned URL for object upload
  */
 export const RequestUploadUrlBody = zod.object({
