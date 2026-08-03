@@ -15,7 +15,7 @@
 | Дата | 2026-08-03 13:16 UTC |
 | Task ID | M-12 |
 | Результат | OpenAPI vt scan/lookup + codegen |
-| Commit | c6989f6 |
+| Commit | 872a7ac |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
