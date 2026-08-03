@@ -4,16 +4,22 @@
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл` (cron **пн/чт 09:00 UTC** — `0 9 * * 1,4`)  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-03 (Wave Maintenance: группировка M-NN + sync в таблицу)
+> **Последнее обновление:** 2026-08-03 (самоулучшение: marathon-groom.mjs)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
 | Дата | 2026-08-03 11:05 UTC |
+<<<<<<< HEAD
 | Task ID | reconcile |
 | Результат | reconcile PASS (14/14) — все legacy зачтены; M-NN очередь 13 pending |
 | Commit | 85f8c87 |
+=======
+| Task ID | meta |
+| Результат | добавлен marathon-groom.mjs — самоулучшение процесса |
+| Commit | *(этот run)* |
+>>>>>>> 92c4196 (feat(marathon): самоулучшение — marathon-groom.mjs)
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -28,9 +34,10 @@
 - 144 raw (10 runs назад) — ложные: vendor `public/games/`, неверный `/api` prefix в OpenAPI-сканере
 
 **Workflow:**
+- `node scripts/marathon-groom.mjs --apply` — meta: phantom/stale/drift, лишние pending → skip
 - `node scripts/marathon-scan.mjs --sync-marathon` — обновить таблицу M-NN из сканера (группировка)
-- `node scripts/marathon-scan.mjs --next` — первая **pending** из таблицы (или новая из сканера)
-- Один M-NN за run → `in_progress` → `done` → TESTLOG → push
+- `node scripts/marathon-scan.mjs --next` — первая **pending** из таблицы
+- Один M-NN **или** одно meta-улучшение за run → `done` → TESTLOG → push
 
 ### Blocked (human — не трогать automation)
 
@@ -89,6 +96,33 @@
 - **Legacy C*/UX*/REG* с `done` — automation НИКОГДА не берёт в работу** (нет pending в основных циклах).
 - **Открытые PR не делают задачу in_progress.** Automation выбирает по MARATHON, не по PR-списку.
 - **~100 DRAFT-PR (2026-08-03) — superseded by merge-backlog `adc6fd3`.** Не закрывать вручную, не плодить новые.
+
+### Самоулучшение (meta) — automation чинит сам процесс
+
+Marathon **обязан** улучшать себя, если обнаружена лишняя работа, рассинхрон или баг процесса. Это **не** product-код — правки в `scripts/marathon-*.mjs`, `MARATHON.md`, `TESTLOG.md`.
+
+**Каждый run (после reconcile, до --next):**
+```bash
+node scripts/marathon-groom.mjs --apply
+```
+
+| Сигнал | Что делать |
+|--------|------------|
+| `phantom_pending` | pending в таблице, сканер не видит → `skipped` (groom) |
+| `stale_in_progress` | in_progress >24ч без коммита → `pending` |
+| `duplicate_pending` | два pending с одним Key → skip дубль |
+| `done_but_active` | done, но сканер всё ещё видит → `pending` (reopen) или **починить сканер** |
+| `queue_drift` | сканер нашёл новое, таблица пуста → `--sync-marathon` |
+| `raw_explosion` | raw/grouped >4× → улучшить группировку в `marathon-scan.mjs` |
+
+**Когда править сканер/reconcile (а не M-NN задачу):**
+- Ложное срабатывание (vendor `public/games/`, `isDev` console, ASCII `XXX`, неверный `/api` prefix) → exclusion в scan + `skipped` задачи
+- Задача уже в `main`, но pending → reconcile/groom, **без кода**
+- «0 pending» при непустой M-NN таблице → groom + sync, исправить текст в MARATHON
+
+**Когда НЕ трогать meta:** product acceptance, blocked human, done legacy с evidence PASS.
+
+**Лимит за run:** одно meta-улучшение **или** одна M-NN. Если groom нашёл `raw_explosion` / баг сканера — приоритет meta, M-NN отложить.
 
 ---
 
@@ -188,6 +222,7 @@ Automation **каждый run** создаёт и выполняет одну н
 
 1. **Каждый run:**
    - `node scripts/marathon-reconcile.mjs --apply` (только статусы legacy, без кода)
+   - `node scripts/marathon-groom.mjs --apply` (meta: phantom/stale/drift — только MARATHON)
    - `node scripts/marathon-scan.mjs --sync-marathon` (обновить pending из сканера, с группировкой)
    - `node scripts/marathon-scan.mjs --next` → первая **pending** M-NN из таблицы
    - Если `idle: true` → `Marathon idle`, код не менять
@@ -225,18 +260,21 @@ Automation **каждый run** создаёт и выполняет одну н
 
 ```
 git pull origin main
-node scripts/marathon-reconcile.mjs --apply   # только статусы legacy done, БЕЗ кода
-node scripts/marathon-scan.mjs --sync-marathon  # обновить pending M-NN (группировка)
-git add MARATHON.md && git commit -m "chore(marathon): sync queue" && git push origin main || true
+node scripts/marathon-reconcile.mjs --apply   # legacy done, БЕЗ кода
+node scripts/marathon-groom.mjs --apply        # meta: phantom/stale/drift, только MARATHON
+node scripts/marathon-scan.mjs --sync-marathon # обновить pending M-NN
+git add MARATHON.md && git commit -m "chore(marathon): groom+sync" && git push origin main || true
 Прочитай MARATHON.md. Memory выключена.
 
 КАЖДЫЙ RUN:
-1. Legacy C*/UX*/REG* done/blocked/skipped — НЕ ТРОГАТЬ.
-2. node scripts/marathon-scan.mjs --next
+1. Legacy done/blocked/skipped — НЕ ТРОГАТЬ.
+2. groom --apply: если raw_explosion или баг сканера → почини marathon-scan.mjs, skip ложные задачи, commit meta. M-NN в этот run можно пропустить.
+3. node scripts/marathon-scan.mjs --next
    - idle:true → Marathon idle, обнови Last run, выход.
-   - иначе pick = первая pending M-NN из таблицы Wave Maintenance.
-3. Status → in_progress → выполни → pnpm typecheck → done + TESTLOG.
-4. Обнови Last run. git add MARATHON.md TESTLOG.md && commit && push.
+   - иначе pick = первая pending M-NN.
+4. Перед кодом: rg/git log — если уже в main → done без кода (лишняя работа).
+5. in_progress → выполни → pnpm typecheck → done + TESTLOG.
+6. Обнови Last run. commit && push.
 
-Один M-NN за run. Push в main.
+Один M-NN или одно meta-улучшение за run. Push в main.
 ```

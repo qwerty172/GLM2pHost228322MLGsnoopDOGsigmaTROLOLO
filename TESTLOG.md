@@ -231,6 +231,7 @@ Cron automation: `git pull origin main` → `marathon-reconcile.mjs --apply` →
 
 Команды: `marathon-scan.mjs --sync-marathon`, `--next` читает очередь из MARATHON.md.
 
+<<<<<<< HEAD
 ## Marathon reconcile idle (2026-08-03 11:05 UTC) {#marathon-reconcile-idle-1105}
 
 Cron automation: `git pull origin main` → `marathon-reconcile.mjs --apply` → `marathon-scan.mjs --sync-marathon`.
@@ -243,3 +244,19 @@ Cron automation: `git pull origin main` → `marathon-reconcile.mjs --apply` →
 | blocked human | C3-D03, C4-S06/D02, REG-03 |
 
 Все изменения зачтены в `main`.
+=======
+## Marathon meta self-groom (2026-08-03 11:05 UTC) {#marathon-meta-groom-1105}
+
+Добавлен `scripts/marathon-groom.mjs` — automation чинит сам процесс.
+
+| Проверка | Действие (--apply) |
+|---|---|
+| phantom_pending | skip — задача в таблице, сканер не видит |
+| stale_in_progress | reset → pending (>24ч) |
+| duplicate_pending | skip дубль по Key |
+| done_but_active | reopen → pending или fix scan |
+| queue_drift | auto `--sync-marathon` |
+| raw_explosion | флаг: улучшить группировку scan |
+
+Workflow run: reconcile → **groom** → sync → next. Лимит: 1 M-NN или 1 meta за run.
+>>>>>>> 92c4196 (feat(marathon): самоулучшение — marathon-groom.mjs)

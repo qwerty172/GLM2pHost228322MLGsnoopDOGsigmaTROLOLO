@@ -27,6 +27,7 @@ const PICK = (() => {
 })();
 const NEXT = process.argv.includes("--next");
 const SYNC = process.argv.includes("--sync-marathon");
+const JSON_STATE = process.argv.includes("--json-state");
 
 function rg(pattern, paths, extraArgs = []) {
   const r = spawnSync("rg", [...extraArgs, "-e", pattern, ...paths], { encoding: "utf8" });
@@ -244,6 +245,22 @@ function formatRow(c, status = "pending") {
     : `\`${shortRouteFile(c.file)}\``;
   const detail = (c.detail || "").replace(/\|/g, "\\|");
   return `| ${c.id} | ${c.cat} | ${c.title} | ${fileCell} | ${c.groupKey} | ${status} | agent |`;
+}
+
+// --- --json-state: machine-readable state for marathon-groom.mjs -----------
+if (JSON_STATE) {
+  const scannerKeys = new Set(candidates.map((c) => c.groupKey));
+  console.log(
+    JSON.stringify({
+      rawHits: raw.length,
+      grouped: candidates.length,
+      candidates: candidates.map((c) => ({ groupKey: c.groupKey, cat: c.cat, title: c.title, file: c.file })),
+      existingRows,
+      pendingCount: existingRows.filter((r) => r.status === "pending").length,
+      scannerKeys: [...scannerKeys],
+    }),
+  );
+  process.exit(0);
 }
 
 // --- --sync-marathon: rewrite Wave Maintenance table ----------------------
