@@ -912,6 +912,25 @@ export async function hasBlockReserveLedger(
   return !!row;
 }
 
+/** Returns true if a failed-claim rollback already reversed the block reserve. */
+export async function hasBlockReserveReversal(
+  tx: DbTx,
+  sessionId: string,
+): Promise<boolean> {
+  const [row] = await tx
+    .select({ id: ledgerTable.id })
+    .from(ledgerTable)
+    .where(
+      and(
+        eq(ledgerTable.kind, "block_reserve_reversal"),
+        eq(ledgerTable.refType, "session"),
+        eq(ledgerTable.refId, sessionId),
+      ),
+    )
+    .limit(1);
+  return !!row;
+}
+
 /**
  * Debit the player's bucket for a prepaid block session.
  * Idempotent per sessionId — safe on reclaim/reconnect.
@@ -950,6 +969,53 @@ export async function debitBlockReserve(
       refType: "session",
       refId: args.sessionId,
       note: `block reserve ${amt} LZT`,
+    },
+  ]);
+  return { ok: true };
+}
+
+/**
+ * Undo a block_reserve debit when claim fails after the funds were locked
+ * (launch-fee failure, lost claim race, etc.). Idempotent per sessionId.
+ */
+export async function reverseBlockReserve(
+  tx: DbTx,
+  args: {
+    playerId: string;
+    sessionId: string;
+    amountLzt: number;
+    bucket: UserBucket;
+  },
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  if (!(await hasBlockReserveLedger(tx, args.sessionId))) {
+    return { ok: true };
+  }
+  if (await hasBlockReserveReversal(tx, args.sessionId)) {
+    return { ok: true };
+  }
+  const amt = Math.floor(args.amountLzt);
+  if (amt <= 0) return { ok: true };
+  const credited = await adjustUserBucket(
+    tx,
+    "player",
+    args.playerId,
+    args.bucket,
+    amt,
+  );
+  if (!credited) {
+    return { ok: false, reason: "failed to credit block reserve reversal" };
+  }
+  await writeLedger(tx, [
+    {
+      groupId: randomUUID(),
+      kind: "block_reserve_reversal",
+      ownerType: "player",
+      ownerId: args.playerId,
+      bucket: args.bucket,
+      deltaLzt: amt,
+      refType: "session",
+      refId: args.sessionId,
+      note: `block reserve rollback ${amt} LZT`,
     },
   ]);
   return { ok: true };
