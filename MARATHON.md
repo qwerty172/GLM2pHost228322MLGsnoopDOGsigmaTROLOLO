@@ -10,10 +10,10 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 11:00 UTC |
-| Task ID | sync |
-| Результат | reconcile PASS (14/14); сканер 51 raw → 13 grouped M-NN в очереди |
-| Commit | b662450 |
+| Дата | 2026-08-03 11:05 UTC |
+| Task ID | reconcile |
+| Результат | reconcile PASS (14/14) — все legacy зачтены; M-NN очередь 13 pending |
+| Commit | 85f8c87 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 

@@ -230,3 +230,16 @@ Cron automation: `git pull origin main` → `marathon-reconcile.mjs --apply` →
 **Следующий pick:** M-01 `routes/downloads.ts` (2 OpenAPI routes).
 
 Команды: `marathon-scan.mjs --sync-marathon`, `--next` читает очередь из MARATHON.md.
+
+## Marathon reconcile idle (2026-08-03 11:05 UTC) {#marathon-reconcile-idle-1105}
+
+Cron automation: `git pull origin main` → `marathon-reconcile.mjs --apply` → `marathon-scan.mjs --sync-marathon`.
+
+| Проверка | Результат |
+|---|---|
+| reconcile evidence | 14/14 PASS — flip не требуется |
+| legacy agent pending | 0 — все cycles 1–4, Wave UX, Wave Regression зачтены |
+| Wave Maintenance | 13 M-NN pending (M-01…M-13) — следующий pick M-01 |
+| blocked human | C3-D03, C4-S06/D02, REG-03 |
+
+Все изменения зачтены в `main`.
