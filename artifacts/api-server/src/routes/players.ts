@@ -83,11 +83,15 @@ router.post("/players/register", registerLimiter, async (req, res): Promise<void
   }
 
   const playerToken = generateToken();
+  const displayName =
+    parsed.data.displayName?.trim() ||
+    (parsed.data.guest ? `Guest-${playerToken.slice(0, 6)}` : "Игрок");
   const [player] = await db
     .insert(playersTable)
     .values({
       playerToken,
-      displayName: parsed.data.displayName,
+      displayName,
+      isGuest: parsed.data.guest ?? false,
     })
     .returning();
 

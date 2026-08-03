@@ -95,7 +95,7 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | Web | RU WebRTC labels, play a11y, landing codegen, mobile nav `/hosts`, skip-link |
 | Agent | save-sync zip traversal fix; pushSave не удаляет локально; focus-guard cache |
 | CI | ledger-invariant + smoke:invite steps |
-| Backlog | [MARATHON.md](./MARATHON.md) — pending: C2-D02 OpenAPI gaps, C1-F05 auth middleware, C3-S05–S08 agent, Windows E2E |
+| Backlog | [MARATHON.md](./MARATHON.md) — pending: C2-S07 sr-only RU, C2-D02 OpenAPI gaps, C1-F05 auth middleware, C3-S05–S08 agent, Windows E2E |
 
 ## Marathon C1-S06 — storage ACL (2026-08-02) {#marathon-c1-s06}
 
@@ -135,7 +135,7 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 |---|---|---|---|
 | C4-S07 | pending | **done** | `lib/api-client-react` в root tsconfig; `pnpm typecheck` зелёный в CI |
 | UX-02 | pending | **done** | `dashboard.tsx`: `AgentTroubleshootChecklist`, `AgentEventsCard`, agent telemetry |
-| C2-S07 | pending | **done** | sr-only и aria-label в `artifacts/web/src/components/ui/*` переведены на RU |
+| C2-S07 | pending | pending | sr-only в shadcn ui всё ещё EN ("Close", "Toggle Sidebar", …) |
 | C2-D02 | pending | pending | ~18+ web routes отсутствуют в `openapi.yaml` |
 | C1-F05 | pending | pending | `requireAuth()` не подключён централизованно |
 | C3-S05 | pending | pending | `tryLimitedLaunch()` есть, но не вызывается из `launchApp` |
@@ -147,14 +147,20 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | UX-05 | pending | pending | quota forms — минимальная client validation |
 | UX-06 | pending | pending | нет централизованного API error → RU mapper |
 
-## C2-S07 — shadcn sr-only RU (2026-08-03) {#marathon-c2-s07}
+## Marathon merge-backlog (2026-08-03) {#marathon-merge-backlog}
 
-| Изменение | Детали |
-|---|---|
-| `dialog.tsx`, `sheet.tsx` | sr-only «Закрыть» |
-| `sidebar.tsx` | sr-only, aria-label, title «Переключить боковую панель»; SheetTitle/Description RU |
-| `breadcrumb.tsx` | sr-only «Ещё», aria-label «Навигационная цепочка» |
-| `pagination.tsx` | sr-only, aria-label, видимый текст «Назад»/«Далее» |
-| `carousel.tsx` | sr-only «Предыдущий/Следующий слайд» |
-| `spinner.tsx` | aria-label «Загрузка» |
-| Верификация | `pnpm typecheck` |
+Смержено из ~100 unmerged веток в `main` (cherry-pick canonical PRs):
+
+| ID | PR | Что |
+|---|---|---|
+| C1-F05 | #145 | `lib/authMiddleware.ts`, route wiring |
+| C3-S05–S07 | #130 | limited-user launch, RTMP sync, ViGEm packaging |
+| C3-S08 | #131 | renderer → 18 modules |
+| C2-S07 | #94 | sr-only RU в shadcn UI |
+| C2-D02 | #102 | OpenAPI P1 + codegen migration |
+| UX-03/05 | #83 | connection-labels, quota-compatibility |
+| UX-06 | #80 | `lib/api-errors.ts` |
+
+Верификация: `pnpm typecheck` ✅; api-server 7/7; host-agent 12/12; codegen regen.
+
+**Остаётся:** C4-S02 (полная OpenAPI parity ~35 routes). Blocked human: C3-D03, C4-S06/D02, REG-03.
