@@ -15,7 +15,7 @@
 | Дата | 2026-08-03 13:12 UTC |
 | Task ID | M-11 |
 | Результат | OpenAPI vds test-connection/CRUD/mine + codegen |
-| Commit | (this run) |
+| Commit | 2fb7510 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
