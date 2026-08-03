@@ -123,8 +123,7 @@ const api = {
   // Returns the hex-encoded Ed25519 public key, or null if not yet generated.
   getAgentPubkey: (): Promise<string | null> =>
     ipcRenderer.invoke("agent:get-pubkey"),
-  // Binds this agent's public key to the host account.
-  // Prefer one-time bindCode from the dashboard; hostToken still works (legacy).
+  // Binds this agent's public key to the host account via one-time bindCode.
   bindAgentKey: (
     hostToken: string,
     apiBaseUrl: string,

@@ -3703,10 +3703,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [hostToken, pubkey, challenge, signature]
+              required: [bindCode, pubkey, challenge, signature]
               properties:
-                hostToken:
+                bindCode:
                   type: string
+                  description: One-time code from POST /auth/agent-bind-code (dashboard)
                 pubkey:
                   type: string
                   description: Hex-encoded Ed25519 SubjectPublicKeyInfo

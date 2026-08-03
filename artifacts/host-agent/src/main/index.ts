@@ -717,19 +717,17 @@ async function startAgent(): Promise<void> {
     "agent:bind-key",
     async (
       _e,
-      hostToken: string,
+      _hostToken: string,
       apiBaseUrl: string,
       bindCode?: string,
     ): Promise<{ ok: boolean; error?: string }> => {
       if (!keyStore) return { ok: false, error: "Key pair not available" };
-      const base = apiBaseUrl.replace(/\/$/, "");
       const code =
         typeof bindCode === "string" && bindCode.trim() ? bindCode.trim() : "";
-      const token =
-        typeof hostToken === "string" && hostToken.trim() ? hostToken.trim() : "";
-      if (!code && !token) {
-        return { ok: false, error: "Нужен код привязки или host token" };
+      if (!code) {
+        return { ok: false, error: "Нужен код привязки из дашборда (Получить код)" };
       }
+      const base = apiBaseUrl.replace(/\/$/, "");
       try {
         const challengeResp = await fetch(`${base}/api/auth/agent-challenge`);
         if (!challengeResp.ok) {
@@ -741,9 +739,8 @@ async function startAgent(): Promise<void> {
           pubkey: keyStore.publicKeyHex,
           challenge,
           signature,
+          bindCode: code,
         };
-        if (code) body.bindCode = code;
-        else body.hostToken = token;
         const bindResp = await fetch(`${base}/api/auth/bind-agent-key`, {
           method: "POST",
           headers: { "content-type": "application/json" },

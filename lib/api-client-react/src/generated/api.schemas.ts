@@ -2368,7 +2368,8 @@ export type IssueWsTicketBody = {
 };
 
 export type BindAgentKeyBody = {
-  hostToken: string;
+  /** One-time code from POST /auth/agent-bind-code (dashboard) */
+  bindCode: string;
   /** Hex-encoded Ed25519 SubjectPublicKeyInfo */
   pubkey: string;
   challenge: string;

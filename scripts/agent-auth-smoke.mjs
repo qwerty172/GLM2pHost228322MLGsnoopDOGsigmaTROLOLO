@@ -41,8 +41,15 @@ async function main() {
   if (!challenge1.challenge) throw new Error("Missing challenge");
   console.log("OK  agent-challenge");
 
+  const bindCodeResp = await api("POST", "/api/auth/agent-bind-code", undefined, {
+    Authorization: `Bearer ${hostToken}`,
+    "X-User-Token": hostToken,
+  });
+  if (!bindCodeResp.bindCode) throw new Error("Missing bindCode");
+  console.log("OK  agent-bind-code");
+
   await api("POST", "/api/auth/bind-agent-key", {
-    hostToken,
+    bindCode: bindCodeResp.bindCode,
     pubkey,
     challenge: challenge1.challenge,
     signature: signChallenge(privateKey, challenge1.challenge),
