@@ -15,7 +15,7 @@
 | Дата | 2026-08-03 23:14 UTC |
 | Task ID | idle |
 | Результат | Marathon idle |
-| Commit | fc72db4 |
+| Commit | adbfabb |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
