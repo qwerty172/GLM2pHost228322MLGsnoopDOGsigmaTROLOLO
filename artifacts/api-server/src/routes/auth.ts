@@ -1,7 +1,6 @@
-import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { Router, type IRouter, type Response } from "express";
 import { eq, and, isNull, gt } from "drizzle-orm";
 import { z } from "zod/v4";
-import crypto from "node:crypto";
 import {
   db,
   hostsTable,
@@ -16,12 +15,17 @@ import {
   signWsTicket,
   REFRESH_TTL_SEC,
   WS_TICKET_TTL_SEC,
-  verifyAccessJwt,
   type UserType,
 } from "../lib/jwt";
-import { headerUserToken } from "../lib/requestToken";
 import { requireHost } from "../lib/hostAuth";
 import { rateLimit, ipKey } from "../lib/rateLimit";
+import {
+  resolveAuthUser,
+  requireAuth,
+  type AuthUser,
+} from "../lib/authMiddleware";
+
+export { resolveAuthUser, requireAuth, type AuthUser };
 
 const router: IRouter = Router();
 
@@ -218,44 +222,5 @@ router.post("/auth/ws-ticket", refreshLimiter, async (req, res): Promise<void> =
   const wsTicket = await signWsTicket(userId, parsed.data.role, parsed.data.sessionId);
   res.json({ wsTicket, expiresInSec: WS_TICKET_TTL_SEC });
 });
-
-/** Dual-mode: verify Bearer JWT or fall back to legacy opaque token header. */
-export async function resolveAuthUser(
-  req: Request,
-): Promise<{ userId: string; userType: UserType; mode: "jwt" | "legacy" } | null> {
-  const authHeader = req.headers.authorization;
-  if (authHeader?.startsWith("Bearer ")) {
-    const jwt = authHeader.slice("Bearer ".length).trim();
-    if (jwt.includes(".")) {
-      const claims = await verifyAccessJwt(jwt);
-      if (claims?.sub && claims.typ) {
-        return { userId: claims.sub, userType: claims.typ, mode: "jwt" };
-      }
-    }
-  }
-  const legacy = headerUserToken(req) ?? (req.query.hostToken as string | undefined);
-  if (legacy) {
-    const user = await resolveUserFromLegacyToken(legacy);
-    if (user) return { ...user, mode: "legacy" };
-  }
-  return null;
-}
-
-export function requireAuth(): (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => void {
-  return (req, res, next) => {
-    void resolveAuthUser(req).then((user) => {
-      if (!user) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      (req as Request & { authUser?: typeof user }).authUser = user;
-      next();
-    });
-  };
-}
 
 export default router;
