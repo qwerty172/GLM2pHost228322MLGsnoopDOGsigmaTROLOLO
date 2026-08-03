@@ -10,10 +10,10 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 |
+| Дата | 2026-08-03 10:44 UTC |
 | Task ID | idle |
-| Результат | idle — backlog в main, agent-задач нет |
-| Commit | merge marathon backlog → main (C4-S02 + cycles 1–4 + Wave UX) |
+| Результат | idle — reconcile PASS (14/14), backlog в main зачтён |
+| Commit | a474752 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 

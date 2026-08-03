@@ -135,17 +135,17 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 |---|---|---|---|
 | C4-S07 | pending | **done** | `lib/api-client-react` в root tsconfig; `pnpm typecheck` зелёный в CI |
 | UX-02 | pending | **done** | `dashboard.tsx`: `AgentTroubleshootChecklist`, `AgentEventsCard`, agent telemetry |
-| C2-S07 | pending | pending | sr-only в shadcn ui всё ещё EN ("Close", "Toggle Sidebar", …) |
-| C2-D02 | pending | pending | ~18+ web routes отсутствуют в `openapi.yaml` |
-| C1-F05 | pending | pending | `requireAuth()` не подключён централизованно |
-| C3-S05 | pending | pending | `tryLimitedLaunch()` есть, но не вызывается из `launchApp` |
-| C3-S06 | pending | pending | частичный sync title→RTMP, drift WebRTC↔gdigrab остаётся |
-| C3-S07 | pending | pending | `ViGEmClient.dll` не в electron-builder extraResources |
-| C3-S08 | pending | pending | renderer monolith 3238 строк |
+| C2-S07 | pending | **done** | sr-only RU в shadcn UI (#94, merge-backlog) |
+| C2-D02 | pending | **done** | OpenAPI P1 + codegen migration (#102) |
+| C1-F05 | pending | **done** | `lib/authMiddleware.ts` + route wiring (#145) |
+| C3-S05 | pending | **done** | `await tryLimitedLaunch` в `launchApp` (#130) |
+| C3-S06 | pending | **done** | RTMP sync/restart (#130) |
+| C3-S07 | pending | **done** | `ViGEmClient.dll` в electron-builder (#130) |
+| C3-S08 | pending | **done** | renderer → 18 modules (#131) |
 | C4-S02 | pending | **done** | admin/auth/agent/dev routes в openapi.yaml + codegen |
-| UX-03 | pending | pending | нет user-facing TURN/STUN hints при ошибке соединения |
-| UX-05 | pending | pending | quota forms — минимальная client validation |
-| UX-06 | pending | pending | нет централизованного API error → RU mapper |
+| UX-03 | pending | **done** | `connection-labels.ts` (#83) |
+| UX-05 | pending | **done** | `quota-compatibility.ts` (#83) |
+| UX-06 | pending | **done** | `api-errors.ts` (#80) |
 
 ## Marathon merge-backlog (2026-08-03) {#marathon-merge-backlog}
 

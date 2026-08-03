@@ -25,7 +25,14 @@ const EVIDENCE = {
   "C3-S06": { grep: { path: "artifacts/host-agent/src/main", re: /syncRtmp|restartRtmp/i } },
   "C3-S07": { grep: { path: "artifacts/host-agent/electron-builder.yml", re: /ViGEmClient\.dll/ } },
   "C3-S08": { files: ["artifacts/host-agent/src/renderer/session.ts"] },
-  "C4-S02": { note: "full OpenAPI parity — manual count, see script" },
+  "C4-S02": {
+    files: [
+      "lib/api-zod/src/generated/types/agentTelemetryBody.ts",
+      "lib/api-zod/src/generated/types/agentPairBody.ts",
+      "lib/api-zod/src/generated/types/devKeyCreateBody.ts",
+    ],
+    grep: { path: "lib/api-spec/openapi.yaml", re: /\/agent-telemetry:|\/dev-keys:/ },
+  },
   "C4-S07": { grep: { path: "tsconfig.json", re: /api-client-react/ } },
   "UX-02": { grep: { path: "artifacts/web/src/pages/host/dashboard.tsx", re: /AgentTroubleshootChecklist/ } },
   "UX-03": { files: ["artifacts/web/src/lib/connection-labels.ts"] },
@@ -47,12 +54,12 @@ function check(ev) {
   if (ev.files) {
     const missing = ev.files.filter((f) => !existsSync(f));
     if (missing.length) return { ok: false, note: `missing: ${missing.join(", ")}` };
-    return { ok: true };
   }
   if (ev.grep) {
     const found = rg(ev.grep.re, ev.grep.path);
-    return { ok: found, note: found ? "" : `no match in ${ev.grep.path}` };
+    if (!found) return { ok: false, note: `no match in ${ev.grep.path}` };
   }
+  if (ev.files || ev.grep) return { ok: true };
   return { ok: false, note: "no evidence defined" };
 }
 
