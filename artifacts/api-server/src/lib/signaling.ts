@@ -8,6 +8,7 @@ import { pickPlayerBucket } from "./lzt";
 import { getRedis, getRedisSubscriber, isRedisAvailable } from "./redis";
 import { verifyWsTicket } from "./jwt";
 import { generateToken } from "./tokens";
+import { shouldActivateSession } from "./sessionActivation";
 
 type Role = "host" | "player";
 
@@ -339,6 +340,13 @@ async function markSessionActive(sessionId: string): Promise<void> {
     );
 }
 
+function maybeActivateSession(sessionId: string, room: Room): void {
+  if (!shouldActivateSession(room.peers.values())) return;
+  void markSessionActive(sessionId).catch((err) => {
+    logger.error({ err, sessionId }, "Failed to mark session active");
+  });
+}
+
 async function markHostSeen(hostId: string): Promise<void> {
   await db
     .update(hostsTable)
@@ -595,11 +603,7 @@ function handleConnection(ws: WebSocket, auth: AuthResult): void {
   // Notify the other side of presence.
   broadcastToOther(room, role, { type: "peer-joined", role });
 
-  if (role === "player") {
-    void markSessionActive(sessionId).catch((err) => {
-      logger.error({ err, sessionId }, "Failed to mark session active");
-    });
-  }
+  maybeActivateSession(sessionId, room);
 
   if (role === "host") {
     db.select()
