@@ -23,6 +23,8 @@ import {
   getListHostLibraryQueryKey,
   getListGamesQueryKey,
   issueAgentBindCode,
+  issueAgentPairingCode,
+  getAgentPairingStatus,
   createTestSession,
   type HostLibraryEntry,
 } from "@workspace/api-client-react";
@@ -541,7 +543,7 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
           {[
             { n: "1", text: "Скачай ZIP и распакуй в любую папку (например C:\\CloudAgent)" },
             { n: "2", text: "Дважды кликни start.bat — при первом запуске установит Node.js зависимости (~2 мин)" },
-            { n: "3", text: "В окне агента вставь токен хоста (скопируй ниже) и нажми Сохранить" },
+            { n: "3", text: "В агенте введи 6-значный код с дашборда (или вставь токен) и сохрани" },
             { n: "4", text: "Выбери игру и нажми Выйти в онлайн — эта страница покажет «Агент онлайн ✓»" },
           ].map((s) => (
             <li key={s.n} className="flex items-start gap-2">
@@ -984,6 +986,130 @@ function CurrentQuotaCard({ hostToken }: { hostToken: string }) {
 
 // ── Quick start (5 steps) ─────────────────────────────────────────────────
 
+const AGENT_DOWNLOAD_ACK_KEY = "streamline.agentDownloadAck";
+
+function AgentPairingCodeCard({ hostToken }: { hostToken: string }) {
+  const [pairCode, setPairCode] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [paired, setPaired] = useState(false);
+
+  const authHeaders = {
+    Authorization: `Bearer ${hostToken}`,
+    "X-User-Token": hostToken,
+    "X-Host-Token": hostToken,
+  };
+
+  const issueCode = async () => {
+    setLoading(true);
+    try {
+      const json = await issueAgentPairingCode({ headers: authHeaders });
+      setPairCode(json.code);
+      setExpiresAt(json.expiresAt ? new Date(json.expiresAt).getTime() : null);
+      setPaired(false);
+    } catch (err) {
+      const msg = (err as { data?: { error?: string } }).data?.error;
+      toast.error(msg ?? "Не удалось выдать код для агента");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void issueCode();
+  }, [hostToken]);
+
+  useEffect(() => {
+    if (!pairCode || paired) return;
+    const id = window.setInterval(() => {
+      void getAgentPairingStatus({ headers: authHeaders }).then((st) => {
+        if (st.status === "paired") {
+          setPaired(true);
+          toast.success("Агент подключён — токен сохранён в агенте");
+        }
+        if (st.status === "expired") {
+          setPairCode(null);
+        }
+      }).catch(() => { /* ignore poll errors */ });
+    }, 3000);
+    return () => window.clearInterval(id);
+  }, [pairCode, paired, hostToken]);
+
+  const copyCode = () => {
+    if (!pairCode) return;
+    void navigator.clipboard.writeText(pairCode).then(
+      () => toast.success("Код скопирован"),
+      () => toast.error("Не удалось скопировать"),
+    );
+  };
+
+  const expired = expiresAt != null && Date.now() > expiresAt;
+  const platformOrigin = window.location.origin;
+
+  if (paired) {
+    return (
+      <p className="text-sm text-emerald-300 font-medium" data-testid="agent-pairing-success">
+        ✓ Агент вошёл по коду — можно выходить в онлайн
+      </p>
+    );
+  }
+
+  return (
+    <div
+      className="rounded-lg p-3 space-y-3"
+      style={{ background: "rgba(0,0,0,0.25)", border: "1px solid rgba(14,165,233,0.2)" }}
+      data-testid="agent-pairing-code"
+    >
+      <p className="text-sm font-medium text-white">Код для агента</p>
+      <p className="text-xs text-slate-500">
+        В агенте введи этот 6-значный код — Platform URL подставится автоматически
+        ({platformOrigin})
+      </p>
+      {pairCode && !expired ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <code
+            className="font-mono text-2xl tracking-[0.3em] text-sky-300 px-3 py-1.5 rounded"
+            style={{
+              background: "rgba(14,165,233,0.08)",
+              border: "1px solid rgba(14,165,233,0.25)",
+            }}
+          >
+            {pairCode}
+          </code>
+          <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={copyCode}>
+            <Copy className="h-3 w-3" />
+            Копировать
+          </Button>
+          {expiresAt != null && (
+            <span className="text-xs text-slate-500">
+              действует{" "}
+              {formatDistanceToNow(new Date(expiresAt), { addSuffix: true, locale: ru })}
+            </span>
+          )}
+        </div>
+      ) : (
+        <p className="text-sm text-slate-500">
+          {expired ? "Код истёк — создай новый." : "Генерируем код…"}
+        </p>
+      )}
+      <Button
+        size="sm"
+        className="gap-1.5 h-8 text-xs font-semibold"
+        style={{ background: "#0ea5e9", color: "#fff" }}
+        onClick={() => void issueCode()}
+        disabled={loading}
+      >
+        {loading ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <RefreshCw className="h-3.5 w-3.5" />
+        )}
+        {pairCode && !expired ? "Новый код" : "Получить код"}
+      </Button>
+    </div>
+  );
+}
+
 function HostQuickStartCard({
   hostToken,
   agent,
@@ -991,6 +1117,8 @@ function HostQuickStartCard({
   agentKeyBound,
   libraryCount,
   hasActiveSession,
+  onTestSession,
+  testLoading,
 }: {
   hostToken: string;
   agent: AgentState;
@@ -998,14 +1126,27 @@ function HostQuickStartCard({
   agentKeyBound: boolean;
   libraryCount: number;
   hasActiveSession: boolean;
+  onTestSession?: () => void | Promise<void>;
+  testLoading?: boolean;
 }) {
+  const [agentDownloaded, setAgentDownloaded] = useState(
+    () => localStorage.getItem(AGENT_DOWNLOAD_ACK_KEY) === "true",
+  );
+
+  const markAgentDownloaded = () => {
+    localStorage.setItem(AGENT_DOWNLOAD_ACK_KEY, "true");
+    setAgentDownloaded(true);
+  };
+
   const agentOnline =
     agent.status === "online" || heartbeat.status === "fresh";
   const steps = [
     {
-      done: true,
+      done: agentDownloaded,
       title: "Скачай агент",
-      hint: "ZIP → start.bat на Windows-ПК",
+      hint: agentDownloaded
+        ? "ZIP скачан — распакуй и запусти start.bat"
+        : "ZIP → start.bat на Windows-ПК",
     },
     {
       done: agentOnline,
@@ -1019,7 +1160,11 @@ function HostQuickStartCard({
     {
       done: agentKeyBound,
       title: "Агент привязан",
-      hint: "Код привязки ниже → вставь в агенте",
+      hint: agentKeyBound
+        ? "Ключ агента связан с аккаунтом"
+        : agentOnline
+          ? "Код привязки ниже → вставь в агенте"
+          : "Войди в агент по 6-значному коду ниже",
     },
     {
       done: libraryCount > 0,
@@ -1080,7 +1225,11 @@ function HostQuickStartCard({
               <Copy className="h-3 w-3" />
               Скопировать токен
             </Button>
-            <a href="/api/downloads/host-agent.zip" download="cloud-gaming-host-agent.zip">
+            <a
+              href="/api/downloads/host-agent.zip"
+              download="cloud-gaming-host-agent.zip"
+              onClick={markAgentDownloaded}
+            >
               <Button
                 size="sm"
                 className="h-8 gap-1.5 text-xs font-semibold"
@@ -1094,6 +1243,36 @@ function HostQuickStartCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {!allDone && onTestSession && (
+          <div
+            className="rounded-lg p-3 flex flex-wrap items-center justify-between gap-3"
+            style={{
+              background: "rgba(139,92,246,0.08)",
+              border: "1px solid rgba(139,92,246,0.25)",
+            }}
+            data-testid="quick-test-banner"
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-violet-200">
+                Попробуй стрим за 30 секунд
+              </p>
+              <p className="text-xs text-slate-500">
+                Без агента — проверь, как это работает, прямо сейчас
+              </p>
+            </div>
+            <Button
+              size="sm"
+              className="shrink-0 gap-1.5 h-8 text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white"
+              onClick={() => void onTestSession()}
+              disabled={testLoading}
+              data-testid="button-quick-test"
+            >
+              <FlaskConical className="h-3.5 w-3.5" />
+              {testLoading ? "Создаём…" : "Быстрый тест"}
+            </Button>
+          </div>
+        )}
+
         <ol className="space-y-2">
           {steps.map((s, i) => (
             <li key={s.title} className="flex items-start gap-3">
@@ -1125,6 +1304,8 @@ function HostQuickStartCard({
             <AgentTroubleshootChecklist agent={agent} heartbeat={heartbeat} />
           </div>
         )}
+
+        {!agentOnline && <AgentPairingCodeCard hostToken={hostToken} />}
 
         {agentOnline && !agentKeyBound && (
           <AgentBindCodeCard hostToken={hostToken} />
@@ -1565,6 +1746,8 @@ export default function Dashboard() {
           agentKeyBound={agentKeyBound}
           libraryCount={libraryCount}
           hasActiveSession={hasActiveSession}
+          onTestSession={handleTestSession}
+          testLoading={testLoading}
         />
       )}
 

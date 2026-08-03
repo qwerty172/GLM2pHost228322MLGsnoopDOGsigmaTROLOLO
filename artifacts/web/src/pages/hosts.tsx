@@ -9,6 +9,7 @@ import {
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import { useBrowserPingMs } from "@/hooks/use-browser-ping";
+import { useEnsurePlayerWallet, usePlayerWallet } from "@/hooks/use-player-wallet";
 import {
   Dialog,
   DialogContent,
@@ -261,6 +262,7 @@ function PlayButton({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [, navigate] = useLocation();
+  const { playerWalletToken, registerGuest } = usePlayerWallet();
 
   // Connect to the host for a specific game via POST /api/public/sessions.
   // - On success → navigate to /play/i/:inviteCode.
@@ -288,6 +290,9 @@ function PlayButton({
   };
 
   const handlePlay = async () => {
+    if (!playerWalletToken) {
+      await registerGuest();
+    }
     if (games.length === 0) {
       if (fallbackInviteCode) {
         navigate(`/play/i/${fallbackInviteCode}`);
@@ -333,6 +338,7 @@ function PlayButton({
 }
 
 export default function HostsPage() {
+  useEnsurePlayerWallet();
   const { data: hosts, isLoading, isError, refetch, isFetching } = useListPublicHosts({
     query: {
       queryKey: getListPublicHostsQueryKey(),

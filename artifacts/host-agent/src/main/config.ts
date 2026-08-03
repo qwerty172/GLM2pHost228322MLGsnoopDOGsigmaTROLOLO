@@ -1,5 +1,5 @@
 import { app, safeStorage } from "electron";
-import { promises as fs } from "node:fs";
+import { promises as fs, readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import type { HostConfig } from "../shared/messages";
 import { log } from "./logger";
@@ -30,6 +30,23 @@ interface StoredConfigFile extends Partial<HostConfig> {
 }
 
 let cached: HostConfig | null = null;
+
+function readBundledPlatformUrl(): string {
+  const candidates = [
+    path.join(process.cwd(), "platform-url.txt"),
+    path.join(app.getAppPath(), "platform-url.txt"),
+  ];
+  for (const p of candidates) {
+    try {
+      if (!existsSync(p)) continue;
+      const url = readFileSync(p, "utf-8").trim();
+      if (url) return url.replace(/\/$/, "");
+    } catch {
+      /* try next candidate */
+    }
+  }
+  return "";
+}
 
 function configPath(): string {
   return path.join(app.getPath("userData"), "config.json");
@@ -88,6 +105,10 @@ export async function loadConfig(): Promise<HostConfig> {
     const parsed = JSON.parse(buf) as StoredConfigFile;
     const hostToken = resolveHostToken(parsed);
     cached = { ...DEFAULTS, ...parsed, hostToken };
+    if (!cached.apiBaseUrl) {
+      const bundled = readBundledPlatformUrl();
+      if (bundled) cached.apiBaseUrl = bundled;
+    }
     // Drop disk-only fields from runtime object.
     delete (cached as StoredConfigFile).hostTokenEnc;
     delete (cached as StoredConfigFile).hostTokenProtected;
@@ -102,6 +123,8 @@ export async function loadConfig(): Promise<HostConfig> {
     }
   } catch {
     cached = { ...DEFAULTS };
+    const bundled = readBundledPlatformUrl();
+    if (bundled) cached.apiBaseUrl = bundled;
   }
   return cached;
 }

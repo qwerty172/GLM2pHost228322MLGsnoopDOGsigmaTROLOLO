@@ -4,13 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
-import { Loader2, Cpu, Zap, CircleDollarSign } from "lucide-react";
+import { Loader2, Cpu, Zap, CircleDollarSign, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { SiteNav } from "@/components/site-nav";
 
 export function HostAuthGuard({ children }: { children: React.ReactNode }) {
   const { hostToken, setHostToken } = useAuth();
   const [displayName, setDisplayName] = useState("");
+  const [showTokenLogin, setShowTokenLogin] = useState(false);
+  const [existingToken, setExistingToken] = useState("");
 
   const registerHost = useRegisterHost();
 
@@ -33,6 +35,14 @@ export function HostAuthGuard({ children }: { children: React.ReactNode }) {
         },
       },
     );
+  };
+
+  const handleTokenLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    const token = existingToken.trim();
+    if (!token) return;
+    setHostToken(token);
+    toast.success("Токен сохранён — вход выполнен");
   };
 
   if (hostToken) {
@@ -78,24 +88,67 @@ export function HostAuthGuard({ children }: { children: React.ReactNode }) {
             ))}
           </div>
 
-          <div
-            className="rounded-2xl p-6"
-            style={{ background: "#0a1018", border: "1px solid rgba(255,255,255,0.07)" }}
-          >
-            <h2 className="text-base font-semibold text-white mb-4">
-              Зарегистрировать узел
-            </h2>
-            <form onSubmit={handleRegister} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="displayName" className="text-slate-400 text-xs">
-                  Отображаемое имя
-                </Label>
+          {!showTokenLogin ? (
+            <div
+              className="rounded-2xl p-6"
+              style={{ background: "#0a1018", border: "1px solid rgba(255,255,255,0.07)" }}
+            >
+              <h2 className="text-base font-semibold text-white mb-4">
+                Зарегистрировать узел
+              </h2>
+              <form onSubmit={handleRegister} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="displayName" className="text-slate-400 text-xs">
+                    Отображаемое имя
+                  </Label>
+                  <Input
+                    id="displayName"
+                    placeholder="Например: RTX_4090_Beast"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    className="h-10 text-sm"
+                    style={{
+                      background: "rgba(255,255,255,0.03)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      color: "#e2e8f0",
+                    }}
+                    autoFocus
+                  />
+                  <p className="text-[11px] text-slate-600">
+                    Под этим именем тебя увидят игроки в каталоге хостов
+                  </p>
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full h-10 font-bold text-sm"
+                  style={{ background: "#0ea5e9", color: "#fff" }}
+                  disabled={registerHost.isPending || !displayName.trim()}
+                >
+                  {registerHost.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : null}
+                  {registerHost.isPending ? "Регистрируем…" : "Создать узел"}
+                </Button>
+              </form>
+            </div>
+          ) : (
+            <div
+              className="rounded-2xl p-6"
+              style={{ background: "#0a1018", border: "1px solid rgba(255,255,255,0.07)" }}
+            >
+              <h2 className="text-base font-semibold text-white mb-1 flex items-center gap-2">
+                <KeyRound className="h-4 w-4 text-sky-400" />
+                Войти по токену
+              </h2>
+              <p className="text-xs text-slate-500 mb-4">
+                Вставь токен хоста — он сохранится в этом браузере
+              </p>
+              <form onSubmit={handleTokenLogin} className="space-y-4">
                 <Input
-                  id="displayName"
-                  placeholder="Например: RTX_4090_Beast"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  className="h-10 text-sm"
+                  placeholder="host_…"
+                  value={existingToken}
+                  onChange={(e) => setExistingToken(e.target.value)}
+                  className="h-10 text-sm font-mono"
                   style={{
                     background: "rgba(255,255,255,0.03)",
                     border: "1px solid rgba(255,255,255,0.1)",
@@ -103,26 +156,36 @@ export function HostAuthGuard({ children }: { children: React.ReactNode }) {
                   }}
                   autoFocus
                 />
-                <p className="text-[11px] text-slate-600">
-                  Под этим именем тебя увидят игроки в каталоге хостов
-                </p>
-              </div>
-              <Button
-                type="submit"
-                className="w-full h-10 font-bold text-sm"
-                style={{ background: "#0ea5e9", color: "#fff" }}
-                disabled={registerHost.isPending || !displayName.trim()}
-              >
-                {registerHost.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                {registerHost.isPending ? "Регистрируем…" : "Создать узел"}
-              </Button>
-            </form>
-          </div>
+                <Button
+                  type="submit"
+                  className="w-full h-10 font-bold text-sm"
+                  style={{ background: "#0ea5e9", color: "#fff" }}
+                  disabled={!existingToken.trim()}
+                >
+                  Войти
+                </Button>
+              </form>
+            </div>
+          )}
 
           <p className="text-center text-[11px] text-slate-600 mt-4">
-            Уже есть токен? Он сохраняется автоматически в браузере.
+            {showTokenLogin ? (
+              <button
+                type="button"
+                className="text-sky-500 hover:text-sky-400 underline-offset-2 hover:underline"
+                onClick={() => setShowTokenLogin(false)}
+              >
+                Создать новый узел
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="text-sky-500 hover:text-sky-400 underline-offset-2 hover:underline"
+                onClick={() => setShowTokenLogin(true)}
+              >
+                Уже есть токен? Вставить и войти
+              </button>
+            )}
           </p>
         </div>
       </div>

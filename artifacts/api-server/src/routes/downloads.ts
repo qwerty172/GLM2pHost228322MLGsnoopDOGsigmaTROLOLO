@@ -6,6 +6,21 @@ import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
+/** Origin of the web platform — baked into the agent ZIP so hosts skip manual URL setup. */
+function derivePlatformUrl(req: {
+  protocol?: string;
+  get(name: string): string | undefined;
+}): string {
+  const proto =
+    req.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
+    req.protocol ||
+    "https";
+  const host =
+    req.get("x-forwarded-host")?.split(",")[0]?.trim() || req.get("host");
+  if (!host) return "http://localhost:5173";
+  return `${proto}://${host}`.replace(/\/$/, "");
+}
+
 // Resolve the host-agent source directory. We try several candidate paths
 // because the api-server may run from different cwds:
 //   - dev (pnpm filter)        → cwd = artifacts/api-server
@@ -313,6 +328,7 @@ router.get("/downloads/host-agent.zip", (req, res): void => {
 
   archive.append(START_BAT, { name: "start.bat" });
   archive.append(INSTALL_TXT, { name: "INSTALL.txt" });
+  archive.append(derivePlatformUrl(req), { name: "platform-url.txt" });
 
   archive.finalize().catch((err) => {
     logger.error({ err }, "archiver finalize failed");
