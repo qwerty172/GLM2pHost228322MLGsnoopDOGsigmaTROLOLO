@@ -10,10 +10,17 @@
 
 | Поле | Значение |
 |------|----------|
+<<<<<<< HEAD
 | Дата | 2026-08-03 11:42 UTC |
 | Task ID | reconcile |
 | Результат | reconcile PASS (14/14) — все изменения зачтены; groom 0 issues; sync 13 M-NN pending |
 | Commit | 96ea253 |
+=======
+| Дата | 2026-08-03 11:48 UTC |
+| Task ID | M-01 |
+| Результат | done — OpenAPI `/downloads/host-agent.zip` + `/downloads/host-agent.exe`; codegen OK |
+| Commit | 3c9db2b |
+>>>>>>> 6dd713f (feat(api-spec): M-01 — OpenAPI downloads endpoints (host-agent zip/exe))
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -23,8 +30,8 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** **13 M-NN pending** (см. таблицу ниже). Сканер группирует сырые хиты:
-- **51 raw** (по одному route/файлу) → **13 grouped** (C по route-файлу, E — один блок на renderer)
+**Wave Maintenance:** **12 M-NN pending** (см. таблицу ниже). Сканер группирует сырые хиты:
+- **12 raw** (по одному route/файлу) → **12 grouped** (C по route-файлу, E — один блок на renderer)
 - 144 raw (10 runs назад) — ложные: vendor `public/games/`, неверный `/api` prefix в OpenAPI-сканере
 
 **Workflow:**
@@ -230,7 +237,7 @@ Automation **каждый run** создаёт и выполняет одну н
 
 | ID | Cat | Задача | Файл | Key | Status | Owner |
 |----|-----|--------|------|-----|--------|-------|
-| M-01 | C | OpenAPI gap: routes/downloads.ts (2 routes) | `routes/downloads.ts` | c:artifacts/api-server/src/routes/downloads.ts | pending | agent |
+| M-01 | C | OpenAPI gap: routes/downloads.ts (2 routes) | `routes/downloads.ts` | c:artifacts/api-server/src/routes/downloads.ts | done | agent |
 | M-02 | C | OpenAPI gap: routes/enrich.ts (1 route) | `routes/enrich.ts` | c:artifacts/api-server/src/routes/enrich.ts | pending | agent |
 | M-03 | C | OpenAPI gap: routes/events.ts (1 route) | `routes/events.ts` | c:artifacts/api-server/src/routes/events.ts | pending | agent |
 | M-04 | C | OpenAPI gap: routes/hosts.ts (8 routes) | `routes/hosts.ts` | c:artifacts/api-server/src/routes/hosts.ts | pending | agent |

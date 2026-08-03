@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: downloads
+    description: Host-agent distribution downloads
   - name: hosts
     description: Host registration and management
   - name: players
@@ -47,6 +49,58 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /downloads/host-agent.zip:
+    get:
+      operationId: downloadHostAgentZip
+      tags: [downloads]
+      summary: Download portable host-agent bundle (ZIP)
+      description: >
+        Streams a ZIP with dist, src, configs, generated start.bat and INSTALL.txt
+        for Windows hosts. No authentication required.
+      responses:
+        "200":
+          description: Host agent ZIP archive
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        "503":
+          description: Bundle unavailable (agent directory missing or dist not built)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Archiver error while building ZIP
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /downloads/host-agent.exe:
+    get:
+      operationId: downloadHostAgentExe
+      tags: [downloads]
+      summary: Redirect to host-agent Windows installer
+      description: >
+        Redirects to HOST_AGENT_EXE_URL when configured; otherwise returns 503
+        with instructions to use the ZIP download.
+      responses:
+        "302":
+          description: Redirect to external installer URL
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        "503":
+          description: Installer not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /hosts/register:
     post:

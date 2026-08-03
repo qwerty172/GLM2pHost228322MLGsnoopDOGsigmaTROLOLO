@@ -15,6 +15,19 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-01 (2026-08-03 11:48 UTC) {#marathon-m-01}
+
+**Задача:** OpenAPI gap `routes/downloads.ts` — `GET /downloads/host-agent.zip`, `GET /downloads/host-agent.exe`.
+
+| Проверка | Результат |
+|---|---|
+| openapi.yaml | paths + tag `downloads` добавлены |
+| codegen | `pnpm --filter @workspace/api-spec run codegen` OK |
+| marathon-scan | downloads.ts больше не в raw hits (12/12) |
+| typecheck | `pnpm typecheck` OK |
+
+**Следующий pick:** M-02 `routes/enrich.ts`.
+
 ## Матрица проверок (Windows 2026-07-24)
 
 | Проверка | Статус | Скрипт / как |

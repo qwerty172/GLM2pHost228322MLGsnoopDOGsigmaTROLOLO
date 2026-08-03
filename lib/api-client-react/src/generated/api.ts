@@ -231,6 +231,160 @@ export function useHealthCheck<
 }
 
 /**
+ * Streams a ZIP with dist, src, configs, generated start.bat and INSTALL.txt for Windows hosts. No authentication required.
+
+ * @summary Download portable host-agent bundle (ZIP)
+ */
+export const getDownloadHostAgentZipUrl = () => {
+  return `/api/downloads/host-agent.zip`;
+};
+
+export const downloadHostAgentZip = async (
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getDownloadHostAgentZipUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getDownloadHostAgentZipQueryKey = () => {
+  return [`/api/downloads/host-agent.zip`] as const;
+};
+
+export const getDownloadHostAgentZipQueryOptions = <
+  TData = Awaited<ReturnType<typeof downloadHostAgentZip>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof downloadHostAgentZip>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getDownloadHostAgentZipQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof downloadHostAgentZip>>
+  > = ({ signal }) => downloadHostAgentZip({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof downloadHostAgentZip>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type DownloadHostAgentZipQueryResult = NonNullable<
+  Awaited<ReturnType<typeof downloadHostAgentZip>>
+>;
+export type DownloadHostAgentZipQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Download portable host-agent bundle (ZIP)
+ */
+
+export function useDownloadHostAgentZip<
+  TData = Awaited<ReturnType<typeof downloadHostAgentZip>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof downloadHostAgentZip>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getDownloadHostAgentZipQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Redirects to HOST_AGENT_EXE_URL when configured; otherwise returns 503 with instructions to use the ZIP download.
+
+ * @summary Redirect to host-agent Windows installer
+ */
+export const getDownloadHostAgentExeUrl = () => {
+  return `/api/downloads/host-agent.exe`;
+};
+
+export const downloadHostAgentExe = async (
+  options?: RequestInit,
+): Promise<unknown> => {
+  return customFetch<unknown>(getDownloadHostAgentExeUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getDownloadHostAgentExeQueryKey = () => {
+  return [`/api/downloads/host-agent.exe`] as const;
+};
+
+export const getDownloadHostAgentExeQueryOptions = <
+  TData = Awaited<ReturnType<typeof downloadHostAgentExe>>,
+  TError = ErrorType<void | ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof downloadHostAgentExe>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getDownloadHostAgentExeQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof downloadHostAgentExe>>
+  > = ({ signal }) => downloadHostAgentExe({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof downloadHostAgentExe>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type DownloadHostAgentExeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof downloadHostAgentExe>>
+>;
+export type DownloadHostAgentExeQueryError = ErrorType<void | ErrorResponse>;
+
+/**
+ * @summary Redirect to host-agent Windows installer
+ */
+
+export function useDownloadHostAgentExe<
+  TData = Awaited<ReturnType<typeof downloadHostAgentExe>>,
+  TError = ErrorType<void | ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof downloadHostAgentExe>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getDownloadHostAgentExeQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Register a new host
  */
 export const getRegisterHostUrl = () => {
