@@ -13,7 +13,7 @@
 | Дата | 2026-08-03 |
 | Task ID | C2-S06 |
 | Результат | done |
-| Commit | feat(web): C2-S06 — /wallet и /host/wallet |
+| Commit | fix(auth-verifier) + feat(web): C2-S06 /wallet route |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -23,8 +23,8 @@
 
 1. `C2-S07` — shadcn sr-only RU  
 2. `C2-D02` — OpenAPI gaps  
-4. `C1-F05` — Central auth middleware (backlog после Cycle 2)  
-5. …остальные `pending` ниже по файлу
+3. `C1-F05` — Central auth middleware (backlog после Cycle 2)  
+4. …остальные `pending` ниже по файлу
 
 **Не трогать:** `done`, `blocked`, `skipped`, `owner: human`.
 

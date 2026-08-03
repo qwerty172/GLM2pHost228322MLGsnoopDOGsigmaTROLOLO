@@ -124,4 +124,5 @@ SELECT account, SUM(amount) FROM ledger GROUP BY account;
 | `layout.tsx` | Навигация хоста ведёт на `/host/wallet` |
 | `site-nav.tsx` | `isHostActive` учитывает `/host/wallet` и `/wallet` |
 | `pages-api-smoke.sh` | Добавлен smoke для `/host/wallet` |
+| `auth-verifier` | typecheck fix: `req.params.id` → `string` |
 | Верификация | `pnpm typecheck`; api-server 29/29, host-agent 12/12 |
