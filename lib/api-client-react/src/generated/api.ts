@@ -115,6 +115,7 @@ import type {
   ListPublicGamesParams,
   ListPublicQuotasParams,
   LoanRequest,
+  LookupVtParams,
   MatchQuotasForHostParams,
   MyLoans,
   Player,
@@ -179,6 +180,8 @@ import type {
   VdsTestConnectionBody,
   VdsTestConnectionError,
   VdsTestConnectionOk,
+  VtResult,
+  VtScanBody,
   Wallet,
   WalletTransaction,
   Withdrawal,
@@ -6130,6 +6133,190 @@ export function useListMyVds<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListMyVdsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Requires a valid host or player token (ownerToken). Server must have VIRUSTOTAL_API_KEY configured.
+
+ * @summary Check SHA-256 hash or download URL against VirusTotal
+ */
+export const getScanVtUrl = () => {
+  return `/api/vt/scan`;
+};
+
+export const scanVt = async (
+  vtScanBody: VtScanBody,
+  options?: RequestInit,
+): Promise<VtResult> => {
+  return customFetch<VtResult>(getScanVtUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(vtScanBody),
+  });
+};
+
+export const getScanVtMutationOptions = <
+  TError = ErrorType<ErrorResponse | VtResult>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof scanVt>>,
+    TError,
+    { data: BodyType<VtScanBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof scanVt>>,
+  TError,
+  { data: BodyType<VtScanBody> },
+  TContext
+> => {
+  const mutationKey = ["scanVt"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof scanVt>>,
+    { data: BodyType<VtScanBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return scanVt(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ScanVtMutationResult = NonNullable<
+  Awaited<ReturnType<typeof scanVt>>
+>;
+export type ScanVtMutationBody = BodyType<VtScanBody>;
+export type ScanVtMutationError = ErrorType<ErrorResponse | VtResult>;
+
+/**
+ * @summary Check SHA-256 hash or download URL against VirusTotal
+ */
+export const useScanVt = <
+  TError = ErrorType<ErrorResponse | VtResult>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof scanVt>>,
+    TError,
+    { data: BodyType<VtScanBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof scanVt>>,
+  TError,
+  { data: BodyType<VtScanBody> },
+  TContext
+> => {
+  return useMutation(getScanVtMutationOptions(options));
+};
+
+/**
+ * IP rate-limited (30/min). In production requires X-Host-Token header.
+
+ * @summary Quick cached lookup of a known SHA-256 hash
+ */
+export const getLookupVtUrl = (params: LookupVtParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/vt/lookup?${stringifiedParams}`
+    : `/api/vt/lookup`;
+};
+
+export const lookupVt = async (
+  params: LookupVtParams,
+  options?: RequestInit,
+): Promise<VtResult> => {
+  return customFetch<VtResult>(getLookupVtUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getLookupVtQueryKey = (params?: LookupVtParams) => {
+  return [`/api/vt/lookup`, ...(params ? [params] : [])] as const;
+};
+
+export const getLookupVtQueryOptions = <
+  TData = Awaited<ReturnType<typeof lookupVt>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: LookupVtParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof lookupVt>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getLookupVtQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof lookupVt>>> = ({
+    signal,
+  }) => lookupVt(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof lookupVt>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type LookupVtQueryResult = NonNullable<
+  Awaited<ReturnType<typeof lookupVt>>
+>;
+export type LookupVtQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Quick cached lookup of a known SHA-256 hash
+ */
+
+export function useLookupVt<
+  TData = Awaited<ReturnType<typeof lookupVt>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: LookupVtParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof lookupVt>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getLookupVtQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

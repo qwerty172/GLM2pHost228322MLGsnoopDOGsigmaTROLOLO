@@ -3605,6 +3605,68 @@ export const ListMyVdsResponseItem = zod
 export const ListMyVdsResponse = zod.array(ListMyVdsResponseItem);
 
 /**
+ * Requires a valid host or player token (ownerToken). Server must have VIRUSTOTAL_API_KEY configured.
+
+ * @summary Check SHA-256 hash or download URL against VirusTotal
+ */
+export const scanVtBodyInputMax = 2000;
+
+export const ScanVtBody = zod.object({
+  ownerToken: zod.string(),
+  input: zod
+    .string()
+    .min(1)
+    .max(scanVtBodyInputMax)
+    .describe("SHA-256 hex (64 chars) or https:\/\/ URL"),
+});
+
+export const ScanVtResponse = zod.object({
+  status: zod.enum(["clean", "suspicious", "malicious", "unknown", "error"]),
+  harmless: zod.number(),
+  suspicious: zod.number(),
+  malicious: zod.number(),
+  undetected: zod.number(),
+  total: zod.number(),
+  permalink: zod.string(),
+  sha256: zod.string().optional(),
+  name: zod.string().optional(),
+  errorMessage: zod.string().optional(),
+});
+
+/**
+ * IP rate-limited (30/min). In production requires X-Host-Token header.
+
+ * @summary Quick cached lookup of a known SHA-256 hash
+ */
+export const lookupVtQuerySha256RegExp = new RegExp("^[a-fA-F0-9]{64}$");
+
+export const LookupVtQueryParams = zod.object({
+  sha256: zod.coerce.string().regex(lookupVtQuerySha256RegExp),
+});
+
+export const LookupVtHeader = zod.object({
+  "X-Host-Token": zod
+    .string()
+    .optional()
+    .describe(
+      "Required in production; anonymous allowed in dev with IP rate limit",
+    ),
+});
+
+export const LookupVtResponse = zod.object({
+  status: zod.enum(["clean", "suspicious", "malicious", "unknown", "error"]),
+  harmless: zod.number(),
+  suspicious: zod.number(),
+  malicious: zod.number(),
+  undetected: zod.number(),
+  total: zod.number(),
+  permalink: zod.string(),
+  sha256: zod.string().optional(),
+  name: zod.string().optional(),
+  errorMessage: zod.string().optional(),
+});
+
+/**
  * @summary Wallet overview вЂ” balance, deposit addresses, withdrawal history
  */
 export const GetWalletParams = zod.object({

@@ -28,6 +28,8 @@ tags:
     description: Quota preset-contracts (royalty / sponsor) attachable to sessions
   - name: vds
     description: Quota-attached VDS provisioning over SSH
+  - name: vt
+    description: VirusTotal hash and URL scanning
   - name: loans
     description: P2P loan marketplace (request, fund, repay)
   - name: public
@@ -2196,6 +2198,104 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "403":
           description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /vt/scan:
+    post:
+      operationId: scanVt
+      tags: [vt]
+      summary: Check SHA-256 hash or download URL against VirusTotal
+      description: >
+        Requires a valid host or player token (ownerToken). Server must have
+        VIRUSTOTAL_API_KEY configured.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VtScanBody"
+      responses:
+        "200":
+          description: VirusTotal analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VtResult"
+        "400":
+          description: Validation error or invalid input format
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: VirusTotal upstream error (body is VtResult with status error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VtResult"
+        "503":
+          description: VirusTotal not configured on server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /vt/lookup:
+    get:
+      operationId: lookupVt
+      tags: [vt]
+      summary: Quick cached lookup of a known SHA-256 hash
+      description: >
+        IP rate-limited (30/min). In production requires X-Host-Token header.
+      parameters:
+        - in: query
+          name: sha256
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-fA-F0-9]{64}$"
+        - in: header
+          name: X-Host-Token
+          required: false
+          schema:
+            type: string
+          description: Required in production; anonymous allowed in dev with IP rate limit
+      responses:
+        "200":
+          description: Cached VirusTotal file report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VtResult"
+        "400":
+          description: Invalid sha256
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: X-Host-Token required in production
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: VirusTotal upstream error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: VirusTotal not configured on server
           content:
             application/json:
               schema:
@@ -7350,3 +7450,50 @@ components:
           enum: [true]
       required:
         - ok
+
+    VtScanBody:
+      type: object
+      properties:
+        ownerToken:
+          type: string
+        input:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: SHA-256 hex (64 chars) or https:// URL
+      required:
+        - ownerToken
+        - input
+
+    VtResult:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [clean, suspicious, malicious, unknown, error]
+        harmless:
+          type: integer
+        suspicious:
+          type: integer
+        malicious:
+          type: integer
+        undetected:
+          type: integer
+        total:
+          type: integer
+        permalink:
+          type: string
+        sha256:
+          type: string
+        name:
+          type: string
+        errorMessage:
+          type: string
+      required:
+        - status
+        - harmless
+        - suspicious
+        - malicious
+        - undetected
+        - total
+        - permalink

@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-12 (2026-08-03 13:16 UTC) {#marathon-m-12}
+
+| Проверка | Результат |
+|---|---|
+| OpenAPI | `POST /vt/scan`, `GET /vt/lookup` + VtScanBody/VtResult schemas |
+| codegen | orval → `scanVt`, `lookupVt` |
+| typecheck | PASS |
+| marathon-scan | vt.ts больше не в raw hits (1/1) |
+
+**Следующий pick:** M-13 `renderer/*.ts` unit-тесты.
+
 ## Marathon M-11 (2026-08-03 13:12 UTC) {#marathon-m-11}
 
 | Проверка | Результат |

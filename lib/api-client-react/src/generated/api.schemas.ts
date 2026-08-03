@@ -2026,6 +2026,40 @@ export interface VdsDeleteResponse {
   ok: boolean;
 }
 
+export interface VtScanBody {
+  ownerToken: string;
+  /**
+   * SHA-256 hex (64 chars) or https:// URL
+   * @minLength 1
+   * @maxLength 2000
+   */
+  input: string;
+}
+
+export type VtResultStatus =
+  (typeof VtResultStatus)[keyof typeof VtResultStatus];
+
+export const VtResultStatus = {
+  clean: "clean",
+  suspicious: "suspicious",
+  malicious: "malicious",
+  unknown: "unknown",
+  error: "error",
+} as const;
+
+export interface VtResult {
+  status: VtResultStatus;
+  harmless: number;
+  suspicious: number;
+  malicious: number;
+  undetected: number;
+  total: number;
+  permalink: string;
+  sha256?: string;
+  name?: string;
+  errorMessage?: string;
+}
+
 export type GetHostDebtors200 = { [key: string]: unknown };
 
 export type GetHostStreamRelay200 = {
@@ -2197,6 +2231,13 @@ export type DeleteQuotaVdsParams = {
 
 export type ListMyVdsParams = {
   ownerToken: string;
+};
+
+export type LookupVtParams = {
+  /**
+   * @pattern ^[a-fA-F0-9]{64}$
+   */
+  sha256: string;
 };
 
 export type ListMyLoansParams = {
