@@ -15,7 +15,7 @@
 | Дата | 2026-08-03 12:48 UTC |
 | Task ID | M-07 |
 | Результат | OpenAPI GET /public/games + codegen; groom: DRAFT PR не блокирует |
-| Commit | 6899e70 |
+| Commit | 33b4f23 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
