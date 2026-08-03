@@ -530,12 +530,36 @@ export const ListPublicHostsResponseItem = zod
       .describe(
         "Capability invite code for \/play\/i\/{inviteCode}. Raw playerToken is never exposed on public host lists.\n",
       ),
+    isOnline: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True when the agent sent a heartbeat within the last 2 minutes",
+      ),
+    pingMs: zod
+      .number()
+      .nullish()
+      .describe("Host-to-server RTT measured at last heartbeat"),
     hostTier: zod
       .enum(["meets_min", "above_rec"])
       .optional()
       .describe(
         "Strength badge vs the site-wide baseline. below_min hosts are excluded from this list entirely.",
       ),
+    games: zod
+      .array(
+        zod.object({
+          gameId: zod.string(),
+          slug: zod.string(),
+          title: zod.string(),
+          coverImageUrl: zod.string().optional(),
+          genre: zod.string().optional(),
+          pricePerMinuteLzt: zod.number().optional(),
+        }),
+      )
+      .optional()
+      .describe("Enabled library entries for this host"),
+    pcSpecs: zod.record(zod.string(), zod.unknown()).nullish(),
   })
   .describe("Anonymous-safe view of a live host");
 export const ListPublicHostsResponse = zod.array(ListPublicHostsResponseItem);
@@ -555,7 +579,42 @@ export const GetPublicStatsResponse = zod.object({
  * @summary Register a new player wallet identity
  */
 export const RegisterPlayerBody = zod.object({
+  displayName: zod.string().optional(),
+  guest: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When true, creates an anonymous guest wallet without displayName",
+    ),
+});
+
+/**
+ * @summary Upgrade a guest wallet to a full account with a display name
+ */
+export const upgradeGuestPlayerBodyDisplayNameMin = 2;
+export const upgradeGuestPlayerBodyDisplayNameMax = 32;
+
+export const UpgradeGuestPlayerBody = zod.object({
+  guestToken: zod.string(),
+  displayName: zod
+    .string()
+    .min(upgradeGuestPlayerBodyDisplayNameMin)
+    .max(upgradeGuestPlayerBodyDisplayNameMax),
+});
+
+export const UpgradeGuestPlayerResponse = zod.object({
+  id: zod.string(),
+  playerToken: zod.string(),
   displayName: zod.string(),
+  internalBalanceLzt: zod
+    .number()
+    .describe("РЎРёРЅРёР№ вЂ” internal LZT, cannot be withdrawn"),
+  withdrawableBalanceLzt: zod
+    .number()
+    .describe("Р—РµР»С‘РЅС‹Р№ вЂ” LZT convertible back to crypto at 200:1"),
+  isGuest: zod.boolean().optional(),
+  createdAt: zod.coerce.date(),
+  lastSeenAt: zod.coerce.date(),
 });
 
 /**
@@ -575,6 +634,7 @@ export const GetPlayerResponse = zod.object({
   withdrawableBalanceLzt: zod
     .number()
     .describe("Р—РµР»С‘РЅС‹Р№ вЂ” LZT convertible back to crypto at 200:1"),
+  isGuest: zod.boolean().optional(),
   createdAt: zod.coerce.date(),
   lastSeenAt: zod.coerce.date(),
 });
@@ -605,6 +665,10 @@ export const ListGamesQueryParams = zod.object({
     .describe(
       "Only return games that have at least one live session right now",
     ),
+  vdsOnly: zod.coerce
+    .boolean()
+    .optional()
+    .describe("Only return games that have at least one always-on VDS host"),
   search: zod.coerce
     .string()
     .optional()
@@ -827,6 +891,27 @@ export const GetGameBySlugResponse = zod
   );
 
 /**
+ * @summary Fetch Steam Store metadata and current player count for an app ID
+ */
+export const steamLookupQueryAppIdRegExp = new RegExp("^\\d{1,10}$");
+
+export const SteamLookupQueryParams = zod.object({
+  appId: zod.coerce.string().regex(steamLookupQueryAppIdRegExp),
+});
+
+export const SteamLookupResponse = zod.object({
+  steamAppId: zod.string(),
+  title: zod.string(),
+  coverImageUrl: zod.string().optional(),
+  description: zod.string().optional(),
+  genres: zod.array(zod.string()).optional(),
+  metacritic: zod.number().nullish(),
+  currentPlayers: zod.number().nullish(),
+  recSpecs: zod.record(zod.string(), zod.unknown()).optional(),
+  minSpecs: zod.record(zod.string(), zod.unknown()).optional(),
+});
+
+/**
  * @summary Create a new session
  */
 export const CreateSessionBody = zod.object({
@@ -990,6 +1075,26 @@ export const GetSessionByPlayerTokenResponse = zod.object({
 });
 
 /**
+ * @summary Submit a post-session rating for the host
+ */
+export const RateSessionParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const rateSessionBodyScoreMax = 5;
+
+export const RateSessionBody = zod.object({
+  playerWalletToken: zod.string(),
+  score: zod.number().min(1).max(rateSessionBodyScoreMax),
+  comment: zod.string().optional(),
+});
+
+export const RateSessionResponse = zod.object({
+  ratingAvg: zod.number(),
+  ratingCount: zod.number(),
+});
+
+/**
  * @summary Resolve a public invite code to session details (player play link)
  */
 export const GetSessionByInviteParams = zod.object({
@@ -1096,6 +1201,69 @@ export const ClaimSessionBody = zod.object({
 });
 
 export const ClaimSessionResponse = zod.object({
+  id: zod.string(),
+  hostId: zod.string(),
+  gameId: zod.string().describe("Catalog game this session is bound to"),
+  playerToken: zod.string(),
+  inviteCode: zod
+    .string()
+    .nullish()
+    .describe("Short invite code for share links"),
+  inviteExpiresAt: zod.coerce.date().nullish(),
+  claimedByPlayerId: zod.string().nullish(),
+  appName: zod.string(),
+  status: zod.string().describe("One of pending, active, ended"),
+  resolution: zod.string(),
+  bitrateKbps: zod.number(),
+  ratePerMinute: zod
+    .number()
+    .describe(
+      "Player credits charged per minute (host receives net of commission)",
+    ),
+  paymentSource: zod.enum(["blue", "green", "auto"]).optional(),
+  quotaId: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  startedAt: zod.coerce.date().nullish(),
+  endedAt: zod.coerce.date().nullish(),
+  endReason: zod
+    .string()
+    .nullish()
+    .describe(
+      "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline, block_expired.",
+    ),
+  blockMinutes: zod
+    .number()
+    .nullish()
+    .describe(
+      "Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.",
+    ),
+  blockReservedLzt: zod
+    .number()
+    .nullish()
+    .describe(
+      "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
+    ),
+  isTest: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Host self-test session вЂ” completely free, skipped by billing.",
+    ),
+});
+
+/**
+ * @summary Extend a block-billed session by reserving additional minutes
+ */
+export const RenewSessionBlockParams = zod.object({
+  playerToken: zod.coerce.string(),
+});
+
+export const RenewSessionBlockBody = zod.object({
+  playerWalletToken: zod.string(),
+  blockMinutes: zod.union([zod.literal(10), zod.literal(15), zod.literal(25)]),
+});
+
+export const RenewSessionBlockResponse = zod.object({
   id: zod.string(),
   hostId: zod.string(),
   gameId: zod.string().describe("Catalog game this session is bound to"),
@@ -3501,6 +3669,30 @@ export const GetPublicIceConfigResponse = zod.object({
 });
 
 /**
+ * @summary Hosts offering a game in their library, with live-session status
+ */
+export const ListPublicGameHostsParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const ListPublicGameHostsResponseItem = zod.object({
+  hostId: zod.string(),
+  displayName: zod.string(),
+  tags: zod.array(zod.string()).optional(),
+  description: zod.string().nullish(),
+  pricePerMinuteLzt: zod.number(),
+  pricePerMinuteUsd: zod.number(),
+  status: zod.enum(["online", "available", "scheduled"]),
+  inviteCode: zod.string().nullish(),
+  scheduleMode: zod.string().optional(),
+  pingMs: zod.number().nullish(),
+  hostTier: zod.enum(["meets_min", "above_rec"]).optional(),
+});
+export const ListPublicGameHostsResponse = zod.array(
+  ListPublicGameHostsResponseItem,
+);
+
+/**
  * @summary Create a session funded by a developer API key (embed widget)
  */
 export const CreateEmbedSessionBody = zod.object({
@@ -3528,6 +3720,40 @@ export const IssueAgentBindCodeHeader = zod.object({
 export const IssueAgentBindCodeResponse = zod.object({
   bindCode: zod.string(),
   expiresAt: zod.number().describe("Unix epoch ms"),
+});
+
+/**
+ * @summary Exchange a legacy host/player token for a short-lived JWT access token
+ */
+export const AuthLoginBody = zod.object({
+  legacyToken: zod.string(),
+});
+
+export const AuthLoginResponse = zod.object({
+  accessToken: zod.string(),
+  expiresInSec: zod.number(),
+});
+
+/**
+ * @summary Rotate refresh cookie and mint a new access token
+ */
+export const AuthRefreshBody = zod.object({
+  refreshToken: zod
+    .string()
+    .optional()
+    .describe("Optional body fallback when cookie is unavailable"),
+});
+
+export const AuthRefreshResponse = zod.object({
+  accessToken: zod.string(),
+  expiresInSec: zod.number(),
+});
+
+/**
+ * @summary Revoke refresh cookie and clear server-side refresh token
+ */
+export const AuthLogoutResponse = zod.object({
+  ok: zod.boolean(),
 });
 
 /**

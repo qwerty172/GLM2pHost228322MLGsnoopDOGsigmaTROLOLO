@@ -332,6 +332,37 @@ paths:
               schema:
                 $ref: "#/components/schemas/Player"
 
+  /players/upgrade-guest:
+    post:
+      operationId: upgradeGuestPlayer
+      tags: [players]
+      summary: Upgrade a guest wallet to a full account with a display name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpgradeGuestPlayerBody"
+      responses:
+        "200":
+          description: Upgraded player
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Guest not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /players/{playerToken}:
     get:
       operationId: getPlayer
@@ -394,6 +425,12 @@ paths:
             type: boolean
           description: Only return games that have at least one live session right now
         - in: query
+          name: vdsOnly
+          required: false
+          schema:
+            type: boolean
+          description: Only return games that have at least one always-on VDS host
+        - in: query
           name: search
           required: false
           schema:
@@ -447,6 +484,38 @@ paths:
                 $ref: "#/components/schemas/GameDetail"
         "404":
           description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /games/steam-lookup:
+    get:
+      operationId: steamLookup
+      tags: [games]
+      summary: Fetch Steam Store metadata and current player count for an app ID
+      parameters:
+        - in: query
+          name: appId
+          required: true
+          schema:
+            type: string
+            pattern: "^\\d{1,10}$"
+      responses:
+        "200":
+          description: Steam metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SteamLookupResult"
+        "400":
+          description: Invalid appId
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Steam lookup failed
           content:
             application/json:
               schema:
@@ -573,6 +642,50 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /sessions/{id}/rate:
+    post:
+      operationId: rateSession
+      tags: [sessions]
+      summary: Submit a post-session rating for the host
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RateSessionBody"
+      responses:
+        "200":
+          description: Rating recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateSessionResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Only the session player can rate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /sessions/by-invite/{inviteCode}:
     get:
       operationId: getSessionByInvite
@@ -677,6 +790,43 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions/by-player-token/{playerToken}/renew-block:
+    post:
+      operationId: renewSessionBlock
+      tags: [sessions]
+      summary: Extend a block-billed session by reserving additional minutes
+      parameters:
+        - in: path
+          name: playerToken
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenewSessionBlockBody"
+      responses:
+        "200":
+          description: Block renewed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          description: Invalid request or insufficient balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Wallet does not match session
           content:
             application/json:
               schema:
@@ -2224,6 +2374,39 @@ paths:
                       required: [urls]
                 required: [iceServers]
 
+  /public/games/{slug}/hosts:
+    get:
+      operationId: listPublicGameHosts
+      tags: [public]
+      summary: Hosts offering a game in their library, with live-session status
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Hosts for the game
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PublicGameHostItem"
+        "400":
+          description: slug required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /embed/sessions:
     post:
       operationId: createEmbedSession
@@ -2318,6 +2501,94 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: authLogin
+      tags: [auth]
+      summary: Exchange a legacy host/player token for a short-lived JWT access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthLoginBody"
+      responses:
+        "200":
+          description: Access token issued; refresh token set as httpOnly cookie
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokenResponse"
+        "400":
+          description: Invalid body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: JWT not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/refresh:
+    post:
+      operationId: authRefresh
+      tags: [auth]
+      summary: Rotate refresh cookie and mint a new access token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+                  description: Optional body fallback when cookie is unavailable
+      responses:
+        "200":
+          description: New access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokenResponse"
+        "401":
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: JWT not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: authLogout
+      tags: [auth]
+      summary: Revoke refresh cookie and clear server-side refresh token
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
 
   /auth/ws-ticket:
     post:
@@ -3136,6 +3407,8 @@ components:
         withdrawableBalanceLzt:
           type: integer
           description: Р—РµР»С‘РЅС‹Р№ вЂ” LZT convertible back to crypto at 200:1
+        isGuest:
+          type: boolean
         createdAt:
           type: string
           format: date-time
@@ -3164,8 +3437,144 @@ components:
       properties:
         displayName:
           type: string
+        guest:
+          type: boolean
+          description: When true, creates an anonymous guest wallet without displayName
+
+    UpgradeGuestPlayerBody:
+      type: object
+      properties:
+        guestToken:
+          type: string
+        displayName:
+          type: string
+          minLength: 2
+          maxLength: 32
       required:
+        - guestToken
         - displayName
+
+    AuthLoginBody:
+      type: object
+      properties:
+        legacyToken:
+          type: string
+      required:
+        - legacyToken
+
+    AuthTokenResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        expiresInSec:
+          type: integer
+      required:
+        - accessToken
+        - expiresInSec
+
+    RenewSessionBlockBody:
+      type: object
+      properties:
+        playerWalletToken:
+          type: string
+        blockMinutes:
+          type: integer
+          enum: [10, 15, 25]
+      required:
+        - playerWalletToken
+        - blockMinutes
+
+    RateSessionBody:
+      type: object
+      properties:
+        playerWalletToken:
+          type: string
+        score:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+      required:
+        - playerWalletToken
+        - score
+
+    RateSessionResponse:
+      type: object
+      properties:
+        ratingAvg:
+          type: number
+        ratingCount:
+          type: integer
+      required:
+        - ratingAvg
+        - ratingCount
+
+    SteamLookupResult:
+      type: object
+      properties:
+        steamAppId:
+          type: string
+        title:
+          type: string
+        coverImageUrl:
+          type: string
+        description:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        metacritic:
+          type: ["integer", "null"]
+        currentPlayers:
+          type: ["integer", "null"]
+        recSpecs:
+          type: object
+          additionalProperties: true
+        minSpecs:
+          type: object
+          additionalProperties: true
+      required:
+        - steamAppId
+        - title
+
+    PublicGameHostItem:
+      type: object
+      properties:
+        hostId:
+          type: string
+        displayName:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        description:
+          type: ["string", "null"]
+        pricePerMinuteLzt:
+          type: integer
+        pricePerMinuteUsd:
+          type: number
+        status:
+          type: string
+          enum: [online, available, scheduled]
+        inviteCode:
+          type: ["string", "null"]
+        scheduleMode:
+          type: string
+        pingMs:
+          type: ["integer", "null"]
+        hostTier:
+          type: string
+          enum: [meets_min, above_rec]
+      required:
+        - hostId
+        - displayName
+        - pricePerMinuteLzt
+        - pricePerMinuteUsd
+        - status
 
     GameListItem:
       type: object
@@ -3795,10 +4204,41 @@ components:
           description: >
             Capability invite code for /play/i/{inviteCode}. Raw playerToken is
             never exposed on public host lists.
+        isOnline:
+          type: boolean
+          description: True when the agent sent a heartbeat within the last 2 minutes
+        pingMs:
+          type: ["integer", "null"]
+          description: Host-to-server RTT measured at last heartbeat
         hostTier:
           type: string
           enum: [meets_min, above_rec]
           description: "Strength badge vs the site-wide baseline. below_min hosts are excluded from this list entirely."
+        games:
+          type: array
+          description: Enabled library entries for this host
+          items:
+            type: object
+            properties:
+              gameId:
+                type: string
+              slug:
+                type: string
+              title:
+                type: string
+              coverImageUrl:
+                type: string
+              genre:
+                type: string
+              pricePerMinuteLzt:
+                type: integer
+            required:
+              - gameId
+              - slug
+              - title
+        pcSpecs:
+          type: ["object", "null"]
+          additionalProperties: true
       required:
         - id
         - displayName
