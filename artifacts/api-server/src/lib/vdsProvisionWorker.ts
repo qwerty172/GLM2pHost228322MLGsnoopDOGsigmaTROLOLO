@@ -1,6 +1,8 @@
 import { db, hostsTable, quotaVdsTable, quotasTable, hostGamesTable } from "@workspace/db";
-import { and, eq, sql } from "drizzle-orm";import { decryptSshKey } from "./sshKey";
+import { and, eq, sql } from "drizzle-orm";
+import { decryptSshKey } from "./sshKey";
 import { logger } from "./logger";
+import { resolvesToPrivateNetwork } from "./ssrfGuard";
 import { randomBytes } from "node:crypto";
 
 const PROVISION_INTERVAL_MS = 15_000;
@@ -185,6 +187,12 @@ async function provisionVds(vds: typeof quotaVdsTable.$inferSelect) {
 
   logger.info({ vdsId: vds.id, sshHost: vds.sshHost }, "Starting VDS provisioning");
   // Status already flipped to "provisioning" by claimPendingVds.
+
+  if (await resolvesToPrivateNetwork(vds.sshHost)) {
+    await appendLog(vds.id, "[ERROR] SSH host resolves to a private/internal network — refused");
+    await setStatus(vds.id, "error");
+    return;
+  }
 
   let privateKey: string;
   try {

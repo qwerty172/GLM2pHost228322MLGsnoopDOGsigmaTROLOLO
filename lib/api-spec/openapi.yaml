@@ -5611,9 +5611,9 @@ components:
         hostId:
           type: string
           description: Host UUID offering this live session
-        playerToken:
-          type: string
-          description: Player share token вЂ” visit /play/{playerToken} to join
+        inviteCode:
+          type: ["string", "null"]
+          description: Capability URL code — visit /play/i/{inviteCode} to join
         appName:
           type: string
         ratePerMinute:
@@ -5664,7 +5664,7 @@ components:
           type: integer
       required:
         - hostId
-        - playerToken
+        - inviteCode
         - appName
         - ratePerMinute
         - pricePerMinuteLzt

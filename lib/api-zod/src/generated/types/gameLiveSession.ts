@@ -11,8 +11,11 @@ import type { ScheduleSlot } from "./scheduleSlot";
 export interface GameLiveSession {
   /** Host UUID offering this live session */
   hostId: string;
-  /** Player share token вЂ” visit /play/{playerToken} to join */
-  playerToken: string;
+  /**
+   * Capability URL code — visit /play/i/{inviteCode} to join
+   * @nullable
+   */
+  inviteCode: string | null;
   appName: string;
   ratePerMinute: number;
   /** Per-minute price in integer LZT */
