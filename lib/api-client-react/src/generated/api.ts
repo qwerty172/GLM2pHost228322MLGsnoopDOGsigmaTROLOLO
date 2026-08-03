@@ -46,6 +46,8 @@ import type {
   BindAgentKeyBody,
   BulkPublishLibraryBody,
   BulkPublishLibraryResponse,
+  ClaimGuestPlayerBody,
+  ClaimGuestPlayerResponse,
   ClaimSessionBody,
   ConfirmUploadBody,
   ConfirmUploadResponse,
@@ -1744,6 +1746,94 @@ export const useRegisterPlayer = <
   TContext
 > => {
   return useMutation(getRegisterPlayerMutationOptions(options));
+};
+
+/**
+ * Called by the desktop agent when a host registers: transfers guest balance and session history to a new full player account, then deactivates the guest token.
+
+ * @summary Transfer guest wallet to host-linked full account
+ */
+export const getClaimGuestPlayerUrl = () => {
+  return `/api/players/claim-guest`;
+};
+
+export const claimGuestPlayer = async (
+  claimGuestPlayerBody: ClaimGuestPlayerBody,
+  options?: RequestInit,
+): Promise<ClaimGuestPlayerResponse> => {
+  return customFetch<ClaimGuestPlayerResponse>(getClaimGuestPlayerUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(claimGuestPlayerBody),
+  });
+};
+
+export const getClaimGuestPlayerMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof claimGuestPlayer>>,
+    TError,
+    { data: BodyType<ClaimGuestPlayerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof claimGuestPlayer>>,
+  TError,
+  { data: BodyType<ClaimGuestPlayerBody> },
+  TContext
+> => {
+  const mutationKey = ["claimGuestPlayer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof claimGuestPlayer>>,
+    { data: BodyType<ClaimGuestPlayerBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return claimGuestPlayer(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ClaimGuestPlayerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof claimGuestPlayer>>
+>;
+export type ClaimGuestPlayerMutationBody = BodyType<ClaimGuestPlayerBody>;
+export type ClaimGuestPlayerMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Transfer guest wallet to host-linked full account
+ */
+export const useClaimGuestPlayer = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof claimGuestPlayer>>,
+    TError,
+    { data: BodyType<ClaimGuestPlayerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof claimGuestPlayer>>,
+  TError,
+  { data: BodyType<ClaimGuestPlayerBody> },
+  TContext
+> => {
+  return useMutation(getClaimGuestPlayerMutationOptions(options));
 };
 
 /**

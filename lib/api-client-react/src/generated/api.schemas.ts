@@ -488,6 +488,17 @@ export interface UpgradeGuestPlayerBody {
   displayName: string;
 }
 
+export interface ClaimGuestPlayerBody {
+  guestToken: string;
+  hostToken: string;
+}
+
+export interface ClaimGuestPlayerResponse {
+  playerToken: string;
+  transferredInternalLzt: number;
+  transferredWithdrawableLzt: number;
+}
+
 export interface AuthLoginBody {
   legacyToken: string;
 }

@@ -848,6 +848,22 @@ export const RegisterPlayerBody = zod.object({
 });
 
 /**
+ * Called by the desktop agent when a host registers: transfers guest balance and session history to a new full player account, then deactivates the guest token.
+
+ * @summary Transfer guest wallet to host-linked full account
+ */
+export const ClaimGuestPlayerBody = zod.object({
+  guestToken: zod.string(),
+  hostToken: zod.string(),
+});
+
+export const ClaimGuestPlayerResponse = zod.object({
+  playerToken: zod.string(),
+  transferredInternalLzt: zod.number(),
+  transferredWithdrawableLzt: zod.number(),
+});
+
+/**
  * @summary Upgrade a guest wallet to a full account with a display name
  */
 export const upgradeGuestPlayerBodyDisplayNameMin = 2;

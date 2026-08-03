@@ -15,6 +15,28 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon meta (2026-08-03 12:38 UTC) {#marathon-meta-no-recent-run}
+
+**Проблема:** cron каждую минуту, но `recent_run` (45min) пропускал run при 9 pending M-NN.
+
+| Проверка | Результат |
+|---|---|
+| `marathon-groom.mjs` | убран MIN_RUN_INTERVAL / recent_run — cron не skip по времени |
+| should-run skip | только `pr_in_flight` или `in_progress_active` |
+| M-05 | OpenAPI POST `/players/claim-guest` + codegen |
+
+**Следующий pick:** M-06 `routes/premium.ts`.
+
+## Marathon M-05 (2026-08-03 12:38 UTC) {#marathon-m-05}
+
+| Проверка | Результат |
+|---|---|
+| OpenAPI | `POST /players/claim-guest` + ClaimGuestPlayerBody/Response |
+| codegen | orval → api-client-react + api-zod |
+| marathon-scan | players.ts больше не в raw hits (8/8) |
+
+**Следующий pick:** M-06 `routes/premium.ts`.
+
 ## Marathon meta (2026-08-03 12:26 UTC) {#marathon-meta-mark-skipped}
 
 **Проблема:** cron каждую минуту; агенты без `--should-run` дублировали run; skip обновлял Date → 45min таймер никогда не истекал.

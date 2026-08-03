@@ -2,20 +2,20 @@
 
 > **Активный цикл:** Wave Maintenance (каждый run — scan + одна M-NN)  
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл`  
-> **Cron (факт):** `0/1 * * * *` (каждую минуту) — **использовать `marathon-groom.mjs --should-run`** чтобы не дублировать run  
+> **Cron (факт):** `0/1 * * * *` (каждую минуту) — **каждый run выполняет одну M-NN**, без интервального skip  
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-03 (prompt: should-run первым в полном шаблоне)
+> **Последнее обновление:** 2026-08-03 (groom: убран recent_run — cron не пропускает run)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-03 12:30 UTC |
-| Task ID | meta |
-| Результат | skipped (recent_run)|
-| Commit | 70f3259 |
+| Дата | 2026-08-03 12:38 UTC |
+| Task ID | M-05 |
+| Результат | OpenAPI POST /players/claim-guest + groom: убран recent_run skip |
+| Commit | pending |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -25,12 +25,12 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** **9 M-NN pending** (см. таблицу ниже). Сканер группирует сырые хиты:
-- **9 raw** (по одному route/файлу) → **9 grouped** (M-04 hosts.ts закрыт)
+**Wave Maintenance:** **8 M-NN pending** (см. таблицу ниже). Сканер группирует сырые хиты:
+- **8 raw** (по одному route/файлу) → **8 grouped** (M-05 players.ts закрыт)
 - 144 raw (10 runs назад) — ложные: vendor `public/games/`, неверный `/api` prefix в OpenAPI-сканере
 
 **Workflow:**
-- `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip если Last run <45 мин **или** открытый PR на next M-NN; `--mark-skipped` пишет Result, **не** Date
+- `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
 - `node scripts/marathon-groom.mjs --apply` — meta: phantom/stale/drift, лишние pending → skip
 - `node scripts/marathon-scan.mjs --sync-marathon` — обновить таблицу M-NN из сканера (группировка)
 - `node scripts/marathon-scan.mjs --next` — первая **pending** из таблицы
@@ -237,7 +237,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-02 | C | OpenAPI gap: routes/enrich.ts (1 route) | `routes/enrich.ts` | c:artifacts/api-server/src/routes/enrich.ts | done | agent |
 | M-03 | C | OpenAPI gap: routes/events.ts (1 route) | `routes/events.ts` | c:artifacts/api-server/src/routes/events.ts | done | agent |
 | M-04 | C | OpenAPI gap: routes/hosts.ts (8 routes) | `routes/hosts.ts` | c:artifacts/api-server/src/routes/hosts.ts | done | agent |
-| M-05 | C | OpenAPI gap: routes/players.ts (1 route) | `routes/players.ts` | c:artifacts/api-server/src/routes/players.ts | pending | agent |
+| M-05 | C | OpenAPI gap: routes/players.ts (1 route) | `routes/players.ts` | c:artifacts/api-server/src/routes/players.ts | done | agent |
 | M-06 | C | OpenAPI gap: routes/premium.ts (1 route) | `routes/premium.ts` | c:artifacts/api-server/src/routes/premium.ts | pending | agent |
 | M-07 | C | OpenAPI gap: routes/public.ts (1 route) | `routes/public.ts` | c:artifacts/api-server/src/routes/public.ts | pending | agent |
 | M-08 | C | OpenAPI gap: routes/sessions.ts (1 route) | `routes/sessions.ts` | c:artifacts/api-server/src/routes/sessions.ts | pending | agent |
@@ -259,21 +259,20 @@ Automation **каждый run** создаёт и выполняет одну н
 ```
 git pull origin main
 node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0
-# exit 2 = STOP: commit+push MARATHON только если Result изменился; Date Last run НЕ менять; reconcile/sync/M-NN НЕ делать
+# exit 2 = STOP только pr_in_flight / in_progress; commit+push MARATHON если Result изменился
 node scripts/marathon-reconcile.mjs --apply
 node scripts/marathon-groom.mjs --apply
 node scripts/marathon-scan.mjs --sync-marathon
 git add MARATHON.md && git commit -m "chore(marathon): groom+sync" && git push origin main || true
 Прочитай MARATHON.md. Memory выключена.
-Иначе: одна M-NN (M-05…) или meta. pnpm typecheck → done + TESTLOG → push main.
-Проверяй прошлые run: дубли PR / skip без should-run → чини groom/prompt.
+Одна M-NN или meta. pnpm typecheck → done + TESTLOG → push main.
 ```
 
 **Полный:**
 ```
 git pull origin main
-node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0   # ПЕРВЫМ после pull; skip: recent_run / pr_in_flight
-# exit 2 = STOP: commit+push MARATHON если Result изменился; Date НЕ менять; дальше НЕ идти
+node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0   # skip: pr_in_flight / in_progress (НЕ recent_run)
+# exit 2 = STOP: commit+push MARATHON если Result изменился; дальше НЕ идти
 node scripts/marathon-reconcile.mjs --apply   # legacy done, БЕЗ кода
 node scripts/marathon-groom.mjs --apply        # meta: phantom/stale/drift, только MARATHON
 node scripts/marathon-scan.mjs --sync-marathon # обновить pending M-NN
@@ -281,18 +280,17 @@ git add MARATHON.md && git commit -m "chore(marathon): groom+sync" && git push o
 Прочитай MARATHON.md. Memory выключена.
 
 КАЖДЫЙ RUN:
-0. **ПЕРВЫМ:** `node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0` — exit 2 = skip, Result обновлён, **Date не менять**, **СТОП** (reconcile/sync/M-NN/meta не делать).
+0. `node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0` — exit 2 только pr_in_flight/in_progress.
 1. Legacy done/blocked/skipped — НЕ ТРОГАТЬ.
-2. groom --apply: если raw_explosion или баг сканера → почини marathon-scan.mjs, skip ложные задачи, commit meta. M-NN в этот run можно пропустить.
+2. groom --apply: если raw_explosion или баг сканера → почини marathon-scan.mjs, skip ложные задачи, commit meta.
 3. node scripts/marathon-scan.mjs --next
    - idle:true → Marathon idle, обнови Last run, выход.
    - иначе pick = первая pending M-NN.
-4. Перед кодом: gh pr list + rg/git log — если уже в main → done без кода; если в открытом PR → cherry-pick в main, НЕ создавать новый PR.
+4. Перед кодом: gh pr list + rg/git log — если уже в main → done без кода; если в открытом PR → cherry-pick в main.
 5. in_progress → выполни → pnpm typecheck → done + TESTLOG.
 6. Обнови Last run. commit && push.
 
 Один M-NN или одно meta-улучшение за run. Push в main.
-Проверяй прошлые run: дубли PR / reconcile idle без M-NN → улучши groom/prompt.
 ```
 
-> **Важно:** текст Automation **должен** включать `should-run --mark-skipped` в первых двух шагах. Без этого cron каждую минуту запускает полный run и дублирует meta/PR.
+> **Важно:** cron каждую минуту — **не** блокировать run по интервалу. Skip только при открытом PR на next M-NN или активном in_progress.

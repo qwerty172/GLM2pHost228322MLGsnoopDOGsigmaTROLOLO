@@ -16,8 +16,6 @@ const APPLY = process.argv.includes("--apply");
 const SHOULD_RUN = process.argv.includes("--should-run");
 const MARK_SKIPPED = process.argv.includes("--mark-skipped");
 const STALE_HOURS = 24;
-/** Минимальный интервал между run без in_progress (защита от cron каждую минуту). */
-const MIN_RUN_INTERVAL_MS = 45 * 60 * 1000;
 
 function parseLastRun() {
   const md = readFileSync(MARATHON, "utf8");
@@ -29,7 +27,7 @@ function parseLastRun() {
   };
 }
 
-/** Обновить только Result в Last run — Date НЕ трогать (иначе 45min таймер сбрасывается). */
+/** Обновить только Result в Last run — Date НЕ трогать. */
 function markLastRunSkipped(reason) {
   let md = readFileSync(MARATHON, "utf8");
   const skipped = `skipped (${reason})`;
@@ -101,26 +99,22 @@ if (SHOULD_RUN) {
   const pendingMnn = state.existingRows.filter((r) => r.status === "pending").length;
   const nextId = nextPendingId(state.existingRows);
   const prInFlight = hasOpenPrForTask(nextId);
-  const ageMs = lastRun.ms ? Date.now() - lastRun.ms : MIN_RUN_INTERVAL_MS + 1;
-  const recent = lastRun.ms > 0 && ageMs < MIN_RUN_INTERVAL_MS;
-  // Cron каждую минуту: ждать MIN_RUN_INTERVAL между run, кроме активного in_progress.
-  // pending M-NN НЕ отменяет интервал — иначе параллельные run и дубли PR.
-  // pr_in_flight всегда skip — не дублировать работу из открытого PR.
-  const skip = prInFlight || (recent && !hasInProgress);
+  const ageMs = lastRun.ms ? Date.now() - lastRun.ms : null;
+  // Cron каждую минуту: НЕ блокировать по интервалу — каждый run берёт следующую M-NN.
+  // Skip только если открытый PR на next M-NN или другой run уже in_progress.
+  const skip = prInFlight || hasInProgress;
   const payload = {
     shouldRun: !skip,
     reason: skip
       ? prInFlight
         ? "pr_in_flight"
-        : "recent_run"
-      : hasInProgress
-        ? "in_progress_active"
-        : "ok",
-    ageMin: lastRun.ms ? Math.round(ageMs / 60000) : null,
+        : "in_progress_active"
+      : "ok",
+    ageMin: ageMs != null ? Math.round(ageMs / 60000) : null,
     pendingMnn,
     nextPending: nextId,
     prInFlight,
-    minIntervalMin: MIN_RUN_INTERVAL_MS / 60000,
+    hasInProgress,
   };
   console.log(JSON.stringify(payload));
   if (skip && MARK_SKIPPED) {

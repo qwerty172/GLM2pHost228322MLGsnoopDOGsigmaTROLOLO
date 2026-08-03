@@ -40,6 +40,8 @@ export * from "./bindAgentKeyBody";
 export * from "./bulkPublishLibraryBody";
 export * from "./bulkPublishLibraryBodyItemsItem";
 export * from "./bulkPublishLibraryResponse";
+export * from "./claimGuestPlayerBody";
+export * from "./claimGuestPlayerResponse";
 export * from "./claimSessionBody";
 export * from "./claimSessionBodyPaymentSource";
 export * from "./confirmUploadBody";

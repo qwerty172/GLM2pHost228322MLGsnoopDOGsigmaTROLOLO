@@ -534,6 +534,52 @@ paths:
               schema:
                 $ref: "#/components/schemas/Player"
 
+  /players/claim-guest:
+    post:
+      operationId: claimGuestPlayer
+      tags: [players]
+      summary: Transfer guest wallet to host-linked full account
+      description: >
+        Called by the desktop agent when a host registers: transfers guest balance
+        and session history to a new full player account, then deactivates the guest token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaimGuestPlayerBody"
+      responses:
+        "200":
+          description: Guest claimed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClaimGuestPlayerResponse"
+        "400":
+          description: guestToken and hostToken are required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid hostToken
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Guest player not found or token is not a guest
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Failed to create full player account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /players/upgrade-guest:
     post:
       operationId: upgradeGuestPlayer
@@ -4265,6 +4311,31 @@ components:
       required:
         - guestToken
         - displayName
+
+    ClaimGuestPlayerBody:
+      type: object
+      properties:
+        guestToken:
+          type: string
+        hostToken:
+          type: string
+      required:
+        - guestToken
+        - hostToken
+
+    ClaimGuestPlayerResponse:
+      type: object
+      properties:
+        playerToken:
+          type: string
+        transferredInternalLzt:
+          type: integer
+        transferredWithdrawableLzt:
+          type: integer
+      required:
+        - playerToken
+        - transferredInternalLzt
+        - transferredWithdrawableLzt
 
     AuthLoginBody:
       type: object
