@@ -15,7 +15,7 @@
 | Дата | 2026-08-03 13:00 UTC |
 | Task ID | M-09 |
 | Результат | OpenAPI storage public-objects/objects/clip-upload + codegen |
-| Commit | (this run) |
+| Commit | d15f818 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
