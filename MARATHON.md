@@ -39,16 +39,33 @@
 ## Как пользоваться
 
 1. **Сначала** `git pull origin main` — работать только от актуального `main`.
-2. В **активном цикле** возьми **одну** первую задачу со статусом `pending`.
-3. **Пропускай** `done`, `blocked`, `skipped`, `owner: human`.
-4. **Перед кодом:** `git log --oneline main --grep="<ID>"` — если уже в main, только статус `done`, **без кода**.
-5. **Проверь код:** `rg "<ключевая функция>" main` — не дублируй работу из unmerged веток.
-6. `in_progress` старше 24 ч → `pending` или `blocked` с причиной.
-7. Переведи в `in_progress` → acceptance → `done` или `blocked`.
-8. Запиши в [TESTLOG.md](./TESTLOG.md). Верификация: `pnpm typecheck`, api/host-agent tests.
-9. **Обязательно commit+push** `MARATHON.md` + `TESTLOG.md`.
-10. **Код — push в `main` или один PR.** Закрой дубли «superseded by #N».
-11. Нет pending agent-задач → `Marathon idle`, код не менять.
+2. **Source of truth = `main`.** Открытые PR / unmerged ветки **НЕ считаются сделанными**. Только код в `main`.
+3. **Перед задачей — reconcile:** `node scripts/marathon-reconcile.mjs`.
+   - Если скрипт говорит «SHOULD BE done» → запусти `--apply`, закоммить docs, push. **Код не трогать.**
+   - Это защищает от дублей: задача уже в main, но MARATHON ещё pending.
+4. В **активном цикле** возьми **одну** первую задачу со статусом `pending`.
+5. **Пропускай** `done`, `blocked`, `skipped`, `owner: human`.
+6. **Перед кодом:** `git log --oneline main --grep="<ID>"` + `rg "<ключевая функция>"`. Если уже в main → только статус `done`, **без кода**.
+7. **Не создавай новый PR, если работа уже есть в unmerged ветке.** Лучше cherry-pick/merge её в main, чем пересоздавать.
+8. `in_progress` старше 24 ч → `pending` или `blocked` с причиной.
+9. Переведи в `in_progress` → acceptance → `done` или `blocked`.
+10. Запиши в [TESTLOG.md](./TESTLOG.md). Верификация: `pnpm typecheck`, api/host-agent tests.
+11. **CI — gate.** Если `pnpm typecheck` или tests красные → `done` НЕ ставить. Чини или `blocked`.
+12. **Обязательно commit+push** `MARATHON.md` + `TESTLOG.md` (иначе следующий run повторит задачу).
+13. **Код — push в `main` (docs/fixes) или один PR на задачу.** Не плодить DRAFT-дубли.
+14. Нет pending agent-задач → `Marathon idle`, код не менять.
+
+**Статусы:** `pending` | `in_progress` | `done` | `blocked` | `skipped`  
+**Owner:** `agent` | `human`
+
+### Контракт automation (жёсткие правила)
+
+- **`done` = код в `main` + CI зелёный + acceptance пройден.** Docs-only `done` без кода = баг.
+- **Unmerged ветки ≠ done.** Если фикс в ветке, но не в main → `pending` или merge, не mark done.
+- **Открытые PR игнорируются automation** при выборе задачи. Они не делают задачу «in_progress».
+- **Reconcile перед задачей** — обязательный шаг, предотвращает дубли.
+- **Один канал доставки:** push в main (docs/small fixes) или один PR (крупные). ~100 DRAFT-PR от 2026-08-03 — superseded, не трогать.
+- **Memory выключена** — только MARATHON.md + TESTLOG.md в репо.
 
 **Статусы:** `pending` | `in_progress` | `done` | `blocked` | `skipped`  
 **Owner:** `agent` | `human`
@@ -58,8 +75,10 @@
 - Строки `*-F*` (fix-wave) **удалены** — дублировали `*-S*`. Не восстанавливать.
 - `UX-08` = `C2-S05` skip-link — только в Wave UX как `skipped`.
 - **Docs-only `done` без кода в main = баг.** Статус `done` только если acceptance проходит на `main`.
-- **Unmerged ветки ≠ done.** Если фикс в ветке, но не в main → `pending` или merge, не mark done.
-- **Один PR/merge на задачу.** ~100 DRAFT-PR закрыты 2026-08-03 (superseded by merge-backlog).
+- **Unmerged ветки ≠ done.** Фикс в ветке без merge → `pending` или merge, не mark done.
+- **Reconcile (`scripts/marathon-reconcile.mjs`) перед каждой задачей** — закрывает рассинхрон.
+- **Открытые PR не делают задачу in_progress.** Automation выбирает по MARATHON, не по PR-списку.
+- **~100 DRAFT-PR (2026-08-03) — superseded by merge-backlog `adc6fd3`.** Не закрывать вручную, не плодить новые.
 
 ---
 
@@ -157,6 +176,8 @@
 
 ```
 git pull origin main
+node scripts/marathon-reconcile.mjs --apply   # закрывает рассинхрон pending vs main
+git add MARATHON.md TESTLOG.md && git commit -m "chore(marathon): reconcile" && git push origin main || true
 Прочитай MARATHON.md. Активный цикл в заголовке. Memory выключена.
 
 ВЫБОР ЗАДАЧИ (одна за запуск):
@@ -164,6 +185,7 @@ git pull origin main
 - Первая pending в АКТИВНОМ цикле (сейчас Marathon idle — нет pending).
 - git log --oneline main --grep="<ID>" — если уже в main, только статус done, без кода.
 - rg ключевые символы задачи в main — не дублируй unmerged ветки.
+- Открытые PR игнорируй. Они не делают задачу in_progress.
 - Если in_progress = Last run ID — продолжи; in_progress >24ч → pending/blocked.
 - Нет pending agent-задач → "Marathon idle", код не трогать.
 
@@ -177,5 +199,5 @@ git add MARATHON.md TESTLOG.md
 git commit -m "chore(marathon): <ID> <кратко>"
 git push origin main
 
-Код — push в main или один PR. Не создавай DRAFT-дубли. Закрой superseded PR.
+Код — push в main или один PR. Не создавай DRAFT-дубли. Открытые PR не трогать.
 ```
