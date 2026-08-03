@@ -382,10 +382,13 @@ router.post("/loans/:id/repay", writeLimiter, async (req, res): Promise<void> =>
   }
   try {
     const result = await db.transaction(async (tx) => {
+      // FOR UPDATE: concurrent repay requests must not both read the same
+      // outstandingLzt and double-charge the borrower / double-pay the lender.
       const [loan] = await tx
         .select()
         .from(loansTable)
-        .where(eq(loansTable.id, loanId));
+        .where(eq(loansTable.id, loanId))
+        .for("update");
       if (!loan) throw new Error("Loan not found");
       if (
         loan.borrowerType !== owner.type ||

@@ -381,7 +381,7 @@ export async function repayBorrowerDebt(
     const newOutstanding = loan.outstandingLzt - slice;
     const willClose = newOutstanding === 0;
 
-    await tx
+    const [updatedLoan] = await tx
       .update(loansTable)
       .set({
         outstandingLzt: newOutstanding,
@@ -390,7 +390,16 @@ export async function repayBorrowerDebt(
           ? { status: "repaid", closedAt: new Date() }
           : {}),
       })
-      .where(eq(loansTable.id, loan.id));
+      .where(
+        and(
+          eq(loansTable.id, loan.id),
+          sql`${loansTable.outstandingLzt} >= ${slice}`,
+        ),
+      )
+      .returning({ id: loansTable.id });
+    if (!updatedLoan) {
+      throw new Error("Loan outstanding changed concurrently");
+    }
 
     // Borrower side: debt aggregate down.
     await adjustUserBucket(
