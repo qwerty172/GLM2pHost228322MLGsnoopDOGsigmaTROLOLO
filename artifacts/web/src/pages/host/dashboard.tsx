@@ -24,6 +24,10 @@ import {
   getListGamesQueryKey,
   issueAgentBindCode,
   createTestSession,
+  useIssueAgentPairingCode,
+  useGetAgentPairingStatus,
+  AgentPairingStatusResponseStatus,
+  type AgentPairingCodeResponse,
   type HostLibraryEntry,
 } from "@workspace/api-client-react";
 import BindingForm from "./binding-form";
@@ -75,6 +79,8 @@ import {
   VolumeX,
   KeyRound,
   RefreshCw,
+  Smartphone,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -984,6 +990,162 @@ function CurrentQuotaCard({ hostToken }: { hostToken: string }) {
 
 // ── Quick start (5 steps) ─────────────────────────────────────────────────
 
+function hostAuthHeaders(hostToken: string) {
+  return {
+    headers: {
+      Authorization: `Bearer ${hostToken}`,
+      "X-User-Token": hostToken,
+    },
+  };
+}
+
+function isHostSetupComplete({
+  agent,
+  heartbeat,
+  agentKeyBound,
+  libraryCount,
+  hasActiveSession,
+}: {
+  agent: AgentState;
+  heartbeat: HeartbeatState;
+  agentKeyBound: boolean;
+  libraryCount: number;
+  hasActiveSession: boolean;
+}): boolean {
+  const agentOnline =
+    agent.status === "online" || heartbeat.status === "fresh";
+  return (
+    agentOnline &&
+    agentKeyBound &&
+    libraryCount > 0 &&
+    (hasActiveSession || (agentOnline && libraryCount > 0 && agentKeyBound))
+  );
+}
+
+function formatPairingCode(code: string): string {
+  return code.length === 6 ? `${code.slice(0, 3)} ${code.slice(3)}` : code;
+}
+
+function AgentPairingCard({ hostToken }: { hostToken: string }) {
+  const queryClient = useQueryClient();
+  const [code, setCode] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const auth = hostAuthHeaders(hostToken);
+
+  const issueMutation = useIssueAgentPairingCode({ request: auth });
+
+  const { data: pairingStatus } = useGetAgentPairingStatus({
+    request: auth,
+    query: {
+      enabled: !!hostToken && !!code,
+      refetchInterval: 2_000,
+    },
+  });
+
+  const issueCode = () => {
+    issueMutation.mutate(undefined, {
+      onSuccess: (data: AgentPairingCodeResponse) => {
+        setCode(data.code);
+        setExpiresAt(data.expiresAt);
+      },
+      onError: () => toast.error("Не удалось создать код подключения"),
+    });
+  };
+
+  useEffect(() => {
+    if (!code && !issueMutation.isPending && !issueMutation.isSuccess) {
+      issueCode();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- auto-issue once on mount
+  }, []);
+
+  useEffect(() => {
+    if (pairingStatus?.status === AgentPairingStatusResponseStatus.paired) {
+      toast.success("Агент подключён к аккаунту");
+      void queryClient.invalidateQueries({
+        queryKey: getGetHostQueryKey(hostToken),
+      });
+    }
+  }, [pairingStatus?.status, hostToken, queryClient]);
+
+  const expired =
+    pairingStatus?.status === AgentPairingStatusResponseStatus.expired ||
+    (expiresAt != null && Date.now() > new Date(expiresAt).getTime());
+
+  const paired =
+    pairingStatus?.status === AgentPairingStatusResponseStatus.paired;
+
+  return (
+    <div
+      className="rounded-lg p-4 space-y-3"
+      style={{
+        background: paired
+          ? "rgba(16,185,129,0.08)"
+          : "rgba(14,165,233,0.06)",
+        border: paired
+          ? "1px solid rgba(16,185,129,0.3)"
+          : "1px solid rgba(14,165,233,0.25)",
+      }}
+      data-testid="agent-pairing-card"
+    >
+      <div className="flex items-start gap-2">
+        <Smartphone className="h-4 w-4 text-sky-400 shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-medium text-white">
+            {paired ? "Агент подключён" : "Подключи агент за 10 секунд"}
+          </p>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {paired
+              ? "Теперь привяжи ключ агента — шаг ниже."
+              : "Введи код в окне агента → «Подключиться по коду». Без копирования токена."}
+          </p>
+        </div>
+      </div>
+
+      {!paired && code && !expired && (
+        <div className="flex flex-wrap items-center gap-3">
+          <code
+            className="font-mono text-3xl font-bold tracking-[0.35em] text-sky-200 px-4 py-2 rounded-lg"
+            style={{
+              background: "rgba(0,0,0,0.35)",
+              border: "1px solid rgba(14,165,233,0.3)",
+            }}
+            data-testid="agent-pairing-code"
+          >
+            {formatPairingCode(code)}
+          </code>
+          {expiresAt && (
+            <span className="text-xs text-slate-500">
+              действует{" "}
+              {formatDistanceToNow(new Date(expiresAt), {
+                addSuffix: true,
+                locale: ru,
+              })}
+            </span>
+          )}
+        </div>
+      )}
+
+      {!paired && (expired || !code) && (
+        <Button
+          size="sm"
+          className="gap-1.5 h-8 text-xs font-semibold"
+          style={{ background: "#0ea5e9", color: "#fff" }}
+          onClick={() => issueCode()}
+          disabled={issueMutation.isPending}
+        >
+          {issueMutation.isPending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5" />
+          )}
+          {expired ? "Новый код" : "Получить код"}
+        </Button>
+      )}
+    </div>
+  );
+}
+
 function HostQuickStartCard({
   hostToken,
   agent,
@@ -1019,7 +1181,11 @@ function HostQuickStartCard({
     {
       done: agentKeyBound,
       title: "Агент привязан",
-      hint: "Код привязки ниже → вставь в агенте",
+      hint: agentKeyBound
+        ? "Ключ Ed25519 привязан"
+        : heartbeat.status === "fresh"
+          ? "Код привязки ключа ниже"
+          : "Сначала подключи агент по 6 цифрам",
     },
     {
       done: libraryCount > 0,
@@ -1070,16 +1236,14 @@ function HostQuickStartCard({
             </CardDescription>
           </div>
           <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 gap-1.5 text-xs"
+            <button
+              type="button"
               onClick={copyToken}
+              className="text-xs text-slate-500 hover:text-slate-300 underline underline-offset-2"
               data-testid="button-copy-host-token"
             >
-              <Copy className="h-3 w-3" />
               Скопировать токен
-            </Button>
+            </button>
             <a href="/api/downloads/host-agent.zip" download="cloud-gaming-host-agent.zip">
               <Button
                 size="sm"
@@ -1126,8 +1290,12 @@ function HostQuickStartCard({
           </div>
         )}
 
-        {agentOnline && !agentKeyBound && (
-          <AgentBindCodeCard hostToken={hostToken} />
+        {heartbeat.status !== "fresh" && (
+          <AgentPairingCard hostToken={hostToken} />
+        )}
+
+        {heartbeat.status === "fresh" && !agentKeyBound && (
+          <AgentBindCodeCard hostToken={hostToken} compact />
         )}
 
         {agentKeyBound && libraryCount === 0 && (
@@ -1254,7 +1422,13 @@ function QuickAddFirstGame({ hostToken }: { hostToken: string }) {
   );
 }
 
-function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
+function AgentBindCodeCard({
+  hostToken,
+  compact = false,
+}: {
+  hostToken: string;
+  compact?: boolean;
+}) {
   const [bindCode, setBindCode] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1262,12 +1436,7 @@ function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
   const issueCode = async () => {
     setLoading(true);
     try {
-      const json = await issueAgentBindCode({
-        headers: {
-          Authorization: `Bearer ${hostToken}`,
-          "X-User-Token": hostToken,
-        },
-      });
+      const json = await issueAgentBindCode(hostAuthHeaders(hostToken));
       if (!json.bindCode) {
         toast.error("Не удалось выдать код");
         return;
@@ -1293,6 +1462,44 @@ function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
 
   const expired =
     expiresAt != null && Date.now() > expiresAt;
+
+  if (compact) {
+    return (
+      <div
+        className="rounded-lg p-3 space-y-3"
+        style={{ background: "rgba(0,0,0,0.25)", border: "1px solid rgba(255,255,255,0.06)" }}
+        data-testid="agent-bind-code-compact"
+      >
+        <p className="text-sm font-medium text-white flex items-center gap-2">
+          <KeyRound className="h-4 w-4 text-sky-400" />
+          Код привязки ключа
+        </p>
+        {bindCode && !expired ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="font-mono text-lg tracking-widest text-sky-300">{bindCode}</code>
+            <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={copyCode}>
+              <Copy className="h-3 w-3" />
+              Копировать
+            </Button>
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500">
+            {expired ? "Код истёк." : "Вставь в агенте в поле «Код привязки»."}
+          </p>
+        )}
+        <Button
+          size="sm"
+          className="gap-1.5 h-7 text-xs font-semibold"
+          style={{ background: "#0ea5e9", color: "#fff" }}
+          onClick={() => void issueCode()}
+          disabled={loading}
+        >
+          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+          {bindCode && !expired ? "Новый код" : "Получить код"}
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <Card style={cardStyle}>
@@ -1442,7 +1649,15 @@ export default function Dashboard() {
   const hasActiveSession = (sessions ?? []).some(
     (s) => s.status === "active" || s.status === "pending",
   );
+  const setupComplete = isHostSetupComplete({
+    agent,
+    heartbeat,
+    agentKeyBound,
+    libraryCount,
+    hasActiveSession,
+  });
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [showAllSections, setShowAllSections] = useState(false);
 
   const agentNeedsAttention =
     agent.status === "offline" ||
@@ -1450,10 +1665,10 @@ export default function Dashboard() {
     heartbeat.status === "never";
 
   useEffect(() => {
-    if (agentNeedsAttention && agent.status !== "checking") {
+    if (setupComplete && agentNeedsAttention && agent.status !== "checking") {
       setAdvancedOpen(true);
     }
-  }, [agentNeedsAttention, agent.status]);
+  }, [setupComplete, agentNeedsAttention, agent.status]);
 
   const endSession = useEndSession();
   const [endSessionId, setEndSessionId] = useState<string | null>(null);
@@ -1568,6 +1783,20 @@ export default function Dashboard() {
         />
       )}
 
+      {!setupComplete && !showAllSections && (
+        <button
+          type="button"
+          onClick={() => setShowAllSections(true)}
+          className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+          data-testid="button-show-all-sections"
+        >
+          <ChevronDown className="h-3.5 w-3.5" />
+          Показать статистику и расширенные настройки
+        </button>
+      )}
+
+      {(setupComplete || showAllSections) && (
+        <>
       {/* PC Specs card — shown only when the agent has reported specs */}
       {pcSpecs && (
         <Card style={cardStyle}>
@@ -1951,6 +2180,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+        </>
+      )}
 
       <Dialog
         open={!!endSessionId}
