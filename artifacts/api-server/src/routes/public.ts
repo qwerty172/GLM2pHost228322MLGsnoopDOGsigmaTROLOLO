@@ -259,6 +259,9 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
 
   if (!game) { res.status(404).json({ error: "Game not found" }); return; }
 
+  const now = new Date();
+  const TWO_MINUTES_MS = 2 * 60 * 1000;
+
   // All enabled library entries for this game.
   const libraryRows = await db
     .select({
@@ -275,9 +278,18 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
     )
     .orderBy(hostGamesTable.pricePerMinuteLzt);
 
-  if (libraryRows.length === 0) { res.json([]); return; }
+  // Hide hosts whose agent has not heartbeated recently — same 2-minute window
+  // as GET /hosts. Library rows are kept in the DB so prices/paths survive
+  // brief outages; only discoverability is gated on lastSeenAt.
+  const recentlyOnlineRows = libraryRows.filter(
+    ({ host: h }) =>
+      h.lastSeenAt != null &&
+      now.getTime() - new Date(h.lastSeenAt).getTime() < TWO_MINUTES_MS,
+  );
 
-  const hostIds = libraryRows.map((r) => r.host.id);
+  if (recentlyOnlineRows.length === 0) { res.json([]); return; }
+
+  const hostIds = recentlyOnlineRows.map((r) => r.host.id);
 
   // Active sessions for these hosts tied to this specific game.
   const sessionRows = await db
@@ -300,8 +312,7 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
     if (!sessionByHost.has(s.hostId)) sessionByHost.set(s.hostId, s.inviteCode);
   }
 
-  const now = new Date();
-  const result = libraryRows
+  const result = recentlyOnlineRows
     .map(({ hg, host: h }) => {
       const inviteCode = sessionByHost.get(h.id) ?? null;
       const available = isHostAvailableNow(
