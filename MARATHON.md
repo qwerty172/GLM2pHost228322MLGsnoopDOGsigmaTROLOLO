@@ -15,7 +15,7 @@
 | Дата | 2026-08-03 13:08 UTC |
 | Task ID | M-10 |
 | Результат | OpenAPI submissions submit/pending-config/my + codegen |
-| Commit | (pending push) |
+| Commit | 26d3fce |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
