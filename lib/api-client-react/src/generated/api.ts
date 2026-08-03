@@ -120,6 +120,8 @@ import type {
   QuotaOwnerBody,
   RateSessionBody,
   RateSessionResponse,
+  RawgSearchParams,
+  RawgSearchResultItem,
   RegisterHostBody,
   RegisterPlayerBody,
   RenewSessionBlockBody,
@@ -1743,6 +1745,102 @@ export function useGetGameBySlug<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetGameBySlugQueryOptions(slug, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns up to 6 game suggestions with cover art and metadata. Uses RAWG when RAWG_API_KEY is configured; otherwise falls back to Steam Store Search (no API key required).
+
+ * @summary Search games by title (RAWG API or Steam Store fallback)
+ */
+export const getRawgSearchUrl = (params: RawgSearchParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/games/rawg-search?${stringifiedParams}`
+    : `/api/games/rawg-search`;
+};
+
+export const rawgSearch = async (
+  params: RawgSearchParams,
+  options?: RequestInit,
+): Promise<RawgSearchResultItem[]> => {
+  return customFetch<RawgSearchResultItem[]>(getRawgSearchUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getRawgSearchQueryKey = (params?: RawgSearchParams) => {
+  return [`/api/games/rawg-search`, ...(params ? [params] : [])] as const;
+};
+
+export const getRawgSearchQueryOptions = <
+  TData = Awaited<ReturnType<typeof rawgSearch>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: RawgSearchParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof rawgSearch>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getRawgSearchQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof rawgSearch>>> = ({
+    signal,
+  }) => rawgSearch(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof rawgSearch>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type RawgSearchQueryResult = NonNullable<
+  Awaited<ReturnType<typeof rawgSearch>>
+>;
+export type RawgSearchQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Search games by title (RAWG API or Steam Store fallback)
+ */
+
+export function useRawgSearch<
+  TData = Awaited<ReturnType<typeof rawgSearch>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: RawgSearchParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof rawgSearch>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getRawgSearchQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

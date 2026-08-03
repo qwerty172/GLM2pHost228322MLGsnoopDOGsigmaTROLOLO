@@ -891,6 +891,37 @@ export const GetGameBySlugResponse = zod
   );
 
 /**
+ * Returns up to 6 game suggestions with cover art and metadata. Uses RAWG when RAWG_API_KEY is configured; otherwise falls back to Steam Store Search (no API key required).
+
+ * @summary Search games by title (RAWG API or Steam Store fallback)
+ */
+export const rawgSearchQueryQMin = 2;
+export const rawgSearchQueryQMax = 100;
+
+export const RawgSearchQueryParams = zod.object({
+  q: zod.coerce
+    .string()
+    .min(rawgSearchQueryQMin)
+    .max(rawgSearchQueryQMax)
+    .describe("Search query (2–100 characters)"),
+});
+
+export const RawgSearchResponseItem = zod.object({
+  rawgId: zod.string(),
+  title: zod.string(),
+  coverImageUrl: zod.string().nullish(),
+  genres: zod.array(zod.string()),
+  rating: zod.number().nullish(),
+  metacritic: zod.number().nullish(),
+  steamAppId: zod
+    .string()
+    .optional()
+    .describe("Present when source is steam fallback"),
+  source: zod.enum(["rawg", "steam"]).optional(),
+});
+export const RawgSearchResponse = zod.array(RawgSearchResponseItem);
+
+/**
  * @summary Fetch Steam Store metadata and current player count for an app ID
  */
 export const steamLookupQueryAppIdRegExp = new RegExp("^\\d{1,10}$");

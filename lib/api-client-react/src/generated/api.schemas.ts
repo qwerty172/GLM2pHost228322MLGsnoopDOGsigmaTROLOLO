@@ -428,6 +428,29 @@ export interface RateSessionResponse {
   ratingCount: number;
 }
 
+export type RawgSearchResultItemSource =
+  (typeof RawgSearchResultItemSource)[keyof typeof RawgSearchResultItemSource];
+
+export const RawgSearchResultItemSource = {
+  rawg: "rawg",
+  steam: "steam",
+} as const;
+
+export interface RawgSearchResultItem {
+  rawgId: string;
+  title: string;
+  /** @nullable */
+  coverImageUrl?: string | null;
+  genres: string[];
+  /** @nullable */
+  rating?: number | null;
+  /** @nullable */
+  metacritic?: number | null;
+  /** Present when source is steam fallback */
+  steamAppId?: string;
+  source?: RawgSearchResultItemSource;
+}
+
 export type SteamLookupResultRecSpecs = { [key: string]: unknown };
 
 export type SteamLookupResultMinSpecs = { [key: string]: unknown };
@@ -1689,6 +1712,15 @@ export type GetGameBySlugParams = {
    * When set, only live hosts whose capability tags contain this value are returned.
    */
   tag?: string;
+};
+
+export type RawgSearchParams = {
+  /**
+   * Search query (2–100 characters)
+   * @minLength 2
+   * @maxLength 100
+   */
+  q: string;
 };
 
 export type SteamLookupParams = {
