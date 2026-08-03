@@ -15,6 +15,18 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon meta (2026-08-03 12:26 UTC) {#marathon-meta-mark-skipped}
+
+**Проблема:** cron каждую минуту; агенты без `--should-run` дублировали run; skip обновлял Date → 45min таймер никогда не истекал.
+
+| Проверка | Результат |
+|---|---|
+| `marathon-groom.mjs --mark-skipped` | обновляет только Result, Date Last run сохраняется |
+| automation prompt | короткий шаблон с `--should-run --mark-skipped` первым шагом |
+| should-run | exit 2 `recent_run`, ageMin=2, next M-05 |
+
+**Следующий pick:** M-05 `routes/players.ts` (после 45min от 12:26 UTC).
+
 ## Marathon M-04 (2026-08-03 12:00 UTC) {#marathon-m-04}
 
 **Задача:** OpenAPI gap `routes/hosts.ts` — 8 маршрутов (legacy config/debtors/stream-relay, pc-specs, speedtest, steam-auto-hostable, bulk-publish).

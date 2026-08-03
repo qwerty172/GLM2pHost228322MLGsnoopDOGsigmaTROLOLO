@@ -5,6 +5,7 @@
 // Usage:
 //   node scripts/marathon-groom.mjs           # report
 //   node scripts/marathon-groom.mjs --apply   # fix MARATHON.md + optional scan sync hint
+//   node scripts/marathon-groom.mjs --should-run [--mark-skipped]  # cron gate; --mark-skipped updates Result only (Date preserved)
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -13,6 +14,7 @@ import { execSync } from "node:child_process";
 const MARATHON = "MARATHON.md";
 const APPLY = process.argv.includes("--apply");
 const SHOULD_RUN = process.argv.includes("--should-run");
+const MARK_SKIPPED = process.argv.includes("--mark-skipped");
 const STALE_HOURS = 24;
 /** Минимальный интервал между run без in_progress (защита от cron каждую минуту). */
 const MIN_RUN_INTERVAL_MS = 45 * 60 * 1000;
@@ -25,6 +27,20 @@ function parseLastRun() {
     ms: dateM ? Date.parse(`${dateM[1].replace(" ", "T")}:00Z`) : 0,
     result: resultM ? resultM[1].trim() : "",
   };
+}
+
+/** Обновить только Result в Last run — Date НЕ трогать (иначе 45min таймер сбрасывается). */
+function markLastRunSkipped(reason) {
+  let md = readFileSync(MARATHON, "utf8");
+  const skipped = `skipped (${reason})`;
+  const resultM = md.match(/\|\s*Результат\s*\|\s*([^|]+)\s*\|/);
+  if (resultM && resultM[1].trim() === skipped) return false;
+  md = md.replace(
+    /(\|\s*Результат\s*\|\s*)([^|]+)(\s*\|)/,
+    `$1${skipped}$3`,
+  );
+  writeFileSync(MARATHON, md);
+  return true;
 }
 
 function loadState() {
@@ -107,6 +123,10 @@ if (SHOULD_RUN) {
     minIntervalMin: MIN_RUN_INTERVAL_MS / 60000,
   };
   console.log(JSON.stringify(payload));
+  if (skip && MARK_SKIPPED) {
+    const updated = markLastRunSkipped(payload.reason);
+    if (updated) console.log(`Last run → skipped (${payload.reason}) [Date preserved]`);
+  }
   process.exit(skip ? 2 : 0);
 }
 
