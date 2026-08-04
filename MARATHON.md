@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 22:54 UTC |
 | Task ID | M-63 |
 | Результат | sentry.ts unit-тесты: no-op без DSN, Sentry.init с NODE_ENV, swallow missing dep |
-| Commit | (this run) |
+| Commit | 80ca519 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
