@@ -174,6 +174,11 @@ async function runRemoteCommand(
   });
 }
 
+/** Log line surfaced in quota VDS dashboard so owners can copy the agent token. */
+export function hostTokenProvisionLogLine(hostToken: string): string {
+  return `[OK] hostToken: ${hostToken}`;
+}
+
 async function provisionVds(vds: typeof quotaVdsTable.$inferSelect) {
   const ctx: VdsProvisionContext = { vds, provider: resolveProvider(vds) };
   if (ctx.provider === "firecracker") {
@@ -250,6 +255,7 @@ async function provisionVds(vds: typeof quotaVdsTable.$inferSelect) {
   }
 
   await appendLog(vds.id, `[OK] Host registered: ${newHost.id}`);
+  await appendLog(vds.id, hostTokenProvisionLogLine(hostToken));
 
   // Link quota game to VDS host library when quota specifies a game.
   const [quota] = await db
