@@ -837,7 +837,6 @@ export async function teardownAsync(reason: string): Promise<void> {
     clearTimeout(session.wsReconnectTimer);
     session.wsReconnectTimer = null;
   }
-  session.isStreaming = false;
   stopGuardPolling();
   void window.agent.clearInputGuard();
   window.agent.clearInputBlock();
@@ -849,12 +848,7 @@ export async function teardownAsync(reason: string): Promise<void> {
   if (saveCtx) {
     setPipelineStep("saves", "active", "сохранение сейва…");
     try {
-      const pushResult = await Promise.race([
-        window.agent.saveSyncPush(saveCtx),
-        new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error("timeout")), 30_000);
-        }),
-      ]);
+      const pushResult = await window.agent.saveSyncPush(saveCtx);
       if (!pushResult.ok) {
         log(`Save push failed: ${pushResult.error ?? "unknown"}`);
         setPipelineStep("saves", "error", pushResult.error ?? "ошибка сохранения");
@@ -867,9 +861,11 @@ export async function teardownAsync(reason: string): Promise<void> {
       }
     } catch (err) {
       log(`Save push error: ${String(err)}`);
-      setPipelineStep("saves", "error", "таймаут сохранения");
+      setPipelineStep("saves", "error", "ошибка сохранения");
     }
   }
+
+  session.isStreaming = false;
 
   if (session.currentSessionId && session.currentConfig?.hostToken && session.currentConfig.apiBaseUrl) {
     const sid = session.currentSessionId;

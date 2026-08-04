@@ -18,6 +18,18 @@ import {
 
 import type { SaveSyncResult } from "../shared/messages";
 
+/** Bumped on each pull/push start so in-flight pushes cannot clear paths after a newer sync. */
+let saveSyncGeneration = 0;
+
+export function bumpSaveSyncGeneration(): number {
+  saveSyncGeneration += 1;
+  return saveSyncGeneration;
+}
+
+export function getSaveSyncGeneration(): number {
+  return saveSyncGeneration;
+}
+
 async function listFilesRecursive(root: string): Promise<string[]> {
   const files: string[] = [];
   let stat;
@@ -108,6 +120,7 @@ export async function pullSave(opts: {
   sessionId: string;
   saveOpts: DiscoverSavePathsOpts;
 }): Promise<SaveSyncResult> {
+  bumpSaveSyncGeneration();
   const { paths: existingPaths } = await discoverSavePaths(opts.saveOpts);
   const { paths: candidatePaths } = await resolveSavePathCandidates(opts.saveOpts);
 
@@ -151,6 +164,7 @@ export async function pushSave(opts: {
   sessionId: string;
   saveOpts: DiscoverSavePathsOpts;
 }): Promise<SaveSyncResult> {
+  const startGeneration = bumpSaveSyncGeneration();
   const { paths } = await discoverSavePaths(opts.saveOpts);
   const { paths: candidatePaths } = await resolveSavePathCandidates(opts.saveOpts);
   const syncPaths = paths.length > 0 ? paths : candidatePaths;
@@ -188,6 +202,10 @@ export async function pushSave(opts: {
       return { ok: false, error: `Upload failed: HTTP ${putResp.status}` };
     }
 
+    if (startGeneration !== getSaveSyncGeneration()) {
+      return { ok: false, error: "stale_push" };
+    }
+
     const contentHash = createHash("sha256").update(archive).digest("hex");
     const confirmed = await confirmSaveUpload(
       opts.hostToken,
@@ -198,6 +216,10 @@ export async function pushSave(opts: {
     );
     if (!confirmed.ok) {
       return { ok: false, error: confirmed.error ?? "confirm_failed" };
+    }
+
+    if (startGeneration !== getSaveSyncGeneration()) {
+      return { ok: false, error: "stale_push" };
     }
 
     await clearSavePaths(syncPaths);

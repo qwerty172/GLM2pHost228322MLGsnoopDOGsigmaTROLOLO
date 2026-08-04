@@ -252,6 +252,47 @@ test("pushSave skips when upload URL unavailable", { concurrency: false }, async
   assert.equal(fs.existsSync(path.join(saveDir, "data.bin")), true);
 });
 
+test("pushSave does not clear local paths when a newer save sync started", { concurrency: false }, async () => {
+  resetMocks();
+  const saveDir = path.join(tmpRoot, "push-stale");
+  fs.mkdirSync(saveDir, { recursive: true });
+  fs.writeFileSync(path.join(saveDir, "profile.sav"), "profile-bytes", "utf8");
+  savePathsMock.discoverResult = { paths: [saveDir], steamAppId: "730" };
+  savePathsMock.candidateResult = { paths: [], steamAppId: "730" };
+  apiClientMock.uploadResult = {
+    ok: true,
+    uploadURL: "https://cdn.example.com/upload",
+    objectPath: "saves/sess-1",
+  };
+  apiClientMock.confirmResult = { ok: true };
+
+  let resolveUpload;
+  const uploadStarted = new Promise((resolve) => {
+    resolveUpload = resolve;
+  });
+
+  const restore = mock.method(globalThis, "fetch", async (url) => {
+    if (url === "https://cdn.example.com/upload") {
+      resolveUpload();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return { ok: true };
+    }
+    return { ok: true };
+  });
+
+  try {
+    const { pushSave, bumpSaveSyncGeneration } = await importSaveSync();
+    const pushPromise = pushSave(baseOpts);
+    await uploadStarted;
+    bumpSaveSyncGeneration();
+    const result = await pushPromise;
+    assert.deepEqual(result, { ok: false, error: "stale_push" });
+    assert.equal(fs.readFileSync(path.join(saveDir, "profile.sav"), "utf8"), "profile-bytes");
+  } finally {
+    restore.mock.restore();
+  }
+});
+
 test("restoreSave and backupSave reject non-Windows platforms", { concurrency: false }, async () => {
   if (process.platform === "win32") return;
   resetMocks();
