@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 20:55 UTC |
 | Task ID | M-59 |
 | Результат | logger.ts unit-тесты: mocked electron, file append, console.log/error routing |
-| Commit | dbac7a8 |
+| Commit | dfdec1b |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
