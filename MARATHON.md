@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 16:14 UTC |
 | Task ID | M-51 |
 | Результат | webgl-video-shader — убран eslint-disable, onCompileError через ref, deps `[active, fragCode, videoRef]` |
-| Commit | 1fa25a4 |
+| Commit | 9d460ec |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
