@@ -2,13 +2,21 @@ import { Link, useParams, useSearch, useLocation } from "wouter";
 import { toast } from "sonner";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatApiError } from "@/lib/api-errors";
-import { useQuery } from "@tanstack/react-query";
 import {
   useGetGameBySlug,
   getGetGameBySlugQueryKey,
   useGetWallet,
   getGetWalletQueryKey,
+  useSteamLookup,
+  getSteamLookupQueryKey,
+  useListPublicGameHosts,
+  getListPublicGameHostsQueryKey,
+  createPreviewSession,
+  getPublicIceConfig,
+  publicPing,
+  type PublicGameHostItem,
 } from "@workspace/api-client-react";
+import { useBrowserPingMs } from "@/hooks/use-browser-ping";
 import {
   Activity,
   ArrowLeft,
@@ -63,14 +71,16 @@ type GameEnriched = {
 };
 
 function SteamPlayerCount({ steamAppId }: { steamAppId: string }) {
-  const [count, setCount] = useState<number | null>(null);
-  useEffect(() => {
-    const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
-    fetch(`${base}/api/games/steam-lookup?appId=${steamAppId}`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d?.currentPlayers != null) setCount(d.currentPlayers); })
-      .catch(() => {});
-  }, [steamAppId]);
+  const { data } = useSteamLookup(
+    { appId: steamAppId },
+    {
+      query: {
+        enabled: !!steamAppId,
+        queryKey: getSteamLookupQueryKey({ appId: steamAppId }),
+      },
+    },
+  );
+  const count = data?.currentPlayers;
   if (count == null) return null;
   return (
     <span className="inline-flex items-center gap-1 text-xs text-emerald-400 mt-1 font-mono">
@@ -80,54 +90,7 @@ function SteamPlayerCount({ steamAppId }: { steamAppId: string }) {
   );
 }
 
-type LibraryHost = {
-  hostId: string;
-  displayName: string;
-  tags: string[];
-  description: string | null;
-  pricePerMinuteLzt: number;
-  pricePerMinuteUsd: number;
-  status: "online" | "available" | "scheduled";
-  inviteCode: string | null;
-  scheduleMode: string;
-  pingMs: number | null;
-  hostTier?: "meets_min" | "above_rec";
-};
-
-function useLibraryHosts(slug: string) {
-  return useQuery<LibraryHost[]>({
-    queryKey: ["public-game-hosts", slug],
-    queryFn: async () => {
-      const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
-      const res = await fetch(`${base}/api/public/games/${encodeURIComponent(slug)}/hosts`);
-      if (!res.ok) return [];
-      return res.json();
-    },
-    enabled: !!slug,
-    refetchInterval: 20_000,
-    staleTime: 10_000,
-  });
-}
-
-function useBrowserPingMs(): number | null {
-  const [pingMs, setPingMs] = useState<number | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    async function probe() {
-      try {
-        const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
-        const t0 = Date.now();
-        await fetch(`${base}/api/public/ping`, { cache: "no-store" });
-        if (!cancelled) setPingMs(Date.now() - t0);
-      } catch {
-        // ignore — just leave null
-      }
-    }
-    void probe();
-    return () => { cancelled = true; };
-  }, []);
-  return pingMs;
-}
+type LibraryHost = PublicGameHostItem;
 
 function sortHostsByLatency(hosts: LibraryHost[], browserRtt: number | null): LibraryHost[] {
   const tierRank = (t: unknown) => (t === "above_rec" ? 0 : 1);
@@ -189,7 +152,14 @@ export default function GameDetailPage() {
     },
   });
 
-  const { data: libraryHosts, isLoading: hostsLoading } = useLibraryHosts(slug);
+  const { data: libraryHosts, isLoading: hostsLoading } = useListPublicGameHosts(slug, {
+    query: {
+      enabled: !!slug,
+      queryKey: getListPublicGameHostsQueryKey(slug),
+      refetchInterval: 20_000,
+      staleTime: 10_000,
+    },
+  });
   const browserRtt = useBrowserPingMs();
   const { playerWalletToken, registerGuest } = usePlayerWallet();
 
@@ -228,7 +198,7 @@ export default function GameDetailPage() {
 
   const filteredLibraryHosts = tag
     ? sortedLibraryHosts.filter((h) =>
-        h.tags.some((t) => t.toLowerCase() === tag.toLowerCase()),
+        (h.tags ?? []).some((t) => t.toLowerCase() === tag.toLowerCase()),
       )
     : sortedLibraryHosts;
 
@@ -582,9 +552,9 @@ function LibraryHostRow({
             <p className="text-xs text-slate-500 mt-1.5 line-clamp-1">{h.description}</p>
           )}
 
-          {h.tags.length > 0 && (
+          {(h.tags ?? []).length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
-              {h.tags.map((t) => (
+              {(h.tags ?? []).map((t) => (
                 <span
                   key={t}
                   className="text-[10px] px-1.5 py-0.5 rounded"
@@ -724,23 +694,13 @@ function PreviewModal({
       // 1. Mint preview token
       let previewToken: string;
       try {
-        const res = await fetch(`${base}/api/public/preview-session`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ hostId: host.hostId }),
-        });
-        if (!res.ok) {
-          const err = (await res.json().catch(() => ({}))) as { error?: string };
-          if (!cancelled) {
-            setErrorMsg(formatApiError(err, "Не удалось запустить превью"));
-            setPhase("error");
-          }
-          return;
-        }
-        const data = (await res.json()) as { previewToken: string };
+        const data = await createPreviewSession({ hostId: host.hostId });
         previewToken = data.previewToken;
-      } catch {
-        if (!cancelled) { setErrorMsg("Ошибка сети"); setPhase("error"); }
+      } catch (err) {
+        if (!cancelled) {
+          setErrorMsg(formatApiError(err, "Не удалось запустить превью"));
+          setPhase("error");
+        }
         return;
       }
 
@@ -749,12 +709,9 @@ function PreviewModal({
       // 2. Fetch ICE config
       let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
       try {
-        const cfgRes = await fetch(`${base}/api/public/ice-config`);
-        if (cfgRes.ok) {
-          const cfgJson = (await cfgRes.json()) as { iceServers: RTCIceServer[] };
-          if (Array.isArray(cfgJson.iceServers) && cfgJson.iceServers.length > 0) {
-            iceServers = cfgJson.iceServers;
-          }
+        const cfgJson = await getPublicIceConfig();
+        if (Array.isArray(cfgJson.iceServers) && cfgJson.iceServers.length > 0) {
+          iceServers = cfgJson.iceServers;
         }
       } catch { /* use default */ }
 
@@ -973,9 +930,8 @@ function PreSessionModal({
   useEffect(() => {
     if (didPing.current) return;
     didPing.current = true;
-    const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
     const t0 = performance.now();
-    fetch(`${base}/api/public/ping`, { method: "GET", cache: "no-store" })
+    publicPing()
       .then(() => {
         setPingMs(Math.round(performance.now() - t0));
       })
