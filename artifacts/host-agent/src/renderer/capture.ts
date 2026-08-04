@@ -1,14 +1,14 @@
 import type { HostConfig } from "../shared/messages";
+import {
+  exeBasename,
+  findBrowserCaptureSource,
+  findCaptureSourceByTitle,
+  findNativeCaptureSource,
+} from "../shared/window-match.js";
 import { session } from "./state.js";
 import { log, setPipelineStep } from "./ui.js";
 
-export function exeBasename(path: string | undefined | null): string | undefined {
-  return path
-    ?.split(/[\\/]/)
-    .pop()
-    ?.replace(/\.exe$/i, "")
-    .toLowerCase();
-}
+export { exeBasename } from "../shared/window-match.js";
 
 function targetExeName(cfg: HostConfig): string | undefined {
   // Currently-selected library game's exe name takes priority.
@@ -31,45 +31,6 @@ function currentBoundUrl(cfg: HostConfig): string {
 
 function isBrowserGameSession(cfg: HostConfig): boolean {
   return currentBoundUrl(cfg).length > 0;
-}
-
-const BROWSER_WINDOW_HINTS = [
-  "chrome",
-  "chromium",
-  "msedge",
-  "edge",
-  "firefox",
-  "opera",
-  "brave",
-  "yandex",
-  "google chrome",
-  "microsoft edge",
-];
-
-function findBrowserCaptureSource(
-  sources: { id: string; name: string }[],
-  boundUrl: string,
-): { id: string; name: string } | undefined {
-  let host = "";
-  try {
-    host = new URL(boundUrl).hostname.replace(/^www\./, "").toLowerCase();
-  } catch {
-    host = "";
-  }
-  const windows = sources.filter((s) => !s.id.startsWith("screen:"));
-  // Prefer a browser window whose title contains the game host.
-  if (host) {
-    const byHost = windows.find((s) => {
-      const n = s.name.toLowerCase();
-      return n.includes(host) && BROWSER_WINDOW_HINTS.some((h) => n.includes(h));
-    });
-    if (byHost) return byHost;
-    const anyWithHost = windows.find((s) => s.name.toLowerCase().includes(host));
-    if (anyWithHost) return anyWithHost;
-  }
-  return windows.find((s) =>
-    BROWSER_WINDOW_HINTS.some((h) => s.name.toLowerCase().includes(h)),
-  );
 }
 
 // Manual window picker — shown when auto-matching the game window fails.
@@ -137,7 +98,7 @@ export async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
   }
   let chosen: { id: string; name: string } | undefined;
   if (cfg.captureSourceName) {
-    chosen = sources.find((s) => s.name === cfg.captureSourceName);
+    chosen = findCaptureSourceByTitle(sources, cfg.captureSourceName);
   }
 
   const boundUrl = currentBoundUrl(cfg);
@@ -179,7 +140,7 @@ export async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
         await new Promise((r) => setTimeout(r, RETRY_MS));
         sources = await window.agent.getCaptureSources();
       }
-      chosen = sources.find((s) => s.name.toLowerCase().includes(targetName));
+      chosen = findNativeCaptureSource(sources, targetName);
       if (!chosen && attempt < MAX_ATTEMPTS - 1) {
         setPipelineStep("window", "active", `ищем окно «${targetName}»… (${attempt + 1}/${MAX_ATTEMPTS})`);
       }

@@ -1,0 +1,102 @@
+/**
+ * Window capture matching — title-based heuristics only.
+ *
+ * Uses desktopCapturer source `name` (window title as shown in Alt+Tab).
+ * Does NOT use HWND or PID for capture source selection (HOSTING H-01).
+ * PID matching is reserved for focus-guard input injection, not capture.
+ */
+
+export const BROWSER_TITLE_HINTS = [
+  "chrome",
+  "chromium",
+  "msedge",
+  "edge",
+  "firefox",
+  "opera",
+  "brave",
+  "yandex",
+  "google chrome",
+  "microsoft edge",
+];
+
+export type CaptureSource = { id: string; name: string };
+
+export function exeBasename(path: string | undefined | null): string | undefined {
+  return path
+    ?.split(/[\\/]/)
+    .pop()
+    ?.replace(/\.exe$/i, "")
+    .toLowerCase();
+}
+
+export function hostFromBoundUrl(boundUrl: string): string {
+  try {
+    return new URL(boundUrl).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+export function looksLikeBrowserWindow(title: string): boolean {
+  const n = title.toLowerCase();
+  return BROWSER_TITLE_HINTS.some((h) => n.includes(h));
+}
+
+/** Non-screen capture sources (window titles from desktopCapturer). */
+export function windowSources(sources: CaptureSource[]): CaptureSource[] {
+  return sources.filter((s) => !s.id.startsWith("screen:"));
+}
+
+export function findBrowserCaptureSource(
+  sources: CaptureSource[],
+  boundUrl: string,
+): CaptureSource | undefined {
+  const host = hostFromBoundUrl(boundUrl);
+  const windows = windowSources(sources);
+  if (host) {
+    const byHost = windows.find((s) => {
+      const n = s.name.toLowerCase();
+      return n.includes(host) && looksLikeBrowserWindow(s.name);
+    });
+    if (byHost) return byHost;
+    const anyWithHost = windows.find((s) => s.name.toLowerCase().includes(host));
+    if (anyWithHost) return anyWithHost;
+  }
+  return windows.find((s) => looksLikeBrowserWindow(s.name));
+}
+
+export function findNativeCaptureSource(
+  sources: CaptureSource[],
+  exeName: string,
+): CaptureSource | undefined {
+  const target = exeName.trim().toLowerCase();
+  if (!target) return undefined;
+  return windowSources(sources).find((s) => s.name.toLowerCase().includes(target));
+}
+
+/** Match configured captureSourceName against enumerated titles (exact, then case-insensitive). */
+export function findCaptureSourceByTitle(
+  sources: CaptureSource[],
+  title: string,
+): CaptureSource | undefined {
+  const trimmed = title.trim();
+  if (!trimmed) return undefined;
+  const exact = sources.find((s) => s.name === trimmed);
+  if (exact) return exact;
+  const lower = trimmed.toLowerCase();
+  return sources.find((s) => s.name.toLowerCase() === lower);
+}
+
+/**
+ * Browser session liveness — any browser window counts as alive (H-02 backlog).
+ * Hostname in title is a stronger signal but not required once a browser exists.
+ */
+export function browserWindowStillOpen(sources: CaptureSource[], hostHint: string): boolean {
+  const host = hostHint.toLowerCase();
+  return windowSources(sources).some((s) => {
+    if (!looksLikeBrowserWindow(s.name)) return false;
+    const name = s.name.toLowerCase();
+    if (host && name.includes(host)) return true;
+    return true;
+  });
+}

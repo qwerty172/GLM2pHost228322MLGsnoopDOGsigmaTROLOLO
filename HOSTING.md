@@ -397,7 +397,7 @@ SELECT id, status, ended_at FROM sessions WHERE status = 'active' AND ended_at I
 
 | ID | Проблема | Статус |
 |----|----------|--------|
-| H-01 | Match по title, не HWND/PID | backlog |
+| H-01 | Match по title, не HWND/PID | fixed | M-44 — shared `window-match.ts`, title-only heuristics |
 | H-02 | Browser watch: любой Chrome = alive | backlog |
 | H-03 | `captureMode: native` не реализован | coerce → chromium |
 | H-04 | Limited-user launch | fixed | MARATHON C3-S05 — spawnNativeApp + tryLimitedLaunch |
@@ -421,7 +421,8 @@ SELECT id, status, ended_at FROM sessions WHERE status = 'active' AND ended_at I
 
 | Что | Файл | Функция |
 |-----|------|---------|
-| Выбор окна | `host-agent/src/renderer/index.ts` | `captureScreen`, `findBrowserCaptureSource`, `pickWindowManually` |
+| Выбор окна | `host-agent/src/renderer/capture.ts` | `captureScreen`, `pickWindowManually` |
+| Title match | `host-agent/src/shared/window-match.ts` | `findBrowserCaptureSource`, `findNativeCaptureSource` |
 | Запуск exe/url | `host-agent/src/main/app-launcher.ts` | `launchEntry`, `launchApp`, `startBrowserWatch` |
 | Focus guard | `host-agent/src/main/focus-guard.ts` | `setAllowedTarget`, `guardInput` |
 | SendInput | `host-agent/src/main/input-injection.ts` | `injectPlayerInput` |
