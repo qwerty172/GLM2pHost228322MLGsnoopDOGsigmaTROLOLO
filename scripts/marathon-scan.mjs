@@ -16,6 +16,7 @@
 //   E. host-agent renderer modules without a co-located test (grouped)
 //   F. raw fetch() in web (should use codegen hooks; grouped by file)
 //   G. HOSTING.md backlog items (H-NN with status backlog/improvement)
+//   J. Product backlog from docs/MARATHON_BRANCH_BACKLOG.md (ветки/PR/REDESIGN)
 //   H. api-server lib/*.ts without co-located test (grouped)
 //   I. eslint-disable / @ts-ignore leftovers (grouped by file)
 //
@@ -216,6 +217,22 @@ try {
   }
 } catch {}
 
+// --- J. Product backlog from branches/PRs (docs/MARATHON_BRANCH_BACKLOG.md) -
+const BRANCH_BACKLOG = "docs/MARATHON_BRANCH_BACKLOG.md";
+if (existsSync(BRANCH_BACKLOG)) {
+  const bl = readFileSync(BRANCH_BACKLOG, "utf8");
+  for (const line of bl.split("\n")) {
+    if (!/^\|\s*j:/.test(line)) continue;
+    const parts = line.split("|").map((s) => s.trim());
+    if (parts.length < 5) continue;
+    const groupKey = parts[1];
+    const title = parts[2];
+    const file = parts[3].replace(/`/g, "");
+    const detail = parts[4].slice(0, 80);
+    raw.push({ cat: "J", groupKey, title, file, detail, items: [groupKey] });
+  }
+}
+
 // --- H. api-server lib/*.ts without co-located test (grouped) -------------
 const libDir = "artifacts/api-server/src/lib";
 const libMissing = [];
@@ -316,7 +333,7 @@ for (const line of marathonMd.split("\n")) {
   if (status === "done" || status === "in_progress") doneOrActiveKeys.add(groupKey);
 }
 
-const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, D: 7, I: 8 };
+const CAT_ORDER = { B: 0, C: 1, A: 2, J: 2.5, G: 3, F: 4, E: 5, H: 6, D: 7, I: 8 };
 const filtered = candidates
   .filter((c) => !doneOrActiveKeys.has(c.groupKey))
   .sort((a, b) => (CAT_ORDER[a.cat] ?? 9) - (CAT_ORDER[b.cat] ?? 9));
