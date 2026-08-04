@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-64 (2026-08-04 23:25 UTC) {#marathon-m-64}
+
+| Проверка | Результат |
+|---|---|
+| spawn-hwnd.test.mjs | 8 тестов — invalid pid, non-win32 guard, HWND match по PID, foreground first, no reorder, empty/no match, capturer/koffi error swallow |
+| host-agent test | PASS (161 tests) |
+| typecheck | PASS |
+
+**Следующий pick:** M-65 `steam-scanner.ts`.
+
 ## Marathon M-63 (2026-08-04 23:18 UTC) {#marathon-m-63}
 
 | Проверка | Результат |
