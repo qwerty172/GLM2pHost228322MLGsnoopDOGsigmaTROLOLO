@@ -3,11 +3,7 @@ export async function initSentry(): Promise<void> {
   const dsn = process.env.SENTRY_DSN;
   if (!dsn) return;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const Sentry = (await import("@sentry/node" as any)) as {
-      init: (opts: { dsn: string; environment: string; tracesSampleRate: number }) => void;
-      captureException: (err: unknown) => void;
-    };
+    const Sentry = await import("@sentry/node");
     Sentry.init({
       dsn,
       environment: process.env.NODE_ENV ?? "development",
@@ -21,10 +17,7 @@ export async function initSentry(): Promise<void> {
 export async function captureException(err: unknown): Promise<void> {
   if (!process.env.SENTRY_DSN) return;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const Sentry = (await import("@sentry/node" as any)) as {
-      captureException: (err: unknown) => void;
-    };
+    const Sentry = await import("@sentry/node");
     Sentry.captureException(err);
   } catch {
     /* ignore */

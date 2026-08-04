@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-53 (2026-08-04 16:42 UTC) {#marathon-m-53}
+
+| Проверка | Результат |
+|---|---|
+| api-server sentry.ts | 2× `eslint-disable @typescript-eslint/no-explicit-any` убраны — ambient `sentry-node.d.ts` + `import("@sentry/node")` |
+| typecheck | PASS (api-server) |
+| marathon-scan | sentry.ts больше не в raw hits I; rawHits=0 |
+
+**Следующий pick:** idle — сканер I пуст.
+
 ## Marathon M-52 (2026-08-04 16:38 UTC) {#marathon-m-52}
 
 | Проверка | Результат |
