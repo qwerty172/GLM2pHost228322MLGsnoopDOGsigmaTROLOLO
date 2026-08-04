@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 06:44 UTC |
 | Task ID | M-46 |
 | Результат | HOSTING H-07 — unit tests capture/focus |
-| Commit | 96b4d43 |
+| Commit | 2df2d25 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
