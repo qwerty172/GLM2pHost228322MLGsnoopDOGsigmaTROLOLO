@@ -58,6 +58,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
+  /readyz:
+    get:
+      operationId: readinessCheck
+      tags: [health]
+      summary: Readiness check (includes DB connectivity)
+      responses:
+        "200":
+          description: Ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessStatus"
+        "503":
+          description: Degraded (e.g. database unavailable)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessStatus"
+
   /downloads/host-agent.zip:
     get:
       operationId: downloadHostAgentZip
@@ -4808,6 +4827,16 @@ components:
       type: object
       properties:
         status:
+          type: string
+      required:
+        - status
+
+    ReadinessStatus:
+      type: object
+      properties:
+        status:
+          type: string
+        db:
           type: string
       required:
         - status
