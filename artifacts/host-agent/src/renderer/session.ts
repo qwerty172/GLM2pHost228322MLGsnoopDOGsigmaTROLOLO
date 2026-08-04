@@ -841,6 +841,7 @@ export async function teardownAsync(reason: string): Promise<void> {
   stopGuardPolling();
   void window.agent.clearInputGuard();
   window.agent.clearInputBlock();
+  window.agent.stopSessionWatch();
   log(reason);
 
   const saveCtx = session.activeSaveSyncContext;

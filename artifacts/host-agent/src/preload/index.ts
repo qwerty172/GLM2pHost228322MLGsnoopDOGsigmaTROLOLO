@@ -77,6 +77,9 @@ const api = {
   killApp: (): void => {
     ipcRenderer.send("app:kill");
   },
+  stopSessionWatch: (): void => {
+    ipcRenderer.send("app:stop-watch");
+  },
   openFileDialog: (): Promise<string | null> =>
     ipcRenderer.invoke("dialog:open-file"),
   // Fetch the host's game library from the server.

@@ -82,6 +82,21 @@ test("looksLikeBrowserWindow detects common browsers", () => {
   assert.equal(looksLikeBrowserWindow("My App"), false);
 });
 
+test("looksLikeBrowserWindow rejects substring false positives", () => {
+  assert.equal(looksLikeBrowserWindow("Monochrome Display Settings"), false);
+  assert.equal(looksLikeBrowserWindow("Knowledge Base"), false);
+  assert.equal(looksLikeBrowserWindow("Brave Frontier"), false);
+});
+
+test("findBrowserCaptureSource ignores non-browser hostname matches", () => {
+  const discordShellshock = [
+    { id: "window:1", name: "shellshock.io — #general" },
+    { id: "window:2", name: "shellshock.io - Microsoft Edge" },
+  ];
+  const picked = findBrowserCaptureSource(discordShellshock, "https://shellshock.io");
+  assert.equal(picked?.id, "window:2");
+});
+
 test("resolveTargetExeName prefers library entry for currentGameId", () => {
   const entries = [
     { gameId: "g1", appPath: "C:\\Games\\rf3\\RogueFable3.exe" },

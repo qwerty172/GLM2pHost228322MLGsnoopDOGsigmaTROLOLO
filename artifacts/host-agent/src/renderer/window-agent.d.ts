@@ -59,6 +59,7 @@ declare global {
       getCaptureSources: () => Promise<{ id: string; name: string }[]>;
       setCaptureSource: (title: string) => void;
       killApp: () => void;
+      stopSessionWatch: () => void;
       openFileDialog: () => Promise<string | null>;
       fetchLibrary: (
         hostToken: string,

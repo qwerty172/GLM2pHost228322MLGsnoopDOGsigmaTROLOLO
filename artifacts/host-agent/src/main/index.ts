@@ -24,7 +24,7 @@ import {
   fetchStreamRelayConfig,
 } from "./rtmp-relay";
 import { createPingServer, PING_PORT, PING_PORT_FALLBACKS, LOCAL_INPUT_SECRET } from "./ping-server";
-import { launchApp, launchEntry, killApp, setExitCallback } from "./app-launcher";
+import { launchApp, launchEntry, killApp, setExitCallback, stopSessionWatch } from "./app-launcher";
 import {
   clearAllowedTarget,
   getFocusGuardStatus,
@@ -369,6 +369,7 @@ async function startAgent(): Promise<void> {
   });
 
   ipcMain.on("app:kill", () => killApp());
+  ipcMain.on("app:stop-watch", () => stopSessionWatch());
 
   ipcMain.handle("dialog:open-file", async () => {
     const result = await dialog.showOpenDialog(mainWindow!, {
