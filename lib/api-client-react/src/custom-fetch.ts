@@ -118,6 +118,21 @@ function rewriteTokenUrl(
   return { url, token: null };
 }
 
+/**
+ * Literal `/players/me/*` routes carry no wallet token in the URL, so
+ * `rewriteTokenUrl` cannot inject `X-User-Token`. Prefer the player wallet
+ * token (registered after hostToken in `setUserTokensGetter`).
+ */
+export function userTokenForPlayersMeRoute(
+  url: string,
+  tokens: Array<string | null | undefined>,
+): string | null {
+  const path = (url.split("?", 2)[0] ?? url).toLowerCase();
+  if (!/\/players\/me(?:\/|$)/.test(path)) return null;
+  const valid = tokens.filter((t): t is string => Boolean(t?.trim()));
+  return valid.length > 0 ? valid[valid.length - 1]! : null;
+}
+
 function isRequest(input: RequestInfo | URL): input is Request {
   return typeof Request !== "undefined" && input instanceof Request;
 }
@@ -417,6 +432,8 @@ export async function customFetch<T = unknown>(
       } else if (isRequest(input)) {
         input = new Request(rewritten.url, input);
       }
+    } else {
+      userTokenHeader = userTokenForPlayersMeRoute(original, _userTokensGetter());
     }
   }
 
