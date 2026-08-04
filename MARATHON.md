@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** **7 M-NN pending** (M-43…M-53) — сканер расширен категориями F–I.
+**Wave Maintenance:** **5 M-NN pending** (M-49…M-53) — сканер расширен категориями F–I.
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -260,6 +260,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-45 | G | HOSTING H-02: Browser watch: любой Chrome = alive | `HOSTING.md` | g:H-02 | done | agent |
 | M-46 | G | HOSTING H-07: Unit tests capture/focus | `HOSTING.md` | g:H-07 | done | agent |
 | M-47 | G | HOSTING H-08: HWND-based match после spawn | `HOSTING.md` | g:H-08 | done | agent |
+| M-48 | H | api-server lib: unit-тесты (45 модулей) | `artifacts/api-server/src/lib/*.ts` | h:api-lib | done | agent |
 | M-34 | F | web: raw fetch → codegen (3 calls) | `artifacts/web/src/pages/quota-new.tsx` | f:artifacts/web/src/pages/quota-new.tsx | done | agent |
 | M-35 | F | web: raw fetch → codegen (2 calls) | `artifacts/web/src/pages/profile.tsx` | f:artifacts/web/src/pages/profile.tsx | done | agent |
 | M-36 | F | web: raw fetch → codegen (6 calls) | `artifacts/web/src/pages/play.tsx` | f:artifacts/web/src/pages/play.tsx | done | agent |
@@ -268,7 +269,6 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-40 | F | web: raw fetch → codegen (6 calls) | `artifacts/web/src/pages/game-detail.tsx` | f:artifacts/web/src/pages/game-detail.tsx | done | agent |
 | M-41 | F | web: raw fetch → codegen (3 calls) | `artifacts/web/src/pages/embed.tsx` | f:artifacts/web/src/pages/embed.tsx | done | agent |
 | M-42 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/components/vt-scanner.tsx` | f:artifacts/web/src/components/vt-scanner.tsx | done | agent |
-| M-48 | H | api-server lib: unit-тесты (45 модулей) | `artifacts/api-server/src/lib/*.ts` | h:api-lib | pending | agent |
 | M-49 | I | eslint/ts suppressions (3) | `artifacts/web/src/pages/play.tsx` | i:artifacts/web/src/pages/play.tsx | pending | agent |
 | M-50 | I | eslint/ts suppressions (1) | `artifacts/web/src/pages/game-detail.tsx` | i:artifacts/web/src/pages/game-detail.tsx | pending | agent |
 | M-51 | I | eslint/ts suppressions (1) | `artifacts/web/src/components/webgl-video-shader.tsx` | i:artifacts/web/src/components/webgl-video-shader.tsx | pending | agent |
