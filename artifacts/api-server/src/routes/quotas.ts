@@ -27,6 +27,7 @@ import {
   isQuotaActiveNow,
 } from "../lib/quotaEngine";
 import { computeHostTier, specsFromPcSpecs } from "../lib/hostTier";
+import { canLinkDevKeyToQuota } from "../lib/quotaDevKeyLink";
 
 const router: IRouter = Router();
 
@@ -708,6 +709,14 @@ router.post("/quotas", async (req, res): Promise<void> => {
       res.status(400).json({ error: "This API key already has a linked quota" });
       return;
     }
+    if (!canLinkDevKeyToQuota(owner, devKey.id)) {
+      res.status(403).json({
+        error: "dev_key_owner_required",
+        message:
+          "Чтобы привязать API-ключ к квоте, ownerToken должен быть этим ключом (lzt_key_…)",
+      });
+      return;
+    }
     devKeyId = devKey.id;
   }
 
@@ -881,6 +890,14 @@ router.patch("/quotas/:id", async (req, res): Promise<void> => {
         .where(eq(quotasTable.devKeyId, devKey.id));
       if (existing && existing.id !== quota.id) {
         res.status(400).json({ error: "This API key already has a linked quota" });
+        return;
+      }
+      if (!canLinkDevKeyToQuota(owner, devKey.id)) {
+        res.status(403).json({
+          error: "dev_key_owner_required",
+          message:
+            "Чтобы привязать API-ключ к квоте, ownerToken должен быть этим ключом (lzt_key_…)",
+        });
         return;
       }
       updates.devKeyId = devKey.id;
