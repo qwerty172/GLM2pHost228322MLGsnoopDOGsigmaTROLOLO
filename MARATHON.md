@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 14:26 UTC |
 | Task ID | M-49 |
 | Результат | play.tsx — убраны 3 eslint-disable exhaustive-deps, корректные deps |
-| Commit | 208f785 |
+| Commit | a8d070a |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
