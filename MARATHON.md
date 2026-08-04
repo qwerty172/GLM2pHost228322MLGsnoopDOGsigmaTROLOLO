@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 06:36 UTC |
 | Task ID | M-46 |
 | Результат | HOSTING H-07 — unit tests capture/focus (captureScreen + focus-guard) |
-| Commit | 8e633e3 |
+| Commit | 6e08b5e |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
