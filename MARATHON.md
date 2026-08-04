@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-04 (M-59 done; logger unit-тесты)
+> **Последнее обновление:** 2026-08-04 (M-60 done; rtmp-relay unit-тесты)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-04 20:55 UTC |
-| Task ID | M-59 |
-| Результат | logger.ts unit-тесты: mocked electron, file append, console.log/error routing |
-| Commit | dfdec1b |
+| Дата | 2026-08-04 20:59 UTC |
+| Task ID | M-60 |
+| Результат | rtmp-relay.ts unit-тесты: mocked ffmpeg spawn, RTMP URL, sync title, fetch config |
+| Commit | 860b116 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** 9 pending (M-60…M-68) — host-agent main/shared unit-тесты (кат. J/K).
+**Wave Maintenance:** 8 pending (M-61…M-68) — host-agent main/shared unit-тесты (кат. J/K).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -279,7 +279,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-57 | J | host-agent main: unit-тест (input-injection.ts) | `artifacts/host-agent/src/main/input-injection.ts` | j:artifacts/host-agent/src/main/input-injection.ts | done | agent |
 | M-58 | J | host-agent main: unit-тест (limited-user-launch.ts) | `artifacts/host-agent/src/main/limited-user-launch.ts` | j:artifacts/host-agent/src/main/limited-user-launch.ts | done | agent |
 | M-59 | J | host-agent main: unit-тест (logger.ts) | `artifacts/host-agent/src/main/logger.ts` | j:artifacts/host-agent/src/main/logger.ts | done | agent |
-| M-60 | J | host-agent main: unit-тест (rtmp-relay.ts) | `artifacts/host-agent/src/main/rtmp-relay.ts` | j:artifacts/host-agent/src/main/rtmp-relay.ts | pending | agent |
+| M-60 | J | host-agent main: unit-тест (rtmp-relay.ts) | `artifacts/host-agent/src/main/rtmp-relay.ts` | j:artifacts/host-agent/src/main/rtmp-relay.ts | done | agent |
 | M-61 | J | host-agent main: unit-тест (save-paths.ts) | `artifacts/host-agent/src/main/save-paths.ts` | j:artifacts/host-agent/src/main/save-paths.ts | pending | agent |
 | M-62 | J | host-agent main: unit-тест (save-sync.ts) | `artifacts/host-agent/src/main/save-sync.ts` | j:artifacts/host-agent/src/main/save-sync.ts | pending | agent |
 | M-63 | J | host-agent main: unit-тест (sentry.ts) | `artifacts/host-agent/src/main/sentry.ts` | j:artifacts/host-agent/src/main/sentry.ts | pending | agent |
