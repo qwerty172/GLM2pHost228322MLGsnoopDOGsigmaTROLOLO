@@ -40,6 +40,14 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
+**Одна команда** (Docker + Postgres + API + Web):
+
+```bash
+pnpm dev
+```
+
+Открой http://localhost:5000 → нажми **«Попробовать демо»** — Rogue Fable III в браузере без Windows-агента.
+
 Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
 
 **Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
@@ -50,7 +58,7 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 - Node.js 20+
 - pnpm 9+
-- PostgreSQL 16
+- Docker (для `pnpm dev`) **или** PostgreSQL 16 вручную
 - Git Bash / WSL (для Windows) или Linux/macOS
 
 ### Клонирование
@@ -103,9 +111,17 @@ chmod +x scripts/*.sh
 
 `.env` подхватывается автоматически через `dotenv-cli` в dev-скриптах. На Replit переменные задаёт платформа.
 
-### Запуск (два терминала или один скрипт)
+### Запуск (одна команда или вручную)
 
-**Вариант A — скрипт (Git Bash / Linux / macOS):**
+**Рекомендуется:**
+
+```bash
+pnpm dev
+```
+
+Поднимает Postgres в Docker, настраивает `.env`, применяет схему БД и запускает API + Web.
+
+**Вариант A — только серверы (если БД уже есть):**
 
 ```bash
 ./scripts/dev-local.sh

@@ -74,6 +74,13 @@ export function usePlayerWallet(): PlayerWalletState {
     setIsGuest(stored === "true");
   }, [playerWalletToken]);
 
+  // Гостевой кошелёк в фоне — кнопки «Играть» и «Хостить» работают сразу.
+  useEffect(() => {
+    if (!playerWalletToken && !isRegistering) {
+      void registerGuest();
+    }
+  }, [playerWalletToken, isRegistering, registerGuest]);
+
   return {
     playerWalletToken,
     isGuest,
