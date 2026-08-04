@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 08:00 UTC |
 | Task ID | M-34 |
 | Результат | quota-new.tsx — 3 raw fetch → codegen hooks |
-| Commit | (pending) |
+| Commit | 4105106 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
