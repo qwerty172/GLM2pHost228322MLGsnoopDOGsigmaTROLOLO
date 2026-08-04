@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 17:30 UTC |
 | Task ID | M-54 |
 | Результат | admin API `admin_access_required` + RU mapping; сканер категория J (EN в pages/components) |
-| Commit | *(после push)* |
+| Commit | b36ca75 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
