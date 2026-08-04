@@ -778,8 +778,7 @@ function PreviewModal({
       cancelled = true;
       cleanup();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [host.hostId, cleanup, startCountdown]);
 
   const handleClose = () => {
     cleanup();
