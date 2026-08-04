@@ -76,9 +76,17 @@ router.post("/loans/requests", writeLimiter, async (req, res): Promise<void> => 
     .select({
       maxDep: tbl.maxDepositUsdtCents,
       maxWd: tbl.maxWithdrawalUsdtCents,
+      hasDefault: tbl.hasDefault,
     })
     .from(tbl)
     .where(eq(tbl.id, owner.id));
+  if (u?.hasDefault) {
+    res.status(403).json({
+      error:
+        "Cannot request a new P2P loan after a prior default — repay outstanding debt first",
+    });
+    return;
+  }
   const limit = pledgerLimitLzt({
     maxDepositUsdtCents: u?.maxDep ?? 0,
     maxWithdrawalUsdtCents: u?.maxWd ?? 0,
@@ -179,6 +187,15 @@ router.post("/loans/requests/:id/fund", fundLimiter, async (req, res): Promise<v
         typedRequest.borrowerId === lender.id
       ) {
         throw new Error("Cannot fund your own request");
+      }
+
+      const borrowerTbl = userTbl(typedRequest.borrowerType as OwnerType);
+      const [borrower] = await tx
+        .select({ hasDefault: borrowerTbl.hasDefault })
+        .from(borrowerTbl)
+        .where(eq(borrowerTbl.id, typedRequest.borrowerId));
+      if (borrower?.hasDefault) {
+        throw new Error("Borrower has a prior loan default on record");
       }
 
       // Determine how much this lender will fund (partial or full remaining).

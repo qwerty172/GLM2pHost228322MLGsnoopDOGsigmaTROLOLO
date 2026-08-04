@@ -9,6 +9,7 @@ import {
   quotasTable,
   quotaSessionsTable,
   loansTable,
+  type Quota,
 } from "@workspace/db";
 import { logger } from "./logger";
 import { usdtToLztRound, pickPlayerBucket } from "./lzt";
@@ -18,7 +19,7 @@ import {
   decrementEscrow,
   recordQuotaMovement,
   bumpQuotaSessionTotals,
-  isQuotaActiveNow,
+  resolveQuotaTickAmounts,
 } from "./quotaEngine";
 import {
   adjustUserBucket,
@@ -80,6 +81,125 @@ async function claimBillingSlot(
   return claimed.length > 0;
 }
 
+type BillingTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** Royalty + sponsor escrow movements shared by player and dev-key billing paths. */
+async function applyQuotaTickSideEffects(
+  tx: BillingTx,
+  args: {
+    sessionId: string;
+    hostId: string;
+    playerId: string | null;
+    quota: Quota;
+    effect: ReturnType<typeof computeQuotaEffect>;
+    now: Date;
+  },
+): Promise<void> {
+  const { sessionId, hostId, playerId, quota, effect, now } = args;
+
+  if (effect.royaltyLzt > 0) {
+    await creditPayoutToUser(tx, {
+      ownerType: quota.ownerType as "host" | "player",
+      ownerId: quota.ownerId,
+      amountLzt: effect.royaltyLzt,
+      kind: "quota_royalty",
+      refType: "quota",
+      refId: quota.id,
+    });
+    await recordQuotaMovement(tx, {
+      sessionId,
+      hostId,
+      playerId,
+      quotaId: quota.id,
+      kind: "quota_royalty",
+      amountLzt: effect.royaltyLzt,
+    });
+  }
+
+  // Embed/dev-key sessions have no player — sponsor player bonuses don't apply.
+  const sponsorPlayerLzt = playerId ? effect.sponsorPlayerLzt : 0;
+  const sponsorTotal = effect.sponsorHostLzt + sponsorPlayerLzt;
+  let sponsorPaidHost = 0;
+  let sponsorPaidPlayer = 0;
+  if (sponsorTotal > 0) {
+    const ok = await decrementEscrow(tx, quota.id, sponsorTotal);
+    if (ok) {
+      sponsorPaidHost = effect.sponsorHostLzt;
+      sponsorPaidPlayer = sponsorPlayerLzt;
+      if (effect.sponsorHostLzt > 0) {
+        await creditPayoutToUser(tx, {
+          ownerType: "host",
+          ownerId: hostId,
+          amountLzt: effect.sponsorHostLzt,
+          kind: "quota_sponsor_host",
+          refType: "quota",
+          refId: quota.id,
+        });
+        await tx.insert(billingEventsTable).values({
+          sessionId,
+          hostId,
+          playerId,
+          minutes: 0,
+          bucket: "green",
+          playerDebitLzt: 0,
+          hostCreditLzt: effect.sponsorHostLzt,
+          kind: "quota_sponsor_host",
+          quotaId: quota.id,
+        });
+      }
+      if (sponsorPlayerLzt > 0 && playerId) {
+        await creditPayoutToUser(tx, {
+          ownerType: "player",
+          ownerId: playerId,
+          amountLzt: sponsorPlayerLzt,
+          kind: "quota_sponsor_player",
+          refType: "quota",
+          refId: quota.id,
+        });
+        await tx.insert(billingEventsTable).values({
+          sessionId,
+          hostId,
+          playerId,
+          minutes: 0,
+          bucket: "green",
+          playerDebitLzt: 0,
+          hostCreditLzt: sponsorPlayerLzt,
+          kind: "quota_sponsor_player",
+          quotaId: quota.id,
+        });
+      }
+    }
+  }
+
+  await bumpQuotaSessionTotals(tx, {
+    quotaId: quota.id,
+    sessionId,
+    royaltyLzt: effect.royaltyLzt,
+    sponsorHostLzt: sponsorPaidHost,
+    sponsorPlayerLzt: sponsorPaidPlayer,
+  });
+
+  const [post] = await tx
+    .select({
+      remaining: quotasTable.escrowRemainingLzt,
+      kind: quotasTable.kind,
+      status: quotasTable.status,
+    })
+    .from(quotasTable)
+    .where(eq(quotasTable.id, quota.id));
+  if (
+    post &&
+    post.kind === "sponsor" &&
+    post.status === "active" &&
+    (post.remaining ?? 0) <= 0
+  ) {
+    await tx
+      .update(quotasTable)
+      .set({ status: "exhausted", updatedAt: now })
+      .where(eq(quotasTable.id, quota.id));
+  }
+}
+
 // Overlap guard: a billing cycle that runs long (DB contention) must not stack
 // with the next tick — concurrent runs risk double-billing / lock exhaustion.
 let isBilling = false;
@@ -137,6 +257,20 @@ async function billOnceInner(): Promise<void> {
             return false;
           }
 
+          const quota = session.quotaId
+            ? (
+                await tx
+                  .select()
+                  .from(quotasTable)
+                  .where(eq(quotasTable.id, session.quotaId))
+              )[0] ?? null
+            : null;
+
+          const minutesInto =
+            (await countSessionMinutesUsed(tx, session.id)) + 1;
+          const { payerDebitLzt, hostNetLzt, quotaActive, effect } =
+            resolveQuotaTickAmounts(costLzt, quota, minutesInto, now);
+
           const [key] = await tx
             .select({
               blue: devKeysTable.internalBalanceLzt,
@@ -149,8 +283,8 @@ async function billOnceInner(): Promise<void> {
 
           let bucketCol: "internalBalanceLzt" | "withdrawableBalanceLzt" | null =
             null;
-          if (blue >= costLzt) bucketCol = "internalBalanceLzt";
-          else if (green >= costLzt) bucketCol = "withdrawableBalanceLzt";
+          if (blue >= payerDebitLzt) bucketCol = "internalBalanceLzt";
+          else if (green >= payerDebitLzt) bucketCol = "withdrawableBalanceLzt";
 
           if (!bucketCol) {
             await tx
@@ -167,12 +301,12 @@ async function billOnceInner(): Promise<void> {
           const debited = await tx
             .update(devKeysTable)
             .set({
-              [bucketCol]: sql`${devKeysTable[bucketCol]} - ${costLzt}`,
+              [bucketCol]: sql`${devKeysTable[bucketCol]} - ${payerDebitLzt}`,
             } as never)
             .where(
               and(
                 eq(devKeysTable.id, session.devKeyId!),
-                sql`${devKeysTable[bucketCol]} >= ${costLzt}`,
+                sql`${devKeysTable[bucketCol]} >= ${payerDebitLzt}`,
               ),
             )
             .returning({ id: devKeysTable.id });
@@ -192,7 +326,7 @@ async function billOnceInner(): Promise<void> {
           const payoutSplit = await creditPayoutToUser(tx, {
             ownerType: "host",
             ownerId: session.hostId,
-            amountLzt: costLzt,
+            amountLzt: hostNetLzt,
             kind: "session_tick",
             refType: "session",
             refId: session.id,
@@ -204,7 +338,7 @@ async function billOnceInner(): Promise<void> {
             playerId: null,
             minutes: 1,
             bucket: bucketCol === "withdrawableBalanceLzt" ? "green" : "blue",
-            playerDebitLzt: costLzt,
+            playerDebitLzt: payerDebitLzt,
             hostCreditLzt: payoutSplit.cash + payoutSplit.balance,
             kind: "session_tick",
           });
@@ -216,11 +350,22 @@ async function billOnceInner(): Promise<void> {
               ownerType: "dev_key",
               ownerId: session.devKeyId!,
               bucket: bucketCol === "withdrawableBalanceLzt" ? "cash" : "balance",
-              deltaLzt: -costLzt,
+              deltaLzt: -payerDebitLzt,
               refType: "session",
               refId: session.id,
             },
           ]);
+
+          if (quotaActive && quota) {
+            await applyQuotaTickSideEffects(tx, {
+              sessionId: session.id,
+              hostId: session.hostId,
+              playerId: null,
+              quota,
+              effect,
+              now,
+            });
+          }
 
           return false;
         });
@@ -258,22 +403,8 @@ async function billOnceInner(): Promise<void> {
         // +1 for the tick we are about to record (includes credit ticks).
         const minutesInto = (await countSessionMinutesUsed(tx, session.id)) + 1;
 
-        const quotaActive = quota && isQuotaActiveNow(quota, now);
-        const effect = quotaActive
-          ? computeQuotaEffect(quota!, costLzt, minutesInto)
-          : { royaltyLzt: 0, sponsorHostLzt: 0, sponsorPlayerLzt: 0 };
-
-        const royaltyFromPlayer =
-          quotaActive && quota!.royaltySource === "player"
-            ? effect.royaltyLzt
-            : 0;
-        const royaltyFromHost =
-          quotaActive && quota!.royaltySource === "host_share"
-            ? effect.royaltyLzt
-            : 0;
-
-        const playerDebitLzt = costLzt + royaltyFromPlayer;
-        const hostNetLzt = Math.max(0, costLzt - royaltyFromHost);
+        const { payerDebitLzt: playerDebitLzt, hostNetLzt, quotaActive, effect } =
+          resolveQuotaTickAmounts(costLzt, quota, minutesInto, now);
 
         // ---------- Prepaid block sessions ----------
         // Player was debited blockReservedLzt at claim; pay the host each tick
@@ -576,109 +707,16 @@ async function billOnceInner(): Promise<void> {
           },
         ]);
 
-        // ---------- Quota movements (unchanged from prior logic) ----------
+        // ---------- Quota movements (royalty + sponsor escrow) ----------
         if (quotaActive && quota) {
-          if (effect.royaltyLzt > 0) {
-            // Route through creditPayoutToUser so the 40/40/20 split applies
-            // automatically when the royalty recipient currently has debt.
-            await creditPayoutToUser(tx, {
-              ownerType: quota.ownerType as "host" | "player",
-              ownerId: quota.ownerId,
-              amountLzt: effect.royaltyLzt,
-              kind: "quota_royalty",
-              refType: "quota",
-              refId: quota.id,
-            });
-            await recordQuotaMovement(tx, {
-              sessionId: session.id,
-              hostId: session.hostId,
-              playerId: session.claimedByPlayerId!,
-              quotaId: quota.id,
-              kind: "quota_royalty",
-              amountLzt: effect.royaltyLzt,
-            });
-          }
-          const sponsorTotal = effect.sponsorHostLzt + effect.sponsorPlayerLzt;
-          let sponsorPaidHost = 0;
-          let sponsorPaidPlayer = 0;
-          if (sponsorTotal > 0) {
-            const ok = await decrementEscrow(tx, quota.id, sponsorTotal);
-            if (ok) {
-              sponsorPaidHost = effect.sponsorHostLzt;
-              sponsorPaidPlayer = effect.sponsorPlayerLzt;
-              if (effect.sponsorHostLzt > 0) {
-                // Use creditPayoutToUser to apply the 40/40/20 debt split if
-                // the host currently owes money — otherwise it behaves like a
-                // 50/50 deposit (cash + balance), matching the v1 spec.
-                await creditPayoutToUser(tx, {
-                  ownerType: "host",
-                  ownerId: session.hostId,
-                  amountLzt: effect.sponsorHostLzt,
-                  kind: "quota_sponsor_host",
-                  refType: "quota",
-                  refId: quota.id,
-                });
-                await tx.insert(billingEventsTable).values({
-                  sessionId: session.id,
-                  hostId: session.hostId,
-                  playerId: session.claimedByPlayerId!,
-                  minutes: 0,
-                  bucket: "green",
-                  playerDebitLzt: 0,
-                  hostCreditLzt: effect.sponsorHostLzt,
-                  kind: "quota_sponsor_host",
-                  quotaId: quota.id,
-                });
-              }
-              if (effect.sponsorPlayerLzt > 0) {
-                await creditPayoutToUser(tx, {
-                  ownerType: "player",
-                  ownerId: session.claimedByPlayerId!,
-                  amountLzt: effect.sponsorPlayerLzt,
-                  kind: "quota_sponsor_player",
-                  refType: "quota",
-                  refId: quota.id,
-                });
-                await tx.insert(billingEventsTable).values({
-                  sessionId: session.id,
-                  hostId: session.hostId,
-                  playerId: session.claimedByPlayerId!,
-                  minutes: 0,
-                  bucket: "green",
-                  playerDebitLzt: 0,
-                  hostCreditLzt: effect.sponsorPlayerLzt,
-                  kind: "quota_sponsor_player",
-                  quotaId: quota.id,
-                });
-              }
-            }
-          }
-          await bumpQuotaSessionTotals(tx, {
-            quotaId: quota.id,
+          await applyQuotaTickSideEffects(tx, {
             sessionId: session.id,
-            royaltyLzt: effect.royaltyLzt,
-            sponsorHostLzt: sponsorPaidHost,
-            sponsorPlayerLzt: sponsorPaidPlayer,
+            hostId: session.hostId,
+            playerId: session.claimedByPlayerId,
+            quota,
+            effect,
+            now,
           });
-          const [post] = await tx
-            .select({
-              remaining: quotasTable.escrowRemainingLzt,
-              kind: quotasTable.kind,
-              status: quotasTable.status,
-            })
-            .from(quotasTable)
-            .where(eq(quotasTable.id, quota.id));
-          if (
-            post &&
-            post.kind === "sponsor" &&
-            post.status === "active" &&
-            (post.remaining ?? 0) <= 0
-          ) {
-            await tx
-              .update(quotasTable)
-              .set({ status: "exhausted", updatedAt: now })
-              .where(eq(quotasTable.id, quota.id));
-          }
         }
 
         await tx
