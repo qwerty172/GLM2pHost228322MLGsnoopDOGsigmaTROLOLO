@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-48 (2026-08-04 14:20 UTC) {#marathon-m-48}
+
+| Проверка | Результат |
+|---|---|
+| unit tests | 45 api-server lib modules → 45 test files, 95 tests PASS |
+| typecheck | PASS (@workspace/api-server tests); monorepo typecheck blocked by env deps |
+| marathon-scan | `h:api-lib` больше не в raw hits — категория H закрыта |
+
+**Следующий pick:** M-49 `eslint/ts suppressions (3)` — play.tsx.
+
 ## Marathon M-43 (2026-08-04 13:34 UTC) {#marathon-m-43}
 
 | Проверка | Результат |
@@ -23,7 +33,7 @@
 | typecheck | PASS (monorepo) |
 | marathon-scan | quota-ai-chat.tsx больше не в raw hits F |
 
-**Следующий pick:** M-48 `api-server lib: unit-тесты (45 модулей)`.
+**Следующий pick:** M-49 `eslint/ts suppressions (3)` — play.tsx.
 
 ## Marathon M-42 (2026-08-04 13:28 UTC) {#marathon-m-42}
 
