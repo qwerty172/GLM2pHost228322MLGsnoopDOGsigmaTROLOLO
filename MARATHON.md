@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 12:00 UTC |
 | Task ID | M-40 |
 | Результат | game-detail.tsx — 6 raw fetch → codegen hooks (`useSteamLookup`, `useListPublicGameHosts`, `publicPing`, `createPreviewSession`, `getPublicIceConfig`, `useBrowserPingMs`) |
-| Commit | (pending) |
+| Commit | ebf9552 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
