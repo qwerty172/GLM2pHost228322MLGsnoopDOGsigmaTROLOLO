@@ -4228,6 +4228,48 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /players/me/credit-settings:
+    patch:
+      operationId: patchPlayerCreditSettings
+      tags: [players]
+      summary: Enable or disable gaming credit for the authenticated player
+      description: >
+        Sets `creditLimitLzt` to the platform default (3000 LZT) when enabled,
+        or to 0 when disabled. Authenticate with X-User-Token (player wallet token).
+      security:
+        - UserToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerCreditSettingsBody"
+      responses:
+        "200":
+          description: Updated credit limit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerCreditSettingsResponse"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing X-User-Token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Token is not a player wallet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /players/me/saves/{gameId}:
     get:
       operationId: getPlayerGameSave
@@ -4425,6 +4467,23 @@ components:
           type: object
           additionalProperties: true
       required: [ok]
+
+    PlayerCreditSettingsBody:
+      type: object
+      properties:
+        creditEnabled:
+          type: boolean
+          description: When false, sets creditLimitLzt to 0; when true, restores default (3000 LZT).
+      required:
+        - creditEnabled
+
+    PlayerCreditSettingsResponse:
+      type: object
+      properties:
+        creditLimitLzt:
+          type: integer
+      required:
+        - creditLimitLzt
 
     PlayerGameSaveResponse:
       type: object
