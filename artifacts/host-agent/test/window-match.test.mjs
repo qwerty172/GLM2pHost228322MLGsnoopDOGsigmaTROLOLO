@@ -67,6 +67,15 @@ test("browserWindowStillOpen uses title heuristics, not pid/hwnd", () => {
   assert.equal(browserWindowStillOpen([{ id: "window:9", name: "Notepad" }], "game.io"), false);
 });
 
+test("browserWindowStillOpen H-02: any Chrome counts as alive without hostname match", () => {
+  const onlyChrome = [
+    { id: "window:1", name: "New Tab - Google Chrome" },
+    { id: "window:2", name: "Notepad" },
+  ];
+  assert.equal(browserWindowStillOpen(onlyChrome, "shellshock.io"), true);
+  assert.equal(browserWindowStillOpen(onlyChrome, ""), true);
+});
+
 test("looksLikeBrowserWindow detects common browsers", () => {
   assert.equal(looksLikeBrowserWindow("Tab - Google Chrome"), true);
   assert.equal(looksLikeBrowserWindow("My App"), false);

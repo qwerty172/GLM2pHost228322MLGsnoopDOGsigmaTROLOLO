@@ -88,15 +88,9 @@ export function findCaptureSourceByTitle(
 }
 
 /**
- * Browser session liveness — any browser window counts as alive (H-02 backlog).
- * Hostname in title is a stronger signal but not required once a browser exists.
+ * Browser session liveness — any browser window counts as alive (HOSTING H-02).
+ * hostHint is kept for API compat; liveness does not require hostname in title.
  */
-export function browserWindowStillOpen(sources: CaptureSource[], hostHint: string): boolean {
-  const host = hostHint.toLowerCase();
-  return windowSources(sources).some((s) => {
-    if (!looksLikeBrowserWindow(s.name)) return false;
-    const name = s.name.toLowerCase();
-    if (host && name.includes(host)) return true;
-    return true;
-  });
+export function browserWindowStillOpen(sources: CaptureSource[], _hostHint: string): boolean {
+  return windowSources(sources).some((s) => looksLikeBrowserWindow(s.name));
 }

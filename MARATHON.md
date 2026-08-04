@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-04 (M-44 done; window-match title heuristics)
+> **Последнее обновление:** 2026-08-04 (M-45 done; browser watch any-Chrome alive)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-04 06:08 UTC |
-| Task ID | M-44 |
-| Результат | HOSTING H-01 — shared window-match.ts, title-only capture heuristics |
-| Commit | 186a4cc |
+| Дата | 2026-08-04 06:18 UTC |
+| Task ID | M-45 |
+| Результат | HOSTING H-02 — browser watch: любой Chrome = alive |
+| Commit | pending |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
@@ -257,18 +257,18 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-12 | C | OpenAPI gap: routes/vt.ts (2 routes) | `routes/vt.ts` | c:artifacts/api-server/src/routes/vt.ts | done | agent |
 | M-13 | E | host-agent renderer: unit-тесты (18 модулей) | `renderer/*.ts` | e:renderer | done | agent |
 | M-44 | G | HOSTING H-01: Match по title, не HWND/PID | `HOSTING.md` | g:H-01 | done | agent |
-| M-45 | G | HOSTING H-02: Browser watch: любой Chrome = alive | `HOSTING.md` | g:H-02 | pending | agent |
+| M-45 | G | HOSTING H-02: Browser watch: любой Chrome = alive | `HOSTING.md` | g:H-02 | done | agent |
 | M-46 | G | HOSTING H-07: Unit tests capture/focus | `HOSTING.md` | g:H-07 | pending | agent |
 | M-47 | G | HOSTING H-08: HWND-based match после spawn | `HOSTING.md` | g:H-08 | pending | agent |
 | M-34 | F | web: raw fetch → codegen (3 calls) | `artifacts/web/src/pages/quota-new.tsx` | f:artifacts/web/src/pages/quota-new.tsx | pending | agent |
 | M-35 | F | web: raw fetch → codegen (2 calls) | `artifacts/web/src/pages/profile.tsx` | f:artifacts/web/src/pages/profile.tsx | pending | agent |
 | M-36 | F | web: raw fetch → codegen (6 calls) | `artifacts/web/src/pages/play.tsx` | f:artifacts/web/src/pages/play.tsx | pending | agent |
-| M-42 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/components/vt-scanner.tsx` | f:artifacts/web/src/components/vt-scanner.tsx | pending | agent |
 | M-37 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/pages/host/library.tsx` | f:artifacts/web/src/pages/host/library.tsx | pending | agent |
 | M-38 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/pages/host/browser-play.tsx` | f:artifacts/web/src/pages/host/browser-play.tsx | pending | agent |
 | M-39 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/pages/games.tsx` | f:artifacts/web/src/pages/games.tsx | pending | agent |
 | M-40 | F | web: raw fetch → codegen (6 calls) | `artifacts/web/src/pages/game-detail.tsx` | f:artifacts/web/src/pages/game-detail.tsx | pending | agent |
 | M-41 | F | web: raw fetch → codegen (3 calls) | `artifacts/web/src/pages/embed.tsx` | f:artifacts/web/src/pages/embed.tsx | pending | agent |
+| M-42 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/components/vt-scanner.tsx` | f:artifacts/web/src/components/vt-scanner.tsx | pending | agent |
 | M-43 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/components/quota-ai-chat.tsx` | f:artifacts/web/src/components/quota-ai-chat.tsx | pending | agent |
 | M-48 | H | api-server lib: unit-тесты (45 модулей) | `artifacts/api-server/src/lib/*.ts` | h:api-lib | pending | agent |
 | M-49 | I | eslint/ts suppressions (3) | `artifacts/web/src/pages/play.tsx` | i:artifacts/web/src/pages/play.tsx | pending | agent |

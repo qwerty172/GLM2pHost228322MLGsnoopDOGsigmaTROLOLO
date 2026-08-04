@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-45 (2026-08-04 06:18 UTC) {#marathon-m-45}
+
+| Проверка | Результат |
+|---|---|
+| H-02 | `browserWindowStillOpen` — любой browser title hint = alive |
+| unit tests | `window-match.test.mjs` — H-02 Chrome-without-host test PASS |
+| typecheck | PASS (@workspace/host-agent) |
+| HOSTING | H-02 → fixed |
+
+**Следующий pick:** M-46 `HOSTING H-07` Unit tests capture/focus.
+
 ## Marathon M-44 (2026-08-04 06:08 UTC) {#marathon-m-44}
 
 | Проверка | Результат |
