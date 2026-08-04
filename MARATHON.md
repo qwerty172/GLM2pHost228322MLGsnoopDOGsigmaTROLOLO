@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 08:42 UTC |
 | Task ID | M-37 |
 | Результат | library.tsx — apiFetch удалён; rawgSearch, steamLookup, useSubmitGame, usePatchSubmissionPendingConfig |
-| Commit | (этот run) |
+| Commit | eb9484b |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
