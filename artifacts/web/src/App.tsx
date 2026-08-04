@@ -26,6 +26,7 @@ import { SiteNav } from "@/components/site-nav";
 import { HostAuthGuard } from "@/components/host-auth-guard";
 import ProfilePage from "@/pages/profile";
 import Embed from "@/pages/embed";
+import { PlayerWalletBootstrap } from "@/components/player-wallet-bootstrap";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -115,6 +116,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <PlayerWalletBootstrap />
         <TooltipProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <Router />
