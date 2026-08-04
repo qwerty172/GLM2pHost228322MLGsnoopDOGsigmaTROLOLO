@@ -12,10 +12,10 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-04 02:20 UTC |
+| Дата | 2026-08-04 02:24 UTC |
 | Task ID | idle |
 | Результат | Marathon idle |
-| Commit | 809a0d3 |
+| Commit | 9a363c8 |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
@@ -103,9 +103,9 @@ node scripts/marathon-groom.mjs --apply
 
 | Сигнал | Что делать |
 |--------|------------|
-| `phantom_161e0d7` | pending в таблице, сканер не видит → `skipped` (groom) |
+| `phantom_161e0d7` | 9a363c8 в таблице, сканер не видит → `skipped` (groom) |
 | `stale_in_progress` | in_progress >24ч без коммита → `161e0d7` |
-| `duplicate_161e0d7` | два pending с одним Key → skip дубль |
+| `duplicate_161e0d7` | два 9a363c8 с одним Key → skip дубль |
 | `done_but_active` | done, но сканер всё ещё видит → `161e0d7` (reopen) или **починить сканер** |
 | `queue_drift` | сканер нашёл новое, таблица пуста → `--sync-marathon` |
 | `raw_explosion` | raw/grouped >4× → улучшить группировку в `marathon-scan.mjs` |
