@@ -26,6 +26,7 @@ import { SiteNav } from "@/components/site-nav";
 
 const LZT_PER_USDT = 200;
 const DEFAULT_PRICE_PER_MIN_USD = 0.04;
+const VDS_GAMES_PARAMS = { vdsOnly: true, liveOnly: true };
 
 type SortKey = "mostOnline" | "cheapest" | "newest";
 
@@ -93,16 +94,12 @@ export default function GamesPage() {
   const { data: rawGames, isLoading, isError, refetch, isFetching } = useListGames(apiParams, {
     query: { queryKey: getListGamesQueryKey(apiParams) },
   });
-
-  const [vdsGames, setVdsGames] = useState<GameEnriched[]>([]);
-  useEffect(() => {
-    void fetch(`${import.meta.env.BASE_URL}api/games?vdsOnly=true&liveOnly=true`)
-      .then((r) => r.json())
-      .then((data) => setVdsGames((data ?? []) as GameEnriched[]))
-      .catch(() => setVdsGames([]));
-  }, []);
+  const { data: vdsGamesRaw } = useListGames(VDS_GAMES_PARAMS, {
+    query: { queryKey: getListGamesQueryKey(VDS_GAMES_PARAMS) },
+  });
 
   const games = (rawGames ?? []) as GameEnriched[];
+  const vdsGames = (vdsGamesRaw ?? []) as GameEnriched[];
 
   const categories = useMemo(() => {
     const seen = new Set<string>();
