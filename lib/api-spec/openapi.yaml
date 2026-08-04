@@ -4228,6 +4228,47 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /players/me/credit-settings:
+    patch:
+      operationId: updatePlayerCreditSettings
+      tags: [players]
+      summary: Enable or disable player gaming credit line
+      description: >
+        Authenticate with X-User-Token (player wallet token). When disabled,
+        creditLimitLzt is set to 0; when enabled, restored to the default for
+        the account type (3000 LZT full, 500 guest).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlayerCreditSettingsBody"
+      responses:
+        "200":
+          description: Updated credit limit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdatePlayerCreditSettingsResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing X-User-Token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Player not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /players/me/saves/{gameId}:
     get:
       operationId: getPlayerGameSave
@@ -5195,6 +5236,24 @@ components:
         guest:
           type: boolean
           description: When true, creates an anonymous guest wallet without displayName
+
+    UpdatePlayerCreditSettingsBody:
+      type: object
+      required:
+        - creditEnabled
+      properties:
+        creditEnabled:
+          type: boolean
+          description: When false, sets creditLimitLzt to 0. When true, restores default (3000 LZT full, 500 guest).
+
+    UpdatePlayerCreditSettingsResponse:
+      type: object
+      required:
+        - creditLimitLzt
+      properties:
+        creditLimitLzt:
+          type: integer
+          description: Updated gaming credit line in LZT.
 
     UpgradeGuestPlayerBody:
       type: object

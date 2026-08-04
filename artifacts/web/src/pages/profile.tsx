@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSearch } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
@@ -8,10 +8,13 @@ import {
   useGetHostStats,
   useListWalletTransactions,
   useGetWallet,
+  useListMyVds,
+  useUpdatePlayerCreditSettings,
   getGetHostQueryKey,
   getGetHostStatsQueryKey,
   getListWalletTransactionsQueryKey,
   getGetWalletQueryKey,
+  getListMyVdsQueryKey,
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -403,22 +406,6 @@ function HistoryTab({ walletToken }: { walletToken: string | null }) {
   );
 }
 
-type VdsEntry = {
-  id: string;
-  quotaId: string;
-  quotaTitle: string | null;
-  sshHost: string;
-  sshPort: number;
-  sshUser: string;
-  status: string;
-  provisionLog: string;
-  lastHealthAt: string | null;
-  hostId: string | null;
-  earnedLzt: number;
-  createdAt: string;
-  updatedAt: string;
-};
-
 function VdsStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; color: string; bg: string }> = {
     online: { label: "Онлайн", color: "#22c55e", bg: "rgba(34,197,94,0.1)" },
@@ -445,35 +432,22 @@ function VdsStatusBadge({ status }: { status: string }) {
 }
 
 function MyVdsTab({ hostToken }: { hostToken: string | null }) {
-  const [entries, setEntries] = useState<VdsEntry[] | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = async () => {
-    if (!hostToken) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        `${import.meta.env.BASE_URL}api/vds/mine?ownerToken=${encodeURIComponent(hostToken)}`,
-      );
-      if (!res.ok) {
-        const d = (await res.json()) as { error?: string };
-        setError(d.error ?? "Ошибка загрузки");
-      } else {
-        const data = (await res.json()) as VdsEntry[];
-        setEntries(data);
-      }
-    } catch {
-      setError("Ошибка сети");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-  }, [hostToken]);
+  const {
+    data: entries,
+    isLoading,
+    isError,
+    refetch,
+    isFetching,
+  } = useListMyVds(
+    { ownerToken: hostToken ?? "" },
+    {
+      query: {
+        enabled: !!hostToken,
+        queryKey: getListMyVdsQueryKey({ ownerToken: hostToken ?? "" }),
+        staleTime: 30_000,
+      },
+    },
+  );
 
   if (!hostToken) {
     return (
@@ -484,7 +458,7 @@ function MyVdsTab({ hostToken }: { hostToken: string | null }) {
     );
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="mt-4 space-y-3">
         {[...Array(2)].map((_, i) => (
@@ -494,9 +468,9 @@ function MyVdsTab({ hostToken }: { hostToken: string | null }) {
     );
   }
 
-  if (error) {
+  if (isError) {
     return (
-      <div className="mt-6 text-center text-red-400 text-sm">{error}</div>
+      <div className="mt-6 text-center text-red-400 text-sm">Ошибка загрузки</div>
     );
   }
 
@@ -518,8 +492,8 @@ function MyVdsTab({ hostToken }: { hostToken: string | null }) {
         <Button
           variant="outline"
           size="sm"
-          onClick={load}
-          disabled={loading}
+          onClick={() => void refetch()}
+          disabled={isFetching}
           style={{ borderColor: "rgba(255,255,255,0.08)", color: "#94a3b8", background: "transparent" }}
         >
           <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
@@ -629,6 +603,11 @@ function PlayerCreditCard() {
       queryKey: getGetWalletQueryKey(playerWalletToken ?? ""),
     },
   });
+  const updateCredit = useUpdatePlayerCreditSettings({
+    request: playerWalletToken
+      ? { headers: { "X-User-Token": playerWalletToken } }
+      : undefined,
+  });
   const [saving, setSaving] = useState(false);
 
   if (!playerWalletToken) return null;
@@ -640,14 +619,7 @@ function PlayerCreditCard() {
   const toggleCredit = async (enabled: boolean) => {
     setSaving(true);
     try {
-      await fetch("/api/players/me/credit-settings", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "X-User-Token": playerWalletToken,
-        },
-        body: JSON.stringify({ creditEnabled: enabled }),
-      });
+      await updateCredit.mutateAsync({ data: { creditEnabled: enabled } });
       await refetch();
     } finally {
       setSaving(false);

@@ -4967,6 +4967,23 @@ export const UploadStorageClipResponse = zod.object({
 });
 
 /**
+ * Authenticate with X-User-Token (player wallet token). When disabled, creditLimitLzt is set to 0; when enabled, restored to the default for the account type (3000 LZT full, 500 guest).
+
+ * @summary Enable or disable player gaming credit line
+ */
+export const UpdatePlayerCreditSettingsBody = zod.object({
+  creditEnabled: zod
+    .boolean()
+    .describe(
+      "When false, sets creditLimitLzt to 0. When true, restores default (3000 LZT full, 500 guest).",
+    ),
+});
+
+export const UpdatePlayerCreditSettingsResponse = zod.object({
+  creditLimitLzt: zod.number().describe("Updated gaming credit line in LZT."),
+});
+
+/**
  * @summary Get latest cloud save metadata for a game
  */
 export const GetPlayerGameSaveParams = zod.object({

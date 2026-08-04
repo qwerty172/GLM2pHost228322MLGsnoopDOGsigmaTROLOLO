@@ -225,6 +225,8 @@ export * from "./updateHostLibraryEntryBody";
 export * from "./updateHostPcSpecs200";
 export * from "./updateHostPcSpecs200PcSpecs";
 export * from "./updateHostPcSpecsBody";
+export * from "./updatePlayerCreditSettingsBody";
+export * from "./updatePlayerCreditSettingsResponse";
 export * from "./updateQuotaBody";
 export * from "./updateQuotaBodyRequiredTier";
 export * from "./updateQuotaBodyVisibility";
