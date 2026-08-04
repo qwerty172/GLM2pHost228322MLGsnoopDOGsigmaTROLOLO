@@ -1099,10 +1099,11 @@ export const GetGameBySlugResponse = zod
       liveSessions: zod.array(
         zod.object({
           hostId: zod.string().describe("Host UUID offering this live session"),
-          playerToken: zod
+          inviteCode: zod
             .string()
+            .nullable()
             .describe(
-              "Player share token вЂ” visit \/play\/{playerToken} to join",
+              "Capability URL code — visit \/play\/i\/{inviteCode} to join",
             ),
           appName: zod.string(),
           ratePerMinute: zod.number(),

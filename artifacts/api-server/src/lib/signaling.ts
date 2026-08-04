@@ -202,6 +202,42 @@ async function authenticate(
       if (!host || session.hostId !== host.id) {
         return { ok: false, reason: "ws ticket host mismatch" };
       }
+      return { ok: true, result: { sessionId, role } };
+    }
+
+    // Player ws tickets must mirror legacy playerToken auth: claimant match,
+    // dev-key embed rules, and a live balance gate (ticket issuance is not
+    // enough — balance may be spent before reconnect within TTL).
+    if (session.devKeyId) {
+      return { ok: true, result: { sessionId, role } };
+    }
+    if (!session.claimedByPlayerId) {
+      return { ok: false, reason: "session not claimed — wallet required" };
+    }
+    if (claims.sub !== session.claimedByPlayerId) {
+      return { ok: false, reason: "ws ticket player mismatch" };
+    }
+    if (session.isTest) {
+      return { ok: true, result: { sessionId, role } };
+    }
+    const [wallet] = await db
+      .select()
+      .from(playersTable)
+      .where(eq(playersTable.id, claims.sub));
+    if (!wallet) {
+      return { ok: false, reason: "player not found" };
+    }
+    const rateLzt = Math.round(Number(session.ratePerMinute) * 200);
+    if (rateLzt > 0) {
+      const picked = pickPlayerBucket(
+        session.paymentSource,
+        rateLzt,
+        wallet.withdrawableBalanceLzt,
+        wallet.internalBalanceLzt,
+      );
+      if (picked === null) {
+        return { ok: false, reason: "insufficient balance to start" };
+      }
     }
     return { ok: true, result: { sessionId, role } };
   }

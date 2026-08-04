@@ -344,7 +344,8 @@ router.get("/games/:slug", async (req, res): Promise<void> => {
     })
     .map(({ session: s, host: h }) => ({
       hostId: h.id,
-      playerToken: s.playerToken,
+      // Capability URL — never expose raw playerToken on public game detail.
+      inviteCode: s.inviteCode,
       appName: s.appName,
       ratePerMinute: Number(s.ratePerMinute),
       // LZT price resolved from host_games when session was created;

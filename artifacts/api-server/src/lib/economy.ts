@@ -367,7 +367,10 @@ export async function repayBorrowerDebt(
         ...(args.onlyLoanId ? [eq(loansTable.id, args.onlyLoanId)] : []),
       ),
     )
-    .orderBy(asc(loansTable.startedAt));
+    .orderBy(asc(loansTable.startedAt))
+    // Lock each loan row so concurrent deposit/payout repayments cannot both
+    // read stale outstandingLzt and double-credit lenders.
+    .for("update");
 
   let totalRepaid = 0;
   const groupId = args.groupId ?? randomUUID();
