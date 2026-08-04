@@ -38,9 +38,9 @@
 
 - [Node.js 20+](https://nodejs.org/)
 - [pnpm](https://pnpm.io/installation): `npm install -g pnpm`
-- [PostgreSQL 16](https://www.postgresql.org/download/windows/)
+- [Docker](https://www.docker.com/) (рекомендуется) **или** [PostgreSQL 16](https://www.postgresql.org/download/windows/) вручную
 
-База данных:
+С Docker база поднимается автоматически (`pnpm up`). Без Docker:
 
 ```sql
 CREATE DATABASE decentral_hub;
@@ -48,47 +48,60 @@ CREATE DATABASE decentral_hub;
 
 ---
 
-## Быстрый старт (Windows)
+## Быстрый старт
 
-```bat
+```bash
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
 
-copy .env.example .env
-notepad .env
+pnpm up        # PostgreSQL + Redis (Docker)
+pnpm setup     # .env, секреты, install, схема БД
+pnpm dev       # API + Web
 ```
 
-В `.env` измените `DATABASE_URL`:
+Windows (cmd): те же три команды `pnpm up`, `pnpm setup`, `pnpm dev`.
 
-```
-DATABASE_URL=postgresql://postgres:ВАШ_ПАРОЛЬ@localhost:5432/decentral_hub
-```
-
-```bat
-scripts\setup-local.bat
-scripts\dev-local.bat
-scripts\smoke-api.bat
-```
+Одна команда: `pnpm quickstart`.
 
 | Сервис | URL |
 |---|---|
 | Web | http://localhost:5000 |
 | API health | http://localhost:8080/api/healthz |
 
+Smoke: `scripts\smoke-api.bat` или `./scripts/smoke-api.sh`
+
+### Свой PostgreSQL (без Docker)
+
+После `pnpm setup` отредактируй `DATABASE_URL` в `.env`:
+
+```
+DATABASE_URL=postgresql://postgres:ВАШ_ПАРОЛЬ@localhost:5432/decentral_hub
+```
+
 ---
 
-## Быстрый старт (Git Bash / Linux / macOS)
+## Быстрый старт (Windows, legacy bat-скрипты)
+
+```bat
+git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
+cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
+
+scripts\infra-up.bat
+scripts\setup-local.bat
+scripts\dev-local.bat
+scripts\smoke-api.bat
+```
+
+---
+
+## Быстрый старт (Git Bash / Linux / macOS, legacy sh-скрипты)
 
 ```bash
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-
-cp .env.example .env
-# отредактируй DATABASE_URL
 
 chmod +x scripts/*.sh
+./scripts/infra-up.sh
 ./scripts/setup-local.sh
 ./scripts/dev-local.sh
 ./scripts/smoke-api.sh

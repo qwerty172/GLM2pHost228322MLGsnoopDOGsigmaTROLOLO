@@ -50,68 +50,77 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 - Node.js 20+
 - pnpm 9+
-- PostgreSQL 16
-- Git Bash / WSL (для Windows) или Linux/macOS
+- Docker (рекомендуется — Postgres одной командой) **или** PostgreSQL 16 вручную
 
-### Клонирование
+### За 3 команды (рекомендуется)
 
 ```bash
-git clone https://github.com/qwerty172/glm2phost228322mlgsnoopdogsigmatrololo.git decentral-hub
-cd decentral-hub
+git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
+cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
+
+pnpm up        # Docker: PostgreSQL + Redis
+pnpm setup     # .env, секреты, install, схема БД
+pnpm dev       # API :8080 + Web :5000
 ```
 
-### Первичная настройка
+Одна команда вместо трёх: `pnpm quickstart` (up + setup + dev).
 
-**Windows (cmd или двойной клик):**
+| Сервис | URL |
+|---|---|
+| Web | http://localhost:5000 |
+| API | http://localhost:8080/api/healthz |
+
+Smoke: `./scripts/smoke-api.sh`
+
+### Первичная настройка (Windows)
 
 ```bat
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-copy .env.example .env
-notepad .env
-scripts\setup-local.bat
-scripts\dev-local.bat
+
+pnpm up
+pnpm setup
+pnpm dev
 ```
 
-**Git Bash / Linux / macOS:**
+### Первичная настройка (Git Bash / Linux / macOS)
 
 ```bash
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-cp .env.example .env
-# отредактируй DATABASE_URL
 
 chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
+pnpm up
+pnpm setup
+pnpm dev
 ```
 
 Подробнее — [LOCAL_SETUP.md](./LOCAL_SETUP.md).
 
 ### Переменные окружения (`.env`)
 
+Создаётся автоматически при `pnpm setup`. Ключевые:
+
 | Переменная | Назначение |
 |---|---|
-| `DATABASE_URL` | PostgreSQL, база `decentral_hub` |
+| `DATABASE_URL` | PostgreSQL (`decentral_hub` при Docker из `pnpm up`) |
 | `PORT` | API-сервер (8080) |
-| `WALLET_ENCRYPTION_KEY` | 32-байт hex, обязателен для кошелька |
-| `ADMIN_SECRET` | Секрет admin-роутов (`X-Admin-Secret`) |
+| `WEB_PORT` | Web Vite (5000) — **не** путать с `PORT` |
+| `WALLET_ENCRYPTION_KEY` | Автогенерация при setup |
+| `JWT_SECRET` | Автогенерация при setup |
 | `API_PROXY_TARGET` | Куда Vite проксирует `/api` (http://localhost:8080) |
 | `BASE_PATH` | Базовый путь web (`/`) |
 
-`.env` подхватывается автоматически через `dotenv-cli` в dev-скриптах. На Replit переменные задаёт платформа.
+`.env` подхватывается через `dotenv-cli` в dev-скриптах. Redis, TURN, Sentry — опционально, можно настроить позже.
 
 ### Запуск (два терминала или один скрипт)
 
-**Вариант A — скрипт (Git Bash / Linux / macOS):**
-
 ```bash
-./scripts/dev-local.sh
+pnpm dev
+# или: ./scripts/dev-local.sh
 ```
 
-**Вариант B — вручную:**
+**Вручную (два терминала):**
 
 ```bash
 # Терминал 1: API (порт 8080)
