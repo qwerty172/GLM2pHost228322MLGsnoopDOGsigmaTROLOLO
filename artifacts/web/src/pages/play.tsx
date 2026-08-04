@@ -210,8 +210,7 @@ export default function Play() {
     if (!playerWalletToken) {
       void registerGuest();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [playerWalletToken, registerGuest]);
   const { data: wallet } = useGetWallet(playerWalletToken || "", {
     query: {
       enabled: !!playerWalletToken,
@@ -219,7 +218,7 @@ export default function Play() {
       refetchInterval: 30000,
     },
   });
-  const claimSession = useClaimSession();
+  const { mutate: mutateClaim, isPending: isClaimPending } = useClaimSession();
   const [claimError, setClaimError] = useState<string | null>(null);
   const [hasClaimed, setHasClaimed] = useState(false);
   const [paymentSource, setPaymentSource] = useState<PaymentSource>("auto");
@@ -871,7 +870,7 @@ export default function Play() {
       session.status === "ended" ||
       !playerWalletToken ||
       hasClaimed ||
-      claimSession.isPending ||
+      isClaimPending ||
       isTestBrowserSession
     ) {
       return;
@@ -880,7 +879,7 @@ export default function Play() {
       setHasClaimed(true);
       return;
     }
-    claimSession.mutate(
+    mutateClaim(
       {
         playerToken,
         data: { playerWalletToken, paymentSource, ...(blockMinutesParam ? { blockMinutes: blockMinutesParam } : {}) },
@@ -896,8 +895,19 @@ export default function Play() {
         },
       },
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.id, playerWalletToken, hasClaimed]);
+  }, [
+    session?.id,
+    session?.status,
+    session?.claimedByPlayerId,
+    playerWalletToken,
+    hasClaimed,
+    isClaimPending,
+    isTestBrowserSession,
+    playerToken,
+    paymentSource,
+    blockMinutesParam,
+    mutateClaim,
+  ]);
 
   useEffect(() => {
     if (
@@ -913,8 +923,15 @@ export default function Play() {
     return () => {
       cleanupConnection();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.id, hasClaimed, isTestBrowserSession, playerWalletToken]);
+  }, [
+    session?.id,
+    session?.status,
+    hasClaimed,
+    isTestBrowserSession,
+    playerWalletToken,
+    startConnection,
+    cleanupConnection,
+  ]);
 
   const handleEnableAudio = () => {
     if (videoRef.current) {
@@ -1296,7 +1313,7 @@ export default function Play() {
     const connecting =
       !needsTopUp &&
       !claimError &&
-      (!playerWalletToken || claimSession.isPending || hasClaimed || session.status !== "ended");
+      (!playerWalletToken || isClaimPending || hasClaimed || session.status !== "ended");
 
     const s = session as typeof session & {
       gameCoverImageUrl?: string | null;
@@ -1336,7 +1353,7 @@ export default function Play() {
             <span className="text-sm font-medium">
               {!playerWalletToken
                 ? "Создаём кошелёк…"
-                : claimSession.isPending || !hasClaimed
+                : isClaimPending || !hasClaimed
                   ? "Занимаем сессию…"
                   : "Подключаемся…"}
             </span>
@@ -1485,9 +1502,9 @@ export default function Play() {
                   setShowPaymentOptions(false);
                   void startConnection();
                 }}
-                disabled={session.status === "ended" || claimSession.isPending}
+                disabled={session.status === "ended" || isClaimPending}
               >
-                {claimSession.isPending ? (
+                {isClaimPending ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     Подключаемся…
