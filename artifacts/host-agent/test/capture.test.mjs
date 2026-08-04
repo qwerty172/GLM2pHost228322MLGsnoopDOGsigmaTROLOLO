@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { setupRendererEnv } from "./helpers/renderer-env.mjs";
 
 setupRendererEnv();
-const { exeBasename } = await import("../dist/renderer/renderer/capture.js");
+const { exeBasename } = await import("../dist/main/shared/window-match.js");
 
 test("exeBasename strips path and .exe extension", () => {
   assert.equal(exeBasename("C:\\Steam\\steamapps\\common\\Game\\Game.EXE"), "game");

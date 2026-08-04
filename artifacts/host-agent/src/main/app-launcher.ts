@@ -2,6 +2,7 @@ import { spawn, ChildProcess } from "node:child_process";
 import path from "node:path";
 import { shell, desktopCapturer } from "electron";
 import type { HostConfig, GameEntryLaunch } from "../shared/messages";
+import { browserWindowStillOpen, hostFromBoundUrl } from "../shared/window-match";
 import { clearAllowedTarget, setAllowedTarget } from "./focus-guard";
 import { launchWithLimitedUser, type LimitedUserConfig } from "./limited-user-launch";
 import { loadConfig } from "./config";
@@ -20,17 +21,6 @@ let browserWatchTimer: ReturnType<typeof setInterval> | null = null;
 const BROWSER_WATCH_INTERVAL_MS = 10_000;
 const BROWSER_WATCH_GRACE_MS = 30_000;
 const BROWSER_GONE_STREAK_TO_END = 3;
-
-const BROWSER_TITLE_HINTS = [
-  "chrome",
-  "chromium",
-  "msedge",
-  "edge",
-  "firefox",
-  "opera",
-  "brave",
-  "yandex",
-];
 
 // Optional one-shot callback invoked when the native process exits.
 // Cleared after first call. The main process uses this to push an
@@ -107,22 +97,13 @@ function stopBrowserWatch(): void {
   }
 }
 
-async function browserWindowStillOpen(hostHint: string): Promise<boolean> {
+async function isBrowserWindowStillOpen(hostHint: string): Promise<boolean> {
   try {
     const sources = await desktopCapturer.getSources({
       types: ["window"],
       thumbnailSize: { width: 0, height: 0 },
     });
-    const host = hostHint.toLowerCase();
-    return sources.some((s) => {
-      const name = s.name.toLowerCase();
-      const looksLikeBrowser = BROWSER_TITLE_HINTS.some((h) => name.includes(h));
-      if (!looksLikeBrowser) return false;
-      if (host && name.includes(host)) return true;
-      // Browser window exists even if title no longer contains the host
-      // (SPA navigation). Treat any browser window as alive during session.
-      return true;
-    });
+    return browserWindowStillOpen(sources, hostHint);
   } catch {
     // If we can't enumerate windows, keep the session alive.
     return true;
@@ -131,18 +112,13 @@ async function browserWindowStillOpen(hostHint: string): Promise<boolean> {
 
 function startBrowserWatch(url: string): void {
   stopBrowserWatch();
-  lastBrowserHost = "";
-  try {
-    lastBrowserHost = new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    lastBrowserHost = "";
-  }
+  lastBrowserHost = hostFromBoundUrl(url);
   const startedAt = Date.now();
   let goneStreak = 0;
   browserWatchTimer = setInterval(() => {
     void (async () => {
       if (Date.now() - startedAt < BROWSER_WATCH_GRACE_MS) return;
-      const open = await browserWindowStillOpen(lastBrowserHost);
+      const open = await isBrowserWindowStillOpen(lastBrowserHost);
       if (open) {
         goneStreak = 0;
         return;
