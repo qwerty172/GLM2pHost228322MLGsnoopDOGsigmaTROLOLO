@@ -10,6 +10,8 @@ import { log } from "./logger";
 
 let current: ChildProcess | null = null;
 let lastSpawnedPid: number | null = null;
+/** Launch target for the process/browser session tracked by `current` / `lastWasUrl`. */
+let activeLaunchKey: string | null = null;
 // Tracks whether the current "launch" was a browser URL (no child process,
 // just a shell.openExternal). killApp() can't actually close the browser
 // tab, but we use this flag to skip the kill attempt cleanly.
@@ -32,8 +34,23 @@ export function getLastSpawnedPid(): number | null {
   return lastSpawnedPid;
 }
 
+/** Stable key for deduplicating launches vs forcing relaunch when the target changes. */
+export function launchTargetKey(target: {
+  boundUrl?: string | null;
+  appPath?: string | null;
+}): string {
+  const url = (target.boundUrl ?? "").trim();
+  if (url.length > 0) return `url:${url}`;
+  return `exe:${(target.appPath ?? "").trim().toLowerCase()}`;
+}
+
 function clearSpawnedPid(): void {
   lastSpawnedPid = null;
+}
+
+function clearLaunchTracking(): void {
+  activeLaunchKey = null;
+  clearSpawnedPid();
 }
 
 export function setExitCallback(cb: () => void): void {
@@ -92,7 +109,7 @@ async function tryLimitedLaunch(
 
 function fireExit(): void {
   stopBrowserWatch();
-  clearSpawnedPid();
+  clearLaunchTracking();
   if (exitCallback) {
     const cb = exitCallback;
     exitCallback = null;
@@ -156,6 +173,15 @@ export function isRunning(): boolean {
 export async function launchEntry(
   entry: GameEntryLaunch,
 ): Promise<{ ok: boolean; pid?: number; error?: string }> {
+  const launchKey = launchTargetKey(entry);
+  const reuse = (isRunning() || lastWasUrl) && activeLaunchKey === launchKey;
+  if (reuse) {
+    return { ok: true, pid: lastSpawnedPid ?? current?.pid ?? undefined };
+  }
+  if (isRunning() || lastWasUrl) {
+    killApp();
+  }
+
   const url = (entry.boundUrl ?? "").trim();
   if (url.length > 0) {
     try {
@@ -165,6 +191,7 @@ export async function launchEntry(
       }
       void shell.openExternal(parsed.toString());
       lastWasUrl = true;
+      activeLaunchKey = launchKey;
       clearSpawnedPid();
       setAllowedTarget(null, { guardDisabled: true });
       startBrowserWatch(parsed.toString());
@@ -177,9 +204,6 @@ export async function launchEntry(
 
   if (!entry.appPath) {
     return { ok: false, error: "Library entry has no appPath or boundUrl" };
-  }
-  if (isRunning()) {
-    return { ok: true, pid: current!.pid };
   }
   try {
     stopBrowserWatch();
@@ -200,6 +224,7 @@ export async function launchEntry(
     lastWasUrl = false;
     const pid = gamePid ?? child.pid;
     lastSpawnedPid = pid ?? null;
+    activeLaunchKey = launchKey;
     if (pid) setAllowedTarget(pid);
     log("info", `[library] Launched ${entry.appPath} pid=${pid}`);
     return { ok: true, pid };
@@ -213,6 +238,15 @@ export async function launchEntry(
 export async function launchApp(
   config: HostConfig,
 ): Promise<{ ok: boolean; pid?: number; error?: string }> {
+  const launchKey = launchTargetKey(config);
+  const reuse = (isRunning() || lastWasUrl) && activeLaunchKey === launchKey;
+  if (reuse) {
+    return { ok: true, pid: lastSpawnedPid ?? current?.pid ?? undefined };
+  }
+  if (isRunning() || lastWasUrl) {
+    killApp();
+  }
+
   const url = (config.boundUrl ?? "").trim();
   if (url.length > 0) {
     try {
@@ -222,6 +256,7 @@ export async function launchApp(
       }
       void shell.openExternal(parsed.toString());
       lastWasUrl = true;
+      activeLaunchKey = launchKey;
       clearSpawnedPid();
       setAllowedTarget(null, { guardDisabled: true });
       startBrowserWatch(parsed.toString());
@@ -234,9 +269,6 @@ export async function launchApp(
 
   if (!config.appPath) {
     return { ok: false, error: "No app path or URL configured" };
-  }
-  if (isRunning()) {
-    return { ok: true, pid: current!.pid };
   }
   try {
     stopBrowserWatch();
@@ -257,6 +289,7 @@ export async function launchApp(
     lastWasUrl = false;
     const pid = gamePid ?? child.pid;
     lastSpawnedPid = pid ?? null;
+    activeLaunchKey = launchKey;
     if (pid) setAllowedTarget(pid);
     log("info", `Launched ${config.appPath} pid=${pid}`);
     return { ok: true, pid };
@@ -296,7 +329,7 @@ export function killApp(): void {
   clearAllowedTarget();
   clearExitCallback();
   stopBrowserWatch();
-  clearSpawnedPid();
+  clearLaunchTracking();
   // We can't close a browser tab we opened via shell.openExternal; the user
   // (or their OS) handles it. Just log and bail.
   if (lastWasUrl && !current) {
