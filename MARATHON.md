@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 23:40 UTC |
 | Task ID | M-66 |
 | Результат | tray.ts unit-тесты: createTray tooltip/menu/click, setStatus labels, error notification, app.quit |
-| Commit | 50c5db0 |
+| Commit | f18fa71 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
