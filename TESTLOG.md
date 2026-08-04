@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-63 (2026-08-04 22:58 UTC) {#marathon-m-63}
+
+| Проверка | Результат |
+|---|---|
+| sentry.test.mjs | 5 тестов — no-op без SENTRY_DSN, init с DSN/NODE_ENV, default production, swallow require/init errors |
+| host-agent test | PASS (154 tests) |
+| typecheck | PASS (host-agent) |
+
+**Следующий pick:** M-64 `spawn-hwnd.ts`.
+
 ## Marathon M-62 (2026-08-04 22:50 UTC) {#marathon-m-62}
 
 | Проверка | Результат |
