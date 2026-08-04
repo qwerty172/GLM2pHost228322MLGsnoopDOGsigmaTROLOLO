@@ -7,6 +7,9 @@ const {
   findBrowserCaptureSource,
   findNativeCaptureSource,
   findCaptureSourceByTitle,
+  parseHwndFromSourceId,
+  findCaptureSourceByHwnd,
+  findCaptureSourceByHwnds,
   browserWindowStillOpen,
   looksLikeBrowserWindow,
   resolveTargetExeName,
@@ -53,6 +56,23 @@ test("findBrowserCaptureSource falls back to any browser window", () => {
 test("findNativeCaptureSource matches exe basename in window title", () => {
   const picked = findNativeCaptureSource(sources, "roguefable3");
   assert.equal(picked?.id, "window:4");
+});
+
+test("parseHwndFromSourceId reads Electron window id on Windows", () => {
+  assert.equal(parseHwndFromSourceId("window:1234:0"), 1234);
+  assert.equal(parseHwndFromSourceId("window:99"), 99);
+  assert.equal(parseHwndFromSourceId("screen:0"), null);
+});
+
+test("findCaptureSourceByHwnds prefers first matching HWND", () => {
+  const hwndSources = [
+    { id: "screen:0", name: "Primary Screen" },
+    { id: "window:9999:0", name: "Wrong Game" },
+    { id: "window:4242:0", name: "Spawned Game" },
+  ];
+  const picked = findCaptureSourceByHwnds(hwndSources, [4242, 9999]);
+  assert.equal(picked?.name, "Spawned Game");
+  assert.equal(findCaptureSourceByHwnd(hwndSources, 4242)?.id, "window:4242:0");
 });
 
 test("findCaptureSourceByTitle matches exact and case-insensitive titles", () => {

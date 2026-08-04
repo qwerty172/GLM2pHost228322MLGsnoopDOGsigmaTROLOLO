@@ -70,6 +70,8 @@ const api = {
   },
   getCaptureSources: (): Promise<{ id: string; name: string }[]> =>
     ipcRenderer.invoke("capture:get-sources"),
+  getSpawnWindowHwnds: (pid: number): Promise<number[]> =>
+    ipcRenderer.invoke("capture:get-spawn-hwnds", pid),
   /** Tell main which window title WebRTC is capturing (for RTMP sync). */
   setCaptureSource: (title: string): void => {
     ipcRenderer.send("capture:set-source", title);

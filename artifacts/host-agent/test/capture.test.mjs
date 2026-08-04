@@ -68,3 +68,24 @@ test("captureScreen uses configured captureSourceName when set", async () => {
   });
   assert.equal(session.currentCaptureSourceName, "My Custom Window");
 });
+
+test("captureScreen prefers HWND match for spawned game pid", async () => {
+  window.agent.getInputGuardStatus = async () => ({
+    active: true,
+    allowedPid: 4242,
+    guardDisabled: false,
+    foregroundAllowed: true,
+    inputBlocked: false,
+  });
+  window.agent.getSpawnWindowHwnds = async () => [1234];
+  window.agent.getCaptureSources = async () => [
+    { id: "screen:0", name: "Primary Screen" },
+    { id: "window:1234:0", name: "Spawned Game Window" },
+    { id: "window:2", name: "RogueFable3" },
+  ];
+  await captureScreen({
+    ...defaultHostConfig,
+    appPath: "C:\\Games\\rf3\\RogueFable3.exe",
+  });
+  assert.equal(session.currentCaptureSourceName, "Spawned Game Window");
+});

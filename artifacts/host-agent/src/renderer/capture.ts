@@ -1,6 +1,7 @@
 import type { HostConfig } from "../shared/messages";
 import {
   findBrowserCaptureSource,
+  findCaptureSourceByHwnds,
   findCaptureSourceByTitle,
   findNativeCaptureSource,
   resolveTargetExeName,
@@ -121,6 +122,19 @@ export async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
   const targetName = browserGame
     ? undefined
     : resolveTargetExeName(session.currentGameId, session.libraryEntries, cfg.appPath);
+
+  if (!chosen && !browserGame) {
+    try {
+      const guard = await window.agent.getInputGuardStatus();
+      if (guard.allowedPid) {
+        const hwnds = await window.agent.getSpawnWindowHwnds(guard.allowedPid);
+        chosen = findCaptureSourceByHwnds(sources, hwnds);
+      }
+    } catch {
+      // HWND match is best-effort; title heuristics remain the fallback.
+    }
+  }
+
   if (!chosen && targetName) {
     // The game window may take a while to appear after launch — retry the
     // auto-match for ~10 seconds before bothering the host with the picker.

@@ -25,6 +25,7 @@ import {
 } from "./rtmp-relay";
 import { createPingServer, PING_PORT, PING_PORT_FALLBACKS, LOCAL_INPUT_SECRET } from "./ping-server";
 import { launchApp, launchEntry, killApp, setExitCallback } from "./app-launcher";
+import { getSpawnMatchHwnds } from "./spawn-hwnd";
 import {
   clearAllowedTarget,
   getFocusGuardStatus,
@@ -345,6 +346,11 @@ async function startAgent(): Promise<void> {
       return sources.map((s) => ({ id: s.id, name: s.name }));
     },
   );
+
+  ipcMain.handle("capture:get-spawn-hwnds", (_e, pid: unknown) => {
+    if (typeof pid !== "number" || !Number.isFinite(pid) || pid <= 0) return [];
+    return getSpawnMatchHwnds(pid);
+  });
 
   // Legacy launch: uses HostConfig.appPath / boundUrl / appArgs from config file.
   ipcMain.handle("app:launch", async () => {

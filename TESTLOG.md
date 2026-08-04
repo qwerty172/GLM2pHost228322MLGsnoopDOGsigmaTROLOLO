@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-47 (2026-08-04 06:52 UTC) {#marathon-m-47}
+
+| Проверка | Результат |
+|---|---|
+| H-08 | `spawn-hwnd.ts` — PID→HWND lookup; `capture.ts` HWND match after spawn |
+| unit tests | `window-match.test.mjs` +2, `capture.test.mjs` +1 — 73 tests PASS |
+| typecheck | PASS (@workspace/host-agent) |
+| HOSTING | H-08 → fixed |
+
+**Следующий pick:** M-34 `web: raw fetch → codegen (3 calls)`.
+
 ## Marathon M-46 (2026-08-04 06:44 UTC) {#marathon-m-46}
 
 | Проверка | Результат |

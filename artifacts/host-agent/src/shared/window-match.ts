@@ -1,9 +1,9 @@
 /**
- * Window capture matching — title-based heuristics only.
+ * Window capture matching — title heuristics (H-01) plus optional HWND match after spawn (H-08).
  *
  * Uses desktopCapturer source `name` (window title as shown in Alt+Tab).
- * Does NOT use HWND or PID for capture source selection (HOSTING H-01).
- * PID matching is reserved for focus-guard input injection, not capture.
+ * When a native game was just launched, HWNDs from the spawn PID tree can be
+ * matched against Electron source ids (`window:HWND:0` on Windows).
  */
 
 export const BROWSER_TITLE_HINTS = [
@@ -88,6 +88,34 @@ export function findNativeCaptureSource(
   const target = exeName.trim().toLowerCase();
   if (!target) return undefined;
   return windowSources(sources).find((s) => s.name.toLowerCase().includes(target));
+}
+
+/** Parse HWND from Electron desktopCapturer window source id (Windows: `window:HWND:0`). */
+export function parseHwndFromSourceId(sourceId: string): number | null {
+  const m = /^window:(\d+)(?::\d+)?$/i.exec(sourceId.trim());
+  if (!m) return null;
+  const hwnd = Number(m[1]);
+  return Number.isFinite(hwnd) && hwnd > 0 ? hwnd : null;
+}
+
+export function findCaptureSourceByHwnd(
+  sources: CaptureSource[],
+  hwnd: number,
+): CaptureSource | undefined {
+  if (!Number.isFinite(hwnd) || hwnd <= 0) return undefined;
+  return sources.find((s) => parseHwndFromSourceId(s.id) === hwnd);
+}
+
+/** Try HWNDs in priority order (e.g. foreground first after spawn). */
+export function findCaptureSourceByHwnds(
+  sources: CaptureSource[],
+  hwnds: number[],
+): CaptureSource | undefined {
+  for (const hwnd of hwnds) {
+    const found = findCaptureSourceByHwnd(sources, hwnd);
+    if (found) return found;
+  }
+  return undefined;
 }
 
 /** Match configured captureSourceName against enumerated titles (exact, then case-insensitive). */
