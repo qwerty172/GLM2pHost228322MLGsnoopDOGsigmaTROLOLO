@@ -62,6 +62,7 @@ export function setupRendererEnv() {
       { id: "window:1", name: "Google Chrome — example.com" },
       { id: "window:2", name: "game" },
     ],
+    matchSpawnedCaptureSource: async () => null,
     setCaptureSource: () => {},
     openFileDialog: async () => null,
     openExplorer: () => {},

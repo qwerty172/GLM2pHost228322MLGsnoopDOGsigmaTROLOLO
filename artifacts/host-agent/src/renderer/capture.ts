@@ -121,6 +121,24 @@ export async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
   const targetName = browserGame
     ? undefined
     : resolveTargetExeName(session.currentGameId, session.libraryEntries, cfg.appPath);
+  if (!chosen && !browserGame) {
+    // HWND/PID match after native spawn (HOSTING H-08) — before title heuristics.
+    const RETRY_MS = 2_000;
+    const MAX_ATTEMPTS = 5;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS && !chosen; attempt++) {
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, RETRY_MS));
+      }
+      chosen = (await window.agent.matchSpawnedCaptureSource()) ?? undefined;
+      if (!chosen && attempt < MAX_ATTEMPTS - 1) {
+        setPipelineStep(
+          "window",
+          "active",
+          `ищем окно по PID… (${attempt + 1}/${MAX_ATTEMPTS})`,
+        );
+      }
+    }
+  }
   if (!chosen && targetName) {
     // The game window may take a while to appear after launch — retry the
     // auto-match for ~10 seconds before bothering the host with the picker.

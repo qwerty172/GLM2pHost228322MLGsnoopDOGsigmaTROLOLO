@@ -9,6 +9,8 @@ import { loadConfig } from "./config";
 import { log } from "./logger";
 
 let current: ChildProcess | null = null;
+/** Root PID of the last native game launch (for HWND capture match, H-08). */
+let launchedGamePid: number | null = null;
 // Tracks whether the current "launch" was a browser URL (no child process,
 // just a shell.openExternal). killApp() can't actually close the browser
 // tab, but we use this flag to skip the kill attempt cleanly.
@@ -141,6 +143,10 @@ export function isRunning(): boolean {
   return current !== null && current.exitCode === null;
 }
 
+export function getLaunchedGamePid(): number | null {
+  return launchedGamePid;
+}
+
 // Library-based launch: takes a GameEntryLaunch (from hostGamesTable).
 // Browser games open in the default browser; native games spawn the exe.
 export async function launchEntry(
@@ -155,6 +161,7 @@ export async function launchEntry(
       }
       void shell.openExternal(parsed.toString());
       lastWasUrl = true;
+      launchedGamePid = null;
       setAllowedTarget(null, { guardDisabled: true });
       startBrowserWatch(parsed.toString());
       log("info", `[library] Opened browser URL ${parsed.toString()}`);
@@ -178,16 +185,19 @@ export async function launchEntry(
     child.on("exit", (code, signal) => {
       log("info", `[library] Game exited code=${code} signal=${signal}`);
       current = null;
+      launchedGamePid = null;
       fireExit();
     });
     child.on("error", (err) => {
       log("error", `[library] Game error: ${String(err)}`);
       current = null;
+      launchedGamePid = null;
       fireExit();
     });
     current = child;
     lastWasUrl = false;
     const pid = gamePid ?? child.pid;
+    launchedGamePid = pid ?? null;
     if (pid) setAllowedTarget(pid);
     log("info", `[library] Launched ${entry.appPath} pid=${pid}`);
     return { ok: true, pid };
@@ -210,6 +220,7 @@ export async function launchApp(
       }
       void shell.openExternal(parsed.toString());
       lastWasUrl = true;
+      launchedGamePid = null;
       setAllowedTarget(null, { guardDisabled: true });
       startBrowserWatch(parsed.toString());
       log("info", `Opened browser URL ${parsed.toString()}`);
@@ -233,16 +244,19 @@ export async function launchApp(
     child.on("exit", (code, signal) => {
       log("info", `Target app exited code=${code} signal=${signal}`);
       current = null;
+      launchedGamePid = null;
       fireExit();
     });
     child.on("error", (err) => {
       log("error", `Target app error: ${String(err)}`);
       current = null;
+      launchedGamePid = null;
       fireExit();
     });
     current = child;
     lastWasUrl = false;
     const pid = gamePid ?? child.pid;
+    launchedGamePid = pid ?? null;
     if (pid) setAllowedTarget(pid);
     log("info", `Launched ${config.appPath} pid=${pid}`);
     return { ok: true, pid };
@@ -281,6 +295,7 @@ export function parseArgs(input: string): string[] {
 export function killApp(): void {
   clearAllowedTarget();
   clearExitCallback();
+  launchedGamePid = null;
   stopBrowserWatch();
   // We can't close a browser tab we opened via shell.openExternal; the user
   // (or their OS) handles it. Just log and bail.
