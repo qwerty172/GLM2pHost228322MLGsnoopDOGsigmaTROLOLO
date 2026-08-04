@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-43 (2026-08-04 13:34 UTC) {#marathon-m-43}
+
+| Проверка | Результат |
+|---|---|
+| quota-ai-chat.tsx | 1 raw fetch → codegen (`useQuotaAiChat`) |
+| typecheck | PASS (monorepo) |
+| marathon-scan | quota-ai-chat.tsx больше не в raw hits F |
+
+**Следующий pick:** M-48 `api-server lib: unit-тесты (45 модулей)`.
+
 ## Marathon M-42 (2026-08-04 13:28 UTC) {#marathon-m-42}
 
 | Проверка | Результат |

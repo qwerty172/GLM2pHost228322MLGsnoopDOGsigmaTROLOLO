@@ -1,13 +1,12 @@
 import { useState, useRef, useEffect } from "react";
+import {
+  useQuotaAiChat,
+  type QuotaFormState as ApiQuotaFormState,
+} from "@workspace/api-client-react";
 import { formatApiError } from "@/lib/api-errors";
 import { Send, Bot, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-
-function apiUrl(path: string) {
-  const base = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
-  return `${base}/api/${path}`;
-}
 
 export type QuotaFormState = {
   kind: string;
@@ -110,10 +109,11 @@ const inputStyle = {
 };
 
 export function QuotaAiChat({ ownerToken, currentFormState, availableGames, onFormPatch }: Props) {
+  const quotaAiChat = useQuotaAiChat();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const loading = quotaAiChat.isPending;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -127,39 +127,28 @@ export function QuotaAiChat({ ownerToken, currentFormState, availableGames, onFo
     const nextMessages = [...messages, userMsg];
     setMessages(nextMessages);
     setInput("");
-    setLoading(true);
 
     try {
-      const res = await fetch(apiUrl("quotas/ai-chat"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const data = await quotaAiChat.mutateAsync({
+        data: {
           ownerToken,
           messages: nextMessages,
-          currentFormState,
+          currentFormState: currentFormState as ApiQuotaFormState,
           availableGames,
-        }),
+        },
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Ошибка сервера" }));
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: `Ошибка: ${formatApiError(err, "неизвестная ошибка")}` },
-        ]);
-        return;
-      }
-      const data: { reply: string; formPatch?: QuotaFormPatch } = await res.json();
       setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
       if (data.formPatch && Object.keys(data.formPatch).length > 0) {
-        onFormPatch(data.formPatch);
+        onFormPatch(data.formPatch as QuotaFormPatch);
       }
-    } catch {
+    } catch (err) {
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Не удалось связаться с ИИ. Попробуй ещё раз." },
+        {
+          role: "assistant",
+          content: `Ошибка: ${formatApiError(err, "Не удалось связаться с ИИ. Попробуй ещё раз.")}`,
+        },
       ]);
-    } finally {
-      setLoading(false);
     }
   };
 
