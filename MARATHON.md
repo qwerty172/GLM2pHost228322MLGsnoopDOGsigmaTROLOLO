@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-04 (M-55 done; crypto-key unit-тесты)
+> **Последнее обновление:** 2026-08-04 (M-56 done; gamepad-injection unit-тесты)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-04 18:19 UTC |
-| Task ID | M-55 |
-| Результат | crypto-key.ts unit-тесты: generate/persist, load existing, cache, signChallenge |
-| Commit | 9afbe2e |
+| Дата | 2026-08-04 18:31 UTC |
+| Task ID | M-56 |
+| Результат | gamepad-injection.ts unit-тесты: noop non-Windows, focus guard, mocked ViGEm XUSB mapping |
+| Commit | d902642 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** 13 pending (M-56…M-68) — host-agent main/shared unit-тесты (кат. J/K).
+**Wave Maintenance:** 12 pending (M-57…M-68) — host-agent main/shared unit-тесты (кат. J/K).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -275,7 +275,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-53 | I | eslint/ts suppressions (2) | `artifacts/api-server/src/lib/sentry.ts` | i:artifacts/api-server/src/lib/sentry.ts | done | agent |
 | M-54 | J | host-agent main: unit-тест (app-launcher.ts) | `artifacts/host-agent/src/main/app-launcher.ts` | j:artifacts/host-agent/src/main/app-launcher.ts | done | agent |
 | M-55 | J | host-agent main: unit-тест (crypto-key.ts) | `artifacts/host-agent/src/main/crypto-key.ts` | j:artifacts/host-agent/src/main/crypto-key.ts | done | agent |
-| M-56 | J | host-agent main: unit-тест (gamepad-injection.ts) | `artifacts/host-agent/src/main/gamepad-injection.ts` | j:artifacts/host-agent/src/main/gamepad-injection.ts | pending | agent |
+| M-56 | J | host-agent main: unit-тест (gamepad-injection.ts) | `artifacts/host-agent/src/main/gamepad-injection.ts` | j:artifacts/host-agent/src/main/gamepad-injection.ts | done | agent |
 | M-57 | J | host-agent main: unit-тест (input-injection.ts) | `artifacts/host-agent/src/main/input-injection.ts` | j:artifacts/host-agent/src/main/input-injection.ts | pending | agent |
 | M-58 | J | host-agent main: unit-тест (limited-user-launch.ts) | `artifacts/host-agent/src/main/limited-user-launch.ts` | j:artifacts/host-agent/src/main/limited-user-launch.ts | pending | agent |
 | M-59 | J | host-agent main: unit-тест (logger.ts) | `artifacts/host-agent/src/main/logger.ts` | j:artifacts/host-agent/src/main/logger.ts | pending | agent |
