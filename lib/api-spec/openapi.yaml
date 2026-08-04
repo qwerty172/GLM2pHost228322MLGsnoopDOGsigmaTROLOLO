@@ -7457,6 +7457,9 @@ components:
         hostId:
           type: ["string", "null"]
           format: uuid
+        hostToken:
+          type: ["string", "null"]
+          description: Host agent token for the provisioned VDS host (owner only; null until provisioned)
         createdAt:
           type: string
           format: date-time
@@ -7474,6 +7477,7 @@ components:
         - provisionLog
         - lastHealthAt
         - hostId
+        - hostToken
         - createdAt
         - updatedAt
 

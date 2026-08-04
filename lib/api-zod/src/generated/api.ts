@@ -3525,6 +3525,12 @@ export const SaveQuotaVdsResponse = zod.object({
   provisionLog: zod.string(),
   lastHealthAt: zod.coerce.date().nullable(),
   hostId: zod.string().uuid().nullable(),
+  hostToken: zod
+    .string()
+    .nullable()
+    .describe(
+      "Host agent token for the provisioned VDS host (owner only; null until provisioned)",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -3553,6 +3559,12 @@ export const GetQuotaVdsResponse = zod.object({
   provisionLog: zod.string(),
   lastHealthAt: zod.coerce.date().nullable(),
   hostId: zod.string().uuid().nullable(),
+  hostToken: zod
+    .string()
+    .nullable()
+    .describe(
+      "Host agent token for the provisioned VDS host (owner only; null until provisioned)",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -3593,6 +3605,12 @@ export const ListMyVdsResponseItem = zod
     provisionLog: zod.string(),
     lastHealthAt: zod.coerce.date().nullable(),
     hostId: zod.string().uuid().nullable(),
+    hostToken: zod
+      .string()
+      .nullable()
+      .describe(
+        "Host agent token for the provisioned VDS host (owner only; null until provisioned)",
+      ),
     createdAt: zod.coerce.date(),
     updatedAt: zod.coerce.date(),
   })

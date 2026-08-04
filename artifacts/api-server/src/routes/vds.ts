@@ -261,7 +261,8 @@ router.get("/quotas/:quotaId/vds", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(shapeVds(vds));
+  const hostToken = vds.hostId ? await lookupHostToken(vds.hostId) : null;
+  res.json(shapeVds(vds, hostToken));
 });
 
 // DELETE /api/quotas/:quotaId/vds
@@ -332,21 +333,24 @@ router.get("/vds/mine", async (req, res): Promise<void> => {
   const results = await Promise.all(
     filtered.map(async (vds) => {
       let earnedLzt = 0;
+      let hostToken: string | null = null;
       if (vds.hostId) {
         const [host] = await db
           .select({
+            hostToken: hostsTable.hostToken,
             withdrawableBalanceLzt: hostsTable.withdrawableBalanceLzt,
             internalBalanceLzt: hostsTable.internalBalanceLzt,
           })
           .from(hostsTable)
           .where(eq(hostsTable.id, vds.hostId));
         if (host) {
+          hostToken = host.hostToken;
           earnedLzt =
             host.withdrawableBalanceLzt + host.internalBalanceLzt;
         }
       }
       return {
-        ...shapeVds(vds),
+        ...shapeVds(vds, hostToken),
         quotaTitle: quotaTitle.get(vds.quotaId) ?? null,
         earnedLzt,
       };
@@ -356,7 +360,18 @@ router.get("/vds/mine", async (req, res): Promise<void> => {
   res.json(results);
 });
 
-function shapeVds(vds: typeof quotaVdsTable.$inferSelect) {
+async function lookupHostToken(hostId: string): Promise<string | null> {
+  const [host] = await db
+    .select({ hostToken: hostsTable.hostToken })
+    .from(hostsTable)
+    .where(eq(hostsTable.id, hostId));
+  return host?.hostToken ?? null;
+}
+
+function shapeVds(
+  vds: typeof quotaVdsTable.$inferSelect,
+  hostToken: string | null = null,
+) {
   return {
     id: vds.id,
     quotaId: vds.quotaId,
@@ -368,6 +383,7 @@ function shapeVds(vds: typeof quotaVdsTable.$inferSelect) {
     provisionLog: vds.provisionLog,
     lastHealthAt: vds.lastHealthAt ? vds.lastHealthAt.toISOString() : null,
     hostId: vds.hostId,
+    hostToken,
     createdAt: vds.createdAt.toISOString(),
     updatedAt: vds.updatedAt.toISOString(),
   };

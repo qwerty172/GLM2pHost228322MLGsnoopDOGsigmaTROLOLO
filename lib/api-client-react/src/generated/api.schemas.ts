@@ -2022,6 +2022,11 @@ export interface QuotaVds {
   lastHealthAt: string | null;
   /** @nullable */
   hostId: string | null;
+  /**
+   * Host agent token for the provisioned VDS host (owner only; null until provisioned)
+   * @nullable
+   */
+  hostToken: string | null;
   createdAt: string;
   updatedAt: string;
 }
