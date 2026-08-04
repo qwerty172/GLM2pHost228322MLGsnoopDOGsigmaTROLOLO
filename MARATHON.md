@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 08:18 UTC |
 | Task ID | M-35 |
 | Результат | profile.tsx — 2 raw fetch → codegen hooks + PATCH credit-settings API |
-| Commit | pending |
+| Commit | a607b4e |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
