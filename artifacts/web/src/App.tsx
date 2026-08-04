@@ -26,6 +26,7 @@ import { SiteNav } from "@/components/site-nav";
 import { HostAuthGuard } from "@/components/host-auth-guard";
 import ProfilePage from "@/pages/profile";
 import Embed from "@/pages/embed";
+import { QuickPaletteProvider } from "@/components/quick-command-palette";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -115,12 +116,14 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <TooltipProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Router />
-          </WouterRouter>
-          <Toaster theme="dark" />
-        </TooltipProvider>
+        <QuickPaletteProvider>
+          <TooltipProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <Router />
+            </WouterRouter>
+            <Toaster theme="dark" />
+          </TooltipProvider>
+        </QuickPaletteProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
