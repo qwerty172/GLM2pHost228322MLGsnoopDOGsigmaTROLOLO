@@ -1,21 +1,9 @@
 import { useState } from "react";
 import { Shield, ShieldAlert, ShieldCheck, ShieldX, Loader2, ExternalLink } from "lucide-react";
+import { useScanVt, type VtResult } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-interface VtResult {
-  status: "clean" | "suspicious" | "malicious" | "unknown" | "error";
-  harmless: number;
-  suspicious: number;
-  malicious: number;
-  undetected: number;
-  total: number;
-  permalink: string;
-  sha256?: string;
-  name?: string;
-  errorMessage?: string;
-}
 
 interface VtScannerProps {
   ownerToken: string;
@@ -62,22 +50,19 @@ const STATUS_CONFIG = {
 
 export function VtScanner({ ownerToken, label = "Проверить файл игры" }: VtScannerProps) {
   const [input, setInput] = useState("");
-  const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<VtResult | null>(null);
+  const scanVt = useScanVt();
 
   const isValid = /^[a-fA-F0-9]{64}$/.test(input.trim()) || /^https?:\/\/./.test(input.trim());
+  const scanning = scanVt.isPending;
 
   const scan = async () => {
     if (!isValid || !ownerToken || scanning) return;
-    setScanning(true);
     setResult(null);
     try {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/vt/scan`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ownerToken, input: input.trim() }),
+      const data = await scanVt.mutateAsync({
+        data: { ownerToken, input: input.trim() },
       });
-      const data = (await res.json()) as VtResult;
       setResult(data);
     } catch {
       setResult({
@@ -90,8 +75,6 @@ export function VtScanner({ ownerToken, label = "Проверить файл и�
         permalink: "",
         errorMessage: "Ошибка сети",
       });
-    } finally {
-      setScanning(false);
     }
   };
 
