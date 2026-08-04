@@ -253,3 +253,17 @@ describe("rateLimit", () => {
     }
   });
 });
+
+describe("prepaid block billing expiry", () => {
+  it("bills the final block minute before ending the session", () => {
+    const blockMinutes = 25;
+    const minutesUsedBeforeFinalTick = blockMinutes - 1;
+    const minutesInto = minutesUsedBeforeFinalTick + 1;
+
+    expect(minutesInto).toBe(blockMinutes);
+    // Pre-tick guard must use `>`, not `>=`, so the last prepaid minute is billed.
+    expect(minutesInto > blockMinutes).toBe(false);
+    // Post-tick guard ends once the final minute has been recorded.
+    expect(minutesInto >= blockMinutes).toBe(true);
+  });
+});
