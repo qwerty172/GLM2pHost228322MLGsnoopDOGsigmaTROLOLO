@@ -10,7 +10,7 @@ if not exist .env (
 echo ==^> Запуск API (порт 8080) и Web (порт 5000) в отдельных окнах...
 start "DecentralHub API" cmd /k "cd /d %CD% && pnpm --filter @workspace/api-server run dev"
 timeout /t 3 /nobreak >nul
-start "DecentralHub Web" cmd /k "cd /d %CD% && pnpm --filter @workspace/web run dev"
+start "DecentralHub Web" cmd /k "cd /d %CD% && set WEB_PORT=5000 && pnpm --filter @workspace/web run dev"
 
 echo.
 echo API:  http://localhost:8080/api/healthz

@@ -40,52 +40,50 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
+**Самый быстрый путь** — Docker + одна команда (Linux/macOS/Git Bash):
+
+```bash
+git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
+cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
+pnpm quickstart
+```
+
+Скрипт поднимает Postgres и Redis в Docker (если доступен), создаёт `.env` с секретами, применяет схему БД и запускает API + Web.
+
+**Пошагово** (если хочешь контролировать каждый шаг):
+
+```bash
+pnpm infra:up    # postgres + redis (docker compose)
+pnpm setup       # .env, install, db push
+pnpm dev         # API :8080 + Web :5000
+```
+
+| Сервис | URL |
+|---|---|
+| Web | http://localhost:5000 |
+| API | http://localhost:8080/api/healthz |
+
 Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
 
-**Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
+**Пошаговая инструкция (Windows):** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
 
-**Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN (обход страниц в браузере).
+**Уже работает?** Если healthz → `{"status":"ok"}` и :5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN.
 
 ### Требования
 
-- Node.js 20+
-- pnpm 9+
-- PostgreSQL 16
+- Node.js 20+ (CI: 22)
+- pnpm 9+ (CI: 10)
+- PostgreSQL 16 **или** Docker для `pnpm infra:up`
 - Git Bash / WSL (для Windows) или Linux/macOS
 
-### Клонирование
-
-```bash
-git clone https://github.com/qwerty172/glm2phost228322mlgsnoopdogsigmatrololo.git decentral-hub
-cd decentral-hub
-```
-
-### Первичная настройка
-
-**Windows (cmd или двойной клик):**
+### Windows (cmd)
 
 ```bat
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-copy .env.example .env
-notepad .env
+pnpm infra:up
 scripts\setup-local.bat
 scripts\dev-local.bat
-```
-
-**Git Bash / Linux / macOS:**
-
-```bash
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-cp .env.example .env
-# отредактируй DATABASE_URL
-
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
 ```
 
 Подробнее — [LOCAL_SETUP.md](./LOCAL_SETUP.md).
@@ -96,6 +94,7 @@ chmod +x scripts/*.sh
 |---|---|
 | `DATABASE_URL` | PostgreSQL, база `decentral_hub` |
 | `PORT` | API-сервер (8080) |
+| `WEB_PORT` | Vite dev-сервер (5000) |
 | `WALLET_ENCRYPTION_KEY` | 32-байт hex, обязателен для кошелька |
 | `ADMIN_SECRET` | Секрет admin-роутов (`X-Admin-Secret`) |
 | `API_PROXY_TARGET` | Куда Vite проксирует `/api` (http://localhost:8080) |

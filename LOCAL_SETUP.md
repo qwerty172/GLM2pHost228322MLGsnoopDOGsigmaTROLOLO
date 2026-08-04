@@ -38,38 +38,24 @@
 
 - [Node.js 20+](https://nodejs.org/)
 - [pnpm](https://pnpm.io/installation): `npm install -g pnpm`
-- [PostgreSQL 16](https://www.postgresql.org/download/windows/)
-
-База данных:
-
-```sql
-CREATE DATABASE decentral_hub;
-```
+- [PostgreSQL 16](https://www.postgresql.org/download/windows/) **или** Docker (`pnpm infra:up`)
 
 ---
 
 ## Быстрый старт (Windows)
 
+**С Docker** (рекомендуется — не нужен отдельный Postgres):
+
 ```bat
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-
-copy .env.example .env
-notepad .env
-```
-
-В `.env` измените `DATABASE_URL`:
-
-```
-DATABASE_URL=postgresql://postgres:ВАШ_ПАРОЛЬ@localhost:5432/decentral_hub
-```
-
-```bat
+pnpm infra:up
 scripts\setup-local.bat
 scripts\dev-local.bat
 scripts\smoke-api.bat
 ```
+
+**Свой PostgreSQL** — после `copy .env.example .env` поменяй `DATABASE_URL` в `.env`.
 
 | Сервис | URL |
 |---|---|
@@ -80,17 +66,20 @@ scripts\smoke-api.bat
 
 ## Быстрый старт (Git Bash / Linux / macOS)
 
+**Одна команда** (Docker + setup + dev):
+
 ```bash
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
+pnpm quickstart
+```
 
-cp .env.example .env
-# отредактируй DATABASE_URL
+**Пошагово:**
 
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
+```bash
+pnpm infra:up
+pnpm setup
+pnpm dev
 ./scripts/smoke-api.sh
 ```
 
