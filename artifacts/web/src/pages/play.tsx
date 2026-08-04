@@ -210,8 +210,7 @@ export default function Play() {
     if (!playerWalletToken) {
       void registerGuest();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [playerWalletToken, registerGuest]);
   const { data: wallet } = useGetWallet(playerWalletToken || "", {
     query: {
       enabled: !!playerWalletToken,
@@ -896,8 +895,16 @@ export default function Play() {
         },
       },
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.id, playerWalletToken, hasClaimed]);
+  }, [
+    session,
+    playerWalletToken,
+    hasClaimed,
+    claimSession,
+    isTestBrowserSession,
+    playerToken,
+    paymentSource,
+    blockMinutesParam,
+  ]);
 
   useEffect(() => {
     if (
@@ -913,8 +920,7 @@ export default function Play() {
     return () => {
       cleanupConnection();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.id, hasClaimed, isTestBrowserSession, playerWalletToken]);
+  }, [session, hasClaimed, isTestBrowserSession, playerWalletToken, startConnection, cleanupConnection]);
 
   const handleEnableAudio = () => {
     if (videoRef.current) {

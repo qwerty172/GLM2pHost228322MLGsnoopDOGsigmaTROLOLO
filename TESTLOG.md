@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-49 (2026-08-04 14:22 UTC) {#marathon-m-49}
+
+| Проверка | Результат |
+|---|---|
+| fix | Убраны 3× `eslint-disable-next-line react-hooks/exhaustive-deps` в `play.tsx` — корректные deps arrays |
+| typecheck | PASS (`@workspace/web`) |
+| marathon-scan | `play.tsx` больше не в категории I |
+
+**Следующий pick:** M-50 `eslint/ts suppressions (1)` — game-detail.tsx.
+
 ## Marathon M-48 (2026-08-04 14:20 UTC) {#marathon-m-48}
 
 | Проверка | Результат |
