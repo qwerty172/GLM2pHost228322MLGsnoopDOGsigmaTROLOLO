@@ -33,7 +33,7 @@ let injectorStatus: InjectorStatus = {
 };
 
 export function getInjectorStatus(): InjectorStatus {
-  return injectorStatus;
+  return { ...injectorStatus };
 }
 
 export function initInputInjector(): void {
