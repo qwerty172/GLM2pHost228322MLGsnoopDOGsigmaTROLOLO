@@ -148,6 +148,47 @@ export async function decrementEscrow(
   return updated.length > 0;
 }
 
+export type QuotaEscrowBillingKind = "quota_escrow_lock" | "quota_escrow_refund";
+
+// Pure builder for sponsor-quota escrow ledger rows. session_id and the
+// non-owner party FK are null — quota.id must never be stuffed into session_id.
+export function buildQuotaEscrowBillingEvent(args: {
+  ownerType: "host" | "player";
+  ownerId: string;
+  quotaId: string;
+  kind: QuotaEscrowBillingKind;
+  amountLzt: number;
+}) {
+  const { ownerType, ownerId, quotaId, kind, amountLzt } = args;
+  const isLock = kind === "quota_escrow_lock";
+  return {
+    sessionId: null,
+    hostId: ownerType === "host" ? ownerId : null,
+    playerId: ownerType === "player" ? ownerId : null,
+    minutes: 0,
+    bucket: "green" as const,
+    playerDebitLzt: isLock && ownerType === "player" ? amountLzt : 0,
+    hostCreditLzt: isLock ? -amountLzt : amountLzt,
+    kind,
+    quotaId,
+  };
+}
+
+export async function recordQuotaEscrowEvent(
+  tx: NodePgDatabase<Record<string, unknown>>,
+  args: {
+    ownerType: "host" | "player";
+    ownerId: string;
+    quotaId: string;
+    kind: QuotaEscrowBillingKind;
+    amountLzt: number;
+  },
+): Promise<void> {
+  await tx
+    .insert(billingEventsTable)
+    .values(buildQuotaEscrowBillingEvent(args));
+}
+
 // Apply a billing-events row for a quota movement (separate row per delta —
 // keeps the wallet ledger queryable by `kind` and `quotaId`).
 export async function recordQuotaMovement(

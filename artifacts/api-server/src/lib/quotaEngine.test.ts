@@ -3,7 +3,8 @@ import type { Quota } from "@workspace/db";
 
 process.env.DATABASE_URL ??= "postgresql://test:test@127.0.0.1:5432/test";
 
-const { computeQuotaEffect, isQuotaActiveNow } = await import("./quotaEngine");
+const { computeQuotaEffect, isQuotaActiveNow, buildQuotaEscrowBillingEvent } =
+  await import("./quotaEngine");
 
 function baseQuota(overrides: Partial<Quota> = {}): Quota {
   return {
@@ -52,5 +53,47 @@ describe("quotaEngine", () => {
   it("returns inactive sponsor quota when escrow is empty", () => {
     const q = baseQuota({ kind: "sponsor", escrowRemainingLzt: 0 });
     expect(isQuotaActiveNow(q)).toBe(false);
+  });
+
+  it("builds escrow billing rows without invalid session/host FKs", () => {
+    expect(
+      buildQuotaEscrowBillingEvent({
+        ownerType: "player",
+        ownerId: "player-1",
+        quotaId: "quota-1",
+        kind: "quota_escrow_lock",
+        amountLzt: 500,
+      }),
+    ).toEqual({
+      sessionId: null,
+      hostId: null,
+      playerId: "player-1",
+      minutes: 0,
+      bucket: "green",
+      playerDebitLzt: 500,
+      hostCreditLzt: -500,
+      kind: "quota_escrow_lock",
+      quotaId: "quota-1",
+    });
+
+    expect(
+      buildQuotaEscrowBillingEvent({
+        ownerType: "host",
+        ownerId: "host-1",
+        quotaId: "quota-2",
+        kind: "quota_escrow_refund",
+        amountLzt: 200,
+      }),
+    ).toEqual({
+      sessionId: null,
+      hostId: "host-1",
+      playerId: null,
+      minutes: 0,
+      bucket: "green",
+      playerDebitLzt: 0,
+      hostCreditLzt: 200,
+      kind: "quota_escrow_refund",
+      quotaId: "quota-2",
+    });
   });
 });

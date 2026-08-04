@@ -5,10 +5,9 @@ import {
   quotasTable,
   quotaSessionsTable,
   sessionsTable,
-  billingEventsTable,
 } from "@workspace/db";
 import { logger } from "./logger";
-import { creditOwnerGreen } from "./quotaEngine";
+import { creditOwnerGreen, recordQuotaEscrowEvent } from "./quotaEngine";
 
 const INTERVAL_MS = 60_000;
 let interval: NodeJS.Timeout | null = null;
@@ -65,22 +64,12 @@ async function tickOnceInner(): Promise<void> {
           fresh.kind === "sponsor" ? fresh.escrowRemainingLzt ?? 0 : 0;
         if (refund > 0) {
           await creditOwnerGreen(tx, fresh.ownerType, fresh.ownerId, refund);
-          await tx.insert(billingEventsTable).values({
-            sessionId: fresh.id,
-            hostId:
-              fresh.ownerType === "host"
-                ? fresh.ownerId
-                : "00000000-0000-0000-0000-000000000000",
-            playerId:
-              fresh.ownerType === "player"
-                ? fresh.ownerId
-                : "00000000-0000-0000-0000-000000000000",
-            minutes: 0,
-            bucket: "green",
-            playerDebitLzt: 0,
-            hostCreditLzt: refund,
-            kind: "quota_escrow_refund",
+          await recordQuotaEscrowEvent(tx, {
+            ownerType: fresh.ownerType as "host" | "player",
+            ownerId: fresh.ownerId,
             quotaId: fresh.id,
+            kind: "quota_escrow_refund",
+            amountLzt: refund,
           });
         }
         await tx

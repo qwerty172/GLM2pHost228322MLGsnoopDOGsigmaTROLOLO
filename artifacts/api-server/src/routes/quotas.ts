@@ -25,6 +25,7 @@ import {
   generateAccessCode,
   creditOwnerGreen,
   isQuotaActiveNow,
+  recordQuotaEscrowEvent,
 } from "../lib/quotaEngine";
 import { computeHostTier, specsFromPcSpecs } from "../lib/hostTier";
 
@@ -983,16 +984,12 @@ router.post("/quotas/:id/publish", async (req, res): Promise<void> => {
           };
         }
         escrowRemainingLzt = lock;
-        await tx.insert(billingEventsTable).values({
-          sessionId: quota.id, // re-use id; no session ref for escrow ops
-          hostId: owner.type === "host" ? owner.id : "00000000-0000-0000-0000-000000000000",
-          playerId: owner.type === "player" ? owner.id : "00000000-0000-0000-0000-000000000000",
-          minutes: 0,
-          bucket: "green",
-          playerDebitLzt: owner.type === "player" ? lock : 0,
-          hostCreditLzt: owner.type === "host" ? -lock : -lock,
-          kind: "quota_escrow_lock",
+        await recordQuotaEscrowEvent(tx, {
+          ownerType: owner.type as "host" | "player",
+          ownerId: owner.id,
           quotaId: quota.id,
+          kind: "quota_escrow_lock",
+          amountLzt: lock,
         });
       }
 
@@ -1073,22 +1070,12 @@ router.post("/quotas/:id/pause", async (req, res): Promise<void> => {
         quota.kind === "sponsor" ? quota.escrowRemainingLzt ?? 0 : 0;
       if (refund > 0) {
         await creditOwnerGreen(tx, owner.type, owner.id, refund);
-        await tx.insert(billingEventsTable).values({
-          sessionId: quota.id,
-          hostId:
-            owner.type === "host"
-              ? owner.id
-              : "00000000-0000-0000-0000-000000000000",
-          playerId:
-            owner.type === "player"
-              ? owner.id
-              : "00000000-0000-0000-0000-000000000000",
-          minutes: 0,
-          bucket: "green",
-          playerDebitLzt: 0,
-          hostCreditLzt: refund,
-          kind: "quota_escrow_refund",
+        await recordQuotaEscrowEvent(tx, {
+          ownerType: owner.type as "host" | "player",
+          ownerId: owner.id,
           quotaId: quota.id,
+          kind: "quota_escrow_refund",
+          amountLzt: refund,
         });
       }
       const [u] = await tx
@@ -1163,22 +1150,12 @@ router.post("/quotas/:id/close", async (req, res): Promise<void> => {
       const refund = quota.escrowRemainingLzt ?? 0;
       if (refund > 0) {
         await creditOwnerGreen(tx, owner.type, owner.id, refund);
-        await tx.insert(billingEventsTable).values({
-          sessionId: quota.id,
-          hostId:
-            owner.type === "host"
-              ? owner.id
-              : "00000000-0000-0000-0000-000000000000",
-          playerId:
-            owner.type === "player"
-              ? owner.id
-              : "00000000-0000-0000-0000-000000000000",
-          minutes: 0,
-          bucket: "green",
-          playerDebitLzt: 0,
-          hostCreditLzt: refund,
-          kind: "quota_escrow_refund",
+        await recordQuotaEscrowEvent(tx, {
+          ownerType: owner.type as "host" | "player",
+          ownerId: owner.id,
           quotaId: quota.id,
+          kind: "quota_escrow_refund",
+          amountLzt: refund,
         });
       }
       const [updated] = await tx

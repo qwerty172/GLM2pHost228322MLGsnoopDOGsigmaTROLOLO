@@ -15,6 +15,13 @@
       "when": 1784981125880,
       "tag": "0001_square_forgotten_one",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785072000000,
+      "tag": "0002_billing_events_nullable_escrow",
+      "breakpoints": true
     }
   ]
 }
