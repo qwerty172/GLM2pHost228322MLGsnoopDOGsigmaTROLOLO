@@ -40,11 +40,20 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
+**Самый короткий путь:** [`QUICKSTART.md`](./QUICKSTART.md)
+
 Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
 
 **Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
 
 **Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN (обход страниц в браузере).
+
+### Одна команда (Docker Postgres + dev)
+
+```bash
+pnpm quickstart
+# Web: http://localhost:5000  Демо: http://localhost:5000/demo
+```
 
 ### Требования
 
@@ -96,6 +105,7 @@ chmod +x scripts/*.sh
 |---|---|
 | `DATABASE_URL` | PostgreSQL, база `decentral_hub` |
 | `PORT` | API-сервер (8080) |
+| `WEB_PORT` | Web dev-сервер Vite (5000) |
 | `WALLET_ENCRYPTION_KEY` | 32-байт hex, обязателен для кошелька |
 | `ADMIN_SECRET` | Секрет admin-роутов (`X-Admin-Secret`) |
 | `API_PROXY_TARGET` | Куда Vite проксирует `/api` (http://localhost:8080) |

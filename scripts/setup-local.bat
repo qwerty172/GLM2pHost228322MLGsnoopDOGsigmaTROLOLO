@@ -6,7 +6,7 @@ echo ==^> DecentralHub — локальная настройка (Windows)
 
 if not exist .env (
   copy .env.example .env >nul
-  echo Создан .env — открой его и настрой DATABASE_URL
+  echo Создан .env — открой его и настрой DATABASE_URL при необходимости
 ) else (
   echo .env уже есть
 )
@@ -16,6 +16,13 @@ if %errorlevel%==0 (
   for /f "delims=" %%K in ('node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"') do set KEY=%%K
   powershell -NoProfile -Command "(Get-Content .env) -replace '^WALLET_ENCRYPTION_KEY=$', 'WALLET_ENCRYPTION_KEY=%KEY%' | Set-Content .env -Encoding UTF8"
   echo Сгенерирован WALLET_ENCRYPTION_KEY
+)
+
+findstr /r /c:"^JWT_SECRET=$" .env >nul 2>&1
+if %errorlevel%==0 (
+  for /f "delims=" %%K in ('node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"') do set KEY=%%K
+  powershell -NoProfile -Command "(Get-Content .env) -replace '^JWT_SECRET=$', 'JWT_SECRET=%KEY%' | Set-Content .env -Encoding UTF8"
+  echo Сгенерирован JWT_SECRET
 )
 
 echo.
@@ -33,5 +40,5 @@ if errorlevel 1 (
 )
 
 echo.
-echo Готово. Запуск: scripts\dev-local.bat
-echo Web: http://localhost:5000
+echo Готово. Запуск: pnpm dev  или  scripts\dev-local.bat
+echo Web: http://localhost:5000  Демо: http://localhost:5000/demo

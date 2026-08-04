@@ -26,6 +26,7 @@ import { SiteNav } from "@/components/site-nav";
 import { HostAuthGuard } from "@/components/host-auth-guard";
 import ProfilePage from "@/pages/profile";
 import Embed from "@/pages/embed";
+import Demo from "@/pages/demo";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -68,6 +69,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
+      <Route path="/demo" component={Demo} />
       <Route path="/games" component={GamesPage} />
       <Route path="/profile" component={ProfilePage} />
       <Route path="/games/:slug" component={GameDetailPage} />

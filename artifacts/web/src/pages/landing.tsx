@@ -208,6 +208,14 @@ export default function Landing() {
                 <Play className="w-3.5 h-3.5 mr-1.5" /> Играть
               </Button>
             </Link>
+            <Link href="/demo">
+              <Button
+                variant="outline"
+                className="h-9 px-5 text-sm font-semibold rounded-md border-white/10 text-slate-300 hover:text-white hover:border-sky-500/40"
+              >
+                <Gamepad2 className="w-3.5 h-3.5 mr-1.5" /> Демо без регистрации
+              </Button>
+            </Link>
             <Link href="/host">
               <Button
                 variant="ghost"
