@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 15:02 UTC |
 | Task ID | M-50 |
 | Результат | game-detail.tsx — убран eslint-disable exhaustive-deps, deps `[host.hostId, cleanup, startCountdown]` |
-| Commit | (pending) |
+| Commit | f16184e |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
