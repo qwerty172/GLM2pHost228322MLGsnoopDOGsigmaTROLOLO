@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-04 (M-54 done; scanner J/K + app-launcher tests)
+> **Последнее обновление:** 2026-08-04 (M-55 done; crypto-key unit tests)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-04 17:55 UTC |
-| Task ID | M-54 |
-| Результат | scanner категории J/K; api-client (12 тестов) + app-launcher (13 тестов) unit-тесты |
-| Commit | 729be5d |
+| Дата | 2026-08-04 18:02 UTC |
+| Task ID | M-55 |
+| Результат | crypto-key.test.mjs — loadOrGenerateKeyPair + signChallenge (4 тестов); host-agent 102 tests PASS |
+| Commit | 149dd58 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** 14 pending (M-55…M-68) — host-agent main/shared unit-тесты (кат. J/K).
+**Wave Maintenance:** 13 pending (M-56…M-68) — host-agent main/shared unit-тесты (кат. J/K).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -274,7 +274,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-52 | I | eslint/ts suppressions (1) | `artifacts/host-agent/src/main/sentry.ts` | i:artifacts/host-agent/src/main/sentry.ts | done | agent |
 | M-53 | I | eslint/ts suppressions (2) | `artifacts/api-server/src/lib/sentry.ts` | i:artifacts/api-server/src/lib/sentry.ts | done | agent |
 | M-54 | J | host-agent main: unit-тест (app-launcher.ts) | `artifacts/host-agent/src/main/app-launcher.ts` | j:artifacts/host-agent/src/main/app-launcher.ts | done | agent |
-| M-55 | J | host-agent main: unit-тест (crypto-key.ts) | `artifacts/host-agent/src/main/crypto-key.ts` | j:artifacts/host-agent/src/main/crypto-key.ts | pending | agent |
+| M-55 | J | host-agent main: unit-тест (crypto-key.ts) | `artifacts/host-agent/src/main/crypto-key.ts` | j:artifacts/host-agent/src/main/crypto-key.ts | done | agent |
 | M-56 | J | host-agent main: unit-тест (gamepad-injection.ts) | `artifacts/host-agent/src/main/gamepad-injection.ts` | j:artifacts/host-agent/src/main/gamepad-injection.ts | pending | agent |
 | M-57 | J | host-agent main: unit-тест (input-injection.ts) | `artifacts/host-agent/src/main/input-injection.ts` | j:artifacts/host-agent/src/main/input-injection.ts | pending | agent |
 | M-58 | J | host-agent main: unit-тест (limited-user-launch.ts) | `artifacts/host-agent/src/main/limited-user-launch.ts` | j:artifacts/host-agent/src/main/limited-user-launch.ts | pending | agent |
