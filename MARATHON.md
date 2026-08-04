@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 19:24 UTC |
 | Task ID | M-56 |
 | Результат | gamepad-injection.ts unit-тесты: status snapshot, non-Win noop, focus guard, idempotent destroy |
-| Commit | pending |
+| Commit | 47303f3 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
