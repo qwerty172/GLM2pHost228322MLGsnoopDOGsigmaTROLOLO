@@ -24,7 +24,14 @@ import {
   fetchStreamRelayConfig,
 } from "./rtmp-relay";
 import { createPingServer, PING_PORT, PING_PORT_FALLBACKS, LOCAL_INPUT_SECRET } from "./ping-server";
-import { launchApp, launchEntry, killApp, setExitCallback, getLastSpawnedPid } from "./app-launcher";
+import {
+  launchApp,
+  launchEntry,
+  killApp,
+  setExitCallback,
+  clearExitCallback,
+  getLastSpawnedPid,
+} from "./app-launcher";
 import { getHwndsForSpawnedPid } from "./spawn-hwnd";
 import {
   clearAllowedTarget,
@@ -370,6 +377,10 @@ async function startAgent(): Promise<void> {
   });
 
   ipcMain.on("app:kill", () => killApp());
+
+  ipcMain.on("app:disarm-exit-watch", () => {
+    clearExitCallback();
+  });
 
   ipcMain.handle("app:get-spawn-hwnds", async () => {
     const pid = getLastSpawnedPid();
