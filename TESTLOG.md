@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-51 (2026-08-04 16:22 UTC) {#marathon-m-51}
+
+| Проверка | Результат |
+|---|---|
+| webgl-video-shader.tsx | `eslint-disable react-hooks/exhaustive-deps` убран — deps `[active, fragCode, videoRef, onCompileError]` |
+| typecheck | PASS (monorepo) |
+| marathon-scan | webgl-video-shader.tsx больше не в raw hits I |
+
+**Следующий pick:** M-52 `eslint/ts suppressions (1)` — host-agent sentry.ts.
+
 ## Marathon M-50 (2026-08-04 16:10 UTC) {#marathon-m-50}
 
 | Проверка | Результат |
