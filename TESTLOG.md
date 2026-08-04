@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-66 (2026-08-04 23:40 UTC) {#marathon-m-66}
+
+| Проверка | Результат |
+|---|---|
+| tray.test.mjs | 7 тестов — createTray tooltip/menu/click, empty icon fallback, setStatus labels, error notification, no-op без tray, app.quit и show окна |
+| host-agent test | PASS (178 tests) |
+| typecheck | PASS |
+
+**Следующий pick:** M-67 `wake-scheduler.ts`.
+
 ## Marathon M-65 (2026-08-04 23:38 UTC) {#marathon-m-65}
 
 | Проверка | Результат |
