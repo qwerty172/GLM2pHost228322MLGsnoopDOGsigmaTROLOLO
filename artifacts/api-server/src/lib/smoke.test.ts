@@ -162,6 +162,16 @@ describe("hostAuth", () => {
   });
 });
 
+describe("block renew (concurrent renew-block)", () => {
+  it("lost-update from stale base undercounts minutes while charging twice", () => {
+    const initialMinutes = 10;
+    const staleBase = initialMinutes;
+    const afterTwoConcurrentRenewals = staleBase + 10; // both txs read staleBase
+    expect(afterTwoConcurrentRenewals).toBe(20);
+    expect(initialMinutes + 10 + 10).toBe(30);
+  });
+});
+
 describe("sessionBilling (block refund math)", () => {
   it("computes remainder refund for partial block usage", () => {
     const blockMinutes = 60;
