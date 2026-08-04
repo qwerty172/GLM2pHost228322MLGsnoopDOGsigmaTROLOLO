@@ -290,9 +290,7 @@ export const WebGLVideoShader = forwardRef<WebGLVideoShaderHandle, Props>(
         gl.deleteTexture(tex);
         gl.deleteProgram(prog);
       };
-      // fragCode & active changes trigger full re-setup
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [active, fragCode]);
+    }, [active, fragCode, onCompileError, videoRef]);
 
     return (
       <canvas
