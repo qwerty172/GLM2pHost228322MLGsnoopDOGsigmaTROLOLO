@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 11:44 UTC |
 | Task ID | M-39 |
 | Результат | games.tsx — raw fetch VDS → `useListGames({ vdsOnly, liveOnly })` |
-| Commit | *(этот run)* |
+| Commit | a6af5cb |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
