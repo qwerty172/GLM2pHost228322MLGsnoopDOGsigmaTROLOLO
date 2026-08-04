@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 13:00 UTC |
 | Task ID | M-41 |
 | Результат | embed.tsx — 3 raw fetch → codegen (`createEmbedSession`, `getPublicIceConfig`, `useGetSessionByPlayerToken`) |
-| Commit | b721792 |
+| Commit | 74429ba |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
