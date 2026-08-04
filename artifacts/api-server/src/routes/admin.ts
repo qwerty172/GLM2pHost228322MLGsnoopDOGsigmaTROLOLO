@@ -77,7 +77,7 @@ const requireAdmin: RequestHandler = async (req, res, next) => {
     return;
   }
   if (!host.isAdmin) {
-    res.status(403).json({ error: "Admin access required" });
+    res.status(403).json({ error: "admin_access_required" });
     return;
   }
   (req as any).adminHostId = host.id;
