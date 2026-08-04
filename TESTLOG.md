@@ -15,6 +15,24 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon idle analysis (2026-08-04 17:08 UTC) {#marathon-idle-2026-08-04-1708}
+
+| Проверка | Результат |
+|---|---|
+| groom | `scanner_empty`, idleStreak 0→1/3, `shouldRun:true` |
+| marathon-scan | `rawHits=0`, `idle:true` — категории A–I пусты |
+| eslint/ts suppressions (I) | 0 — последняя задача M-53 |
+| raw fetch (F) | только `agent-local.ts` (FETCH_SKIP — локальный агент) |
+| console.log (D) | play/browser-play/verifier — isDev-gated или logger; сканер корректно фильтрует |
+| TODO/FIXME (B) | только `rf3/main.js` (game asset) и `.replit-artifact` — не в scope |
+| OpenAPI gaps (C) | 0 |
+| api-server lib tests (H) | 0 missing — M-48 закрыл |
+| pnpm outdated | prettier 3.8.1→3.9.6, typescript 5.9.3→7.0.2 (dev, не блокер) |
+| pnpm audit | 65 vulns (1 critical tar via electron-builder); dev-only chain, нужен bump electron-builder |
+| git log | M-41…M-53 закрыты за последние runs |
+
+**Вердикт:** сканер чист — нечего пикать. MARATHON.md не коммитить (idle policy). Следующий expand scanner при idleStreak≥3.
+
 ## Marathon M-53 (2026-08-04 16:42 UTC) {#marathon-m-53}
 
 | Проверка | Результат |
