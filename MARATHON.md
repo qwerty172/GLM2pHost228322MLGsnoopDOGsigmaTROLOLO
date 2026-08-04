@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 14:52 UTC |
 | Task ID | M-50 |
 | Результат | game-detail PreviewModal — убран eslint-disable, deps `[host.hostId, cleanup, startCountdown]` |
-| Commit | *(этот run)* |
+| Commit | bcaa356 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
