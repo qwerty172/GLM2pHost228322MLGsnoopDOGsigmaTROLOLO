@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 08:06 UTC |
 | Task ID | M-35 |
 | Результат | profile.tsx — 2 raw fetch → codegen hooks + PATCH /players/me/credit-settings |
-| Commit | bcfba09 |
+| Commit | afd3824 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
