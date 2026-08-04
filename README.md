@@ -40,55 +40,47 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
-Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
+**Две команды — и можно играть** (браузерная демо-игра без Windows-агента):
 
-**Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
+```bash
+pnpm bootstrap   # один раз: .env, секреты, Docker postgres+redis, схема БД
+pnpm dev         # API :8080 + Web :5000
+```
 
-**Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN (обход страниц в браузере).
+Откройте http://localhost:5000/games/rogue-fable-3 — Rogue Fable III работает сразу, без агента.
+
+Проверка API: `pnpm smoke` или http://localhost:8080/api/healthz
+
+Полный план тестирования — [`TESTPLAN.md`](./TESTPLAN.md). Подробности — [`LOCAL_SETUP.md`](./LOCAL_SETUP.md).
 
 ### Требования
 
-- Node.js 20+
-- pnpm 9+
-- PostgreSQL 16
-- Git Bash / WSL (для Windows) или Linux/macOS
+- Node.js 20+, pnpm 9+
+- Docker (рекомендуется) — `pnpm bootstrap` сам поднимет PostgreSQL и Redis
+- Без Docker: свой PostgreSQL 16 + `pnpm bootstrap --no-docker`
+
+### На потом (не нужно для первого запуска)
+
+| Команда | Зачем |
+|---|---|
+| `pnpm setup:full` | Проверка типов всего monorepo |
+| `pnpm infra` / `pnpm infra:full` | Только Docker (postgres+redis / +coturn) |
+| `pnpm infra:down` | Остановить Docker-инфраструктуру |
+| TURN_* в `.env` | WebRTC через NAT (coturn) |
+| Windows-агент | P2P-стриминг с ПК хоста — см. `/host` |
 
 ### Клонирование
 
 ```bash
-git clone https://github.com/qwerty172/glm2phost228322mlgsnoopdogsigmatrololo.git decentral-hub
-cd decentral-hub
-```
-
-### Первичная настройка
-
-**Windows (cmd или двойной клик):**
-
-```bat
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-copy .env.example .env
-notepad .env
-scripts\setup-local.bat
-scripts\dev-local.bat
+pnpm bootstrap
+pnpm dev
 ```
 
-**Git Bash / Linux / macOS:**
+**Windows (cmd):** те же `pnpm bootstrap` и `pnpm dev`, либо `scripts\setup-local.bat` / `scripts\dev-local.bat`.
 
-```bash
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-cp .env.example .env
-# отредактируй DATABASE_URL
-
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
-```
-
-Подробнее — [LOCAL_SETUP.md](./LOCAL_SETUP.md).
+**Уже работает?** healthz ok + :5000 открывается → фазы 0–1 пройдены, см. **фазу 2** в TESTPLAN.
 
 ### Переменные окружения (`.env`)
 
