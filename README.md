@@ -40,84 +40,63 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
-Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
+**Три команды:** `pnpm setup:docker` → `pnpm dev` → http://localhost:5000
 
-**Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
-
-**Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN (обход страниц в браузере).
+Подробная шпаргалка: [`QUICKSTART.md`](./QUICKSTART.md). Полный план тестирования — [`TESTPLAN.md`](./TESTPLAN.md).
 
 ### Требования
 
 - Node.js 20+
 - pnpm 9+
-- PostgreSQL 16
-- Git Bash / WSL (для Windows) или Linux/macOS
-
-### Клонирование
-
-```bash
-git clone https://github.com/qwerty172/glm2phost228322mlgsnoopdogsigmatrololo.git decentral-hub
-cd decentral-hub
-```
+- Docker (для `setup:docker`) **или** PostgreSQL 16 вручную
 
 ### Первичная настройка
 
-**Windows (cmd или двойной клик):**
-
-```bat
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-copy .env.example .env
-notepad .env
-scripts\setup-local.bat
-scripts\dev-local.bat
-```
-
-**Git Bash / Linux / macOS:**
-
 ```bash
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-cp .env.example .env
-# отредактируй DATABASE_URL
 
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
+pnpm setup:docker   # PostgreSQL + Redis через Docker, секреты, схема БД
+pnpm dev            # API (:8080) + Web (:5000)
 ```
 
-Подробнее — [LOCAL_SETUP.md](./LOCAL_SETUP.md).
+Без Docker: `pnpm setup` (нужен `createdb decentral_hub` и `DATABASE_URL` в `.env`).
+
+**Windows:** `scripts\setup-local.bat` и `scripts\dev-local.bat` — то же самое.
+
+### Попробовать без агента
+
+| Роль | Путь |
+|------|------|
+| Игрок | Главная → **Попробовать демо** → Rogue Fable III |
+| Хост | `/host` → регистрация → **Попробовать в браузере** |
 
 ### Переменные окружения (`.env`)
 
 | Переменная | Назначение |
 |---|---|
-| `DATABASE_URL` | PostgreSQL, база `decentral_hub` |
+| `DATABASE_URL` | PostgreSQL, база `decentral_hub` (Docker: `decentral_hub:decentral_hub@localhost`) |
 | `PORT` | API-сервер (8080) |
-| `WALLET_ENCRYPTION_KEY` | 32-байт hex, обязателен для кошелька |
+| `WEB_PORT` | Web/Vite (5000) |
+| `WALLET_ENCRYPTION_KEY` | Авто при `pnpm setup` |
+| `JWT_SECRET` | Авто при `pnpm setup` |
 | `ADMIN_SECRET` | Секрет admin-роутов (`X-Admin-Secret`) |
 | `API_PROXY_TARGET` | Куда Vite проксирует `/api` (http://localhost:8080) |
 | `BASE_PATH` | Базовый путь web (`/`) |
 
 `.env` подхватывается автоматически через `dotenv-cli` в dev-скриптах. На Replit переменные задаёт платформа.
 
-### Запуск (два терминала или один скрипт)
-
-**Вариант A — скрипт (Git Bash / Linux / macOS):**
+### Запуск
 
 ```bash
-./scripts/dev-local.sh
+pnpm dev
+# или: ./scripts/dev-local.sh
 ```
 
-**Вариант B — вручную:**
+**Вручную (два терминала):**
 
 ```bash
-# Терминал 1: API (порт 8080)
-pnpm --filter @workspace/api-server run dev
-
-# Терминал 2: Web (порт 5000, прокси /api -> :8080)
+pnpm --filter @workspace/api-server run dev:watch
 pnpm --filter @workspace/web run dev
 ```
 

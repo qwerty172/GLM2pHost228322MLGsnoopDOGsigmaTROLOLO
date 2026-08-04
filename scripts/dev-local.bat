@@ -8,7 +8,7 @@ if not exist .env (
 )
 
 echo ==^> Запуск API (порт 8080) и Web (порт 5000) в отдельных окнах...
-start "DecentralHub API" cmd /k "cd /d %CD% && pnpm --filter @workspace/api-server run dev"
+start "DecentralHub API" cmd /k "cd /d %CD% && pnpm --filter @workspace/api-server run dev:watch"
 timeout /t 3 /nobreak >nul
 start "DecentralHub Web" cmd /k "cd /d %CD% && pnpm --filter @workspace/web run dev"
 
