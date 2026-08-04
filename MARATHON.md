@@ -263,10 +263,10 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-34 | F | web: raw fetch → codegen (3 calls) | `artifacts/web/src/pages/quota-new.tsx` | f:artifacts/web/src/pages/quota-new.tsx | done | agent |
 | M-35 | F | web: raw fetch → codegen (2 calls) | `artifacts/web/src/pages/profile.tsx` | f:artifacts/web/src/pages/profile.tsx | done | agent |
 | M-36 | F | web: raw fetch → codegen (6 calls) | `artifacts/web/src/pages/play.tsx` | f:artifacts/web/src/pages/play.tsx | done | agent |
-| M-39 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/pages/games.tsx` | f:artifacts/web/src/pages/games.tsx | pending | agent |
+| M-39 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/pages/games.tsx` | f:artifacts/web/src/pages/games.tsx | done | agent |
 | M-37 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/pages/host/library.tsx` | f:artifacts/web/src/pages/host/library.tsx | pending | agent |
-| M-40 | F | web: raw fetch → codegen (6 calls) | `artifacts/web/src/pages/game-detail.tsx` | f:artifacts/web/src/pages/game-detail.tsx | pending | agent |
 | M-38 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/pages/host/browser-play.tsx` | f:artifacts/web/src/pages/host/browser-play.tsx | pending | agent |
+| M-40 | F | web: raw fetch → codegen (6 calls) | `artifacts/web/src/pages/game-detail.tsx` | f:artifacts/web/src/pages/game-detail.tsx | pending | agent |
 | M-41 | F | web: raw fetch → codegen (3 calls) | `artifacts/web/src/pages/embed.tsx` | f:artifacts/web/src/pages/embed.tsx | pending | agent |
 | M-42 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/components/vt-scanner.tsx` | f:artifacts/web/src/components/vt-scanner.tsx | pending | agent |
 | M-43 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/components/quota-ai-chat.tsx` | f:artifacts/web/src/components/quota-ai-chat.tsx | pending | agent |
