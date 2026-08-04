@@ -26,6 +26,8 @@ import {
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { GuestCreditHint } from "@/components/guest-credit-hint";
+import { prewarmIce } from "@/lib/ice-prewarm";
 
 function formatInt(n: number): string {
   // 1248 → "1 248" (Russian thin-space grouping).
@@ -128,6 +130,11 @@ export default function Landing() {
     navigate(`/play/i/${host.inviteCode}`);
   };
 
+  const handleTryDemo = () => {
+    if (!playerWalletToken) void registerGuest();
+    navigate("/games/rogue-fable-3");
+  };
+
   const playableHosts = (liveHosts ?? [])
     .filter((h) => h.status === "online" && h.inviteCode)
     .slice(0, 6);
@@ -200,6 +207,14 @@ export default function Landing() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-start gap-3">
+            <Button
+              className="h-9 px-5 text-sm font-semibold rounded-md"
+              style={{ background: "#14b8a6", color: "#fff" }}
+              onClick={handleTryDemo}
+              data-testid="button-try-demo"
+            >
+              <Zap className="w-3.5 h-3.5 mr-1.5" /> Попробовать демо
+            </Button>
             <Link href="/hosts">
               <Button
                 className="h-9 px-5 text-sm font-semibold rounded-md"
@@ -216,6 +231,10 @@ export default function Landing() {
                 Стать хостом
               </Button>
             </Link>
+          </div>
+
+          <div className="mt-4 max-w-lg">
+            <GuestCreditHint />
           </div>
 
           <div className="mt-5">
@@ -337,6 +356,7 @@ export default function Landing() {
                       className="w-full h-7 rounded-md text-[11px] font-semibold flex items-center justify-center gap-1 transition-opacity hover:opacity-90"
                       style={{ background: "#0ea5e9", color: "#fff" }}
                       onClick={() => handlePlayNow(host)}
+                      onMouseEnter={() => void prewarmIce(host.id)}
                       data-testid={`button-play-now-${host.id}`}
                     >
                       <Play className="w-3 h-3" /> Играть
