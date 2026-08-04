@@ -25,6 +25,36 @@ export interface QuotaTickEffect {
   sponsorPlayerLzt: number;
 }
 
+/** Per-minute payer debit and host net after quota royalty adjustments. */
+export function resolveQuotaTickAmounts(
+  costLzt: number,
+  quota: Quota | null,
+  minutesIntoSession: number,
+  now: Date = new Date(),
+): {
+  quotaActive: boolean;
+  effect: QuotaTickEffect;
+  payerDebitLzt: number;
+  hostNetLzt: number;
+} {
+  const quotaActive = Boolean(quota && isQuotaActiveNow(quota, now));
+  const effect = quotaActive
+    ? computeQuotaEffect(quota!, costLzt, minutesIntoSession)
+    : { royaltyLzt: 0, sponsorHostLzt: 0, sponsorPlayerLzt: 0 };
+  const royaltyFromPlayer =
+    quotaActive && quota!.royaltySource === "player" ? effect.royaltyLzt : 0;
+  const royaltyFromHost =
+    quotaActive && quota!.royaltySource === "host_share"
+      ? effect.royaltyLzt
+      : 0;
+  return {
+    quotaActive,
+    effect,
+    payerDebitLzt: costLzt + royaltyFromPlayer,
+    hostNetLzt: Math.max(0, costLzt - royaltyFromHost),
+  };
+}
+
 export function computeQuotaEffect(
   quota: Quota,
   perMinuteLzt: number,
@@ -155,7 +185,7 @@ export async function recordQuotaMovement(
   args: {
     sessionId: string;
     hostId: string;
-    playerId: string;
+    playerId: string | null;
     quotaId: string;
     kind: string;
     amountLzt: number;
