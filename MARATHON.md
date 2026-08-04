@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 23:25 UTC |
 | Task ID | M-64 |
 | Результат | spawn-hwnd.ts unit-тесты: invalid pid, non-win32 guard, HWND match по PID, foreground first, error swallow |
-| Commit | eaab332 |
+| Commit | 3a4a06e |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
