@@ -51,30 +51,27 @@ CREATE DATABASE decentral_hub;
 ## Быстрый старт (Windows)
 
 ```bat
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-
-copy .env.example .env
-notepad .env
-```
-
-В `.env` измените `DATABASE_URL`:
-
-```
-DATABASE_URL=postgresql://postgres:ВАШ_ПАРОЛЬ@localhost:5432/decentral_hub
-```
-
-```bat
-scripts\setup-local.bat
-scripts\dev-local.bat
-scripts\smoke-api.bat
+pnpm db:up
+pnpm setup
+pnpm dev
+pnpm smoke
 ```
 
 | Сервис | URL |
 |---|---|
 | Web | http://localhost:5000 |
 | API health | http://localhost:8080/api/healthz |
+
+Свой PostgreSQL — пропусти `pnpm db:up`, укажи `DATABASE_URL` в `.env`.
+
+**Классический путь (скрипты):**
+
+```bat
+copy .env.example .env
+scripts\setup-local.bat
+scripts\dev-local.bat
+scripts\smoke-api.bat
+```
 
 ---
 

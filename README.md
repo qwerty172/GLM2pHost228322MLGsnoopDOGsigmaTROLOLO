@@ -40,9 +40,28 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
+**Три команды — и работает** (нужны Node 20+, pnpm 9+, Docker для БД):
+
+```bash
+pnpm db:up      # PostgreSQL в Docker
+pnpm setup      # .env + секреты + зависимости + схема БД
+pnpm dev        # API :8080 + Web :5000
+```
+
+Открой http://localhost:5000. Проверка API: `pnpm smoke` (когда dev запущен).
+
+| Команда | Что делает |
+|---|---|
+| `pnpm db:up` | Только PostgreSQL (Docker) |
+| `pnpm db:up:all` | PostgreSQL + Redis + coturn |
+| `pnpm setup:fast` | setup без typecheck |
+| `make help` | Все алиасы |
+
+Свой PostgreSQL вместо Docker — поменяй `DATABASE_URL` в `.env` и пропусти `pnpm db:up`.
+
 Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
 
-**Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
+**Пошаговая инструкция (Windows, ручная настройка):** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
 
 **Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN (обход страниц в браузере).
 
@@ -50,7 +69,7 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 - Node.js 20+
 - pnpm 9+
-- PostgreSQL 16
+- Docker (для `pnpm db:up`) **или** свой PostgreSQL 16
 - Git Bash / WSL (для Windows) или Linux/macOS
 
 ### Клонирование
@@ -62,27 +81,28 @@ cd decentral-hub
 
 ### Первичная настройка
 
-**Windows (cmd или двойной клик):**
-
-```bat
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-copy .env.example .env
-notepad .env
-scripts\setup-local.bat
-scripts\dev-local.bat
-```
-
-**Git Bash / Linux / macOS:**
+**Рекомендуемый путь (Linux/macOS/Git Bash):**
 
 ```bash
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-cp .env.example .env
-# отредактируй DATABASE_URL
+pnpm db:up
+pnpm setup
+pnpm dev
+```
 
+**Windows (cmd):**
+
+```bat
+pnpm db:up
+pnpm setup
+pnpm dev
+```
+
+Или классические скрипты: `scripts\setup-local.bat`, `scripts\dev-local.bat`.
+
+**Git Bash / ручная настройка:**
+
+```bash
+cp .env.example .env
 chmod +x scripts/*.sh
 ./scripts/setup-local.sh
 ./scripts/dev-local.sh
