@@ -9,6 +9,7 @@ const {
   findCaptureSourceByTitle,
   browserWindowStillOpen,
   looksLikeBrowserWindow,
+  resolveTargetExeName,
 } = await import("../dist/main/shared/window-match.js");
 
 const sources = [
@@ -79,4 +80,17 @@ test("browserWindowStillOpen H-02: any Chrome counts as alive without hostname m
 test("looksLikeBrowserWindow detects common browsers", () => {
   assert.equal(looksLikeBrowserWindow("Tab - Google Chrome"), true);
   assert.equal(looksLikeBrowserWindow("My App"), false);
+});
+
+test("resolveTargetExeName prefers library entry for currentGameId", () => {
+  const entries = [
+    { gameId: "g1", appPath: "C:\\Games\\rf3\\RogueFable3.exe" },
+    { gameId: "g2", appPath: "C:\\Other\\game.exe" },
+  ];
+  assert.equal(resolveTargetExeName("g1", entries, "C:\\Fallback\\old.exe"), "roguefable3");
+});
+
+test("resolveTargetExeName falls back to cfg appPath", () => {
+  assert.equal(resolveTargetExeName(null, [], "D:\\Steam\\game\\MyGame.EXE"), "mygame");
+  assert.equal(resolveTargetExeName("missing", [], "D:\\Steam\\game\\MyGame.EXE"), "mygame");
 });

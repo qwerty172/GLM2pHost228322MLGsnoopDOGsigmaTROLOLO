@@ -133,10 +133,16 @@ export function setupRendererEnv() {
       return [];
     }
   };
+  const mediaDevices = {
+    getUserMedia: async () => new domWindow.MediaStream(),
+  };
   Object.defineProperty(domWindow.navigator, "mediaDevices", {
-    value: {
-      getUserMedia: async () => new domWindow.MediaStream(),
-    },
+    value: mediaDevices,
+    configurable: true,
+  });
+  // Node 22+ exposes a read-only global navigator — patch mediaDevices in place.
+  Object.defineProperty(g.navigator, "mediaDevices", {
+    value: mediaDevices,
     configurable: true,
   });
 

@@ -29,6 +29,22 @@ export function exeBasename(path: string | undefined | null): string | undefined
     .toLowerCase();
 }
 
+export type LibraryAppPath = { gameId: string; appPath?: string | null };
+
+/** Native capture target: library entry for currentGameId, else cfg.appPath basename. */
+export function resolveTargetExeName(
+  currentGameId: string | null,
+  libraryEntries: LibraryAppPath[],
+  appPath: string | undefined | null,
+): string | undefined {
+  if (currentGameId) {
+    const entry = libraryEntries.find((e) => e.gameId === currentGameId);
+    const name = exeBasename(entry?.appPath);
+    if (name) return name;
+  }
+  return exeBasename(appPath);
+}
+
 export function hostFromBoundUrl(boundUrl: string): string {
   try {
     return new URL(boundUrl).hostname.replace(/^www\./, "").toLowerCase();

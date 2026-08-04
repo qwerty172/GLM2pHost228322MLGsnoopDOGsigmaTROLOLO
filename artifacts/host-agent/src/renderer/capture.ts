@@ -1,25 +1,14 @@
 import type { HostConfig } from "../shared/messages";
 import {
-  exeBasename,
   findBrowserCaptureSource,
   findCaptureSourceByTitle,
   findNativeCaptureSource,
+  resolveTargetExeName,
 } from "../shared/window-match.js";
 import { session } from "./state.js";
 import { log, setPipelineStep } from "./ui.js";
 
 export { exeBasename } from "../shared/window-match.js";
-
-function targetExeName(cfg: HostConfig): string | undefined {
-  // Currently-selected library game's exe name takes priority.
-  if (session.currentGameId) {
-    const entry = session.libraryEntries.find((e) => e.gameId === session.currentGameId);
-    const name = exeBasename(entry?.appPath);
-    if (name) return name;
-  }
-  // Fall back to HostConfig appPath basename.
-  return exeBasename(cfg.appPath);
-}
 
 function currentBoundUrl(cfg: HostConfig): string {
   if (session.currentGameId) {
@@ -129,7 +118,9 @@ export async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
     }
   }
 
-  const targetName = browserGame ? undefined : targetExeName(cfg);
+  const targetName = browserGame
+    ? undefined
+    : resolveTargetExeName(session.currentGameId, session.libraryEntries, cfg.appPath);
   if (!chosen && targetName) {
     // The game window may take a while to appear after launch — retry the
     // auto-match for ~10 seconds before bothering the host with the picker.

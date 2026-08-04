@@ -403,7 +403,7 @@ SELECT id, status, ended_at FROM sessions WHERE status = 'active' AND ended_at I
 | H-04 | Limited-user launch | fixed | MARATHON C3-S05 — spawnNativeApp + tryLimitedLaunch |
 | H-05 | RTMP relay drift от WebRTC source | fixed | MARATHON C3-S06 — syncRtmpWindowTitle on capture:set-source |
 | H-06 | Renderer 3300+ строк | MARATHON C3-S08 |
-| H-07 | Unit tests capture/focus | backlog |
+| H-07 | Unit tests capture/focus | fixed | M-46 — resolveTargetExeName, capture/focus-guard unit tests |
 | H-08 | HWND-based match после spawn | improvement |
 
 ### Планируемые улучшения
