@@ -4,6 +4,7 @@ import { timingSafeEqualString } from "./timingSafeEqual";
 import {
   LZT_PER_USDT,
   lztToUsdt,
+  gamingCreditAllowsTick,
   pickPlayerBucket,
   usdtToLzt,
   usdtToLztRound,
@@ -76,6 +77,13 @@ describe("lzt billing helpers", () => {
     expect(pickPlayerBucket("green", 100, 50, 999)).toBeNull();
     expect(pickPlayerBucket("blue", 100, 999, 100)).toBe("blue");
     expect(pickPlayerBucket("blue", 100, 999, 50)).toBeNull();
+  });
+
+  it("gamingCreditAllowsTick enforces disabled line and aggregate cap", () => {
+    expect(gamingCreditAllowsTick(0, 0, 10)).toBe(false);
+    expect(gamingCreditAllowsTick(3000, 2900, 50)).toBe(true);
+    expect(gamingCreditAllowsTick(3000, 2900, 101)).toBe(false);
+    expect(gamingCreditAllowsTick(3000, 3000, 1)).toBe(false);
   });
 });
 

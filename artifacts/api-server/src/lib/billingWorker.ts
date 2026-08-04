@@ -11,7 +11,7 @@ import {
   loansTable,
 } from "@workspace/db";
 import { logger } from "./logger";
-import { usdtToLztRound, pickPlayerBucket } from "./lzt";
+import { usdtToLztRound, pickPlayerBucket, gamingCreditAllowsTick } from "./lzt";
 import { sendSignalingMessage } from "./signaling";
 import {
   computeQuotaEffect,
@@ -336,6 +336,10 @@ async function billOnceInner(): Promise<void> {
           .select({
             green: playersTable.withdrawableBalanceLzt,
             blue: playersTable.internalBalanceLzt,
+            creditLimitLzt: playersTable.creditLimitLzt,
+            creditDebtLzt: playersTable.creditDebtLzt,
+            maxDep: playersTable.maxDepositUsdtCents,
+            maxWd: playersTable.maxWithdrawalUsdtCents,
           })
           .from(playersTable)
           .where(eq(playersTable.id, session.claimedByPlayerId!));
@@ -367,17 +371,14 @@ async function billOnceInner(): Promise<void> {
           // players with zero pledger history (no deposit, no withdrawal).
           // Established players have other credit avenues (P2P) and don't
           // need the platform-subsidised play-in-debt path.
-          const [borrowerHistory] = await tx
-            .select({
-              maxDep: playersTable.maxDepositUsdtCents,
-              maxWd: playersTable.maxWithdrawalUsdtCents,
-            })
-            .from(playersTable)
-            .where(eq(playersTable.id, session.claimedByPlayerId!));
           const isNewcomer =
-            (borrowerHistory?.maxDep ?? 0) === 0 &&
-            (borrowerHistory?.maxWd ?? 0) === 0;
-          if (minutesAllowed > 0 && maxLzt > 0 && isNewcomer) {
+            (player?.maxDep ?? 0) === 0 && (player?.maxWd ?? 0) === 0;
+          const creditLineOk = gamingCreditAllowsTick(
+            player?.creditLimitLzt ?? 0,
+            player?.creditDebtLzt ?? 0,
+            playerDebitLzt,
+          );
+          if (minutesAllowed > 0 && maxLzt > 0 && isNewcomer && creditLineOk) {
             const outstanding = await outstandingHostServiceLzt(
               tx,
               session.hostId,

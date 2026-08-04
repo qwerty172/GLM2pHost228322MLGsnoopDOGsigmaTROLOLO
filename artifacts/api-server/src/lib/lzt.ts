@@ -56,3 +56,15 @@ export function pickPlayerBucket(
   if (blueLzt >= amountLzt) return "blue";
   return null;
 }
+
+/** Whether a play-on-credit tick fits the player's global gaming credit line. */
+export function gamingCreditAllowsTick(
+  creditLimitLzt: number,
+  creditDebtLzt: number,
+  playerDebitLzt: number,
+): boolean {
+  return (
+    creditLimitLzt > 0 &&
+    creditDebtLzt + playerDebitLzt <= creditLimitLzt
+  );
+}
