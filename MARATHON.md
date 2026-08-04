@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-04 (M-62 done; save-sync unit-тесты)
+> **Последнее обновление:** 2026-08-04 (M-63 done; sentry unit-тесты)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-04 22:50 UTC |
-| Task ID | M-62 |
-| Результат | save-sync.ts unit-тесты: clearSavePaths, pullSave/pushSave с моками API и fetch |
-| Commit | 8381471 |
+| Дата | 2026-08-04 23:10 UTC |
+| Task ID | M-63 |
+| Результат | sentry.ts unit-тесты: no-op без DSN, Sentry.init с NODE_ENV, fallback production, swallow missing module |
+| Commit | pending |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** 6 pending (M-63…M-68) — host-agent main/shared unit-тесты (кат. J/K).
+**Wave Maintenance:** 5 pending (M-64…M-68) — host-agent main/shared unit-тесты (кат. J/K).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -282,7 +282,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-60 | J | host-agent main: unit-тест (rtmp-relay.ts) | `artifacts/host-agent/src/main/rtmp-relay.ts` | j:artifacts/host-agent/src/main/rtmp-relay.ts | done | agent |
 | M-61 | J | host-agent main: unit-тест (save-paths.ts) | `artifacts/host-agent/src/main/save-paths.ts` | j:artifacts/host-agent/src/main/save-paths.ts | done | agent |
 | M-62 | J | host-agent main: unit-тест (save-sync.ts) | `artifacts/host-agent/src/main/save-sync.ts` | j:artifacts/host-agent/src/main/save-sync.ts | done | agent |
-| M-63 | J | host-agent main: unit-тест (sentry.ts) | `artifacts/host-agent/src/main/sentry.ts` | j:artifacts/host-agent/src/main/sentry.ts | pending | agent |
+| M-63 | J | host-agent main: unit-тест (sentry.ts) | `artifacts/host-agent/src/main/sentry.ts` | j:artifacts/host-agent/src/main/sentry.ts | done | agent |
 | M-64 | J | host-agent main: unit-тест (spawn-hwnd.ts) | `artifacts/host-agent/src/main/spawn-hwnd.ts` | j:artifacts/host-agent/src/main/spawn-hwnd.ts | pending | agent |
 | M-65 | J | host-agent main: unit-тест (steam-scanner.ts) | `artifacts/host-agent/src/main/steam-scanner.ts` | j:artifacts/host-agent/src/main/steam-scanner.ts | pending | agent |
 | M-66 | J | host-agent main: unit-тест (tray.ts) | `artifacts/host-agent/src/main/tray.ts` | j:artifacts/host-agent/src/main/tray.ts | pending | agent |
