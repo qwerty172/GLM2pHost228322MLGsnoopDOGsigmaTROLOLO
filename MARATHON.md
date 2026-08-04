@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 22:22 UTC |
 | Task ID | M-61 |
 | Результат | save-paths.ts unit-тесты: non-win32 guard, Steam userdata, Ludusavi cache templates, resolveSavePathCandidates |
-| Commit | abed2a7 |
+| Commit | bbabf2e |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
