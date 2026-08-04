@@ -160,10 +160,21 @@ async function main() {
       Number(balBefore.withdrawable_balance_lzt) === 123,
   ) || fail();
 
-  const upgrade = await api("POST", "/api/players/upgrade-guest", {
+  const hijack = await api("POST", "/api/players/upgrade-guest", {
     guestToken,
-    displayName: "SmokeUpgraded",
+    displayName: "Hijacker",
   });
+  ok("reject upgrade without X-User-Token", hijack.status === 401) || fail();
+
+  const upgrade = await api(
+    "POST",
+    "/api/players/upgrade-guest",
+    {
+      guestToken,
+      displayName: "SmokeUpgraded",
+    },
+    { "X-User-Token": guestToken },
+  );
   const newToken = upgrade.data?.playerToken;
   ok(
     "upgrade 200",
@@ -198,19 +209,29 @@ async function main() {
   ok("old guest token invalid for wallet", oldWallet.status === 404 || oldWallet.status === 401) ||
     fail();
 
-  const reUpgrade = await api("POST", "/api/players/upgrade-guest", {
-    guestToken: newToken,
-    displayName: "Again",
-  });
+  const reUpgrade = await api(
+    "POST",
+    "/api/players/upgrade-guest",
+    {
+      guestToken: newToken,
+      displayName: "Again",
+    },
+    { "X-User-Token": newToken },
+  );
   ok(
     "cannot upgrade twice",
     reUpgrade.status === 400 && reUpgrade.data?.error === "Account is not a guest",
   ) || fail();
 
-  const staleUpgrade = await api("POST", "/api/players/upgrade-guest", {
-    guestToken,
-    displayName: "Stale",
-  });
+  const staleUpgrade = await api(
+    "POST",
+    "/api/players/upgrade-guest",
+    {
+      guestToken,
+      displayName: "Stale",
+    },
+    { "X-User-Token": guestToken },
+  );
   ok(
     "stale guest token rejected",
     staleUpgrade.status === 404 || staleUpgrade.status === 400,

@@ -233,6 +233,15 @@ const upgradeGuestLimiter = rateLimit({
 router.post("/players/upgrade-guest", upgradeGuestLimiter, async (req, res): Promise<void> => {
   const guestToken = String(req.body?.guestToken ?? "").trim();
   const displayName = String(req.body?.displayName ?? "").trim();
+  const callerToken = headerUserToken(req);
+  if (!callerToken) {
+    res.status(401).json({ error: "Missing X-User-Token" });
+    return;
+  }
+  if (callerToken !== guestToken) {
+    res.status(401).json({ error: "guest_token_mismatch" });
+    return;
+  }
   if (!guestToken) {
     res.status(400).json({ error: "guestToken required" });
     return;
