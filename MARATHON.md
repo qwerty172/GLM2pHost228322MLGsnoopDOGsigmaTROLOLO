@@ -286,7 +286,6 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-64 | J | host-agent main: unit-тест (spawn-hwnd.ts) | `artifacts/host-agent/src/main/spawn-hwnd.ts` | j:artifacts/host-agent/src/main/spawn-hwnd.ts | done | agent |
 | M-65 | J | host-agent main: unit-тест (steam-scanner.ts) | `artifacts/host-agent/src/main/steam-scanner.ts` | j:artifacts/host-agent/src/main/steam-scanner.ts | done | agent |
 | M-66 | J | host-agent main: unit-тест (tray.ts) | `artifacts/host-agent/src/main/tray.ts` | j:artifacts/host-agent/src/main/tray.ts | done | agent |
-| M-67 | J | host-agent main: unit-тест (wake-scheduler.ts) | `artifacts/host-agent/src/main/wake-scheduler.ts` | j:artifacts/host-agent/src/main/wake-scheduler.ts | pending | agent |
 | M-68 | K | host-agent shared: unit-тест (input.ts) | `artifacts/host-agent/src/shared/input.ts` | k:artifacts/host-agent/src/shared/input.ts | pending | agent |
 
 
