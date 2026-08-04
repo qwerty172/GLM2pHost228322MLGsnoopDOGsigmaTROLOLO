@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 15:22 UTC |
 | Task ID | M-50 |
 | Результат | game-detail.tsx — убран eslint-disable exhaustive-deps в PreviewModal |
-| Commit | (this run) |
+| Commit | ee3a340 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
