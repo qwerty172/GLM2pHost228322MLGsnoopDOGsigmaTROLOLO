@@ -15,6 +15,15 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-55 (2026-08-04 18:12 UTC) {#marathon-m-55}
+
+| Проверка | Результат |
+|---|---|
+| crypto-key.test.mjs | 6 тестов — loadOrGenerateKeyPair (generate/load/corrupt/cache), signChallenge |
+| host-agent test | PASS (104 tests) |
+
+**Следующий pick:** M-56 `gamepad-injection.ts`.
+
 ## Marathon M-54 (2026-08-04 17:55 UTC) {#marathon-m-54}
 
 | Проверка | Результат |
@@ -25,7 +34,7 @@
 | host-agent test | PASS (98 tests) |
 | idle анализ | A–I чисто; J/K не покрыты на main; audit: tar via electron-builder (dev-only) |
 
-**Следующий pick:** M-55 `crypto-key.ts`.
+**Следующий pick:** M-56 `gamepad-injection.ts` (M-55 done).
 
 ## Marathon M-53 (2026-08-04 16:42 UTC) {#marathon-m-53}
 
