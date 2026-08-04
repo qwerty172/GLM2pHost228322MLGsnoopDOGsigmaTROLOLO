@@ -446,70 +446,95 @@ router.post("/sessions/test", testSessionLimiter, async (req, res): Promise<void
     return;
   }
 
-  // Only one open test session per host at a time — end any stale ones.
-  await db
-    .update(sessionsTable)
-    .set({ status: "ended", endedAt: new Date(), endReason: "test_superseded" })
-    .where(
-      and(
-        eq(sessionsTable.hostId, host.id),
-        eq(sessionsTable.isTest, true),
-        ne(sessionsTable.status, "ended"),
-      ),
-    );
-
-  // Same hardware constraint as /sessions: the host machine streams one game
-  // at a time. If a real (paid) session is still open, don't preempt it.
-  const [busy] = await db
-    .select({ id: sessionsTable.id })
-    .from(sessionsTable)
-    .where(
-      and(
-        eq(sessionsTable.hostId, host.id),
-        ne(sessionsTable.status, "ended"),
-      ),
-    )
-    .limit(1);
-  if (busy) {
-    res.status(409).json({
-      error: "host_busy",
-      message: "У хоста уже идёт сессия — завершите её перед тестом.",
+  // Serialize test-session creation per host (same FOR UPDATE pattern as
+  // POST /sessions and POST /embed/sessions) so a concurrent paid/embed
+  // session cannot slip in between the busy-check and insert.
+  let session: typeof sessionsTable.$inferSelect | undefined;
+  try {
+    session = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT id FROM hosts WHERE id = ${host.id} FOR UPDATE`,
+      );
+      // Only one open test session per host at a time — end any stale ones.
+      await tx
+        .update(sessionsTable)
+        .set({
+          status: "ended",
+          endedAt: new Date(),
+          endReason: "test_superseded",
+        })
+        .where(
+          and(
+            eq(sessionsTable.hostId, host.id),
+            eq(sessionsTable.isTest, true),
+            ne(sessionsTable.status, "ended"),
+          ),
+        );
+      const [busy] = await tx
+        .select({ id: sessionsTable.id })
+        .from(sessionsTable)
+        .where(
+          and(
+            eq(sessionsTable.hostId, host.id),
+            ne(sessionsTable.status, "ended"),
+          ),
+        )
+        .limit(1);
+      if (busy) {
+        throw Object.assign(new Error("host_busy"), { code: "host_busy" });
+      }
+      const playerToken = generateToken();
+      const [created] = await tx
+        .insert(sessionsTable)
+        .values({
+          hostId: host.id,
+          gameId: game.id,
+          playerToken,
+          ...inviteFields(),
+          appName: game.title,
+          resolution: "1280x720",
+          bitrateKbps: 4000,
+          // Rate kept for display purposes only; billing worker skips isTest.
+          ratePerMinute: String(Number(host.minutePriceUsd)),
+          paymentSource: "auto",
+          isTest: true,
+          // When the host bound their own browser URL, show that in the player —
+          // the catalog game row above is only used to satisfy the gameId FK.
+          ...(hostBoundUrl
+            ? {
+                appName:
+                  host.boundAppLabel ||
+                  (() => {
+                    try {
+                      return new URL(hostBoundUrl).hostname;
+                    } catch {
+                      return game.title;
+                    }
+                  })(),
+              }
+            : {}),
+        })
+        .returning();
+      if (!created) {
+        throw new Error("Failed to create test session");
+      }
+      return created;
     });
-    return;
+  } catch (err) {
+    if (
+      err &&
+      typeof err === "object" &&
+      "code" in err &&
+      (err as { code: string }).code === "host_busy"
+    ) {
+      res.status(409).json({
+        error: "host_busy",
+        message: "У хоста уже идёт сессия — завершите её перед тестом.",
+      });
+      return;
+    }
+    throw err;
   }
-
-  const playerToken = generateToken();
-  const [session] = await db
-    .insert(sessionsTable)
-    .values({
-      hostId: host.id,
-      gameId: game.id,
-      playerToken,
-      ...inviteFields(),
-      appName: game.title,
-      resolution: "1280x720",
-      bitrateKbps: 4000,
-      // Rate kept for display purposes only; billing worker skips isTest.
-      ratePerMinute: String(Number(host.minutePriceUsd)),
-      paymentSource: "auto",
-      isTest: true,
-      // When the host bound their own browser URL, show that in the player —
-      // the catalog game row above is only used to satisfy the gameId FK.
-      ...(hostBoundUrl
-        ? {
-            appName:
-              host.boundAppLabel ||
-              (() => {
-                try {
-                  return new URL(hostBoundUrl).hostname;
-                } catch {
-                  return game.title;
-                }
-              })(),
-          }
-        : {}),
-    })
-    .returning();
   if (!session) {
     res.status(500).json({ error: "Failed to create test session" });
     return;
