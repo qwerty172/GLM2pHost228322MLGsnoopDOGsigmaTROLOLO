@@ -10,7 +10,8 @@
   "scripts": {
     "generate": "dotenv -e ../../.env -- drizzle-kit generate --config ./drizzle.config.ts",
     "push": "dotenv -e ../../.env -- drizzle-kit push --config ./drizzle.config.ts",
-    "push-force": "dotenv -e ../../.env -- drizzle-kit push --force --config ./drizzle.config.ts"
+    "push-force": "dotenv -e ../../.env -- drizzle-kit push --force --config ./drizzle.config.ts",
+    "verify": "dotenv -e ../../.env -- node ./scripts/verify.mjs"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",
