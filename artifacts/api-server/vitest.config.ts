@@ -5,5 +5,8 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.ts"],
     exclude: ["src/__tests__/**"],
+    env: {
+      DATABASE_URL: "postgres://localhost:5432/marathon_test",
+    },
   },
 });
