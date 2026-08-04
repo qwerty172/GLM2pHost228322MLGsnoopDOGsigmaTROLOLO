@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 13:28 UTC |
 | Task ID | M-42 |
 | Результат | vt-scanner.tsx — 1 raw fetch → codegen (`useScanVt`) |
-| Commit | e8220ef |
+| Commit | c180eff |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
