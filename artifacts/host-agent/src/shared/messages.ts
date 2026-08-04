@@ -55,6 +55,11 @@ export interface HostConfig {
   captureMode?: "chromium" | "native";
 }
 
+/** Native DXGI/NVENC capture is not implemented (HOSTING H-03); coerce to chromium. */
+export function resolveCaptureMode(mode?: "chromium" | "native"): "chromium" {
+  return mode === "native" ? "chromium" : (mode ?? "chromium");
+}
+
 export type InputEvent =
   // mode === "absolute" (default): x/y are normalized to [0..1] over the
   //   streamed video; the injector scales to SendInput's [0..65535] range.

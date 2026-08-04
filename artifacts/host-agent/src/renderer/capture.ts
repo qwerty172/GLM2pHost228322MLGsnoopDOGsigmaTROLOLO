@@ -1,4 +1,5 @@
 import type { HostConfig } from "../shared/messages";
+import { resolveCaptureMode } from "../shared/messages.js";
 import {
   findBrowserCaptureSource,
   findCaptureSourceByHwnds,
@@ -82,6 +83,11 @@ function pickWindowManually(): Promise<{ id: string; name: string }> {
 }
 
 export async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
+  const captureMode = resolveCaptureMode(cfg.captureMode);
+  if (cfg.captureMode === "native") {
+    log(`[capture] mode=native → ${captureMode} (DXGI/NVENC не реализован)`);
+  }
+
   let sources = await window.agent.getCaptureSources();
   if (sources.length === 0) {
     throw new Error("Нет доступных источников захвата экрана/окна");

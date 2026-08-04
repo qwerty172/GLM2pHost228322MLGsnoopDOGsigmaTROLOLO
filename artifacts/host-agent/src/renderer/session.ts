@@ -1,4 +1,5 @@
 import type { HostConfig, InputEvent } from "../shared/messages";
+import { resolveCaptureMode } from "../shared/messages.js";
 import { captureScreen } from "./capture.js";
 import { injectPlayerInput } from "./input-mapping.js";
 import { startGuardPolling, stopGuardPolling } from "./input-guard.js";
@@ -495,8 +496,8 @@ export async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     return;
   }
   setPipelineStep("stream", "active", "устанавливаем WebRTC-соединение…");
-  const captureMode = cfg.captureMode ?? "chromium";
-  log(`[capture] mode=${captureMode}${captureMode === "native" ? " (fallback to chromium if native unavailable)" : ""}`);
+  const captureMode = resolveCaptureMode(cfg.captureMode);
+  log(`[capture] mode=${captureMode}`);
 
   // Fetch ICE server config (STUN + optional TURN) from the API.
   let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
