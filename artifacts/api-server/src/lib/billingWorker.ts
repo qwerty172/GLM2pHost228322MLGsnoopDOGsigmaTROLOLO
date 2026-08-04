@@ -191,7 +191,7 @@ async function billOnceInner(): Promise<void> {
 
           const payoutSplit = await creditPayoutToUser(tx, {
             ownerType: "host",
-            ownerId: session.hostId,
+            ownerId: liveSession.hostId,
             amountLzt: costLzt,
             kind: "session_tick",
             refType: "session",
@@ -246,12 +246,18 @@ async function billOnceInner(): Promise<void> {
           return false;
         }
 
-        const quota = session.quotaId
+        const [liveSession] = await tx
+          .select()
+          .from(sessionsTable)
+          .where(eq(sessionsTable.id, session.id));
+        if (!liveSession) return false;
+
+        const quota = liveSession.quotaId
           ? (
               await tx
                 .select()
                 .from(quotasTable)
-                .where(eq(quotasTable.id, session.quotaId))
+                .where(eq(quotasTable.id, liveSession.quotaId))
             )[0] ?? null
           : null;
 
@@ -278,8 +284,8 @@ async function billOnceInner(): Promise<void> {
         // ---------- Prepaid block sessions ----------
         // Player was debited blockReservedLzt at claim; pay the host each tick
         // from that reserve without further player balance debits.
-        if (session.blockMinutes && session.blockReservedLzt) {
-          if (minutesInto >= session.blockMinutes) {
+        if (liveSession.blockMinutes && liveSession.blockReservedLzt) {
+          if (minutesInto >= liveSession.blockMinutes) {
             await tx
               .update(sessionsTable)
               .set({
@@ -294,7 +300,7 @@ async function billOnceInner(): Promise<void> {
 
           const payoutSplit = await creditPayoutToUser(tx, {
             ownerType: "host",
-            ownerId: session.hostId,
+            ownerId: liveSession.hostId,
             amountLzt: hostNetLzt,
             kind: "session_tick",
             refType: "session",
@@ -324,7 +330,7 @@ async function billOnceInner(): Promise<void> {
             },
           ]);
 
-          const minsLeft = session.blockMinutes - minutesInto;
+          const minsLeft = liveSession.blockMinutes - minutesInto;
           await tx
             .update(sessionsTable)
             .set({ lastBilledAt: now })
@@ -475,7 +481,7 @@ async function billOnceInner(): Promise<void> {
                 kind: "session_tick_credit",
               });
               // Block sessions on credit still consume reserved minutes.
-              if (session.blockMinutes && minutesInto >= session.blockMinutes) {
+              if (liveSession.blockMinutes && minutesInto >= liveSession.blockMinutes) {
                 await tx
                   .update(sessionsTable)
                   .set({
@@ -690,8 +696,8 @@ async function billOnceInner(): Promise<void> {
         // For block sessions: check if minutesInto >= blockMinutes.
         // If yes, end the session (block exhausted, reserve already fully used).
         // If minutesInto === blockMinutes - 2, send a "block-warning" to the player.
-        if (session.blockMinutes) {
-          if (minutesInto >= session.blockMinutes) {
+        if (liveSession.blockMinutes) {
+          if (minutesInto >= liveSession.blockMinutes) {
             // Block fully consumed. End the session; no refund needed (all minutes used).
             await tx
               .update(sessionsTable)
@@ -700,7 +706,7 @@ async function billOnceInner(): Promise<void> {
             return "block_expired";
           }
           // Send 2-minute warning to the player via signaling room.
-          const minsLeft = session.blockMinutes - minutesInto;
+          const minsLeft = liveSession.blockMinutes - minutesInto;
           return { blockWarning: minsLeft === 2 };
         }
 
