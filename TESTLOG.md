@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-60 (2026-08-04 21:05 UTC) {#marathon-m-60}
+
+| Проверка | Результат |
+|---|---|
+| rtmp-relay.test.mjs | 13 тестов — mocked spawn/ffmpeg, gdigrab args, {stream_key}, sync title, fetchStreamRelayConfig |
+| host-agent test | PASS (137 tests) |
+| typecheck | PASS |
+
+**Следующий pick:** M-61 `save-paths.ts`.
+
 ## Marathon M-59 (2026-08-04 20:55 UTC) {#marathon-m-59}
 
 | Проверка | Результат |
