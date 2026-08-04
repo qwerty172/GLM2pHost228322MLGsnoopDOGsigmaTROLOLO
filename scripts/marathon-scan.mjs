@@ -18,6 +18,7 @@
 //   G. HOSTING.md backlog items (H-NN with status backlog/improvement)
 //   H. api-server lib/*.ts without co-located test (grouped)
 //   I. eslint-disable / @ts-ignore leftovers (grouped by file)
+//   J. `as any` in artifacts (grouped by file, skip generated)
 //
 // Source of truth: working tree (== main after git pull).
 
@@ -202,15 +203,17 @@ for (const [f, count] of fetchByFile) {
 // --- G. HOSTING.md backlog (H-NN) -----------------------------------------
 try {
   const hostingMd = readFileSync("HOSTING.md", "utf8");
-  for (const m of hostingMd.matchAll(/\|\s*(H-\d+)\s*\|\s*([^|]+?)\s*\|\s*(backlog|improvement)\s*\|/g)) {
+  for (const m of hostingMd.matchAll(/\|\s*(H-\d+)\s*\|\s*([^|]+?)\s*\|\s*([^|\n]+?)\s*\|/g)) {
     const id = m[1];
     const problem = m[2].trim();
+    const status = m[3].trim();
+    if (/fixed/i.test(status)) continue;
     raw.push({
       cat: "G",
       groupKey: `g:${id}`,
       title: `HOSTING ${id}: ${problem.slice(0, 55)}`,
       file: "HOSTING.md",
-      detail: problem.slice(0, 80),
+      detail: status.slice(0, 80),
       items: [id],
     });
   }
@@ -270,6 +273,34 @@ for (const [f, snippets] of lintByFile) {
   });
 }
 
+// --- J. `as any` in artifacts (group by file, skip generated) --------------
+const ANY_SKIP = /lib\/api-client-react|lib\/api-zod|\/dist\/|node_modules|\/public\/games\//;
+const anyHits = rg("\\bas any\\b", ["artifacts"], [
+  "-n",
+  "--glob",
+  "!**/*.test.*",
+  "--glob",
+  "!**/generated/**",
+]);
+const anyByFile = new Map();
+for (const line of (anyHits || "").split("\n")) {
+  const m = line.match(/^([^:]+):(\d+):(.*)$/);
+  if (!m) continue;
+  if (ANY_SKIP.test(m[1])) continue;
+  if (!anyByFile.has(m[1])) anyByFile.set(m[1], 0);
+  anyByFile.set(m[1], anyByFile.get(m[1]) + 1);
+}
+for (const [f, count] of anyByFile) {
+  raw.push({
+    cat: "J",
+    groupKey: `j:${f}`,
+    title: `убрать as any (${count})`,
+    file: f,
+    detail: f.replace(/^artifacts\//, ""),
+    items: [String(count)],
+  });
+}
+
 // --- group raw hits (merge same groupKey) --------------------------------
 const grouped = new Map();
 for (const c of raw) {
@@ -316,7 +347,7 @@ for (const line of marathonMd.split("\n")) {
   if (status === "done" || status === "in_progress") doneOrActiveKeys.add(groupKey);
 }
 
-const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, D: 7, I: 8 };
+const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, D: 7, I: 8, J: 9 };
 const filtered = candidates
   .filter((c) => !doneOrActiveKeys.has(c.groupKey))
   .sort((a, b) => (CAT_ORDER[a.cat] ?? 9) - (CAT_ORDER[b.cat] ?? 9));
@@ -466,7 +497,7 @@ if (NEXT || PICK) {
     console.log(`| ${c.id} | ${c.cat} | ${c.title} | \`${c.file}\` | ${(c.detail || "").replace(/\|/g, "\\|")} |`);
   }
   console.log(
-    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, I=eslint suppressions.`,
+    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, I=eslint suppressions, J=as any.`,
   );
   console.log(`Синхронизация: node scripts/marathon-scan.mjs --sync-marathon`);
 }

@@ -400,7 +400,7 @@ SELECT id, status, ended_at FROM sessions WHERE status = 'active' AND ended_at I
 |----|----------|--------|
 | H-01 | Match по title, не HWND/PID | fixed | M-44 — shared `window-match.ts`, title-only heuristics |
 | H-02 | Browser watch: любой Chrome = alive | fixed | M-45 — `browserWindowStillOpen`, any browser title hint |
-| H-03 | `captureMode: native` не реализован | coerce → chromium |
+| H-03 | `captureMode: native` не реализован | fixed | M-54 — `resolveCaptureMode`, coerce → chromium + log |
 | H-04 | Limited-user launch | fixed | MARATHON C3-S05 — spawnNativeApp + tryLimitedLaunch |
 | H-05 | RTMP relay drift от WebRTC source | fixed | MARATHON C3-S06 — syncRtmpWindowTitle on capture:set-source |
 | H-06 | Renderer 3300+ строк | MARATHON C3-S08 |

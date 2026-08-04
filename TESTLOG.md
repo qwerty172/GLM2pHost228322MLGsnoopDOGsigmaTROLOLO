@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-54 (2026-08-04 16:50 UTC) {#marathon-m-54}
+
+| Проверка | Результат |
+|---|---|
+| H-03 native capture | `resolveCaptureMode()` в messages.ts — native→chromium; log в capture.ts/session.ts |
+| unit test | PASS `test/messages.test.mjs` (3 cases) |
+| scanner expand | Категория J (`as any`), G расширен (HOSTING не-fixed) → 6 новых M-NN |
+| public.ts (bonus) | 5× `as any` → `SQL[]` drizzle types |
+| typecheck | PASS |
+| HOSTING.md | H-03 → fixed |
+
 ## Marathon M-53 (2026-08-04 16:42 UTC) {#marathon-m-53}
 
 | Проверка | Результат |
