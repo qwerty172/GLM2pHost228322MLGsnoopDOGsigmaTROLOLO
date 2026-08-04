@@ -94,15 +94,13 @@ export default function GamesPage() {
     query: { queryKey: getListGamesQueryKey(apiParams) },
   });
 
-  const [vdsGames, setVdsGames] = useState<GameEnriched[]>([]);
-  useEffect(() => {
-    void fetch(`${import.meta.env.BASE_URL}api/games?vdsOnly=true&liveOnly=true`)
-      .then((r) => r.json())
-      .then((data) => setVdsGames((data ?? []) as GameEnriched[]))
-      .catch(() => setVdsGames([]));
-  }, []);
+  const vdsParams = { vdsOnly: true, liveOnly: true } as const;
+  const { data: rawVdsGames } = useListGames(vdsParams, {
+    query: { queryKey: getListGamesQueryKey(vdsParams) },
+  });
 
   const games = (rawGames ?? []) as GameEnriched[];
+  const vdsGames = (rawVdsGames ?? []) as GameEnriched[];
 
   const categories = useMemo(() => {
     const seen = new Set<string>();
