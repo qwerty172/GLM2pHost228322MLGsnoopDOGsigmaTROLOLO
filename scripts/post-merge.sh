@@ -5,4 +5,4 @@ pnpm install --frozen-lockfile
 # so push sees the post-migration shape and stays a no-op (otherwise it would
 # want to drop the legacy `credit_balance` columns and lose data).
 node scripts/migrate-lzt.mjs
-pnpm --filter db push
+pnpm --filter @workspace/db push
