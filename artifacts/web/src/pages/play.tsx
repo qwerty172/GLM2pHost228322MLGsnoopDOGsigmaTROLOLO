@@ -7,7 +7,14 @@ import {
   useGetWallet,
   getGetWalletQueryKey,
   getSessionByInvite,
+  uploadStorageClip,
+  issueWsTicket,
+  getPublicIceConfig,
+  renewSessionBlock,
+  rateSession,
+  ApiError,
 } from "@workspace/api-client-react";
+import { putBlobToUrl } from "@/lib/put-external-blob";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -541,17 +548,12 @@ export default function Play() {
     // Platform storage (requires player auth)
     if (playerWalletToken) {
       try {
-        const formData = new FormData();
-        formData.append("file", blob, filename);
-        const res = await fetch(`${import.meta.env.BASE_URL}api/storage/clip-upload`, {
-          method: "POST",
-          headers: { "x-player-wallet-token": playerWalletToken },
-          body: formData,
-        });
-        if (res.ok) {
-          devLog("[clip] Uploaded to platform storage");
-          return;
-        }
+        await uploadStorageClip(
+          { file: blob },
+          { headers: { "x-player-wallet-token": playerWalletToken } },
+        );
+        devLog("[clip] Uploaded to platform storage");
+        return;
       } catch {
         // Platform storage unavailable, fall through to custom S3
       }
@@ -567,7 +569,7 @@ export default function Play() {
       const headers: Record<string, string> = { "Content-Type": "video/webm" };
       const s3Key = localStorage.getItem("clipS3Key");
       if (s3Key) headers["x-api-key"] = s3Key;
-      await fetch(uploadUrl, { method: "PUT", headers, body: blob });
+      await putBlobToUrl(uploadUrl, blob, headers);
       devLog("[clip] Uploaded to custom S3:", uploadUrl);
     } catch (err) {
       devWarn("[clip] Custom S3 upload failed:", err);
@@ -746,21 +748,11 @@ export default function Play() {
     const wsSessionId = session?.id;
     if (wsSessionId) {
       try {
-        const ticketRes = await fetch(`${import.meta.env.BASE_URL}api/auth/ws-ticket`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-player-wallet-token": playerWalletToken,
-          },
-          body: JSON.stringify({ role: "player", sessionId: wsSessionId }),
-        });
-        if (ticketRes.ok) {
-          const { wsTicket } = await ticketRes.json() as { wsTicket: string };
-          wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&wsTicket=${encodeURIComponent(wsTicket)}&sessionId=${encodeURIComponent(wsSessionId)}`;
-        } else {
-          // JWT not configured on server — fall back to legacy token path.
-          wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&playerToken=${encodeURIComponent(playerToken)}&playerWalletToken=${encodeURIComponent(playerWalletToken)}`;
-        }
+        const { wsTicket } = await issueWsTicket(
+          { role: "player", sessionId: wsSessionId },
+          { headers: { "x-player-wallet-token": playerWalletToken } },
+        );
+        wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&wsTicket=${encodeURIComponent(wsTicket)}&sessionId=${encodeURIComponent(wsSessionId)}`;
       } catch {
         wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&playerToken=${encodeURIComponent(playerToken)}&playerWalletToken=${encodeURIComponent(playerWalletToken)}`;
       }
@@ -772,12 +764,9 @@ export default function Play() {
     // Fetch ICE server config (STUN + optional TURN) from the API.
     let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
     try {
-      const cfgRes = await fetch(`${import.meta.env.BASE_URL}api/public/ice-config`);
-      if (cfgRes.ok) {
-        const cfgJson = (await cfgRes.json()) as { iceServers: RTCIceServer[] };
-        if (Array.isArray(cfgJson.iceServers) && cfgJson.iceServers.length > 0) {
-          iceServers = cfgJson.iceServers;
-        }
+      const cfgJson = await getPublicIceConfig();
+      if (Array.isArray(cfgJson.iceServers) && cfgJson.iceServers.length > 0) {
+        iceServers = cfgJson.iceServers;
       }
     } catch {
       devWarn("[ice] Failed to fetch ICE config, using default STUN only");
@@ -943,26 +932,17 @@ export default function Play() {
       if (!playerToken || !playerWalletToken || renewBlockLoading) return;
       setRenewBlockLoading(true);
       try {
-        const res = await fetch(
-          `${import.meta.env.BASE_URL}api/sessions/by-player-token/${encodeURIComponent(playerToken)}/renew-block`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playerWalletToken, blockMinutes: minutes }),
-          },
-        );
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          toast.error(data.error || "Не удалось продлить блок");
-          return;
-        }
-        const bm = data.blockMinutes as number | undefined;
+        const data = await renewSessionBlock(playerToken, {
+          playerWalletToken,
+          blockMinutes: minutes,
+        });
+        const bm = data.blockMinutes;
         if (bm != null) setBlockMinsLeft(bm);
         setPlayDock("none");
         blockWarningShownRef.current = false;
         toast.success(`Блок продлён на ${minutes} мин`);
-      } catch {
-        toast.error("Ошибка сети");
+      } catch (err) {
+        toast.error(formatApiError(err, "Не удалось продлить блок"));
       } finally {
         setRenewBlockLoading(false);
       }
@@ -973,29 +953,26 @@ export default function Play() {
   const submitRating = useCallback(async () => {
     if (!session?.id || !playerWalletToken || ratingSubmitted) return;
     try {
-      const res = await fetch(
-        `${import.meta.env.BASE_URL}api/sessions/${session.id}/rate`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            playerWalletToken,
-            score: ratingScore,
-          }),
-        },
-      );
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        if (data.error !== "already_rated") {
-          toast.error("Не удалось отправить оценку");
-          return;
-        }
-      }
+      await rateSession(session.id, {
+        playerWalletToken,
+        score: ratingScore,
+      });
       setRatingSubmitted(true);
       setPlayDock((d) => (d === "rating" ? "none" : d));
       toast.success("Спасибо за оценку!");
-    } catch {
-      toast.error("Ошибка сети");
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const code =
+          err.data && typeof err.data === "object" && "error" in err.data
+            ? String((err.data as { error?: string }).error)
+            : "";
+        if (code === "already_rated") {
+          setRatingSubmitted(true);
+          setPlayDock((d) => (d === "rating" ? "none" : d));
+          return;
+        }
+      }
+      toast.error(formatApiError(err, "Не удалось отправить оценку"));
     }
   }, [session?.id, playerWalletToken, ratingScore, ratingSubmitted]);
 

@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-36 (2026-08-04 08:32 UTC) {#marathon-m-36}
+
+| Проверка | Результат |
+|---|---|
+| play.tsx | 6 raw fetch → `uploadStorageClip`, `issueWsTicket`, `getPublicIceConfig`, `renewSessionBlock`, `rateSession` + `putBlobToUrl` (внешний S3) |
+| typecheck | PASS (monorepo) |
+| marathon-scan | play.tsx больше не в raw hits F |
+
+**Следующий pick:** M-39 `web: raw fetch → codegen (1 call)` — games.tsx.
+
 ## Marathon M-35 (2026-08-04 08:18 UTC) {#marathon-m-35}
 
 | Проверка | Результат |

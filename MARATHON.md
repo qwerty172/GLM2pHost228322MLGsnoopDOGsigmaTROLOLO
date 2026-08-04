@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-04 (M-35 done; profile.tsx codegen hooks)
+> **Последнее обновление:** 2026-08-04 (M-36 done; play.tsx codegen)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-04 08:18 UTC |
-| Task ID | M-35 |
-| Результат | profile.tsx — 2 raw fetch → codegen hooks + PATCH credit-settings API |
-| Commit | a607b4e |
+| Дата | 2026-08-04 08:32 UTC |
+| Task ID | M-36 |
+| Результат | play.tsx — 6 raw fetch → codegen (`uploadStorageClip`, `issueWsTicket`, `getPublicIceConfig`, `renewSessionBlock`, `rateSession`) |
+| Commit | (this run) |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** **14 M-NN pending** (M-36…M-53) — сканер расширен категориями F–I.
+**Wave Maintenance:** **13 M-NN pending** (M-37…M-53) — сканер расширен категориями F–I.
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -262,11 +262,11 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-47 | G | HOSTING H-08: HWND-based match после spawn | `HOSTING.md` | g:H-08 | done | agent |
 | M-34 | F | web: raw fetch → codegen (3 calls) | `artifacts/web/src/pages/quota-new.tsx` | f:artifacts/web/src/pages/quota-new.tsx | done | agent |
 | M-35 | F | web: raw fetch → codegen (2 calls) | `artifacts/web/src/pages/profile.tsx` | f:artifacts/web/src/pages/profile.tsx | done | agent |
-| M-36 | F | web: raw fetch → codegen (6 calls) | `artifacts/web/src/pages/play.tsx` | f:artifacts/web/src/pages/play.tsx | pending | agent |
-| M-37 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/pages/host/library.tsx` | f:artifacts/web/src/pages/host/library.tsx | pending | agent |
-| M-38 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/pages/host/browser-play.tsx` | f:artifacts/web/src/pages/host/browser-play.tsx | pending | agent |
+| M-36 | F | web: raw fetch → codegen (6 calls) | `artifacts/web/src/pages/play.tsx` | f:artifacts/web/src/pages/play.tsx | done | agent |
 | M-39 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/pages/games.tsx` | f:artifacts/web/src/pages/games.tsx | pending | agent |
+| M-37 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/pages/host/library.tsx` | f:artifacts/web/src/pages/host/library.tsx | pending | agent |
 | M-40 | F | web: raw fetch → codegen (6 calls) | `artifacts/web/src/pages/game-detail.tsx` | f:artifacts/web/src/pages/game-detail.tsx | pending | agent |
+| M-38 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/pages/host/browser-play.tsx` | f:artifacts/web/src/pages/host/browser-play.tsx | pending | agent |
 | M-41 | F | web: raw fetch → codegen (3 calls) | `artifacts/web/src/pages/embed.tsx` | f:artifacts/web/src/pages/embed.tsx | pending | agent |
 | M-42 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/components/vt-scanner.tsx` | f:artifacts/web/src/components/vt-scanner.tsx | pending | agent |
 | M-43 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/components/quota-ai-chat.tsx` | f:artifacts/web/src/components/quota-ai-chat.tsx | pending | agent |
