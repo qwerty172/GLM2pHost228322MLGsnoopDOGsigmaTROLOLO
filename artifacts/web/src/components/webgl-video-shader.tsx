@@ -196,6 +196,8 @@ interface Props {
 export const WebGLVideoShader = forwardRef<WebGLVideoShaderHandle, Props>(
   function WebGLVideoShader({ videoRef, fragCode, active, className, style, onCompileError }, ref) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const onCompileErrorRef = useRef(onCompileError);
+    onCompileErrorRef.current = onCompileError;
 
     useImperativeHandle(ref, () => ({ canvas: canvasRef.current }), []);
 
@@ -207,7 +209,7 @@ export const WebGLVideoShader = forwardRef<WebGLVideoShaderHandle, Props>(
 
       const gl = canvas.getContext("webgl", { antialias: false });
       if (!gl) {
-        onCompileError?.("WebGL недоступен в этом браузере");
+        onCompileErrorRef.current?.("WebGL недоступен в этом браузере");
         return;
       }
 
@@ -215,9 +217,9 @@ export const WebGLVideoShader = forwardRef<WebGLVideoShaderHandle, Props>(
       let prog: WebGLProgram;
       try {
         prog = createProgram(gl, VERT_SRC, fragCode);
-        onCompileError?.(null);
+        onCompileErrorRef.current?.(null);
       } catch (e) {
-        onCompileError?.(e instanceof Error ? e.message : String(e));
+        onCompileErrorRef.current?.(e instanceof Error ? e.message : String(e));
         return;
       }
 
@@ -290,9 +292,7 @@ export const WebGLVideoShader = forwardRef<WebGLVideoShaderHandle, Props>(
         gl.deleteTexture(tex);
         gl.deleteProgram(prog);
       };
-      // fragCode & active changes trigger full re-setup
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [active, fragCode]);
+    }, [active, fragCode, videoRef]);
 
     return (
       <canvas
