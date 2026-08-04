@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-67 (2026-08-04 23:46 UTC) {#marathon-m-67}
+
+| Проверка | Результат |
+|---|---|
+| wake-scheduler.test.mjs | 6 тестов — non-win32 skip, always/empty clears stale schtasks, scheduled registers WakeToRun via powershell, query/register errors swallowed |
+| host-agent test | PASS (184 tests) |
+| typecheck | PASS |
+
+**Следующий pick:** M-68 `input.ts`.
+
 ## Marathon M-66 (2026-08-04 23:40 UTC) {#marathon-m-66}
 
 | Проверка | Результат |
