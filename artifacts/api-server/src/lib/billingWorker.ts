@@ -11,7 +11,7 @@ import {
   loansTable,
 } from "@workspace/db";
 import { logger } from "./logger";
-import { usdtToLztRound, pickPlayerBucket } from "./lzt";
+import { usdtToLztRound, pickPlayerFunding, playerCreditAvailableLzt } from "./lzt";
 import { sendSignalingMessage } from "./signaling";
 import {
   computeQuotaEffect,
@@ -336,15 +336,22 @@ async function billOnceInner(): Promise<void> {
           .select({
             green: playersTable.withdrawableBalanceLzt,
             blue: playersTable.internalBalanceLzt,
+            creditLimitLzt: playersTable.creditLimitLzt,
+            creditDebtLzt: playersTable.creditDebtLzt,
           })
           .from(playersTable)
           .where(eq(playersTable.id, session.claimedByPlayerId!));
 
-        const bucket = pickPlayerBucket(
+        const creditAvailable = playerCreditAvailableLzt(
+          player?.creditLimitLzt ?? 0,
+          player?.creditDebtLzt ?? 0,
+        );
+        const funding = pickPlayerFunding(
           session.paymentSource,
           playerDebitLzt,
           player?.green ?? 0,
           player?.blue ?? 0,
+          creditAvailable,
         );
 
         // ---------- Host-service credit fallback ----------
@@ -353,7 +360,7 @@ async function billOnceInner(): Promise<void> {
         // continue the session: open/extend a `host_service` loan instead of
         // ending the session. The host gets nothing this minute; it will trickle
         // back via the 40/40/20 split as the player earns later.
-        if (bucket === null) {
+        if (funding === null) {
           const [host] = await tx
             .select({
               creditMin: hostsTable.creditMinutesPerNewPlayer,
@@ -497,6 +504,73 @@ async function billOnceInner(): Promise<void> {
           return true;
         }
 
+        if (funding === "credit") {
+          const ok = await adjustUserBucket(
+            tx,
+            "player",
+            session.claimedByPlayerId!,
+            "debt",
+            playerDebitLzt,
+          );
+          if (!ok) {
+            await tx
+              .update(sessionsTable)
+              .set({ status: "ended", endedAt: now, endReason: "balance_exhausted" })
+              .where(eq(sessionsTable.id, session.id));
+            return true;
+          }
+          const groupId = randomUUID();
+          await writeLedger(tx, [
+            {
+              groupId,
+              kind: "session_tick_credit_line",
+              ownerType: "player",
+              ownerId: session.claimedByPlayerId!,
+              bucket: "debt",
+              deltaLzt: playerDebitLzt,
+              refType: "session",
+              refId: session.id,
+            },
+          ]);
+          const payoutSplit = await creditPayoutToUser(tx, {
+            ownerType: "host",
+            ownerId: session.hostId,
+            amountLzt: hostNetLzt,
+            kind: "session_tick",
+            refType: "session",
+            refId: session.id,
+            groupId,
+          });
+          await tx.insert(billingEventsTable).values([
+            {
+              sessionId: session.id,
+              hostId: session.hostId,
+              playerId: session.claimedByPlayerId!,
+              minutes: 1,
+              bucket: "green",
+              playerDebitLzt: 0,
+              hostCreditLzt: payoutSplit.cash,
+              kind: "session_tick_credit_line",
+            },
+            {
+              sessionId: session.id,
+              hostId: session.hostId,
+              playerId: session.claimedByPlayerId!,
+              minutes: 1,
+              bucket: "blue",
+              playerDebitLzt,
+              hostCreditLzt: payoutSplit.balance,
+              kind: "session_tick_credit_line",
+            },
+          ]);
+          await tx
+            .update(sessionsTable)
+            .set({ lastBilledAt: now })
+            .where(eq(sessionsTable.id, session.id));
+          return false;
+        }
+
+        const bucket = funding;
         const playerCol =
           bucket === "green"
             ? playersTable.withdrawableBalanceLzt

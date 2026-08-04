@@ -31,7 +31,7 @@ import {
 import { generateToken } from "../lib/tokens";
 import { generateInviteCode, defaultInviteExpiresAt, isInviteExpired } from "../lib/invites";
 import { applyLaunchFee } from "../lib/launchFee";
-import { pickPlayerBucket } from "../lib/lzt";
+import { pickPlayerFunding, pickPlayerBucket, playerCreditAvailableLzt } from "../lib/lzt";
 import { isHostAvailableNow } from "../lib/schedule";
 import { checkQuotaAttachment } from "../lib/quotaAttach";
 import { headerUserToken } from "../lib/requestToken";
@@ -708,11 +708,16 @@ router.post(
     const launchFeeLzt = Math.round(Math.max(0, launchFee) * 200);
     const perMinuteLzt = Math.round(Math.max(0, perMinute) * 200);
     const minBalanceLzt = launchFeeLzt + perMinuteLzt;
-    const picked = pickPlayerBucket(
+    const creditAvailableLzt = playerCreditAvailableLzt(
+      player.creditLimitLzt,
+      player.creditDebtLzt,
+    );
+    const picked = pickPlayerFunding(
       session.paymentSource,
       minBalanceLzt,
       player.withdrawableBalanceLzt,
       player.internalBalanceLzt,
+      creditAvailableLzt,
     );
     // Block billing: if the player chose a block, require the full block reserve
     // (blockMinutes × perMinuteLzt) to be present in a single bucket, plus the launch fee.
@@ -731,11 +736,13 @@ router.post(
         : minBalanceLzt;
     const effectivePicked =
       effectiveMinLzt !== minBalanceLzt
-        ? pickPlayerBucket(
+        ? pickPlayerFunding(
             session.paymentSource,
             effectiveMinLzt,
             player.withdrawableBalanceLzt,
             player.internalBalanceLzt,
+            // Block reserve debits real buckets upfront — credit line not allowed.
+            0,
           )
         : picked;
 
@@ -744,7 +751,7 @@ router.post(
         ? `${effectiveMinLzt} LZT (блок ${blockMinutes} мин × ${ratePerMinuteLzt} LZT + запуск)`
         : `${effectiveMinLzt} LZT`;
       res.status(400).json({
-        error: `Insufficient LZT — need at least ${need} in a single ${session.paymentSource === "auto" ? "(green or blue)" : session.paymentSource} bucket to start`,
+        error: `Insufficient LZT — need at least ${need} in a single ${session.paymentSource === "auto" ? "(green, blue, or credit)" : session.paymentSource} bucket to start`,
       });
       return;
     }
@@ -752,7 +759,7 @@ router.post(
     // Reserve the block amount: debit the player immediately so the funds are
     // locked. The billing worker will refund unused minutes on early exit.
     if (blockReservedLzt !== null && blockReservedLzt > 0 && !isReclaimBySamePlayer) {
-      const bucket = effectivePicked ?? "balance";
+      const bucket = effectivePicked === "green" ? "green" : "balance";
       const playerCol =
         bucket === "green"
           ? playersTable.withdrawableBalanceLzt
@@ -787,7 +794,7 @@ router.post(
 
     if (picked === null && minBalanceLzt > 0 && blockReservedLzt === null) {
       res.status(400).json({
-        error: `Insufficient LZT — need at least ${minBalanceLzt} LZT in a single ${session.paymentSource === "auto" ? "(green or blue)" : session.paymentSource} bucket to start`,
+        error: `Insufficient LZT — need at least ${minBalanceLzt} LZT in a single ${session.paymentSource === "auto" ? "(green, blue, or credit)" : session.paymentSource} bucket to start`,
       });
       return;
     }

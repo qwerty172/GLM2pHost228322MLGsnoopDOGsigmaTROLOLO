@@ -4,13 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
-import { Loader2, Cpu, Zap, CircleDollarSign } from "lucide-react";
+import { Loader2, Cpu, Zap, CircleDollarSign, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { SiteNav } from "@/components/site-nav";
 
 export function HostAuthGuard({ children }: { children: React.ReactNode }) {
   const { hostToken, setHostToken } = useAuth();
   const [displayName, setDisplayName] = useState("");
+  const [existingToken, setExistingToken] = useState("");
+  const [showTokenInput, setShowTokenInput] = useState(false);
 
   const registerHost = useRegisterHost();
 
@@ -33,6 +35,14 @@ export function HostAuthGuard({ children }: { children: React.ReactNode }) {
         },
       },
     );
+  };
+
+  const handleUseExistingToken = (e: React.FormEvent) => {
+    e.preventDefault();
+    const token = existingToken.trim();
+    if (!token) return;
+    setHostToken(token);
+    toast.success("Токен сохранён — загружаем дашборд");
   };
 
   if (hostToken) {
@@ -122,7 +132,44 @@ export function HostAuthGuard({ children }: { children: React.ReactNode }) {
           </div>
 
           <p className="text-center text-[11px] text-slate-600 mt-4">
-            Уже есть токен? Он сохраняется автоматически в браузере.
+            {!showTokenInput ? (
+              <button
+                type="button"
+                onClick={() => setShowTokenInput(true)}
+                className="text-sky-400 hover:text-sky-300 underline underline-offset-2"
+              >
+                Уже есть токен? Вставить
+              </button>
+            ) : (
+              <form onSubmit={handleUseExistingToken} className="space-y-3 text-left">
+                <Label htmlFor="existingToken" className="text-slate-400 text-xs flex items-center gap-1.5">
+                  <KeyRound className="w-3 h-3" />
+                  Токен хоста
+                </Label>
+                <Input
+                  id="existingToken"
+                  placeholder="Вставьте токен с другого устройства…"
+                  value={existingToken}
+                  onChange={(e) => setExistingToken(e.target.value)}
+                  className="h-10 text-sm font-mono"
+                  style={{
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    color: "#e2e8f0",
+                  }}
+                  autoFocus
+                />
+                <Button
+                  type="submit"
+                  className="w-full h-10 font-bold text-sm"
+                  variant="outline"
+                  style={{ borderColor: "rgba(14,165,233,0.3)", color: "#38bdf8" }}
+                  disabled={!existingToken.trim()}
+                >
+                  Войти с токеном
+                </Button>
+              </form>
+            )}
           </p>
         </div>
       </div>

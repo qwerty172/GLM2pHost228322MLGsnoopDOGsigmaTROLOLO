@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db, hostsTable, playersTable } from "@workspace/db";
-import { usdtToLztRound, pickPlayerBucket } from "./lzt";
+import { usdtToLztRound, pickPlayerFunding, playerCreditAvailableLzt } from "./lzt";
 import {
   adjustUserBucket,
   creditPayoutToUser,
@@ -38,22 +38,67 @@ export async function applyLaunchFee(args: {
           .select({
             green: playersTable.withdrawableBalanceLzt,
             blue: playersTable.internalBalanceLzt,
+            creditLimitLzt: playersTable.creditLimitLzt,
+            creditDebtLzt: playersTable.creditDebtLzt,
           })
           .from(playersTable)
           .where(eq(playersTable.id, args.playerId));
         const green = player?.green ?? 0;
         const blue = player?.blue ?? 0;
-        const bucket = pickPlayerBucket(
+        const creditAvailable = playerCreditAvailableLzt(
+          player?.creditLimitLzt ?? 0,
+          player?.creditDebtLzt ?? 0,
+        );
+        const funding = pickPlayerFunding(
           args.paymentSource,
           feeLzt,
           green,
           blue,
+          creditAvailable,
         );
-        if (bucket === null) {
+        if (funding === null) {
           return {
             ok: false,
             reason: "Insufficient LZT in selected bucket for launch fee",
           };
+        }
+        if (funding === "credit") {
+          const ok = await adjustUserBucket(
+            tx,
+            "player",
+            args.playerId,
+            "debt",
+            feeLzt,
+          );
+          if (!ok) {
+            return {
+              ok: false,
+              reason: "Insufficient gaming credit for launch fee",
+            };
+          }
+          const groupId = randomUUID();
+          await writeLedger(tx, [
+            {
+              groupId,
+              kind: "launch_fee",
+              ownerType: "player",
+              ownerId: args.playerId,
+              bucket: "debt",
+              deltaLzt: feeLzt,
+              refType: "session",
+              refId: args.sessionId,
+            },
+          ]);
+          await creditPayoutToUser(tx, {
+            ownerType: "host",
+            ownerId: args.hostId,
+            amountLzt: feeLzt,
+            kind: "launch_fee",
+            refType: "session",
+            refId: args.sessionId,
+            groupId,
+          });
+          return { ok: true };
         }
         const result = await payInternal(tx, {
           fromType: "player",
@@ -61,7 +106,7 @@ export async function applyLaunchFee(args: {
           toType: "host",
           toId: args.hostId,
           amountLzt: feeLzt,
-          source: bucket === "green" ? "cash" : "balance",
+          source: funding === "green" ? "cash" : "balance",
           kind: "launch_fee",
           refType: "session",
           refId: args.sessionId,

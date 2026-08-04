@@ -933,11 +933,10 @@ function PreSessionModal({
   }, []);
 
   const balanceLzt = (wallet?.internalBalanceLzt ?? 0) + (wallet?.withdrawableBalanceLzt ?? 0);
-  // Claim не принимает кредитный лимит — показываем только реальные бакеты.
-  const totalAvailableLzt = balanceLzt;
   const creditLimit = (wallet as { creditLimitLzt?: number } | undefined)?.creditLimitLzt ?? DEFAULT_CREDIT_LZT;
   const creditUsed = wallet?.creditDebtLzt ?? 0;
   const creditAvailable = Math.max(0, creditLimit - creditUsed);
+  const totalAvailableLzt = balanceLzt + creditAvailable;
   const minsAvailable = host.pricePerMinuteLzt > 0
     ? Math.floor(totalAvailableLzt / host.pricePerMinuteLzt)
     : 9999;

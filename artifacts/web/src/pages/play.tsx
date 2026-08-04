@@ -1298,8 +1298,10 @@ export default function Play() {
   if (!isPlaying) {
     const greenLzt = wallet?.withdrawableBalanceLzt ?? 0;
     const blueLzt = wallet?.internalBalanceLzt ?? 0;
-    // Claim принимает только green/blue — не суммируем с кредитным лимитом.
-    const totalLzt = greenLzt + blueLzt;
+    const creditLimit = wallet?.creditLimitLzt ?? 0;
+    const creditUsed = wallet?.creditDebtLzt ?? 0;
+    const creditAvailable = Math.max(0, creditLimit - creditUsed);
+    const totalLzt = greenLzt + blueLzt + creditAvailable;
     const ratePerMinUsd = session.ratePerMinute;
     const ratePerMinLzt = Math.round(ratePerMinUsd * LZT_PER_USDT);
     const sourceBalance =
@@ -1420,10 +1422,15 @@ export default function Play() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-lg p-3 text-center" style={{ background: "rgba(255,255,255,0.03)" }}>
-              <p className="text-xs text-slate-500 mb-1">Доступно (игровой + к выводу)</p>
+              <p className="text-xs text-slate-500 mb-1">Доступно для игры</p>
               <p className="text-lg font-mono font-bold text-white">
                 {totalLzt.toLocaleString("ru-RU")} LZT
               </p>
+              {creditAvailable > 0 && greenLzt + blueLzt < totalLzt && (
+                <p className="text-[10px] text-sky-400 mt-0.5">
+                  в т.ч. {creditAvailable.toLocaleString("ru-RU")} LZT в кредит
+                </p>
+              )}
               {ratePerMinLzt > 0 && (
                 <p className="text-[11px] text-slate-500 mt-1">~{minutesAffordable} мин игры</p>
               )}
