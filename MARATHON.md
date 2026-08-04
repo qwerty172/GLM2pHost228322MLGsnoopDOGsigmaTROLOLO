@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 08:32 UTC |
 | Task ID | M-36 |
 | Результат | play.tsx — 6 raw fetch → codegen (`uploadStorageClip`, `issueWsTicket`, `getPublicIceConfig`, `renewSessionBlock`, `rateSession`) |
-| Commit | (this run) |
+| Commit | 2d97fc8 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
