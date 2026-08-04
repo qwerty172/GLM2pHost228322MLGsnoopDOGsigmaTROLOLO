@@ -24,6 +24,8 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { useGetWallet, getGetWalletQueryKey } from "@workspace/api-client-react";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { useQuickPalette } from "@/components/quick-command-palette";
+import { Kbd } from "@/components/ui/kbd";
 import { toast } from "sonner";
 
 type NavKey =
@@ -68,6 +70,7 @@ function BalanceChip({ walletToken }: { walletToken: string }) {
 
 export function SiteNav({ activePath }: Props) {
   const { hostToken, logout } = useAuth();
+  const { toggle: togglePalette } = useQuickPalette();
   const { playerWalletToken, isGuest, upgradeGuest } = usePlayerWallet();
   const [guestExpanded, setGuestExpanded] = useState(false);
   const [guestName, setGuestName] = useState("");
@@ -140,19 +143,35 @@ export function SiteNav({ activePath }: Props) {
 
         {/* Right side actions */}
         <div className="flex items-center gap-2 shrink-0">
-          {/* Search button */}
-          <Link href="/games">
-            <button
-              type="button"
-              className="w-8 h-8 flex items-center justify-center rounded-md transition-colors hover:bg-white/5"
-              style={{ color: "#64748b" }}
-              title="Поиск игр"
-              aria-label="Поиск игр"
-              data-testid="button-nav-search"
-            >
-              <Search className="w-4 h-4" />
-            </button>
-          </Link>
+          {/* Quick actions palette */}
+          <button
+            type="button"
+            onClick={togglePalette}
+            className="hidden sm:flex items-center gap-2 h-8 px-2.5 rounded-md transition-colors hover:bg-white/5 text-slate-500 hover:text-slate-300"
+            style={{ border: "1px solid rgba(255,255,255,0.06)" }}
+            title="Быстрые действия (Ctrl+K)"
+            aria-label="Быстрые действия"
+            data-testid="button-nav-search"
+          >
+            <Search className="w-3.5 h-3.5 shrink-0" />
+            <span className="text-[12px]">Быстро</span>
+            <Kbd className="hidden lg:inline-flex bg-white/5 text-slate-500 border border-white/10">
+              {typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform)
+                ? "⌘K"
+                : "Ctrl+K"}
+            </Kbd>
+          </button>
+          <button
+            type="button"
+            onClick={togglePalette}
+            className="sm:hidden w-8 h-8 flex items-center justify-center rounded-md transition-colors hover:bg-white/5"
+            style={{ color: "#64748b" }}
+            title="Быстрые действия"
+            aria-label="Быстрые действия"
+            data-testid="button-nav-search-mobile"
+          >
+            <Search className="w-4 h-4" />
+          </button>
 
           {/* Online indicator — desktop only */}
           <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-500">
