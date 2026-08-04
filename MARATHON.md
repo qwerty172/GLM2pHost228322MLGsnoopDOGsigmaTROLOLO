@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 23:26 UTC |
 | Task ID | M-65 |
 | Результат | steam-scanner.ts unit-тесты: registry mock, ACF parse, manifest exe, dedup, resolve path, scan state |
-| Commit | (pending) |
+| Commit | b62d467 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
