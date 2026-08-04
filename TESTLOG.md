@@ -15,6 +15,18 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-54 (2026-08-04 17:55 UTC) {#marathon-m-54}
+
+| Проверка | Результат |
+|---|---|
+| marathon-scan | категории J (main) + K (shared) — 15→14 pending после тестов |
+| api-client.test.mjs | 12 тестов — fetchHostSchedule, fetchLibrary, sendHeartbeat, saves |
+| app-launcher.test.mjs | 13 тестов — parseArgs, launchEntry/App, killApp |
+| host-agent test | PASS (98 tests) |
+| idle анализ | A–I чисто; J/K не покрыты на main; audit: tar via electron-builder (dev-only) |
+
+**Следующий pick:** M-55 `crypto-key.ts`.
+
 ## Marathon M-53 (2026-08-04 16:42 UTC) {#marathon-m-53}
 
 | Проверка | Результат |
