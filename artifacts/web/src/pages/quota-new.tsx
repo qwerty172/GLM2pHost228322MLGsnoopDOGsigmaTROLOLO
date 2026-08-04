@@ -5,7 +5,11 @@ import {
   useCreateQuota,
   usePublishQuota,
   useListGames,
+  useTestQuotaVdsConnection,
+  useSaveQuotaVds,
+  useAiSuggestQuotaSpecs,
 } from "@workspace/api-client-react";
+import { extractApiErrorPayload } from "@/lib/api-errors";
 import { SiteNav } from "@/components/site-nav";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -71,8 +75,6 @@ export default function QuotaNewPage() {
   const [vdsSshUser, setVdsSshUser] = useState("root");
   const [vdsSshKey, setVdsSshKey] = useState("");
   const [vdsTestResult, setVdsTestResult] = useState<null | { ok: boolean; error?: string }>(null);
-  const [vdsTesting, setVdsTesting] = useState(false);
-  const [vdsSaving, setVdsSaving] = useState(false);
 
   // PC specs
   const [minGpuVram, setMinGpuVram] = useState<string>("");
@@ -86,11 +88,13 @@ export default function QuotaNewPage() {
   const [recDownloadMbps, setRecDownloadMbps] = useState<string>("");
   const [recUploadMbps, setRecUploadMbps] = useState<string>("");
   const [requiredTier, setRequiredTier] = useState<"min" | "recommended">("min");
-  const [aiLoading, setAiLoading] = useState(false);
   const [apiKey, setApiKey] = useState<string>("");
 
   const createQuota = useCreateQuota();
   const publishQuota = usePublishQuota();
+  const testVds = useTestQuotaVdsConnection();
+  const saveVds = useSaveQuotaVds();
+  const aiSuggestSpecs = useAiSuggestQuotaSpecs();
   const { data: games } = useListGames({});
 
   const testVdsConnection = async () => {
@@ -102,98 +106,56 @@ export default function QuotaNewPage() {
       toast.error("Нужна авторизация хоста");
       return;
     }
-    setVdsTesting(true);
     setVdsTestResult(null);
     try {
-      const res = await fetch(
-        `${import.meta.env.BASE_URL}api/quotas/vds/test-connection`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ownerToken: hostToken,
-            sshHost: vdsSshHost.trim(),
-            sshPort: Number(vdsSshPort) || 22,
-            sshUser: vdsSshUser.trim(),
-            sshKey: vdsSshKey,
-          }),
+      const data = await testVds.mutateAsync({
+        data: {
+          ownerToken: hostToken,
+          sshHost: vdsSshHost.trim(),
+          sshPort: Number(vdsSshPort) || 22,
+          sshUser: vdsSshUser.trim(),
+          sshKey: vdsSshKey,
         },
-      );
-      const data = (await res.json()) as { ok: boolean; error?: string };
+      });
       setVdsTestResult(data);
-    } catch {
-      setVdsTestResult({ ok: false, error: "Ошибка сети" });
-    } finally {
-      setVdsTesting(false);
+    } catch (err) {
+      const payload = extractApiErrorPayload(err);
+      setVdsTestResult({
+        ok: false,
+        error: payload?.error ?? payload?.message ?? "Ошибка сети",
+      });
     }
   };
 
   const saveVdsConfig = async (quotaId: string) => {
     if (!hostToken || !vdsSshHost.trim() || !vdsSshKey.trim()) return;
-    setVdsSaving(true);
     try {
-      const res = await fetch(
-        `${import.meta.env.BASE_URL}api/quotas/${quotaId}/vds`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ownerToken: hostToken,
-            provider: vdsProvider,
-            sshHost: vdsSshHost.trim(),
-            sshPort: Number(vdsSshPort) || 22,
-            sshUser: vdsSshUser.trim(),
-            sshKey: vdsSshKey,
-          }),
+      await saveVds.mutateAsync({
+        quotaId,
+        data: {
+          ownerToken: hostToken,
+          provider: vdsProvider,
+          sshHost: vdsSshHost.trim(),
+          sshPort: Number(vdsSshPort) || 22,
+          sshUser: vdsSshUser.trim(),
+          sshKey: vdsSshKey,
         },
-      );
-      if (!res.ok) {
-        const d = (await res.json()) as { error?: string };
-        toast.error(formatApiError(d, "Не удалось сохранить VDS-конфиг"));
-      } else {
-        toast.success("VDS-конфиг сохранён, провижининг запущен");
-      }
-    } catch {
-      toast.error("Ошибка сети при сохранении VDS");
-    } finally {
-      setVdsSaving(false);
+      });
+      toast.success("VDS-конфиг сохранён, провижининг запущен");
+    } catch (err) {
+      toast.error(formatApiError(err, "Не удалось сохранить VDS-конфиг"));
     }
   };
 
   const selectedGame = games?.find((g) => g.id === gameId);
 
   const handleAiSuggest = async () => {
-    setAiLoading(true);
     try {
       const body: { gameTitle?: string; genre?: string } = {};
       if (selectedGame) {
         body.gameTitle = selectedGame.title;
       }
-      const resp = await fetch(
-        `${import.meta.env.BASE_URL}api/quotas/ai-suggest-specs`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        },
-      );
-      if (!resp.ok) {
-        const err = (await resp.json()) as { error?: string };
-        toast.error(formatApiError(err, "AI вернул ошибку"));
-        return;
-      }
-      const data = (await resp.json()) as {
-        minGpuVram: number;
-        minCpuCores: number;
-        minRamGb: number;
-        minDownloadMbps: number;
-        minUploadMbps: number;
-        recGpuVram: number;
-        recCpuCores: number;
-        recRamGb: number;
-        recDownloadMbps: number;
-        recUploadMbps: number;
-      };
+      const data = await aiSuggestSpecs.mutateAsync({ data: body });
       setMinGpuVram(String(data.minGpuVram));
       setMinCpuCores(String(data.minCpuCores));
       setMinRamGb(String(data.minRamGb));
@@ -205,10 +167,8 @@ export default function QuotaNewPage() {
       setRecDownloadMbps(String(data.recDownloadMbps));
       setRecUploadMbps(String(data.recUploadMbps));
       toast.success("ИИ подобрал минимальные и рекомендуемые требования");
-    } catch {
-      toast.error("Не удалось подключиться к ИИ");
-    } finally {
-      setAiLoading(false);
+    } catch (err) {
+      toast.error(formatApiError(err, "Не удалось подключиться к ИИ"));
     }
   };
 
@@ -786,7 +746,7 @@ export default function QuotaNewPage() {
                       size="sm"
                       variant="outline"
                       onClick={handleAiSuggest}
-                      disabled={aiLoading}
+                      disabled={aiSuggestSpecs.isPending}
                       data-testid="button-ai-suggest"
                       style={{
                         background: "rgba(139,92,246,0.1)",
@@ -794,7 +754,7 @@ export default function QuotaNewPage() {
                         color: "#a78bfa",
                       }}
                     >
-                      {aiLoading ? (
+                      {aiSuggestSpecs.isPending ? (
                         <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
                       ) : (
                         <Wand2 className="h-4 w-4 mr-1.5" />
@@ -1141,7 +1101,7 @@ export default function QuotaNewPage() {
                         variant="outline"
                         size="sm"
                         onClick={testVdsConnection}
-                        disabled={vdsTesting}
+                        disabled={testVds.isPending}
                         style={{
                           borderColor: "rgba(255,255,255,0.12)",
                           color: "#94a3b8",
@@ -1149,7 +1109,7 @@ export default function QuotaNewPage() {
                         }}
                         data-testid="vds-test-connection"
                       >
-                        {vdsTesting ? (
+                        {testVds.isPending ? (
                           <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
                         ) : null}
                         Проверить подключение
