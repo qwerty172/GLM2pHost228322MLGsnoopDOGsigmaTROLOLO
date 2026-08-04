@@ -332,6 +332,9 @@ export async function fetchSessionContext(
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function onPlayerJoined(cfg: HostConfig): Promise<void> {
+  const setupAborted = (): boolean =>
+    !session.isStreaming || !session.currentSessionId;
+
   // One-active-session guard. If already streaming, the host machine is busy.
   // Send a structured rejection code so the player receives an explicit error.
   // IMPORTANT: Do NOT close session.ws here — that would destroy the active stream.
@@ -369,6 +372,7 @@ export async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     claimedByPlayerId = sessionCtx?.claimedByPlayerId ?? null;
     isTestSession = sessionCtx?.isTest ?? false;
   }
+  if (setupAborted()) return;
 
   // Register exit callback BEFORE launching. When the game process exits,
   // main sends "app:game-exited" → we auto-end the session.
@@ -445,6 +449,7 @@ export async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     } else {
       setPipelineStep("saves", "done", "не требуется");
     }
+    if (setupAborted()) return;
 
     setPipelineStep("launch", "active");
     const launchResult = await window.agent.launchEntry({
@@ -464,6 +469,7 @@ export async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     }
     log(`Launched ${entry.game.title} (pid=${launchResult.pid ?? "browser"}).`);
     setPipelineStep("launch", "done", entry.game.title);
+    if (setupAborted()) return;
   } else {
     setPipelineStep("saves", "done", "не требуется");
     setPipelineStep("launch", "active");
@@ -481,6 +487,7 @@ export async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     }
     log(`App launched (pid=${launchResult.pid}).`);
     setPipelineStep("launch", "done");
+    if (setupAborted()) return;
   }
 
   setPipelineStep("window", "active", "ищем окно игры…");
@@ -494,6 +501,8 @@ export async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     void teardown("capture_failed");
     return;
   }
+  if (setupAborted()) return;
+
   setPipelineStep("stream", "active", "устанавливаем WebRTC-соединение…");
   const captureMode = cfg.captureMode ?? "chromium";
   log(`[capture] mode=${captureMode}${captureMode === "native" ? " (fallback to chromium if native unavailable)" : ""}`);
@@ -510,6 +519,11 @@ export async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     }
   } catch {
     log("[ice] Failed to fetch ICE config, using default STUN only");
+  }
+  if (setupAborted()) {
+    session.captureStream?.getTracks().forEach((t) => t.stop());
+    session.captureStream = null;
+    return;
   }
 
   session.pc = new RTCPeerConnection({ iceServers });

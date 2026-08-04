@@ -280,12 +280,29 @@ router.post("/sessions", async (req, res): Promise<void> => {
   res.status(201).json(GetSessionResponse.parse(serialize(session)));
 });
 
+// Browser-host sessions mint a fresh host row per call — throttle like test
+// sessions so spam cannot churn hosts/sessions at zero cost.
+const browserHostSessionLimiter = rateLimit({
+  scope: "sessions:browser-host",
+  windowMs: 60_000,
+  max: 5,
+  keyFn: (req) => {
+    const wallet = String(
+      (req.body as { playerWalletToken?: string })?.playerWalletToken ?? "",
+    );
+    return `${ipKey(req)}:${wallet}`;
+  },
+});
+
 // Create a session whose host is the calling browser. We mint a fresh host
 // row for this session (so existing per-host plumbing — billing, signaling,
 // activity, withdrawals — works unchanged) and return its hostToken to the
 // caller. The caller is responsible for storing the hostToken locally
 // (sessions are throwaway, so it never goes back to the server).
-router.post("/sessions/browser-host", async (req, res): Promise<void> => {
+router.post(
+  "/sessions/browser-host",
+  browserHostSessionLimiter,
+  async (req, res): Promise<void> => {
   const parsed = CreateBrowserHostSessionBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -366,7 +383,8 @@ router.post("/sessions/browser-host", async (req, res): Promise<void> => {
     hostToken,
     browserHostUrl: game.browserHostUrl,
   });
-});
+  },
+);
 
 // Self-test sessions are free, so throttle creation hard: token guessing or
 // spam would otherwise churn the sessions table at zero cost.
