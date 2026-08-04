@@ -15,6 +15,18 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-46 (2026-08-04 06:38 UTC) {#marathon-m-46}
+
+| Проверка | Результат |
+|---|---|
+| H-07 | `captureScreen` unit tests — explicit/auto-match/browser/screen fallback |
+| focus-guard | `focus-guard.test.mjs` — panic block, guardDisabled, guardInput |
+| unit tests | 69 tests PASS (@workspace/host-agent) |
+| typecheck | PASS (@workspace/host-agent) |
+| HOSTING | H-07 → fixed |
+
+**Следующий pick:** M-47 `HOSTING H-08` HWND-based match после spawn.
+
 ## Marathon M-45 (2026-08-04 06:18 UTC) {#marathon-m-45}
 
 | Проверка | Результат |
