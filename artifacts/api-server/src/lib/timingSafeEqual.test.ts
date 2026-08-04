@@ -1,0 +1,16 @@
+import { describe, expect, it } from "vitest";
+import { timingSafeEqualString } from "./timingSafeEqual";
+
+describe("timingSafeEqualString", () => {
+  it("matches equal secrets", () => {
+    expect(timingSafeEqualString("admin-secret", "admin-secret")).toBe(true);
+  });
+
+  it("rejects unequal, empty, or length-mismatched values", () => {
+    expect(timingSafeEqualString("admin-secret", "admin-secreX")).toBe(false);
+    expect(timingSafeEqualString("short", "longer-secret")).toBe(false);
+    expect(timingSafeEqualString("", "x")).toBe(false);
+    expect(timingSafeEqualString("x", "")).toBe(false);
+    expect(timingSafeEqualString("", "")).toBe(false);
+  });
+});
