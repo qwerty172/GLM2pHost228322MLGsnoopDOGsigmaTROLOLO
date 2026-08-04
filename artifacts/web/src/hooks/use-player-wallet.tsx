@@ -1,9 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { registerPlayer, upgradeGuestPlayer } from "@workspace/api-client-react";
 
 const STORAGE_KEY = "streamline.playerWalletToken";
 const GUEST_KEY = "streamline.playerIsGuest";
+
+interface PlayerWalletOptions {
+  /** Создать гостевой кошелёк при первом заходе (по умолчанию true). */
+  autoRegister?: boolean;
+}
 
 interface PlayerWalletState {
   playerWalletToken: string | null;
@@ -14,7 +19,8 @@ interface PlayerWalletState {
   upgradeGuest: (displayName: string) => Promise<boolean>;
 }
 
-export function usePlayerWallet(): PlayerWalletState {
+export function usePlayerWallet(options?: PlayerWalletOptions): PlayerWalletState {
+  const autoRegister = options?.autoRegister ?? true;
   const [playerWalletToken, setToken] = useState<string | null>(() =>
     localStorage.getItem(STORAGE_KEY),
   );
@@ -48,6 +54,14 @@ export function usePlayerWallet(): PlayerWalletState {
       setIsRegistering(false);
     }
   }, [isRegistering]);
+
+  const autoRegisterStarted = useRef(false);
+  useEffect(() => {
+    if (!autoRegister || autoRegisterStarted.current) return;
+    if (playerWalletToken || isRegistering) return;
+    autoRegisterStarted.current = true;
+    void registerGuest();
+  }, [autoRegister, playerWalletToken, isRegistering, registerGuest]);
 
   const upgradeGuest = useCallback(async (displayName: string): Promise<boolean> => {
     const guestToken = localStorage.getItem(STORAGE_KEY);
