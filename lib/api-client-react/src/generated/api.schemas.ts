@@ -296,6 +296,21 @@ export interface HealthStatus {
   status: string;
 }
 
+export type ReadinessStatusStatus =
+  (typeof ReadinessStatusStatus)[keyof typeof ReadinessStatusStatus];
+
+export const ReadinessStatusStatus = {
+  ok: "ok",
+  degraded: "degraded",
+} as const;
+
+export type ReadinessStatusChecks = { [key: string]: string };
+
+export interface ReadinessStatus {
+  status: ReadinessStatusStatus;
+  checks: ReadinessStatusChecks;
+}
+
 export interface ErrorResponse {
   error: string;
 }

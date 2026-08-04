@@ -9,19 +9,39 @@ echo "==> DecentralHub — локальная настройка"
 
 if [[ ! -f .env ]]; then
   cp .env.example .env
-  echo "Создан .env из .env.example — отредактируй DATABASE_URL и WALLET_ENCRYPTION_KEY"
+  echo "Создан .env из .env.example"
 else
   echo ".env уже существует — пропускаем копирование"
 fi
 
-if [[ -z "${WALLET_ENCRYPTION_KEY:-}" ]] && grep -q '^WALLET_ENCRYPTION_KEY=$' .env 2>/dev/null; then
-  KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
-  if [[ "$(uname -s)" == "Darwin" ]]; then
-    sed -i '' "s/^WALLET_ENCRYPTION_KEY=$/WALLET_ENCRYPTION_KEY=$KEY/" .env
-  else
-    sed -i "s/^WALLET_ENCRYPTION_KEY=$/WALLET_ENCRYPTION_KEY=$KEY/" .env
+gen_secret() {
+  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+}
+
+patch_env_key() {
+  local key="$1"
+  local value="$2"
+  if grep -q "^${key}=$" .env 2>/dev/null; then
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+      sed -i '' "s|^${key}=$|${key}=${value}|" .env
+    else
+      sed -i "s|^${key}=$|${key}=${value}|" .env
+    fi
+    echo "Сгенерирован ${key}"
   fi
-  echo "Сгенерирован WALLET_ENCRYPTION_KEY"
+}
+
+patch_env_key "WALLET_ENCRYPTION_KEY" "$(gen_secret)"
+patch_env_key "JWT_SECRET" "$(gen_secret)"
+
+# Подставляем docker-compose credentials, если остался шаблон user:password
+if grep -q '^DATABASE_URL=postgresql://user:password@' .env 2>/dev/null; then
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    sed -i '' 's|^DATABASE_URL=postgresql://user:password@|DATABASE_URL=postgresql://decentral_hub:decentral_hub@|' .env
+  else
+    sed -i 's|^DATABASE_URL=postgresql://user:password@|DATABASE_URL=postgresql://decentral_hub:decentral_hub@|' .env
+  fi
+  echo "DATABASE_URL → docker-compose (decentral_hub/decentral_hub)"
 fi
 
 echo "==> pnpm install"
@@ -35,5 +55,7 @@ pnpm run typecheck
 
 echo ""
 echo "Готово. Запуск:"
-echo "  ./scripts/dev-local.sh          — API + Web"
-echo "  или см. README.md"
+echo "  pnpm dev                        — API + Web"
+echo "  curl http://localhost:8080/api/readyz  — проверка БД"
+echo "  http://localhost:5000           — веб-интерфейс"
+echo "  docs/QUICKSTART.md              — краткая шпаргалка"

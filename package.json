@@ -9,7 +9,12 @@
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "test": "pnpm --filter @workspace/api-server test",
     "smoke:invite": "node scripts/invite-flow-smoke.mjs",
-    "smoke:features": "node scripts/features-smoke.mjs"
+    "smoke:features": "node scripts/features-smoke.mjs",
+    "setup": "bash scripts/setup-local.sh",
+    "dev": "bash scripts/dev-local.sh",
+    "infra:up": "docker compose -f infra/docker-compose.dev.yml up -d postgres redis",
+    "infra:down": "docker compose -f infra/docker-compose.dev.yml down",
+    "quickstart": "bash scripts/quickstart.sh"
   },
   "private": true,
   "devDependencies": {
