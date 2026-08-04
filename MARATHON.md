@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 17:08 UTC |
 | Task ID | M-54 |
 | Результат | play.tsx: OpenAPI SessionByInviteResponse для getSessionByPlayerToken, убраны 4× as any; bonus: public.ts drizzle conds |
-| Commit | *(после push)* |
+| Commit | 4035ecd |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
