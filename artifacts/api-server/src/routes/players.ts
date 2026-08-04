@@ -9,6 +9,7 @@ import {
 import { generateToken } from "../lib/tokens";
 import { ensureDepositAddressesForOwner } from "../lib/walletOwner";
 import { rateLimit, ipKey } from "../lib/rateLimit";
+import { headerUserToken } from "../lib/requestToken";
 
 const router: IRouter = Router();
 
@@ -272,5 +273,53 @@ router.post("/players/upgrade-guest", upgradeGuestLimiter, async (req, res): Pro
   req.log.info({ playerId: upgraded.id }, "Guest upgraded to full account");
   res.status(200).json(serialize(upgraded));
 });
+
+const creditSettingsLimiter = rateLimit({
+  scope: "players:credit-settings",
+  windowMs: 60_000,
+  max: 30,
+});
+
+router.patch(
+  "/players/me/credit-settings",
+  creditSettingsLimiter,
+  async (req, res): Promise<void> => {
+    const token = headerUserToken(req);
+    if (!token) {
+      res.status(401).json({ error: "Missing X-User-Token" });
+      return;
+    }
+
+    const creditEnabled = req.body?.creditEnabled;
+    if (typeof creditEnabled !== "boolean") {
+      res.status(400).json({ error: "creditEnabled boolean required" });
+      return;
+    }
+
+    const [player] = await db
+      .select()
+      .from(playersTable)
+      .where(eq(playersTable.playerToken, token));
+
+    if (!player) {
+      res.status(403).json({ error: "Player token required" });
+      return;
+    }
+
+    const newLimit = creditEnabled ? DEFAULT_CREDIT_LIMIT_LZT : 0;
+    const [updated] = await db
+      .update(playersTable)
+      .set({ creditLimitLzt: newLimit })
+      .where(eq(playersTable.id, player.id))
+      .returning();
+
+    if (!updated) {
+      res.status(500).json({ error: "Update failed" });
+      return;
+    }
+
+    res.json({ creditLimitLzt: updated.creditLimitLzt });
+  },
+);
 
 export default router;

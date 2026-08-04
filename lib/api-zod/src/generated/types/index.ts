@@ -136,6 +136,8 @@ export * from "./myLoans";
 export * from "./platformEvent";
 export * from "./platformEventPayload";
 export * from "./player";
+export * from "./playerCreditSettingsBody";
+export * from "./playerCreditSettingsResponse";
 export * from "./playerGameSaveCommitBody";
 export * from "./playerGameSaveCommitResponse";
 export * from "./playerGameSaveCommitResponseSave";
