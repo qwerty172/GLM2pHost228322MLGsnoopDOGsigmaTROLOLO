@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 06:18 UTC |
 | Task ID | M-45 |
 | Результат | HOSTING H-02 — browser watch: любой Chrome = alive |
-| Commit | pending |
+| Commit | 4d0655c |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
