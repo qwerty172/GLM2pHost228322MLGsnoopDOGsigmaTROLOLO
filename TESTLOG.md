@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-41 (2026-08-04 13:00 UTC) {#marathon-m-41}
+
+| Проверка | Результат |
+|---|---|
+| embed.tsx | 3 raw fetch → codegen (`createEmbedSession`, `getPublicIceConfig`, `useGetSessionByPlayerToken`) |
+| typecheck | PASS (monorepo) |
+| marathon-scan | embed.tsx больше не в raw hits F |
+
+**Следующий pick:** M-43 `web: raw fetch → codegen (1 call)` — quota-ai-chat.tsx.
+
 ## Marathon M-40 (2026-08-04 12:40 UTC) {#marathon-m-40}
 
 | Проверка | Результат |
