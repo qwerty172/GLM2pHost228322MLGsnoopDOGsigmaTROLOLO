@@ -68,3 +68,17 @@ test("captureScreen uses configured captureSourceName when set", async () => {
   });
   assert.equal(session.currentCaptureSourceName, "My Custom Window");
 });
+
+test("captureScreen prefers HWND match from spawned PID over title heuristics", async () => {
+  window.agent.getSpawnHwnds = async () => ({ pid: 4242, hwnds: [98765] });
+  window.agent.getCaptureSources = async () => [
+    { id: "screen:0", name: "Primary Screen" },
+    { id: "window:98765:0", name: "Unrelated Title" },
+    { id: "window:11111:0", name: "RogueFable3" },
+  ];
+  await captureScreen({
+    ...defaultHostConfig,
+    appPath: "C:\\Games\\rf3\\RogueFable3.exe",
+  });
+  assert.equal(session.currentCaptureSourceName, "Unrelated Title");
+});

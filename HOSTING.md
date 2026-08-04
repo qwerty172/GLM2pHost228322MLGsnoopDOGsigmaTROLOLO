@@ -122,6 +122,7 @@ Main process: IPC `capture:get-sources` → `desktopCapturer.getSources({ types:
    └─ findBrowserCaptureSource() — до 5 попыток × 2 сек
    └─ pickWindowManually() при провале
 3. Native game:
+   └─ getSpawnHwnds() — HWND окна процесса после spawn (H-08), до 5×2 сек
    └─ targetExeName() = basename(appPath) без .exe
    └─ sources.find(name.includes(targetName)) — 5×2 сек
    └─ если 1 игра в library → fallback на весь экран (screen:)
@@ -404,7 +405,7 @@ SELECT id, status, ended_at FROM sessions WHERE status = 'active' AND ended_at I
 | H-05 | RTMP relay drift от WebRTC source | fixed | MARATHON C3-S06 — syncRtmpWindowTitle on capture:set-source |
 | H-06 | Renderer 3300+ строк | MARATHON C3-S08 |
 | H-07 | Unit tests capture/focus | fixed | M-46 — resolveTargetExeName, capture/focus-guard unit tests |
-| H-08 | HWND-based match после spawn | improvement |
+| H-08 | HWND-based match после spawn | fixed | M-47 — spawn PID → HWND match в capture |
 
 ### Планируемые улучшения
 
@@ -422,7 +423,8 @@ SELECT id, status, ended_at FROM sessions WHERE status = 'active' AND ended_at I
 | Что | Файл | Функция |
 |-----|------|---------|
 | Выбор окна | `host-agent/src/renderer/capture.ts` | `captureScreen`, `pickWindowManually` |
-| Title match | `host-agent/src/shared/window-match.ts` | `findBrowserCaptureSource`, `findNativeCaptureSource` |
+| Title match | `host-agent/src/shared/window-match.ts` | `findBrowserCaptureSource`, `findNativeCaptureSource`, `findCaptureSourceByHwnds` |
+| HWND match | `host-agent/src/main/spawn-hwnd.ts` | `getHwndsForSpawnedPid` |
 | Запуск exe/url | `host-agent/src/main/app-launcher.ts` | `launchEntry`, `launchApp`, `startBrowserWatch` |
 | Focus guard | `host-agent/src/main/focus-guard.ts` | `setAllowedTarget`, `guardInput` |
 | SendInput | `host-agent/src/main/input-injection.ts` | `injectPlayerInput` |

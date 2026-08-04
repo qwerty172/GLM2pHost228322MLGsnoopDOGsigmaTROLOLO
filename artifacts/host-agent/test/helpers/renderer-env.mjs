@@ -63,6 +63,7 @@ export function setupRendererEnv() {
       { id: "window:2", name: "game" },
     ],
     setCaptureSource: () => {},
+    getSpawnHwnds: async () => ({ pid: null, hwnds: [] }),
     openFileDialog: async () => null,
     openExplorer: () => {},
     injectInput: () => {},

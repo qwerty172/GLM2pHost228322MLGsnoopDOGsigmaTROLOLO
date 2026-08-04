@@ -7,6 +7,8 @@ const {
   findBrowserCaptureSource,
   findNativeCaptureSource,
   findCaptureSourceByTitle,
+  findCaptureSourceByHwnds,
+  parseHwndFromSourceId,
   browserWindowStillOpen,
   looksLikeBrowserWindow,
   resolveTargetExeName,
@@ -93,4 +95,22 @@ test("resolveTargetExeName prefers library entry for currentGameId", () => {
 test("resolveTargetExeName falls back to cfg appPath", () => {
   assert.equal(resolveTargetExeName(null, [], "D:\\Steam\\game\\MyGame.EXE"), "mygame");
   assert.equal(resolveTargetExeName("missing", [], "D:\\Steam\\game\\MyGame.EXE"), "mygame");
+});
+
+test("parseHwndFromSourceId extracts HWND from Electron window id", () => {
+  assert.equal(parseHwndFromSourceId("window:12345:0"), 12345);
+  assert.equal(parseHwndFromSourceId("screen:0:0"), null);
+  assert.equal(parseHwndFromSourceId("window:bad:0"), null);
+});
+
+test("findCaptureSourceByHwnds prefers first HWND in priority list", () => {
+  const hwndSources = [
+    { id: "screen:0:0", name: "Entire screen" },
+    { id: "window:100:0", name: "Launcher" },
+    { id: "window:200:0", name: "RogueFable3" },
+    { id: "window:300:0", name: "Discord" },
+  ];
+  const picked = findCaptureSourceByHwnds(hwndSources, [200, 100]);
+  assert.equal(picked?.id, "window:200:0");
+  assert.equal(findCaptureSourceByHwnds(hwndSources, []), undefined);
 });

@@ -57,6 +57,7 @@ declare global {
       }) => Promise<{ ok: boolean; pid?: number; error?: string }>;
       onGameExited: (cb: () => void) => void;
       getCaptureSources: () => Promise<{ id: string; name: string }[]>;
+      getSpawnHwnds: () => Promise<{ pid: number | null; hwnds: number[] }>;
       setCaptureSource: (title: string) => void;
       killApp: () => void;
       openFileDialog: () => Promise<string | null>;
