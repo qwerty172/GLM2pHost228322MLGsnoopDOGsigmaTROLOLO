@@ -56,3 +56,29 @@ export function pickPlayerBucket(
   if (blueLzt >= amountLzt) return "blue";
   return null;
 }
+
+/** Remaining gaming credit line (LZT) after existing debt. */
+export function playerCreditAvailableLzt(
+  creditLimitLzt: number,
+  creditDebtLzt: number,
+): number {
+  return Math.max(0, creditLimitLzt - creditDebtLzt);
+}
+
+export type PlayerFundingBucket = "green" | "blue" | "credit";
+
+// Extends pickPlayerBucket with the player's gaming credit line. Credit is
+// only considered for "blue" and "auto" sources — never combined with cash
+// buckets, same single-bucket rule as pickPlayerBucket.
+export function pickPlayerFunding(
+  paymentSource: string,
+  amountLzt: number,
+  greenLzt: number,
+  blueLzt: number,
+  creditAvailableLzt: number,
+): PlayerFundingBucket | null {
+  const cash = pickPlayerBucket(paymentSource, amountLzt, greenLzt, blueLzt);
+  if (cash !== null) return cash;
+  if (paymentSource === "green") return null;
+  return creditAvailableLzt >= amountLzt ? "credit" : null;
+}

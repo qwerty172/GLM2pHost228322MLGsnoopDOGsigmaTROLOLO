@@ -982,6 +982,108 @@ function CurrentQuotaCard({ hostToken }: { hostToken: string }) {
   );
 }
 
+// ── Instant try (before full setup) ───────────────────────────────────────
+
+function InstantTryStreamCard({
+  hostToken,
+  onSessionCreated,
+}: {
+  hostToken: string;
+  onSessionCreated: () => void;
+}) {
+  const [loading, setLoading] = useState(false);
+
+  const handleTry = async () => {
+    setLoading(true);
+    try {
+      const data = await createTestSession(undefined, {
+        headers: {
+          "X-Host-Token": hostToken,
+          Authorization: `Bearer ${hostToken}`,
+          "X-User-Token": hostToken,
+        },
+      });
+      onSessionCreated();
+      if (data.isExternalUrl && data.hostBoundUrl) {
+        try {
+          localStorage.setItem(
+            "streamline.browserHostToken:" + data.session.id,
+            hostToken,
+          );
+          localStorage.setItem(
+            "streamline.browserHostUrl:" + data.session.id,
+            data.hostBoundUrl,
+          );
+        } catch {
+          /* localStorage unavailable */
+        }
+        toast.success("Тест-сессия создана — поделись вкладкой со стримом");
+        window.open(
+          `${window.location.origin}${import.meta.env.BASE_URL}host/play/${data.session.id}`,
+          "_blank",
+        );
+      } else {
+        toast.success("Тест-сессия создана — открываю плеер");
+        const playPath = data.session.inviteCode
+          ? `play/i/${data.session.inviteCode}`
+          : `play/${data.session.playerToken}`;
+        window.open(
+          `${window.location.origin}${import.meta.env.BASE_URL}${playPath}`,
+          "_blank",
+        );
+      }
+    } catch (err) {
+      toast.error(formatApiError(err, "Не удалось создать тест-сессию"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card
+      style={{
+        background: "linear-gradient(135deg, rgba(139,92,246,0.12), rgba(14,165,233,0.08))",
+        border: "1px solid rgba(139,92,246,0.35)",
+      }}
+      data-testid="instant-try-stream"
+    >
+      <CardContent className="pt-5 pb-5">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex-1 min-w-0">
+            <p className="text-base font-bold text-white flex items-center gap-2">
+              <FlaskConical className="h-4 w-4 text-violet-400" />
+              Попробуй за 30 секунд
+            </p>
+            <p className="text-sm text-slate-400 mt-1">
+              Запусти тест-стрим прямо сейчас — без агента, привязки и библиотеки.
+              Остальное настроишь потом.
+            </p>
+          </div>
+          <Button
+            onClick={() => void handleTry()}
+            disabled={loading}
+            className="shrink-0 h-10 px-5 font-bold text-sm"
+            style={{ background: "#8b5cf6", color: "#fff" }}
+            data-testid="button-instant-try"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Создаём…
+              </>
+            ) : (
+              <>
+                <MonitorPlay className="h-4 w-4 mr-2" />
+                Запустить тест
+              </>
+            )}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── Quick start (5 steps) ─────────────────────────────────────────────────
 
 function HostQuickStartCard({
@@ -1442,6 +1544,10 @@ export default function Dashboard() {
   const hasActiveSession = (sessions ?? []).some(
     (s) => s.status === "active" || s.status === "pending",
   );
+  const agentOnline =
+    agent.status === "online" || heartbeat.status === "fresh";
+  const quickStartDone =
+    agentOnline && agentKeyBound && libraryCount > 0;
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const agentNeedsAttention =
@@ -1553,9 +1659,16 @@ export default function Dashboard() {
           Дашборд хоста
         </h1>
         <p className="text-sm text-slate-500">
-          Пять шагов до приёма игроков — без лишних экранов.
+          Сначала попробуй стрим — остальное настроишь потом.
         </p>
       </div>
+
+      {hostToken && !quickStartDone && (
+        <InstantTryStreamCard
+          hostToken={hostToken}
+          onSessionCreated={() => void refetchSessions()}
+        />
+      )}
 
       {hostToken && (
         <HostQuickStartCard
