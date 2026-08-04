@@ -79,11 +79,22 @@ function hasOpenPrForTask(taskId) {
 
 function countRecentIdleRuns() {
   try {
+    // Берём последние 10 коммитов MARATHON.md и считаем подряд идущие idle
     const out = execSync(
-      'git log --oneline -50 --grep="Marathon idle\\|idle —" -- MARATHON.md',
+      'git log --oneline -10 --format="%s" -- MARATHON.md',
       { encoding: "utf8" },
     ).trim();
-    return out ? out.split("\n").length : 0;
+    if (!out) return 0;
+    const lines = out.split("\n");
+    let streak = 0;
+    for (const line of lines) {
+      const isIdle = /Marathon idle|idle —|idle:|idle \|/.test(line);
+      const isReal = /M-\d+|расширить|groom|reconcile|sync/i.test(line) && !isIdle;
+      if (isReal) break;
+      if (isIdle) streak++;
+      else break;
+    }
+    return streak;
   } catch {
     return 0;
   }

@@ -17,7 +17,7 @@
 | Результат | Сканер расширен (F–I), добавлено 20 M-NN |
 | Commit | 1992f24 |
 
-> Automation: **обновляй эту таблицу** в конце каждого запуска.
+**Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
 ---
 
@@ -296,24 +296,18 @@ Automation **каждый run** создаёт и выполняет одну н
 **Полный:**
 ```
 git pull origin main
-node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0   # skip: pr_in_flight / in_progress (НЕ recent_run)
+node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0
 # exit 2 = STOP: commit+push MARATHON если Result изменился; дальше НЕ идти
 node scripts/marathon-reconcile.mjs --apply   # legacy done, БЕЗ кода
 node scripts/marathon-groom.mjs --apply        # meta: phantom/stale/drift, только MARATHON
-node scripts/marathon-scan.mjs --sync-marathon # обновить 161e0d7 M-NN
-git add MARATHON.md && git commit -m "chore(marathon): groom+sync" && git push origin main || true
-Прочитай MARATHON.md. Memory выключена.
+node scripts/marathon-scan.mjs --sync-marathon # обновить M-NN
+# Коммитить ТОЛЬКО если git diff --quiet ≠ 0. Иначе exit без commit.
+if git diff --quiet; then echo "no changes"; else git add -A && git commit -m "chore(marathon): groom+sync" && git push origin main; fi
 
-КАЖДЫЙ RUN:
-0. `node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0` — exit 2 только pr_in_flight/in_progress.
-1. Legacy done/blocked/skipped — НЕ ТРОГАТЬ.
-2. groom --apply: если raw_explosion или баг сканера → почини marathon-scan.mjs, skip ложные задачи, commit meta.
-3. node scripts/marathon-scan.mjs --next
-   - idle:true → Marathon idle, обнови Last run, выход.
-   - иначе pick = первая 161e0d7 M-NN.
-4. Перед кодом: gh pr list + rg/git log — если уже в main → done без кода; если в открытом PR → cherry-pick в main.
-5. in_progress → выполни → pnpm typecheck → done + TESTLOG.
-6. Обнови Last run. commit && push.
+PICK=$(node scripts/marathon-scan.mjs --next)
+echo "$PICK"
+# idle:true → НЕ коммитить Last run. reason=scanner_empty_expand → расширить сканер.
+# pick.id → in_progress → код → pnpm typecheck → done + TESTLOG → commit.
 
 Один M-NN или одно meta-улучшение за run. Push в main.
 ```

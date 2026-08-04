@@ -4,17 +4,35 @@
 git pull origin main
 node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0
 # exit 2 = STOP (pr_in_flight / in_progress) — commit MARATHON если Result изменился
+
+# Шаг 1: meta-only — НИКОГДА не коммитить, если нет изменений
 node scripts/marathon-reconcile.mjs --apply
 node scripts/marathon-groom.mjs --apply
 node scripts/marathon-scan.mjs --sync-marathon
+# Теперь MARATHON.md изменён ТОЛЬКО если: новые задачи / статус / phantom / stale
+
+# Шаг 2: проверка — есть ли реальные изменения?
+if git diff --cached --quiet && git diff --quiet; then
+  # Ничего не изменилось — НЕ коммитить
+  :
+else
+  git add -A && git commit -m "chore(marathon): groom+sync" && git push origin main || true
+fi
+
 PICK=$(node scripts/marathon-scan.mjs --next)
 echo "$PICK"
-# idle:true + reason scanner_empty_expand → РАСШИРИТЬ marathon-scan.mjs, sync-marathon, commit
-# idle:true + reason scanner_empty → НЕ коммитить Last run, exit 0 (ждём 3 idle → expand)
-# idle:true + обычный → Last run только если ageMin>30, иначе exit без commit
 # pick.id → СРАЗУ работа по pick (OpenAPI/codegen/тесты), БЕЗ:
 #   - читать MARATHON.md (скрипты уже дали pick)
 #   - list-cloud-agents / automation_memory / анализ прошлых runs
 #   - «улучшать промпт» при pendingMnn>0
+#   - коммитить Last run, если ageMin<30 и нет реальных изменений
 # одна M-NN → pnpm --filter @workspace/api-spec run codegen → pnpm typecheck → done + TESTLOG
-git add -A && git commit -m "feat(marathon): <ID> ..." && git push origin main
+
+# idle:true → НЕ коммитить Last run. Только reason=scanner_empty_expand → расширить сканер.
+# reason=scanner_empty (idleStreak<3) → exit 0 без commit.
+# ageMin>30 и нет реальных изменений → exit 0 без commit.
+
+# ЗАПРЕЩЕНО:
+#   - отдельный commit «fix Last run commit hash» — hash фиксится в следующем полезном run
+#   - commit при git diff --quiet
+#   - обновлять Last run при idleStreak<3 или ageMin<30
