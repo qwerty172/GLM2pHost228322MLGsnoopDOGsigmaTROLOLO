@@ -15,5 +15,6 @@ start "DecentralHub Web" cmd /k "cd /d %CD% && pnpm --filter @workspace/web run 
 echo.
 echo API:  http://localhost:8080/api/healthz
 echo Web:  http://localhost:5000
+echo Демо: http://localhost:5000/try
 echo.
 echo Два окна cmd открыты — закрой их чтобы остановить серверы.

@@ -111,6 +111,33 @@ export function SiteNav({ activePath }: Props) {
 
         {/* Primary nav — desktop */}
         <div className="hidden md:flex items-center gap-1 flex-1">
+          <Link href="/try">
+            <span
+              className="flex items-center gap-1.5 text-[13px] font-semibold transition-colors cursor-pointer px-3 py-1.5 rounded-md"
+              style={{
+                color: isActive("/try") ? "#34d399" : "#34d399",
+                background: isActive("/try") ? "rgba(16,185,129,0.12)" : "rgba(16,185,129,0.08)",
+                border: "1px solid rgba(16,185,129,0.2)",
+              }}
+              data-testid="link-nav-try"
+            >
+              <Zap className="w-3.5 h-3.5" /> Попробовать
+            </span>
+          </Link>
+
+          <Link href="/games">
+            <span
+              className="flex items-center gap-1.5 text-[13px] font-semibold transition-colors cursor-pointer px-3 py-1.5 rounded-md"
+              style={{
+                color: isActive("/games") ? "#38bdf8" : "#e2e8f0",
+                background: isActive("/games") ? "rgba(14,165,233,0.08)" : "transparent",
+              }}
+              data-testid="link-nav-games"
+            >
+              <Gamepad2 className="w-3.5 h-3.5" /> Игры
+            </span>
+          </Link>
+
           <Link href="/hosts">
             <span
               className="flex items-center gap-1.5 text-[13px] font-semibold transition-colors cursor-pointer px-3 py-1.5 rounded-md"
@@ -118,9 +145,9 @@ export function SiteNav({ activePath }: Props) {
                 color: isActive("/hosts") ? "#38bdf8" : "#e2e8f0",
                 background: isActive("/hosts") ? "rgba(14,165,233,0.08)" : "transparent",
               }}
-              data-testid="link-nav-games"
+              data-testid="link-nav-hosts"
             >
-              <Gamepad2 className="w-3.5 h-3.5" /> Играть
+              <Search className="w-3.5 h-3.5" /> Хосты
             </span>
           </Link>
 

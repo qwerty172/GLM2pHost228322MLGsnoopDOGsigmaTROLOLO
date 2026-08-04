@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
 import NotFound from "@/pages/not-found";
 
+import TryPage from "@/pages/try";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/host/dashboard";
 import SetupSession from "@/pages/host/setup";
@@ -68,6 +69,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
+      <Route path="/try" component={TryPage} />
       <Route path="/games" component={GamesPage} />
       <Route path="/profile" component={ProfilePage} />
       <Route path="/games/:slug" component={GameDetailPage} />

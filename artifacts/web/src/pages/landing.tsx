@@ -200,12 +200,20 @@ export default function Landing() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-start gap-3">
-            <Link href="/hosts">
+            <Link href="/try">
               <Button
                 className="h-9 px-5 text-sm font-semibold rounded-md"
                 style={{ background: "#0ea5e9", color: "#fff" }}
               >
-                <Play className="w-3.5 h-3.5 mr-1.5" /> Играть
+                <Play className="w-3.5 h-3.5 mr-1.5" /> Попробовать бесплатно
+              </Button>
+            </Link>
+            <Link href="/games">
+              <Button
+                variant="outline"
+                className="h-9 px-5 text-sm rounded-md border-white/10 text-slate-300 hover:text-white"
+              >
+                Каталог игр
               </Button>
             </Link>
             <Link href="/host">

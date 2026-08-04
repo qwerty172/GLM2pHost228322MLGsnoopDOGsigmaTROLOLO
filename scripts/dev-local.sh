@@ -26,6 +26,7 @@ WEB_PID=$!
 echo ""
 echo "API:  http://localhost:8080/api/healthz"
 echo "Web:  http://localhost:5000"
+echo "Демо: http://localhost:5000/try  — мгновенная игра без установки"
 echo "Ctrl+C — остановить оба процесса"
 echo ""
 
