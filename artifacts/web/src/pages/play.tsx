@@ -202,6 +202,9 @@ export default function Play() {
   const isTestBrowserSession = !!(
     (session as any)?.isTest && (session as any)?.gameBrowserHostUrl
   );
+  const sessionId = session?.id;
+  const sessionStatus = session?.status;
+  const sessionClaimedBy = session?.claimedByPlayerId;
 
   const { playerWalletToken, registerGuest } = usePlayerWallet();
 
@@ -210,8 +213,7 @@ export default function Play() {
     if (!playerWalletToken) {
       void registerGuest();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [playerWalletToken, registerGuest]);
   const { data: wallet } = useGetWallet(playerWalletToken || "", {
     query: {
       enabled: !!playerWalletToken,
@@ -867,8 +869,8 @@ export default function Play() {
 
   useEffect(() => {
     if (
-      !session ||
-      session.status === "ended" ||
+      !sessionId ||
+      sessionStatus === "ended" ||
       !playerWalletToken ||
       hasClaimed ||
       claimSession.isPending ||
@@ -876,7 +878,7 @@ export default function Play() {
     ) {
       return;
     }
-    if (session.claimedByPlayerId) {
+    if (sessionClaimedBy) {
       setHasClaimed(true);
       return;
     }
@@ -896,13 +898,23 @@ export default function Play() {
         },
       },
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.id, playerWalletToken, hasClaimed]);
+  }, [
+    sessionId,
+    sessionStatus,
+    sessionClaimedBy,
+    playerWalletToken,
+    hasClaimed,
+    claimSession,
+    playerToken,
+    paymentSource,
+    blockMinutesParam,
+    isTestBrowserSession,
+  ]);
 
   useEffect(() => {
     if (
-      session &&
-      session.status !== "ended" &&
+      sessionId &&
+      sessionStatus !== "ended" &&
       hasClaimed &&
       playerWalletToken &&
       !startedRef.current &&
@@ -913,8 +925,15 @@ export default function Play() {
     return () => {
       cleanupConnection();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.id, hasClaimed, isTestBrowserSession, playerWalletToken]);
+  }, [
+    sessionId,
+    sessionStatus,
+    hasClaimed,
+    isTestBrowserSession,
+    playerWalletToken,
+    startConnection,
+    cleanupConnection,
+  ]);
 
   const handleEnableAudio = () => {
     if (videoRef.current) {
