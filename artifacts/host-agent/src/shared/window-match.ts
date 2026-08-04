@@ -6,17 +6,19 @@
  * PID matching is reserved for focus-guard input injection, not capture.
  */
 
-export const BROWSER_TITLE_HINTS = [
-  "chrome",
-  "chromium",
-  "msedge",
-  "edge",
-  "firefox",
-  "opera",
-  "brave",
-  "yandex",
-  "google chrome",
-  "microsoft edge",
+/** Title patterns for real browser windows (avoid substring hits like "chrome" in "Monochrome"). */
+export const BROWSER_TITLE_PATTERNS: RegExp[] = [
+  /\bgoogle chrome\b/i,
+  /\bmicrosoft edge\b/i,
+  /\bmozilla firefox\b/i,
+  /\bchromium\b/i,
+  /\bmsedge\b/i,
+  /\bopera\b/i,
+  /\bfirefox\b/i,
+  /\bchrome\b/i,
+  /\bedge\b/i,
+  / - brave$/i,
+  /\byandex\b/i,
 ];
 
 export type CaptureSource = { id: string; name: string };
@@ -54,8 +56,7 @@ export function hostFromBoundUrl(boundUrl: string): string {
 }
 
 export function looksLikeBrowserWindow(title: string): boolean {
-  const n = title.toLowerCase();
-  return BROWSER_TITLE_HINTS.some((h) => n.includes(h));
+  return BROWSER_TITLE_PATTERNS.some((re) => re.test(title));
 }
 
 /** Non-screen capture sources (window titles from desktopCapturer). */
@@ -75,7 +76,10 @@ export function findBrowserCaptureSource(
       return n.includes(host) && looksLikeBrowserWindow(s.name);
     });
     if (byHost) return byHost;
-    const anyWithHost = windows.find((s) => s.name.toLowerCase().includes(host));
+    const anyWithHost = windows.find((s) => {
+      const n = s.name.toLowerCase();
+      return n.includes(host) && looksLikeBrowserWindow(s.name);
+    });
     if (anyWithHost) return anyWithHost;
   }
   return windows.find((s) => looksLikeBrowserWindow(s.name));

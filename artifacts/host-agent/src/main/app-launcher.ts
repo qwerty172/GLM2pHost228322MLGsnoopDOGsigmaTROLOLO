@@ -97,6 +97,12 @@ function stopBrowserWatch(): void {
   }
 }
 
+/** Stop browser liveness polling and clear exit callback without killing the game process. */
+export function stopSessionWatch(): void {
+  clearExitCallback();
+  stopBrowserWatch();
+}
+
 async function isBrowserWindowStillOpen(hostHint: string): Promise<boolean> {
   try {
     const sources = await desktopCapturer.getSources({
@@ -280,8 +286,7 @@ export function parseArgs(input: string): string[] {
 
 export function killApp(): void {
   clearAllowedTarget();
-  clearExitCallback();
-  stopBrowserWatch();
+  stopSessionWatch();
   // We can't close a browser tab we opened via shell.openExternal; the user
   // (or their OS) handles it. Just log and bail.
   if (lastWasUrl && !current) {
