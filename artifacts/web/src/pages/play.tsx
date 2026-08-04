@@ -922,9 +922,6 @@ export default function Play() {
     ) {
       void startConnection();
     }
-    return () => {
-      cleanupConnection();
-    };
   }, [
     sessionId,
     sessionStatus,
@@ -932,8 +929,21 @@ export default function Play() {
     isTestBrowserSession,
     playerWalletToken,
     startConnection,
-    cleanupConnection,
   ]);
+
+  // Tear down WebRTC only when leaving this session (not on pending→active poll).
+  useEffect(() => {
+    return () => {
+      cleanupConnection();
+    };
+  }, [sessionId, cleanupConnection]);
+
+  // Poll may surface status=ended before signaling delivers session-ended.
+  useEffect(() => {
+    if (sessionStatus === "ended" && isPlaying) {
+      cleanupConnection();
+    }
+  }, [sessionStatus, isPlaying, cleanupConnection]);
 
   const handleEnableAudio = () => {
     if (videoRef.current) {
