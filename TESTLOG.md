@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-65 (2026-08-04 23:38 UTC) {#marathon-m-65}
+
+| Проверка | Результат |
+|---|---|
+| steam-scanner.test.mjs | 10 тестов — non-win32 guard, registry Steam root, scanSteam VDF/ACF/heuristic exe, UserConfig manifest exe, dedupe, resolveSteamGameFromAppPath, load/save scan state |
+| host-agent test | PASS (171 tests) |
+| typecheck | PASS |
+
+**Следующий pick:** M-66 `tray.ts`.
+
 ## Marathon M-64 (2026-08-04 23:25 UTC) {#marathon-m-64}
 
 | Проверка | Результат |
