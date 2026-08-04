@@ -65,9 +65,14 @@ import {
   useUpdateHostLibraryEntry,
   useRemoveHostLibraryEntry,
   useListGames,
+  useSubmitGame,
+  usePatchSubmissionPendingConfig,
+  rawgSearch,
+  steamLookup,
   getListHostLibraryQueryKey,
   getListGamesQueryKey,
   type HostLibraryEntry,
+  type RawgSearchResultItem,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -136,32 +141,6 @@ function LztBadge({ lzt, className = "" }: { lzt: number; className?: string }) 
 
 function isWindowsPath(s: string) {
   return /^[a-zA-Z]:\\/.test(s) || s.startsWith("\\\\") || s.startsWith("/");
-}
-
-// --------------------------------------------------------------------------
-// API helpers
-// --------------------------------------------------------------------------
-async function apiFetch<T>(
-  url: string,
-  opts?: RequestInit,
-): Promise<{ ok: true; data: T } | { ok: false; error: string; status: number }> {
-  try {
-    const token = localStorage.getItem("streamline.hostToken");
-    const res = await fetch(url, {
-      ...opts,
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { "X-User-Token": token } : {}),
-        ...(opts?.headers ?? {}),
-      },
-    });
-    if (res.status === 204) return { ok: true, data: undefined as T };
-    const json = await res.json();
-    if (!res.ok) return { ok: false, error: json?.error ?? "Ошибка сервера", status: res.status };
-    return { ok: true, data: json };
-  } catch {
-    return { ok: false, error: "Нет соединения", status: 0 };
-  }
 }
 
 // --------------------------------------------------------------------------
@@ -566,20 +545,6 @@ function LibraryConfigForm({
 }
 
 // --------------------------------------------------------------------------
-// RAWG suggestion type
-// --------------------------------------------------------------------------
-interface RawgSuggestion {
-  rawgId: string;
-  title: string;
-  coverImageUrl: string | null;
-  genres: string[];
-  rating: number | null;
-  metacritic: number | null;
-  steamAppId?: string;
-  source?: "rawg" | "steam";
-}
-
-// --------------------------------------------------------------------------
 // New game submission form (suggest new to moderators)
 // --------------------------------------------------------------------------
 function SubmitGameForm({
@@ -597,9 +562,10 @@ function SubmitGameForm({
   const [description, setDescription] = useState("");
   const [steamId, setSteamId] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const submitGame = useSubmitGame();
 
   // RAWG autocomplete state
-  const [rawgSuggestions, setRawgSuggestions] = useState<RawgSuggestion[]>([]);
+  const [rawgSuggestions, setRawgSuggestions] = useState<RawgSearchResultItem[]>([]);
   const [rawgLoading, setRawgLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const rawgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -619,8 +585,10 @@ function SubmitGameForm({
     rawgTimerRef.current = setTimeout(async () => {
       setRawgLoading(true);
       try {
-        const r = await apiFetch<RawgSuggestion[]>(`/api/games/rawg-search?q=${encodeURIComponent(value.trim())}`);
-        if (r.ok) setRawgSuggestions(r.data);
+        const results = await rawgSearch({ q: value.trim() });
+        setRawgSuggestions(results);
+      } catch {
+        setRawgSuggestions([]);
       } finally {
         setRawgLoading(false);
       }
@@ -628,7 +596,7 @@ function SubmitGameForm({
   };
 
   // Fill form fields from a RAWG/Steam suggestion
-  const applyRawgSuggestion = (s: RawgSuggestion) => {
+  const applyRawgSuggestion = (s: RawgSearchResultItem) => {
     setTitle(s.title);
     if (s.coverImageUrl) setCoverUrl(s.coverImageUrl);
     if (s.genres.length) setCategory(s.genres.join(", "));
@@ -646,23 +614,21 @@ function SubmitGameForm({
     }
     setSteamLoading(true);
     try {
-      const r = await apiFetch<{
-        title: string;
-        coverImageUrl: string;
-        description: string;
-        genres: string[];
-        currentPlayers: number | null;
-      }>(`/api/games/steam-lookup?appId=${id}`);
-      if (!r.ok) {
-        toast.error("Игра не найдена в Steam");
-        return;
-      }
-      const d = r.data;
+      const d = await steamLookup({ appId: id });
       setTitle(d.title);
-      setCoverUrl(d.coverImageUrl);
+      if (d.coverImageUrl) setCoverUrl(d.coverImageUrl);
       if (d.description) setDescription(d.description);
-      if (d.genres.length) setCategory(d.genres.join(", "));
-      toast.success(`Заполнено из Steam: ${d.title}${d.currentPlayers ? ` · ${d.currentPlayers.toLocaleString()} играют` : ""}`);
+      if (d.genres?.length) setCategory(d.genres.join(", "));
+      toast.success(
+        `Заполнено из Steam: ${d.title}${d.currentPlayers ? ` · ${d.currentPlayers.toLocaleString()} играют` : ""}`,
+      );
+    } catch (err) {
+      const status =
+        err && typeof err === "object" && "status" in err
+          ? (err as { status: number }).status
+          : 0;
+      if (status === 404) toast.error("Игра не найдена в Steam");
+      else toast.error(formatApiError(err, "Не удалось загрузить данные Steam"));
     } finally {
       setSteamLoading(false);
     }
@@ -672,31 +638,31 @@ function SubmitGameForm({
     e.preventDefault();
     if (!title.trim()) return;
     setSubmitting(true);
-    const r = await apiFetch<{ id: string; title: string; slug: string }>("/api/games/submit", {
-      method: "POST",
-      body: JSON.stringify({
-        hostToken,
-        title: title.trim(),
-        coverImageUrl: coverUrl.trim() || undefined,
-        category: category.trim() || undefined,
-        description: description.trim() || undefined,
-        steamAppId: steamId.trim() || undefined,
-        kind: "native",
-      }),
-    });
-    setSubmitting(false);
-    if (!r.ok) {
-      toast.error(r.error);
-      return;
+    try {
+      const result = await submitGame.mutateAsync({
+        data: {
+          hostToken,
+          title: title.trim(),
+          coverImageUrl: coverUrl.trim() || undefined,
+          category: category.trim() || undefined,
+          description: description.trim() || undefined,
+          steamAppId: steamId.trim() || undefined,
+          kind: "native",
+        },
+      });
+      const placeholder: CatalogGame = {
+        id: result.id,
+        slug: result.slug,
+        title: result.title,
+        coverImageUrl: coverUrl.trim() || null,
+        category: category.trim() || null,
+      };
+      onSubmitted(result.id, placeholder);
+    } catch (err) {
+      toast.error(formatApiError(err, "Не удалось отправить заявку"));
+    } finally {
+      setSubmitting(false);
     }
-    const placeholder: CatalogGame = {
-      id: r.data.id,
-      slug: r.data.slug,
-      title: r.data.title,
-      coverImageUrl: coverUrl.trim() || null,
-      category: category.trim() || null,
-    };
-    onSubmitted(r.data.id, placeholder);
   };
 
   return (
@@ -1003,6 +969,7 @@ function AddGameModal({
   const [pendingSubmissionId, setPendingSubmissionId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const addEntry = useAddHostLibraryEntry();
+  const patchPendingConfig = usePatchSubmissionPendingConfig();
 
   const handleClose = () => {
     setStep("search");
@@ -1017,14 +984,20 @@ function AddGameModal({
 
     if (pendingSubmissionId) {
       // Pending submission: save config so the game auto-appears in library on approval.
-      const r = await apiFetch(`/api/games/submissions/${pendingSubmissionId}/pending-config`, {
-        method: "PATCH",
-        body: JSON.stringify({ hostToken, ...v }),
-      });
-      setSubmitting(false);
-      if (!r.ok) { toast.error(r.error); return; }
-      toast.success(`Настройки сохранены. «${selectedGame.title}» появится в библиотеке после одобрения модератором.`);
-      handleClose();
+      try {
+        await patchPendingConfig.mutateAsync({
+          id: pendingSubmissionId,
+          data: { hostToken, ...v },
+        });
+        toast.success(
+          `Настройки сохранены. «${selectedGame.title}» появится в библиотеке после одобрения модератором.`,
+        );
+        handleClose();
+      } catch (err) {
+        toast.error(formatApiError(err, "Не удалось сохранить настройки"));
+      } finally {
+        setSubmitting(false);
+      }
       return;
     }
 
