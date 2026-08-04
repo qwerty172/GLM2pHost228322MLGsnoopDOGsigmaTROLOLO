@@ -18,6 +18,7 @@
 //   G. HOSTING.md backlog items (H-NN with status backlog/improvement)
 //   H. api-server lib/*.ts without co-located test (grouped)
 //   I. eslint-disable / @ts-ignore leftovers (grouped by file)
+//   J. pnpm audit high/critical (grouped by package)
 //
 // Source of truth: working tree (== main after git pull).
 
@@ -270,6 +271,31 @@ for (const [f, snippets] of lintByFile) {
   });
 }
 
+// --- J. pnpm audit high/critical (grouped by vulnerable package) ----------
+try {
+  const auditR = spawnSync("pnpm", ["audit", "--json"], { encoding: "utf8", maxBuffer: 10 * 1024 * 1024 });
+  if (auditR.stdout) {
+    const auditJson = JSON.parse(auditR.stdout);
+    const byPkg = new Map();
+    for (const adv of Object.values(auditJson.advisories ?? {})) {
+      if (adv.severity !== "high" && adv.severity !== "critical") continue;
+      const pkg = adv.module_name;
+      const sev = adv.severity;
+      if (!byPkg.has(pkg) || sev === "critical") byPkg.set(pkg, sev);
+    }
+    for (const [pkg, sev] of byPkg) {
+      raw.push({
+        cat: "J",
+        groupKey: `j:${pkg}`,
+        title: `audit ${sev}: ${pkg}`,
+        file: "package.json",
+        detail: `pnpm audit ${sev} — override or bump ${pkg}`,
+        items: [pkg],
+      });
+    }
+  }
+} catch {}
+
 // --- group raw hits (merge same groupKey) --------------------------------
 const grouped = new Map();
 for (const c of raw) {
@@ -316,7 +342,7 @@ for (const line of marathonMd.split("\n")) {
   if (status === "done" || status === "in_progress") doneOrActiveKeys.add(groupKey);
 }
 
-const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, D: 7, I: 8 };
+const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, D: 7, I: 8, J: 9 };
 const filtered = candidates
   .filter((c) => !doneOrActiveKeys.has(c.groupKey))
   .sort((a, b) => (CAT_ORDER[a.cat] ?? 9) - (CAT_ORDER[b.cat] ?? 9));
@@ -466,7 +492,7 @@ if (NEXT || PICK) {
     console.log(`| ${c.id} | ${c.cat} | ${c.title} | \`${c.file}\` | ${(c.detail || "").replace(/\|/g, "\\|")} |`);
   }
   console.log(
-    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, I=eslint suppressions.`,
+    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, I=eslint suppressions, J=audit high/critical.`,
   );
   console.log(`Синхронизация: node scripts/marathon-scan.mjs --sync-marathon`);
 }
