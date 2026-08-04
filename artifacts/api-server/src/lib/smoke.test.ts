@@ -5,6 +5,8 @@ import {
   LZT_PER_USDT,
   lztToUsdt,
   pickPlayerBucket,
+  pickPlayerFundingSource,
+  availableCreditLzt,
   usdtToLzt,
   usdtToLztRound,
 } from "./lzt";
@@ -76,6 +78,13 @@ describe("lzt billing helpers", () => {
     expect(pickPlayerBucket("green", 100, 50, 999)).toBeNull();
     expect(pickPlayerBucket("blue", 100, 999, 100)).toBe("blue");
     expect(pickPlayerBucket("blue", 100, 999, 50)).toBeNull();
+  });
+
+  it("pickPlayerFundingSource falls back to gaming credit on auto", () => {
+    expect(pickPlayerFundingSource("auto", 100, 0, 0, 500, 0)).toBe("credit");
+    expect(pickPlayerFundingSource("auto", 100, 0, 0, 500, 450)).toBeNull();
+    expect(pickPlayerFundingSource("green", 100, 0, 0, 500, 0)).toBeNull();
+    expect(availableCreditLzt(500, 100)).toBe(400);
   });
 });
 

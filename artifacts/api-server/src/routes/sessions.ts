@@ -31,7 +31,7 @@ import {
 import { generateToken } from "../lib/tokens";
 import { generateInviteCode, defaultInviteExpiresAt, isInviteExpired } from "../lib/invites";
 import { applyLaunchFee } from "../lib/launchFee";
-import { pickPlayerBucket } from "../lib/lzt";
+import { pickPlayerFundingSource } from "../lib/lzt";
 import { isHostAvailableNow } from "../lib/schedule";
 import { checkQuotaAttachment } from "../lib/quotaAttach";
 import { headerUserToken } from "../lib/requestToken";
@@ -42,7 +42,7 @@ import {
 } from "../lib/sessionBilling";
 import { sendSignalingMessage } from "../lib/signaling";
 import { submitSessionRating, recordBlockReserveLedger } from "../lib/ratings";
-import { writeLedger } from "../lib/economy";
+import { writeLedger, spendGamingCredit } from "../lib/economy";
 import { randomUUID } from "node:crypto";
 import { z } from "zod/v4";
 
@@ -708,11 +708,13 @@ router.post(
     const launchFeeLzt = Math.round(Math.max(0, launchFee) * 200);
     const perMinuteLzt = Math.round(Math.max(0, perMinute) * 200);
     const minBalanceLzt = launchFeeLzt + perMinuteLzt;
-    const picked = pickPlayerBucket(
+    const picked = pickPlayerFundingSource(
       session.paymentSource,
       minBalanceLzt,
       player.withdrawableBalanceLzt,
       player.internalBalanceLzt,
+      player.creditLimitLzt,
+      player.creditDebtLzt,
     );
     // Block billing: if the player chose a block, require the full block reserve
     // (blockMinutes × perMinuteLzt) to be present in a single bucket, plus the launch fee.
@@ -731,11 +733,13 @@ router.post(
         : minBalanceLzt;
     const effectivePicked =
       effectiveMinLzt !== minBalanceLzt
-        ? pickPlayerBucket(
+        ? pickPlayerFundingSource(
             session.paymentSource,
             effectiveMinLzt,
             player.withdrawableBalanceLzt,
             player.internalBalanceLzt,
+            player.creditLimitLzt,
+            player.creditDebtLzt,
           )
         : picked;
 
@@ -744,7 +748,7 @@ router.post(
         ? `${effectiveMinLzt} LZT (блок ${blockMinutes} мин × ${ratePerMinuteLzt} LZT + запуск)`
         : `${effectiveMinLzt} LZT`;
       res.status(400).json({
-        error: `Insufficient LZT — need at least ${need} in a single ${session.paymentSource === "auto" ? "(green or blue)" : session.paymentSource} bucket to start`,
+        error: `Insufficient LZT — need at least ${need} in a single ${session.paymentSource === "auto" ? "(green, blue, or credit)" : session.paymentSource} bucket to start`,
       });
       return;
     }
@@ -752,42 +756,60 @@ router.post(
     // Reserve the block amount: debit the player immediately so the funds are
     // locked. The billing worker will refund unused minutes on early exit.
     if (blockReservedLzt !== null && blockReservedLzt > 0 && !isReclaimBySamePlayer) {
-      const bucket = effectivePicked ?? "balance";
-      const playerCol =
-        bucket === "green"
-          ? playersTable.withdrawableBalanceLzt
-          : playersTable.internalBalanceLzt;
-      const debitResult = await db
-        .update(playersTable)
-        .set(
+      const funding = effectivePicked ?? "balance";
+      if (funding === "credit") {
+        const spent = await db.transaction(async (tx) =>
+          spendGamingCredit(tx, {
+            playerId: player.id,
+            amountLzt: blockReservedLzt,
+            kind: "block_reserve",
+            refType: "session",
+            refId: session.id,
+            note: `block reserve: ${blockMinutes} мин`,
+          }),
+        );
+        if (!spent.ok) {
+          res.status(400).json({ error: "Insufficient balance to reserve the block" });
+          return;
+        }
+      } else {
+        const bucket = funding === "green" ? "green" : "blue";
+        const playerCol =
           bucket === "green"
-            ? { withdrawableBalanceLzt: sql`${playersTable.withdrawableBalanceLzt} - ${blockReservedLzt}` }
-            : { internalBalanceLzt: sql`${playersTable.internalBalanceLzt} - ${blockReservedLzt}` },
-        )
-        .where(
-          and(
-            eq(playersTable.id, player.id),
-            sql`${playerCol} >= ${blockReservedLzt + launchFeeLzt}`,
-          ),
-        )
-        .returning({ id: playersTable.id });
-      if (debitResult.length === 0) {
-        res.status(400).json({ error: "Insufficient balance to reserve the block" });
-        return;
+            ? playersTable.withdrawableBalanceLzt
+            : playersTable.internalBalanceLzt;
+        const debitResult = await db
+          .update(playersTable)
+          .set(
+            bucket === "green"
+              ? { withdrawableBalanceLzt: sql`${playersTable.withdrawableBalanceLzt} - ${blockReservedLzt}` }
+              : { internalBalanceLzt: sql`${playersTable.internalBalanceLzt} - ${blockReservedLzt}` },
+          )
+          .where(
+            and(
+              eq(playersTable.id, player.id),
+              sql`${playerCol} >= ${blockReservedLzt + launchFeeLzt}`,
+            ),
+          )
+          .returning({ id: playersTable.id });
+        if (debitResult.length === 0) {
+          res.status(400).json({ error: "Insufficient balance to reserve the block" });
+          return;
+        }
+        const ledgerBucket = bucket === "green" ? "green" : "blue";
+        await recordBlockReserveLedger({
+          playerId: player.id,
+          sessionId: session.id,
+          amountLzt: blockReservedLzt,
+          bucket: ledgerBucket,
+          note: `block reserve: ${blockMinutes} мин`,
+        });
       }
-      const ledgerBucket = bucket === "green" ? "green" : "blue";
-      await recordBlockReserveLedger({
-        playerId: player.id,
-        sessionId: session.id,
-        amountLzt: blockReservedLzt,
-        bucket: ledgerBucket,
-        note: `block reserve: ${blockMinutes} мин`,
-      });
     }
 
     if (picked === null && minBalanceLzt > 0 && blockReservedLzt === null) {
       res.status(400).json({
-        error: `Insufficient LZT — need at least ${minBalanceLzt} LZT in a single ${session.paymentSource === "auto" ? "(green or blue)" : session.paymentSource} bucket to start`,
+        error: `Insufficient LZT — need at least ${minBalanceLzt} LZT in a single ${session.paymentSource === "auto" ? "(green, blue, or credit)" : session.paymentSource} bucket to start`,
       });
       return;
     }

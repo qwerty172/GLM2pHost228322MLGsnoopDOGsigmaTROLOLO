@@ -30,6 +30,15 @@ export function usdtToLztRound(usdt: number): number {
 }
 
 export type PaymentSource = "blue" | "green" | "auto";
+export type PlayerFundingSource = "green" | "blue" | "credit";
+
+/** Remaining gaming credit line (LZT) after outstanding debt. */
+export function availableCreditLzt(
+  creditLimitLzt: number,
+  creditDebtLzt: number,
+): number {
+  return Math.max(0, creditLimitLzt - creditDebtLzt);
+}
 
 // Single source of truth for which bucket a player's debit should come from.
 //
@@ -55,4 +64,27 @@ export function pickPlayerBucket(
   if (greenLzt >= amountLzt) return "green";
   if (blueLzt >= amountLzt) return "blue";
   return null;
+}
+
+// Like pickPlayerBucket, but for paymentSource "auto" also considers the
+// player's gaming credit line (creditLimitLzt − creditDebtLzt). Explicit
+// green/blue choices never fall back to credit.
+export function pickPlayerFundingSource(
+  paymentSource: string,
+  amountLzt: number,
+  greenLzt: number,
+  blueLzt: number,
+  creditLimitLzt: number,
+  creditDebtLzt: number,
+): PlayerFundingSource | null {
+  const bucket = pickPlayerBucket(
+    paymentSource,
+    amountLzt,
+    greenLzt,
+    blueLzt,
+  );
+  if (bucket) return bucket;
+  if (paymentSource === "green" || paymentSource === "blue") return null;
+  const creditAvailable = availableCreditLzt(creditLimitLzt, creditDebtLzt);
+  return creditAvailable >= amountLzt ? "credit" : null;
 }

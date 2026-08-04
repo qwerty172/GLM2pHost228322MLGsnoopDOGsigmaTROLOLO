@@ -4,7 +4,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, hostsTable, sessionsTable, playersTable } from "@workspace/db";
 import { logger } from "./logger";
-import { pickPlayerBucket } from "./lzt";
+import { pickPlayerFundingSource } from "./lzt";
 import { getRedis, getRedisSubscriber, isRedisAvailable } from "./redis";
 import { verifyWsTicket } from "./jwt";
 import { generateToken } from "./tokens";
@@ -277,11 +277,13 @@ async function authenticate(
   }
   const rateLzt = Math.round(Number(session.ratePerMinute) * 200);
   if (rateLzt > 0) {
-    const picked = pickPlayerBucket(
+    const picked = pickPlayerFundingSource(
       session.paymentSource,
       rateLzt,
       wallet.withdrawableBalanceLzt,
       wallet.internalBalanceLzt,
+      wallet.creditLimitLzt,
+      wallet.creditDebtLzt,
     );
     if (picked === null) {
       return { ok: false, reason: "insufficient balance to start" };

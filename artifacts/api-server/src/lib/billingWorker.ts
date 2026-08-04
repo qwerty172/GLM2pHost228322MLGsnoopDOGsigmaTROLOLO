@@ -11,7 +11,7 @@ import {
   loansTable,
 } from "@workspace/db";
 import { logger } from "./logger";
-import { usdtToLztRound, pickPlayerBucket } from "./lzt";
+import { usdtToLztRound, pickPlayerFundingSource } from "./lzt";
 import { sendSignalingMessage } from "./signaling";
 import {
   computeQuotaEffect,
@@ -23,6 +23,7 @@ import {
 import {
   adjustUserBucket,
   creditPayoutToUser,
+  spendGamingCredit,
   writeLedger,
 } from "./economy";
 import { countSessionMinutesUsed, refundBlockRemainder } from "./sessionBilling";
@@ -336,15 +337,19 @@ async function billOnceInner(): Promise<void> {
           .select({
             green: playersTable.withdrawableBalanceLzt,
             blue: playersTable.internalBalanceLzt,
+            creditLimitLzt: playersTable.creditLimitLzt,
+            creditDebtLzt: playersTable.creditDebtLzt,
           })
           .from(playersTable)
           .where(eq(playersTable.id, session.claimedByPlayerId!));
 
-        const bucket = pickPlayerBucket(
+        const funding = pickPlayerFundingSource(
           session.paymentSource,
           playerDebitLzt,
           player?.green ?? 0,
           player?.blue ?? 0,
+          player?.creditLimitLzt ?? 0,
+          player?.creditDebtLzt ?? 0,
         );
 
         // ---------- Host-service credit fallback ----------
@@ -353,7 +358,7 @@ async function billOnceInner(): Promise<void> {
         // continue the session: open/extend a `host_service` loan instead of
         // ending the session. The host gets nothing this minute; it will trickle
         // back via the 40/40/20 split as the player earns later.
-        if (bucket === null) {
+        if (funding === null) {
           const [host] = await tx
             .select({
               creditMin: hostsTable.creditMinutesPerNewPlayer,
@@ -497,6 +502,50 @@ async function billOnceInner(): Promise<void> {
           return true;
         }
 
+        if (funding === "credit") {
+          const spent = await spendGamingCredit(tx, {
+            playerId: session.claimedByPlayerId!,
+            amountLzt: playerDebitLzt,
+            kind: "session_tick",
+            refType: "session",
+            refId: session.id,
+          });
+          if (!spent.ok) {
+            await tx
+              .update(sessionsTable)
+              .set({ status: "ended", endedAt: now, endReason: "balance_exhausted" })
+              .where(eq(sessionsTable.id, session.id));
+            return true;
+          }
+
+          const payoutSplit = await creditPayoutToUser(tx, {
+            ownerType: "host",
+            ownerId: session.hostId,
+            amountLzt: hostNetLzt,
+            kind: "session_tick",
+            refType: "session",
+            refId: session.id,
+          });
+
+          await tx.insert(billingEventsTable).values({
+            sessionId: session.id,
+            hostId: session.hostId,
+            playerId: session.claimedByPlayerId!,
+            minutes: 1,
+            bucket: "green",
+            playerDebitLzt: playerDebitLzt,
+            hostCreditLzt: payoutSplit.cash + payoutSplit.balance,
+            kind: "session_tick_credit",
+          });
+
+          await tx
+            .update(sessionsTable)
+            .set({ lastBilledAt: now })
+            .where(eq(sessionsTable.id, session.id));
+          return false;
+        }
+
+        const bucket = funding;
         const playerCol =
           bucket === "green"
             ? playersTable.withdrawableBalanceLzt
