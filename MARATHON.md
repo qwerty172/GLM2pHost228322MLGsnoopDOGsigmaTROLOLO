@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 23:38 UTC |
 | Task ID | M-65 |
 | Результат | steam-scanner.ts unit-тесты: registry root, scanSteam VDF/ACF, resolveSteamGameFromAppPath, scan state persistence |
-| Commit | (pending) |
+| Commit | db63be2 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
