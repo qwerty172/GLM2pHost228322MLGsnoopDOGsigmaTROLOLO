@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-54 (2026-08-04 17:42 UTC) {#marathon-m-54}
+
+| Проверка | Результат |
+|---|---|
+| package.json | `pnpm.overrides.tar: ">=7.5.19"` — electron-builder transitive tar 6.x → 7.5.19+ |
+| pnpm audit | tar advisories 0; critical 1→0, high 33→26 |
+| marathon-scan | категория J добавлена (audit high/critical) |
+| typecheck | PASS (monorepo) |
+
+**Следующий pick:** M-55 `audit high: axios`.
+
 ## Marathon M-53 (2026-08-04 16:42 UTC) {#marathon-m-53}
 
 | Проверка | Результат |
