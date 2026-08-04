@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 18:37 UTC |
 | Task ID | M-56 |
 | Результат | gamepad-injection.ts unit-тесты: noop non-Win, ViGEm mock connect/update, koffi error |
-| Commit | pending |
+| Commit | a2eaa9e |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
