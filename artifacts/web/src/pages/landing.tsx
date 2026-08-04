@@ -15,7 +15,7 @@ import {
   Play,
   Server,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   useGetPublicStats,
   getGetPublicStatsQueryKey,
@@ -26,6 +26,8 @@ import {
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { GuestCreditHint } from "@/components/guest-credit-hint";
+import { prewarmIce } from "@/lib/ice-prewarm";
 
 function formatInt(n: number): string {
   // 1248 → "1 248" (Russian thin-space grouping).
@@ -70,6 +72,10 @@ export default function Landing() {
   const [, navigate] = useLocation();
   const { playerWalletToken, registerGuest } = usePlayerWallet();
   const { data: liveHosts } = useLiveHosts();
+
+  useEffect(() => {
+    if (!playerWalletToken) void registerGuest();
+  }, [playerWalletToken, registerGuest]);
   const { data: stats } = useGetPublicStats({
     query: {
       queryKey: getGetPublicStatsQueryKey(),
@@ -208,6 +214,15 @@ export default function Landing() {
                 <Play className="w-3.5 h-3.5 mr-1.5" /> Играть
               </Button>
             </Link>
+            <Link href="/games/rogue-fable-3">
+              <Button
+                variant="outline"
+                className="h-9 px-5 text-sm font-semibold rounded-md border-teal-500/30 text-teal-300 hover:bg-teal-500/10"
+                data-testid="button-try-demo"
+              >
+                <Gamepad2 className="w-3.5 h-3.5 mr-1.5" /> Попробовать демо
+              </Button>
+            </Link>
             <Link href="/host">
               <Button
                 variant="ghost"
@@ -216,6 +231,10 @@ export default function Landing() {
                 Стать хостом
               </Button>
             </Link>
+          </div>
+
+          <div className="mt-4 max-w-lg">
+            <GuestCreditHint />
           </div>
 
           <div className="mt-5">
@@ -337,6 +356,7 @@ export default function Landing() {
                       className="w-full h-7 rounded-md text-[11px] font-semibold flex items-center justify-center gap-1 transition-opacity hover:opacity-90"
                       style={{ background: "#0ea5e9", color: "#fff" }}
                       onClick={() => handlePlayNow(host)}
+                      onMouseEnter={() => void prewarmIce(host.id)}
                       data-testid={`button-play-now-${host.id}`}
                     >
                       <Play className="w-3 h-3" /> Играть

@@ -42,7 +42,9 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
 
-**Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
+**Пошаговая инструкция:** [`docs/QUICKSTART.md`](./docs/QUICKSTART.md) · [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
+
+**Один скрипт (Docker + setup + dev):** `pnpm quickstart`
 
 **Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN (обход страниц в браузере).
 

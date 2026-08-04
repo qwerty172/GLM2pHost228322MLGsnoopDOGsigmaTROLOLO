@@ -15,6 +15,16 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
+ * Returns 200 when the API process is up and PostgreSQL is reachable. Use after setup/migrations to confirm the stack is usable (unlike /healthz).
+
+ * @summary Readiness check (DB connectivity)
+ */
+export const ReadinessCheckResponse = zod.object({
+  status: zod.enum(["ok", "degraded"]),
+  checks: zod.record(zod.string(), zod.string()),
+});
+
+/**
  * @summary Register a new host
  */
 export const RegisterHostBody = zod.object({

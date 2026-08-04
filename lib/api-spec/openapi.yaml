@@ -58,6 +58,28 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
+  /readyz:
+    get:
+      operationId: readinessCheck
+      tags: [health]
+      summary: Readiness check (DB connectivity)
+      description: >
+        Returns 200 when the API process is up and PostgreSQL is reachable.
+        Use after setup/migrations to confirm the stack is usable (unlike /healthz).
+      responses:
+        "200":
+          description: Ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessStatus"
+        "503":
+          description: Not ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessStatus"
+
   /downloads/host-agent.zip:
     get:
       operationId: downloadHostAgentZip
@@ -4811,6 +4833,20 @@ components:
           type: string
       required:
         - status
+
+    ReadinessStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        checks:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+        - status
+        - checks
 
     ErrorResponse:
       type: object

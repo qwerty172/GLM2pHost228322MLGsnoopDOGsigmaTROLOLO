@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -1127,7 +1127,20 @@ function HostQuickStartCard({
         )}
 
         {agentOnline && !agentKeyBound && (
-          <AgentBindCodeCard hostToken={hostToken} />
+          <AgentBindCodeCard hostToken={hostToken} autoIssue />
+        )}
+
+        {!allDone && (
+          <div
+            className="rounded-lg p-3 text-xs text-slate-400"
+            style={{ background: "rgba(45,212,191,0.05)", border: "1px solid rgba(45,212,191,0.15)" }}
+          >
+            <span className="text-teal-300 font-medium">Без Windows?</span>{" "}
+            <Link href="/games" className="text-sky-400 hover:underline">
+              Попробуй browser-хост
+            </Link>
+            {" "}— Rogue Fable III прямо из вкладки, агент не нужен.
+          </div>
         )}
 
         {agentKeyBound && libraryCount === 0 && (
@@ -1254,12 +1267,18 @@ function QuickAddFirstGame({ hostToken }: { hostToken: string }) {
   );
 }
 
-function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
+function AgentBindCodeCard({
+  hostToken,
+  autoIssue = false,
+}: {
+  hostToken: string;
+  autoIssue?: boolean;
+}) {
   const [bindCode, setBindCode] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const issueCode = async () => {
+  const issueCode = useCallback(async () => {
     setLoading(true);
     try {
       const json = await issueAgentBindCode({
@@ -1274,14 +1293,22 @@ function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
       }
       setBindCode(json.bindCode);
       setExpiresAt(json.expiresAt ?? null);
-      toast.success("Код привязки создан — вставь в агент или запусти с --bind-code=…");
+      if (!autoIssue) {
+        toast.success("Код привязки создан — вставь в агент или запусти с --bind-code=…");
+      }
     } catch (err) {
       const msg = (err as { data?: { error?: string } }).data?.error;
       toast.error(msg ?? "Нет соединения");
     } finally {
       setLoading(false);
     }
-  };
+  }, [hostToken, autoIssue]);
+
+  useEffect(() => {
+    if (autoIssue && !bindCode && !loading) {
+      void issueCode();
+    }
+  }, [autoIssue, bindCode, loading, issueCode]);
 
   const copyCode = () => {
     if (!bindCode) return;
@@ -1300,9 +1327,12 @@ function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
         <CardTitle className="flex items-center gap-2 text-white text-base">
           <KeyRound className="h-4 w-4 text-sky-400" />
           Код привязки агента
+          {bindCode && !expired && (
+            <span className="text-[10px] font-normal text-slate-500 ml-1">6 цифр</span>
+          )}
         </CardTitle>
         <CardDescription className="text-slate-500">
-          Одноразовый код вместо долгоживущего токена — вставь его в агенте при привязке ключа.
+          Вставь код в агенте при первом запуске — токен копировать не нужно.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -1442,6 +1472,11 @@ export default function Dashboard() {
   const hasActiveSession = (sessions ?? []).some(
     (s) => s.status === "active" || s.status === "pending",
   );
+  const agentOnline =
+    agent.status === "online" || heartbeat.status === "fresh";
+  const quickStartComplete =
+    hasActiveSession ||
+    (agentOnline && libraryCount > 0 && agentKeyBound);
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const agentNeedsAttention =
@@ -1568,6 +1603,12 @@ export default function Dashboard() {
         />
       )}
 
+      {!quickStartComplete && (
+        <p className="text-xs text-slate-600 text-center">
+          Статистика и сессии откроются после быстрого старта — или в блоке «Расширенно».
+        </p>
+      )}
+
       {/* PC Specs card — shown only when the agent has reported specs */}
       {pcSpecs && (
         <Card style={cardStyle}>
@@ -1674,6 +1715,8 @@ export default function Dashboard() {
         </div>
       </details>
 
+      {(quickStartComplete || advancedOpen) && (
+      <>
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {[
@@ -1951,6 +1994,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+      </>
+      )}
 
       <Dialog
         open={!!endSessionId}
