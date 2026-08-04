@@ -16,6 +16,8 @@ const APPLY = process.argv.includes("--apply");
 const SHOULD_RUN = process.argv.includes("--should-run");
 const MARK_SKIPPED = process.argv.includes("--mark-skipped");
 const STALE_HOURS = 24;
+const IDLE_EXPAND_AFTER = 3; // consecutive idle runs → expand scanner
+const IDLE_COMMIT_MIN_MIN = 30; // don't commit Last run more often than this
 
 function parseLastRun() {
   const md = readFileSync(MARATHON, "utf8");
@@ -75,7 +77,21 @@ function hasOpenPrForTask(taskId) {
   }
 }
 
-function replaceRowStatus(line, newStatus) {
+function countRecentIdleRuns() {
+  try {
+    const out = execSync(
+      'git log --oneline -50 --grep="Marathon idle\\|idle —" -- MARATHON.md',
+      { encoding: "utf8" },
+    ).trim();
+    return out ? out.split("\n").length : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function isScannerEmpty(state) {
+  return state.grouped === 0 && state.rawHits === 0;
+}
   return line.replace(/\|\s*(pending|in_progress|done|blocked|skipped)\s*\|/i, `| ${newStatus} |`);
 }
 
@@ -102,6 +118,10 @@ if (SHOULD_RUN) {
   const ageMs = lastRun.ms ? Date.now() - lastRun.ms : null;
   // Cron каждую минуту: НЕ блокировать по интервалу — каждый run берёт следующую M-NN.
   // Skip только если открытый PR на next M-NN или другой run уже in_progress.
+  const idleStreak = countRecentIdleRuns();
+  const scannerEmpty = isScannerEmpty(state);
+  const needsExpand = pendingMnn === 0 && scannerEmpty;
+  const expandNow = needsExpand && idleStreak >= IDLE_EXPAND_AFTER;
   const skip = prInFlight || hasInProgress;
   const payload = {
     shouldRun: !skip,
@@ -109,17 +129,27 @@ if (SHOULD_RUN) {
       ? prInFlight
         ? "pr_in_flight"
         : "in_progress_active"
-      : "ok",
+      : expandNow
+        ? "scanner_empty_expand"
+        : needsExpand
+          ? "scanner_empty"
+          : "ok",
     ageMin: ageMs != null ? Math.round(ageMs / 60000) : null,
     pendingMnn,
     nextPending: nextId,
     prInFlight,
     hasInProgress,
+    idleStreak,
+    scannerEmpty,
     agentInstruction: skip
       ? `STOP: ${prInFlight ? "pr_in_flight" : "in_progress_active"} — commit MARATHON if needed, exit`
       : nextId
         ? `EXECUTE ${nextId} only: OpenAPI/codegen or code per marathon-scan --next. NO read MARATHON, NO list-cloud-agents, NO prompt meta, NO automation_memory`
-        : "Marathon idle — update Last run, exit",
+        : expandNow
+          ? `EXPAND SCANNER: grouped=0 after ${idleStreak} idle runs. Add category to marathon-scan.mjs (HOSTING backlog, raw fetch, missing tests, etc.) → --sync-marathon → commit. NO empty Last-run commit.`
+          : needsExpand
+            ? `Marathon idle (${idleStreak}/${IDLE_EXPAND_AFTER} toward expand) — NO commit unless meta changed, exit`
+            : "Marathon idle — update Last run only if ageMin>30, exit",
   };
   console.log(JSON.stringify(payload));
   if (skip && MARK_SKIPPED) {

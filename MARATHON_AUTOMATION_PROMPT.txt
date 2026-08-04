@@ -9,7 +9,9 @@ node scripts/marathon-groom.mjs --apply
 node scripts/marathon-scan.mjs --sync-marathon
 PICK=$(node scripts/marathon-scan.mjs --next)
 echo "$PICK"
-# idle:true → Last run «Marathon idle», commit MARATHON.md, exit 0
+# idle:true + reason scanner_empty_expand → РАСШИРИТЬ marathon-scan.mjs, sync-marathon, commit
+# idle:true + reason scanner_empty → НЕ коммитить Last run, exit 0 (ждём 3 idle → expand)
+# idle:true + обычный → Last run только если ageMin>30, иначе exit без commit
 # pick.id → СРАЗУ работа по pick (OpenAPI/codegen/тесты), БЕЗ:
 #   - читать MARATHON.md (скрипты уже дали pick)
 #   - list-cloud-agents / automation_memory / анализ прошлых runs

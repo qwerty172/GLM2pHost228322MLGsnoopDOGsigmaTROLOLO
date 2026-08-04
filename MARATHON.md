@@ -43,7 +43,7 @@
 | C4-D02 | quotas/vds/embed | = C4-S06 |
 | REG-03 | Windows manual | Wave Regression |
 
-**Cycles 1–4 и Wave UX — agent-задачи завершены.** Wave Maintenance: **M-01…M-13 done**, **M-14+ dea5b7f** (сканер F–I).
+**Cycles 1–4 и Wave UX — agent-задачи завершены.** Wave Maintenance: **M-01…M-13 done**, **M-34+ pending** (сканер F–I).
 
 ---
 
@@ -64,7 +64,19 @@
 11. **CI — gate.** Если `pnpm typecheck` или tests красные → `done` НЕ ставить. Чини или `blocked`.
 12. **Обязательно commit+push** `MARATHON.md` + `TESTLOG.md` (иначе следующий run повторит задачу).
 13. **Код — push в `main` (docs/fixes) или один PR на задачу.** Не плодить DRAFT-дубли.
-14. Нет новых M-NN в сканере → `Marathon idle`, код не менять.
+14. Нет новых M-NN в сканере → см. **idle-политику** ниже (не крутить пустые коммиты).
+
+### Idle-политика (анти-500 пустых runs)
+
+Когда `pendingMnn=0` и сканер `grouped=0`:
+
+| idleStreak | Действие |
+|------------|----------|
+| 0–2 | **Ничего не коммитить.** Exit без изменений. |
+| ≥3 | **EXPAND SCANNER** — добавить категорию в `marathon-scan.mjs` (HOSTING backlog, raw fetch, тесты, eslint…) → `--sync-marathon` → commit. |
+| ageMin>30, нет expand | Обновить Last run (не чаще раза в 30 мин). |
+
+**Почему раньше было 425+ пустых runs:** промпт говорил «idle → update Last run, exit» при каждом cron (2 мин), groom не сигналил `queue_drift` (сканер=0), meta-улучшения запрещены при pending>0 и не требовались при idle, сканер A–E исчерпан после M-13.
 
 **Статусы:** `161e0d7` | `in_progress` | `done` | `blocked` | `skipped`  
 **Owner:** `agent` | `human`
@@ -244,26 +256,26 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-11 | C | OpenAPI gap: routes/vds.ts (5 routes) | `routes/vds.ts` | c:artifacts/api-server/src/routes/vds.ts | done | agent |
 | M-12 | C | OpenAPI gap: routes/vt.ts (2 routes) | `routes/vt.ts` | c:artifacts/api-server/src/routes/vt.ts | done | agent |
 | M-13 | E | host-agent renderer: unit-тесты (18 модулей) | `renderer/*.ts` | e:renderer | done | agent |
-| M-44 | G | HOSTING H-01: Match по title, не HWND/PID | `HOSTING.md` | g:H-01 | dea5b7f | agent |
-| M-45 | G | HOSTING H-02: Browser watch: любой Chrome = alive | `HOSTING.md` | g:H-02 | dea5b7f | agent |
-| M-46 | G | HOSTING H-07: Unit tests capture/focus | `HOSTING.md` | g:H-07 | dea5b7f | agent |
-| M-47 | G | HOSTING H-08: HWND-based match после spawn | `HOSTING.md` | g:H-08 | dea5b7f | agent |
-| M-34 | F | web: raw fetch → codegen (3 calls) | `artifacts/web/src/pages/quota-new.tsx` | f:artifacts/web/src/pages/quota-new.tsx | dea5b7f | agent |
-| M-35 | F | web: raw fetch → codegen (2 calls) | `artifacts/web/src/pages/profile.tsx` | f:artifacts/web/src/pages/profile.tsx | dea5b7f | agent |
-| M-36 | F | web: raw fetch → codegen (6 calls) | `artifacts/web/src/pages/play.tsx` | f:artifacts/web/src/pages/play.tsx | dea5b7f | agent |
-| M-37 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/pages/host/library.tsx` | f:artifacts/web/src/pages/host/library.tsx | dea5b7f | agent |
-| M-41 | F | web: raw fetch → codegen (3 calls) | `artifacts/web/src/pages/embed.tsx` | f:artifacts/web/src/pages/embed.tsx | dea5b7f | agent |
-| M-38 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/pages/host/browser-play.tsx` | f:artifacts/web/src/pages/host/browser-play.tsx | dea5b7f | agent |
-| M-39 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/pages/games.tsx` | f:artifacts/web/src/pages/games.tsx | dea5b7f | agent |
-| M-40 | F | web: raw fetch → codegen (6 calls) | `artifacts/web/src/pages/game-detail.tsx` | f:artifacts/web/src/pages/game-detail.tsx | dea5b7f | agent |
-| M-43 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/components/quota-ai-chat.tsx` | f:artifacts/web/src/components/quota-ai-chat.tsx | dea5b7f | agent |
-| M-42 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/components/vt-scanner.tsx` | f:artifacts/web/src/components/vt-scanner.tsx | dea5b7f | agent |
-| M-48 | H | api-server lib: unit-тесты (45 модулей) | `artifacts/api-server/src/lib/*.ts` | h:api-lib | dea5b7f | agent |
-| M-49 | I | eslint/ts suppressions (3) | `artifacts/web/src/pages/play.tsx` | i:artifacts/web/src/pages/play.tsx | dea5b7f | agent |
-| M-50 | I | eslint/ts suppressions (1) | `artifacts/web/src/pages/game-detail.tsx` | i:artifacts/web/src/pages/game-detail.tsx | dea5b7f | agent |
-| M-51 | I | eslint/ts suppressions (1) | `artifacts/web/src/components/webgl-video-shader.tsx` | i:artifacts/web/src/components/webgl-video-shader.tsx | dea5b7f | agent |
-| M-52 | I | eslint/ts suppressions (1) | `artifacts/host-agent/src/main/sentry.ts` | i:artifacts/host-agent/src/main/sentry.ts | dea5b7f | agent |
-| M-53 | I | eslint/ts suppressions (2) | `artifacts/api-server/src/lib/sentry.ts` | i:artifacts/api-server/src/lib/sentry.ts | dea5b7f | agent |
+| M-44 | G | HOSTING H-01: Match по title, не HWND/PID | `HOSTING.md` | g:H-01 | pending | agent |
+| M-45 | G | HOSTING H-02: Browser watch: любой Chrome = alive | `HOSTING.md` | g:H-02 | pending | agent |
+| M-46 | G | HOSTING H-07: Unit tests capture/focus | `HOSTING.md` | g:H-07 | pending | agent |
+| M-47 | G | HOSTING H-08: HWND-based match после spawn | `HOSTING.md` | g:H-08 | pending | agent |
+| M-34 | F | web: raw fetch → codegen (3 calls) | `artifacts/web/src/pages/quota-new.tsx` | f:artifacts/web/src/pages/quota-new.tsx | pending | agent |
+| M-35 | F | web: raw fetch → codegen (2 calls) | `artifacts/web/src/pages/profile.tsx` | f:artifacts/web/src/pages/profile.tsx | pending | agent |
+| M-36 | F | web: raw fetch → codegen (6 calls) | `artifacts/web/src/pages/play.tsx` | f:artifacts/web/src/pages/play.tsx | pending | agent |
+| M-37 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/pages/host/library.tsx` | f:artifacts/web/src/pages/host/library.tsx | pending | agent |
+| M-41 | F | web: raw fetch → codegen (3 calls) | `artifacts/web/src/pages/embed.tsx` | f:artifacts/web/src/pages/embed.tsx | pending | agent |
+| M-38 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/pages/host/browser-play.tsx` | f:artifacts/web/src/pages/host/browser-play.tsx | pending | agent |
+| M-39 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/pages/games.tsx` | f:artifacts/web/src/pages/games.tsx | pending | agent |
+| M-40 | F | web: raw fetch → codegen (6 calls) | `artifacts/web/src/pages/game-detail.tsx` | f:artifacts/web/src/pages/game-detail.tsx | pending | agent |
+| M-43 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/components/quota-ai-chat.tsx` | f:artifacts/web/src/components/quota-ai-chat.tsx | pending | agent |
+| M-42 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/components/vt-scanner.tsx` | f:artifacts/web/src/components/vt-scanner.tsx | pending | agent |
+| M-48 | H | api-server lib: unit-тесты (45 модулей) | `artifacts/api-server/src/lib/*.ts` | h:api-lib | pending | agent |
+| M-49 | I | eslint/ts suppressions (3) | `artifacts/web/src/pages/play.tsx` | i:artifacts/web/src/pages/play.tsx | pending | agent |
+| M-50 | I | eslint/ts suppressions (1) | `artifacts/web/src/pages/game-detail.tsx` | i:artifacts/web/src/pages/game-detail.tsx | pending | agent |
+| M-51 | I | eslint/ts suppressions (1) | `artifacts/web/src/components/webgl-video-shader.tsx` | i:artifacts/web/src/components/webgl-video-shader.tsx | pending | agent |
+| M-52 | I | eslint/ts suppressions (1) | `artifacts/host-agent/src/main/sentry.ts` | i:artifacts/host-agent/src/main/sentry.ts | pending | agent |
+| M-53 | I | eslint/ts suppressions (2) | `artifacts/api-server/src/lib/sentry.ts` | i:artifacts/api-server/src/lib/sentry.ts | pending | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).
@@ -278,7 +290,7 @@ Automation **каждый run** создаёт и выполняет одну н
 > Готовый текст: **[MARATHON_AUTOMATION_PROMPT.txt](./MARATHON_AUTOMATION_PROMPT.txt)** — скопировать целиком в trigger.
 
 > **ЗАПРЕЩЕНО при 161e0d7Mnn>0:** «Прочитай MARATHON.md», list-cloud-agents, automation_memory, анализ прошлых runs, правка промпта — это жжёт токены впустую. Скрипты уже дали pick.
-> **Meta-улучшения** — только если groom нашёл phantom/stale/drift/raw_explosion **и** 161e0d7=0.
+> **Meta-улучшения** — при groom issues (phantom/stale/drift) **или** `reason: scanner_empty_expand` (3+ idle runs, сканер пуст).
 > **pr_in_flight** — только non-DRAFT PR; DRAFT не блокирует.
 
 **Полный:**
