@@ -13,7 +13,11 @@
 //   B. TODO/FIXME/XXX/HACK comments
 //   C. Express routes missing from OpenAPI spec (grouped by route file)
 //   D. console.log / debugger leftovers in src
-//   E. New modules without a co-located test (renderer grouped as one task)
+//   E. host-agent renderer modules without a co-located test (grouped)
+//   F. raw fetch() in web (should use codegen hooks; grouped by file)
+//   G. HOSTING.md backlog items (H-NN with status backlog/improvement)
+//   H. api-server lib/*.ts without co-located test (grouped)
+//   I. eslint-disable / @ts-ignore leftovers (grouped by file)
 //
 // Source of truth: working tree (== main after git pull).
 
@@ -172,6 +176,100 @@ if (rendererMissing.length) {
   });
 }
 
+// --- F. raw fetch() in web (migrate to codegen hooks) ---------------------
+const FETCH_SKIP = /agent-local\.ts$/;
+const fetchHits = rg("\\bfetch\\(", ["artifacts/web/src"], ["-n", "--glob", "!**/*.test.*"]);
+const fetchByFile = new Map();
+for (const line of (fetchHits || "").split("\n")) {
+  const m = line.match(/^([^:]+):(\d+):(.*)$/);
+  if (!m) continue;
+  if (FETCH_SKIP.test(m[1])) continue;
+  if (!fetchByFile.has(m[1])) fetchByFile.set(m[1], 0);
+  fetchByFile.set(m[1], fetchByFile.get(m[1]) + 1);
+}
+for (const [f, count] of fetchByFile) {
+  const short = f.replace(/^artifacts\/web\/src\//, "");
+  raw.push({
+    cat: "F",
+    groupKey: `f:${f}`,
+    title: `web: raw fetch → codegen (${count} call${count > 1 ? "s" : ""})`,
+    file: f,
+    detail: short,
+    items: [short],
+  });
+}
+
+// --- G. HOSTING.md backlog (H-NN) -----------------------------------------
+try {
+  const hostingMd = readFileSync("HOSTING.md", "utf8");
+  for (const m of hostingMd.matchAll(/\|\s*(H-\d+)\s*\|\s*([^|]+?)\s*\|\s*(backlog|improvement)\s*\|/g)) {
+    const id = m[1];
+    const problem = m[2].trim();
+    raw.push({
+      cat: "G",
+      groupKey: `g:${id}`,
+      title: `HOSTING ${id}: ${problem.slice(0, 55)}`,
+      file: "HOSTING.md",
+      detail: problem.slice(0, 80),
+      items: [id],
+    });
+  }
+} catch {}
+
+// --- H. api-server lib/*.ts without co-located test (grouped) -------------
+const libDir = "artifacts/api-server/src/lib";
+const libMissing = [];
+if (existsSync(libDir)) {
+  const libModules = readdirSync(libDir).filter(
+    (f) => f.endsWith(".ts") && !f.endsWith(".test.ts") && !f.endsWith(".d.ts"),
+  );
+  for (const mod of libModules) {
+    const base = mod.replace(/\.ts$/, "");
+    const testCandidates = [
+      `${libDir}/${base}.test.ts`,
+      `artifacts/api-server/src/__tests__/${base}.test.ts`,
+    ];
+    if (!testCandidates.some((t) => existsSync(t))) libMissing.push(mod);
+  }
+}
+if (libMissing.length) {
+  raw.push({
+    cat: "H",
+    groupKey: "h:api-lib",
+    title: `api-server lib: unit-тесты (${libMissing.length} модулей)`,
+    file: `${libDir}/*.ts`,
+    detail: libMissing.slice(0, 4).join(", ") + (libMissing.length > 4 ? `, +${libMissing.length - 4}` : ""),
+    items: libMissing,
+  });
+}
+
+// --- I. eslint-disable / @ts-ignore leftovers -----------------------------
+const lintHits = rg("@ts-ignore|@ts-expect-error|eslint-disable", ["artifacts", "lib"], [
+  "-n",
+  "--glob",
+  "!**/*.test.*",
+  "--glob",
+  "!node_modules/**",
+]);
+const lintByFile = new Map();
+for (const line of (lintHits || "").split("\n")) {
+  const m = line.match(/^([^:]+):(\d+):(.*)$/);
+  if (!m) continue;
+  if (/node_modules|\/dist\/|scripts\//.test(m[1])) continue;
+  if (!lintByFile.has(m[1])) lintByFile.set(m[1], []);
+  lintByFile.get(m[1]).push(m[3].trim().slice(0, 60));
+}
+for (const [f, snippets] of lintByFile) {
+  raw.push({
+    cat: "I",
+    groupKey: `i:${f}`,
+    title: `eslint/ts suppressions (${snippets.length})`,
+    file: f,
+    detail: snippets[0]?.slice(0, 60) ?? f,
+    items: snippets,
+  });
+}
+
 // --- group raw hits (merge same groupKey) --------------------------------
 const grouped = new Map();
 for (const c of raw) {
@@ -218,7 +316,7 @@ for (const line of marathonMd.split("\n")) {
   if (status === "done" || status === "in_progress") doneOrActiveKeys.add(groupKey);
 }
 
-const CAT_ORDER = { B: 0, C: 1, A: 2, E: 3, D: 4 };
+const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, D: 7, I: 8 };
 const filtered = candidates
   .filter((c) => !doneOrActiveKeys.has(c.groupKey))
   .sort((a, b) => (CAT_ORDER[a.cat] ?? 9) - (CAT_ORDER[b.cat] ?? 9));
@@ -266,7 +364,9 @@ if (JSON_STATE) {
 // --- --sync-marathon: rewrite Wave Maintenance table ----------------------
 if (SYNC) {
   const keptNonPending = existingRows.filter((r) => r.status !== "pending");
-  const pendingFromScan = candidates.filter((c) => !doneOrActiveKeys.has(c.groupKey));
+  const pendingFromScan = candidates
+    .filter((c) => !doneOrActiveKeys.has(c.groupKey))
+    .sort((a, b) => (CAT_ORDER[a.cat] ?? 9) - (CAT_ORDER[b.cat] ?? 9));
   nextId = ids.length ? Math.max(...ids) + 1 : 1;
   const pendingRows = pendingFromScan.map((c) => {
     const id = assignId(c, existingRows.filter((r) => r.status === "pending"));
@@ -365,6 +465,8 @@ if (NEXT || PICK) {
   for (const c of filtered) {
     console.log(`| ${c.id} | ${c.cat} | ${c.title} | \`${c.file}\` | ${(c.detail || "").replace(/\|/g, "\\|")} |`);
   }
-  console.log(`\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap (по файлу), D=debug, E=renderer-тесты (группа).`);
+  console.log(
+    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, I=eslint suppressions.`,
+  );
   console.log(`Синхронизация: node scripts/marathon-scan.mjs --sync-marathon`);
 }
