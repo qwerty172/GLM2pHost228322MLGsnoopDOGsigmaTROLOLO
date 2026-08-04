@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 21:26 UTC |
 | Task ID | M-60 |
 | Результат | rtmp-relay.ts unit-тесты: mocked spawn/ffmpeg, URL building, fetchStreamRelayConfig |
-| Commit | (pending) |
+| Commit | b4e192b |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
