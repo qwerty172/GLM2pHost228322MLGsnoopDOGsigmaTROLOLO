@@ -4,11 +4,12 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
-const rawPort = process.env.PORT;
+// WEB_PORT — порт SPA; PORT — fallback и порт API в .env (не путать).
+const rawPort = process.env.WEB_PORT ?? process.env.PORT;
 
 if (!rawPort) {
   throw new Error(
-    "PORT environment variable is required but was not provided.",
+    "WEB_PORT or PORT environment variable is required but was not provided.",
   );
 }
 
