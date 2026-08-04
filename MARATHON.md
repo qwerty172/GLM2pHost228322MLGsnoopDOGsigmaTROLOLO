@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 17:42 UTC |
 | Task ID | M-54 |
 | Результат | pnpm override `tar>=7.5.19` — critical audit устранён (1→0) |
-| Commit | (pending) |
+| Commit | 0083831 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
