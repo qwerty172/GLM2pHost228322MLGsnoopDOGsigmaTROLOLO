@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-35 (2026-08-04 08:06 UTC) {#marathon-m-35}
+
+| Проверка | Результат |
+|---|---|
+| profile.tsx | 2 raw fetch → `useListMyVds`, `useUpdatePlayerCreditSettings` |
+| OpenAPI | PATCH `/players/me/credit-settings` + api-server route |
+| typecheck | PASS (monorepo) |
+| marathon-scan | profile.tsx больше не в raw hits F |
+
+**Следующий pick:** M-36 `web: raw fetch → codegen (6 calls)` — play.tsx.
+
 ## Marathon M-34 (2026-08-04 08:00 UTC) {#marathon-m-34}
 
 | Проверка | Результат |
@@ -23,7 +34,7 @@
 | typecheck | PASS (@workspace/web) |
 | marathon-scan | quota-new.tsx больше не в raw hits F |
 
-**Следующий pick:** M-35 `web: raw fetch → codegen (2 calls)` — profile.tsx.
+**Следующий pick:** M-36 `web: raw fetch → codegen (6 calls)` — play.tsx.
 
 ## Marathon M-47 (2026-08-04 07:00 UTC) {#marathon-m-47}
 

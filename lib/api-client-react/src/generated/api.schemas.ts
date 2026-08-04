@@ -584,6 +584,16 @@ export interface RegisterPlayerBody {
   guest?: boolean;
 }
 
+export interface UpdatePlayerCreditSettingsBody {
+  /** When false, sets creditLimitLzt to 0. When true, restores default (3000 LZT full, 500 guest). */
+  creditEnabled: boolean;
+}
+
+export interface UpdatePlayerCreditSettingsResponse {
+  /** Updated gaming credit line in LZT. */
+  creditLimitLzt: number;
+}
+
 export interface UpgradeGuestPlayerBody {
   guestToken: string;
   /**
