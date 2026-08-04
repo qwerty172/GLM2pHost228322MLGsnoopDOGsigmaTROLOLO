@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 20:40 UTC |
 | Task ID | M-58 |
 | Результат | limited-user-launch.ts unit-тесты: creds validation, mocked win32 spawn + env |
-| Commit | pending |
+| Commit | 248976d |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
