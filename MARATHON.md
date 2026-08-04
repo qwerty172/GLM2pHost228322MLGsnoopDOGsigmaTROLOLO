@@ -15,7 +15,11 @@
 | Дата | 2026-08-04 22:32 UTC |
 | Task ID | M-61 |
 | Результат | save-paths.ts unit-тесты: Steam userdata, Ludusavi templates, resolveSavePathCandidates |
+<<<<<<< HEAD
 | Commit | (pending push) |
+=======
+| Commit | bfee8c1 |
+>>>>>>> c69506b (feat(marathon): M-61 save-paths unit tests)
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
