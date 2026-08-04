@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon scanner-expand + api-client (2026-08-04 17:46 UTC) {#marathon-scanner-expand-api-client}
+
+| Проверка | Результат |
+|---|---|
+| marathon-scan J/K | Категории J (host-agent main) + K (shared) — 15 grouped hits |
+| api-client.test.mjs | 12 tests PASS (fetchHostSchedule, fetchLibrary, sendHeartbeat, save URLs) |
+| typecheck | PASS (host-agent) |
+| marathon-scan --next | M-54 app-launcher.ts pending |
+
+**Следующий pick:** M-54 `host-agent main: unit-тест (app-launcher.ts)`.
+
 ## Marathon M-53 (2026-08-04 16:42 UTC) {#marathon-m-53}
 
 | Проверка | Результат |

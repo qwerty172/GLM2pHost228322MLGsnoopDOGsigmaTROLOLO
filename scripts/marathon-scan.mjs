@@ -18,6 +18,8 @@
 //   G. HOSTING.md backlog items (H-NN with status backlog/improvement)
 //   H. api-server lib/*.ts without co-located test (grouped)
 //   I. eslint-disable / @ts-ignore leftovers (grouped by file)
+//   J. host-agent main/*.ts without co-located test (grouped by file)
+//   K. host-agent shared/*.ts without co-located test (grouped by file)
 //
 // Source of truth: working tree (== main after git pull).
 
@@ -270,6 +272,56 @@ for (const [f, snippets] of lintByFile) {
   });
 }
 
+// --- J. host-agent main/*.ts without co-located test (by file) ------------
+const mainDir = "artifacts/host-agent/src/main";
+if (existsSync(mainDir)) {
+  const mainModules = readdirSync(mainDir).filter(
+    (f) => f.endsWith(".ts") && f !== "index.ts" && !f.endsWith(".d.ts"),
+  );
+  for (const mod of mainModules) {
+    const base = mod.replace(/\.ts$/, "");
+    const testCandidates = [
+      `artifacts/host-agent/test/${base}.test.mjs`,
+      `artifacts/host-agent/test/${base}.test.ts`,
+    ];
+    if (testCandidates.some((t) => existsSync(t))) continue;
+    const f = `${mainDir}/${mod}`;
+    raw.push({
+      cat: "J",
+      groupKey: `j:${f}`,
+      title: `host-agent main: unit-тест (${mod})`,
+      file: f,
+      detail: mod,
+      items: [mod],
+    });
+  }
+}
+
+// --- K. host-agent shared/*.ts without co-located test (by file) ----------
+const sharedDir = "artifacts/host-agent/src/shared";
+if (existsSync(sharedDir)) {
+  const sharedModules = readdirSync(sharedDir).filter((f) => f.endsWith(".ts") && !f.endsWith(".d.ts"));
+  for (const mod of sharedModules) {
+    const base = mod.replace(/\.ts$/, "");
+    const testCandidates = [
+      `artifacts/host-agent/test/${base}.test.mjs`,
+      `artifacts/host-agent/test/${base}.test.ts`,
+    ];
+    if (testCandidates.some((t) => existsSync(t))) continue;
+    const txt = readFileSync(`${sharedDir}/${mod}`, "utf8");
+    if (!/\bexport (async )?function\b|\bexport const \w+ =/.test(txt)) continue;
+    const f = `${sharedDir}/${mod}`;
+    raw.push({
+      cat: "K",
+      groupKey: `k:${f}`,
+      title: `host-agent shared: unit-тест (${mod})`,
+      file: f,
+      detail: mod,
+      items: [mod],
+    });
+  }
+}
+
 // --- group raw hits (merge same groupKey) --------------------------------
 const grouped = new Map();
 for (const c of raw) {
@@ -316,7 +368,7 @@ for (const line of marathonMd.split("\n")) {
   if (status === "done" || status === "in_progress") doneOrActiveKeys.add(groupKey);
 }
 
-const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, D: 7, I: 8 };
+const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, J: 7, K: 8, D: 9, I: 10 };
 const filtered = candidates
   .filter((c) => !doneOrActiveKeys.has(c.groupKey))
   .sort((a, b) => (CAT_ORDER[a.cat] ?? 9) - (CAT_ORDER[b.cat] ?? 9));
@@ -466,7 +518,7 @@ if (NEXT || PICK) {
     console.log(`| ${c.id} | ${c.cat} | ${c.title} | \`${c.file}\` | ${(c.detail || "").replace(/\|/g, "\\|")} |`);
   }
   console.log(
-    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, I=eslint suppressions.`,
+    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, J=main-тесты, K=shared-тесты, I=eslint suppressions.`,
   );
   console.log(`Синхронизация: node scripts/marathon-scan.mjs --sync-marathon`);
 }
