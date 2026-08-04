@@ -19,6 +19,7 @@ import {
   getGetSessionQueryKey,
   endSession,
   hostHeartbeat,
+  getPublicIceConfig,
 } from "@workspace/api-client-react";
 import { postAgentInput } from "@/lib/agent-local";
 
@@ -200,20 +201,17 @@ export default function BrowserPlay() {
     // Fetch ICE server config (STUN + optional TURN) from the API.
     let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
     try {
-      const cfgRes = await fetch(`${import.meta.env.BASE_URL}api/public/ice-config`);
-      if (cfgRes.ok) {
-        const cfgJson = (await cfgRes.json()) as { iceServers: RTCIceServer[] };
-        if (Array.isArray(cfgJson.iceServers) && cfgJson.iceServers.length > 0) {
-          // Sanitize: drop entries whose urls are not valid ICE URIs so a
-          // bad server config can never hard-crash RTCPeerConnection.
-          const valid = cfgJson.iceServers.filter((s) => {
-            const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
-            return urls.every(
-              (u) => typeof u === "string" && /^(stun|stuns|turn|turns):/i.test(u),
-            );
-          });
-          if (valid.length > 0) iceServers = valid;
-        }
+      const cfgJson = await getPublicIceConfig();
+      if (Array.isArray(cfgJson.iceServers) && cfgJson.iceServers.length > 0) {
+        // Sanitize: drop entries whose urls are not valid ICE URIs so a
+        // bad server config can never hard-crash RTCPeerConnection.
+        const valid = cfgJson.iceServers.filter((s) => {
+          const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
+          return urls.every(
+            (u) => typeof u === "string" && /^(stun|stuns|turn|turns):/i.test(u),
+          );
+        });
+        if (valid.length > 0) iceServers = valid;
       }
     } catch {
       devWarn("[ice] Failed to fetch ICE config, using default STUN only");
