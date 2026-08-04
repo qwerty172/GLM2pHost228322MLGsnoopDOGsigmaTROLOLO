@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** **11 M-NN pending** (M-39…M-53) — сканер расширен категориями F–I.
+**Wave Maintenance:** **25 M-NN pending** (M-39…M-53 scanner + M-54…M-67 product/ветки) — сканер расширен категориями F–J.
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -236,8 +236,8 @@ Automation **каждый run** создаёт и выполняет одну н
    - Иначе: `in_progress` → выполни → `pnpm typecheck` → `done` + TESTLOG
 2. **Один M-NN за run.**
 3. **Никогда не повторять:** legacy `done`, M-NN `done`/`in_progress`, blocked human.
-4. **Группировка:** C = по route-файлу; E/H = lib/renderer без тестов одной задачей; F = raw fetch по файлу; G = HOSTING backlog (H-NN); vendor `public/games/` и `isDev` console — исключены.
-5. Приоритет категорий: B TODO → C OpenAPI → A RU → G HOSTING → F fetch → E renderer-тесты → H api-lib → D debug → I eslint.
+4. **Группировка:** C = по route-файлу; E/H = lib/renderer без тестов одной задачей; F = raw fetch по файлу; G = HOSTING backlog (H-NN); **J = product backlog из веток/PR** (`docs/MARATHON_BRANCH_BACKLOG.md`); vendor `public/games/` и `isDev` console — исключены.
+5. Приоритет категорий: B TODO → C OpenAPI → A RU → **J ветки/PR** → G HOSTING → F fetch → E renderer-тесты → H api-lib → D debug → I eslint.
 
 ### Очередь M-NN
 
@@ -265,6 +265,20 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-36 | F | web: raw fetch → codegen (6 calls) | `artifacts/web/src/pages/play.tsx` | f:artifacts/web/src/pages/play.tsx | done | agent |
 | M-37 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/pages/host/library.tsx` | f:artifacts/web/src/pages/host/library.tsx | done | agent |
 | M-38 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/pages/host/browser-play.tsx` | f:artifacts/web/src/pages/host/browser-play.tsx | done | agent |
+| M-68 | J | Консолидация quickstart PR (#281+#288+#262) | `package.json, scripts/` | j:merge-quickstart | pending | agent |
+| M-69 | J | /demo + GET /api/readyz вместе | `artifacts/web, artifacts/api-server` | j:demo-readyz | pending | agent |
+| M-70 | J | host-agent: stale onGameExited IPC listeners | `artifacts/host-agent` | j:host-exit-listeners | pending | agent |
+| M-71 | J | Merge: relaunch при смене target (stale PID) | `PR #267` | j:merge-pr267 | pending | agent |
+| M-72 | J | Merge: browser-watch teardown + false positives | `PR #263` | j:merge-pr263 | pending | agent |
+| M-73 | J | Merge: X-User-Token на /players/me/* | `PR #277` | j:merge-pr277 | pending | agent |
+| M-74 | J | Merge: палитра Ctrl+K (базовая) | `PR #265` | j:merge-pr265 | pending | agent |
+| M-75 | J | Ctrl+K: кошелёк, профиль, библиотека, биржа, квоты | `artifacts/web` | j:command-palette-later | pending | agent |
+| M-76 | J | Host dashboard: focus mode на первом входе | `artifacts/web/src/pages/host` | j:host-dashboard-focus | pending | agent |
+| M-77 | J | История кошелька: контекст игры + группировка | `wallet-history.tsx` | j:wallet-history-context | pending | agent |
+| M-78 | J | Профиль: живой empty-state для нового игрока | `profile.tsx` | j:profile-empty-state | pending | agent |
+| M-79 | J | pnpm infra:up:all — Redis + coturn | `scripts/, infra/` | j:infra-up-all | pending | agent |
+| M-80 | J | play.tsx: не silent fallback на legacy token при 401 | `play.tsx` | j:play-ws-ticket-fallback | pending | agent |
+| M-81 | J | findBrowserCaptureSource: не захватывать чужое окно Chrome | `renderer/*.ts` | j:browser-capture-privacy | pending | agent |
 | M-39 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/pages/games.tsx` | f:artifacts/web/src/pages/games.tsx | pending | agent |
 | M-40 | F | web: raw fetch → codegen (6 calls) | `artifacts/web/src/pages/game-detail.tsx` | f:artifacts/web/src/pages/game-detail.tsx | pending | agent |
 | M-41 | F | web: raw fetch → codegen (3 calls) | `artifacts/web/src/pages/embed.tsx` | f:artifacts/web/src/pages/embed.tsx | pending | agent |
