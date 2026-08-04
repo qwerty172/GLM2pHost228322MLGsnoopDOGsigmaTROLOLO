@@ -18,6 +18,7 @@
 //   G. HOSTING.md backlog items (H-NN with status backlog/improvement)
 //   H. api-server lib/*.ts without co-located test (grouped)
 //   I. eslint-disable / @ts-ignore leftovers (grouped by file)
+//   J. pnpm audit moderate+ (grouped by vulnerable package)
 //
 // Source of truth: working tree (== main after git pull).
 
@@ -270,6 +271,43 @@ for (const [f, snippets] of lintByFile) {
   });
 }
 
+// --- J. pnpm audit moderate+ (grouped by vulnerable package) --------------
+function loadAuditByPackage() {
+  try {
+    const r = spawnSync("pnpm", ["audit", "--json"], { encoding: "utf8", shell: true });
+    const stdout = r.stdout || "";
+    const jsonStart = stdout.indexOf("{");
+    if (jsonStart < 0) return [];
+    const d = JSON.parse(stdout.slice(jsonStart));
+    const byPkg = new Map();
+    for (const a of Object.values(d.advisories || {})) {
+      if (!["moderate", "high", "critical"].includes(a.severity)) continue;
+      const pkg = a.module_name;
+      if (!byPkg.has(pkg)) byPkg.set(pkg, { count: 0, maxSev: a.severity, path: "" });
+      const g = byPkg.get(pkg);
+      g.count++;
+      const sevRank = { critical: 3, high: 2, moderate: 1 };
+      if (sevRank[a.severity] > sevRank[g.maxSev]) g.maxSev = a.severity;
+      const p = a.findings?.[0]?.paths?.[0];
+      if (p && !g.path) g.path = p;
+    }
+    return [...byPkg.entries()].map(([pkg, info]) => ({ pkg, ...info }));
+  } catch {
+    return [];
+  }
+}
+for (const { pkg, count, maxSev, path } of loadAuditByPackage()) {
+  const shortPath = path ? path.split(">").slice(0, 2).join(">") : "workspace";
+  raw.push({
+    cat: "J",
+    groupKey: `j:${pkg}`,
+    title: `deps audit: ${pkg} (${count}× ${maxSev})`,
+    file: "package.json",
+    detail: `${shortPath} — pnpm override or upgrade`,
+    items: [pkg, maxSev],
+  });
+}
+
 // --- group raw hits (merge same groupKey) --------------------------------
 const grouped = new Map();
 for (const c of raw) {
@@ -316,7 +354,7 @@ for (const line of marathonMd.split("\n")) {
   if (status === "done" || status === "in_progress") doneOrActiveKeys.add(groupKey);
 }
 
-const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, D: 7, I: 8 };
+const CAT_ORDER = { B: 0, J: 1, C: 2, A: 3, G: 4, F: 5, E: 6, H: 7, D: 8, I: 9 };
 const filtered = candidates
   .filter((c) => !doneOrActiveKeys.has(c.groupKey))
   .sort((a, b) => (CAT_ORDER[a.cat] ?? 9) - (CAT_ORDER[b.cat] ?? 9));
@@ -466,7 +504,7 @@ if (NEXT || PICK) {
     console.log(`| ${c.id} | ${c.cat} | ${c.title} | \`${c.file}\` | ${(c.detail || "").replace(/\|/g, "\\|")} |`);
   }
   console.log(
-    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, I=eslint suppressions.`,
+    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, I=eslint suppressions, J=deps audit.`,
   );
   console.log(`Синхронизация: node scripts/marathon-scan.mjs --sync-marathon`);
 }

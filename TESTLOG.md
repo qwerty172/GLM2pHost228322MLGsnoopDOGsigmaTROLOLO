@@ -13,7 +13,18 @@
 | 5 | in progress | Экономика, биллинг (расширенный) |
 | 6 | blocked (human) | Квоты, VDS, embed — ручной Windows |
 | 7 | agent done | Регресс CI + MARATHON backlog |
-| **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
+| **marathon** | **2026-08-04** | M-54 esbuild override; scanner cat J (deps audit) |
+
+## Marathon M-54 (2026-08-04 17:15 UTC) {#marathon-m-54}
+
+| Проверка | Результат |
+|---|---|
+| marathon-scan cat J | Добавлена категория J — `pnpm audit` moderate+ по пакетам (13 задач M-54…M-66) |
+| esbuild override | `package.json` pnpm override `esbuild@0.28.1` — drizzle-kit chain 0.18.20 убран |
+| pnpm audit | esbuild advisories: 0 (было 1 moderate) |
+| typecheck | partial — cloud env incomplete node_modules; change deps-only |
+
+**Следующий pick:** M-55 `deps audit: tar (12× critical)`.
 
 ## Marathon M-53 (2026-08-04 16:42 UTC) {#marathon-m-53}
 
