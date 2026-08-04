@@ -29,6 +29,12 @@ type Win32Guard = {
 
 let win32: Win32Guard | null = null;
 
+function getWin32Guard(): Win32Guard | null {
+  if (win32) return win32;
+  if (process.platform !== "win32") return null;
+  return initWin32();
+}
+
 function initWin32(): Win32Guard | null {
   if (process.platform !== "win32") return null;
   if (win32) return win32;
@@ -162,9 +168,7 @@ export function isInputAllowed(): boolean {
   if (inputBlocked) return false;
   if (guardDisabled || allowedPid === null) return true;
 
-  if (process.platform !== "win32") return true;
-
-  const w = initWin32();
+  const w = getWin32Guard();
   if (!w) return true;
 
   const fgPid = w.getForegroundPid();
@@ -203,3 +207,20 @@ export function guardInput<T>(fn: () => T): T | undefined {
   }
   return fn();
 }
+
+/** @internal Test-only hooks — do not use in production code. */
+export const _testing = {
+  setWin32Guard(guard: Win32Guard | null): void {
+    win32 = guard;
+  },
+  resetWin32Guard(): void {
+    win32 = null;
+  },
+  resetState(): void {
+    allowedPid = null;
+    guardDisabled = false;
+    inputBlocked = false;
+    lastDenyLogAt = 0;
+    win32 = null;
+  },
+};
