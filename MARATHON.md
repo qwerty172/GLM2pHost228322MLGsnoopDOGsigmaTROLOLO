@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 09:22 UTC |
 | Task ID | M-37 |
 | Результат | library.tsx — raw fetch → codegen (`rawgSearch`, `steamLookup`, `useSubmitGame`, `usePatchSubmissionPendingConfig`) |
-| Commit | (pending) |
+| Commit | 21229f9 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
