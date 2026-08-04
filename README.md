@@ -44,49 +44,35 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 **Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
 
-**Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN (обход страниц в браузере).
+### Одна команда (рекомендуется)
+
+```bash
+git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
+cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
+pnpm install -g pnpm   # если ещё нет
+pnpm quickstart        # Docker Postgres + setup + API + Web
+```
+
+Открой http://localhost:5000 — готово.
+
+**Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN.
 
 ### Требования
 
-- Node.js 20+
+- Node.js 20+ (рекомендуется 22, см. `.nvmrc`)
 - pnpm 9+
-- PostgreSQL 16
+- Docker (опционально, но проще всего) **или** PostgreSQL 16
 - Git Bash / WSL (для Windows) или Linux/macOS
 
-### Клонирование
+### Пошагово (без quickstart)
 
 ```bash
-git clone https://github.com/qwerty172/glm2phost228322mlgsnoopdogsigmatrololo.git decentral-hub
-cd decentral-hub
+pnpm infra:up      # Postgres + Redis в Docker (или свой PostgreSQL)
+pnpm setup         # .env, зависимости, схема БД
+pnpm dev           # API :8080 + Web :5000
 ```
 
-### Первичная настройка
-
-**Windows (cmd или двойной клик):**
-
-```bat
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-copy .env.example .env
-notepad .env
-scripts\setup-local.bat
-scripts\dev-local.bat
-```
-
-**Git Bash / Linux / macOS:**
-
-```bash
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-cp .env.example .env
-# отредактируй DATABASE_URL
-
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
-```
+Windows: `scripts\setup-local.bat` → `scripts\dev-local.bat`
 
 Подробнее — [LOCAL_SETUP.md](./LOCAL_SETUP.md).
 

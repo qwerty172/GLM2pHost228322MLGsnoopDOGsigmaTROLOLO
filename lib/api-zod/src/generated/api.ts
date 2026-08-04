@@ -15,6 +15,13 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
+ * @summary Readiness check (database connectivity)
+ */
+export const ReadinessCheckResponse = zod.object({
+  status: zod.string(),
+});
+
+/**
  * @summary Register a new host
  */
 export const RegisterHostBody = zod.object({

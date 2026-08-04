@@ -10,6 +10,11 @@ services:
       POSTGRES_DB: decentral_hub
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U decentral_hub -d decentral_hub"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
 
   redis:
     image: redis:7-alpine
@@ -19,6 +24,11 @@ services:
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
 
   coturn:
     image: coturn/coturn:4.6.2
