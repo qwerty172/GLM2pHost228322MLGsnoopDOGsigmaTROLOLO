@@ -25,7 +25,9 @@ import {
   getListPublicHostsQueryKey,
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
+import { GuestCreditHint } from "@/components/guest-credit-hint";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { prewarmIce } from "@/lib/ice-prewarm";
 
 function formatInt(n: number): string {
   // 1248 → "1 248" (Russian thin-space grouping).
@@ -68,7 +70,7 @@ export default function Landing() {
   const [shareLink, setShareLink] = useState("");
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [, navigate] = useLocation();
-  const { playerWalletToken, registerGuest } = usePlayerWallet();
+  const { playerWalletToken, registerGuest, isRegistering } = usePlayerWallet();
   const { data: liveHosts } = useLiveHosts();
   const { data: stats } = useGetPublicStats({
     query: {
@@ -119,6 +121,11 @@ export default function Landing() {
     }
 
     window.location.href = `${import.meta.env.BASE_URL}play/${raw}`;
+  };
+
+  const handleTryDemo = async () => {
+    if (!playerWalletToken) await registerGuest();
+    navigate("/games/rogue-fable-3");
   };
 
   const handlePlayNow = (host: LiveHost) => {
@@ -208,6 +215,16 @@ export default function Landing() {
                 <Play className="w-3.5 h-3.5 mr-1.5" /> Играть
               </Button>
             </Link>
+            <Button
+              className="h-9 px-5 text-sm font-semibold rounded-md"
+              style={{ background: "rgba(14,165,233,0.15)", color: "#38bdf8", border: "1px solid rgba(14,165,233,0.35)" }}
+              onClick={() => void handleTryDemo()}
+              disabled={isRegistering}
+              data-testid="button-try-demo"
+            >
+              <Zap className="w-3.5 h-3.5 mr-1.5" />
+              {isRegistering ? "…" : "Попробовать демо"}
+            </Button>
             <Link href="/host">
               <Button
                 variant="ghost"
@@ -216,6 +233,10 @@ export default function Landing() {
                 Стать хостом
               </Button>
             </Link>
+          </div>
+
+          <div className="mt-4">
+            <GuestCreditHint />
           </div>
 
           <div className="mt-5">
@@ -337,6 +358,7 @@ export default function Landing() {
                       className="w-full h-7 rounded-md text-[11px] font-semibold flex items-center justify-center gap-1 transition-opacity hover:opacity-90"
                       style={{ background: "#0ea5e9", color: "#fff" }}
                       onClick={() => handlePlayNow(host)}
+                      onMouseEnter={() => void prewarmIce(host.id)}
                       data-testid={`button-play-now-${host.id}`}
                     >
                       <Play className="w-3 h-3" /> Играть

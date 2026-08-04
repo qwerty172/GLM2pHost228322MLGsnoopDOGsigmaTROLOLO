@@ -1123,11 +1123,25 @@ function HostQuickStartCard({
             После установки запусти <span className="font-mono text-sky-400">start.bat</span>.
             Агент уйдёт в трей — окно настроек открой по клику на иконку.
             <AgentTroubleshootChecklist agent={agent} heartbeat={heartbeat} />
+            <p className="mt-2 text-slate-500">
+              Нет Windows-ПК? В блоке{" "}
+              <button
+                type="button"
+                className="text-sky-400 hover:underline"
+                onClick={() => {
+                  const el = document.querySelector("details summary");
+                  if (el instanceof HTMLElement) el.click();
+                }}
+              >
+                «Расширенно»
+              </button>{" "}
+              есть «Проверить самому» — стрим из браузера без агента.
+            </p>
           </div>
         )}
 
         {agentOnline && !agentKeyBound && (
-          <AgentBindCodeCard hostToken={hostToken} />
+          <AgentBindCodeCard hostToken={hostToken} autoIssue />
         )}
 
         {agentKeyBound && libraryCount === 0 && (
@@ -1254,7 +1268,13 @@ function QuickAddFirstGame({ hostToken }: { hostToken: string }) {
   );
 }
 
-function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
+function AgentBindCodeCard({
+  hostToken,
+  autoIssue = false,
+}: {
+  hostToken: string;
+  autoIssue?: boolean;
+}) {
   const [bindCode, setBindCode] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1282,6 +1302,13 @@ function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (autoIssue && !bindCode && !loading) {
+      void issueCode();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- auto-issue once on mount
+  }, [autoIssue]);
 
   const copyCode = () => {
     if (!bindCode) return;
@@ -1443,6 +1470,12 @@ export default function Dashboard() {
     (s) => s.status === "active" || s.status === "pending",
   );
   const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  const agentOnline =
+    agent.status === "online" || heartbeat.status === "fresh";
+  const quickStartDone =
+    hasActiveSession ||
+    (agentOnline && libraryCount > 0 && agentKeyBound);
 
   const agentNeedsAttention =
     agent.status === "offline" ||
@@ -1674,6 +1707,12 @@ export default function Dashboard() {
         </div>
       </details>
 
+      {!quickStartDone ? (
+        <p className="text-xs text-slate-500 text-center py-2">
+          Статистика и сессии появятся после быстрого старта выше
+        </p>
+      ) : (
+        <>
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {[
@@ -1951,6 +1990,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+        </>
+      )}
 
       <Dialog
         open={!!endSessionId}

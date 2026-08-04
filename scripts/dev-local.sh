@@ -19,12 +19,18 @@ echo "==> API-сервер (порт из .env, обычно 8080)"
 pnpm --filter @workspace/api-server run dev &
 API_PID=$!
 
+if [[ "${QUICKSTART_WAIT_READY:-}" == "1" ]]; then
+  echo "==> Ожидание готовности API и БД…"
+  "$ROOT/scripts/wait-ready.sh" || true
+fi
+
 echo "==> Web (http://localhost:5000, прокси /api -> API)"
 pnpm --filter @workspace/web run dev &
 WEB_PID=$!
 
 echo ""
 echo "API:  http://localhost:8080/api/healthz"
+echo "      http://localhost:8080/api/readyz  (проверка БД)"
 echo "Web:  http://localhost:5000"
 echo "Ctrl+C — остановить оба процесса"
 echo ""

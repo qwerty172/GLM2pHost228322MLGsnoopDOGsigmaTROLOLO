@@ -18,6 +18,13 @@ if %errorlevel%==0 (
   echo Сгенерирован WALLET_ENCRYPTION_KEY
 )
 
+findstr /r /c:"^JWT_SECRET=$" .env >nul 2>&1
+if %errorlevel%==0 (
+  for /f "delims=" %%K in ('node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"') do set JWT=%%K
+  powershell -NoProfile -Command "(Get-Content .env) -replace '^JWT_SECRET=$', 'JWT_SECRET=%JWT%' | Set-Content .env -Encoding UTF8"
+  echo Сгенерирован JWT_SECRET
+)
+
 echo.
 echo ==^> pnpm install
 call pnpm install
