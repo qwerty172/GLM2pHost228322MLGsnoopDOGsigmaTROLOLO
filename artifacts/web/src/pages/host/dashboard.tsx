@@ -23,6 +23,9 @@ import {
   getListHostLibraryQueryKey,
   getListGamesQueryKey,
   issueAgentBindCode,
+  useIssueAgentPairingCode,
+  useGetAgentPairingStatus,
+  getGetAgentPairingStatusQueryKey,
   createTestSession,
   type HostLibraryEntry,
 } from "@workspace/api-client-react";
@@ -1119,11 +1122,14 @@ function HostQuickStartCard({
         </ol>
 
         {!agentOnline && (
-          <div className="rounded-lg p-3 text-xs text-slate-400" style={{ background: "rgba(0,0,0,0.25)" }}>
-            После установки запусти <span className="font-mono text-sky-400">start.bat</span>.
-            Агент уйдёт в трей — окно настроек открой по клику на иконку.
-            <AgentTroubleshootChecklist agent={agent} heartbeat={heartbeat} />
-          </div>
+          <>
+            <AgentPairingCodeCard />
+            <div className="rounded-lg p-3 text-xs text-slate-400" style={{ background: "rgba(0,0,0,0.25)" }}>
+              После установки запусти <span className="font-mono text-sky-400">start.bat</span>.
+              Агент уйдёт в трей — окно настроек открой по клику на иконку.
+              <AgentTroubleshootChecklist agent={agent} heartbeat={heartbeat} />
+            </div>
+          </>
         )}
 
         {agentOnline && !agentKeyBound && (
@@ -1251,6 +1257,134 @@ function QuickAddFirstGame({ hostToken }: { hostToken: string }) {
         </ul>
       )}
     </div>
+  );
+}
+
+function AgentPairingCodeCard() {
+  const issuePairing = useIssueAgentPairingCode();
+  const [code, setCode] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const issueCode = () => {
+    issuePairing.mutate(undefined, {
+      onSuccess: (data) => {
+        setCode(data.code);
+        setExpiresAt(
+          typeof data.expiresAt === "string"
+            ? data.expiresAt
+            : new Date(data.expiresAt).toISOString(),
+        );
+        void queryClient.invalidateQueries({
+          queryKey: getGetAgentPairingStatusQueryKey(),
+        });
+      },
+      onError: () => toast.error("Не удалось выдать код"),
+    });
+  };
+
+  useEffect(() => {
+    if (!code && !issuePairing.isPending && !issuePairing.isSuccess) {
+      issueCode();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- auto-issue once on mount
+  }, []);
+
+  const { data: status } = useGetAgentPairingStatus({
+    query: {
+      queryKey: getGetAgentPairingStatusQueryKey(),
+      enabled: Boolean(code),
+      refetchInterval: (query) =>
+        query.state.data?.status === "paired" ? false : 2000,
+    },
+  });
+
+  useEffect(() => {
+    if (status?.status === "paired") {
+      toast.success("Агент подключён к аккаунту");
+    }
+  }, [status?.status]);
+
+  const expired =
+    expiresAt != null && Date.now() > new Date(expiresAt).getTime();
+
+  const copyCode = () => {
+    if (!code) return;
+    void navigator.clipboard.writeText(code).then(
+      () => toast.success("Код скопирован"),
+      () => toast.error("Не удалось скопировать"),
+    );
+  };
+
+  const paired = status?.status === "paired";
+
+  return (
+    <Card
+      style={{
+        background: paired ? "rgba(16,185,129,0.06)" : "rgba(14,165,233,0.06)",
+        border: paired
+          ? "1px solid rgba(16,185,129,0.3)"
+          : "1px solid rgba(14,165,233,0.25)",
+      }}
+      data-testid="agent-pairing-code"
+    >
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-white text-base">
+          <KeyRound className="h-4 w-4 text-sky-400" />
+          Код для агента
+        </CardTitle>
+        <CardDescription className="text-slate-500">
+          Введи эти 6 цифр в окне агента после запуска start.bat — без ручного копирования токена.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {paired ? (
+          <p className="text-sm text-emerald-300 font-medium">Агент успешно подключён</p>
+        ) : code && !expired ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <code
+              className="font-mono text-2xl tracking-[0.35em] text-sky-300 px-4 py-2 rounded"
+              style={{
+                background: "rgba(14,165,233,0.08)",
+                border: "1px solid rgba(14,165,233,0.25)",
+              }}
+            >
+              {code}
+            </code>
+            <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={copyCode}>
+              <Copy className="h-3 w-3" />
+              Копировать
+            </Button>
+            {expiresAt && (
+              <span className="text-xs text-slate-500">
+                действует{" "}
+                {formatDistanceToNow(new Date(expiresAt), { addSuffix: true, locale: ru })}
+              </span>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500">
+            {expired ? "Код истёк — создай новый." : "Генерируем код…"}
+          </p>
+        )}
+        {!paired && (
+          <Button
+            size="sm"
+            className="gap-1.5 h-8 text-xs font-semibold"
+            style={{ background: "#0ea5e9", color: "#fff" }}
+            onClick={issueCode}
+            disabled={issuePairing.isPending}
+          >
+            {issuePairing.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+            {code && !expired ? "Новый код" : "Получить код"}
+          </Button>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

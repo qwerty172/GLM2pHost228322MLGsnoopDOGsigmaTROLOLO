@@ -23,9 +23,12 @@ import {
   getListGamesQueryKey,
   useListPublicHosts,
   getListPublicHostsQueryKey,
+  useCreateBrowserHostSession,
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { formatApiError } from "@/lib/api-errors";
+import { toast } from "sonner";
 
 function formatInt(n: number): string {
   // 1248 → "1 248" (Russian thin-space grouping).
@@ -67,8 +70,10 @@ function useLiveHosts() {
 export default function Landing() {
   const [shareLink, setShareLink] = useState("");
   const [showLinkInput, setShowLinkInput] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const [, navigate] = useLocation();
-  const { playerWalletToken, registerGuest } = usePlayerWallet();
+  const { playerWalletToken, registerGuest, isRegistering } = usePlayerWallet();
+  const createBrowserHost = useCreateBrowserHostSession();
   const { data: liveHosts } = useLiveHosts();
   const { data: stats } = useGetPublicStats({
     query: {
@@ -123,9 +128,32 @@ export default function Landing() {
 
   const handlePlayNow = (host: LiveHost) => {
     if (!host.inviteCode) return;
-    // Guest wallet создаётся на /play — не блокируем навигацию.
+    // Guest wallet создаётся в фоне — не блокируем навигацию.
     if (!playerWalletToken) void registerGuest();
     navigate(`/play/i/${host.inviteCode}`);
+  };
+
+  const handleTryDemo = async () => {
+    setDemoLoading(true);
+    try {
+      let token = playerWalletToken;
+      if (!token) {
+        token = await registerGuest();
+      }
+      if (!token) return;
+      const res = await createBrowserHost.mutateAsync({
+        data: { playerWalletToken: token, gameSlug: "rogue-fable-3" },
+      });
+      try {
+        localStorage.setItem("streamline.browserHostToken:" + res.session.id, res.hostToken);
+        localStorage.setItem("streamline.browserHostUrl:" + res.session.id, res.browserHostUrl);
+      } catch { /* ignore */ }
+      navigate(`/host/play/${res.session.id}`);
+    } catch (err) {
+      toast.error(formatApiError(err, "Не удалось запустить демо"));
+    } finally {
+      setDemoLoading(false);
+    }
   };
 
   const playableHosts = (liveHosts ?? [])
@@ -208,6 +236,21 @@ export default function Landing() {
                 <Play className="w-3.5 h-3.5 mr-1.5" /> Играть
               </Button>
             </Link>
+            <Button
+              type="button"
+              onClick={() => void handleTryDemo()}
+              disabled={demoLoading || isRegistering || createBrowserHost.isPending}
+              className="h-9 px-5 text-sm font-semibold rounded-md"
+              style={{
+                background: "rgba(16,185,129,0.18)",
+                color: "#34d399",
+                border: "1px solid rgba(16,185,129,0.35)",
+              }}
+              data-testid="button-try-demo"
+            >
+              <Zap className="w-3.5 h-3.5 mr-1.5" />
+              {demoLoading || createBrowserHost.isPending ? "Запуск…" : "Попробовать демо"}
+            </Button>
             <Link href="/host">
               <Button
                 variant="ghost"
