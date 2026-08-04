@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 20:12 UTC |
 | Task ID | M-57 |
 | Результат | input-injection.ts unit-тесты: noop non-win32, mocked SendInput mouse/keyboard/wheel |
-| Commit | pending |
+| Commit | 446023f |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
