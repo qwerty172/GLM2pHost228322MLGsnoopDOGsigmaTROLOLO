@@ -203,3 +203,13 @@ export function guardInput<T>(fn: () => T): T | undefined {
   }
   return fn();
 }
+
+/** True when `pid` is `rootPid` or a descendant process (same tree as focus guard). */
+export function isPidInProcessTree(pid: number, rootPid: number): boolean {
+  if (pid <= 0 || rootPid <= 0) return false;
+  if (pid === rootPid) return true;
+  if (process.platform !== "win32") return false;
+  const w = initWin32();
+  if (!w) return false;
+  return w.isPidAllowed(pid, rootPid);
+}

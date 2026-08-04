@@ -19,6 +19,7 @@ const {
   isInputBlocked,
   guardInput,
   getFocusGuardStatus,
+  isPidInProcessTree,
 } = await import("../dist/main/main/focus-guard.js");
 
 beforeEach(() => {
@@ -82,4 +83,13 @@ test("clearAllowedTarget resets guard state", () => {
   assert.equal(status.allowedPid, null);
   assert.equal(status.guardDisabled, false);
   assert.equal(status.active, false);
+});
+
+test("isPidInProcessTree accepts same pid on all platforms", () => {
+  assert.equal(isPidInProcessTree(4242, 4242), true);
+});
+
+test("isPidInProcessTree rejects unrelated pid on non-win32", () => {
+  if (process.platform === "win32") return;
+  assert.equal(isPidInProcessTree(100, 200), false);
 });
