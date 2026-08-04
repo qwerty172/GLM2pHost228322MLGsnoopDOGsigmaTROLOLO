@@ -60,7 +60,16 @@ git clone https://github.com/qwerty172/glm2phost228322mlgsnoopdogsigmatrololo.gi
 cd decentral-hub
 ```
 
-### Первичная настройка
+### Первичная настройка (одна команда)
+
+```bash
+pnpm db:up      # PostgreSQL в Docker (или свой Postgres)
+pnpm setup      # .env, секреты, install, db push
+pnpm dev        # API :8080 + Web :5000
+pnpm smoke      # smoke-тест API
+```
+
+Алиасы: `make help` · Windows: `scripts\setup-local.bat` и `scripts\dev-local.bat`
 
 **Windows (cmd или двойной клик):**
 

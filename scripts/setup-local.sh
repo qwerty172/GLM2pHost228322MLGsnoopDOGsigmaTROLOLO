@@ -14,14 +14,24 @@ else
   echo ".env уже существует — пропускаем копирование"
 fi
 
-if [[ -z "${WALLET_ENCRYPTION_KEY:-}" ]] && grep -q '^WALLET_ENCRYPTION_KEY=$' .env 2>/dev/null; then
-  KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+gen_secret_into_env() {
+  local var="$1"
+  local key
+  key=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
   if [[ "$(uname -s)" == "Darwin" ]]; then
-    sed -i '' "s/^WALLET_ENCRYPTION_KEY=$/WALLET_ENCRYPTION_KEY=$KEY/" .env
+    sed -i '' "s/^${var}=.*/${var}=${key}/" .env
   else
-    sed -i "s/^WALLET_ENCRYPTION_KEY=$/WALLET_ENCRYPTION_KEY=$KEY/" .env
+    sed -i "s/^${var}=.*/${var}=${key}/" .env
   fi
-  echo "Сгенерирован WALLET_ENCRYPTION_KEY"
+  echo "Сгенерирован ${var}"
+}
+
+if grep -qE '^WALLET_ENCRYPTION_KEY=$' .env 2>/dev/null; then
+  gen_secret_into_env WALLET_ENCRYPTION_KEY
+fi
+
+if grep -qE '^JWT_SECRET=$' .env 2>/dev/null; then
+  gen_secret_into_env JWT_SECRET
 fi
 
 echo "==> pnpm install"
@@ -30,10 +40,14 @@ pnpm install
 echo "==> Применение схемы БД (нужен запущенный PostgreSQL и DATABASE_URL в .env)"
 pnpm --filter @workspace/db run push
 
-echo "==> Проверка типов"
-pnpm run typecheck
+if [[ "${SKIP_TYPECHECK:-}" != "1" ]]; then
+  echo "==> Проверка типов"
+  pnpm run typecheck
+else
+  echo "==> Пропуск typecheck (SKIP_TYPECHECK=1)"
+fi
 
 echo ""
 echo "Готово. Запуск:"
-echo "  ./scripts/dev-local.sh          — API + Web"
-echo "  или см. README.md"
+echo "  pnpm dev   или   make dev   — API + Web"
+echo "  pnpm smoke — smoke-тест API (после dev)"

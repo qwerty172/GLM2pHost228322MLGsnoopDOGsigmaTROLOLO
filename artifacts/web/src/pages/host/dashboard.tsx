@@ -1442,6 +1442,7 @@ export default function Dashboard() {
   const hasActiveSession = (sessions ?? []).some(
     (s) => s.status === "active" || s.status === "pending",
   );
+  const setupComplete = agentKeyBound && libraryCount > 0;
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const agentNeedsAttention =
@@ -1450,10 +1451,14 @@ export default function Dashboard() {
     heartbeat.status === "never";
 
   useEffect(() => {
-    if (agentNeedsAttention && agent.status !== "checking") {
+    if (
+      setupComplete &&
+      agentNeedsAttention &&
+      agent.status !== "checking"
+    ) {
       setAdvancedOpen(true);
     }
-  }, [agentNeedsAttention, agent.status]);
+  }, [setupComplete, agentNeedsAttention, agent.status]);
 
   const endSession = useEndSession();
   const [endSessionId, setEndSessionId] = useState<string | null>(null);
@@ -1568,8 +1573,15 @@ export default function Dashboard() {
         />
       )}
 
+      {!setupComplete && (
+        <p className="text-xs text-slate-500 text-center py-1" data-testid="host-onboarding-hint">
+          Статистика, кошелёк и сессии — после привязки агента и добавления первой игры.
+          Остальное можно настроить позже в блоке «Расширенно».
+        </p>
+      )}
+
       {/* PC Specs card — shown only when the agent has reported specs */}
-      {pcSpecs && (
+      {setupComplete && pcSpecs && (
         <Card style={cardStyle}>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-white text-base">
@@ -1674,6 +1686,8 @@ export default function Dashboard() {
         </div>
       </details>
 
+      {setupComplete && (
+      <>
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {[
@@ -1951,6 +1965,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+      </>
+      )}
 
       <Dialog
         open={!!endSessionId}
