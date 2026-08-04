@@ -9,7 +9,12 @@
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "test": "pnpm --filter @workspace/api-server test",
     "smoke:invite": "node scripts/invite-flow-smoke.mjs",
-    "smoke:features": "node scripts/features-smoke.mjs"
+    "smoke:features": "node scripts/features-smoke.mjs",
+    "setup": "bash scripts/setup-local.sh",
+    "dev": "bash scripts/dev-local.sh",
+    "quickstart": "bash scripts/quickstart.sh",
+    "infra:up": "bash scripts/infra-up.sh",
+    "infra:down": "bash scripts/infra-down.sh"
   },
   "private": true,
   "devDependencies": {
