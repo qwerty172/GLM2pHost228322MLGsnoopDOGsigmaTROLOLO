@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 17:15 UTC |
 | Task ID | M-54 |
 | Результат | deps audit esbuild — pnpm override `esbuild@0.28.1`; scanner cat J (audit) |
-| Commit | *(pending push)* |
+| Commit | 52b12ef |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
