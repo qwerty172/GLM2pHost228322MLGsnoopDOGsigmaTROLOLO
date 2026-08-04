@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-04 (M-53 done; api-server sentry.ts)
+> **Последнее обновление:** 2026-08-04 (M-54 done; scanner cat J + esbuild override)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-04 16:42 UTC |
-| Task ID | M-53 |
-| Результат | api-server sentry.ts — ambient `sentry-node.d.ts`, убраны 2 eslint-disable |
-| Commit | 94aa7b9 |
+| Дата | 2026-08-04 17:15 UTC |
+| Task ID | M-54 |
+| Результат | deps audit esbuild — pnpm override `esbuild@0.28.1`; scanner cat J (audit) |
+| Commit | 52b12ef |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** idle — сканер I пуст (0 eslint/ts suppressions).
+**Wave Maintenance:** M-55…M-66 pending — cat J deps audit (12 пакетов).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -273,6 +273,19 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-51 | I | eslint/ts suppressions (1) | `artifacts/web/src/components/webgl-video-shader.tsx` | i:artifacts/web/src/components/webgl-video-shader.tsx | done | agent |
 | M-52 | I | eslint/ts suppressions (1) | `artifacts/host-agent/src/main/sentry.ts` | i:artifacts/host-agent/src/main/sentry.ts | done | agent |
 | M-53 | I | eslint/ts suppressions (2) | `artifacts/api-server/src/lib/sentry.ts` | i:artifacts/api-server/src/lib/sentry.ts | done | agent |
+| M-54 | J | deps audit: esbuild (1× moderate) | `package.json` | j:esbuild | done | agent |
+| M-55 | J | deps audit: tar (12× critical) | `package.json` | j:tar | pending | agent |
+| M-56 | J | deps audit: axios (27× high) | `package.json` | j:axios | pending | agent |
+| M-57 | J | deps audit: ws (2× high) | `package.json` | j:ws | pending | agent |
+| M-58 | J | deps audit: uuid (1× moderate) | `package.json` | j:uuid | pending | agent |
+| M-59 | J | deps audit: js-yaml (2× high) | `package.json` | j:js-yaml | pending | agent |
+| M-60 | J | deps audit: adm-zip (1× high) | `package.json` | j:adm-zip | pending | agent |
+| M-61 | J | deps audit: fast-uri (2× high) | `package.json` | j:fast-uri | pending | agent |
+| M-62 | J | deps audit: builder-util-runtime (1× high) | `package.json` | j:builder-util-runtime | pending | agent |
+| M-63 | J | deps audit: app-builder-lib (1× high) | `package.json` | j:app-builder-lib | pending | agent |
+| M-64 | J | deps audit: postcss (2× high) | `package.json` | j:postcss | pending | agent |
+| M-65 | J | deps audit: brace-expansion (6× high) | `package.json` | j:brace-expansion | pending | agent |
+| M-66 | J | deps audit: ip-address (3× high) | `package.json` | j:ip-address | pending | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).
