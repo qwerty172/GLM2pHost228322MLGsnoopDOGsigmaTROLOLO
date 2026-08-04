@@ -24,6 +24,7 @@ check() {
 }
 
 echo "Smoke-test: $BASE"
+check GET  /api/readyz
 check GET  /api/healthz
 check GET  /api/games
 check GET  /api/games/rogue-fable-3

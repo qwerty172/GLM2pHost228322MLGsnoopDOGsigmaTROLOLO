@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 if [[ ! -f .env ]]; then
-  echo "Нет .env — сначала запусти: ./scripts/setup-local.sh" >&2
+  echo "Нет .env — сначала: pnpm setup  или  ./scripts/setup-local.sh" >&2
   exit 1
 fi
 
@@ -24,9 +24,16 @@ pnpm --filter @workspace/web run dev &
 WEB_PID=$!
 
 echo ""
-echo "API:  http://localhost:8080/api/healthz"
-echo "Web:  http://localhost:5000"
-echo "Ctrl+C — остановить оба процесса"
+echo "Ожидание готовности API..."
+if ./scripts/wait-ready.sh "http://localhost:8080" 60; then
+  echo ""
+  echo "Готово:"
+  echo "  API:  http://localhost:8080/api/healthz"
+  echo "  Web:  http://localhost:5000"
+  echo "  Ctrl+C — остановить оба процесса"
+else
+  echo "API не поднялся — проверь логи выше (DATABASE_URL, PostgreSQL)." >&2
+fi
 echo ""
 
 wait
