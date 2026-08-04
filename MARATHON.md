@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 22:50 UTC |
 | Task ID | M-62 |
 | Результат | save-sync.ts unit-тесты: clearSavePaths, pullSave/pushSave с моками API и fetch |
-| Commit | pending |
+| Commit | 8381471 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
