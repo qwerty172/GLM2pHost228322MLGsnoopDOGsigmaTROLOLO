@@ -8,6 +8,9 @@ import {
   createPublicSession,
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
+import { GuestCreditHint } from "@/components/guest-credit-hint";
+import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { prewarmIce } from "@/lib/ice-prewarm";
 import { useBrowserPingMs } from "@/hooks/use-browser-ping";
 import {
   Dialog,
@@ -261,6 +264,11 @@ function PlayButton({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [, navigate] = useLocation();
+  const { playerWalletToken, registerGuest } = usePlayerWallet();
+
+  const ensureGuestWallet = () => {
+    if (!playerWalletToken) void registerGuest();
+  };
 
   // Connect to the host for a specific game via POST /api/public/sessions.
   // - On success → navigate to /play/i/:inviteCode.
@@ -288,6 +296,7 @@ function PlayButton({
   };
 
   const handlePlay = async () => {
+    ensureGuestWallet();
     if (games.length === 0) {
       if (fallbackInviteCode) {
         navigate(`/play/i/${fallbackInviteCode}`);
@@ -313,6 +322,10 @@ function PlayButton({
       <button
         type="button"
         onClick={() => void handlePlay()}
+        onMouseEnter={() => {
+          ensureGuestWallet();
+          void prewarmIce(hostId);
+        }}
         disabled={loading}
         className="h-9 px-4 text-xs font-semibold rounded-md transition-colors disabled:opacity-60"
         style={{ background: "#0ea5e9", color: "#fff" }}
@@ -425,6 +438,7 @@ export default function HostsPage() {
             <p className="text-sm text-slate-500 mt-1">
               Живой список ПК, готовых к подключению прямо сейчас.
             </p>
+            <GuestCreditHint className="mt-3" />
           </div>
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 cursor-pointer select-none">

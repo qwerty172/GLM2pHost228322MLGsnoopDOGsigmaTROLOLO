@@ -26,6 +26,8 @@ import {
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { GuestCreditHint } from "@/components/guest-credit-hint";
+import { prewarmIce } from "@/lib/ice-prewarm";
 
 function formatInt(n: number): string {
   // 1248 → "1 248" (Russian thin-space grouping).
@@ -194,10 +196,12 @@ export default function Landing() {
             <br />
             <span style={{ color: "#0ea5e9" }}>напрямую у владельцев</span>
           </h1>
-          <p className="text-slate-400 text-[15px] leading-relaxed mb-7 max-w-lg">
+          <p className="text-slate-400 text-[15px] leading-relaxed mb-4 max-w-lg">
             Владельцы мощных ПК стримят их тебе прямо в браузер.
             Платишь за фактические минуты игры — без подписок и очередей.
           </p>
+
+          <GuestCreditHint className="mb-5 max-w-lg" />
 
           <div className="flex flex-col sm:flex-row items-start gap-3">
             <Link href="/hosts">
@@ -337,6 +341,7 @@ export default function Landing() {
                       className="w-full h-7 rounded-md text-[11px] font-semibold flex items-center justify-center gap-1 transition-opacity hover:opacity-90"
                       style={{ background: "#0ea5e9", color: "#fff" }}
                       onClick={() => handlePlayNow(host)}
+                      onMouseEnter={() => void prewarmIce(host.id)}
                       data-testid={`button-play-now-${host.id}`}
                     >
                       <Play className="w-3 h-3" /> Играть

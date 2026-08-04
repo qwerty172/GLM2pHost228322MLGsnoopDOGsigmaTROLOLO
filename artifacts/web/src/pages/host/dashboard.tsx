@@ -1120,6 +1120,13 @@ function HostQuickStartCard({
 
         {!agentOnline && (
           <div className="rounded-lg p-3 text-xs text-slate-400" style={{ background: "rgba(0,0,0,0.25)" }}>
+            <p className="mb-2">
+              Нет Windows?{" "}
+              <a href="/games" className="text-sky-400 hover:underline font-medium">
+                Попробуй browser-host
+              </a>
+              {" "}— стрим из браузера без установки агента.
+            </p>
             После установки запусти <span className="font-mono text-sky-400">start.bat</span>.
             Агент уйдёт в трей — окно настроек открой по клику на иконку.
             <AgentTroubleshootChecklist agent={agent} heartbeat={heartbeat} />
@@ -1442,6 +1449,10 @@ export default function Dashboard() {
   const hasActiveSession = (sessions ?? []).some(
     (s) => s.status === "active" || s.status === "pending",
   );
+  const agentOnline =
+    agent.status === "online" || heartbeat.status === "fresh";
+  const quickStartComplete =
+    hasActiveSession || (agentOnline && libraryCount > 0 && agentKeyBound);
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const agentNeedsAttention =
@@ -1568,6 +1579,14 @@ export default function Dashboard() {
         />
       )}
 
+      {!quickStartComplete && (
+        <p className="text-xs text-slate-500 text-center py-2">
+          Остальные разделы дашборда откроются, когда завершишь быстрый старт.
+        </p>
+      )}
+
+      {quickStartComplete && (
+        <>
       {/* PC Specs card — shown only when the agent has reported specs */}
       {pcSpecs && (
         <Card style={cardStyle}>
@@ -1951,6 +1970,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+        </>
+      )}
 
       <Dialog
         open={!!endSessionId}

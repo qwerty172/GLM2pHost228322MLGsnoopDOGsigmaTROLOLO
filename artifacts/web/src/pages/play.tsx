@@ -26,6 +26,7 @@ import { TouchOverlay } from "@/components/TouchOverlay";
 import { KeyboardOverlay } from "@/components/KeyboardOverlay";
 import { toast } from "sonner";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { GuestCreditHint } from "@/components/guest-credit-hint";
 import {
   ICE_CONNECTION_LABELS,
   ICE_TONE_STYLES,
@@ -1279,7 +1280,6 @@ export default function Play() {
   if (!isPlaying) {
     const greenLzt = wallet?.withdrawableBalanceLzt ?? 0;
     const blueLzt = wallet?.internalBalanceLzt ?? 0;
-    // Claim принимает только green/blue — не суммируем с кредитным лимитом.
     const totalLzt = greenLzt + blueLzt;
     const ratePerMinUsd = session.ratePerMinute;
     const ratePerMinLzt = Math.round(ratePerMinUsd * LZT_PER_USDT);
@@ -1346,6 +1346,7 @@ export default function Play() {
               {ratePerMinLzt} LZT/мин · {session.resolution} · {session.bitrateKbps} кбит/с
             </p>
           )}
+          <GuestCreditHint variant="compact" className="relative z-10" />
         </div>
       );
     }
@@ -1408,6 +1409,10 @@ export default function Play() {
               {ratePerMinLzt > 0 && (
                 <p className="text-[11px] text-slate-500 mt-1">~{minutesAffordable} мин игры</p>
               )}
+            </div>
+
+            <div className="flex justify-center">
+              <GuestCreditHint variant="compact" />
             </div>
 
             {(claimError || showPaymentOptions) && (
