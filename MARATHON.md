@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 22:24 UTC |
 | Task ID | M-61 |
 | Результат | save-paths.ts unit-тесты: mocked steam-scanner/electron, Ludusavi cache, userdata paths |
-| Commit | 2e920e6 |
+| Commit | 2785ce1 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
