@@ -282,7 +282,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-60 | J | host-agent main: unit-тест (rtmp-relay.ts) | `artifacts/host-agent/src/main/rtmp-relay.ts` | j:artifacts/host-agent/src/main/rtmp-relay.ts | done | agent |
 | M-61 | J | host-agent main: unit-тест (save-paths.ts) | `artifacts/host-agent/src/main/save-paths.ts` | j:artifacts/host-agent/src/main/save-paths.ts | done | agent |
 | M-62 | J | host-agent main: unit-тест (save-sync.ts) | `artifacts/host-agent/src/main/save-sync.ts` | j:artifacts/host-agent/src/main/save-sync.ts | done | agent |
-| M-63 | J | host-agent main: unit-тест (sentry.ts) | `artifacts/host-agent/src/main/sentry.ts` | j:artifacts/host-agent/src/main/sentry.ts | pending | agent |
+| M-63 | J | host-agent main: unit-тест (sentry.ts) | `artifacts/host-agent/src/main/sentry.ts` | j:artifacts/host-agent/src/main/sentry.ts | done | agent |
 | M-64 | J | host-agent main: unit-тест (spawn-hwnd.ts) | `artifacts/host-agent/src/main/spawn-hwnd.ts` | j:artifacts/host-agent/src/main/spawn-hwnd.ts | pending | agent |
 | M-65 | J | host-agent main: unit-тест (steam-scanner.ts) | `artifacts/host-agent/src/main/steam-scanner.ts` | j:artifacts/host-agent/src/main/steam-scanner.ts | pending | agent |
 | M-66 | J | host-agent main: unit-тест (tray.ts) | `artifacts/host-agent/src/main/tray.ts` | j:artifacts/host-agent/src/main/tray.ts | pending | agent |
