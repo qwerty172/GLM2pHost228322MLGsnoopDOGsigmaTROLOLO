@@ -92,6 +92,8 @@ function countRecentIdleRuns() {
 function isScannerEmpty(state) {
   return state.grouped === 0 && state.rawHits === 0;
 }
+
+function replaceRowStatus(line, newStatus) {
   return line.replace(/\|\s*(pending|in_progress|done|blocked|skipped)\s*\|/i, `| ${newStatus} |`);
 }
 
