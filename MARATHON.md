@@ -274,7 +274,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-52 | I | eslint/ts suppressions (1) | `artifacts/host-agent/src/main/sentry.ts` | i:artifacts/host-agent/src/main/sentry.ts | done | agent |
 | M-53 | I | eslint/ts suppressions (2) | `artifacts/api-server/src/lib/sentry.ts` | i:artifacts/api-server/src/lib/sentry.ts | done | agent |
 | M-54 | J | host-agent main: unit-тест (app-launcher.ts) | `artifacts/host-agent/src/main/app-launcher.ts` | j:artifacts/host-agent/src/main/app-launcher.ts | done | agent |
-| M-55 | J | host-agent main: unit-тест (crypto-key.ts) | `artifacts/host-agent/src/main/crypto-key.ts` | j:artifacts/host-agent/src/main/crypto-key.ts | pending | agent |
+| M-55 | J | host-agent main: unit-тест (crypto-key.ts) | `artifacts/host-agent/src/main/crypto-key.ts` | j:artifacts/host-agent/src/main/crypto-key.ts | done | agent |
 | M-56 | J | host-agent main: unit-тест (gamepad-injection.ts) | `artifacts/host-agent/src/main/gamepad-injection.ts` | j:artifacts/host-agent/src/main/gamepad-injection.ts | pending | agent |
 | M-57 | J | host-agent main: unit-тест (input-injection.ts) | `artifacts/host-agent/src/main/input-injection.ts` | j:artifacts/host-agent/src/main/input-injection.ts | pending | agent |
 | M-58 | J | host-agent main: unit-тест (limited-user-launch.ts) | `artifacts/host-agent/src/main/limited-user-launch.ts` | j:artifacts/host-agent/src/main/limited-user-launch.ts | pending | agent |
