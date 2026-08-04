@@ -221,7 +221,7 @@ export default function Play() {
       refetchInterval: 30000,
     },
   });
-  const claimSession = useClaimSession();
+  const { mutate: claimMutate, isPending: isClaimPending } = useClaimSession();
   const [claimError, setClaimError] = useState<string | null>(null);
   const [hasClaimed, setHasClaimed] = useState(false);
   const [paymentSource, setPaymentSource] = useState<PaymentSource>("auto");
@@ -873,7 +873,7 @@ export default function Play() {
       sessionStatus === "ended" ||
       !playerWalletToken ||
       hasClaimed ||
-      claimSession.isPending ||
+      isClaimPending ||
       isTestBrowserSession
     ) {
       return;
@@ -882,7 +882,7 @@ export default function Play() {
       setHasClaimed(true);
       return;
     }
-    claimSession.mutate(
+    claimMutate(
       {
         playerToken,
         data: { playerWalletToken, paymentSource, ...(blockMinutesParam ? { blockMinutes: blockMinutesParam } : {}) },
@@ -904,7 +904,7 @@ export default function Play() {
     sessionClaimedBy,
     playerWalletToken,
     hasClaimed,
-    claimSession,
+    claimMutate,
     playerToken,
     paymentSource,
     blockMinutesParam,
@@ -925,15 +925,10 @@ export default function Play() {
     return () => {
       cleanupConnection();
     };
-  }, [
-    sessionId,
-    sessionStatus,
-    hasClaimed,
-    isTestBrowserSession,
-    playerWalletToken,
-    startConnection,
-    cleanupConnection,
-  ]);
+    // startConnection/cleanupConnection intentionally omitted — their useCallback
+    // identities change during play and would tear down the live WebRTC session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, sessionStatus, hasClaimed, isTestBrowserSession, playerWalletToken]);
 
   const handleEnableAudio = () => {
     if (videoRef.current) {
@@ -1315,7 +1310,7 @@ export default function Play() {
     const connecting =
       !needsTopUp &&
       !claimError &&
-      (!playerWalletToken || claimSession.isPending || hasClaimed || session.status !== "ended");
+      (!playerWalletToken || isClaimPending || hasClaimed || session.status !== "ended");
 
     const s = session as typeof session & {
       gameCoverImageUrl?: string | null;
@@ -1355,7 +1350,7 @@ export default function Play() {
             <span className="text-sm font-medium">
               {!playerWalletToken
                 ? "Создаём кошелёк…"
-                : claimSession.isPending || !hasClaimed
+                : isClaimPending || !hasClaimed
                   ? "Занимаем сессию…"
                   : "Подключаемся…"}
             </span>
@@ -1504,9 +1499,9 @@ export default function Play() {
                   setShowPaymentOptions(false);
                   void startConnection();
                 }}
-                disabled={session.status === "ended" || claimSession.isPending}
+                disabled={session.status === "ended" || isClaimPending}
               >
-                {claimSession.isPending ? (
+                {isClaimPending ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     Подключаемся…
