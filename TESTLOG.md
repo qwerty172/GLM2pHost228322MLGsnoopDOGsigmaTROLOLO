@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-59 (2026-08-04 20:55 UTC) {#marathon-m-59}
+
+| Проверка | Результат |
+|---|---|
+| logger.test.mjs | 3 тестов — mocked electron getAppPath, agent.log append, console.log vs console.error |
+| host-agent test | PASS (124 tests) |
+| typecheck | PASS |
+
+**Следующий pick:** M-60 `rtmp-relay.ts`.
+
 ## Marathon M-58 (2026-08-04 20:52 UTC) {#marathon-m-58}
 
 | Проверка | Результат |
