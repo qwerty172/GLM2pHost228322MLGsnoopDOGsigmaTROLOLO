@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 20:06 UTC |
 | Task ID | M-56 |
 | Результат | gamepad-injection.ts unit-тесты: noop non-win32, mocked ViGEm XUSB report mapping |
-| Commit | 5f7db97 |
+| Commit | 9eac090 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
