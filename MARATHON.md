@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 18:56 UTC |
 | Task ID | M-56 |
 | Результат | gamepad-injection.ts unit-тесты: status, noop backend, injectGamepad, focus guard |
-| Commit | (pending) |
+| Commit | 775f2c2 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
