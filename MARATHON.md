@@ -72,11 +72,11 @@
 
 | idleStreak | Действие |
 |------------|----------|
-| 0–2 | **Ничего не коммитить.** Exit без изменений. |
-| ≥3 | **EXPAND SCANNER** — добавить категорию в `marathon-scan.mjs` (HOSTING backlog, raw fetch, тесты, eslint…) → `--sync-marathon` → commit. |
-| ageMin>30, нет expand | Обновить Last run (не чаще раза в 30 мин). |
+| 0–2 | **Анализ:** rg новых паттернов, `pnpm outdated`, `audit`, git log. Если нашёл → добавить в scan. Чисто → TESTLOG note, exit **без commit**. |
+| ≥3 | **EXPAND SCANNER** — добавить категорию в `marathon-scan.mjs` (deps, audit, docs TODO, .env drift…) → `--sync-marathon` → commit. |
+| pr_in_flight | Проверить жив ли PR; мёртв >1ч → закрыть, вернуть M-NN в pending. |
 
-**Почему раньше было 425+ пустых runs:** промпт говорил «idle → update Last run, exit» при каждом cron (2 мин), groom не сигналил `queue_drift` (сканер=0), meta-улучшения запрещены при pending>0 и не требовались при idle, сканер A–E исчерпан после M-13.
+**Запрещено:** «Marathon idle» + commit Last run + exit. Это сжигание токенов.
 
 **Статусы:** `161e0d7` | `in_progress` | `done` | `blocked` | `skipped`  
 **Owner:** `agent` | `human`

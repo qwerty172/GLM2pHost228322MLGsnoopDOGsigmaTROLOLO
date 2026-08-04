@@ -9,11 +9,9 @@ node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0
 node scripts/marathon-reconcile.mjs --apply
 node scripts/marathon-groom.mjs --apply
 node scripts/marathon-scan.mjs --sync-marathon
-# Теперь MARATHON.md изменён ТОЛЬКО если: новые задачи / статус / phantom / stale
 
-# Шаг 2: проверка — есть ли реальные изменения?
+# Шаг 2: если изменения — коммитим, иначе НЕ коммитить
 if git diff --cached --quiet && git diff --quiet; then
-  # Ничего не изменилось — НЕ коммитить
   :
 else
   git add -A && git commit -m "chore(marathon): groom+sync" && git push origin main || true
@@ -28,11 +26,41 @@ echo "$PICK"
 #   - коммитить Last run, если ageMin<30 и нет реальных изменений
 # одна M-NN → pnpm --filter @workspace/api-spec run codegen → pnpm typecheck → done + TESTLOG
 
-# idle:true → НЕ коммитить Last run. Только reason=scanner_empty_expand → расширить сканер.
-# reason=scanner_empty (idleStreak<3) → exit 0 без commit.
-# ageMin>30 и нет реальных изменений → exit 0 без commit.
-
+# ============================================================
+# ЕСЛИ НИЧЕГО НЕ НАШЛОСЬ — НЕ ВЫХОДИ. НАЙДИ ПРИЧИНУ.
+# ============================================================
+# idle:true или pendingMnn=0 → агент ОБЯЗАН сделать одно из:
+#
+# 1. reason=scanner_empty_expand (idleStreak≥3)
+#    → ДОБАВИТЬ категорию в scripts/marathon-scan.mjs:
+#      - HOSTING.md backlog (H-NN)
+#      - raw fetch в web
+#      - TODO/FIXME в docs/*.md
+#      - eslint-disable / @ts-ignore
+#      - отсутствующие тесты (api, lib, web)
+#      - устаревшие зависимости (pnpm outdated)
+#      - .env.example drift
+#      - уязвимости (pnpm audit)
+#    → node scripts/marathon-scan.mjs --sync-marathon
+#    → git add -A && git commit -m "feat(marathon): расширить сканер <новая категория>"
+#
+# 2. reason=scanner_empty (idleStreak<3)
+#    → ПРОАНАЛИЗИРОВАТЬ: почему сканер 0?
+#      - rg по новым паттернам (console, fetch, TODO, ts-ignore)
+#      - pnpm outdated / pnpm audit
+#      - git log --since="1 day" — что менялось, есть ли след?
+#    → если нашёл проблему → добавить в scan + commit
+#    → если действительно чисто → записать в TESTLOG.md «сканер исчерпан, следующий expand»
+#    → exit 0 БЕЗ commit MARATHON
+#
+# 3. pr_in_flight / in_progress
+#    → проверить: gh pr list --search "M-NN in:title" — жив ли PR?
+#    → если PR мёртв >1ч → закрыть как superseded, вернуть M-NN в pending
+#    → иначе exit 0
+#
 # ЗАПРЕЩЕНО:
-#   - отдельный commit «fix Last run commit hash» — hash фиксится в следующем полезном run
+#   - «Marathon idle» + commit Last run + exit (это сжигание токенов)
+#   - отдельный commit «fix Last run commit hash»
 #   - commit при git diff --quiet
-#   - обновлять Last run при idleStreak<3 или ageMin<30
+#   - обновлять Last run без реальных изменений
+#   - exit без записи в TESTLOG, если idleStreak≥3

@@ -159,10 +159,10 @@ if (SHOULD_RUN) {
       : nextId
         ? `EXECUTE ${nextId} only: OpenAPI/codegen or code per marathon-scan --next. NO read MARATHON, NO list-cloud-agents, NO prompt meta, NO automation_memory`
         : expandNow
-          ? `EXPAND SCANNER: grouped=0 after ${idleStreak} idle runs. Add category to marathon-scan.mjs (HOSTING backlog, raw fetch, missing tests, etc.) → --sync-marathon → commit. NO empty Last-run commit.`
+          ? `EXPAND SCANNER: grouped=0 after ${idleStreak} idle runs. Add category to marathon-scan.mjs (HOSTING backlog, raw fetch, missing tests, eslint, deps outdated, audit) → --sync-marathon → commit. NO empty Last-run commit.`
           : needsExpand
-            ? `Marathon idle (${idleStreak}/${IDLE_EXPAND_AFTER} toward expand) — NO commit unless meta changed, exit`
-            : "Marathon idle — update Last run only if ageMin>30, exit",
+            ? `Marathon idle (${idleStreak}/${IDLE_EXPAND_AFTER}) — ANALYZE why scanner=0: rg new patterns, pnpm outdated, audit, git log. If clean → TESTLOG note, exit 0. NO commit MARATHON.`
+            : "Marathon idle — check pnpm outdated/audit or exit 0, NO Last-run commit",
   };
   console.log(JSON.stringify(payload));
   if (skip && MARK_SKIPPED) {
