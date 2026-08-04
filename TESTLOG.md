@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-48 (2026-08-04 14:10 UTC) {#marathon-m-48}
+
+| Проверка | Результат |
+|---|---|
+| api-server lib | 45 co-located `*.test.ts` для всех модулей без тестов |
+| vitest | PASS 100 tests (50 files) |
+| vitest.setup | DATABASE_URL stub для загрузки @workspace/db |
+| marathon-scan | h:api-lib снят из очереди |
+
+**Следующий pick:** M-49 `eslint/ts suppressions (3)` — play.tsx.
+
 ## Marathon M-43 (2026-08-04 13:34 UTC) {#marathon-m-43}
 
 | Проверка | Результат |

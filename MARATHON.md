@@ -268,12 +268,12 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-40 | F | web: raw fetch → codegen (6 calls) | `artifacts/web/src/pages/game-detail.tsx` | f:artifacts/web/src/pages/game-detail.tsx | done | agent |
 | M-41 | F | web: raw fetch → codegen (3 calls) | `artifacts/web/src/pages/embed.tsx` | f:artifacts/web/src/pages/embed.tsx | done | agent |
 | M-42 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/components/vt-scanner.tsx` | f:artifacts/web/src/components/vt-scanner.tsx | done | agent |
-| M-48 | H | api-server lib: unit-тесты (45 модулей) | `artifacts/api-server/src/lib/*.ts` | h:api-lib | pending | agent |
+| M-48 | H | api-server lib: unit-тесты (45 модулей) | `artifacts/api-server/src/lib/*.ts` | h:api-lib | done | agent |
 | M-49 | I | eslint/ts suppressions (3) | `artifacts/web/src/pages/play.tsx` | i:artifacts/web/src/pages/play.tsx | pending | agent |
 | M-50 | I | eslint/ts suppressions (1) | `artifacts/web/src/pages/game-detail.tsx` | i:artifacts/web/src/pages/game-detail.tsx | pending | agent |
 | M-51 | I | eslint/ts suppressions (1) | `artifacts/web/src/components/webgl-video-shader.tsx` | i:artifacts/web/src/components/webgl-video-shader.tsx | pending | agent |
-| M-52 | I | eslint/ts suppressions (1) | `artifacts/host-agent/src/main/sentry.ts` | i:artifacts/host-agent/src/main/sentry.ts | pending | agent |
 | M-53 | I | eslint/ts suppressions (2) | `artifacts/api-server/src/lib/sentry.ts` | i:artifacts/api-server/src/lib/sentry.ts | pending | agent |
+| M-52 | I | eslint/ts suppressions (1) | `artifacts/host-agent/src/main/sentry.ts` | i:artifacts/host-agent/src/main/sentry.ts | pending | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).
