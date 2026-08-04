@@ -6,7 +6,7 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-04 (M-42 done; vt-scanner.tsx codegen)
+> **Последнее обновление:** 2026-08-04 (M-48 done; api-server lib unit-тесты)
 
 ## Last run (automation)
 
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** **7 M-NN pending** (M-43…M-53) — сканер расширен категориями F–I.
+**Wave Maintenance:** **5 M-NN pending** (M-49…M-53) — сканер расширен категориями F–I.
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -268,7 +268,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-40 | F | web: raw fetch → codegen (6 calls) | `artifacts/web/src/pages/game-detail.tsx` | f:artifacts/web/src/pages/game-detail.tsx | done | agent |
 | M-41 | F | web: raw fetch → codegen (3 calls) | `artifacts/web/src/pages/embed.tsx` | f:artifacts/web/src/pages/embed.tsx | done | agent |
 | M-42 | F | web: raw fetch → codegen (1 call) | `artifacts/web/src/components/vt-scanner.tsx` | f:artifacts/web/src/components/vt-scanner.tsx | done | agent |
-| M-48 | H | api-server lib: unit-тесты (45 модулей) | `artifacts/api-server/src/lib/*.ts` | h:api-lib | pending | agent |
+| M-48 | H | api-server lib: unit-тесты (45 модулей) | `artifacts/api-server/src/lib/*.ts` | h:api-lib | done | agent |
 | M-49 | I | eslint/ts suppressions (3) | `artifacts/web/src/pages/play.tsx` | i:artifacts/web/src/pages/play.tsx | pending | agent |
 | M-50 | I | eslint/ts suppressions (1) | `artifacts/web/src/pages/game-detail.tsx` | i:artifacts/web/src/pages/game-detail.tsx | pending | agent |
 | M-51 | I | eslint/ts suppressions (1) | `artifacts/web/src/components/webgl-video-shader.tsx` | i:artifacts/web/src/components/webgl-video-shader.tsx | pending | agent |
