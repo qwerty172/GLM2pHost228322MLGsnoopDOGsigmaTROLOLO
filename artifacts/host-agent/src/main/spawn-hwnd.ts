@@ -3,6 +3,7 @@
 
 import { desktopCapturer } from "electron";
 import { parseHwndFromSourceId } from "../shared/window-match";
+import { isPidInProcessTree } from "./focus-guard";
 import { log } from "./logger";
 
 type Win32Pid = {
@@ -72,11 +73,13 @@ export async function getHwndsForSpawnedPid(pid: number): Promise<number[]> {
     for (const s of sources) {
       const hwnd = parseHwndFromSourceId(s.id);
       if (hwnd === null) continue;
-      if (w.getPidForHwnd(hwnd) === pid) matched.push(hwnd);
+      const hwndPid = w.getPidForHwnd(hwnd);
+      if (hwndPid !== null && isPidInProcessTree(hwndPid, pid)) matched.push(hwnd);
     }
 
     const fg = w.getForegroundHwnd();
-    if (fg !== null && w.getPidForHwnd(fg) === pid) {
+    const fgPid = fg !== null ? w.getPidForHwnd(fg) : null;
+    if (fg !== null && fgPid !== null && isPidInProcessTree(fgPid, pid)) {
       const rest = matched.filter((h) => h !== fg);
       return [fg, ...rest];
     }
