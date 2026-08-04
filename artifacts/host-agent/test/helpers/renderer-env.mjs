@@ -133,12 +133,19 @@ export function setupRendererEnv() {
       return [];
     }
   };
+  const mediaDevices = {
+    getUserMedia: async () => new domWindow.MediaStream(),
+  };
   Object.defineProperty(domWindow.navigator, "mediaDevices", {
-    value: {
-      getUserMedia: async () => new domWindow.MediaStream(),
-    },
+    value: mediaDevices,
     configurable: true,
   });
+  if (typeof g.navigator !== "undefined") {
+    Object.defineProperty(g.navigator, "mediaDevices", {
+      value: mediaDevices,
+      configurable: true,
+    });
+  }
 
   envReady = true;
 }
