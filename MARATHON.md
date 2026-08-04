@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-04 (M-51 done; webgl-video-shader exhaustive-deps)
+> **Последнее обновление:** 2026-08-04 (M-52 done; host-agent sentry.ts)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-04 16:32 UTC |
-| Task ID | M-51 |
-| Результат | webgl-video-shader — убран eslint-disable, deps `[active, fragCode, onCompileError, videoRef]` |
-| Commit | 6b57621 |
+| Дата | 2026-08-04 16:38 UTC |
+| Task ID | M-52 |
+| Результат | host-agent sentry.ts — убран eslint-disable, `require("@sentry/electron/main")` без `as any` |
+| Commit | 1b1927b |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** **2 M-NN pending** (M-52…M-53) — eslint suppressions.
+**Wave Maintenance:** **1 M-NN pending** (M-53) — eslint suppressions.
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -271,7 +271,6 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-49 | I | eslint/ts suppressions (3) | `artifacts/web/src/pages/play.tsx` | i:artifacts/web/src/pages/play.tsx | done | agent |
 | M-50 | I | eslint/ts suppressions (1) | `artifacts/web/src/pages/game-detail.tsx` | i:artifacts/web/src/pages/game-detail.tsx | done | agent |
 | M-51 | I | eslint/ts suppressions (1) | `artifacts/web/src/components/webgl-video-shader.tsx` | i:artifacts/web/src/components/webgl-video-shader.tsx | done | agent |
-| M-52 | I | eslint/ts suppressions (1) | `artifacts/host-agent/src/main/sentry.ts` | i:artifacts/host-agent/src/main/sentry.ts | pending | agent |
 | M-53 | I | eslint/ts suppressions (2) | `artifacts/api-server/src/lib/sentry.ts` | i:artifacts/api-server/src/lib/sentry.ts | pending | agent |
 
 

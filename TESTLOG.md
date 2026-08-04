@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-52 (2026-08-04 16:38 UTC) {#marathon-m-52}
+
+| Проверка | Результат |
+|---|---|
+| host-agent sentry.ts | `eslint-disable @typescript-eslint/no-explicit-any` убран — `require("@sentry/electron/main")` с типизированным assert |
+| typecheck | PASS (host-agent) |
+| marathon-scan | sentry.ts больше не в raw hits I |
+
+**Следующий pick:** M-53 `eslint/ts suppressions (2)` — api-server sentry.ts.
+
 ## Marathon M-51 (2026-08-04 16:32 UTC) {#marathon-m-51}
 
 | Проверка | Результат |
