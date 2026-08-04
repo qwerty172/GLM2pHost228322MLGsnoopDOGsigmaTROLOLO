@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 03:25 UTC |
 | Task ID | idle |
 | Результат | Marathon idle |
-| Commit | c4299a8 |
+| Commit | 26df52b |
 
 > Automation: **обновляй эту таблицу** в конце каждого запуска.
 
