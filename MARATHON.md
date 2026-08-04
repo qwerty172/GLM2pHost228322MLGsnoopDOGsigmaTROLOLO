@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 16:50 UTC |
 | Task ID | M-54 |
 | Результат | H-03: `resolveCaptureMode` coerce native→chromium + log; scanner категория J (`as any`); public.ts drizzle SQL types |
-| Commit | c0707dd |
+| Commit | c2fa7bb |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
