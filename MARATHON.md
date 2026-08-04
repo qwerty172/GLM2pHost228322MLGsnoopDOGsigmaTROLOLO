@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 14:20 UTC |
 | Task ID | M-48 |
 | Результат | api-server lib — 45 co-located unit-тестов (95 PASS) |
-| Commit | f555be7 |
+| Commit | 3c555ff |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
