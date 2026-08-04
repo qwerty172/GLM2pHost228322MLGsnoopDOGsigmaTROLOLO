@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-57 (2026-08-04 20:16 UTC) {#marathon-m-57}
+
+| Проверка | Результат |
+|---|---|
+| input-injection.test.mjs | 7 тестов — noop non-win32, mocked SendInput absolute/relative mouse, buttons/wheel/keys, Raw Input, koffi failure |
+| host-agent test | PASS (114 tests) |
+| typecheck | PASS |
+
+**Следующий pick:** M-58 `limited-user-launch.ts`.
+
 ## Marathon M-56 (2026-08-04 20:06 UTC) {#marathon-m-56}
 
 | Проверка | Результат |
