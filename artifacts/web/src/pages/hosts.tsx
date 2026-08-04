@@ -8,6 +8,7 @@ import {
   createPublicSession,
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
+import { GuestCreditHint } from "@/components/guest-credit-hint";
 import { useBrowserPingMs } from "@/hooks/use-browser-ping";
 import {
   Dialog,
@@ -457,6 +458,8 @@ export default function HostsPage() {
             </div>
           </div>
         </div>
+
+        <GuestCreditHint className="mb-6" />
 
         {isLoading ? (
           <div className="space-y-3">

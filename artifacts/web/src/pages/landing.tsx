@@ -26,6 +26,8 @@ import {
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { GuestCreditHint } from "@/components/guest-credit-hint";
+import { InstantDemoPlay } from "@/components/instant-demo-play";
 
 function formatInt(n: number): string {
   // 1248 → "1 248" (Russian thin-space grouping).
@@ -208,6 +210,7 @@ export default function Landing() {
                 <Play className="w-3.5 h-3.5 mr-1.5" /> Играть
               </Button>
             </Link>
+            <InstantDemoPlay />
             <Link href="/host">
               <Button
                 variant="ghost"
@@ -218,7 +221,11 @@ export default function Landing() {
             </Link>
           </div>
 
-          <div className="mt-5">
+          <div className="mt-5 max-w-lg">
+            <GuestCreditHint />
+          </div>
+
+          <div className="mt-4">
             {!showLinkInput ? (
               <button
                 onClick={() => setShowLinkInput(true)}
