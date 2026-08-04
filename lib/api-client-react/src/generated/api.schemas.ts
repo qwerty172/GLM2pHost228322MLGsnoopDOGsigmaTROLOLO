@@ -56,6 +56,16 @@ export interface PlayerGameSaveCommitResponse {
   save?: PlayerGameSaveCommitResponseSave;
 }
 
+export interface UpdatePlayerCreditSettingsBody {
+  /** When false, creditLimitLzt is set to 0; when true, restores the default limit. */
+  creditEnabled: boolean;
+}
+
+export interface UpdatePlayerCreditSettingsResponse {
+  /** Updated gaming credit line in LZT */
+  creditLimitLzt: number;
+}
+
 /**
  * @nullable
  */

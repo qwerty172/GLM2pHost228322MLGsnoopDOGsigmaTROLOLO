@@ -4228,6 +4228,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /players/me/credit-settings:
+    patch:
+      operationId: updatePlayerCreditSettings
+      tags: [players]
+      summary: Enable or disable gaming credit for the authenticated player
+      description: >
+        Toggles the player's credit line by setting creditLimitLzt to 0 (disabled)
+        or restoring the default limit for guest/full accounts.
+      security:
+        - UserToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlayerCreditSettingsBody"
+      responses:
+        "200":
+          description: Updated credit settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdatePlayerCreditSettingsResponse"
+        "401":
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /players/me/saves/{gameId}:
     get:
       operationId: getPlayerGameSave
@@ -4425,6 +4455,24 @@ components:
           type: object
           additionalProperties: true
       required: [ok]
+
+    UpdatePlayerCreditSettingsBody:
+      type: object
+      properties:
+        creditEnabled:
+          type: boolean
+          description: When false, creditLimitLzt is set to 0; when true, restores the default limit.
+      required:
+        - creditEnabled
+
+    UpdatePlayerCreditSettingsResponse:
+      type: object
+      properties:
+        creditLimitLzt:
+          type: integer
+          description: Updated gaming credit line in LZT
+      required:
+        - creditLimitLzt
 
     PlayerGameSaveResponse:
       type: object

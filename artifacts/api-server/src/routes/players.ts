@@ -5,9 +5,14 @@ import {
   RegisterPlayerBody,
   GetPlayerResponse,
   GetPlayerParams,
+  UpdatePlayerCreditSettingsBody,
 } from "@workspace/api-zod";
 import { generateToken } from "../lib/tokens";
-import { ensureDepositAddressesForOwner } from "../lib/walletOwner";
+import {
+  ensureDepositAddressesForOwner,
+  resolveOwnerByToken,
+} from "../lib/walletOwner";
+import { headerUserToken } from "../lib/requestToken";
 import { rateLimit, ipKey } from "../lib/rateLimit";
 
 const router: IRouter = Router();
@@ -271,6 +276,55 @@ router.post("/players/upgrade-guest", upgradeGuestLimiter, async (req, res): Pro
 
   req.log.info({ playerId: upgraded.id }, "Guest upgraded to full account");
   res.status(200).json(serialize(upgraded));
+});
+
+router.patch("/players/me/credit-settings", async (req, res): Promise<void> => {
+  const token = headerUserToken(req);
+  if (!token) {
+    res.status(401).json({ error: "Missing X-User-Token" });
+    return;
+  }
+
+  const owner = await resolveOwnerByToken(token);
+  if (!owner || owner.type !== "player") {
+    res.status(401).json({ error: "Invalid player token" });
+    return;
+  }
+
+  const parsed = UpdatePlayerCreditSettingsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const [player] = await db
+    .select()
+    .from(playersTable)
+    .where(eq(playersTable.id, owner.id));
+
+  if (!player) {
+    res.status(404).json({ error: "Player not found" });
+    return;
+  }
+
+  const creditLimitLzt = parsed.data.creditEnabled
+    ? player.isGuest
+      ? GUEST_CREDIT_LIMIT_LZT
+      : DEFAULT_CREDIT_LIMIT_LZT
+    : 0;
+
+  const [updated] = await db
+    .update(playersTable)
+    .set({ creditLimitLzt })
+    .where(eq(playersTable.id, player.id))
+    .returning();
+
+  if (!updated) {
+    res.status(500).json({ error: "Update failed" });
+    return;
+  }
+
+  res.json({ creditLimitLzt: updated.creditLimitLzt });
 });
 
 export default router;

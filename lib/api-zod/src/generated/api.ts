@@ -4967,6 +4967,23 @@ export const UploadStorageClipResponse = zod.object({
 });
 
 /**
+ * Toggles the player's credit line by setting creditLimitLzt to 0 (disabled) or restoring the default limit for guest/full accounts.
+
+ * @summary Enable or disable gaming credit for the authenticated player
+ */
+export const UpdatePlayerCreditSettingsBody = zod.object({
+  creditEnabled: zod
+    .boolean()
+    .describe(
+      "When false, creditLimitLzt is set to 0; when true, restores the default limit.",
+    ),
+});
+
+export const UpdatePlayerCreditSettingsResponse = zod.object({
+  creditLimitLzt: zod.number().describe("Updated gaming credit line in LZT"),
+});
+
+/**
  * @summary Get latest cloud save metadata for a game
  */
 export const GetPlayerGameSaveParams = zod.object({
