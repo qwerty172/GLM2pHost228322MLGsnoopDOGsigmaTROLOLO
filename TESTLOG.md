@@ -15,6 +15,19 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon idle scan + M-54 (2026-08-04 17:26 UTC) {#marathon-m-54}
+
+| Проверка | Результат |
+|---|---|
+| marathon-scan | rawHits=0, grouped=0 — A–I чисто |
+| pnpm audit | 65 vulns (1 critical tar via electron-builder) — backlog |
+| анализ | `__tests__/catalogCoverPaths.test.ts` тестировал `storageObjectPath`, не модуль |
+| M-54 | vitest `catalogCoverPaths.test.ts` — 5 кейсов `isCatalogCoverObjectPath` (mock db) |
+| typecheck | PASS |
+| vitest | PASS (catalogCoverPaths) |
+
+**Следующий pick:** idle — сканер пуст; при idleStreak≥3 → EXPAND SCANNER (audit/deps).
+
 ## Marathon M-53 (2026-08-04 16:42 UTC) {#marathon-m-53}
 
 | Проверка | Результат |
