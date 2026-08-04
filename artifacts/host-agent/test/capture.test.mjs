@@ -68,3 +68,20 @@ test("captureScreen uses configured captureSourceName when set", async () => {
   });
   assert.equal(session.currentCaptureSourceName, "My Custom Window");
 });
+
+test("captureScreen prefers HWND/PID match before title heuristics (H-08)", async () => {
+  window.agent.matchSpawnedCaptureSource = async () => ({
+    id: "window:4242:0",
+    name: "Game Window Via PID",
+  });
+  window.agent.getCaptureSources = async () => [
+    { id: "screen:0", name: "Primary Screen" },
+    { id: "window:4242:0", name: "Game Window Via PID" },
+    { id: "window:2", name: "Wrong Title" },
+  ];
+  await captureScreen({
+    ...defaultHostConfig,
+    appPath: "C:\\Games\\other\\Unrelated.exe",
+  });
+  assert.equal(session.currentCaptureSourceName, "Game Window Via PID");
+});

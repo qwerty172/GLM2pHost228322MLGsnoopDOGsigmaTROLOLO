@@ -10,6 +10,8 @@ const {
   browserWindowStillOpen,
   looksLikeBrowserWindow,
   resolveTargetExeName,
+  hwndFromCaptureSourceId,
+  findCaptureSourceByHwnds,
 } = await import("../dist/main/shared/window-match.js");
 
 const sources = [
@@ -93,4 +95,20 @@ test("resolveTargetExeName prefers library entry for currentGameId", () => {
 test("resolveTargetExeName falls back to cfg appPath", () => {
   assert.equal(resolveTargetExeName(null, [], "D:\\Steam\\game\\MyGame.EXE"), "mygame");
   assert.equal(resolveTargetExeName("missing", [], "D:\\Steam\\game\\MyGame.EXE"), "mygame");
+});
+
+test("hwndFromCaptureSourceId parses Electron window source ids", () => {
+  assert.equal(hwndFromCaptureSourceId("window:12345:0"), 12345);
+  assert.equal(hwndFromCaptureSourceId("screen:0:0"), null);
+  assert.equal(hwndFromCaptureSourceId("window:bad:0"), null);
+});
+
+test("findCaptureSourceByHwnds prefers earlier hwnd matches (H-08)", () => {
+  const hwndSources = [
+    { id: "window:100:0", name: "Launcher" },
+    { id: "window:200:0", name: "RogueFable3" },
+    { id: "window:300:0", name: "Discord" },
+  ];
+  assert.equal(findCaptureSourceByHwnds(hwndSources, [200, 100])?.name, "RogueFable3");
+  assert.equal(findCaptureSourceByHwnds(hwndSources, [999])?.name, undefined);
 });

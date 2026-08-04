@@ -70,6 +70,9 @@ const api = {
   },
   getCaptureSources: (): Promise<{ id: string; name: string }[]> =>
     ipcRenderer.invoke("capture:get-sources"),
+  /** HWND/PID match for the last spawned native game (HOSTING H-08). */
+  matchSpawnedCaptureSource: (): Promise<{ id: string; name: string } | null> =>
+    ipcRenderer.invoke("capture:match-spawned"),
   /** Tell main which window title WebRTC is capturing (for RTMP sync). */
   setCaptureSource: (title: string): void => {
     ipcRenderer.send("capture:set-source", title);

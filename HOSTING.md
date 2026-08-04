@@ -404,11 +404,11 @@ SELECT id, status, ended_at FROM sessions WHERE status = 'active' AND ended_at I
 | H-05 | RTMP relay drift от WebRTC source | fixed | MARATHON C3-S06 — syncRtmpWindowTitle on capture:set-source |
 | H-06 | Renderer 3300+ строк | MARATHON C3-S08 |
 | H-07 | Unit tests capture/focus | fixed | M-46 — resolveTargetExeName, capture/focus-guard unit tests |
-| H-08 | HWND-based match после spawn | improvement |
+| H-08 | HWND-based match после spawn | fixed | M-47 — PID→HWND match via `spawn-window-match.ts` |
 
 ### Планируемые улучшения
 
-1. **HWND match** — после `spawn` запоминать PID → искать foreground HWND процесса.
+1. ~~**HWND match** — после `spawn` запоминать PID → искать foreground HWND процесса.~~ (M-47)
 2. **Browser watch** — match по hostname в title, не «любой браузер».
 3. **Unit tests** — `findBrowserCaptureSource`, `targetExeName`, `browserWindowStillOpen`.
 4. **Picker UX** — thumbnails из `desktopCapturer` в модалке.

@@ -24,7 +24,8 @@ import {
   fetchStreamRelayConfig,
 } from "./rtmp-relay";
 import { createPingServer, PING_PORT, PING_PORT_FALLBACKS, LOCAL_INPUT_SECRET } from "./ping-server";
-import { launchApp, launchEntry, killApp, setExitCallback } from "./app-launcher";
+import { launchApp, launchEntry, killApp, setExitCallback, getLaunchedGamePid } from "./app-launcher";
+import { matchSpawnedCaptureSource } from "./spawn-window-match";
 import {
   clearAllowedTarget,
   getFocusGuardStatus,
@@ -343,6 +344,23 @@ async function startAgent(): Promise<void> {
         thumbnailSize: { width: 0, height: 0 },
       });
       return sources.map((s) => ({ id: s.id, name: s.name }));
+    },
+  );
+
+  ipcMain.handle(
+    "capture:match-spawned",
+    async (): Promise<{ id: string; name: string } | null> => {
+      const pid = getLaunchedGamePid();
+      if (!pid) return null;
+      const sources = await desktopCapturer.getSources({
+        types: ["window", "screen"],
+        thumbnailSize: { width: 0, height: 0 },
+      });
+      const match = matchSpawnedCaptureSource(
+        sources.map((s) => ({ id: s.id, name: s.name })),
+        pid,
+      );
+      return match ?? null;
     },
   );
 
