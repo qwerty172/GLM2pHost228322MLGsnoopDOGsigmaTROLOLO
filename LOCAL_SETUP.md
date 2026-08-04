@@ -36,11 +36,12 @@
 
 ## Требования
 
-- [Node.js 20+](https://nodejs.org/)
+- [Node.js 20+](https://nodejs.org/) (рекомендуется 22 — см. `.nvmrc`)
 - [pnpm](https://pnpm.io/installation): `npm install -g pnpm`
-- [PostgreSQL 16](https://www.postgresql.org/download/windows/)
+- **Вариант A:** [Docker](https://docs.docker.com/get-docker/) — `pnpm db:up` поднимет PostgreSQL
+- **Вариант B:** [PostgreSQL 16](https://www.postgresql.org/download/windows/) вручную
 
-База данных:
+База при ручной установке:
 
 ```sql
 CREATE DATABASE decentral_hub;
@@ -53,23 +54,17 @@ CREATE DATABASE decentral_hub;
 ```bat
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
 
-copy .env.example .env
-notepad .env
-```
-
-В `.env` измените `DATABASE_URL`:
-
-```
-DATABASE_URL=postgresql://postgres:ВАШ_ПАРОЛЬ@localhost:5432/decentral_hub
-```
-
-```bat
+pnpm db:up
 scripts\setup-local.bat
 scripts\dev-local.bat
 scripts\smoke-api.bat
 ```
+
+Секреты (`WALLET_ENCRYPTION_KEY`, `JWT_SECRET`) генерируются автоматически.  
+`DATABASE_URL` по умолчанию совпадает с Docker: `decentral_hub:decentral_hub@localhost:5432/decentral_hub`.
+
+Если свой PostgreSQL — отредактируй `DATABASE_URL` в `.env` после setup.
 
 | Сервис | URL |
 |---|---|
@@ -83,16 +78,14 @@ scripts\smoke-api.bat
 ```bash
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
 
-cp .env.example .env
-# отредактируй DATABASE_URL
-
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
-./scripts/smoke-api.sh
+pnpm db:up
+pnpm setup
+pnpm dev
+pnpm smoke
 ```
+
+Или через make: `make db-up && make setup && make dev`
 
 ---
 

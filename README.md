@@ -40,88 +40,79 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
-Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
+Три команды — и можно работать:
 
-**Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
+```bash
+git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
+cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
 
-**Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN (обход страниц в браузере).
+pnpm db:up      # PostgreSQL в Docker (или свой Postgres — см. .env.example)
+pnpm setup      # .env, зависимости, схема БД
+pnpm dev        # API :8080 + Web :5000
+```
+
+**Уже работает?** http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — можно тестировать.
+
+Полный план тестирования — [`TESTPLAN.md`](./TESTPLAN.md). Пошаговая инструкция — [`LOCAL_SETUP.md`](./LOCAL_SETUP.md).
 
 ### Требования
 
-- Node.js 20+
+- Node.js 20+ (рекомендуется 22, см. `.nvmrc`)
 - pnpm 9+
-- PostgreSQL 16
-- Git Bash / WSL (для Windows) или Linux/macOS
+- Docker (для `pnpm db:up`) **или** свой PostgreSQL 16
 
-### Клонирование
+### Команды разработчика
 
-```bash
-git clone https://github.com/qwerty172/glm2phost228322mlgsnoopdogsigmatrololo.git decentral-hub
-cd decentral-hub
-```
+| Команда | Что делает |
+|---|---|
+| `pnpm db:up` | PostgreSQL в Docker |
+| `pnpm db:up:all` | PostgreSQL + Redis в Docker |
+| `pnpm setup` | Первичная настройка (с typecheck) |
+| `pnpm setup:fast` | То же, но без typecheck — быстрее |
+| `pnpm dev` | API + Web одной командой |
+| `pnpm smoke` | Smoke-тест API |
+| `make help` | Список make-алиасов |
 
-### Первичная настройка
-
-**Windows (cmd или двойной клик):**
+### Windows
 
 ```bat
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-copy .env.example .env
-notepad .env
+pnpm db:up
 scripts\setup-local.bat
 scripts\dev-local.bat
 ```
 
-**Git Bash / Linux / macOS:**
-
-```bash
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-cp .env.example .env
-# отредактируй DATABASE_URL
-
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
-```
-
-Подробнее — [LOCAL_SETUP.md](./LOCAL_SETUP.md).
-
 ### Переменные окружения (`.env`)
+
+**Обязательно** (setup сгенерирует секреты автоматически):
 
 | Переменная | Назначение |
 |---|---|
-| `DATABASE_URL` | PostgreSQL, база `decentral_hub` |
+| `DATABASE_URL` | PostgreSQL (`decentral_hub:decentral_hub@localhost` при Docker) |
+| `WALLET_ENCRYPTION_KEY` | Шифрование кошелька (auto) |
+| `JWT_SECRET` | JWT-авторизация (auto) |
+
+**Опционально** (можно настроить позже): Redis, TURN/WebRTC, VirusTotal, object storage, AI-ключи.
+
+| Переменная | Назначение |
+|---|---|
 | `PORT` | API-сервер (8080) |
-| `WALLET_ENCRYPTION_KEY` | 32-байт hex, обязателен для кошелька |
-| `ADMIN_SECRET` | Секрет admin-роутов (`X-Admin-Secret`) |
-| `API_PROXY_TARGET` | Куда Vite проксирует `/api` (http://localhost:8080) |
-| `BASE_PATH` | Базовый путь web (`/`) |
+| `WEB_PORT` | Web dev-сервер (5000) |
+| `ADMIN_SECRET` | Секрет admin-роутов |
+| `API_PROXY_TARGET` | Куда Vite проксирует `/api` |
 
-`.env` подхватывается автоматически через `dotenv-cli` в dev-скриптах. На Replit переменные задаёт платформа.
+`.env` подхватывается через `dotenv-cli` в dev-скриптах.
 
-### Запуск (два терминала или один скрипт)
-
-**Вариант A — скрипт (Git Bash / Linux / macOS):**
-
-```bash
-./scripts/dev-local.sh
-```
-
-**Вариант B — вручную:**
+### Запуск вручную (два терминала)
 
 ```bash
 # Терминал 1: API (порт 8080)
 pnpm --filter @workspace/api-server run dev
 
-# Терминал 2: Web (порт 5000, прокси /api -> :8080)
-pnpm --filter @workspace/web run dev
+# Терминал 2: Web (порт 5000)
+WEB_PORT=5000 pnpm --filter @workspace/web run dev
 ```
-
-Открой http://localhost:5000
 
 ### Smoke-тест API (фаза 1)
 

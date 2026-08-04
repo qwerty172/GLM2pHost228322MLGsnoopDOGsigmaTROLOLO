@@ -19,8 +19,10 @@ echo "==> .env"
 if [[ ! -f .env ]]; then
   cp .env.example .env
   KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+  JWT=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
   sed -i "s|^DATABASE_URL=.*|DATABASE_URL=postgresql://postgres:postgres@localhost:5432/decentral_hub|" .env
   sed -i "s|^WALLET_ENCRYPTION_KEY=.*|WALLET_ENCRYPTION_KEY=$KEY|" .env
+  sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$JWT|" .env
   sed -i "s|^ADMIN_SECRET=.*|ADMIN_SECRET=cloud-dev-secret|" .env
 fi
 
