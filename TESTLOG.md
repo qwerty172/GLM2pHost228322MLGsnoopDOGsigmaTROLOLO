@@ -15,6 +15,23 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon idle scan (2026-08-04 17:50 UTC) {#marathon-idle-2026-08-04}
+
+| Проверка | Результат |
+|---|---|
+| marathon-scan | rawHits=0, grouped=0, pending=0 — все категории A–I чисты |
+| rg A (EN UI) | 0 |
+| rg B (TODO/FIXME) | 0 в src (только `public/games/` — исключено) |
+| rg C (OpenAPI gap) | 0 — все routes в spec |
+| rg D (console/debug) | 0 в prod (logger.ts + isDev-guard исключены) |
+| rg E/F/G/H/I | 0 |
+| pnpm outdated | root devDeps missing (prettier, typescript) — не блокер |
+| pnpm audit | 65 vulns (1 critical tar в electron-builder chain) — кандидат для cat J при expand |
+| git log | M-53 последний; M-01…M-53 done |
+| idle streak | 0/3 — expand scanner на 3-м подряд idle |
+
+**Действие:** idle, MARATHON.md не трогаем. Следующий expand: cat J (pnpm audit high/critical) или web unit-тесты.
+
 ## Marathon M-53 (2026-08-04 16:42 UTC) {#marathon-m-53}
 
 | Проверка | Результат |
