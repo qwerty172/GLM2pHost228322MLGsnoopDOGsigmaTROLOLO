@@ -1,6 +1,30 @@
 import type { Quota, hostsTable } from "@workspace/db";
 import { computeHostTier, specsFromPcSpecs, STREAM_OVERHEAD } from "./hostTier";
 
+/** Gate quota attach: access code / ownership, then game + PC-spec rules. */
+export function assertQuotaMayAttachToHostSession(
+  quota: Quota,
+  host: typeof hostsTable.$inferSelect,
+  sessionGameId: string | null,
+  opts?: { accessCode?: string; allowDevKeyExclusive?: boolean },
+): { ok: true } | { ok: false; error: string } {
+  if (quota.devKeyId && !opts?.allowDevKeyExclusive) {
+    return {
+      ok: false,
+      error:
+        "This quota is exclusive to a specific API key and can only be used by sessions launched through that key.",
+    };
+  }
+  const ownsIt = quota.ownerType === "host" && quota.ownerId === host.id;
+  const accessCode = opts?.accessCode ?? "";
+  if (!ownsIt && quota.visibility === "private") {
+    if (!accessCode || accessCode !== quota.accessCode) {
+      return { ok: false, error: "Invalid access code for private quota" };
+    }
+  }
+  return checkQuotaAttachment(quota, host, sessionGameId);
+}
+
 // Shared "can this host attach to this quota" check — used by both the
 // manual attach path (POST /sessions, host-picked quota) and the dev-key
 // auto-attach path (POST /embed/sessions, key-linked quota). Keeping this in

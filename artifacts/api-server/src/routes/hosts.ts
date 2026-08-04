@@ -38,6 +38,7 @@ import {
 } from "../lib/hostLibrary";
 import { generalHostTier, computeHostTier, specsFromPcSpecs, BASELINE_REC, BASELINE_MIN, type TierThresholds } from "../lib/hostTier";
 import { isQuotaActiveNow } from "../lib/quotaEngine";
+import { assertQuotaMayAttachToHostSession } from "../lib/quotaAttach";
 import { rateLimit, ipKey, failedAttemptGuard, guardAndTrackFailures } from "../lib/rateLimit";
 import type { Request, Response } from "express";
 
@@ -775,6 +776,7 @@ router.delete(
 const AttachQuotaBody = z.object({
   hostToken: z.string(),
   quotaId: z.string().uuid(),
+  quotaAccessCode: z.string().optional(),
 });
 
 const DetachQuotaBody = z.object({
@@ -831,10 +833,10 @@ router.post("/hosts/me/attach-quota", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { hostToken, quotaId } = parsed.data;
+  const { hostToken, quotaId, quotaAccessCode } = parsed.data;
 
   const [host] = await db
-    .select({ id: hostsTable.id })
+    .select()
     .from(hostsTable)
     .where(eq(hostsTable.hostToken, hostToken));
   if (!host) {
@@ -887,6 +889,17 @@ router.post("/hosts/me/attach-quota", async (req, res): Promise<void> => {
       message:
         "This quota is exclusive to a specific API key and can only be used by sessions launched through that key.",
     });
+    return;
+  }
+
+  const attachCheck = assertQuotaMayAttachToHostSession(
+    quota,
+    host,
+    session.gameId,
+    { accessCode: quotaAccessCode ?? "" },
+  );
+  if (!attachCheck.ok) {
+    res.status(400).json({ error: attachCheck.error });
     return;
   }
 
