@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-34 (2026-08-04 08:00 UTC) {#marathon-m-34}
+
+| Проверка | Результат |
+|---|---|
+| quota-new.tsx | 3 raw fetch → `useTestQuotaVdsConnection`, `useSaveQuotaVds`, `useAiSuggestQuotaSpecs` |
+| typecheck | PASS (@workspace/web) |
+| marathon-scan | quota-new.tsx больше не в raw hits F |
+
+**Следующий pick:** M-35 `web: raw fetch → codegen (2 calls)` — profile.tsx.
+
 ## Marathon M-47 (2026-08-04 07:00 UTC) {#marathon-m-47}
 
 | Проверка | Результат |
