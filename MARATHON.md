@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 23:18 UTC |
 | Task ID | M-63 |
 | Результат | sentry.ts unit-тесты: no-op без DSN, init с NODE_ENV, production default, swallow require |
-| Commit | 9a30a7d |
+| Commit | 9c088f1 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
