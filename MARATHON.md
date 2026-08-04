@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 12:36 UTC |
 | Task ID | M-40 |
 | Результат | game-detail.tsx — 6 raw fetch → useSteamLookup, useListPublicGameHosts, useBrowserPingMs, createPreviewSession, getPublicIceConfig, publicPing |
-| Commit | *(после push)* |
+| Commit | e78ff74 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
