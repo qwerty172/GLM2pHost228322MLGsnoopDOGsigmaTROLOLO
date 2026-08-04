@@ -26,6 +26,8 @@ import {
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { GuestCreditHint } from "@/components/guest-credit-hint";
+import { prewarmIce } from "@/lib/ice-prewarm";
 
 function formatInt(n: number): string {
   // 1248 → "1 248" (Russian thin-space grouping).
@@ -218,6 +220,8 @@ export default function Landing() {
             </Link>
           </div>
 
+          <GuestCreditHint className="mt-4 max-w-lg" />
+
           <div className="mt-5">
             {!showLinkInput ? (
               <button
@@ -337,6 +341,7 @@ export default function Landing() {
                       className="w-full h-7 rounded-md text-[11px] font-semibold flex items-center justify-center gap-1 transition-opacity hover:opacity-90"
                       style={{ background: "#0ea5e9", color: "#fff" }}
                       onClick={() => handlePlayNow(host)}
+                      onMouseEnter={() => void prewarmIce(host.id)}
                       data-testid={`button-play-now-${host.id}`}
                     >
                       <Play className="w-3 h-3" /> Играть

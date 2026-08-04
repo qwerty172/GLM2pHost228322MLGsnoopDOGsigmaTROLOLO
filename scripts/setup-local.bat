@@ -1,21 +1,30 @@
 @echo off
 chcp 65001 >nul
+setlocal enabledelayedexpansion
 cd /d "%~dp0.."
 
 echo ==^> DecentralHub — локальная настройка (Windows)
 
 if not exist .env (
   copy .env.example .env >nul
-  echo Создан .env — открой его и настрой DATABASE_URL
+  echo Создан .env из .env.example
 ) else (
   echo .env уже есть
 )
 
-findstr /r /c:"^WALLET_ENCRYPTION_KEY=$" .env >nul 2>&1
+findstr /r /c:"^DATABASE_URL=postgresql://user:password@" .env >nul 2>&1
 if %errorlevel%==0 (
-  for /f "delims=" %%K in ('node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"') do set KEY=%%K
-  powershell -NoProfile -Command "(Get-Content .env) -replace '^WALLET_ENCRYPTION_KEY=$', 'WALLET_ENCRYPTION_KEY=%KEY%' | Set-Content .env -Encoding UTF8"
-  echo Сгенерирован WALLET_ENCRYPTION_KEY
+  powershell -NoProfile -Command "(Get-Content .env) -replace '^DATABASE_URL=.*', 'DATABASE_URL=postgresql://decentral_hub:decentral_hub@localhost:5432/decentral_hub' | Set-Content .env -Encoding UTF8"
+  echo DATABASE_URL -^> docker-compose
+)
+
+for %%K in (WALLET_ENCRYPTION_KEY JWT_SECRET) do (
+  findstr /r /c:"^%%K=$" .env >nul 2>&1
+  if !errorlevel!==0 (
+    for /f "delims=" %%V in ('node -e "console.log(require(''crypto'').randomBytes(32).toString(''hex''))"') do set SECRET=%%V
+    powershell -NoProfile -Command "(Get-Content .env) -replace '^%%K=$', '%%K=!SECRET!' | Set-Content .env -Encoding UTF8"
+    echo Сгенерирован %%K
+  )
 )
 
 echo.
@@ -24,14 +33,20 @@ call pnpm install
 if errorlevel 1 exit /b 1
 
 echo.
-echo ==^> Схема БД (нужен PostgreSQL и DATABASE_URL в .env)
+echo ==^> Схема БД
 call pnpm --filter @workspace/db run push
 if errorlevel 1 (
   echo.
-  echo Ошибка db push — проверь что PostgreSQL запущен и DATABASE_URL в .env правильный
+  echo Ошибка db push — подними БД: pnpm infra:up
   exit /b 1
 )
 
+if not "%SKIP_TYPECHECK%"=="1" (
+  echo.
+  echo ==^> Проверка типов
+  call pnpm run typecheck
+)
+
 echo.
-echo Готово. Запуск: scripts\dev-local.bat
+echo Готово. Запуск: pnpm dev
 echo Web: http://localhost:5000

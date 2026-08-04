@@ -1123,6 +1123,13 @@ function HostQuickStartCard({
             После установки запусти <span className="font-mono text-sky-400">start.bat</span>.
             Агент уйдёт в трей — окно настроек открой по клику на иконку.
             <AgentTroubleshootChecklist agent={agent} heartbeat={heartbeat} />
+            <p className="mt-2 pt-2 border-t border-white/5 text-slate-500">
+              Нет Windows-ПК?{" "}
+              <Link href="/games" className="text-sky-400 hover:underline">
+                Браузерные игры
+              </Link>
+              {" "}— стрим из вкладки, агент не нужен.
+            </p>
           </div>
         )}
 
@@ -1442,7 +1449,19 @@ export default function Dashboard() {
   const hasActiveSession = (sessions ?? []).some(
     (s) => s.status === "active" || s.status === "pending",
   );
+  const agentOnline =
+    agent.status === "online" || heartbeat.status === "fresh";
+  const quickStartDone =
+    hasActiveSession || (agentOnline && libraryCount > 0 && agentKeyBound);
+  const [showFullDashboard, setShowFullDashboard] = useState(
+    () => localStorage.getItem("streamline.hostDashboardExpanded") === "true",
+  );
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const focusMode = !quickStartDone && !showFullDashboard;
+
+  useEffect(() => {
+    if (quickStartDone) setShowFullDashboard(true);
+  }, [quickStartDone]);
 
   const agentNeedsAttention =
     agent.status === "offline" ||
@@ -1568,6 +1587,24 @@ export default function Dashboard() {
         />
       )}
 
+      {focusMode && (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs text-slate-400 border-white/10"
+            onClick={() => {
+              localStorage.setItem("streamline.hostDashboardExpanded", "true");
+              setShowFullDashboard(true);
+            }}
+          >
+            Показать статистику и сессии
+          </Button>
+        </div>
+      )}
+
+      {!focusMode && (
+      <>
       {/* PC Specs card — shown only when the agent has reported specs */}
       {pcSpecs && (
         <Card style={cardStyle}>
@@ -1951,6 +1988,9 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      </>
+      )}
 
       <Dialog
         open={!!endSessionId}

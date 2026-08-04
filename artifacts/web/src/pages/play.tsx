@@ -26,6 +26,7 @@ import { TouchOverlay } from "@/components/TouchOverlay";
 import { KeyboardOverlay } from "@/components/KeyboardOverlay";
 import { toast } from "sonner";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { GuestCreditHint } from "@/components/guest-credit-hint";
 import {
   ICE_CONNECTION_LABELS,
   ICE_TONE_STYLES,
@@ -1400,6 +1401,7 @@ export default function Play() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            <GuestCreditHint />
             <div className="rounded-lg p-3 text-center" style={{ background: "rgba(255,255,255,0.03)" }}>
               <p className="text-xs text-slate-500 mb-1">Доступно (игровой + к выводу)</p>
               <p className="text-lg font-mono font-bold text-white">

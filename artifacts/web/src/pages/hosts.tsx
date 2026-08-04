@@ -8,6 +8,8 @@ import {
   createPublicSession,
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
+import { GuestCreditHint } from "@/components/guest-credit-hint";
+import { prewarmIce } from "@/lib/ice-prewarm";
 import { useBrowserPingMs } from "@/hooks/use-browser-ping";
 import {
   Dialog,
@@ -313,6 +315,7 @@ function PlayButton({
       <button
         type="button"
         onClick={() => void handlePlay()}
+        onMouseEnter={() => void prewarmIce(hostId)}
         disabled={loading}
         className="h-9 px-4 text-xs font-semibold rounded-md transition-colors disabled:opacity-60"
         style={{ background: "#0ea5e9", color: "#fff" }}
@@ -417,6 +420,7 @@ export default function HostsPage() {
       <SiteNav activePath="/hosts" />
 
       <main className="max-w-6xl mx-auto px-6 pt-10 pb-16">
+        <GuestCreditHint className="mb-5" />
         <div className="flex items-end justify-between mb-6 flex-wrap gap-3">
           <div>
             <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
