@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 14:36 UTC |
 | Task ID | M-49 |
 | Результат | play.tsx — 3× exhaustive-deps без eslint-disable (ref auto-claim) |
-| Commit | pending |
+| Commit | 29e1800 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
