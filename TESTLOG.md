@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-58 (2026-08-04 20:44 UTC) {#marathon-m-58}
+
+| Проверка | Результат |
+|---|---|
+| limited-user-launch.test.mjs | 5 тестов — Windows-only guard, creds validation, mocked cmd spawn + env, default domain, koffi failure |
+| host-agent test | PASS (120 tests) |
+| typecheck | PASS |
+
+**Следующий pick:** M-59 `logger.ts`.
+
 ## Marathon M-57 (2026-08-04 20:24 UTC) {#marathon-m-57}
 
 | Проверка | Результат |
