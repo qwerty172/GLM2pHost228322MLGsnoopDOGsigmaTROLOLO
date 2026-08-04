@@ -2,8 +2,18 @@
   "name": "workspace",
   "version": "0.0.0",
   "license": "MIT",
+  "packageManager": "pnpm@10.0.0",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "quickstart": "bash scripts/quickstart.sh",
+    "setup": "bash scripts/setup-local.sh",
+    "dev": "bash scripts/dev-local.sh",
+    "docker:up": "docker compose -f infra/docker-compose.dev.yml up -d postgres redis",
+    "docker:down": "docker compose -f infra/docker-compose.dev.yml down",
+    "db:push": "pnpm --filter @workspace/db run push",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",

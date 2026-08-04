@@ -5,8 +5,8 @@ cd /d "%~dp0.."
 echo ==^> DecentralHub — локальная настройка (Windows)
 
 if not exist .env (
-  copy .env.example .env >nul
-  echo Создан .env — открой его и настрой DATABASE_URL
+  copy .env.docker .env >nul 2>&1 || copy .env.example .env >nul
+  echo Создан .env
 ) else (
   echo .env уже есть
 )
@@ -16,6 +16,13 @@ if %errorlevel%==0 (
   for /f "delims=" %%K in ('node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"') do set KEY=%%K
   powershell -NoProfile -Command "(Get-Content .env) -replace '^WALLET_ENCRYPTION_KEY=$', 'WALLET_ENCRYPTION_KEY=%KEY%' | Set-Content .env -Encoding UTF8"
   echo Сгенерирован WALLET_ENCRYPTION_KEY
+)
+
+findstr /r /c:"^JWT_SECRET=$" .env >nul 2>&1
+if %errorlevel%==0 (
+  for /f "delims=" %%K in ('node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"') do set KEY=%%K
+  powershell -NoProfile -Command "(Get-Content .env) -replace '^JWT_SECRET=$', 'JWT_SECRET=%KEY%' | Set-Content .env -Encoding UTF8"
+  echo Сгенерирован JWT_SECRET
 )
 
 echo.

@@ -53,21 +53,20 @@ CREATE DATABASE decentral_hub;
 ```bat
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
 
-copy .env.example .env
-notepad .env
+scripts\setup-local.bat
+scripts\dev-local.bat
 ```
 
-В `.env` измените `DATABASE_URL`:
+Или в Git Bash / WSL: `pnpm quickstart` (поднимет Docker, если установлен).
+
+Без Docker — в `.env` укажите `DATABASE_URL`:
 
 ```
 DATABASE_URL=postgresql://postgres:ВАШ_ПАРОЛЬ@localhost:5432/decentral_hub
 ```
 
 ```bat
-scripts\setup-local.bat
-scripts\dev-local.bat
 scripts\smoke-api.bat
 ```
 
