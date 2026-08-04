@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 18:19 UTC |
 | Task ID | M-55 |
 | Результат | crypto-key.ts unit-тесты: generate/persist, load existing, cache, signChallenge |
-| Commit | (этот run) |
+| Commit | 9afbe2e |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
