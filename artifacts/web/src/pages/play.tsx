@@ -210,8 +210,7 @@ export default function Play() {
     if (!playerWalletToken) {
       void registerGuest();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [playerWalletToken, registerGuest]);
   const { data: wallet } = useGetWallet(playerWalletToken || "", {
     query: {
       enabled: !!playerWalletToken,
@@ -298,6 +297,7 @@ export default function Play() {
   const wsRef = useRef<WebSocket | null>(null);
   const dcRef = useRef<RTCDataChannel | null>(null);
   const startedRef = useRef(false);
+  const autoClaimSessionIdRef = useRef<string | null>(null);
 
   // Reconnect state
   const iceRestartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -880,6 +880,9 @@ export default function Play() {
       setHasClaimed(true);
       return;
     }
+    if (autoClaimSessionIdRef.current === session.id) return;
+    autoClaimSessionIdRef.current = session.id;
+
     claimSession.mutate(
       {
         playerToken,
@@ -896,13 +899,25 @@ export default function Play() {
         },
       },
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.id, playerWalletToken, hasClaimed]);
+  }, [
+    session,
+    playerWalletToken,
+    hasClaimed,
+    claimSession.isPending,
+    claimSession.mutate,
+    isTestBrowserSession,
+    playerToken,
+    paymentSource,
+    blockMinutesParam,
+  ]);
+
+  const sessionId = session?.id;
+  const sessionStatus = session?.status;
 
   useEffect(() => {
     if (
-      session &&
-      session.status !== "ended" &&
+      sessionId &&
+      sessionStatus !== "ended" &&
       hasClaimed &&
       playerWalletToken &&
       !startedRef.current &&
@@ -913,8 +928,15 @@ export default function Play() {
     return () => {
       cleanupConnection();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.id, hasClaimed, isTestBrowserSession, playerWalletToken]);
+  }, [
+    sessionId,
+    sessionStatus,
+    hasClaimed,
+    isTestBrowserSession,
+    playerWalletToken,
+    startConnection,
+    cleanupConnection,
+  ]);
 
   const handleEnableAudio = () => {
     if (videoRef.current) {
