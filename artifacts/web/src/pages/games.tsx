@@ -65,6 +65,12 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 export default function GamesPage() {
+  const { registerGuest, playerWalletToken } = usePlayerWallet();
+
+  useEffect(() => {
+    if (!playerWalletToken) void registerGuest();
+  }, [playerWalletToken, registerGuest]);
+
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [liveOnly, setLiveOnly] = useState(false);
