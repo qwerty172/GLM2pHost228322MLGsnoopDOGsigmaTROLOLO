@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 18:02 UTC |
 | Task ID | M-55 |
 | Результат | crypto-key.test.mjs — loadOrGenerateKeyPair + signChallenge (4 тестов); host-agent 102 tests PASS |
-| Commit | 149dd58 |
+| Commit | 541c403 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
