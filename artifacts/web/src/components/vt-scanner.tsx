@@ -1,20 +1,19 @@
 import { useState } from "react";
 import { Shield, ShieldAlert, ShieldCheck, ShieldX, Loader2, ExternalLink } from "lucide-react";
+import { useScanVt } from "@workspace/api-client-react";
+import type { VtResult } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-interface VtResult {
-  status: "clean" | "suspicious" | "malicious" | "unknown" | "error";
-  harmless: number;
-  suspicious: number;
-  malicious: number;
-  undetected: number;
-  total: number;
-  permalink: string;
-  sha256?: string;
-  name?: string;
-  errorMessage?: string;
+function isVtResult(data: unknown): data is VtResult {
+  return (
+    data !== null &&
+    typeof data === "object" &&
+    "status" in data &&
+    "harmless" in data &&
+    "total" in data
+  );
 }
 
 interface VtScannerProps {
@@ -62,24 +61,29 @@ const STATUS_CONFIG = {
 
 export function VtScanner({ ownerToken, label = "Проверить файл игры" }: VtScannerProps) {
   const [input, setInput] = useState("");
-  const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<VtResult | null>(null);
+  const scanVtMutation = useScanVt();
+  const scanning = scanVtMutation.isPending;
 
   const isValid = /^[a-fA-F0-9]{64}$/.test(input.trim()) || /^https?:\/\/./.test(input.trim());
 
   const scan = async () => {
     if (!isValid || !ownerToken || scanning) return;
-    setScanning(true);
     setResult(null);
     try {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/vt/scan`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ownerToken, input: input.trim() }),
+      const data = await scanVtMutation.mutateAsync({
+        data: { ownerToken, input: input.trim() },
       });
-      const data = (await res.json()) as VtResult;
       setResult(data);
-    } catch {
+    } catch (err) {
+      const payload =
+        err && typeof err === "object" && "data" in err
+          ? (err as { data: unknown }).data
+          : null;
+      if (isVtResult(payload)) {
+        setResult(payload);
+        return;
+      }
       setResult({
         status: "error",
         harmless: 0,
@@ -90,8 +94,6 @@ export function VtScanner({ ownerToken, label = "Проверить файл и�
         permalink: "",
         errorMessage: "Ошибка сети",
       });
-    } finally {
-      setScanning(false);
     }
   };
 

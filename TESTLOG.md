@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-42 (2026-08-04 12:46 UTC) {#marathon-m-42}
+
+| Проверка | Результат |
+|---|---|
+| vt-scanner.tsx | raw fetch → `useScanVt` (VtResult из codegen; 502 body через ApiError.data) |
+| typecheck | PASS (monorepo) |
+| marathon-scan | vt-scanner.tsx больше не в raw hits F |
+
+**Следующий pick:** M-41 `web: raw fetch → codegen (3 calls)` — embed.tsx.
+
 ## Marathon M-40 (2026-08-04 12:40 UTC) {#marathon-m-40}
 
 | Проверка | Результат |
