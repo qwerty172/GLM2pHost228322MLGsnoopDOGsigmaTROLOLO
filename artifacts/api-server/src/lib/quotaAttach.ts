@@ -6,6 +6,24 @@ import { computeHostTier, specsFromPcSpecs, STREAM_OVERHEAD } from "./hostTier";
 // auto-attach path (POST /embed/sessions, key-linked quota). Keeping this in
 // one place means both flows enforce identical game-binding and PC-spec
 // rules; see hostTier.ts for the STREAM_OVERHEAD rationale.
+
+/** True when the quota advertises hardware bars that cannot be verified without pcSpecs. */
+function quotaHasHardwareRequirements(quota: Quota): boolean {
+  return (
+    quota.requiredTier === "recommended" ||
+    quota.minGpuVram != null ||
+    quota.minCpuCores != null ||
+    quota.minRamGb != null ||
+    quota.minDownloadMbps != null ||
+    quota.minUploadMbps != null ||
+    quota.recGpuVram != null ||
+    quota.recCpuCores != null ||
+    quota.recRamGb != null ||
+    quota.recDownloadMbps != null ||
+    quota.recUploadMbps != null
+  );
+}
+
 export function checkQuotaAttachment(
   quota: Quota,
   host: typeof hostsTable.$inferSelect,
@@ -16,7 +34,16 @@ export function checkQuotaAttachment(
   }
 
   const specs = host.pcSpecs;
-  if (!specs) return { ok: true };
+  if (!specs) {
+    if (quotaHasHardwareRequirements(quota)) {
+      return {
+        ok: false,
+        error:
+          "ПК хоста не сообщил характеристики — квота с требованиями к железу не может быть привязана",
+      };
+    }
+    return { ok: true };
+  }
 
   const hostSpecs = specsFromPcSpecs(specs);
   const minThresholds = {
