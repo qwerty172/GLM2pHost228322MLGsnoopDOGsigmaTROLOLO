@@ -60,11 +60,16 @@ function adminRequestInit(hostToken: string, adminSecret: string): RequestInit {
   };
 }
 
+const API_ERROR_RU: Record<string, string> = {
+  admin_access_required: "У тебя нет прав администратора.",
+};
+
 function getApiErrorMessage(err: unknown): string {
   if (err && typeof err === "object" && "data" in err) {
     const data = (err as { data: unknown }).data;
     if (data && typeof data === "object" && "error" in data) {
-      return String((data as { error: unknown }).error);
+      const code = String((data as { error: unknown }).error);
+      return API_ERROR_RU[code] ?? code;
     }
   }
   return err instanceof Error ? err.message : "Неизвестная ошибка";
@@ -595,9 +600,7 @@ export default function AdminGamesPage() {
                 className="rounded-xl p-6 text-center text-sm"
                 style={{ background: "#0a1018", color: "#f87171" }}
               >
-                {catError === "Admin access required"
-                  ? "У тебя нет прав администратора."
-                  : catError}
+                {catError}
               </div>
             )}
 
@@ -679,9 +682,7 @@ export default function AdminGamesPage() {
                 className="rounded-xl p-6 text-center text-sm"
                 style={{ background: "#0a1018", color: "#f87171" }}
               >
-                {subError === "Admin access required"
-                  ? "У тебя нет прав администратора."
-                  : subError}
+                {subError}
               </div>
             )}
 

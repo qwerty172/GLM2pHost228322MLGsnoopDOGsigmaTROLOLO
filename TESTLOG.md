@@ -15,6 +15,18 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-54 (2026-08-04 17:30 UTC) {#marathon-m-54}
+
+| Проверка | Результат |
+|---|---|
+| marathon-scan | Добавлена категория J — EN user-facing в pages/components (не shadcn ui) |
+| admin.ts | `error: "admin_access_required"` вместо EN «Admin access required» |
+| admin/games.tsx | `API_ERROR_RU` маппинг → «У тебя нет прав администратора.» |
+| typecheck | PASS (monorepo) |
+| marathon-scan | games.tsx больше не в raw hits J |
+
+**Следующий pick:** M-55 `RU-строка в web` — host/library.tsx placeholders.
+
 ## Marathon M-53 (2026-08-04 16:42 UTC) {#marathon-m-53}
 
 | Проверка | Результат |

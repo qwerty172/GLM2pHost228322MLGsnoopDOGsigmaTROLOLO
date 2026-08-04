@@ -18,6 +18,7 @@
 //   G. HOSTING.md backlog items (H-NN with status backlog/improvement)
 //   H. api-server lib/*.ts without co-located test (grouped)
 //   I. eslint-disable / @ts-ignore leftovers (grouped by file)
+//   J. English user-facing strings in web pages/components (not shadcn ui)
 //
 // Source of truth: working tree (== main after git pull).
 
@@ -270,6 +271,40 @@ for (const [f, snippets] of lintByFile) {
   });
 }
 
+// --- J. English user-facing strings in web pages/components ---------------
+const J_UI_RG =
+  "Browser host|Action, RPG, Strategy|Grand Theft Auto VI|Remove tag|Admin access required";
+const jUiHits = rg(J_UI_RG, ["artifacts/web/src/pages", "artifacts/web/src/components"], [
+  "-n",
+  "--glob",
+  "!**/components/ui/**",
+  "--glob",
+  "!**/KeyboardOverlay.tsx",
+]);
+const jUiByFile = new Map();
+for (const line of (jUiHits || "").split("\n")) {
+  const m = line.match(/^([^:]+):(\d+):(.*)$/);
+  if (!m) continue;
+  const snippet = m[3].trim();
+  const enMatch = snippet.match(
+    /(Browser host|Action, RPG, Strategy[^"'`]*|Grand Theft Auto VI|Remove tag|Admin access required)/,
+  );
+  if (!enMatch) continue;
+  if (!jUiByFile.has(m[1])) jUiByFile.set(m[1], []);
+  jUiByFile.get(m[1]).push(enMatch[0]);
+}
+for (const [f, phrases] of jUiByFile) {
+  const short = f.replace(/^artifacts\/web\/src\//, "");
+  raw.push({
+    cat: "J",
+    groupKey: `j:${f}`,
+    title: `RU-строка в web (${phrases.length} EN)`,
+    file: f,
+    detail: `${short}: ${phrases.slice(0, 2).join(", ")}`,
+    items: phrases,
+  });
+}
+
 // --- group raw hits (merge same groupKey) --------------------------------
 const grouped = new Map();
 for (const c of raw) {
@@ -316,7 +351,7 @@ for (const line of marathonMd.split("\n")) {
   if (status === "done" || status === "in_progress") doneOrActiveKeys.add(groupKey);
 }
 
-const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, D: 7, I: 8 };
+const CAT_ORDER = { B: 0, C: 1, A: 2, J: 2, G: 3, F: 4, E: 5, H: 6, D: 7, I: 8 };
 const filtered = candidates
   .filter((c) => !doneOrActiveKeys.has(c.groupKey))
   .sort((a, b) => (CAT_ORDER[a.cat] ?? 9) - (CAT_ORDER[b.cat] ?? 9));
@@ -466,7 +501,7 @@ if (NEXT || PICK) {
     console.log(`| ${c.id} | ${c.cat} | ${c.title} | \`${c.file}\` | ${(c.detail || "").replace(/\|/g, "\\|")} |`);
   }
   console.log(
-    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, I=eslint suppressions.`,
+    `\nКатегории: A/J=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, I=eslint suppressions, J=EN в pages/components.`,
   );
   console.log(`Синхронизация: node scripts/marathon-scan.mjs --sync-marathon`);
 }
