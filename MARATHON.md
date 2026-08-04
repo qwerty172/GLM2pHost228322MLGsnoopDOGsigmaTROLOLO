@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 18:52 UTC |
 | Task ID | M-56 |
 | Результат | gamepad-injection.ts unit-тесты: non-Windows noop, ViGEm mock connect/update/disconnect |
-| Commit | pending |
+| Commit | 747f3e3 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
