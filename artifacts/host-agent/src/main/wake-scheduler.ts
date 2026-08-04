@@ -18,7 +18,7 @@ const execFileAsync = promisify(execFile);
 
 const TASK_PREFIX = "CloudGamingWake_";
 
-function dayToWinDay(day: number): string {
+export function dayToWinDay(day: number): string {
   // ScheduledTasks CLR DaysOfWeek names, matching ScheduleSlot's day
   // convention (0 = Sunday … 6 = Saturday).
   const names = [
@@ -44,8 +44,11 @@ function dayToWinDay(day: number): string {
 // Around a DST transition the local time-of-day can be off by an hour for
 // roughly half the year either side of the switch — acceptable for this
 // best-effort feature.
-function utcSlotToLocal(day: number, startMin: number): { day: number; hhmm: string } {
-  const now = new Date();
+export function utcSlotToLocal(
+  day: number,
+  startMin: number,
+  now: Date = new Date(),
+): { day: number; hhmm: string } {
   const anchor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const dayDelta = day - anchor.getUTCDay();
   anchor.setUTCDate(anchor.getUTCDate() + dayDelta);
@@ -56,15 +59,42 @@ function utcSlotToLocal(day: number, startMin: number): { day: number; hhmm: str
   };
 }
 
+/** Builds the PowerShell script and task name for a single wake slot. */
+export function buildWakeTaskScript(
+  slot: ScheduleSlot,
+  index: number,
+  exePath: string,
+  now: Date = new Date(),
+): { taskName: string; script: string } {
+  const local = utcSlotToLocal(slot.day, slot.startMin, now);
+  const taskName = `${TASK_PREFIX}${index}_${dayToWinDay(slot.day)}_${slot.startMin}`;
+  const time = local.hhmm;
+  const dayName = dayToWinDay(local.day);
+
+  const script = [
+    `$action = New-ScheduledTaskAction -Execute '${exePath.replace(/'/g, "''")}' -Argument '--hidden'`,
+    `$trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek ${dayName} -At ${time}`,
+    `$settings = New-ScheduledTaskSettingsSet -WakeToRun -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries`,
+    `Register-ScheduledTask -TaskName '${taskName}' -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null`,
+  ].join("; ");
+
+  return { taskName, script };
+}
+
+/** Parses schtasks CSV output for existing CloudGaming wake task names. */
+export function parseWakeTaskNames(stdout: string): string[] {
+  return stdout
+    .split("\n")
+    .map((line) => line.split(",")[0]?.replace(/^"|"$/g, "").trim())
+    .filter((n): n is string => !!n && n.includes(TASK_PREFIX));
+}
+
 async function removeExistingWakeTasks(): Promise<void> {
   // List then delete every task whose name starts with our prefix. Errors
   // are swallowed — a missing task or unavailable schtasks is not fatal.
   try {
     const { stdout } = await execFileAsync("schtasks", ["/Query", "/FO", "CSV", "/NH"]);
-    const names = stdout
-      .split("\n")
-      .map((line) => line.split(",")[0]?.replace(/^"|"$/g, "").trim())
-      .filter((n): n is string => !!n && n.includes(TASK_PREFIX));
+    const names = parseWakeTaskNames(stdout);
     for (const name of names) {
       try {
         await execFileAsync("schtasks", ["/Delete", "/TN", name, "/F"]);
@@ -82,18 +112,7 @@ async function removeExistingWakeTasks(): Promise<void> {
 // simply relaunching this agent binary — harmless if it's already running
 // (single-instance lock makes the second launch a no-op that focuses/quits).
 async function createWakeTask(slot: ScheduleSlot, index: number): Promise<void> {
-  const local = utcSlotToLocal(slot.day, slot.startMin);
-  const taskName = `${TASK_PREFIX}${index}_${dayToWinDay(slot.day)}_${slot.startMin}`;
-  const time = local.hhmm;
-  const dayName = dayToWinDay(local.day);
-  const exePath = process.execPath;
-
-  const script = [
-    `$action = New-ScheduledTaskAction -Execute '${exePath.replace(/'/g, "''")}' -Argument '--hidden'`,
-    `$trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek ${dayName} -At ${time}`,
-    `$settings = New-ScheduledTaskSettingsSet -WakeToRun -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries`,
-    `Register-ScheduledTask -TaskName '${taskName}' -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null`,
-  ].join("; ");
+  const { taskName, script } = buildWakeTaskScript(slot, index, process.execPath);
 
   try {
     await execFileAsync("powershell", ["-NoProfile", "-NonInteractive", "-Command", script]);
