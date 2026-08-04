@@ -647,6 +647,8 @@ function PreviewModal({
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasStreamedRef = useRef(false);
 
+  const hostId = host.hostId;
+
   const [phase, setPhase] = useState<"connecting" | "streaming" | "ended" | "error">("connecting");
   const [countdown, setCountdown] = useState(PREVIEW_DURATION_S);
   const [errorMsg, setErrorMsg] = useState("");
@@ -686,7 +688,7 @@ function PreviewModal({
       // 1. Mint preview token
       let previewToken: string;
       try {
-        const data = await createPreviewSession({ hostId: host.hostId });
+        const data = await createPreviewSession({ hostId });
         previewToken = data.previewToken;
       } catch (err) {
         if (!cancelled) {
@@ -778,8 +780,7 @@ function PreviewModal({
       cancelled = true;
       cleanup();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hostId, cleanup, startCountdown]);
 
   const handleClose = () => {
     cleanup();
