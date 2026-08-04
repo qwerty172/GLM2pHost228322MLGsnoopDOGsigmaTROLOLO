@@ -26,6 +26,8 @@ import {
   warn,
 } from "./lib/dx.mjs";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+
+const args = new Set(process.argv.slice(2));
 const useDocker = !args.has("--no-docker");
 const skipInstall = args.has("--skip-install");
 const skipVerify = args.has("--skip-verify");
