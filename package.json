@@ -9,7 +9,13 @@
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "test": "pnpm --filter @workspace/api-server test",
     "smoke:invite": "node scripts/invite-flow-smoke.mjs",
-    "smoke:features": "node scripts/features-smoke.mjs"
+    "smoke:features": "node scripts/features-smoke.mjs",
+    "db:up": "docker compose -f infra/docker-compose.dev.yml up -d postgres",
+    "db:down": "docker compose -f infra/docker-compose.dev.yml stop postgres",
+    "setup": "./scripts/setup-local.sh",
+    "setup:fast": "SKIP_TYPECHECK=1 ./scripts/setup-local.sh",
+    "dev": "./scripts/dev-local.sh",
+    "smoke": "./scripts/smoke-api.sh"
   },
   "private": true,
   "devDependencies": {
