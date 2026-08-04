@@ -1,4 +1,4 @@
-import { and, eq, lt, isNotNull, inArray } from "drizzle-orm";
+import { and, eq, lt, ne, isNotNull, inArray } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import {
   db,
@@ -51,6 +51,22 @@ async function tickOnceInner(): Promise<void> {
           .where(eq(quotasTable.id, q.id))
           .for("update");
         if (!fresh || fresh.status === "expired" || fresh.status === "closed") {
+          return;
+        }
+        // Defer expiry while sessions are still in flight — otherwise the
+        // worker refunds sponsor escrow and strips quotaId while billing would
+        // suddenly charge the player full price mid-session.
+        const [activeSession] = await tx
+          .select({ id: sessionsTable.id })
+          .from(sessionsTable)
+          .where(
+            and(
+              eq(sessionsTable.quotaId, fresh.id),
+              ne(sessionsTable.status, "ended"),
+            ),
+          )
+          .limit(1);
+        if (activeSession) {
           return;
         }
         await tx

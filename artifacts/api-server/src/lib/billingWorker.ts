@@ -18,7 +18,7 @@ import {
   decrementEscrow,
   recordQuotaMovement,
   bumpQuotaSessionTotals,
-  isQuotaActiveNow,
+  isQuotaBillingActive,
 } from "./quotaEngine";
 import {
   adjustUserBucket,
@@ -258,7 +258,24 @@ async function billOnceInner(): Promise<void> {
         // +1 for the tick we are about to record (includes credit ticks).
         const minutesInto = (await countSessionMinutesUsed(tx, session.id)) + 1;
 
-        const quotaActive = quota && isQuotaActiveNow(quota, now);
+        let grandfatherPastEndAt = false;
+        if (quota) {
+          const [attached] = await tx
+            .select({ id: quotaSessionsTable.id })
+            .from(quotaSessionsTable)
+            .where(
+              and(
+                eq(quotaSessionsTable.quotaId, quota.id),
+                eq(quotaSessionsTable.sessionId, session.id),
+                isNull(quotaSessionsTable.detachedAt),
+              ),
+            )
+            .limit(1);
+          grandfatherPastEndAt = !!attached;
+        }
+        const quotaActive =
+          quota &&
+          isQuotaBillingActive(quota, now, { grandfatherPastEndAt });
         const effect = quotaActive
           ? computeQuotaEffect(quota!, costLzt, minutesInto)
           : { royaltyLzt: 0, sponsorHostLzt: 0, sponsorPlayerLzt: 0 };

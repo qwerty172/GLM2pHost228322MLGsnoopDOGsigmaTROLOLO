@@ -203,9 +203,19 @@ export async function bumpQuotaSessionTotals(
 }
 
 export function isQuotaActiveNow(q: Quota, now: Date = new Date()): boolean {
+  return isQuotaBillingActive(q, now);
+}
+
+/** Whether sponsor/royalty quota effects apply on a billing tick. */
+export function isQuotaBillingActive(
+  q: Quota,
+  now: Date = new Date(),
+  opts: { grandfatherPastEndAt?: boolean } = {},
+): boolean {
   if (q.status !== "active") return false;
   if (q.startAt && q.startAt > now) return false;
-  if (q.endAt && q.endAt < now) return false;
   if (q.kind === "sponsor" && (q.escrowRemainingLzt ?? 0) <= 0) return false;
-  return true;
+  if (!q.endAt || q.endAt >= now) return true;
+  // Past end_at: keep covering in-flight sessions that were attached earlier.
+  return opts.grandfatherPastEndAt === true;
 }
