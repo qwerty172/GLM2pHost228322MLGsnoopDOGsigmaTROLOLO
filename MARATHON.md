@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-04 (M-53 done; api-server sentry.ts)
+> **Последнее обновление:** 2026-08-04 (M-54 done; play.tsx as any + scanner cat J)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-04 16:42 UTC |
-| Task ID | M-53 |
-| Результат | api-server sentry.ts — ambient `sentry-node.d.ts`, убраны 2 eslint-disable |
-| Commit | 94aa7b9 |
+| Дата | 2026-08-04 17:08 UTC |
+| Task ID | M-54 |
+| Результат | play.tsx: OpenAPI SessionByInviteResponse для getSessionByPlayerToken, убраны 4× as any; bonus: public.ts drizzle conds |
+| Commit | 4035ecd |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** idle — сканер I пуст (0 eslint/ts suppressions).
+**Wave Maintenance:** 3 M-NN pending (M-55…M-57, cat J — as any).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -273,6 +273,10 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-51 | I | eslint/ts suppressions (1) | `artifacts/web/src/components/webgl-video-shader.tsx` | i:artifacts/web/src/components/webgl-video-shader.tsx | done | agent |
 | M-52 | I | eslint/ts suppressions (1) | `artifacts/host-agent/src/main/sentry.ts` | i:artifacts/host-agent/src/main/sentry.ts | done | agent |
 | M-53 | I | eslint/ts suppressions (2) | `artifacts/api-server/src/lib/sentry.ts` | i:artifacts/api-server/src/lib/sentry.ts | done | agent |
+| M-54 | J | as any → typed (4) | `artifacts/web/src/pages/play.tsx` | j:artifacts/web/src/pages/play.tsx | done | agent |
+| M-55 | J | as any → typed (3) | `artifacts/web/src/pages/landing.tsx` | j:artifacts/web/src/pages/landing.tsx | pending | agent |
+| M-56 | J | as any → typed (11) | `artifacts/web/src/pages/hosts.tsx` | j:artifacts/web/src/pages/hosts.tsx | pending | agent |
+| M-57 | J | as any → typed (3) | `routes/admin.ts` | j:artifacts/api-server/src/routes/admin.ts | pending | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).

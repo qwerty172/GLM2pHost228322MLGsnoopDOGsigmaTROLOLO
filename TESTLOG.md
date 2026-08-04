@@ -686,3 +686,14 @@ Cron automation: `git pull origin main` → `marathon-reconcile.mjs --apply` →
 | blocked human | C3-D03, C4-S06/D02, REG-03 |
 
 Все изменения зачтены в `main`. Код не менялся.
+
+## M-54 play.tsx as any + scanner cat J (2026-08-04 17:08 UTC) {#m54-play-as-any}
+
+| Шаг | Результат |
+|---|---|
+| idle-анализ | scanner=0 → добавлена категория J (`as any` по файлам) |
+| OpenAPI | `getSessionByPlayerToken` → `SessionByInviteResponse` |
+| codegen | `pnpm --filter @workspace/api-spec run codegen` |
+| play.tsx | убраны 4× `as any` (isTest, gameTitle, gameBrowserHostUrl) |
+| bonus | `public.ts` — drizzle `conds` без `as any` |
+| typecheck | PASS |

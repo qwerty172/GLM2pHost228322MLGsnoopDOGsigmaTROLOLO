@@ -200,7 +200,7 @@ export default function Play() {
   // Detect test sessions with a browser-hosted game early so all effects can
   // skip WebRTC / billing logic before the early-return iframe branch fires.
   const isTestBrowserSession = !!(
-    (session as any)?.isTest && (session as any)?.gameBrowserHostUrl
+    session?.isTest && session?.gameBrowserHostUrl
   );
   const sessionId = session?.id;
   const sessionStatus = session?.status;
@@ -1281,16 +1281,15 @@ export default function Play() {
 
   // Test session with a browser-hosted game: render it directly in an iframe.
   // No WebRTC, no billing, no agent needed.
-  const sAny = session as any;
-  const gameBrowserHostUrl: string | null = sAny.gameBrowserHostUrl ?? null;
-  if ((sAny.isTest || sAny.is_test) && gameBrowserHostUrl) {
+  const gameBrowserHostUrl: string | null = session.gameBrowserHostUrl ?? null;
+  if (session.isTest && gameBrowserHostUrl) {
     const iframeUrl = gameBrowserHostUrl.startsWith("http")
       ? gameBrowserHostUrl
       : `${import.meta.env.BASE_URL}${gameBrowserHostUrl.replace(/^\//, "")}`;
     return (
       <IframeTestSession
         iframeUrl={iframeUrl}
-        gameTitle={(session as any).gameTitle || session.appName}
+        gameTitle={session.gameTitle || session.appName}
       />
     );
   }
@@ -1403,7 +1402,7 @@ export default function Play() {
               <Badge variant="outline" className="border-white/10 text-slate-400">
                 {session.bitrateKbps} кбит/с
               </Badge>
-              {(session as any).isTest ? (
+              {session.isTest ? (
                 <Badge
                   variant="outline"
                   className="border-violet-400/40 text-violet-300"
