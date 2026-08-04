@@ -259,7 +259,6 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-44 | G | HOSTING H-01: Match по title, не HWND/PID | `HOSTING.md` | g:H-01 | done | agent |
 | M-45 | G | HOSTING H-02: Browser watch: любой Chrome = alive | `HOSTING.md` | g:H-02 | done | agent |
 | M-46 | G | HOSTING H-07: Unit tests capture/focus | `HOSTING.md` | g:H-07 | done | agent |
-| M-47 | G | HOSTING H-08: HWND-based match после spawn | `HOSTING.md` | g:H-08 | pending | agent |
 | M-34 | F | web: raw fetch → codegen (3 calls) | `artifacts/web/src/pages/quota-new.tsx` | f:artifacts/web/src/pages/quota-new.tsx | pending | agent |
 | M-35 | F | web: raw fetch → codegen (2 calls) | `artifacts/web/src/pages/profile.tsx` | f:artifacts/web/src/pages/profile.tsx | pending | agent |
 | M-36 | F | web: raw fetch → codegen (6 calls) | `artifacts/web/src/pages/play.tsx` | f:artifacts/web/src/pages/play.tsx | pending | agent |
