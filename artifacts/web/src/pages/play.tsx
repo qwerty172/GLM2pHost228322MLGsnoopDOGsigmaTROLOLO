@@ -320,8 +320,16 @@ export default function Play() {
     if (!wallet || !session) return;
     const greenLzt = wallet.withdrawableBalanceLzt ?? 0;
     const blueLzt = wallet.internalBalanceLzt ?? 0;
+    const creditLimit = wallet.creditLimitLzt ?? 0;
+    const creditDebt = wallet.creditDebtLzt ?? 0;
+    const creditAvail = Math.max(0, creditLimit - creditDebt);
     const src = (session as typeof session & { paymentSource?: string }).paymentSource ?? "auto";
-    const bal = src === "blue" ? blueLzt : src === "green" ? greenLzt : greenLzt + blueLzt;
+    const bal =
+      src === "blue"
+        ? blueLzt
+        : src === "green"
+          ? greenLzt
+          : greenLzt + blueLzt + creditAvail;
     setEstimatedBalanceLzt(bal);
     const rateLztPerMin = Math.round(Number(session.ratePerMinute) * LZT_PER_USDT);
     ratePerSecLztRef.current = rateLztPerMin / 60;
@@ -1279,16 +1287,18 @@ export default function Play() {
   if (!isPlaying) {
     const greenLzt = wallet?.withdrawableBalanceLzt ?? 0;
     const blueLzt = wallet?.internalBalanceLzt ?? 0;
-    // Claim принимает только green/blue — не суммируем с кредитным лимитом.
-    const totalLzt = greenLzt + blueLzt;
-    const ratePerMinUsd = session.ratePerMinute;
-    const ratePerMinLzt = Math.round(ratePerMinUsd * LZT_PER_USDT);
-    const sourceBalance =
+    const creditLimit = wallet?.creditLimitLzt ?? 0;
+    const creditDebt = wallet?.creditDebtLzt ?? 0;
+    const creditAvail = Math.max(0, creditLimit - creditDebt);
+    const totalLzt =
       paymentSource === "blue"
         ? blueLzt
         : paymentSource === "green"
           ? greenLzt
-          : totalLzt;
+          : greenLzt + blueLzt + creditAvail;
+    const ratePerMinUsd = session.ratePerMinute;
+    const ratePerMinLzt = Math.round(ratePerMinUsd * LZT_PER_USDT);
+    const sourceBalance = totalLzt;
     const minutesAffordable =
       ratePerMinLzt > 0 ? Math.floor(sourceBalance / ratePerMinLzt) : 0;
     const needsTopUp =
