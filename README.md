@@ -40,6 +40,16 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
+**Три команды — и работает:**
+
+```bash
+pnpm bootstrap   # Docker Postgres + .env + install + схема БД
+pnpm dev         # API :8080 + Web :5000
+pnpm smoke       # проверка API (в другом терминале)
+```
+
+Или по шагам: `pnpm db:up` → `pnpm setup` → `pnpm dev`. На Windows те же `pnpm`-команды или `scripts\setup-local.bat` / `scripts\dev-local.bat`. Справка: `make help`.
+
 Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
 
 **Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
