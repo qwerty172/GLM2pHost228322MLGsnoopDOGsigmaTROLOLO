@@ -40,11 +40,25 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
+**Одна команда:** [`docs/QUICKSTART.md`](./docs/QUICKSTART.md)
+
+```bash
+pnpm quickstart    # docker + setup + API + Web
+# → http://localhost:5000
+```
+
+| Команда | Назначение |
+|---------|------------|
+| `pnpm quickstart` | Всё с нуля |
+| `pnpm setup` | Только настройка `.env` + БД |
+| `pnpm dev` | Запуск API + Web |
+| `pnpm infra:up` / `pnpm infra:down` | Docker postgres + redis |
+
 Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
 
-**Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
+**Пошаговая инструкция (legacy):** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
 
-**Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN (обход страниц в браузере).
+**Уже работает?** Если http://localhost:8080/api/readyz → `{"status":"ok"}` и http://localhost:5000 открывается — можно тестировать.
 
 ### Требования
 
