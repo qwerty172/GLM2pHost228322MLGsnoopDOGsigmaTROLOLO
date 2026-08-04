@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-56 (2026-08-04 20:06 UTC) {#marathon-m-56}
+
+| Проверка | Результат |
+|---|---|
+| gamepad-injection.test.mjs | 5 тестов — defensive copy, noop non-win32, mocked ViGEm connect/inject XUSB report |
+| host-agent test | PASS (107 tests) |
+| typecheck | PASS |
+
+**Следующий pick:** M-57 `input-injection.ts`.
+
 ## Marathon M-55 (2026-08-04 18:19 UTC) {#marathon-m-55}
 
 | Проверка | Результат |

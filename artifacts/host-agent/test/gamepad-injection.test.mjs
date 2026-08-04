@@ -23,39 +23,38 @@ Module._load = function (request, parent, isMain) {
     };
   }
   if (request === "koffi") {
+    const vigemFuncs = (sig) => {
+      if (sig.includes("vigem_alloc")) {
+        return () => vigemMock.allocClient;
+      }
+      if (sig.includes("vigem_connect")) {
+        return () => vigemMock.connectResult;
+      }
+      if (sig.includes("vigem_target_x360_alloc")) {
+        return () => vigemMock.allocTarget;
+      }
+      if (sig.includes("vigem_target_add")) {
+        return () => vigemMock.addResult;
+      }
+      if (sig.includes("vigem_target_x360_update")) {
+        return (_client, _target, report) => {
+          vigemMock.updateCalls.push(report);
+          return 0;
+        };
+      }
+      if (sig.includes("vigem_disconnect")) {
+        return () => {
+          vigemMock.disconnectCalls += 1;
+        };
+      }
+      if (sig.includes("vigem_free")) return () => {};
+      if (sig.includes("vigem_target_free")) return () => {};
+      if (sig.includes("vigem_target_remove")) return () => 0;
+      return () => {};
+    };
     return {
-      load: () => ({
-        struct: () => ({}),
-        func: (sig) => {
-          if (sig.includes("vigem_alloc")) {
-            return () => vigemMock.allocClient;
-          }
-          if (sig.includes("vigem_connect")) {
-            return () => vigemMock.connectResult;
-          }
-          if (sig.includes("vigem_target_x360_alloc")) {
-            return () => vigemMock.allocTarget;
-          }
-          if (sig.includes("vigem_target_add")) {
-            return () => vigemMock.addResult;
-          }
-          if (sig.includes("vigem_target_x360_update")) {
-            return (_client, _target, report) => {
-              vigemMock.updateCalls.push(report);
-              return 0;
-            };
-          }
-          if (sig.includes("vigem_disconnect")) {
-            return () => {
-              vigemMock.disconnectCalls += 1;
-            };
-          }
-          if (sig.includes("vigem_free")) return () => {};
-          if (sig.includes("vigem_target_free")) return () => {};
-          if (sig.includes("vigem_target_remove")) return () => 0;
-          return () => {};
-        },
-      }),
+      struct: () => ({}),
+      load: () => ({ func: vigemFuncs }),
     };
   }
   return load.apply(this, arguments);
