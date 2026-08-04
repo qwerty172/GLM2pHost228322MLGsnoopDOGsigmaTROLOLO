@@ -12,10 +12,10 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-04 06:44 UTC |
-| Task ID | M-46 |
-| Результат | HOSTING H-07 — unit tests capture/focus |
-| Commit | 2df2d25 |
+| Дата | 2026-08-04 07:31 UTC |
+| Task ID | M-47 |
+| Результат | HOSTING H-08 — HWND-based match после spawn |
+| Commit | 2363352 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
