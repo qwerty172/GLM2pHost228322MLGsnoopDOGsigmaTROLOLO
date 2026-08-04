@@ -16,7 +16,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "==> API-сервер (порт из .env, обычно 8080)"
-pnpm --filter @workspace/api-server run dev &
+pnpm --filter @workspace/api-server run dev:watch &
 API_PID=$!
 
 echo "==> Web (http://localhost:5000, прокси /api -> API)"

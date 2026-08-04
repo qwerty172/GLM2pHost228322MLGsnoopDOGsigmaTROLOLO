@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "dotenv -e ../../.env -- cross-env NODE_ENV=development sh -c \"pnpm run build && pnpm run start\"",
+    "dev:watch": "dotenv -e ../../.env -- cross-env NODE_ENV=development tsx watch --clear-screen=false src/index.ts",
     "build": "node ./build.mjs",
     "start": "dotenv -e ../../.env -- node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",

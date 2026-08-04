@@ -49,6 +49,7 @@ import {
   Activity,
   Copy,
   MonitorPlay,
+  Play,
   PowerOff,
   Clock,
   DollarSign,
@@ -991,6 +992,8 @@ function HostQuickStartCard({
   agentKeyBound,
   libraryCount,
   hasActiveSession,
+  onQuickTest,
+  testLoading,
 }: {
   hostToken: string;
   agent: AgentState;
@@ -998,6 +1001,8 @@ function HostQuickStartCard({
   agentKeyBound: boolean;
   libraryCount: number;
   hasActiveSession: boolean;
+  onQuickTest: () => void;
+  testLoading: boolean;
 }) {
   const agentOnline =
     agent.status === "online" || heartbeat.status === "fresh";
@@ -1094,6 +1099,44 @@ function HostQuickStartCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div
+          className="rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+          style={{
+            background: "rgba(139,92,246,0.08)",
+            border: "1px solid rgba(139,92,246,0.25)",
+          }}
+          data-testid="host-instant-try"
+        >
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-white flex items-center gap-2">
+              <FlaskConical className="h-4 w-4 text-violet-400 shrink-0" />
+              Попробовать прямо сейчас — без агента
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              Тест-сессия с Rogue Fable III в браузере. Windows-агент и квоты — позже.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            className="h-9 px-4 text-xs font-semibold shrink-0 bg-violet-600 hover:bg-violet-500 text-white"
+            onClick={onQuickTest}
+            disabled={testLoading}
+            data-testid="button-instant-try"
+          >
+            {testLoading ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                Создаём...
+              </>
+            ) : (
+              <>
+                <Play className="h-3.5 w-3.5 mr-1.5" />
+                Попробовать в браузере
+              </>
+            )}
+          </Button>
+        </div>
+
         <ol className="space-y-2">
           {steps.map((s, i) => (
             <li key={s.title} className="flex items-start gap-3">
@@ -1565,6 +1608,8 @@ export default function Dashboard() {
           agentKeyBound={agentKeyBound}
           libraryCount={libraryCount}
           hasActiveSession={hasActiveSession}
+          onQuickTest={() => void handleTestSession()}
+          testLoading={testLoading}
         />
       )}
 
