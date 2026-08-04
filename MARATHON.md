@@ -15,7 +15,7 @@
 | Дата | 2026-08-04 20:44 UTC |
 | Task ID | M-58 |
 | Результат | limited-user-launch.ts unit-тесты: Windows-only guard, creds validation, mocked spawn/koffi |
-| Commit | 3a7ff48 |
+| Commit | fa9190d |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
