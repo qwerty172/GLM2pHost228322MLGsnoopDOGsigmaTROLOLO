@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-177 done; landing.tsx as any)
+> **Последнее обновление:** 2026-08-05 (M-178 done; hosts.tsx as any)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 20:24 UTC|
-| Task ID | M-177|
-| Результат | landing.tsx: убраны 3× as any (coverImageUrl, liveHostsCount, genre); typecheck + web test PASS (358)|
+| Дата | 2026-08-05 20:27 UTC|
+| Task ID | M-178|
+| Результат | hosts.tsx: убраны 5× as any (PublicHostListItem + readHostPcSpecs); web typecheck + test PASS (358)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -512,7 +512,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-175 | S | integrations-anthropic-ai: unit-тест (client.ts) | `anthropic-ai/client.ts` | s:lib/integrations-anthropic-ai/src/client.ts | done | agent |
 | M-176 | T | `as any` escape (2) | `pages/play.tsx` | t:artifacts/web/src/pages/play.tsx | done | agent |
 | M-177 | T | `as any` escape (3) | `pages/landing.tsx` | t:artifacts/web/src/pages/landing.tsx | done | agent |
-| M-178 | T | `as any` escape (5) | `pages/hosts.tsx` | t:artifacts/web/src/pages/hosts.tsx | pending | agent |
+| M-178 | T | `as any` escape (5) | `pages/hosts.tsx` | t:artifacts/web/src/pages/hosts.tsx | done | agent |
 | M-180 | T | `as any` escape (3) | `routes/admin.ts` | t:artifacts/api-server/src/routes/admin.ts | pending | agent |
 | M-179 | T | `as any` escape (5) | `routes/public.ts` | t:artifacts/api-server/src/routes/public.ts | pending | agent |
 

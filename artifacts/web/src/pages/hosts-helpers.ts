@@ -1,4 +1,9 @@
-import type { PublicHostListItem, PublicHostListItemGamesItem } from "@workspace/api-client-react";
+import type {
+  HostPcSpecs,
+  PublicHostListItem,
+  PublicHostListItemGamesItem,
+  PublicHostListItemPcSpecs,
+} from "@workspace/api-client-react";
 
 export type SessionFailureReason = "game_unavailable" | "host_offline" | "error";
 
@@ -31,6 +36,19 @@ export function mapSessionHttpStatus(status: number | undefined): SessionFailure
   if (status === 409) return "game_unavailable";
   if (status === 503 || status === 404) return "host_offline";
   return "error";
+}
+
+/** Narrow openapi `record<string, unknown>` pcSpecs to known display fields. */
+export function readHostPcSpecs(
+  raw: PublicHostListItemPcSpecs | undefined,
+): HostPcSpecs | null {
+  if (!raw || typeof raw !== "object") return null;
+  const specs: HostPcSpecs = {};
+  if (typeof raw.cpu === "string") specs.cpu = raw.cpu;
+  if (typeof raw.gpu === "string") specs.gpu = raw.gpu;
+  if (typeof raw.ramGb === "number") specs.ramGb = raw.ramGb;
+  if (!specs.cpu && !specs.gpu && specs.ramGb == null) return null;
+  return specs;
 }
 
 export function getMinGamePriceLzt(games: PublicHostListItemGamesItem[]): number | null {

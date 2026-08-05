@@ -9,12 +9,14 @@ import {
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import { useBrowserPingMs } from "@/hooks/use-browser-ping";
+import type { PublicHostListItemGamesItem } from "@workspace/api-client-react";
 import {
   computeTotalLatency,
   formatPrice,
   getLatencyColor,
   getMinGamePriceLzt,
   mapSessionHttpStatus,
+  readHostPcSpecs,
   resolveCoverImageUrl,
   sortPublicHosts,
 } from "@/pages/hosts-helpers";
@@ -24,15 +26,6 @@ import {
   PLAY_NOW_FALLBACK_HREF,
 } from "@/pages/landing-helpers";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
-
-type LibraryGame = {
-  gameId: string;
-  slug: string;
-  title: string;
-  coverImageUrl: string;
-  genre: string;
-  pricePerMinuteLzt: number;
-};
 
 function LatencyBadge({ totalMs }: { totalMs: number | null }) {
   if (totalMs == null) return null;
@@ -49,7 +42,7 @@ function LatencyBadge({ totalMs }: { totalMs: number | null }) {
   );
 }
 
-function GameChips({ games }: { games: LibraryGame[] }) {
+function GameChips({ games }: { games: PublicHostListItemGamesItem[] }) {
   const [expanded, setExpanded] = useState(false);
   const SHOW = 3;
   const visible = expanded ? games : games.slice(0, SHOW);
@@ -157,7 +150,7 @@ function PlayButton({
   fallbackInviteCode,
 }: {
   hostId: string;
-  games: LibraryGame[];
+  games: PublicHostListItemGamesItem[];
   fallbackInviteCode: string | null;
 }) {
   const [selectedGameId, setSelectedGameId] = useState(games[0]?.gameId ?? "");
@@ -178,7 +171,7 @@ function PlayButton({
   // - On success → navigate to /play/i/:inviteCode.
   // - On game_unavailable → toast + fall back to list inviteCode when present.
   // - On host_offline / error → same fallback, else game detail page.
-  const connectToGame = async (game: LibraryGame) => {
+  const connectToGame = async (game: PublicHostListItemGamesItem) => {
     setLoading(true);
     try {
       const result = await requestSession(hostId, game.gameId);
@@ -431,12 +424,12 @@ export default function HostsPage() {
         ) : (
           <div className="space-y-3" data-testid="list-public-hosts">
             {sortedHosts.map((h) => {
-              const games = ((h as any).games ?? []) as LibraryGame[];
-              const isOnline = !!(h as any).isOnline;
-              const hostPingMs = (h as any).pingMs as number | null | undefined;
+              const games = h.games ?? [];
+              const isOnline = !!h.isOnline;
+              const hostPingMs = h.pingMs;
               const totalLatency = computeTotalLatency(browserRtt, hostPingMs);
-              const isTop = (h as any).hostTier === "above_rec";
-              const pcSpecs = (h as any).pcSpecs as { cpu?: string; gpu?: string; ramGb?: number } | null | undefined;
+              const isTop = h.hostTier === "above_rec";
+              const pcSpecs = readHostPcSpecs(h.pcSpecs);
               const minGamePrice = getMinGamePriceLzt(games);
 
               return (
