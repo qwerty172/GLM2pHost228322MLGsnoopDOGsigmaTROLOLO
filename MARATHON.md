@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-207 done; systemAccounts schema test)
+> **Последнее обновление:** 2026-08-05 (M-208 done; verifierLinks schema test)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 21:36 UTC|
-| Task ID | M-207|
-| Результат | systemAccounts.test.ts: колонки и notNull; db test PASS (87)|
+| Дата | 2026-08-05 21:40 UTC|
+| Task ID | M-208|
+| Результат | verifierLinks.test.ts: 3 таблицы, колонки и notNull; db test PASS (96)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -542,7 +542,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-205 | U | db schema: unit-тест (sessionRatings.ts) | `db/sessionRatings.ts` | u:lib/db/src/schema/sessionRatings.ts | done | agent |
 | M-206 | U | db schema: unit-тест (sessions.ts) | `db/sessions.ts` | u:lib/db/src/schema/sessions.ts | done | agent |
 | M-207 | U | db schema: unit-тест (systemAccounts.ts) | `db/systemAccounts.ts` | u:lib/db/src/schema/systemAccounts.ts | done | agent |
-| M-208 | U | db schema: unit-тест (verifierLinks.ts) | `db/verifierLinks.ts` | u:lib/db/src/schema/verifierLinks.ts | pending | agent |
+| M-208 | U | db schema: unit-тест (verifierLinks.ts) | `db/verifierLinks.ts` | u:lib/db/src/schema/verifierLinks.ts | done | agent |
 | M-209 | U | db schema: unit-тест (withdrawals.ts) | `db/withdrawals.ts` | u:lib/db/src/schema/withdrawals.ts | pending | agent |
 
 
