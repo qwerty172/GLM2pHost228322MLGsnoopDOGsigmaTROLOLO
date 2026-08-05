@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 01:54 UTC |
 | Task ID | M-70 |
 | Результат | unit-тест api-errors.ts — extractApiErrorPayload, formatApiError, formatApiErrorPanel |
-| Commit | (pending) |
+| Commit | 2da79ca |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
