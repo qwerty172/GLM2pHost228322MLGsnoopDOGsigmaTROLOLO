@@ -614,6 +614,16 @@ describe("POST /quotas", () => {
       ownerDisplayName: "Test Host",
     });
   });
+
+  it("returns 500 when quota insert returns empty", async () => {
+    mockResolveOwnerByToken.mockResolvedValue({ id: HOST_ID, type: "host" });
+    queueResults([]);
+    const res = await request("POST", "/quotas", {
+      body: royaltyCreateBody(),
+    });
+    expect(res.status).toBe(500);
+    expect(res.json).toMatchObject({ error: "Failed to create quota" });
+  });
 });
 
 describe("POST /quotas/ai-suggest-specs", () => {
@@ -673,6 +683,49 @@ describe("POST /quotas/ai-suggest-specs", () => {
       recCpuCores: 8,
     });
   });
+
+  it("returns 500 when AI returns unexpected format", async () => {
+    process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL ??=
+      "https://test.anthropic.example";
+    process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY ??= "test-api-key";
+    mockMessagesCreate.mockResolvedValue({
+      content: [{ type: "text", text: "no json here" }],
+    });
+    const res = await request("POST", "/quotas/ai-suggest-specs", {
+      body: { gameTitle: "Dota 2" },
+    });
+    expect(res.status).toBe(500);
+    expect(res.json).toMatchObject({ error: "AI returned unexpected format" });
+  });
+
+  it("returns 500 when Anthropic API fails", async () => {
+    process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL ??=
+      "https://test.anthropic.example";
+    process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY ??= "test-api-key";
+    mockMessagesCreate.mockRejectedValue(new Error("upstream error"));
+    const res = await request("POST", "/quotas/ai-suggest-specs", {
+      body: { gameTitle: "Dota 2" },
+    });
+    expect(res.status).toBe(500);
+    expect(res.json).toMatchObject({ error: "upstream error" });
+  });
+});
+
+describe("PATCH /quotas/:id", () => {
+  it("returns 500 when quota update returns empty", async () => {
+    mockResolveOwnerByToken.mockResolvedValue({ id: HOST_ID, type: "host" });
+    queueResults(
+      [{ ...QUOTA, status: "draft" as const }],
+      [{ n: 0 }],
+      [{ n: 0 }],
+      [],
+    );
+    const res = await request("PATCH", `/quotas/${QUOTA_ID}`, {
+      body: { ownerToken: OWNER_TOKEN, title: "Updated title" },
+    });
+    expect(res.status).toBe(500);
+    expect(res.json).toMatchObject({ error: "Failed to update quota" });
+  });
 });
 
 describe("POST /quotas/:id/publish", () => {
@@ -692,6 +745,40 @@ describe("POST /quotas/:id/publish", () => {
     });
     expect(res.status).toBe(403);
     expect(res.json).toMatchObject({ error: "Not your quota" });
+  });
+
+  it("returns 500 when publish transaction fails", async () => {
+    mockResolveOwnerByToken.mockResolvedValue({ id: HOST_ID, type: "host" });
+    mockDb.transaction.mockRejectedValueOnce(new Error("db down"));
+    const res = await request("POST", `/quotas/${QUOTA_ID}/publish`, {
+      body: { ownerToken: OWNER_TOKEN },
+    });
+    expect(res.status).toBe(500);
+    expect(res.json).toMatchObject({ error: "db down" });
+  });
+});
+
+describe("POST /quotas/:id/pause", () => {
+  it("returns 500 when pause transaction fails", async () => {
+    mockResolveOwnerByToken.mockResolvedValue({ id: HOST_ID, type: "host" });
+    mockDb.transaction.mockRejectedValueOnce(new Error("pause failed"));
+    const res = await request("POST", `/quotas/${QUOTA_ID}/pause`, {
+      body: { ownerToken: OWNER_TOKEN },
+    });
+    expect(res.status).toBe(500);
+    expect(res.json).toMatchObject({ error: "pause failed" });
+  });
+});
+
+describe("POST /quotas/:id/close", () => {
+  it("returns 500 when close transaction fails", async () => {
+    mockResolveOwnerByToken.mockResolvedValue({ id: HOST_ID, type: "host" });
+    mockDb.transaction.mockRejectedValueOnce(new Error("close failed"));
+    const res = await request("POST", `/quotas/${QUOTA_ID}/close`, {
+      body: { ownerToken: OWNER_TOKEN },
+    });
+    expect(res.status).toBe(500);
+    expect(res.json).toMatchObject({ error: "close failed" });
   });
 });
 

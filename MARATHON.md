@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-217 done; public 409/429 tests)
+> **Последнее обновление:** 2026-08-05 (M-219 done; quotas 500 tests)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 22:33 UTC|
-| Task ID | M-218|
-| Результат | vitest quotaAiChat.test.ts PASS (8 tests); 503 when Anthropic not configured|
+| Дата | 2026-08-05 22:37 UTC|
+| Task ID | M-219|
+| Результат | vitest quotas.test.ts PASS (33 tests); 500 error-paths for ai-suggest, create, update, publish/pause/close|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -571,7 +571,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-216 | W | route error-paths без теста (500) : players.ts | `routes/players.ts` | w:artifacts/api-server/src/routes/players.ts | done | agent |
 | M-217 | W | route error-paths без теста (409/429) : public.ts | `routes/public.ts` | w:artifacts/api-server/src/routes/public.ts | done | agent |
 | M-218 | W | route error-paths без теста (503) : quotaAiChat.ts | `routes/quotaAiChat.ts` | w:artifacts/api-server/src/routes/quotaAiChat.ts | done | agent |
-| M-219 | W | route error-paths без теста (500) : quotas.ts | `routes/quotas.ts` | w:artifacts/api-server/src/routes/quotas.ts | pending | agent |
+| M-219 | W | route error-paths без теста (500) : quotas.ts | `routes/quotas.ts` | w:artifacts/api-server/src/routes/quotas.ts | done | agent |
 | M-220 | W | route error-paths без теста (500) : sessions.ts | `routes/sessions.ts` | w:artifacts/api-server/src/routes/sessions.ts | pending | agent |
 | M-221 | W | route error-paths без теста (502) : storage.ts | `routes/storage.ts` | w:artifacts/api-server/src/routes/storage.ts | pending | agent |
 | M-222 | W | route error-paths без теста (500) : vds.ts | `routes/vds.ts` | w:artifacts/api-server/src/routes/vds.ts | pending | agent |

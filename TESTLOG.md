@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-219 (2026-08-05 22:37 UTC) {#marathon-m-219}
+
+| Проверка | Результат |
+|---|---|
+| vitest src/routes/quotas.test.ts | PASS (33 tests) |
+
+**Изменения:** `artifacts/api-server/src/routes/quotas.test.ts` — тесты 500 для ai-suggest-specs (unexpected format, upstream error), POST /quotas (insert empty), PATCH /quotas/:id (update empty), publish/pause/close transaction failures.
+
+**Следующий pick:** M-220 (route error-paths 500: sessions.ts).
+
 ## Marathon M-218 (2026-08-05 22:34 UTC) {#marathon-m-218}
 
 | Проверка | Результат |
