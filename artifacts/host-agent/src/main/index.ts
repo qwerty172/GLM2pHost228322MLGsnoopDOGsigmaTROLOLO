@@ -39,6 +39,7 @@ import { scanSteam, loadScanState, saveScanState } from "./steam-scanner";
 import { loadOrGenerateKeyPair, signChallenge } from "./crypto-key";
 import { log } from "./logger";
 import { getAgentVersion } from "./agent-version";
+import { isAgentVersionSupported } from "./agent-version-policy";
 import { parseInputEvent, parseGamepadState } from "../shared/input";
 import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry, SteamScanResult, QuotaStatusEvent, SaveSyncRequest, SaveSyncResult } from "../shared/messages";
 
@@ -1175,6 +1176,29 @@ function initAutoUpdater(): void {
     });
   }, 30_000).unref();
 }
+
+ipcMain.handle(
+  "agent:check-version-policy",
+  async (_e, apiBaseUrl: unknown): Promise<{ ok: boolean; error?: string }> => {
+    if (typeof apiBaseUrl !== "string" || !apiBaseUrl.trim()) {
+      return { ok: false, error: "apiBaseUrl required" };
+    }
+    const requirements = await fetchAgentRequirements(apiBaseUrl.trim());
+    if (!requirements) {
+      return { ok: true };
+    }
+    const current = getAgentVersion();
+    if (isAgentVersionSupported(current, requirements.minSupportedAgentVersion)) {
+      return { ok: true };
+    }
+    return {
+      ok: false,
+      error:
+        `Версия агента ${current} устарела — нужна ${requirements.minSupportedAgentVersion} или новее. ` +
+        "Скачай обновление с дашборда («Обновить агент») до выхода в онлайн.",
+    };
+  },
+);
 
 ipcMain.handle("agent:install-update", () => {
   autoUpdater.quitAndInstall(false, true);

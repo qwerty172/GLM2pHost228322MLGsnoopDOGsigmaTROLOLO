@@ -87,6 +87,7 @@ export function setupRendererEnv() {
     matchSteamCatalog: async () => ({ games: [] }),
     onUpdateReady: () => () => {},
     installUpdate: async () => {},
+    checkVersionPolicy: async () => ({ ok: true }),
   };
 
   domWindow.agent = agent;

@@ -5,7 +5,6 @@ export const HEARTBEAT_FRESH_MS = 45_000;
 export const HOST_TOKEN_STORAGE_PREFIX = "streamline.browserHostToken:";
 export const BROWSER_HOST_URL_STORAGE_PREFIX = "streamline.browserHostUrl:";
 export const HOST_AGENT_DOWNLOADED_STORAGE_KEY = "streamline.hostAgentDownloaded";
-export const HOST_GO_ONLINE_ACK_STORAGE_KEY = "streamline.hostGoOnlineAck";
 
 /**
  * Installer download (U-31): no Node.js/npm install required, unlike the ZIP.
@@ -129,22 +128,6 @@ export function markHostAgentDownloaded(
 ): void {
   try {
     storage.setItem(HOST_AGENT_DOWNLOADED_STORAGE_KEY, "1");
-  } catch {
-    // ignore quota / private mode
-  }
-}
-
-export function readHostGoOnlineAck(
-  storage: Pick<Storage, "getItem"> = localStorage,
-): boolean {
-  return storage.getItem(HOST_GO_ONLINE_ACK_STORAGE_KEY) === "1";
-}
-
-export function markHostGoOnlineAck(
-  storage: Pick<Storage, "setItem"> = localStorage,
-): void {
-  try {
-    storage.setItem(HOST_GO_ONLINE_ACK_STORAGE_KEY, "1");
   } catch {
     // ignore quota / private mode
   }
@@ -331,7 +314,6 @@ export function resolveGuidedNextAction(opts: {
   libraryCount: number;
   hasActiveSession: boolean;
   agentDownloaded?: boolean;
-  goOnlineAck?: boolean;
   hasFirstStream?: boolean;
   minSupportedAgentVersion?: string;
 }): GuidedNextAction {
@@ -383,9 +365,9 @@ export function resolveGuidedNextAction(opts: {
     };
   }
 
-  const goOnlineAck = Boolean(opts.goOnlineAck) || opts.hasActiveSession;
+  const goOnlineDone = opts.hasActiveSession;
 
-  if (!goOnlineAck) {
+  if (!goOnlineDone) {
     return {
       phase: "go-online",
       stepNumber: 4,
@@ -434,7 +416,6 @@ export function computeQuickStartSteps(opts: {
   libraryCount: number;
   hasActiveSession: boolean;
   agentDownloaded?: boolean;
-  goOnlineAck?: boolean;
 }): { steps: QuickStartStep[]; doneCount: number; allDone: boolean } {
   const agentOnline = isAgentOnline(opts.agent, opts.heartbeat);
   const agentOnceSeen = isAgentOnceSeen(opts.agent, opts.heartbeat);
@@ -464,9 +445,7 @@ export function computeQuickStartSteps(opts: {
       hint: opts.libraryCount > 0 ? `${opts.libraryCount} в библиотеке` : "Одна игра — и можно стримить",
     },
     {
-      done:
-        opts.hasActiveSession ||
-        Boolean(opts.goOnlineAck),
+      done: opts.hasActiveSession,
       title: "В онлайн",
       hint: opts.hasActiveSession
         ? "Принимаешь игроков"
@@ -505,7 +484,6 @@ export function evaluateHostReadiness(opts: {
   agent: AgentState;
   enabledGamesCount: number;
   hasActiveSession: boolean;
-  goOnlineAck?: boolean;
   localAgentReachable: boolean;
   localInputOk: boolean;
   minSupportedAgentVersion?: string;
@@ -530,7 +508,7 @@ export function evaluateHostReadiness(opts: {
     },
     {
       id: "session",
-      ok: opts.hasActiveSession || Boolean(opts.goOnlineAck),
+      ok: opts.hasActiveSession,
       label: "Готовность к сессии",
     },
     { id: "input", ok: opts.localInputOk, label: "Локальный ввод" },
@@ -602,7 +580,7 @@ export function evaluateHostReadiness(opts: {
     );
   }
 
-  if (!opts.hasActiveSession && !opts.goOnlineAck) {
+  if (!opts.hasActiveSession) {
     return notReady(
       "В агенте нажми «Выйти в онлайн» — без этого игроки не увидят тебя",
     );
@@ -679,7 +657,6 @@ export function buildLiveHostDiagnostics(opts: {
   agent: AgentState;
   enabledGamesCount: number;
   hasActiveSession: boolean;
-  goOnlineAck?: boolean;
   minSupportedAgentVersion?: string;
 }): HostReadinessResult {
   const localAgentReachable = opts.agent.status === "online";
@@ -691,7 +668,6 @@ export function buildLiveHostDiagnostics(opts: {
     agent: opts.agent,
     enabledGamesCount: opts.enabledGamesCount,
     hasActiveSession: opts.hasActiveSession,
-    goOnlineAck: opts.goOnlineAck,
     localAgentReachable,
     localInputOk,
     minSupportedAgentVersion: opts.minSupportedAgentVersion,

@@ -288,7 +288,7 @@ test("resolveGuidedNextAction returns one phase at a time until first stream (U-
     agent: onlineAgent,
     agentKeyBound: true,
     libraryCount: 1,
-    goOnlineAck: true,
+    hasActiveSession: true,
     agentDownloaded: true,
   });
   assert.equal(testStreamReady.phase, "test-stream");
@@ -320,8 +320,7 @@ test("evaluateHostReadiness returns Можно тестировать when all c
     heartbeat: freshHeartbeat,
     agent: onlineAgent,
     enabledGamesCount: 1,
-    hasActiveSession: false,
-    goOnlineAck: true,
+    hasActiveSession: true,
     localAgentReachable: true,
     localInputOk: true,
   });
@@ -352,7 +351,6 @@ test("evaluateHostReadiness returns one Russian next fix for first failure (U-14
     agent: onlineAgent,
     enabledGamesCount: 0,
     hasActiveSession: false,
-    goOnlineAck: true,
     localAgentReachable: true,
     localInputOk: true,
   });
@@ -400,9 +398,8 @@ test("resolveGuidedNextAction shows update-agent before test-stream (U-17)", () 
     heartbeat: freshHeartbeat,
     agentKeyBound: true,
     libraryCount: 1,
-    hasActiveSession: false,
+    hasActiveSession: true,
     agentDownloaded: true,
-    goOnlineAck: true,
     hasFirstStream: false,
     minSupportedAgentVersion: "0.1.0",
   };
@@ -419,8 +416,7 @@ test("evaluateHostReadiness blocks outdated agent version (U-17)", () => {
     heartbeat: freshHeartbeat,
     agent: { ...onlineAgent, version: "0.0.1" },
     enabledGamesCount: 1,
-    hasActiveSession: false,
-    goOnlineAck: true,
+    hasActiveSession: true,
     localAgentReachable: true,
     localInputOk: true,
     minSupportedAgentVersion: "0.1.0",
@@ -428,6 +424,22 @@ test("evaluateHostReadiness blocks outdated agent version (U-17)", () => {
   assert.equal(result.ready, false);
   assert.match(result.nextFix, /Обновить агент|устарела/);
   assert.equal(result.checks.some((c) => c.id === "agent-version" && !c.ok), true);
+});
+
+test("evaluateHostReadiness requires active session — opening agent is not enough (M-149)", () => {
+  const result = evaluateHostReadiness({
+    apiOk: true,
+    agentKeyBound: true,
+    heartbeat: freshHeartbeat,
+    agent: onlineAgent,
+    enabledGamesCount: 1,
+    hasActiveSession: false,
+    localAgentReachable: true,
+    localInputOk: true,
+  });
+  assert.equal(result.ready, false);
+  assert.match(result.nextFix, /Выйти в онлайн/);
+  assert.equal(result.checks.find((c) => c.id === "session")?.ok, false);
 });
 
 test("compareAgentVersions orders semver parts (U-17)", () => {

@@ -196,6 +196,10 @@ const api = {
     return () => ipcRenderer.off("agent:update-ready", handler);
   },
   installUpdate: (): Promise<void> => ipcRenderer.invoke("agent:install-update"),
+  checkVersionPolicy: (
+    apiBaseUrl: string,
+  ): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke("agent:check-version-policy", apiBaseUrl),
 };
 
 contextBridge.exposeInMainWorld("agent", api);

@@ -102,8 +102,6 @@ import {
   downloadHostAgentBundle,
   markHostAgentDownloaded,
   readHostAgentDownloaded,
-  readHostGoOnlineAck,
-  markHostGoOnlineAck,
   HOST_AGENT_EXE_DOWNLOAD_URL,
   evaluateHostReadiness,
   evaluateAgentVersionCompatibility,
@@ -711,7 +709,6 @@ function HostQuickStartCard({
   minSupportedAgentVersion?: string;
 }) {
   const [agentDownloaded, setAgentDownloaded] = useState(() => readHostAgentDownloaded());
-  const [goOnlineAck, setGoOnlineAck] = useState(() => readHostGoOnlineAck());
   const { steps, allDone } = computeQuickStartSteps({
     agent,
     heartbeat,
@@ -719,7 +716,6 @@ function HostQuickStartCard({
     libraryCount,
     hasActiveSession,
     agentDownloaded,
-    goOnlineAck,
   });
   const guided = resolveGuidedNextAction({
     agent,
@@ -728,7 +724,6 @@ function HostQuickStartCard({
     libraryCount,
     hasActiveSession,
     agentDownloaded,
-    goOnlineAck,
     hasFirstStream,
     minSupportedAgentVersion,
   });
@@ -856,10 +851,6 @@ function HostQuickStartCard({
           <a
             href="decenthub://open"
             data-testid="guided-open-agent"
-            onClick={() => {
-              markHostGoOnlineAck();
-              setGoOnlineAck(true);
-            }}
           >
             <Button
               size="lg"
@@ -1080,7 +1071,6 @@ function HostDiagnosticsCard({
 
   const agentForLive =
     agent.status === "checking" ? ({ status: "offline" } as AgentState) : agent;
-  const goOnlineAck = readHostGoOnlineAck();
 
   const liveResult = buildLiveHostDiagnostics({
     apiOk: true,
@@ -1089,7 +1079,6 @@ function HostDiagnosticsCard({
     agent: agentForLive,
     enabledGamesCount: libraryCount,
     hasActiveSession,
-    goOnlineAck,
     minSupportedAgentVersion,
   });
 
@@ -1127,7 +1116,6 @@ function HostDiagnosticsCard({
       const localProbe = await probeAgentReadiness({ force: true });
       const localAgentReachable = localProbe != null;
       const localInputOk = localProbe?.inputOk === true;
-      const ack = readHostGoOnlineAck();
 
       if (localProbe) {
         setLocalProbe({
@@ -1160,7 +1148,6 @@ function HostDiagnosticsCard({
           : agentForLive,
         enabledGamesCount,
         hasActiveSession: serverHasActiveSession,
-        goOnlineAck: ack,
         localAgentReachable,
         localInputOk,
         minSupportedAgentVersion: serverMinVersion,
@@ -1225,7 +1212,6 @@ function HostDiagnosticsCard({
         window.open(HOST_AGENT_EXE_DOWNLOAD_URL, "_blank", "noopener,noreferrer");
         break;
       case "open-agent":
-        markHostGoOnlineAck();
         window.open("decenthub://open", "_blank", "noopener,noreferrer");
         break;
       case "scroll-bind":
