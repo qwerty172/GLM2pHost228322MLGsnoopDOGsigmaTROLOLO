@@ -32,6 +32,4 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo.
-echo Готово. Запуск: scripts\dev-local.bat
-echo Web: http://localhost:5000
+echo Готово. Запуск: pnpm dev  (или scripts\dev-local.bat)
