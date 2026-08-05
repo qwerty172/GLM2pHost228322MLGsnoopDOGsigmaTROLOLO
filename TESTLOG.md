@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-77 (2026-08-05 03:50 UTC) {#marathon-m-77}
+
+| Проверка | Результат |
+|---|---|
+| marathon-scan.mjs | Fix: `export const X:` + hooks `.tsx` → 4 новых M-NN (M-77…M-80) |
+| connection-labels.test.mjs | 3 теста — RU labels, tone mapping, ICE_TONE_STYLES |
+| web test (connection-labels) | PASS |
+| web typecheck | PASS |
+
+**Следующий pick:** M-78 (use-auth.tsx).
+
 ## Marathon M-76 (2026-08-05 03:42 UTC) {#marathon-m-76}
 
 | Проверка | Результат |
