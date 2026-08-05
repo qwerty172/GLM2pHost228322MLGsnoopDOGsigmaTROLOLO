@@ -45,6 +45,18 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-91 (2026-08-05 09:40 UTC) {#marathon-m-91}
+
+| Проверка | Результат |
+|---|---|
+| embed-helpers.ts | parseEmbedQueryParams, buildEmbedMissingParamsError, getEmbedEndedTitle/Detail, buildEmbedSignalWsUrl |
+| embed.test.mjs | 6 тестов — query params, missing params error, ended titles, WS URL (wss + encode) |
+| embed.tsx | рефакторинг: хелперы в embed-helpers.ts |
+| web test (embed) | PASS (6 tests) |
+| typecheck | PASS (web) |
+
+**Следующий pick:** M-92 (exchange.tsx).
+
 ## Marathon M-90 (2026-08-05 09:10 UTC) {#marathon-m-90}
 
 | Проверка | Результат |

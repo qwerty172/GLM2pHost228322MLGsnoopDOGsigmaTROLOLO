@@ -21,16 +21,19 @@ import {
 //   resolution, bitrateKbps (optional)
 // ---------------------------------------------------------------------------
 
+import {
+  parseEmbedQueryParams,
+  buildEmbedMissingParamsError,
+  getEmbedEndedTitle,
+  getEmbedEndedDetail,
+  buildEmbedSignalWsUrl,
+} from "./embed-helpers";
+
 const isDev = import.meta.env.DEV;
 
 export default function Embed() {
   const search$ = useSearch();
-  const params = new URLSearchParams(search$);
-  const apiKey = params.get("apiKey") || "";
-  const gameSlug = params.get("game") || "";
-  const resolution = params.get("resolution") || undefined;
-  const bitrateKbpsParam = Number(params.get("bitrateKbps"));
-  const bitrateKbps = Number.isFinite(bitrateKbpsParam) && bitrateKbpsParam > 0 ? bitrateKbpsParam : undefined;
+  const { apiKey, gameSlug, resolution, bitrateKbps } = parseEmbedQueryParams(search$);
 
   const [session, setSession] = useState<CreateEmbedSessionResponse | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -47,10 +50,7 @@ export default function Embed() {
   // 1. Create the session (host selection + balance check happen server-side).
   useEffect(() => {
     if (!apiKey || !gameSlug) {
-      setError({
-        error: "missing_params",
-        message: "Нужны query-параметры apiKey и game",
-      });
+      setError(buildEmbedMissingParamsError());
       return;
     }
     let cancelled = false;
@@ -156,8 +156,12 @@ export default function Embed() {
     startedRef.current = true;
 
     void (async () => {
-      const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&playerToken=${encodeURIComponent(session.playerToken)}`;
+      const wsUrl = buildEmbedSignalWsUrl(
+        session.playerToken,
+        window.location.protocol,
+        window.location.host,
+        import.meta.env.BASE_URL,
+      );
 
       let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
       try {
@@ -215,16 +219,8 @@ export default function Embed() {
     return (
       <EmbedMessage
         icon={<WifiOff className="h-8 w-8 text-amber-400" />}
-        title={
-          ended.reason === "key_balance_exhausted"
-            ? "Баланс API-ключа исчерпан"
-            : "Сессия завершена"
-        }
-        detail={
-          ended.reason === "key_balance_exhausted"
-            ? "У ключа разработчика закончился баланс. Пополните кошелёк ключа, чтобы продолжить."
-            : `Причина: ${ended.reason}`
-        }
+        title={getEmbedEndedTitle(ended.reason)}
+        detail={getEmbedEndedDetail(ended.reason)}
       />
     );
   }
