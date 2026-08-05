@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-220 (2026-08-05 22:40 UTC) {#marathon-m-220}
+
+| Проверка | Результат |
+|---|---|
+| vitest src/routes/sessions.test.ts | PASS (41 tests) |
+
+**Изменения:** `artifacts/api-server/src/routes/sessions.test.ts` — тесты 500 для POST /sessions (transaction без row), POST /sessions/browser-host (host/session insert empty), POST /sessions/test (insert empty).
+
+**Следующий pick:** M-221 (route error-paths 502: storage.ts).
+
 ## Marathon M-219 (2026-08-05 22:37 UTC) {#marathon-m-219}
 
 | Проверка | Результат |

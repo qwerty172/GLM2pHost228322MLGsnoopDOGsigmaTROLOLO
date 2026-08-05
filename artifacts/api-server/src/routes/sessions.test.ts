@@ -470,6 +470,16 @@ describe("POST /sessions", () => {
     expect(res.status).toBe(409);
     expect(res.json).toEqual({ error: "host_busy" });
   });
+
+  it("returns 500 when session transaction yields no row", async () => {
+    mockDb.transaction.mockImplementationOnce(async () => undefined);
+    queueResults([HOST_ROW]);
+    const res = await request("POST", "/sessions", {
+      body: { hostToken: HOST_TOKEN, appName: "Test" },
+    });
+    expect(res.status).toBe(500);
+    expect(res.json).toEqual({ error: "Failed to create session" });
+  });
 });
 
 describe("POST /sessions/browser-host", () => {
@@ -529,6 +539,25 @@ describe("POST /sessions/browser-host", () => {
       }),
     });
   });
+
+  it("returns 500 when browser host insert returns empty", async () => {
+    queueResults([PLAYER_ROW], [GAME_ROW], []);
+    const res = await request("POST", "/sessions/browser-host", {
+      body: { playerWalletToken: PLAYER_WALLET_TOKEN, gameSlug: GAME_ROW.slug },
+    });
+    expect(res.status).toBe(500);
+    expect(res.json).toEqual({ error: "Failed to create browser host" });
+  });
+
+  it("returns 500 when browser-host session insert returns empty", async () => {
+    const createdHost = { ...HOST_ROW, id: "browser-host-1" };
+    queueResults([PLAYER_ROW], [GAME_ROW], [createdHost], []);
+    const res = await request("POST", "/sessions/browser-host", {
+      body: { playerWalletToken: PLAYER_WALLET_TOKEN, gameSlug: GAME_ROW.slug },
+    });
+    expect(res.status).toBe(500);
+    expect(res.json).toEqual({ error: "Failed to create session" });
+  });
 });
 
 describe("POST /sessions/test", () => {
@@ -574,6 +603,15 @@ describe("POST /sessions/test", () => {
       hostBoundUrl: null,
       isExternalUrl: false,
     });
+  });
+
+  it("returns 500 when test session insert returns empty", async () => {
+    queueResults([HOST_ROW], [], [GAME_ROW], [], []);
+    const res = await request("POST", "/sessions/test", {
+      headers: { "X-Host-Token": HOST_TOKEN },
+    });
+    expect(res.status).toBe(500);
+    expect(res.json).toEqual({ error: "Failed to create test session" });
   });
 });
 

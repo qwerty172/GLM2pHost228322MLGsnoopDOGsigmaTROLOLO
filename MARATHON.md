@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 22:37 UTC|
-| Task ID | M-219|
-| Результат | vitest quotas.test.ts PASS (33 tests); 500 error-paths for ai-suggest, create, update, publish/pause/close|
+| Дата | 2026-08-05 22:40 UTC|
+| Task ID | M-220|
+| Результат | vitest sessions.test.ts PASS (41); 500 paths: POST /sessions, browser-host, test|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -572,7 +572,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-217 | W | route error-paths без теста (409/429) : public.ts | `routes/public.ts` | w:artifacts/api-server/src/routes/public.ts | done | agent |
 | M-218 | W | route error-paths без теста (503) : quotaAiChat.ts | `routes/quotaAiChat.ts` | w:artifacts/api-server/src/routes/quotaAiChat.ts | done | agent |
 | M-219 | W | route error-paths без теста (500) : quotas.ts | `routes/quotas.ts` | w:artifacts/api-server/src/routes/quotas.ts | done | agent |
-| M-220 | W | route error-paths без теста (500) : sessions.ts | `routes/sessions.ts` | w:artifacts/api-server/src/routes/sessions.ts | pending | agent |
+| M-220 | W | route error-paths без теста (500) : sessions.ts | `routes/sessions.ts` | w:artifacts/api-server/src/routes/sessions.ts | done | agent |
 | M-221 | W | route error-paths без теста (502) : storage.ts | `routes/storage.ts` | w:artifacts/api-server/src/routes/storage.ts | pending | agent |
 | M-222 | W | route error-paths без теста (500) : vds.ts | `routes/vds.ts` | w:artifacts/api-server/src/routes/vds.ts | pending | agent |
 | M-223 | V | тест не покрывает экспорты (1): agent-local | `artifacts/web/src/lib/agent-local.ts` | v:artifacts/web/src/lib/agent-local.ts | pending | agent |
