@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-214 (2026-08-05 22:19 UTC) {#marathon-m-214}
+
+| Проверка | Результат |
+|---|---|
+| vitest src/routes/hosts.test.ts | PASS (23 tests) |
+
+**Изменения:** `artifacts/api-server/src/routes/hosts.test.ts` — тесты 403/409 для attach-quota, 500 для register/config/stream-relay, 503 для streamKey и stream-relay без шифрования.
+
+**Следующий pick:** M-215 (route error-paths 400: joinCodes.ts).
+
 ## Marathon M-213 (2026-08-05 22:14 UTC) {#marathon-m-213}
 
 | Проверка | Результат |
@@ -23,7 +33,7 @@
 
 **Изменения:** `artifacts/api-server/src/routes/embed.test.ts` — тесты 409 для quota_requirements_unmet и hosts_busy.
 
-**Следующий pick:** M-214 (route error-paths 403/409/500/503: hosts.ts).
+**Следующий pick:** M-215 (route error-paths 400: joinCodes.ts).
 
 ## Marathon M-212 (2026-08-05 22:10 UTC) {#marathon-m-212}
 

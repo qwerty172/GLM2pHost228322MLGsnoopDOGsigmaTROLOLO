@@ -71,10 +71,18 @@ function nextResult(): QueryResult {
 }
 
 function makeWhereChain() {
-  const orderByResult = vi.fn(async () => nextResult());
   const limitResult = vi.fn(async () => nextResult());
+  const afterOrderBy = {
+    limit: limitResult,
+    then(
+      resolve: (value: QueryResult) => void,
+      reject?: (reason: unknown) => void,
+    ) {
+      return Promise.resolve(nextResult()).then(resolve, reject);
+    },
+  };
   const chain = {
-    orderBy: orderByResult,
+    orderBy: vi.fn(() => afterOrderBy),
     limit: limitResult,
     then(
       resolve: (value: QueryResult) => void,
@@ -248,7 +256,14 @@ vi.mock("../lib/redis", () => ({
 
 const { default: hostsRouter } = await import("./hosts");
 const { listLibrary } = await import("../lib/hostLibrary");
+const { isWalletCryptoEnabled, decryptSecret } = await import("../lib/encryption");
 const listLibraryMock = vi.mocked(listLibrary);
+const isWalletCryptoEnabledMock = vi.mocked(isWalletCryptoEnabled);
+const decryptSecretMock = vi.mocked(decryptSecret);
+
+const QUOTA_ID = "11111111-1111-4111-8111-111111111111";
+const OTHER_QUOTA_ID = "22222222-2222-4222-8222-222222222222";
+const SESSION_ID = "sess-attach-1";
 
 let baseUrl = "";
 let server: Server;
@@ -308,6 +323,8 @@ afterAll(async () => {
 beforeEach(() => {
   queryQueue.length = 0;
   vi.clearAllMocks();
+  isWalletCryptoEnabledMock.mockReturnValue(false);
+  decryptSecretMock.mockImplementation((s: string) => s.replace("enc:", ""));
   mockDb.select.mockImplementation(() => chainSelect());
   mockDb.insert.mockImplementation(() => ({
     values: vi.fn(() => ({
@@ -349,6 +366,15 @@ describe("POST /hosts/register", () => {
       isAdmin: false,
       hostTier: "meets_min",
     });
+  });
+
+  it("returns 500 when host insert returns empty", async () => {
+    queueResults([]);
+    const res = await request("POST", "/hosts/register", {
+      body: { displayName: "Fail Host" },
+    });
+    expect(res.status).toBe(500);
+    expect(res.json).toMatchObject({ error: "Failed to create host" });
   });
 });
 
@@ -443,6 +469,26 @@ describe("PATCH /hosts/me/config", () => {
       id: HOST_ID,
       description: "Updated description",
     });
+  });
+
+  it("returns 503 when setting streamKey without encryption", async () => {
+    queueResults([HOST_ROW]);
+    const res = await request("PATCH", "/hosts/me/config", {
+      headers: { Authorization: `Bearer ${HOST_TOKEN}` },
+      body: { streamKey: "secret-key" },
+    });
+    expect(res.status).toBe(503);
+    expect(res.json).toMatchObject({ error: "encryption_unavailable" });
+  });
+
+  it("returns 500 when config update returns empty", async () => {
+    queueResults([HOST_ROW], []);
+    const res = await request("PATCH", "/hosts/me/config", {
+      headers: { Authorization: `Bearer ${HOST_TOKEN}` },
+      body: { description: "will fail" },
+    });
+    expect(res.status).toBe(500);
+    expect(res.json).toMatchObject({ error: "Failed to update host" });
   });
 });
 
@@ -547,6 +593,79 @@ describe("GET /hosts/:hostToken/stats", () => {
     expect(body.totalMinutesStreamed).toBeGreaterThanOrEqual(30);
     expect(body.internalBalanceLzt).toBe(100);
     expect(body.withdrawableBalanceLzt).toBe(50);
+  });
+});
+
+describe("POST /hosts/me/attach-quota", () => {
+  it("returns 403 for key-exclusive quota", async () => {
+    queueResults(
+      [{ id: HOST_ID }],
+      [{ id: QUOTA_ID, status: "active", devKeyId: "key-1" }],
+      [{ id: SESSION_ID, hostId: HOST_ID, status: "active", quotaId: null }],
+    );
+    const res = await request("POST", "/hosts/me/attach-quota", {
+      body: { hostToken: HOST_TOKEN, quotaId: QUOTA_ID },
+    });
+    expect(res.status).toBe(403);
+    expect(res.json).toMatchObject({ error: "quota_key_exclusive" });
+  });
+
+  it("returns 409 when session already has a different quota", async () => {
+    queueResults(
+      [{ id: HOST_ID }],
+      [{ id: QUOTA_ID, status: "active", devKeyId: null }],
+      [
+        {
+          id: SESSION_ID,
+          hostId: HOST_ID,
+          status: "active",
+          quotaId: OTHER_QUOTA_ID,
+        },
+      ],
+    );
+    const res = await request("POST", "/hosts/me/attach-quota", {
+      body: { hostToken: HOST_TOKEN, quotaId: QUOTA_ID },
+    });
+    expect(res.status).toBe(409);
+    expect(res.json).toMatchObject({
+      error: "Session already has a different quota attached",
+    });
+  });
+});
+
+describe("GET /hosts/me/stream-relay", () => {
+  it("returns 503 when encryption is unavailable", async () => {
+    queueResults([
+      {
+        ...HOST_ROW,
+        streamUrl: "rtmp://live.example.com/app",
+        streamKey: "enc:secret",
+      },
+    ]);
+    const res = await request("GET", "/hosts/me/stream-relay", {
+      headers: { Authorization: `Bearer ${HOST_TOKEN}` },
+    });
+    expect(res.status).toBe(503);
+    expect(res.json).toMatchObject({ error: "encryption_unavailable" });
+  });
+
+  it("returns 500 when stream key decryption fails", async () => {
+    isWalletCryptoEnabledMock.mockReturnValue(true);
+    decryptSecretMock.mockImplementation(() => {
+      throw new Error("decrypt failed");
+    });
+    queueResults([
+      {
+        ...HOST_ROW,
+        streamUrl: "rtmp://live.example.com/app",
+        streamKey: "enc:bad",
+      },
+    ]);
+    const res = await request("GET", "/hosts/me/stream-relay", {
+      headers: { Authorization: `Bearer ${HOST_TOKEN}` },
+    });
+    expect(res.status).toBe(500);
+    expect(res.json).toMatchObject({ error: "Failed to decrypt stream key" });
   });
 });
 
