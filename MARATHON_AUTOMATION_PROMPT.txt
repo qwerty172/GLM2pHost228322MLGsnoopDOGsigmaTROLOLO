@@ -1,12 +1,13 @@
 # Вставить в Cursor Automation trigger (заменить старый текст ЦЕЛИКОМ)
 # ПРИОРИТЕТ: agentInstruction из groom --should-run. Скрипты — единственный источник решений.
+# Правило №1: run НЕ может завершиться пустым. Либо задача закрыта, либо сканер расширен.
 
 git fetch origin main && git merge origin/main --no-edit || git pull origin main
 
 node scripts/marathon-groom.mjs --should-run --mark-skipped
 GROOM_EXIT=$?
-# exit 2 = STOP (pr_in_flight / in_progress) → exit 0 БЕЗ коммитов
-# exit 3 = pure idle, агент не нужен → node scripts/marathon-efficiency.mjs --apply; exit 0
+# exit 2 = STOP (pr_in_flight / in_progress) → exit 0
+# exit 3 = pure idle, агент не нужен → exit 0 (это и есть экономия токенов)
 if [ "$GROOM_EXIT" -ne 0 ]; then exit 0; fi
 
 node scripts/marathon-reconcile.mjs --apply
@@ -16,22 +17,37 @@ node scripts/marathon-scan.mjs --sync-marathon
 PICK=$(node scripts/marathon-scan.mjs --next)
 echo "$PICK"
 
-# ЕДИНСТВЕННЫЙ сценарий работы (pick.id есть):
+# РЕШЕНИЕ — ровно два сценария, выбор делает groom, а не ты:
+#
+# СЦЕНАРИЙ А (reason=ok, pick.id есть) → ТОЛЬКО ЗАДАЧА. Self-improvement ЗАПРЕЩЁН.
 #   1. Сделать задачу (код/тесты). pnpm typecheck / tests — gate.
 #   2. node scripts/marathon-last-run.mjs --task M-NN --result "..."
-#   3. Обновить статус M-NN → done в MARATHON.md + TESTLOG.
+#   3. Статус M-NN → done в MARATHON.md + запись в TESTLOG.md.
 #   4. ОДИН коммит: git add -A && git commit -m "feat(marathon): M-NN ..."
-#   5. ОБЯЗАТЕЛЬНО ДОСТАВИТЬ В MAIN:
-#      git checkout main && git pull origin main && git merge <run-branch> --no-edit && git push origin main
-#      (529 из 541 PR никогда не смержили — работа без merge в main = работа в мусор)
+#   5. git checkout main && git pull origin main && git merge <run-branch> --no-edit && git push origin main
 #
-# idle:true при GROOM_EXIT=0 → это баг groom; НЕ коммитить, exit 0.
+# СЦЕНАРИЙ Б (reason=scanner_empty_expand) → ТОЛЬКО EXPAND. Не «подумать», а сделать.
+#   1. Добавить КОНКРЕТНУЮ категорию в scripts/marathon-scan.mjs (проверь README в файле):
+#      - eslint-disable / @ts-ignore (cat I расширить)
+#      - api-server routes без тестов (routes/*.ts без __tests__)
+#      - lib/db schema без тестов
+#      - TODO/FIXME в docs/*.md
+#      - raw fetch в host-agent renderer
+#      - pnpm outdated → bump безопасных версий
+#   2. node scripts/marathon-scan.mjs --sync-marathon → новые M-NN pending
+#   3. ОДИН коммит: git commit -m "feat(marathon): сканер cat X — N задач"
+#   4. Merge → main → push. Следующий run берёт первую задачу.
 #
-# ЗАПРЕЩЕНО НАВСЕГДА (источники 1000+ пустых runs):
+# ЗАПРЕЩЕНО (источники 1000+ пустых runs):
+#   - «проанализируй ситуацию» при pendingMnn>0 — это burn
+#   - «проанализируй ситуацию» при scanner_empty — сразу expand (Сценарий Б)
 #   - коммит с «Marathon idle» в message (любой)
-#   - коммит «fix/sync commit hash» (поле Commit удалено из Last run)
-#   - анализ/исследование вместо задачи при pendingMnn>0
-#   - list-cloud-agents / automation_memory / чтение MARATHON.md (скрипты уже дали pick)
-#   - открывать PR как замену merge в main
+#   - коммит «fix/sync commit hash» (поле Commit удалено)
+#   - git diff --quiet → commit (проверяй: if ! git diff --quiet)
+#   - list-cloud-agents / automation_memory / чтение MARATHON.md
+#   - открывать PR вместо merge в main
 #   - закрывать/мержить старые draft PR (200+ legacy — ИГНОР, не блокируют)
-#   - commit при пустом git diff
+#   - exit без feat-коммита, если GROOM_EXIT=0 и pick.id есть
+
+# Приоритет громко: задачи > self-improvement. Efficiency — только фоновая
+# статистика (§ Efficiency в MARATHON.md), никогда не отдельный run.

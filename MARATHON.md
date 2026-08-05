@@ -88,16 +88,16 @@
 | Ситуация | Действие |
 |------------|----------|
 | scanner_empty | **СРАЗУ EXPAND SCANNER** — новая категория в `marathon-scan.mjs` → `--sync-marathon` → один feat-коммит |
-| pendingMnn>0 | **EXECUTE** первую M-NN — без анализа, без meta |
+| pendingMnn>0 | **EXECUTE** первую M-NN — без анализа, без meta, без efficiency-отдельного-run |
 | pr_in_flight | STOP или закрыть мёртвый PR >1ч |
-| полный idle | `marathon-efficiency.mjs --apply` (метрики, без закрытия PR) → exit 0 |
+| полный idle | `exit 3` — cron не поднимает агента вообще (экономия токенов) |
 
 **Запрещено (все три петли из 1000+ пустых runs):**
 1. **Idle-коммит** — «Marathon idle» + commit Last run (~300 мусорных коммитов 03.08)
 2. **Hash-коммит** — «fix Last run commit hash» (~250 коммитов; поле Commit удалено)
 3. **Работа не в main** — 529 из 541 PR остались unmerged; в конце run — merge своей ветки в main + push
 
-**Efficiency:** каждый run → `node scripts/marathon-efficiency.mjs --apply` (пишет § Efficiency **только при изменении метрик** — без timestamp-диффов).
+**Efficiency:** `marathon-efficiency.mjs --apply` — **фоном в том же run** (§ Efficiency пишет только при изменении метрик). Никогда отдельный run.
 
 **Last run:** `node scripts/marathon-last-run.mjs --task M-NN --result "..."` — **в том же коммите**, что feat.
 
@@ -365,8 +365,8 @@ Automation **каждый run** создаёт и выполняет одну н
 > Готовый текст: **[MARATHON_AUTOMATION_PROMPT.txt](./MARATHON_AUTOMATION_PROMPT.txt)** — скопировать целиком в trigger.
 
 > **ЗАПРЕЩЕНО при 161e0d7Mnn>0:** «Прочитай MARATHON.md», list-cloud-agents, automation_memory, анализ прошлых runs, правка промпта — это жжёт токены впустую. Скрипты уже дали pick.
-> **Meta-улучшения** — groom issues **или** `scanner_empty` → немедленный EXPAND (без idleStreak≥3).
-> **Efficiency** — `marathon-efficiency.mjs --apply` каждый run.
+> **Meta-улучшения** — ТОЛЬКО при `scanner_empty` (immediate expand) **или** groom issues. При `pendingMnn>0` self-improvement = burn.
+> **Efficiency** — `marathon-efficiency.mjs --apply` **фоном в том же run** (§ Efficiency); **никогда** отдельный run.
 > **pr_in_flight** — только non-DRAFT PR; DRAFT не блокирует.
 
 **Полный:**
