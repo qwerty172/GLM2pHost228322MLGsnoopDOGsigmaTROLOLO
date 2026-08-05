@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-167 (2026-08-05 18:26 UTC) {#marathon-m-167}
+
+| Проверка | Результат |
+|---|---|
+| play.test.mjs isTouchCapableDevice (U-25) | PASS — maxTouchPoints > 0 → true |
+| pnpm --filter @workspace/web test | PASS (341 tests) |
+
+**Изменения (U-25):** `keyboardOverlay` по умолчанию включён на тач-устройствах (`isTouchCapableDevice(navigator.maxTouchPoints)`), как геймпад; кнопка ⌨ позволяет выключить.
+
+**Следующий pick:** M-168 (U-26 никаких технических терминов в сообщениях игроку).
+
 ## Marathon M-166 (2026-08-05 18:22 UTC) {#marathon-m-166}
 
 | Проверка | Результат |

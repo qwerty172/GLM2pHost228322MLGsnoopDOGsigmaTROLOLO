@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 18:23 UTC|
-| Task ID | M-166|
-| Результат | U-24: PreSessionScreen на /play; PreSessionModal удалён; pnpm test 340 PASS|
+| Дата | 2026-08-05 18:26 UTC|
+| Task ID | M-167|
+| Результат | U-25: keyboardOverlay по умолчанию на тач; isTouchCapableDevice; pnpm test 341 PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -498,7 +498,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-164 | R | UX U-22 (P1): Лендинг не прячет блок, когда онлайн-хостов нет | `pages/landing.tsx` | r:U-22 | done | agent |
 | M-165 | R | UX U-23 (P1): Выбор игры у хоста — раскрывающийся список вместо модалки | `pages/hosts.tsx` | r:U-23 | done | agent |
 | M-166 | R | UX U-24 (P1): Один экран подготовки сессии вместо модалки и дубля на `/pla | `pages/game-detail.tsx` | r:U-24 | done | agent |
-| M-167 | R | UX U-25 (P1): Экранная клавиатура включена по умолчанию на тач-устройствах | `pages/play.tsx` | r:U-25 | pending | agent |
+| M-167 | R | UX U-25 (P1): Экранная клавиатура включена по умолчанию на тач-устройствах | `pages/play.tsx` | r:U-25 | done | agent |
 | M-168 | R | UX U-26 (P1): Никаких технических терминов в сообщениях игроку | `pages/play-helpers.ts` | r:U-26 | pending | agent |
 | M-169 | R | UX U-27 (P2): Баланс LZT виден на мобиле | `artifacts/web/src/components/site-nav.tsx` | r:U-27 | pending | agent |
 | M-170 | R | UX U-28 (P2): В каталоге у офлайн-игр честная подпись и путь дальше | `pages/games.tsx` | r:U-28 | pending | agent |
@@ -507,6 +507,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-137 | Q | auth-verifier: unit-тест (providers/discord.ts) | `auth-verifier/providers/discord.ts` | q:lib/auth-verifier/src/providers/discord.ts | pending | agent |
 | M-138 | Q | auth-verifier: unit-тест (providers/telegram.ts) | `auth-verifier/providers/telegram.ts` | q:lib/auth-verifier/src/providers/telegram.ts | pending | agent |
 | M-139 | Q | auth-verifier: unit-тест (router.ts) | `auth-verifier/router.ts` | q:lib/auth-verifier/src/router.ts | pending | agent |
+| M-173 | N | web components: unit-тест (pre-session-screen.tsx) | `artifacts/web/src/components/pre-session-screen.tsx` | n:artifacts/web/src/components/pre-session-screen.tsx | pending | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).

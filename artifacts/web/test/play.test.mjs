@@ -17,6 +17,7 @@ const {
   buildPlayerSignalWsUrl,
   getConnectionBadgeLabel,
   computeWalletBalanceForSession,
+  isTouchCapableDevice,
 } = await import("../src/pages/play-helpers.ts");
 
 test("LZT_PER_USDT is stable", () => {
@@ -137,4 +138,10 @@ test("computeWalletBalanceForSession uses payment source from session", () => {
   assert.equal(computeWalletBalanceForSession(wallet, "green"), 100);
   assert.equal(computeWalletBalanceForSession(wallet, "blue"), 40);
   assert.equal(computeWalletBalanceForSession(null, "auto"), 0);
+});
+
+test("isTouchCapableDevice (U-25) enables overlays when maxTouchPoints > 0", () => {
+  assert.equal(isTouchCapableDevice(0), false);
+  assert.equal(isTouchCapableDevice(1), true);
+  assert.equal(isTouchCapableDevice(5), true);
 });

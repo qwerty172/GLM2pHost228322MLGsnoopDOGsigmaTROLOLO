@@ -150,3 +150,8 @@ export function computeWalletBalanceForSession(
   if (src === "green") return greenLzt;
   return greenLzt + blueLzt;
 }
+
+/** U-25: touch overlays (gamepad + on-screen keyboard) default on when maxTouchPoints > 0. */
+export function isTouchCapableDevice(maxTouchPoints: number): boolean {
+  return maxTouchPoints > 0;
+}

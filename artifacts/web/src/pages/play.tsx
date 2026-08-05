@@ -43,6 +43,7 @@ import {
   buildPlayerSignalWsUrl,
   getConnectionBadgeLabel,
   computeWalletBalanceForSession,
+  isTouchCapableDevice,
 } from "./play-helpers";
 
 const isDev = import.meta.env.DEV;
@@ -273,15 +274,17 @@ export default function Play() {
   const currentBitrateKbpsRef = useRef<number>(6000);
   const lastStatsSampleRef = useRef<{ bytes: number; ts: number } | null>(null);
 
-  // Virtual gamepad overlay — auto-enabled on touch devices
+  // Virtual gamepad overlay — auto-enabled on touch devices (U-25)
   const [gamepadOverlay, setGamepadOverlay] = useState<boolean>(
-    () => navigator.maxTouchPoints > 0,
+    () => isTouchCapableDevice(navigator.maxTouchPoints),
   );
   // Layout edit mode: lets players drag-to-reposition each control
   const [gamepadEditMode, setGamepadEditMode] = useState(false);
 
-  // Keyboard key overlay — auto-enabled on touch devices
-  const [keyboardOverlay, setKeyboardOverlay] = useState(false);
+  // Keyboard key overlay — auto-enabled on touch devices (U-25)
+  const [keyboardOverlay, setKeyboardOverlay] = useState<boolean>(
+    () => isTouchCapableDevice(navigator.maxTouchPoints),
+  );
   const [keyboardEditMode, setKeyboardEditMode] = useState(false);
 
   // Live HUD: client-side ticking balance estimate between API syncs
