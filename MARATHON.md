@@ -6,15 +6,15 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-69 done; web lib agent-local + scanner cat L)
+> **Последнее обновление:** 2026-08-05 (M-70 done; web lib api-errors unit-тест)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 01:00 UTC |
-| Task ID | M-69 |
-| Результат | EXPAND SCANNER cat L (web lib); unit-тесты agent-local.ts + agent-event-labels.ts; сброс cachedPort при полном probe-fail |
+| Дата | 2026-08-05 01:16 UTC |
+| Task ID | M-70 |
+| Результат | unit-тест api-errors.ts — extractApiErrorPayload, formatApiError (коды/EN/RU/patterns), formatApiErrorPanel |
 | Commit | (pending) |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** 6 pending (M-70…M-75) — web lib unit-тесты (кат. L).
+**Wave Maintenance:** 5 pending (M-71…M-75) — web lib unit-тесты (кат. L).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -289,7 +289,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-67 | J | host-agent main: unit-тест (wake-scheduler.ts) | `artifacts/host-agent/src/main/wake-scheduler.ts` | j:artifacts/host-agent/src/main/wake-scheduler.ts | done | agent |
 | M-68 | K | host-agent shared: unit-тест (input.ts) | `artifacts/host-agent/src/shared/input.ts` | k:artifacts/host-agent/src/shared/input.ts | done | agent |
 | M-69 | L | web lib: unit-тест (agent-local.ts) | `artifacts/web/src/lib/agent-local.ts` | l:artifacts/web/src/lib/agent-local.ts | done | agent |
-| M-70 | L | web lib: unit-тест (api-errors.ts) | `artifacts/web/src/lib/api-errors.ts` | l:artifacts/web/src/lib/api-errors.ts | pending | agent |
+| M-70 | L | web lib: unit-тест (api-errors.ts) | `artifacts/web/src/lib/api-errors.ts` | l:artifacts/web/src/lib/api-errors.ts | done | agent |
 | M-71 | L | web lib: unit-тест (ice-prewarm.ts) | `artifacts/web/src/lib/ice-prewarm.ts` | l:artifacts/web/src/lib/ice-prewarm.ts | pending | agent |
 | M-72 | L | web lib: unit-тест (put-external-blob.ts) | `artifacts/web/src/lib/put-external-blob.ts` | l:artifacts/web/src/lib/put-external-blob.ts | pending | agent |
 | M-73 | L | web lib: unit-тест (quota-compatibility.ts) | `artifacts/web/src/lib/quota-compatibility.ts` | l:artifacts/web/src/lib/quota-compatibility.ts | pending | agent |
