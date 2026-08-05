@@ -14,6 +14,7 @@ const {
   pickBestPlayableHost,
   resolvePlayNowInvitePath,
   PLAY_NOW_FALLBACK_HREF,
+  DEMO_BROWSER_HREF,
 } = await import("../src/pages/landing-helpers.ts");
 
 test("LZT_PER_USD is stable", () => {
@@ -127,4 +128,8 @@ test("resolvePlayNowInvitePath builds /play/i path", () => {
 
 test("PLAY_NOW_FALLBACK_HREF points to games catalog", () => {
   assert.equal(PLAY_NOW_FALLBACK_HREF, "/games");
+});
+
+test("DEMO_BROWSER_HREF points to browser demo game", () => {
+  assert.equal(DEMO_BROWSER_HREF, "/games/rogue-fable-3");
 });
