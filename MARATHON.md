@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 07:06 UTC |
 | Task ID | M-87 |
 | Результат | VtScanner: экспорт VT_STATUS_LABELS, isValidVtInput, canTriggerVtScan, isVtUrlInput, buildVtNetworkErrorResult + vt-scanner.test.mjs (7 тестов) |
-| Commit | pending |
+| Commit | 7eccf21 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
