@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-241 (2026-08-05 23:49 UTC) {#marathon-m-241}
+
+| Проверка | Результат |
+|---|---|
+| walletAddresses.test.ts | PASS (4 tests) |
+
+**Изменения:** `artifacts/api-server/src/lib/walletAddresses.test.ts` — unit-тесты для `generateNanoAddress`, `generateTronUsdtAddress`, `generateAllDepositAddresses` (+ расширён Solana кейс).
+
+**Следующий pick:** M-242 (тест не покрывает экспорты: api-client).
+
 ## Marathon M-240 (2026-08-05 23:47 UTC) {#marathon-m-240}
 
 | Проверка | Результат |
