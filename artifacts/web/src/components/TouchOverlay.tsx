@@ -1,22 +1,35 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 // ─── Button indices (Web Gamepad / XInput standard) ──────────────────────────
-const BTN_A = 0;
-const BTN_B = 1;
-const BTN_X = 2;
-const BTN_Y = 3;
-const BTN_LB = 4;
-const BTN_RB = 5;
-const BTN_LT = 6;
-const BTN_RT = 7;
-const BTN_SELECT = 8;
-const BTN_START = 9;
-const TOTAL_BUTTONS = 10;
-const TOTAL_AXES = 4;
+export const TOUCH_BTN_A = 0;
+export const TOUCH_BTN_B = 1;
+export const TOUCH_BTN_X = 2;
+export const TOUCH_BTN_Y = 3;
+export const TOUCH_BTN_LB = 4;
+export const TOUCH_BTN_RB = 5;
+export const TOUCH_BTN_LT = 6;
+export const TOUCH_BTN_RT = 7;
+export const TOUCH_BTN_SELECT = 8;
+export const TOUCH_BTN_START = 9;
+export const TOUCH_TOTAL_BUTTONS = 10;
+export const TOUCH_TOTAL_AXES = 4;
+
+const BTN_A = TOUCH_BTN_A;
+const BTN_B = TOUCH_BTN_B;
+const BTN_X = TOUCH_BTN_X;
+const BTN_Y = TOUCH_BTN_Y;
+const BTN_LB = TOUCH_BTN_LB;
+const BTN_RB = TOUCH_BTN_RB;
+const BTN_LT = TOUCH_BTN_LT;
+const BTN_RT = TOUCH_BTN_RT;
+const BTN_SELECT = TOUCH_BTN_SELECT;
+const BTN_START = TOUCH_BTN_START;
+const TOTAL_BUTTONS = TOUCH_TOTAL_BUTTONS;
+const TOTAL_AXES = TOUCH_TOTAL_AXES;
 
 // ─── Per-control layout ───────────────────────────────────────────────────────
 // Each control has an absolute position in % of viewport (vw/vh).
-const STORAGE_KEY = "touchLayout";
+export const TOUCH_LAYOUT_STORAGE_KEY = "touchLayout";
 
 interface Pos { x: number; y: number }
 
@@ -35,7 +48,7 @@ interface LayoutState {
   btnSelect: Pos;
 }
 
-const DEFAULT_LAYOUT: LayoutState = {
+export const DEFAULT_TOUCH_LAYOUT: LayoutState = {
   stickLeft: { x: 5, y: 58 },
   stickRight: { x: 75, y: 58 },
   btnA:      { x: 82, y: 75 },
@@ -50,16 +63,16 @@ const DEFAULT_LAYOUT: LayoutState = {
   btnStart:  { x: 52, y: 88 },
 };
 
-function loadLayout(): LayoutState {
+export function loadTouchLayout(): LayoutState {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return { ...DEFAULT_LAYOUT, ...(JSON.parse(raw) as Partial<LayoutState>) };
+    const raw = localStorage.getItem(TOUCH_LAYOUT_STORAGE_KEY);
+    if (raw) return { ...DEFAULT_TOUCH_LAYOUT, ...(JSON.parse(raw) as Partial<LayoutState>) };
   } catch { /* ignore */ }
-  return { ...DEFAULT_LAYOUT };
+  return { ...DEFAULT_TOUCH_LAYOUT };
 }
 
-function saveLayout(layout: LayoutState): void {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(layout)); } catch { /* ignore */ }
+export function saveTouchLayout(layout: LayoutState): void {
+  try { localStorage.setItem(TOUCH_LAYOUT_STORAGE_KEY, JSON.stringify(layout)); } catch { /* ignore */ }
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -111,7 +124,7 @@ function DraggableControl({
     const newY = Math.max(0, Math.min(92, dragRef.current.oy + dy));
     const next = { ...layout, [posKey]: { x: newX, y: newY } };
     setLayout(next);
-    saveLayout(next);
+    saveTouchLayout(next);
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
@@ -362,7 +375,7 @@ function ShoulderButton({ label, onPressChange }: {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export function TouchOverlay({ onGamepadInput, editMode = false }: Props) {
-  const [layout, setLayout] = useState<LayoutState>(loadLayout);
+  const [layout, setLayout] = useState<LayoutState>(loadTouchLayout);
 
   // Mutable gamepad state — updated without triggering re-renders
   const gs = useRef<GamepadState>({
