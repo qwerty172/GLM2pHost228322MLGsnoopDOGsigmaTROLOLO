@@ -103,6 +103,15 @@
 
 **Следующий pick:** M-132 (vt.ts).
 
+## Marathon M-132 (2026-08-05 12:37 UTC) {#marathon-m-132}
+
+| Проверка | Результат |
+|---|---|
+| vt.test.ts | 14 тестов — POST /vt/scan (sha256, URL, auth, VT errors); GET /vt/lookup (auth, validation) |
+| api-server test (vt) | PASS (14 tests) |
+
+**Следующий pick:** M-133 (wallet.ts).
+
 ## Marathon M-131 (2026-08-05 12:33 UTC) {#marathon-m-131}
 
 | Проверка | Результат |
