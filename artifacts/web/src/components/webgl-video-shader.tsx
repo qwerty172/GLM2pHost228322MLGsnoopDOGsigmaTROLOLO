@@ -129,7 +129,24 @@ void main() {
   },
 } as const;
 
+export const SHADER_PRESET_KEYS = Object.keys(SHADER_PRESETS) as (keyof typeof SHADER_PRESETS)[];
+
+export const SHADER_STORAGE_KEYS = {
+  preset: "shaderPreset",
+  customCode: "shaderCustomCode",
+} as const;
+
 export type PresetKey = keyof typeof SHADER_PRESETS | "custom";
+
+export function resolveShaderFragCode(activePreset: PresetKey, customShaderCode: string): string {
+  if (activePreset === "custom") return customShaderCode;
+  if (activePreset === "none") return SHADER_PRESETS.none.code;
+  return SHADER_PRESETS[activePreset]?.code ?? SHADER_PRESETS.none.code;
+}
+
+export function fragmentShaderUsesUniform(fragCode: string, uniformName: string): boolean {
+  return new RegExp(`uniform\\s+\\w+\\s+${uniformName}\\b`).test(fragCode);
+}
 
 // ─── Vertex shader (shared for all presets) ──────────────────────────────────
 
@@ -144,7 +161,7 @@ void main() {
 
 // ─── WebGL helpers ────────────────────────────────────────────────────────────
 
-function compileShader(gl: WebGLRenderingContext, type: number, src: string): WebGLShader | null {
+export function compileShader(gl: WebGLRenderingContext, type: number, src: string): WebGLShader | null {
   const s = gl.createShader(type);
   if (!s) return null;
   gl.shaderSource(s, src);
@@ -157,7 +174,7 @@ function compileShader(gl: WebGLRenderingContext, type: number, src: string): We
   return s;
 }
 
-function createProgram(
+export function createShaderProgram(
   gl: WebGLRenderingContext,
   vertSrc: string,
   fragSrc: string,
@@ -214,7 +231,7 @@ export const WebGLVideoShader = forwardRef<WebGLVideoShaderHandle, Props>(
       // Build program
       let prog: WebGLProgram;
       try {
-        prog = createProgram(gl, VERT_SRC, fragCode);
+        prog = createShaderProgram(gl, VERT_SRC, fragCode);
         onCompileError?.(null);
       } catch (e) {
         onCompileError?.(e instanceof Error ? e.message : String(e));
