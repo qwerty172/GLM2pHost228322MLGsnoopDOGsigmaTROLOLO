@@ -49,36 +49,15 @@ import {
 } from "lucide-react";
 import { SiteNav } from "@/components/site-nav";
 import { toast } from "sonner";
-
-const formatLzt = (n: number) => new Intl.NumberFormat("ru-RU").format(Math.trunc(n));
-const MIN_TERM_DAYS = 60;
-
-function bpsToPercent(bps: number) {
-  return (bps / 100).toFixed(2);
-}
-
-function serverErrorToRu(msg: string): string {
-  if (/pledger limit/i.test(msg)) return "Pledger-лимит равен нулю — сначала сделай хотя бы один депозит или вывод";
-  if (/amountLzt exceeds/i.test(msg)) return "Сумма превышает твой Pledger-лимит";
-  if (/termDays must be/i.test(msg)) return `Срок должен быть не менее ${MIN_TERM_DAYS} дней`;
-  if (/not open/i.test(msg)) return "Заявка уже не в открытом статусе";
-  if (/own request/i.test(msg)) return "Нельзя финансировать собственную заявку";
-  if (/insufficient lender/i.test(msg)) return "Недостаточно баланса для финансирования";
-  if (/insufficient/i.test(msg)) return "Недостаточно баланса";
-  if (/not your loan/i.test(msg)) return "Это не твой займ";
-  if (/not repayable/i.test(msg)) return "Займ нельзя погасить (возможно, уже закрыт)";
-  return msg;
-}
-
-function loanRequestStatusRu(status: string): string {
-  const labels: Record<string, string> = {
-    open: "Открыта",
-    funded: "Собрана",
-    cancelled: "Отменена",
-    active: "Активна",
-  };
-  return labels[status] ?? status;
-}
+import {
+  MIN_TERM_DAYS,
+  bpsToPercent,
+  formatLzt,
+  fundedPercent,
+  loanRequestStatusRu,
+  loanStatusRu,
+  serverErrorToRu,
+} from "./exchange-helpers";
 
 function LoanRequestCard({
   req,
@@ -90,7 +69,7 @@ function LoanRequestCard({
   onFund: (req: LoanRequest) => void;
 }) {
   const ratePercent = bpsToPercent(req.rateBps);
-  const fundedPct = req.amountLzt > 0 ? Math.round((req.fundedAmountLzt / req.amountLzt) * 100) : 0;
+  const fundedPct = fundedPercent(req.amountLzt, req.fundedAmountLzt);
   const remaining = req.amountLzt - req.fundedAmountLzt;
 
   return (
@@ -611,21 +590,13 @@ function LoanStatusBadge({ status }: { status: string }) {
     funded: { bg: "rgba(16,185,129,0.08)", text: "#34d399", border: "rgba(16,185,129,0.3)" },
     cancelled: { bg: "rgba(148,163,184,0.08)", text: "#94a3b8", border: "rgba(148,163,184,0.3)" },
   };
-  const labels: Record<string, string> = {
-    active: "Активен",
-    repaid: "Погашен",
-    defaulted: "Просрочен",
-    open: "Открыта",
-    funded: "Собрана",
-    cancelled: "Отменена",
-  };
   const c = colors[status] ?? { bg: "rgba(255,255,255,0.04)", text: "#94a3b8", border: "rgba(255,255,255,0.1)" };
   return (
     <span
       className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
       style={{ background: c.bg, color: c.text, border: `1px solid ${c.border}` }}
     >
-      {labels[status] ?? status}
+      {loanStatusRu(status)}
     </span>
   );
 }
