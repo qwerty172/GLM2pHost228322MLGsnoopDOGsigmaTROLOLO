@@ -77,7 +77,6 @@ router.get("/public/games", async (req, res): Promise<void> => {
       isMultiplayer: gamesTable.isMultiplayer,
       hostSpectatesPlayer: gamesTable.hostSpectatesPlayer,
       hasQuests: gamesTable.hasQuests,
-      browserHostUrl: gamesTable.browserHostUrl,
     })
     .from(gamesTable)
     .where(conds.length > 0 ? and(...(conds as any)) : undefined)

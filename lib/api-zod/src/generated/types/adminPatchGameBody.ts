@@ -19,7 +19,6 @@ export interface AdminPatchGameBody {
   isMultiplayer?: boolean;
   hostSpectatesPlayer?: boolean;
   hasQuests?: boolean;
-  browserHostUrl?: string;
   /** Set to true to hide from public catalog; false to restore visibility. */
   isHidden?: boolean;
 }

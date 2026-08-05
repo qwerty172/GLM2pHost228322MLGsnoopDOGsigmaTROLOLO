@@ -156,14 +156,6 @@ function CatalogGameRow({
               скрыта
             </span>
           )}
-          {game.browserHostUrl && (
-            <span
-              className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide flex-shrink-0"
-              style={{ background: "rgba(14,165,233,0.1)", color: "#38bdf8" }}
-            >
-              браузер
-            </span>
-          )}
         </div>
         <p className="text-xs text-slate-600 truncate">{game.genre || game.slug}</p>
       </div>

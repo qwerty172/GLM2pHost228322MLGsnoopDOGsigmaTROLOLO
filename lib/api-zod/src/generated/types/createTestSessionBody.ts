@@ -6,7 +6,4 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type CreateTestSessionBody = {
-  /** One-shot browser URL override for this test */
-  overrideUrl?: string;
-};
+export type CreateTestSessionBody = { [key: string]: unknown };

@@ -11,7 +11,6 @@ import SetupSession from "@/pages/host/setup";
 import HostLibrary from "@/pages/host/library";
 import WalletPage from "@/pages/wallet";
 import Play from "@/pages/play";
-import BrowserPlay from "@/pages/host/browser-play";
 import GamesPage from "@/pages/games";
 import GameDetailPage from "@/pages/game-detail";
 import AdminGamesPage from "@/pages/admin/games";
@@ -95,10 +94,6 @@ function Router() {
       <Route path="/play/:playerToken" component={Play} />
       {/* Embeddable third-party widget (task-125) — no auth guard, standalone. */}
       <Route path="/embed" component={Embed} />
-      {/* Browser-host page is a player-side feature (the human running it
-          authenticates via their own wallet, not a hostToken). Route it
-          before /host so HostAuthGuard does not gate it. */}
-      <Route path="/host/play/:sessionId" component={BrowserPlay} />
       {/* Enumerate all host-panel paths explicitly so Wouter v3 does NOT
           shift the router base (wildcard /host* strips the prefix and breaks
           the nested Switch whose routes use full absolute paths). */}

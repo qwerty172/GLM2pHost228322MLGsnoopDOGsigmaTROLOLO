@@ -102,7 +102,6 @@ export interface LibraryEntry {
     title: string;
     coverImageUrl: string;
     genre: string;
-    browserHostUrl: string;
     hasMods: boolean;
     isMultiplayer: boolean;
     steamAppId?: string | null;

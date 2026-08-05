@@ -979,41 +979,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /sessions/browser-host:
-    post:
-      operationId: createBrowserHostSession
-      tags: [sessions]
-      summary: |
-        Create a session whose host is the calling browser (no desktop agent).
-        Returns both the session and the freshly minted hostToken вЂ” the caller
-        is responsible for storing the hostToken locally and using it to
-        connect to /signal as role=host and to end the session.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateBrowserHostSessionBody"
-      responses:
-        "201":
-          description: Browser-host session created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CreateBrowserHostSessionResponse"
-        "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: Game or player not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
   /sessions/{id}:
     get:
       operationId: getSession
@@ -1209,39 +1174,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /sessions/demo:
-    post:
-      operationId: createDemoSession
-      tags: [sessions]
-      summary: |
-        Create a free instant-play demo session (no host registration or agent).
-        Returns a test session the player can open directly in the browser.
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateDemoSessionBody"
-      responses:
-        "201":
-          description: Demo session created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CreateDemoSessionResponse"
-        "404":
-          description: Demo game not available
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "429":
-          description: Rate limit exceeded
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
   /sessions/test:
     post:
       operationId: createTestSession
@@ -1259,10 +1191,7 @@ paths:
           application/json:
             schema:
               type: object
-              properties:
-                overrideUrl:
-                  type: string
-                  description: One-shot browser URL override for this test
+              additionalProperties: false
       responses:
         "201":
           description: Test session created
@@ -4831,8 +4760,6 @@ components:
           type: boolean
         hasQuests:
           type: boolean
-        browserHostUrl:
-          type: string
         isHidden:
           type: boolean
           description: Set to true to hide from public catalog; false to restore visibility.
@@ -5552,8 +5479,6 @@ components:
           type: boolean
         hasQuests:
           type: boolean
-        browserHostUrl:
-          type: string
         liveSessionCount:
           type: integer
           description: Number of pending or active sessions matching this game right now
@@ -5570,7 +5495,6 @@ components:
         - isMultiplayer
         - hostSpectatesPlayer
         - hasQuests
-        - browserHostUrl
         - liveSessionCount
 
     PublicGameHostItem:
@@ -5658,12 +5582,6 @@ components:
         minPricePerMinuteLzt:
           type: ["integer", "null"]
           description: Cheapest enabled library price for this game across hosts, in LZT
-        browserHostUrl:
-          type: string
-          description: |
-            Same-origin URL of a vendored browser build that a player can host
-            directly from their browser tab (no desktop agent). Empty when only
-            native-app hosting is supported.
         isHidden:
           type: boolean
           description: When true the game is excluded from the public catalog (admin-only flag).
@@ -5684,7 +5602,6 @@ components:
         - liveSessionCount
         - liveHostsCount
         - minPricePerMinuteLzt
-        - browserHostUrl
 
     GameLiveSession:
       type: object
@@ -5860,8 +5777,6 @@ components:
               type: ["string", "null"]
             gameTitle:
               type: ["string", "null"]
-            gameBrowserHostUrl:
-              type: ["string", "null"]
 
     CreatePublicSessionResponse:
       type: object
@@ -5873,30 +5788,12 @@ components:
           type: string
           description: Frontend path e.g. /play/i/{inviteCode}
 
-    CreateDemoSessionBody:
-      type: object
-      properties:
-        gameSlug:
-          type: string
-          description: Catalog slug with browserHostUrl (default rogue-fable-3)
-
-    CreateDemoSessionResponse:
-      type: object
-      required: [session]
-      properties:
-        session:
-          $ref: "#/components/schemas/Session"
-
     CreateTestSessionResponse:
       type: object
       required: [session]
       properties:
         session:
           $ref: "#/components/schemas/Session"
-        hostBoundUrl:
-          type: ["string", "null"]
-        isExternalUrl:
-          type: boolean
 
     IssueAgentBindCodeResponse:
       type: object
@@ -5942,38 +5839,6 @@ components:
           description: Block size in minutes chosen at session start (10, 15, or 25). Omit/null for unlimited per-minute billing.
       required:
         - playerWalletToken
-
-    CreateBrowserHostSessionBody:
-      type: object
-      description: |
-        The calling browser (identified by playerWalletToken) wants to host
-        the given game itself, by loading its vendored build into an iframe
-        and capturing the canvas via WebRTC. The server mints a fresh host
-        row owned by this player and returns its hostToken.
-      properties:
-        playerWalletToken:
-          type: string
-        gameSlug:
-          type: string
-      required:
-        - playerWalletToken
-        - gameSlug
-
-    CreateBrowserHostSessionResponse:
-      type: object
-      properties:
-        session:
-          $ref: "#/components/schemas/Session"
-        hostToken:
-          type: string
-          description: Use to authenticate as the host on /signal and to end the session.
-        browserHostUrl:
-          type: string
-          description: Same-origin URL to load in the host page's iframe.
-      required:
-        - session
-        - hostToken
-        - browserHostUrl
 
     CreateSessionBody:
       type: object
@@ -7198,8 +7063,6 @@ components:
           type: string
         genre:
           type: string
-        browserHostUrl:
-          type: string
         hasMods:
           type: boolean
         isMultiplayer:
@@ -7210,7 +7073,6 @@ components:
         - title
         - coverImageUrl
         - genre
-        - browserHostUrl
         - hasMods
         - isMultiplayer
 

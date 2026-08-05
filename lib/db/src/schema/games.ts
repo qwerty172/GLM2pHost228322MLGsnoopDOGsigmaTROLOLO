@@ -18,7 +18,6 @@ export const gamesTable = pgTable("games", {
     .notNull()
     .default(false),
   hasQuests: boolean("has_quests").notNull().default(false),
-  browserHostUrl: text("browser_host_url").notNull().default(""),
   /** Cloud save path templates for this game (Steam/custom). */
   saveManifest: jsonb("save_manifest")
     .$type<

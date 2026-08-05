@@ -66,6 +66,8 @@ lib/api-zod            → автогенерированные Zod-схемы (
 
 ## Что НЕ делать
 
+- **Не добавлять browser-host / iframe-стриминг / «хостить из браузера» без агента.** Единственный путь стриминга — WebRTC через Windows-агент (`desktopCapturer` + signaling). Исключение: `boundUrl` в библиотеке хоста — агент открывает URL в Chrome и стримит окно через WebRTC (это не browser-host mode).
+- Не добавлять `POST /sessions/browser-host`, `/sessions/demo`, страницу `/host/play`, iframe-плеер в `/play`, поле `browserHostUrl` в каталоге.
 - Не трогать `lib/api-client-react/src/` и `lib/api-zod/src/` — это автогенерат
 - Не добавлять `console.log` в production код (использовать pino)
 - Не использовать `react-router-dom` (в проекте wouter)

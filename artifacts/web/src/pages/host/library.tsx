@@ -101,13 +101,12 @@ interface CatalogGame {
   genres?: string[] | null;
   steamAppId?: string | null;
   isMultiplayer?: boolean;
-  browserHostUrl?: string | null;
 }
 
 type LibraryEntry = HostLibraryEntry;
 
 function entryKind(e: LibraryEntry): "native" | "browser" {
-  return e.boundUrl || e.game.browserHostUrl ? "browser" : "native";
+  return e.boundUrl ? "browser" : "native";
 }
 
 // --------------------------------------------------------------------------
@@ -372,15 +371,6 @@ function CatalogSearch({
                   {[g.category, g.genre, g.genres?.join(", ")].filter(Boolean).join(" · ") || "Без категории"}
                 </div>
               </div>
-              {g.browserHostUrl && (
-                <Badge
-                  variant="outline"
-                  className="text-[10px] h-4 flex-shrink-0"
-                  style={{ color: "#34d399", border: "1px solid rgba(16,185,129,0.3)" }}
-                >
-                  браузер
-                </Badge>
-              )}
             </button>
           ))}
       </div>
@@ -418,24 +408,32 @@ function LibraryConfigForm({
   submitting: boolean;
   isPending?: boolean;
 }) {
-  const isBrowser = !!(game.browserHostUrl);
+  const [launchMode, setLaunchMode] = useState<"native" | "browser">("native");
   const [price, setPrice] = useState("8");
   const [appPath, setAppPath] = useState("");
-  const [boundUrl, setBoundUrl] = useState(game.browserHostUrl ?? "");
+  const [boundUrl, setBoundUrl] = useState("");
   const [launchArgs, setLaunchArgs] = useState("");
   const [pathErr, setPathErr] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isBrowser && appPath.trim() && !isWindowsPath(appPath.trim())) {
+    if (launchMode === "native" && appPath.trim() && !isWindowsPath(appPath.trim())) {
       setPathErr("Путь должен выглядеть как C:\\path\\to\\game.exe или /path/to/binary");
+      return;
+    }
+    if (launchMode === "native" && !appPath.trim()) {
+      setPathErr("Укажи путь к .exe");
+      return;
+    }
+    if (launchMode === "browser" && !boundUrl.trim()) {
+      setPathErr("Укажи URL браузерной игры");
       return;
     }
     setPathErr("");
     onSubmit({
       pricePerMinuteLzt: Math.max(0, parseInt(price, 10) || 0),
-      appPath: isBrowser ? "" : appPath.trim(),
-      boundUrl: isBrowser ? boundUrl.trim() : "",
+      appPath: launchMode === "browser" ? "" : appPath.trim(),
+      boundUrl: launchMode === "browser" ? boundUrl.trim() : "",
       launchArgs: launchArgs.trim(),
     });
   };
@@ -486,15 +484,39 @@ function LibraryConfigForm({
         <p className="text-[11px] text-slate-500">200 LZT = 1 USDT. Рекомендуется: 5–20 LZT/мин.</p>
       </div>
 
-      {isBrowser ? (
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant={launchMode === "native" ? "default" : "outline"}
+          onClick={() => setLaunchMode("native")}
+        >
+          .exe на Windows
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={launchMode === "browser" ? "default" : "outline"}
+          onClick={() => setLaunchMode("browser")}
+        >
+          URL (агент откроет браузер)
+        </Button>
+      </div>
+
+      {launchMode === "browser" ? (
         <div className="space-y-1.5">
-          <Label className="text-slate-300 text-sm">URL браузерной игры</Label>
+          <Label className="text-slate-300 text-sm">URL браузерной игры (стрим через агент + WebRTC)</Label>
           <Input
             placeholder="https://example.com/game"
             value={boundUrl}
-            onChange={(e) => setBoundUrl(e.target.value)}
+            onChange={(e) => { setBoundUrl(e.target.value); setPathErr(""); }}
             style={inputStyle}
           />
+          {pathErr && (
+            <p className="text-xs text-red-400 flex items-center gap-1">
+              <AlertCircle className="h-3.5 w-3.5" /> {pathErr}
+            </p>
+          )}
         </div>
       ) : (
         <>

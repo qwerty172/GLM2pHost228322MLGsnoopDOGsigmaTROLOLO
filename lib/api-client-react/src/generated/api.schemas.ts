@@ -250,11 +250,6 @@ export interface GameListItem {
    * @nullable
    */
   minPricePerMinuteLzt: number | null;
-  /** Same-origin URL of a vendored browser build that a player can host
-directly from their browser tab (no desktop agent). Empty when only
-native-app hosting is supported.
- */
-  browserHostUrl: string;
   /** When true the game is excluded from the public catalog (admin-only flag). */
   isHidden?: boolean;
 }
@@ -287,7 +282,6 @@ export interface AdminPatchGameBody {
   isMultiplayer?: boolean;
   hostSpectatesPlayer?: boolean;
   hasQuests?: boolean;
-  browserHostUrl?: string;
   /** Set to true to hide from public catalog; false to restore visibility. */
   isHidden?: boolean;
 }
@@ -769,7 +763,6 @@ export interface PublicGameCatalogItem {
   isMultiplayer: boolean;
   hostSpectatesPlayer: boolean;
   hasQuests: boolean;
-  browserHostUrl: string;
   /** Number of pending or active sessions matching this game right now */
   liveSessionCount: number;
 }
@@ -916,8 +909,6 @@ export type SessionByInviteResponse = Session & {
   gameCoverImageUrl?: string | null;
   /** @nullable */
   gameTitle?: string | null;
-  /** @nullable */
-  gameBrowserHostUrl?: string | null;
 };
 
 export interface CreatePublicSessionResponse {
@@ -926,20 +917,8 @@ export interface CreatePublicSessionResponse {
   playPath: string;
 }
 
-export interface CreateDemoSessionBody {
-  /** Catalog slug with browserHostUrl (default rogue-fable-3) */
-  gameSlug?: string;
-}
-
-export interface CreateDemoSessionResponse {
-  session: Session;
-}
-
 export interface CreateTestSessionResponse {
   session: Session;
-  /** @nullable */
-  hostBoundUrl?: string | null;
-  isExternalUrl?: boolean;
 }
 
 export interface IssueAgentBindCodeResponse {
@@ -983,26 +962,6 @@ export interface ClaimSessionBody {
    * @nullable
    */
   blockMinutes?: number | null;
-}
-
-/**
- * The calling browser (identified by playerWalletToken) wants to host
-the given game itself, by loading its vendored build into an iframe
-and capturing the canvas via WebRTC. The server mints a fresh host
-row owned by this player and returns its hostToken.
-
- */
-export interface CreateBrowserHostSessionBody {
-  playerWalletToken: string;
-  gameSlug: string;
-}
-
-export interface CreateBrowserHostSessionResponse {
-  session: Session;
-  /** Use to authenticate as the host on /signal and to end the session. */
-  hostToken: string;
-  /** Same-origin URL to load in the host page's iframe. */
-  browserHostUrl: string;
 }
 
 export type CreateSessionBodyPaymentSource =
@@ -1880,7 +1839,6 @@ export interface HostLibraryGame {
   title: string;
   coverImageUrl: string;
   genre: string;
-  browserHostUrl: string;
   hasMods: boolean;
   isMultiplayer: boolean;
 }
@@ -2167,10 +2125,7 @@ export type PostSessionMetricsParams = {
   hostToken?: string;
 };
 
-export type CreateTestSessionBody = {
-  /** One-shot browser URL override for this test */
-  overrideUrl?: string;
-};
+export type CreateTestSessionBody = { [key: string]: unknown };
 
 export type GetSaveDownloadUrlParams = {
   sessionId: string;

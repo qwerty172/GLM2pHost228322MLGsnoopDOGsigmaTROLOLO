@@ -675,7 +675,7 @@ function HostTemplates({ hostToken }: { hostToken: string }) {
           ) : (
             <div className="space-y-2">
               {entries.map((entry) => {
-                const isBrowser = !!(entry.game.browserHostUrl);
+                const isBrowser = !!(entry.boundUrl);
                 return (
                   <div
                     key={entry.id}
@@ -1499,54 +1499,26 @@ export default function Dashboard() {
   };
 
   const [testLoading, setTestLoading] = useState(false);
-  const [testUrl, setTestUrl] = useState("");
   const handleTestSession = async () => {
     if (!hostToken) return;
     setTestLoading(true);
     try {
-      const trimmedUrl = testUrl.trim();
-      const data = await createTestSession(
-        trimmedUrl ? { overrideUrl: trimmedUrl } : undefined,
-        {
-          headers: {
-            "X-Host-Token": hostToken,
-            Authorization: `Bearer ${hostToken}`,
-            "X-User-Token": hostToken,
-          },
+      const data = await createTestSession(undefined, {
+        headers: {
+          "X-Host-Token": hostToken,
+          Authorization: `Bearer ${hostToken}`,
+          "X-User-Token": hostToken,
         },
-      );
+      });
       refetchSessions();
-      if (data.isExternalUrl && data.hostBoundUrl) {
-        // Arbitrary external site: iframes are blocked by most sites, so the
-        // honest test is a real WebRTC stream. Open the host streaming page
-        // where the host shares their tab; the guest link is shown there.
-        try {
-          localStorage.setItem(
-            "streamline.browserHostToken:" + data.session.id,
-            hostToken,
-          );
-          localStorage.setItem(
-            "streamline.browserHostUrl:" + data.session.id,
-            data.hostBoundUrl,
-          );
-        } catch {
-          // localStorage unavailable — the host page will show an error
-        }
-        toast.success("Тест-сессия создана — поделись вкладкой со стримом");
-        window.open(
-          `${window.location.origin}${import.meta.env.BASE_URL}host/play/${data.session.id}`,
-          "_blank",
-        );
-      } else {
-        toast.success("Тест-сессия создана — открываю плеер");
-        const playPath = data.session.inviteCode
-          ? `play/i/${data.session.inviteCode}`
-          : `play/${data.session.playerToken}`;
-        window.open(
-          `${window.location.origin}${import.meta.env.BASE_URL}${playPath}`,
-          "_blank",
-        );
-      }
+      toast.success("Тест-сессия создана — открой плеер и проверь WebRTC");
+      const playPath = data.session.inviteCode
+        ? `play/i/${data.session.inviteCode}`
+        : `play/${data.session.playerToken}`;
+      window.open(
+        `${window.location.origin}${import.meta.env.BASE_URL}${playPath}`,
+        "_blank",
+      );
     } catch (err) {
       toast.error(formatApiError(err, "Ошибка сети при создании тест-сессии"));
     } finally {
@@ -1657,34 +1629,17 @@ export default function Dashboard() {
         </summary>
         <div className="px-4 pb-4 space-y-4 border-t border-white/5 pt-4">
           <div className="flex flex-col gap-2">
-            <div className="flex gap-2 flex-wrap">
-              <Input
-                placeholder="https://… или пусто"
-                value={testUrl}
-                onChange={(e) => setTestUrl(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !testLoading) void handleTestSession();
-                }}
-                className="w-64 text-sm"
-                style={{
-                  background: "#06090e",
-                  borderColor: "rgba(255,255,255,0.12)",
-                  color: "#fff",
-                }}
-                data-testid="input-test-url"
-              />
-              <Button
-                onClick={() => void handleTestSession()}
-                disabled={testLoading || !hostToken}
-                className="bg-violet-600 hover:bg-violet-500 text-white shrink-0"
-                data-testid="button-test-session"
-              >
-                <FlaskConical className="h-4 w-4 mr-2" />
-                {testLoading ? "Создаём..." : "Проверить самому"}
-              </Button>
-            </div>
+            <Button
+              onClick={() => void handleTestSession()}
+              disabled={testLoading || !hostToken}
+              className="bg-violet-600 hover:bg-violet-500 text-white shrink-0 w-fit"
+              data-testid="button-test-session"
+            >
+              <FlaskConical className="h-4 w-4 mr-2" />
+              {testLoading ? "Создаём..." : "Проверить WebRTC самому"}
+            </Button>
             <p className="text-xs text-slate-500">
-              Тест-сессия для себя — не на критическом пути онбординга
+              Тест-сессия через агент — бесплатно, только WebRTC
             </p>
           </div>
 

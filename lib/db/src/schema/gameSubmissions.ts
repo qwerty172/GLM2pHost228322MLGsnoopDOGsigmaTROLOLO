@@ -30,7 +30,7 @@ export const gameSubmissionsTable = pgTable("game_submissions", {
   description: text("description").notNull().default(""),
   // External URL or object-storage path (/api/storage/objects/...).
   coverImageUrl: text("cover_image_url").notNull().default(""),
-  // 'native' = desktop host agent required; 'browser' = browser-hostable.
+  // 'native' = desktop .exe; 'browser' = URL opened by agent (WebRTC capture).
   kind: text("kind").notNull().default("native"),
   // Required when kind = 'browser'.
   defaultBrowserUrl: text("default_browser_url").notNull().default(""),

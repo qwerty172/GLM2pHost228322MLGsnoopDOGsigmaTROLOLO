@@ -1,20 +1,16 @@
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useListGames,
   getListGamesQueryKey,
-  useCreateBrowserHostSession,
   type GameListItem,
 } from "@workspace/api-client-react";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
-import { formatApiError } from "@/lib/api-errors";
-import { toast } from "sonner";
 import {
   Activity,
   AlertCircle,
   ArrowRight,
   Gamepad2,
-  Rocket,
   Search,
   SlidersHorizontal,
   Users,
@@ -23,11 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SiteNav } from "@/components/site-nav";
-import { PlayerFirstRun } from "@/components/player-first-run";
-import { useInstantDemo } from "@/hooks/use-instant-demo";
 import {
-  BROWSER_HOST_URL_STORAGE_PREFIX,
-  HOST_TOKEN_STORAGE_PREFIX,
   buildGamesApiParams,
   computeGlobalMaxLzt,
   extractAllGenres,
@@ -52,7 +44,6 @@ type GameEnriched = GameListItem & {
   vdsHostsCount?: number;
   hasVdsHosts?: boolean;
   minPricePerMinuteLzt?: number | null;
-  browserHostUrl?: string | null;
 };
 
 const BOOL_FILTERS: { key: FilterKey; label: string }[] = [
@@ -79,7 +70,6 @@ function useDebounce<T>(value: T, delay: number): T {
 
 export default function GamesPage() {
   const { playerWalletToken, registerGuest } = usePlayerWallet();
-  const { launchDemo, isLaunching: isDemoLaunching } = useInstantDemo();
 
   useEffect(() => {
     if (!playerWalletToken) void registerGuest();
@@ -146,7 +136,6 @@ export default function GamesPage() {
 
   return (
     <div className="min-h-screen text-slate-300" style={{ background: "#06090e" }}>
-      <PlayerFirstRun />
       <SiteNav activePath="/games" />
 
       <main className="max-w-7xl mx-auto px-4 md:px-6 pt-8 pb-16">
@@ -159,22 +148,6 @@ export default function GamesPage() {
             <p className="text-sm text-slate-500 mt-1">
               Выбери игру и подключись к хосту в один клик.
             </p>
-            <Button
-              size="sm"
-              type="button"
-              className="mt-3 h-8 px-3 text-xs font-semibold"
-              style={{
-                background: "rgba(14,165,233,0.12)",
-                color: "#38bdf8",
-                border: "1px solid rgba(14,165,233,0.25)",
-              }}
-              disabled={isDemoLaunching}
-              onClick={() => void launchDemo()}
-              data-testid="button-catalog-demo"
-            >
-              <Rocket className="h-3 w-3 mr-1" />
-              {isDemoLaunching ? "Запуск…" : "Попробовать демо без хоста"}
-            </Button>
           </div>
           <div className="relative w-full md:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
@@ -491,29 +464,6 @@ export default function GamesPage() {
 }
 
 function GameCard({ game, vdsBadge }: { game: GameEnriched; vdsBadge?: boolean }) {
-  const [, navigate] = useLocation();
-  const { playerWalletToken, isRegistering } = usePlayerWallet();
-  const createBrowserHost = useCreateBrowserHostSession();
-
-  const handleHost = async () => {
-    if (!playerWalletToken) {
-      toast.error("Создаём кошелёк, попробуй ещё раз через секунду");
-      return;
-    }
-    try {
-      const res = await createBrowserHost.mutateAsync({
-        data: { playerWalletToken, gameSlug: game.slug },
-      });
-      try {
-        localStorage.setItem(HOST_TOKEN_STORAGE_PREFIX + res.session.id, res.hostToken);
-        localStorage.setItem(BROWSER_HOST_URL_STORAGE_PREFIX + res.session.id, res.browserHostUrl);
-      } catch { /* ignore */ }
-      navigate(`/host/play/${res.session.id}`);
-    } catch (err) {
-      toast.error(formatApiError(err, "Не удалось создать сессию хоста"));
-    }
-  };
-
   const cover = game.coverImageUrl
     ? resolveCoverImageUrl(game.coverImageUrl, import.meta.env.BASE_URL)
     : null;
@@ -585,7 +535,7 @@ function GameCard({ game, vdsBadge }: { game: GameEnriched; vdsBadge?: boolean }
             <span className="text-slate-600"> · ≈${formatUsdFromLzt(minLzt)}</span>
           )}
         </p>
-        <div className="mt-2 flex flex-col gap-1">
+        <div className="mt-2">
           <Link href={`/games/${game.slug}`}>
             <Button
               size="sm"
@@ -601,24 +551,6 @@ function GameCard({ game, vdsBadge }: { game: GameEnriched; vdsBadge?: boolean }
               <ArrowRight className="ml-1 h-3 w-3" />
             </Button>
           </Link>
-          {game.browserHostUrl && (
-            <Button
-              size="sm"
-              type="button"
-              onClick={handleHost}
-              disabled={createBrowserHost.isPending || isRegistering || !playerWalletToken}
-              className="w-full h-7 text-[11px] font-semibold rounded-md"
-              style={{
-                background: "rgba(16,185,129,0.14)",
-                color: "#34d399",
-                border: "1px solid rgba(16,185,129,0.3)",
-              }}
-              data-testid={`button-host-${game.slug}`}
-            >
-              <Rocket className="mr-1 h-3 w-3" />
-              {createBrowserHost.isPending ? "…" : "Хостить"}
-            </Button>
-          )}
         </div>
       </div>
     </div>

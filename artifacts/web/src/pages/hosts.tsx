@@ -8,11 +8,8 @@ import {
   createPublicSession,
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
-import { PlayerFirstRun } from "@/components/player-first-run";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
-import { useInstantDemo } from "@/hooks/use-instant-demo";
 import { useBrowserPingMs } from "@/hooks/use-browser-ping";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -338,7 +335,6 @@ function PlayButton({
 
 export default function HostsPage() {
   const { playerWalletToken, registerGuest } = usePlayerWallet();
-  const { launchDemo, isLaunching: isDemoLaunching } = useInstantDemo();
 
   useEffect(() => {
     if (!playerWalletToken) void registerGuest();
@@ -425,7 +421,6 @@ export default function HostsPage() {
         }
       `}</style>
 
-      <PlayerFirstRun />
       <SiteNav activePath="/hosts" />
 
       <main className="max-w-6xl mx-auto px-6 pt-10 pb-16">
@@ -501,19 +496,8 @@ export default function HostsPage() {
               Сейчас ни один хост не онлайн.
             </p>
             <p className="text-xs text-slate-600 mt-1">
-              Пока ждёшь — попробуй бесплатное демо прямо в браузере.
+              Загляни позже — или сам стань хостом и заработай на свободном GPU.
             </p>
-            <Button
-              size="sm"
-              className="mt-4 h-8 px-4 text-xs font-semibold"
-              style={{ background: "#0ea5e9", color: "#fff" }}
-              disabled={isDemoLaunching}
-              onClick={() => void launchDemo()}
-              data-testid="button-hosts-empty-demo"
-            >
-              <Play className="w-3 h-3 mr-1" />
-              {isDemoLaunching ? "Запуск…" : "Попробовать демо"}
-            </Button>
           </div>
         ) : (
           <div className="space-y-3" data-testid="list-public-hosts">

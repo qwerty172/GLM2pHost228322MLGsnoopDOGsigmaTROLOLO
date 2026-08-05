@@ -13,7 +13,6 @@ import {
 } from "@workspace/db";
 import { isQuotaActiveNow } from "../lib/quotaEngine";
 import {
-  CreateBrowserHostSessionBody,
   CreateSessionBody,
   GetSessionResponse,
   GetSessionParams,
@@ -280,94 +279,6 @@ router.post("/sessions", async (req, res): Promise<void> => {
   res.status(201).json(GetSessionResponse.parse(serialize(session)));
 });
 
-// Create a session whose host is the calling browser. We mint a fresh host
-// row for this session (so existing per-host plumbing — billing, signaling,
-// activity, withdrawals — works unchanged) and return its hostToken to the
-// caller. The caller is responsible for storing the hostToken locally
-// (sessions are throwaway, so it never goes back to the server).
-router.post("/sessions/browser-host", async (req, res): Promise<void> => {
-  const parsed = CreateBrowserHostSessionBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const [player] = await db
-    .select()
-    .from(playersTable)
-    .where(eq(playersTable.playerToken, parsed.data.playerWalletToken));
-  if (!player) {
-    res.status(404).json({ error: "Player wallet not found" });
-    return;
-  }
-  const [game] = await db
-    .select()
-    .from(gamesTable)
-    .where(eq(gamesTable.slug, parsed.data.gameSlug));
-  if (!game) {
-    res.status(404).json({ error: "Game not found" });
-    return;
-  }
-  if (!game.browserHostUrl) {
-    res
-      .status(400)
-      .json({ error: "This game does not support browser-host mode" });
-    return;
-  }
-
-  const hostToken = generateToken();
-  const [host] = await db
-    .insert(hostsTable)
-    .values({
-      hostToken,
-      displayName: `${player.displayName} (браузерный хост)`,
-      gameId: game.id,
-      boundUrl: game.browserHostUrl,
-      boundAppLabel: game.title,
-      description: `Браузерная сессия — ${game.title}.`,
-      // Browser-host sessions are always available while the tab is open.
-      scheduleMode: "always",
-      // Default per-minute price. The host page can surface its own pricing
-      // controls later; for the test we use the platform default.
-      minutePriceUsd: "0.04",
-      launchPriceUsd: "0",
-    })
-    .returning();
-  if (!host) {
-    res.status(500).json({ error: "Failed to create browser host" });
-    return;
-  }
-
-  const playerToken = generateToken();
-  const [session] = await db
-    .insert(sessionsTable)
-    .values({
-      hostId: host.id,
-      gameId: game.id,
-      playerToken,
-      ...inviteFields(),
-      appName: game.title,
-      resolution: "1280x720",
-      bitrateKbps: 4000,
-      ratePerMinute: String(Number(host.minutePriceUsd)),
-      paymentSource: "auto",
-    })
-    .returning();
-  if (!session) {
-    res.status(500).json({ error: "Failed to create session" });
-    return;
-  }
-
-  req.log.info(
-    { sessionId: session.id, hostId: host.id, gameSlug: game.slug },
-    "Browser-host session created",
-  );
-  res.status(201).json({
-    session: serialize(session),
-    hostToken,
-    browserHostUrl: game.browserHostUrl,
-  });
-});
-
 // Self-test sessions are free, so throttle creation hard: token guessing or
 // spam would otherwise churn the sessions table at zero cost.
 const testSessionLimiter = rateLimit({
@@ -375,83 +286,6 @@ const testSessionLimiter = rateLimit({
   windowMs: 60_000,
   max: 5,
   keyFn: ipKey,
-});
-
-const demoSessionLimiter = rateLimit({
-  scope: "sessions:demo",
-  windowMs: 60_000,
-  max: 10,
-  keyFn: ipKey,
-});
-
-const CreateDemoSessionBody = z.object({
-  gameSlug: z.string().optional(),
-});
-
-// Public instant-play demo: no host registration, no agent — iframe in /play.
-router.post("/sessions/demo", demoSessionLimiter, async (req, res): Promise<void> => {
-  const parsed = CreateDemoSessionBody.safeParse(req.body ?? {});
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-
-  const gameSlug = parsed.data.gameSlug?.trim() || "rogue-fable-3";
-  const [game] = await db
-    .select()
-    .from(gamesTable)
-    .where(eq(gamesTable.slug, gameSlug));
-  if (!game?.browserHostUrl) {
-    res.status(404).json({ error: "Demo game not available" });
-    return;
-  }
-
-  const hostToken = generateToken();
-  const [host] = await db
-    .insert(hostsTable)
-    .values({
-      hostToken,
-      displayName: "Демо",
-      gameId: game.id,
-      boundUrl: game.browserHostUrl,
-      boundAppLabel: game.title,
-      description: `Мгновенное демо — ${game.title}.`,
-      scheduleMode: "always",
-      minutePriceUsd: "0",
-      launchPriceUsd: "0",
-    })
-    .returning();
-  if (!host) {
-    res.status(500).json({ error: "Failed to create demo host" });
-    return;
-  }
-
-  const playerToken = generateToken();
-  const [session] = await db
-    .insert(sessionsTable)
-    .values({
-      hostId: host.id,
-      gameId: game.id,
-      playerToken,
-      ...inviteFields(),
-      appName: game.title,
-      resolution: "1280x720",
-      bitrateKbps: 4000,
-      ratePerMinute: "0",
-      paymentSource: "auto",
-      isTest: true,
-    })
-    .returning();
-  if (!session) {
-    res.status(500).json({ error: "Failed to create demo session" });
-    return;
-  }
-
-  req.log.info(
-    { sessionId: session.id, gameSlug },
-    "Demo session created",
-  );
-  res.status(201).json({ session: serialize(session) });
 });
 
 // Self-test session: the host launches a session against their own PC to
@@ -473,14 +307,9 @@ router.post("/sessions/test", testSessionLimiter, async (req, res): Promise<void
     res.status(404).json({ error: "Host not found" });
     return;
   }
-  // 0. One-shot override URL from the dashboard "quick test" input.
-  // 1. Host's own bound browser URL (boundUrl) from profile settings.
-  // 2. Modern library (hostGamesTable) — first enabled entry.
-  // 3. Legacy hosts.gameId.
-  // 4. Any catalog game (browser-hosted first) — so test works even before
-  //    the host has configured their library.
-  const overrideUrl = (String(req.body?.overrideUrl ?? "")).trim();
-  const hostBoundUrl = overrideUrl || (host.boundUrl ?? "").trim();
+  // 1. Modern library (hostGamesTable) — first enabled entry.
+  // 2. Legacy hosts.gameId.
+  // 3. Any catalog game as last resort.
   let game: typeof gamesTable.$inferSelect | undefined;
 
   const [libraryEntry] = await db
@@ -505,14 +334,14 @@ router.post("/sessions/test", testSessionLimiter, async (req, res): Promise<void
     game = found;
   }
 
-  // Fallback: pick any catalog game. Prefer browser-hosted so the test is
-  // immediately playable in the browser without the desktop agent.
+  // Fallback: pick any catalog game.
   if (!game) {
-    const allGames = await db
+    const [found] = await db
       .select()
       .from(gamesTable)
-      .orderBy(gamesTable.title);
-    game = allGames.find((g) => g.browserHostUrl) ?? allGames[0];
+      .orderBy(gamesTable.title)
+      .limit(1);
+    game = found;
   }
 
   if (!game) {
@@ -570,21 +399,6 @@ router.post("/sessions/test", testSessionLimiter, async (req, res): Promise<void
       ratePerMinute: String(Number(host.minutePriceUsd)),
       paymentSource: "auto",
       isTest: true,
-      // When the host bound their own browser URL, show that in the player —
-      // the catalog game row above is only used to satisfy the gameId FK.
-      ...(hostBoundUrl
-        ? {
-            appName:
-              host.boundAppLabel ||
-              (() => {
-                try {
-                  return new URL(hostBoundUrl).hostname;
-                } catch {
-                  return game.title;
-                }
-              })(),
-          }
-        : {}),
     })
     .returning();
   if (!session) {
@@ -596,14 +410,7 @@ router.post("/sessions/test", testSessionLimiter, async (req, res): Promise<void
     { sessionId: session.id, hostId: host.id },
     "Test session created",
   );
-  // hostBoundUrl lets the dashboard decide how to open the test:
-  // external http(s) URL → host streaming page (tab capture via WebRTC);
-  // local/relative game path → player iframe directly.
-  res.status(201).json({
-    session: serialize(session),
-    hostBoundUrl: hostBoundUrl || null,
-    isExternalUrl: /^https?:\/\//i.test(hostBoundUrl),
-  });
+  res.status(201).json({ session: serialize(session) });
 });
 
 router.get(
@@ -622,13 +429,10 @@ router.get(
           slug: gamesTable.slug,
           coverImageUrl: gamesTable.coverImageUrl,
           title: gamesTable.title,
-          browserHostUrl: gamesTable.browserHostUrl,
         },
-        hostBoundUrl: hostsTable.boundUrl,
       })
       .from(sessionsTable)
       .leftJoin(gamesTable, eq(sessionsTable.gameId, gamesTable.id))
-      .leftJoin(hostsTable, eq(sessionsTable.hostId, hostsTable.id))
       .where(eq(sessionsTable.playerToken, params.data.playerToken));
 
     if (rows.length === 0) {
@@ -636,31 +440,13 @@ router.get(
       return;
     }
 
-    const { session, game, hostBoundUrl } = rows[0];
+    const { session, game } = rows[0];
 
-    // For self-test sessions the host's own bound browser URL wins over the
-    // catalog game's URL — the host is testing exactly what they configured.
-    // External http(s) URLs are NOT returned as iframe targets: arbitrary
-    // sites block framing (X-Frame-Options), so the player must receive the
-    // WebRTC stream from the host's shared tab instead.
-    const boundTrimmed = (hostBoundUrl ?? "").trim();
-    const boundIsExternal = /^https?:\/\//i.test(boundTrimmed);
-    const effectiveBrowserUrl =
-      session.isTest && boundTrimmed
-        ? boundIsExternal
-          ? null
-          : boundTrimmed
-        : game?.browserHostUrl ?? null;
-
-    // Return strict-schema fields plus extra game info for the player UI.
     res.json({
       ...GetSessionByPlayerTokenResponse.parse(serialize(session)),
       gameSlug: game?.slug ?? null,
       gameCoverImageUrl: game?.coverImageUrl ?? null,
       gameTitle: session.isTest ? session.appName : game?.title ?? null,
-      // For isTest sessions with a browser game, the play page renders an
-      // iframe directly (no WebRTC / no agent needed).
-      gameBrowserHostUrl: effectiveBrowserUrl,
     });
   },
 );
@@ -1062,7 +848,6 @@ router.get("/sessions/by-invite/:inviteCode", async (req, res): Promise<void> =>
     gameSlug: game?.slug ?? null,
     gameCoverImageUrl: game?.coverImageUrl ?? null,
     gameTitle: session.isTest ? session.appName : game?.title ?? null,
-    gameBrowserHostUrl: game?.browserHostUrl ?? null,
   });
 });
 

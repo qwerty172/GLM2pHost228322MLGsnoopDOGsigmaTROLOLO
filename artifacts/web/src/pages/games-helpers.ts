@@ -1,9 +1,6 @@
 export const LZT_PER_USDT = 200;
 export const DEFAULT_PRICE_PER_MIN_USD = 0.04;
 
-export const HOST_TOKEN_STORAGE_PREFIX = "streamline.browserHostToken:";
-export const BROWSER_HOST_URL_STORAGE_PREFIX = "streamline.browserHostUrl:";
-
 export type SortKey = "mostOnline" | "cheapest" | "newest";
 
 export type BoolFilterKey = "hasMods" | "isMultiplayer" | "hostSpectatesPlayer" | "hasQuests";

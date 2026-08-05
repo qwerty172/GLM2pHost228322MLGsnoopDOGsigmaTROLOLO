@@ -48,7 +48,7 @@ export function isSiteNavHostActive(activePath?: string): boolean {
 export function shouldHideSiteNavGuestBanner(activePath?: string): boolean {
   return (
     typeof activePath === "string" &&
-    (activePath.startsWith("/play") || activePath.startsWith("/host/play"))
+    (activePath.startsWith("/play"))
   );
 }
 

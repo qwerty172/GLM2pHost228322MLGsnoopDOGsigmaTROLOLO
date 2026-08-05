@@ -12,7 +12,6 @@ export interface HostLibraryGame {
   title: string;
   coverImageUrl: string;
   genre: string;
-  browserHostUrl: string;
   hasMods: boolean;
   isMultiplayer: boolean;
 }

@@ -21,7 +21,6 @@ export interface PublicGameCatalogItem {
   isMultiplayer: boolean;
   hostSpectatesPlayer: boolean;
   hasQuests: boolean;
-  browserHostUrl: string;
   /** Number of pending or active sessions matching this game right now */
   liveSessionCount: number;
 }

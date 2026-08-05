@@ -86,7 +86,6 @@ function shapeGame(
     isMultiplayer: g.isMultiplayer,
     hostSpectatesPlayer: g.hostSpectatesPlayer,
     hasQuests: g.hasQuests,
-    browserHostUrl: g.browserHostUrl,
     saveManifest: g.saveManifest ?? [],
     liveSessionCount,
     liveHostsCount: agg?.liveHostsCount ?? 0,
@@ -188,17 +187,10 @@ router.get("/games", async (req, res): Promise<void> => {
 
   const conds = [];
   // Filter hidden games unless admin explicitly requests them.
-  // Non-admins also see only games that have a playable cover (non-empty
-  // cover_image_url or browser_host_url). This drops placeholder stubs
-  // that slipped past the is_hidden flag.
+  // Non-admins also see only games that have a cover image.
   if (!showHidden) {
     conds.push(eq(gamesTable.isHidden, false));
-    conds.push(
-      or(
-        sql`${gamesTable.browserHostUrl} != ''`,
-        sql`${gamesTable.coverImageUrl} != ''`,
-      )!,
-    );
+    conds.push(sql`${gamesTable.coverImageUrl} != ''`);
   }
   if (q.hasMods === true) conds.push(eq(gamesTable.hasMods, true));
   if (q.isMultiplayer === true)

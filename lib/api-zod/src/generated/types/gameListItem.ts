@@ -35,11 +35,6 @@ export interface GameListItem {
    * @nullable
    */
   minPricePerMinuteLzt: number | null;
-  /** Same-origin URL of a vendored browser build that a player can host
-directly from their browser tab (no desktop agent). Empty when only
-native-app hosting is supported.
- */
-  browserHostUrl: string;
   /** When true the game is excluded from the public catalog (admin-only flag). */
   isHidden?: boolean;
 }

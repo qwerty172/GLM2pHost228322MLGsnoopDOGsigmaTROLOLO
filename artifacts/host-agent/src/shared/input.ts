@@ -11,7 +11,7 @@ const VALID_INPUT_KINDS = new Set([
   "keyup",
 ]);
 
-/** Well-known local secret for browser-play → agent POST /input (localhost only). */
+/** Well-known local secret for local POST /input (localhost only). */
 export const LOCAL_INPUT_SECRET = "dh-local-input-v1";
 
 /** Header name required on POST /input. */

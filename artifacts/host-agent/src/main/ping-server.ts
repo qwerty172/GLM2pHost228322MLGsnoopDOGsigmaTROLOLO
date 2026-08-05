@@ -93,7 +93,7 @@ export function createPingServer(deps: PingServerDeps): http.Server {
       return;
     }
 
-    // POST /input — requires shared secret; used by browser-play.tsx.
+    // POST /input — requires shared secret for local input injection.
     if (req.method === "POST" && req.url === "/input") {
       if (!corsOk) {
         res.writeHead(403);

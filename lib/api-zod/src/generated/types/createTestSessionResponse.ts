@@ -9,7 +9,4 @@ import type { Session } from "./session";
 
 export interface CreateTestSessionResponse {
   session: Session;
-  /** @nullable */
-  hostBoundUrl?: string | null;
-  isExternalUrl?: boolean;
 }

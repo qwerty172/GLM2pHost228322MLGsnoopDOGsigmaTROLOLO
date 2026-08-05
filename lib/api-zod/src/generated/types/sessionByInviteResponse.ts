@@ -14,6 +14,4 @@ export type SessionByInviteResponse = Session & {
   gameCoverImageUrl?: string | null;
   /** @nullable */
   gameTitle?: string | null;
-  /** @nullable */
-  gameBrowserHostUrl?: string | null;
 };

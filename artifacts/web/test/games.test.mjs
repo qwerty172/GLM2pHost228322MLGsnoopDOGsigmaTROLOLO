@@ -4,8 +4,6 @@ import assert from "node:assert/strict";
 const {
   LZT_PER_USDT,
   DEFAULT_PRICE_PER_MIN_USD,
-  HOST_TOKEN_STORAGE_PREFIX,
-  BROWSER_HOST_URL_STORAGE_PREFIX,
   buildGamesApiParams,
   extractCategories,
   extractAllGenres,
@@ -25,11 +23,9 @@ const emptyBoolFilters = {
   hasQuests: false,
 };
 
-test("LZT_PER_USDT and storage prefixes are stable", () => {
+test("LZT_PER_USDT constants are stable", () => {
   assert.equal(LZT_PER_USDT, 200);
   assert.equal(DEFAULT_PRICE_PER_MIN_USD, 0.04);
-  assert.equal(HOST_TOKEN_STORAGE_PREFIX, "streamline.browserHostToken:");
-  assert.equal(BROWSER_HOST_URL_STORAGE_PREFIX, "streamline.browserHostUrl:");
 });
 
 test("buildGamesApiParams includes active bool filters, liveOnly, search and category", () => {

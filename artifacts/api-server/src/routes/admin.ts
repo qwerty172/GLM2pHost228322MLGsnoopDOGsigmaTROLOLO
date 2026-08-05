@@ -221,9 +221,6 @@ router.post(
         description: overrides.description ?? sub.description,
         coverImageUrl,
         steamAppId: overrides.steamAppId ?? sub.steamAppId ?? undefined,
-        // Copy kind → browserHostUrl for browser games.
-        browserHostUrl:
-          sub.kind === "browser" ? sub.defaultBrowserUrl : "",
       })
       .returning();
 
@@ -393,7 +390,6 @@ const PatchGameBody = z.object({
   isMultiplayer: z.boolean().optional(),
   hostSpectatesPlayer: z.boolean().optional(),
   hasQuests: z.boolean().optional(),
-  browserHostUrl: z.string().optional(),
   isHidden: z.boolean().optional(),
 });
 
@@ -431,7 +427,6 @@ router.patch(
     if (d.hostSpectatesPlayer !== undefined)
       update.hostSpectatesPlayer = d.hostSpectatesPlayer;
     if (d.hasQuests !== undefined) update.hasQuests = d.hasQuests;
-    if (d.browserHostUrl !== undefined) update.browserHostUrl = d.browserHostUrl;
     if (d.isHidden !== undefined) update.isHidden = d.isHidden;
 
     if (Object.keys(update).length === 0) {

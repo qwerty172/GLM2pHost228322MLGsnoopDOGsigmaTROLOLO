@@ -650,7 +650,7 @@ async function startAgent(): Promise<void> {
     }
     const msg =
       `Не удалось занять порты ${ports.join(", ")} — ` +
-      `дашборд не увидит агент, управление browser-play недоступно.`;
+      `дашборд не увидит агент, локальный ввод недоступен.`;
     log("error", msg);
     if (Notification.isSupported()) {
       new Notification({ title: "Агент: порт занят", body: msg }).show();

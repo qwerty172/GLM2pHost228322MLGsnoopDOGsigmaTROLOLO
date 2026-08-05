@@ -82,12 +82,11 @@ if [[ "${BILLING_SMOKE:-0}" == "1" ]]; then
   echo "==> Billing tick smoke (≈70s)..."
   smoke_sql "UPDATE players SET internal_balance_lzt = 1000 WHERE player_token = '$PLAYER_WALLET'" >/dev/null
   echo "OK  player balance topped up via SQL"
-  BILL_JSON=$(curl -sf -X POST "$BASE/api/sessions/browser-host" \
+  BILL_JSON=$(curl -sf -X POST "$BASE/api/sessions" \
     -H 'content-type: application/json' \
-    -d "{\"playerWalletToken\":\"$PLAYER_WALLET\",\"gameSlug\":\"rogue-fable-3\"}")
-  BILL_SESSION_ID=$(node -e "console.log(JSON.parse(process.argv[1]).session.id)" "$BILL_JSON")
-  BILL_PLAYER_TOKEN=$(node -e "console.log(JSON.parse(process.argv[1]).session.playerToken)" "$BILL_JSON")
-  BILL_HOST_TOKEN=$(node -e "console.log(JSON.parse(process.argv[1]).hostToken)" "$BILL_JSON")
+    -d "{\"hostToken\":\"$HOST_TOKEN\",\"appName\":\"Billing Smoke\",\"resolution\":\"1280x720\",\"bitrateKbps\":4000,\"ratePerMinute\":0.04,\"paymentSource\":\"auto\"}")
+  BILL_SESSION_ID=$(node -e "console.log(JSON.parse(process.argv[1]).id)" "$BILL_JSON")
+  BILL_PLAYER_TOKEN=$(node -e "console.log(JSON.parse(process.argv[1]).playerToken)" "$BILL_JSON")
   echo "OK  billing session $BILL_SESSION_ID"
 
   curl -sf -X POST "$BASE/api/sessions/by-player-token/$BILL_PLAYER_TOKEN/claim" \
@@ -116,7 +115,7 @@ await new Promise((resolve, reject) => {
   for _i in $(seq 1 8); do
     curl -sf -X POST "$BASE/api/hosts/heartbeat" \
       -H 'content-type: application/json' \
-      -d "{\"hostToken\":\"$BILL_HOST_TOKEN\"}" >/dev/null || true
+      -d "{\"hostToken\":\"$HOST_TOKEN\"}" >/dev/null || true
     sleep 10
   done
 

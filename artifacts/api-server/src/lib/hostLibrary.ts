@@ -21,7 +21,6 @@ export type LibraryEntry = {
     title: string;
     coverImageUrl: string;
     genre: string;
-    browserHostUrl: string;
     hasMods: boolean;
     isMultiplayer: boolean;
     steamAppId: string | null;
@@ -71,7 +70,6 @@ export async function listLibrary(hostId: string): Promise<LibraryEntry[]> {
       title: r.games.title,
       coverImageUrl: r.games.coverImageUrl,
       genre: r.games.genre,
-      browserHostUrl: r.games.browserHostUrl,
       hasMods: r.games.hasMods,
       isMultiplayer: r.games.isMultiplayer,
       steamAppId: r.games.steamAppId,
@@ -110,36 +108,25 @@ export async function addToLibrary(
     return { ok: false, reason: "Game not found", status: 404 };
   }
 
-  // Determine game type from catalog. A game with a non-empty browserHostUrl
-  // is a browser-streamable title; everything else is a native executable.
-  const isBrowser = game.browserHostUrl !== "";
+  // Browser-game entries use boundUrl (http/https); native games use appPath.
+  const boundUrl = opts.boundUrl?.trim() ?? "";
+  const appPath = opts.appPath?.trim() ?? "";
 
-  if (isBrowser) {
-    // Browser game: boundUrl is required (override) or falls back to the
-    // game's default URL.  The caller must at least confirm a valid URL.
-    const resolvedUrl = opts.boundUrl?.trim() || game.browserHostUrl;
-    if (!resolvedUrl) {
-      return { ok: false, reason: "Browser game requires a boundUrl", status: 400 };
-    }
+  if (boundUrl) {
     try {
-      const u = new URL(resolvedUrl);
+      const u = new URL(boundUrl);
       if (u.protocol !== "http:" && u.protocol !== "https:") {
         return { ok: false, reason: "boundUrl must use http or https", status: 400 };
       }
     } catch {
       return { ok: false, reason: "boundUrl is not a valid URL", status: 400 };
     }
-  } else {
-    // Native game: appPath to the executable is required so the host agent
-    // can launch it. Empty string is rejected.
-    const resolvedPath = opts.appPath?.trim() ?? "";
-    if (resolvedPath === "") {
-      return {
-        ok: false,
-        reason: "Native game requires an appPath (absolute path to the .exe)",
-        status: 400,
-      };
-    }
+  } else if (!appPath) {
+    return {
+      ok: false,
+      reason: "Укажи appPath (.exe) или boundUrl (браузерная игра для агента)",
+      status: 400,
+    };
   }
 
   const existingRows = await db
@@ -163,8 +150,8 @@ export async function addToLibrary(
     hostId,
     gameId,
     pricePerMinuteLzt: opts.pricePerMinuteLzt,
-    appPath: opts.appPath?.trim() ?? "",
-    boundUrl: opts.boundUrl?.trim() ?? (isBrowser ? game.browserHostUrl : ""),
+    appPath,
+    boundUrl,
     launchArgs: opts.launchArgs?.trim() ?? "",
     sortOrder: nextSort,
   });
@@ -221,17 +208,16 @@ export async function updateEntry(
   }
 
   // Game-type-aware path/URL validation — same rules as addToLibrary.
-  const isBrowser = game?.browserHostUrl !== "";
-  if (opts.appPath !== undefined && !isBrowser) {
-    if (opts.appPath.trim() === "") {
-      return {
-        ok: false,
-        reason: "Native game requires a non-empty appPath",
-        status: 400,
-      };
-    }
+  const effectiveBoundUrl = opts.boundUrl?.trim() ?? existing.boundUrl?.trim() ?? "";
+  const effectiveAppPath = opts.appPath?.trim() ?? existing.appPath?.trim() ?? "";
+  if (opts.appPath !== undefined && !effectiveBoundUrl && effectiveAppPath === "") {
+    return {
+      ok: false,
+      reason: "Native game requires a non-empty appPath",
+      status: 400,
+    };
   }
-  if (opts.boundUrl !== undefined && isBrowser && opts.boundUrl.trim() !== "") {
+  if (opts.boundUrl !== undefined && effectiveBoundUrl) {
     try {
       const u = new URL(opts.boundUrl.trim());
       if (u.protocol !== "http:" && u.protocol !== "https:") {

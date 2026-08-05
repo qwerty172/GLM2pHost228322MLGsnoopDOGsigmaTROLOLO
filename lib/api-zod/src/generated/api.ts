@@ -1002,11 +1002,6 @@ export const ListGamesResponseItem = zod.object({
     .describe(
       "Cheapest enabled library price for this game across hosts, in LZT",
     ),
-  browserHostUrl: zod
-    .string()
-    .describe(
-      "Same-origin URL of a vendored browser build that a player can host\ndirectly from their browser tab (no desktop agent). Empty when only\nnative-app hosting is supported.\n",
-    ),
   isHidden: zod
     .boolean()
     .optional()
@@ -1081,11 +1076,6 @@ export const GetGameBySlugResponse = zod
       .nullable()
       .describe(
         "Cheapest enabled library price for this game across hosts, in LZT",
-      ),
-    browserHostUrl: zod
-      .string()
-      .describe(
-        "Same-origin URL of a vendored browser build that a player can host\ndirectly from their browser tab (no desktop agent). Empty when only\nnative-app hosting is supported.\n",
       ),
     isHidden: zod
       .boolean()
@@ -1425,22 +1415,6 @@ export const CreateSessionBody = zod.object({
 });
 
 /**
- * @summary Create a session whose host is the calling browser (no desktop agent).
-Returns both the session and the freshly minted hostToken вЂ” the caller
-is responsible for storing the hostToken locally and using it to
-connect to /signal as role=host and to end the session.
-
- */
-export const CreateBrowserHostSessionBody = zod
-  .object({
-    playerWalletToken: zod.string(),
-    gameSlug: zod.string(),
-  })
-  .describe(
-    "The calling browser (identified by playerWalletToken) wants to host\nthe given game itself, by loading its vendored build into an iframe\nand capturing the canvas via WebRTC. The server mints a fresh host\nrow owned by this player and returns its hostToken.\n",
-  );
-
-/**
  * @summary Get a session by id (host-authenticated)
  */
 export const GetSessionParams = zod.object({
@@ -1688,21 +1662,8 @@ export const GetSessionByInviteResponse = zod
       gameSlug: zod.string().nullish(),
       gameCoverImageUrl: zod.string().nullish(),
       gameTitle: zod.string().nullish(),
-      gameBrowserHostUrl: zod.string().nullish(),
     }),
   );
-
-/**
- * @summary Create a free instant-play demo session (no host registration or agent).
-Returns a test session the player can open directly in the browser.
-
- */
-export const CreateDemoSessionBody = zod.object({
-  gameSlug: zod
-    .string()
-    .optional()
-    .describe("Catalog slug with browserHostUrl (default rogue-fable-3)"),
-});
 
 /**
  * @summary Create a free host self-test session
@@ -1711,12 +1672,7 @@ export const CreateTestSessionHeader = zod.object({
   "X-Host-Token": zod.string(),
 });
 
-export const CreateTestSessionBody = zod.object({
-  overrideUrl: zod
-    .string()
-    .optional()
-    .describe("One-shot browser URL override for this test"),
-});
+export const CreateTestSessionBody = zod.object({});
 
 /**
  * @summary Claim a session by linking it to a player's wallet (enables billing)
@@ -3868,11 +3824,6 @@ export const AdminListGamesResponseItem = zod.object({
     .describe(
       "Cheapest enabled library price for this game across hosts, in LZT",
     ),
-  browserHostUrl: zod
-    .string()
-    .describe(
-      "Same-origin URL of a vendored browser build that a player can host\ndirectly from their browser tab (no desktop agent). Empty when only\nnative-app hosting is supported.\n",
-    ),
   isHidden: zod
     .boolean()
     .optional()
@@ -4047,7 +3998,6 @@ export const AdminPatchGameBody = zod.object({
   isMultiplayer: zod.boolean().optional(),
   hostSpectatesPlayer: zod.boolean().optional(),
   hasQuests: zod.boolean().optional(),
-  browserHostUrl: zod.string().optional(),
   isHidden: zod
     .boolean()
     .optional()
@@ -4095,11 +4045,6 @@ export const AdminPatchGameResponse = zod.object({
     .nullable()
     .describe(
       "Cheapest enabled library price for this game across hosts, in LZT",
-    ),
-  browserHostUrl: zod
-    .string()
-    .describe(
-      "Same-origin URL of a vendored browser build that a player can host\ndirectly from their browser tab (no desktop agent). Empty when only\nnative-app hosting is supported.\n",
     ),
   isHidden: zod
     .boolean()
@@ -4227,11 +4172,6 @@ export const AdminApproveGameSubmissionResponse = zod.object({
       .nullable()
       .describe(
         "Cheapest enabled library price for this game across hosts, in LZT",
-      ),
-    browserHostUrl: zod
-      .string()
-      .describe(
-        "Same-origin URL of a vendored browser build that a player can host\ndirectly from their browser tab (no desktop agent). Empty when only\nnative-app hosting is supported.\n",
       ),
     isHidden: zod
       .boolean()
@@ -4440,7 +4380,6 @@ export const ListHostLibraryResponseItem = zod.object({
     title: zod.string(),
     coverImageUrl: zod.string(),
     genre: zod.string(),
-    browserHostUrl: zod.string(),
     hasMods: zod.boolean(),
     isMultiplayer: zod.boolean(),
   }),
@@ -4501,7 +4440,6 @@ export const UpdateHostLibraryEntryResponse = zod.object({
     title: zod.string(),
     coverImageUrl: zod.string(),
     genre: zod.string(),
-    browserHostUrl: zod.string(),
     hasMods: zod.boolean(),
     isMultiplayer: zod.boolean(),
   }),
@@ -4595,7 +4533,6 @@ export const ListPublicGamesResponseItem = zod.object({
   isMultiplayer: zod.boolean(),
   hostSpectatesPlayer: zod.boolean(),
   hasQuests: zod.boolean(),
-  browserHostUrl: zod.string(),
   liveSessionCount: zod
     .number()
     .describe(
