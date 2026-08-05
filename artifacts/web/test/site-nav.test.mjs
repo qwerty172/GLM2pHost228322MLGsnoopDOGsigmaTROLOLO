@@ -7,6 +7,9 @@ const {
   isSiteNavPathActive,
   isGuestUpgradeNameValid,
   formatWalletBalanceLzt,
+  getSiteNavPlayHref,
+  isSiteNavPlayActive,
+  SITE_NAV_PLAY_HREF,
 } = await import("../src/components/site-nav.tsx");
 
 test("isSiteNavHostActive highlights host dashboard and wallet routes", () => {
@@ -30,6 +33,14 @@ test("isSiteNavPathActive matches exact path", () => {
   assert.equal(isSiteNavPathActive("/hosts", "/hosts"), true);
   assert.equal(isSiteNavPathActive("/profile", "/hosts"), false);
   assert.equal(isSiteNavPathActive(undefined, "/hosts"), false);
+});
+
+test("getSiteNavPlayHref and isSiteNavPlayActive unify desktop and mobile «Играть»", () => {
+  assert.equal(getSiteNavPlayHref(), "/hosts");
+  assert.equal(SITE_NAV_PLAY_HREF, "/hosts");
+  assert.equal(isSiteNavPlayActive("/hosts"), true);
+  assert.equal(isSiteNavPlayActive("/games"), false);
+  assert.equal(isSiteNavPlayActive(undefined), false);
 });
 
 test("isGuestUpgradeNameValid requires at least two non-whitespace characters", () => {

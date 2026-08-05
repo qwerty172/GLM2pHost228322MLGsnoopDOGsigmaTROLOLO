@@ -59,6 +59,17 @@ export function isSiteNavPathActive(
   return activePath === path;
 }
 
+/** Единая цель для «Играть» в шапке (десктоп и мобила). */
+export const SITE_NAV_PLAY_HREF = "/hosts" as const;
+
+export function getSiteNavPlayHref(): typeof SITE_NAV_PLAY_HREF {
+  return SITE_NAV_PLAY_HREF;
+}
+
+export function isSiteNavPlayActive(activePath?: string): boolean {
+  return isSiteNavPathActive(activePath, SITE_NAV_PLAY_HREF);
+}
+
 export function isGuestUpgradeNameValid(name: string): boolean {
   return name.trim().length >= 2;
 }
@@ -136,12 +147,12 @@ export function SiteNav({ activePath }: Props) {
 
         {/* Primary nav — desktop */}
         <div className="hidden md:flex items-center gap-1 flex-1">
-          <Link href="/hosts">
+          <Link href={getSiteNavPlayHref()}>
             <span
               className="flex items-center gap-1.5 text-[13px] font-semibold transition-colors cursor-pointer px-3 py-1.5 rounded-md"
               style={{
-                color: isActive("/hosts") ? "#38bdf8" : "#e2e8f0",
-                background: isActive("/hosts") ? "rgba(14,165,233,0.08)" : "transparent",
+                color: isSiteNavPlayActive(activePath) ? "#38bdf8" : "#e2e8f0",
+                background: isSiteNavPlayActive(activePath) ? "rgba(14,165,233,0.08)" : "transparent",
               }}
               data-testid="link-nav-games"
             >
@@ -350,10 +361,10 @@ function MobileMenu({ activePath }: { activePath?: string }) {
       style={{ borderColor: "rgba(255,255,255,0.05)" }}
     >
       {/* Primary: Играть */}
-      <Link href="/games">
+      <Link href={getSiteNavPlayHref()}>
         <span
           className="flex items-center gap-1 text-[12px] font-semibold px-3 py-1 rounded whitespace-nowrap"
-          style={{ color: activePath === "/games" ? "#38bdf8" : "#e2e8f0" }}
+          style={{ color: isSiteNavPlayActive(activePath) ? "#38bdf8" : "#e2e8f0" }}
           data-testid="link-mobile-games"
         >
           <Gamepad2 className="w-3 h-3" /> Играть

@@ -42,7 +42,7 @@
 
 | ID | Приор | Задача | Файлы | Критерий готовности | Status |
 |----|-------|--------|-------|---------------------|--------|
-| U-20 | P0 | «Играть» ведёт в одно и то же место на десктопе и мобиле | `artifacts/web/src/components/site-nav.tsx`, `artifacts/web/src/pages/landing.tsx` | Одна цель для всех точек входа; юнит-тест на nav-хелперы | todo |
+| U-20 | P0 | «Играть» ведёт в одно и то же место на десктопе и мобиле | `artifacts/web/src/components/site-nav.tsx`, `artifacts/web/src/pages/landing.tsx` | Одна цель для всех точек входа; юнит-тест на nav-хелперы | done |
 | U-21 | P0 | Кнопка «Играть сейчас» подбирает хост сама — без выбора из списка | `artifacts/web/src/pages/landing.tsx`, `artifacts/web/src/pages/landing-helpers.ts`, `artifacts/web/src/pages/hosts.tsx` | Главный CTA ведёт прямо на `/play` лучшего онлайн-хоста; при отсутствии онлайн-хостов — понятная альтернатива | todo |
 | U-22 | P1 | Лендинг не прячет блок, когда онлайн-хостов нет | `artifacts/web/src/pages/landing.tsx` | Вместо скрытой секции — состояние «сейчас никто не хостит» + переход в каталог/уведомить меня | todo |
 | U-23 | P1 | Выбор игры у хоста — раскрывающийся список вместо модалки | `artifacts/web/src/pages/hosts.tsx` | `GamePickerDialog` заменён на инлайн-раскрытие в строке хоста; на мобиле не перекрывает экран | todo |
