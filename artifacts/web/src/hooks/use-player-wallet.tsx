@@ -2,8 +2,37 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { registerPlayer, upgradeGuestPlayer } from "@workspace/api-client-react";
 
-const STORAGE_KEY = "streamline.playerWalletToken";
-const GUEST_KEY = "streamline.playerIsGuest";
+export const PLAYER_WALLET_STORAGE_KEY = "streamline.playerWalletToken";
+export const PLAYER_IS_GUEST_STORAGE_KEY = "streamline.playerIsGuest";
+export const REGISTER_GUEST_ERROR_MSG = "Не удалось создать гостевой кошелёк";
+
+export function isGuestStoredValue(stored: string | null): boolean {
+  return stored === "true";
+}
+
+export async function callRegisterGuestPlayer(
+  register: typeof registerPlayer = registerPlayer,
+): Promise<string | null> {
+  try {
+    const data = await register({ guest: true });
+    return data.playerToken ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function callUpgradeGuestPlayer(
+  guestToken: string,
+  displayName: string,
+  upgrade: typeof upgradeGuestPlayer = upgradeGuestPlayer,
+): Promise<string | null> {
+  try {
+    const data = await upgrade({ guestToken, displayName: displayName.trim() });
+    return data.playerToken ?? null;
+  } catch {
+    return null;
+  }
+}
 
 interface PlayerWalletState {
   playerWalletToken: string | null;
@@ -16,62 +45,55 @@ interface PlayerWalletState {
 
 export function usePlayerWallet(): PlayerWalletState {
   const [playerWalletToken, setToken] = useState<string | null>(() =>
-    localStorage.getItem(STORAGE_KEY),
+    localStorage.getItem(PLAYER_WALLET_STORAGE_KEY),
   );
   const [isGuest, setIsGuest] = useState<boolean>(() =>
-    localStorage.getItem(GUEST_KEY) === "true",
+    isGuestStoredValue(localStorage.getItem(PLAYER_IS_GUEST_STORAGE_KEY)),
   );
   const [isRegistering, setIsRegistering] = useState(false);
   const [registerError, setRegisterError] = useState<string | null>(null);
 
   const registerGuest = useCallback(async (): Promise<string | null> => {
     if (isRegistering) return null;
-    const existing = localStorage.getItem(STORAGE_KEY);
+    const existing = localStorage.getItem(PLAYER_WALLET_STORAGE_KEY);
     if (existing) return existing;
 
     setIsRegistering(true);
     setRegisterError(null);
     try {
-      const data = await registerPlayer({ guest: true });
-      const token = data.playerToken;
-      localStorage.setItem(STORAGE_KEY, token);
-      localStorage.setItem(GUEST_KEY, "true");
+      const token = await callRegisterGuestPlayer();
+      if (!token) {
+        setRegisterError(REGISTER_GUEST_ERROR_MSG);
+        toast.error(REGISTER_GUEST_ERROR_MSG);
+        return null;
+      }
+      localStorage.setItem(PLAYER_WALLET_STORAGE_KEY, token);
+      localStorage.setItem(PLAYER_IS_GUEST_STORAGE_KEY, "true");
       setToken(token);
       setIsGuest(true);
       return token;
-    } catch {
-      const msg = "Не удалось создать гостевой кошелёк";
-      setRegisterError(msg);
-      toast.error(msg);
-      return null;
     } finally {
       setIsRegistering(false);
     }
   }, [isRegistering]);
 
   const upgradeGuest = useCallback(async (displayName: string): Promise<boolean> => {
-    const guestToken = localStorage.getItem(STORAGE_KEY);
+    const guestToken = localStorage.getItem(PLAYER_WALLET_STORAGE_KEY);
     if (!guestToken || !isGuest) return false;
-    try {
-      const data = await upgradeGuestPlayer({
-        guestToken,
-        displayName: displayName.trim(),
-      });
-      localStorage.setItem(STORAGE_KEY, data.playerToken);
-      localStorage.removeItem(GUEST_KEY);
-      setToken(data.playerToken);
-      setIsGuest(false);
-      return true;
-    } catch {
-      return false;
-    }
+    const token = await callUpgradeGuestPlayer(guestToken, displayName);
+    if (!token) return false;
+    localStorage.setItem(PLAYER_WALLET_STORAGE_KEY, token);
+    localStorage.removeItem(PLAYER_IS_GUEST_STORAGE_KEY);
+    setToken(token);
+    setIsGuest(false);
+    return true;
   }, [isGuest]);
 
   // Keep isGuest in sync if token changes externally (e.g. claim-guest sets a
   // full-account token).
   useEffect(() => {
-    const stored = localStorage.getItem(GUEST_KEY);
-    setIsGuest(stored === "true");
+    const stored = localStorage.getItem(PLAYER_IS_GUEST_STORAGE_KEY);
+    setIsGuest(isGuestStoredValue(stored));
   }, [playerWalletToken]);
 
   return {
