@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 06:08 UTC |
 | Task ID | M-83 |
 | Результат | host-auth-guard: lib host-auth-guard.ts + host-auth-guard.test.mjs (7 тестов) |
-| Commit | fd1e078 |
+| Commit | 57ed0da |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
