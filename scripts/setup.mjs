@@ -105,6 +105,6 @@ console.log("\n✓ Готово. Запуск: pnpm dev");
 console.log("  Web:  http://localhost:5000");
 console.log("  API:  http://localhost:8080/api/healthz");
 console.log("\nОпционально позже:");
-console.log("  pnpm deps:up     — Postgres + Redis + coturn (WebRTC)");
+console.log("  pnpm deps:up       — Postgres + Redis + coturn (WebRTC)");
 console.log("  pnpm run typecheck — проверка типов (CI)");
-console.log("  pnpm test        — тесты API");
+console.log("  pnpm test          — тесты API");

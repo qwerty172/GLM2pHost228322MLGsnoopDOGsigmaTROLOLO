@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Первичная настройка локального окружения (Linux/macOS/Git Bash)
-# Рекомендуется: pnpm setup (кроссплатформенный скрипт scripts/setup.mjs)
+# Рекомендуется: pnpm bootstrap (кроссплатформенный скрипт scripts/setup.mjs)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

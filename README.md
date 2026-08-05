@@ -43,7 +43,7 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 **Две команды — и работает:**
 
 ```bash
-pnpm setup   # .env, секреты, Docker Postgres+Redis, схема БД
+pnpm bootstrap   # .env, секреты, Docker Postgres+Redis, схема БД
 pnpm dev     # API :8080 + Web :5000
 ```
 
@@ -51,7 +51,7 @@ pnpm dev     # API :8080 + Web :5000
 
 | Команда | Когда |
 |---|---|
-| `pnpm setup` | Первый раз (или после клона) |
+| `pnpm bootstrap` | Первый раз (или после клона) |
 | `pnpm dev` | Каждый день |
 | `pnpm deps:up` | Поднять Postgres/Redis без полного setup |
 | `pnpm deps:down` | Остановить Docker-зависимости |
@@ -66,7 +66,7 @@ pnpm dev     # API :8080 + Web :5000
 ### Альтернатива (скрипты)
 
 ```bash
-./scripts/setup-local.sh   # = pnpm setup
+./scripts/setup-local.sh   # = pnpm bootstrap
 ./scripts/dev-local.sh     # = pnpm dev
 ```
 
@@ -75,7 +75,7 @@ pnpm dev     # API :8080 + Web :5000
 ```bash
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git decentral-hub
 cd decentral-hub
-pnpm setup
+pnpm bootstrap
 pnpm dev
 ```
 
@@ -86,8 +86,8 @@ pnpm dev
 | `DATABASE_URL` | PostgreSQL (по умолчанию совпадает с `pnpm deps:up`) |
 | `PORT` | API-сервер (8080) |
 | `WEB_PORT` | Vite dev-сервер (5000) |
-| `WALLET_ENCRYPTION_KEY` | 32-байт hex — генерируется в `pnpm setup` |
-| `JWT_SECRET` | JWT для auth — генерируется в `pnpm setup` |
+| `WALLET_ENCRYPTION_KEY` | 32-байт hex — генерируется в `pnpm bootstrap` |
+| `JWT_SECRET` | JWT для auth — генерируется в `pnpm bootstrap` |
 | `ADMIN_SECRET` | Секрет admin-роутов (`X-Admin-Secret`) |
 | `API_PROXY_TARGET` | Куда Vite проксирует `/api` (http://localhost:8080) |
 | `BASE_PATH` | Базовый путь web (`/`) |

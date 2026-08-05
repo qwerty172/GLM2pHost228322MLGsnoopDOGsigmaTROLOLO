@@ -4,7 +4,7 @@
   "license": "MIT",
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
-    "setup": "node scripts/setup.mjs",
+    "bootstrap": "node scripts/setup.mjs",
     "dev": "concurrently -n api,web -c blue,green \"pnpm --filter @workspace/api-server run dev\" \"pnpm --filter @workspace/web run dev\"",
     "deps:up": "node scripts/deps.mjs up",
     "deps:down": "node scripts/deps.mjs down",

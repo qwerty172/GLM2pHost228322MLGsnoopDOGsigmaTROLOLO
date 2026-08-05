@@ -51,18 +51,18 @@ CREATE DATABASE decentral_hub;
 ## Быстрый старт
 
 ```bash
-pnpm setup   # первый раз
+pnpm bootstrap   # первый раз
 pnpm dev     # каждый день
 ```
 
 Web: http://localhost:5000 · API: http://localhost:8080/api/healthz
 
-С Docker `pnpm setup` сам поднимет Postgres и Redis. Без Docker — свой PostgreSQL 16 и `DATABASE_URL` в `.env`.
+С Docker `pnpm bootstrap` сам поднимет Postgres и Redis. Без Docker — свой PostgreSQL 16 и `DATABASE_URL` в `.env`.
 
 ### Windows (cmd)
 
 ```bat
-pnpm setup
+pnpm bootstrap
 pnpm dev
 ```
 

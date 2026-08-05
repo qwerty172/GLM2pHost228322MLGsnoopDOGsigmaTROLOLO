@@ -7,7 +7,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 if [[ ! -f .env ]]; then
-  echo "Нет .env — сначала запусти: pnpm setup" >&2
+  echo "Нет .env — сначала запусти: pnpm bootstrap" >&2
   exit 1
 fi
 
