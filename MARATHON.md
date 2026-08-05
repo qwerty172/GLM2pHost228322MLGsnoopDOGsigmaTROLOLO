@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 02:10 UTC |
 | Task ID | M-71 |
 | Результат | unit-тест ice-prewarm.ts — prewarmIce cache/fallback, takePrewarmedConnection TTL, discardPrewarm |
-| Commit | (this run) |
+| Commit | f3cbcff |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
