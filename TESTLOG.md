@@ -15,6 +15,18 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-76 (2026-08-05 03:42 UTC) {#marathon-m-76}
+
+| Проверка | Результат |
+|---|---|
+| marathon-scan.mjs | Категория **M** — web hooks без co-located test |
+| use-platform-events.test.mjs | 4 теста — URL builder, connected filter, parse, malformed JSON |
+| use-browser-ping.test.mjs | 3 теста — interval constant, probe RTT, probe failure |
+| web test | PASS (50 tests) |
+| web typecheck | PASS |
+
+**Следующий pick:** idle — Wave Maintenance M-queue пуста (оба hook покрыты).
+
 ## Marathon M-75 (2026-08-05 03:12 UTC) {#marathon-m-75}
 
 | Проверка | Результат |
