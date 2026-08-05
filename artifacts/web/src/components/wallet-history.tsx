@@ -7,124 +7,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { History, ChevronDown } from "lucide-react";
 import {
-  History,
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  Gamepad2,
-  Coins,
-  HandCoins,
-  Percent,
-  Rocket,
-  Gift,
-  Crown,
-  Shield,
-  RotateCcw,
-  ChevronDown,
-  type LucideIcon,
-} from "lucide-react";
-
-const formatLzt = (lzt: number) =>
-  new Intl.NumberFormat("ru-RU").format(Math.trunc(Math.abs(lzt)));
-
-function formatTs(ts: string): string {
-  return new Date(ts).toLocaleString("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-type KindMeta = { label: string; icon: LucideIcon; color: string };
-
-function kindMeta(kind: string, amountLzt: number): KindMeta {
-  if (kind.startsWith("deposit_fee"))
-    return { label: "Комиссия за пополнение", icon: Percent, color: "#f59e0b" };
-  if (kind.startsWith("deposit"))
-    return { label: "Пополнение", icon: ArrowDownToLine, color: "#22c55e" };
-  if (kind.startsWith("withdrawal"))
-    return { label: "Вывод средств", icon: ArrowUpFromLine, color: "#f59e0b" };
-  if (kind === "session_tick" || kind === "session_billing")
-    return amountLzt >= 0
-      ? { label: "Заработок за игру", icon: Coins, color: "#22c55e" }
-      : { label: "Игровая минута", icon: Gamepad2, color: "#38bdf8" };
-  if (kind === "session_tick_credit" || kind === "host_service_credit")
-    return { label: "Заработок хоста", icon: Coins, color: "#22c55e" };
-  if (kind === "block_refund")
-    return { label: "Возврат за блок", icon: RotateCcw, color: "#22c55e" };
-  if (kind === "block_purchase")
-    return { label: "Блок тариф", icon: Gamepad2, color: "#38bdf8" };
-  if (kind === "platform_credit")
-    return { label: "Игра в кредит", icon: HandCoins, color: "#a78bfa" };
-  if (kind === "platform_credit_repay")
-    return { label: "Погашение кредита платформы", icon: HandCoins, color: "#22c55e" };
-  if (kind.startsWith("loan_repay"))
-    return { label: "Погашение долга", icon: HandCoins, color: "#a78bfa" };
-  if (kind.startsWith("loan_disburse"))
-    return { label: "Выдача кредита", icon: HandCoins, color: "#a78bfa" };
-  if (kind === "loan_fee")
-    return { label: "Комиссия по кредиту", icon: Percent, color: "#f59e0b" };
-  if (kind.startsWith("loan_escrow") || kind === "loan_default_release")
-    return { label: "Эскроу по кредиту", icon: Shield, color: "#a78bfa" };
-  if (kind === "interest_payout")
-    return { label: "Проценты", icon: Percent, color: "#22c55e" };
-  if (kind === "launch_fee")
-    return { label: "Комиссия за запуск", icon: Rocket, color: "#f59e0b" };
-  if (kind.startsWith("launch_promo"))
-    return { label: "Промо-бонус", icon: Gift, color: "#22c55e" };
-  if (kind === "premium_purchase")
-    return { label: "Покупка премиума", icon: Crown, color: "#fbbf24" };
-  if (kind.startsWith("quota_escrow"))
-    return { label: "Эскроу по квоте", icon: Shield, color: "#38bdf8" };
-  if (kind === "quota_royalty")
-    return { label: "Роялти по квоте", icon: Coins, color: "#22c55e" };
-  if (kind.startsWith("quota_sponsor"))
-    return { label: "Спонсорство квоты", icon: Gift, color: "#38bdf8" };
-  if (kind === "internal_pay")
-    return { label: "Внутренний платёж", icon: Coins, color: "#38bdf8" };
-  return { label: kind, icon: Coins, color: "#94a3b8" };
-}
-
-function bucketMeta(bucket: string | null | undefined): {
-  label: string;
-  color: string;
-} | null {
-  switch (bucket) {
-    case "cash":
-      return { label: "К выводу", color: "#22c55e" };
-    case "balance":
-      return { label: "Игровой", color: "#38bdf8" };
-    case "debt":
-      return { label: "Долг", color: "#f87171" };
-    case "escrow":
-      return { label: "Эскроу", color: "#a78bfa" };
-    default:
-      return null;
-  }
-}
-
-type FilterId = "all" | "in" | "out" | "debt";
-
-const FILTERS: { id: FilterId; label: string }[] = [
-  { id: "all", label: "Все" },
-  { id: "in", label: "Пополнения" },
-  { id: "out", label: "Списания" },
-  { id: "debt", label: "Долг" },
-];
-
-function isDebtTx(kind: string, bucket: string | null | undefined): boolean {
-  return (
-    bucket === "debt" || kind.startsWith("loan_") || kind === "interest_payout"
-  );
-}
-
-const PAGE_SIZE = 15;
+  WALLET_HISTORY_FILTERS,
+  WALLET_HISTORY_PAGE_SIZE,
+  type WalletHistoryFilterId,
+  filterWalletHistoryByFilter,
+  formatWalletHistoryLzt,
+  formatWalletHistoryTimestamp,
+  walletHistoryBucketMeta,
+  walletHistoryKindMeta,
+} from "@/lib/wallet-history";
 
 export function WalletHistory({ userToken }: { userToken: string | null }) {
-  const [filter, setFilter] = useState<FilterId>("all");
-  const [visible, setVisible] = useState(PAGE_SIZE);
+  const [filter, setFilter] = useState<WalletHistoryFilterId>("all");
+  const [visible, setVisible] = useState(WALLET_HISTORY_PAGE_SIZE);
 
   const { data: txs, isLoading } = useListWalletTransactions(userToken ?? "", {
     query: {
@@ -134,19 +31,7 @@ export function WalletHistory({ userToken }: { userToken: string | null }) {
     },
   });
 
-  const filtered = (txs ?? []).filter((tx) => {
-    const amount = tx.amountLzt ?? 0;
-    switch (filter) {
-      case "in":
-        return amount > 0;
-      case "out":
-        return amount < 0;
-      case "debt":
-        return isDebtTx(tx.kind, tx.bucket);
-      default:
-        return true;
-    }
-  });
+  const filtered = filterWalletHistoryByFilter(txs ?? [], filter);
 
   const slice = filtered.slice(0, visible);
   const hasMore = filtered.length > visible;
@@ -166,13 +51,13 @@ export function WalletHistory({ userToken }: { userToken: string | null }) {
             История операций
           </CardTitle>
           <div className="flex gap-1.5">
-            {FILTERS.map((f) => (
+            {WALLET_HISTORY_FILTERS.map((f) => (
               <button
                 key={f.id}
                 type="button"
                 onClick={() => {
                   setFilter(f.id);
-                  setVisible(PAGE_SIZE);
+                  setVisible(WALLET_HISTORY_PAGE_SIZE);
                 }}
                 className="text-xs px-3 py-1.5 rounded-full transition-colors"
                 style={{
@@ -225,8 +110,8 @@ export function WalletHistory({ userToken }: { userToken: string | null }) {
             <div className="space-y-1">
               {slice.map((tx) => {
                 const amount = tx.amountLzt ?? 0;
-                const meta = kindMeta(tx.kind, amount);
-                const bucket = bucketMeta(tx.bucket);
+                const meta = walletHistoryKindMeta(tx.kind, amount);
+                const bucket = walletHistoryBucketMeta(tx.bucket);
                 const Icon = meta.icon;
                 const isPositive = amount > 0;
                 return (
@@ -266,7 +151,7 @@ export function WalletHistory({ userToken }: { userToken: string | null }) {
                         )}
                       </div>
                       <div className="text-[11px] text-slate-500 truncate">
-                        {formatTs(
+                        {formatWalletHistoryTimestamp(
                           typeof tx.timestamp === "string"
                             ? tx.timestamp
                             : new Date(tx.timestamp).toISOString(),
@@ -281,7 +166,7 @@ export function WalletHistory({ userToken }: { userToken: string | null }) {
                       style={{ color: isPositive ? "#22c55e" : "#f87171" }}
                     >
                       {isPositive ? "+" : "−"}
-                      {formatLzt(amount)} LZT
+                      {formatWalletHistoryLzt(amount)} LZT
                     </div>
                   </div>
                 );
@@ -296,7 +181,7 @@ export function WalletHistory({ userToken }: { userToken: string | null }) {
                   size="sm"
                   className="text-xs border-white/10 text-slate-300 hover:text-white"
                   style={{ background: "transparent" }}
-                  onClick={() => setVisible((v) => v + PAGE_SIZE)}
+                  onClick={() => setVisible((v) => v + WALLET_HISTORY_PAGE_SIZE)}
                   data-testid="button-history-more"
                 >
                   <ChevronDown className="h-3.5 w-3.5 mr-1.5" />

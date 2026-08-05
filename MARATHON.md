@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-87 done; vt-scanner helpers unit-тест)
+> **Последнее обновление:** 2026-08-05 (M-88 done; wallet-history lib + unit-тест)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 07:14 UTC |
-| Task ID | M-87 |
-| Результат | VtScanner: экспорт isVtScannerInputValid, isVtScannerUrlInput, createVtScannerNetworkError, VT_SCANNER_STATUS_CONFIG + vt-scanner.test.mjs (7 тестов) |
-| Commit | 2944139 |
+| Дата | 2026-08-05 07:44 UTC |
+| Task ID | M-88 |
+| Результат | wallet-history: lib/wallet-history.ts (kindMeta, bucketMeta, filters) + wallet-history.test.mjs (10 тестов) |
+| Commit | ea45c74 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** M-87 done; M-88…M-89 pending (scanner cat N).
+**Wave Maintenance:** M-88 done; M-89 pending (scanner cat N).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -307,7 +307,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-85 | N | web components: unit-тест (quota-ai-chat.tsx) | `artifacts/web/src/components/quota-ai-chat.tsx` | n:artifacts/web/src/components/quota-ai-chat.tsx | done | agent |
 | M-86 | N | web components: unit-тест (site-nav.tsx) | `artifacts/web/src/components/site-nav.tsx` | n:artifacts/web/src/components/site-nav.tsx | done | agent |
 | M-87 | N | web components: unit-тест (vt-scanner.tsx) | `artifacts/web/src/components/vt-scanner.tsx` | n:artifacts/web/src/components/vt-scanner.tsx | done | agent |
-| M-88 | N | web components: unit-тест (wallet-history.tsx) | `artifacts/web/src/components/wallet-history.tsx` | n:artifacts/web/src/components/wallet-history.tsx | pending | agent |
+| M-88 | N | web components: unit-тест (wallet-history.tsx) | `artifacts/web/src/components/wallet-history.tsx` | n:artifacts/web/src/components/wallet-history.tsx | done | agent |
 | M-89 | N | web components: unit-тест (webgl-video-shader.tsx) | `artifacts/web/src/components/webgl-video-shader.tsx` | n:artifacts/web/src/components/webgl-video-shader.tsx | pending | agent |
 
 
