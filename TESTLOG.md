@@ -15,6 +15,18 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-168 (2026-08-05 18:30 UTC) {#marathon-m-168}
+
+| Проверка | Результат |
+|---|---|
+| play.test.mjs U-26 overlay/reject messages | PASS — нет WebRTC/ICE/сырых reason |
+| api-errors.test.mjs untranslated English | PASS — fallback вместо EN |
+| pnpm --filter @workspace/web test | PASS (343 tests) |
+
+**Изменения (U-26):** пользовательские тексты на `/play` без WebRTC/ICE/«токен игрока»; `getControlRejectMessage` без сырых reason-кодов; `formatApiError` не показывает непереведённый английский.
+
+**Следующий pick:** M-169 (U-27 баланс LZT виден на мобиле).
+
 ## Marathon M-167 (2026-08-05 18:26 UTC) {#marathon-m-167}
 
 | Проверка | Результат |

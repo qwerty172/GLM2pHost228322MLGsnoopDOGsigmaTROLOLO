@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 18:26 UTC|
-| Task ID | M-167|
-| Результат | U-25: keyboardOverlay по умолчанию на тач; isTouchCapableDevice; pnpm test 341 PASS|
+| Дата | 2026-08-05 18:30 UTC|
+| Task ID | M-168|
+| Результат | U-26: play overlay/reject + formatApiError без WebRTC/ICE/EN fallback; web test 343 PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -499,7 +499,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-165 | R | UX U-23 (P1): Выбор игры у хоста — раскрывающийся список вместо модалки | `pages/hosts.tsx` | r:U-23 | done | agent |
 | M-166 | R | UX U-24 (P1): Один экран подготовки сессии вместо модалки и дубля на `/pla | `pages/game-detail.tsx` | r:U-24 | done | agent |
 | M-167 | R | UX U-25 (P1): Экранная клавиатура включена по умолчанию на тач-устройствах | `pages/play.tsx` | r:U-25 | done | agent |
-| M-168 | R | UX U-26 (P1): Никаких технических терминов в сообщениях игроку | `pages/play-helpers.ts` | r:U-26 | pending | agent |
+| M-168 | R | UX U-26 (P1): Никаких технических терминов в сообщениях игроку | `pages/play-helpers.ts` | r:U-26 | done | agent |
 | M-169 | R | UX U-27 (P2): Баланс LZT виден на мобиле | `artifacts/web/src/components/site-nav.tsx` | r:U-27 | pending | agent |
 | M-170 | R | UX U-28 (P2): В каталоге у офлайн-игр честная подпись и путь дальше | `pages/games.tsx` | r:U-28 | pending | agent |
 | M-171 | R | UX U-29 (P2): Фильтры каталога доступны на мобиле | `pages/games.tsx` | r:U-29 | pending | agent |

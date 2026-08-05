@@ -85,14 +85,27 @@ export function buildClipFilename(
   return `clip-${safeGame}-${ts}.webm`;
 }
 
+/** U-26: пользовательские тексты без WebRTC/ICE/сырых reason-кодов. */
+export const INVITE_CORRUPTED_MESSAGE =
+  "Приглашение повреждено — откройте ссылку ещё раз или запросите новую.";
+
+export const CONNECTING_OVERLAY_MESSAGE = "Подключаемся к хосту…";
+
+export const RECONNECTING_OVERLAY_SUBMESSAGE = "Восстанавливаем связь…";
+
+const CONTROL_REJECT_MESSAGES: Record<string, string> = {
+  host_busy: "Хост сейчас занят с другим игроком. Попробуй позже.",
+  game_unavailable: "Игра временно недоступна на этом хосте.",
+  host_offline: "Хост сейчас офлайн. Попробуй позже или выбери другого.",
+  session_ended: "Сессия уже завершена.",
+  balance_exhausted: "Баланс исчерпан — пополни кошелёк, чтобы продолжить.",
+  block_expired: "Время блока закончилось.",
+  unauthorized: "Не удалось подтвердить доступ. Обнови страницу и попробуй снова.",
+  forbidden: "Доступ к этой сессии запрещён.",
+};
+
 export function getControlRejectMessage(reason: string): string {
-  if (reason === "host_busy") {
-    return "Хост сейчас занят с другим игроком. Попробуй позже.";
-  }
-  if (reason === "game_unavailable") {
-    return "Игра временно недоступна на этом хосте.";
-  }
-  return `Хост отклонил соединение (${reason}).`;
+  return CONTROL_REJECT_MESSAGES[reason] ?? "Хост не может принять соединение. Попробуй позже.";
 }
 
 export function buildPlayerSignalWsUrl(opts: {

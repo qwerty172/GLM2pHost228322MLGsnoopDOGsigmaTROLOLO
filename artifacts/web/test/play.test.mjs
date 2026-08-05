@@ -14,6 +14,9 @@ const {
   sanitizeClipGameSlug,
   buildClipFilename,
   getControlRejectMessage,
+  CONNECTING_OVERLAY_MESSAGE,
+  INVITE_CORRUPTED_MESSAGE,
+  RECONNECTING_OVERLAY_SUBMESSAGE,
   buildPlayerSignalWsUrl,
   getConnectionBadgeLabel,
   computeWalletBalanceForSession,
@@ -98,7 +101,22 @@ test("getControlRejectMessage maps known reasons to Russian text", () => {
     getControlRejectMessage("game_unavailable"),
     "Игра временно недоступна на этом хосте.",
   );
-  assert.equal(getControlRejectMessage("custom"), "Хост отклонил соединение (custom).");
+  assert.equal(
+    getControlRejectMessage("host_offline"),
+    "Хост сейчас офлайн. Попробуй позже или выбери другого.",
+  );
+  assert.equal(
+    getControlRejectMessage("custom"),
+    "Хост не может принять соединение. Попробуй позже.",
+  );
+});
+
+test("U-26 player overlay messages avoid WebRTC/ICE jargon", () => {
+  const banned = /WebRTC|ICE|токен игрока/i;
+  assert.equal(banned.test(INVITE_CORRUPTED_MESSAGE), false);
+  assert.equal(banned.test(CONNECTING_OVERLAY_MESSAGE), false);
+  assert.equal(banned.test(RECONNECTING_OVERLAY_SUBMESSAGE), false);
+  assert.equal(banned.test(getControlRejectMessage("unknown_reason")), false);
 });
 
 test("buildPlayerSignalWsUrl uses ticket or legacy token path", () => {

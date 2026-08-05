@@ -59,6 +59,13 @@ test("formatApiError keeps Russian messages and uses pattern fallback", () => {
   assert.equal(formatApiError(null, "Запасной текст"), "Запасной текст");
 });
 
+test("formatApiError does not leak untranslated English (U-26)", () => {
+  assert.equal(
+    formatApiError({ message: "Something went wrong internally" }, "Произошла ошибка"),
+    "Произошла ошибка",
+  );
+});
+
 test("formatApiErrorPanel maps API key errors to titled panels", () => {
   assert.deepEqual(
     formatApiErrorPanel(

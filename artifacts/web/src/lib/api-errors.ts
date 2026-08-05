@@ -72,7 +72,7 @@ const ERROR_CODE_RU: Record<string, string> = {
   repay_failed: "Не удалось погасить займ.",
   ai_request_failed: "Ошибка запроса к ИИ.",
   failed_to_create_session: "Не удалось создать сессию.",
-  failed_to_create_browser_host: "Не удалось создать browser-host сессию.",
+  failed_to_create_browser_host: "Не удалось создать сессию в браузере.",
   failed_to_create_test_session: "Не удалось создать тест-сессию.",
   failed_to_store_clip: "Не удалось сохранить клип.",
   internal_error: "Внутренняя ошибка сервера.",
@@ -119,7 +119,7 @@ const EXACT_EN_RU: Record<string, string> = {
   "no file uploaded": "Файл не загружен.",
   "failed to store clip": "Не удалось сохранить клип.",
   "failed to create session": "Не удалось создать сессию.",
-  "failed to create browser host": "Не удалось создать browser-host сессию.",
+  "failed to create browser host": "Не удалось создать сессию в браузере.",
   "failed to create test session": "Не удалось создать тест-сессию.",
   "amountlzt must be a positive integer": "Сумма LZT должна быть положительным целым числом.",
   "api keys cannot withdraw — deposit-only wallet":
@@ -253,7 +253,7 @@ export function formatApiError(err: unknown, fallback = "Произошла ош
   if (payload.message && isMostlyAscii(payload.message)) {
     const pattern = translateByPattern(payload.message);
     if (pattern) return pattern;
-    return payload.message;
+    return fallback;
   }
 
   if (payload.detail) {

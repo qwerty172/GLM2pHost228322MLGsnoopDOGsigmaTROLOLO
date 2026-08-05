@@ -39,7 +39,10 @@ import {
   isTestBrowserSession as checkTestBrowserSession,
   computeRatePerMinLzt,
   buildClipFilename,
+  CONNECTING_OVERLAY_MESSAGE,
   getControlRejectMessage,
+  INVITE_CORRUPTED_MESSAGE,
+  RECONNECTING_OVERLAY_SUBMESSAGE,
   buildPlayerSignalWsUrl,
   getConnectionBadgeLabel,
   computeWalletBalanceForSession,
@@ -170,7 +173,7 @@ export default function Play() {
         const data = await getSessionByInvite(inviteCode);
         if (cancelled) return;
         if (!data.playerToken) {
-          setInviteError("В ответе нет токена игрока — приглашение повреждено");
+          setInviteError(INVITE_CORRUPTED_MESSAGE);
           setInviteLoading(false);
           return;
         }
@@ -2012,7 +2015,7 @@ export default function Play() {
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-40 backdrop-blur-sm">
             <Loader2 className="h-12 w-12 animate-spin text-sky-400 mb-4" />
             <div className="font-mono text-sky-400 font-bold tracking-widest uppercase">
-              Устанавливаем WebRTC-соединение
+              {CONNECTING_OVERLAY_MESSAGE}
             </div>
           </div>
         )}
@@ -2023,7 +2026,7 @@ export default function Play() {
               Переподключение...
             </div>
             <div className="font-mono text-slate-500 text-xs mt-2">
-              Восстанавливаем ICE-соединение
+              {RECONNECTING_OVERLAY_SUBMESSAGE}
             </div>
           </div>
         )}
