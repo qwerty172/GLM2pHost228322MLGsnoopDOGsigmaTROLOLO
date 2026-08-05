@@ -113,8 +113,36 @@ export const KEYBOARD_PRESETS: Record<PresetName, { label: string; buttons: KeyB
 };
 
 const STORAGE_KEY = "keyboardOverlayLayout_v1";
+export const KEYBOARD_OVERLAY_STORAGE_KEY = STORAGE_KEY;
+export const KEYBOARD_DOUBLE_TAP_MS = 320;
 
-function loadLayout(): { preset: PresetName; buttons: KeyButton[] } {
+/** Resolve primary vs double-tap alt key for overlay buttons. */
+export function resolveKeyTap(
+  btn: Pick<KeyButton, "key" | "code" | "altKey" | "altCode">,
+  lastTapMs: number,
+  nowMs: number,
+  doubleTapMs = KEYBOARD_DOUBLE_TAP_MS,
+): { key: string; code: string; isDouble: boolean } {
+  const isDouble = !!btn.altKey && nowMs - lastTapMs < doubleTapMs;
+  if (isDouble) {
+    return { key: btn.altKey!, code: btn.altCode ?? btn.altKey!, isDouble: true };
+  }
+  return { key: btn.key, code: btn.code, isDouble: false };
+}
+
+/** Clamp overlay control position to viewport bounds (vw/vh %). */
+export function clampOverlayPos(x: number, y: number): { x: number; y: number } {
+  return {
+    x: Math.max(0, Math.min(92, x)),
+    y: Math.max(0, Math.min(88, y)),
+  };
+}
+
+export function isWideKeyButton(btn: Pick<KeyButton, "size" | "label">): boolean {
+  return btn.size >= 56 && btn.label.length > 2;
+}
+
+export function loadKeyboardOverlayLayout(): { preset: PresetName; buttons: KeyButton[] } {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw) as { preset: PresetName; buttons: KeyButton[] };
@@ -122,12 +150,20 @@ function loadLayout(): { preset: PresetName; buttons: KeyButton[] } {
   return { preset: "wasd", buttons: structuredClone(KEYBOARD_PRESETS.wasd.buttons) };
 }
 
-function saveLayout(preset: PresetName, buttons: KeyButton[]) {
+export function saveKeyboardOverlayLayout(preset: PresetName, buttons: KeyButton[]) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ preset, buttons })); } catch { /* ignore */ }
 }
 
+function loadLayout(): { preset: PresetName; buttons: KeyButton[] } {
+  return loadKeyboardOverlayLayout();
+}
+
+function saveLayout(preset: PresetName, buttons: KeyButton[]) {
+  saveKeyboardOverlayLayout(preset, buttons);
+}
+
 // ── Individual draggable key button ───────────────────────────────────────────
-const DOUBLE_TAP_MS = 320;
+const DOUBLE_TAP_MS = KEYBOARD_DOUBLE_TAP_MS;
 
 function DraggableKeyButton({
   btn,
@@ -160,16 +196,14 @@ function DraggableKeyButton({
     }
 
     const now = Date.now();
-    const isDouble = btn.altKey && (now - lastTapRef.current) < DOUBLE_TAP_MS;
+    const tap = resolveKeyTap(btn, lastTapRef.current, now, DOUBLE_TAP_MS);
     lastTapRef.current = now;
 
-    const k = isDouble
-      ? { key: btn.altKey!, code: btn.altCode ?? btn.altKey! }
-      : { key: btn.key, code: btn.code };
+    const k = { key: tap.key, code: tap.code };
 
     activeKeyRef.current = k;
     setPressed(true);
-    setDoubleTapped(!!isDouble);
+    setDoubleTapped(tap.isDouble);
     onKeyInput(k.key, k.code, "down");
   }, [editMode, btn, onKeyInput]);
 
@@ -178,10 +212,10 @@ function DraggableKeyButton({
     e.stopPropagation();
     const dx = ((e.clientX - dragRef.current.startPx) / window.innerWidth) * 100;
     const dy = ((e.clientY - dragRef.current.startPy) / window.innerHeight) * 100;
-    onUpdatePos(btn.id, {
-      x: Math.max(0, Math.min(92, dragRef.current.ox + dx)),
-      y: Math.max(0, Math.min(88, dragRef.current.oy + dy)),
-    });
+    onUpdatePos(btn.id, clampOverlayPos(
+      dragRef.current.ox + dx,
+      dragRef.current.oy + dy,
+    ));
   }, [editMode, btn.id, onUpdatePos]);
 
   const handlePointerUp = useCallback((e: React.PointerEvent) => {
@@ -206,7 +240,7 @@ function DraggableKeyButton({
   }, [editMode, btn, onKeyInput, onTapEdit]);
 
   const sz = btn.size;
-  const isWide = sz >= 56 && btn.label.length > 2;
+  const isWide = isWideKeyButton(btn);
 
   return (
     <div
