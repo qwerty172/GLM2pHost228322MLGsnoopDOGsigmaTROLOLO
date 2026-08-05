@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-76 (2026-08-05 03:14 UTC) {#marathon-m-76}
+
+| Проверка | Результат |
+|---|---|
+| scanner regex | `export const` с type annotation теперь попадает в cat L/K |
+| connection-labels.test.mjs | 3 теста — ICE_CONNECTION_LABELS RU copy, tones, ICE_TONE_STYLES |
+| web test (connection-labels) | PASS (3 tests) |
+
+**Причина idle:** сканер пропускал `connection-labels.ts` из-за `export const X:` без `=`. Исправлено.
+
 ## Marathon M-75 (2026-08-05 03:12 UTC) {#marathon-m-75}
 
 | Проверка | Результат |
