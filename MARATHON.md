@@ -6,15 +6,15 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-68 done; input.ts unit-тесты)
+> **Последнее обновление:** 2026-08-05 (M-69 done; web lib agent-event-labels unit-тесты)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 00:25 UTC |
-| Task ID | M-68 |
-| Результат | input.ts unit-тесты: parseInputEvent/mousemove/buttons/wheel/keys, parseGamepadState clamp, parseHostConfigPatch |
+| Дата | 2026-08-05 00:38 UTC |
+| Task ID | M-69 |
+| Результат | web lib agent-event-labels.ts: 9 unit-тестов localizeAgentEventMessage; сканер кат. L (8 задач) |
 | Commit | (pending) |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** 0 pending — host-agent shared unit-тесты (кат. K) завершены.
+**Wave Maintenance:** 7 pending — web lib unit-тесты (кат. L, M-70…M-76).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -288,6 +288,14 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-66 | J | host-agent main: unit-тест (tray.ts) | `artifacts/host-agent/src/main/tray.ts` | j:artifacts/host-agent/src/main/tray.ts | done | agent |
 | M-67 | J | host-agent main: unit-тест (wake-scheduler.ts) | `artifacts/host-agent/src/main/wake-scheduler.ts` | j:artifacts/host-agent/src/main/wake-scheduler.ts | done | agent |
 | M-68 | K | host-agent shared: unit-тест (input.ts) | `artifacts/host-agent/src/shared/input.ts` | k:artifacts/host-agent/src/shared/input.ts | done | agent |
+| M-69 | L | web lib: unit-тест (agent-event-labels.ts) | `artifacts/web/src/lib/agent-event-labels.ts` | l:artifacts/web/src/lib/agent-event-labels.ts | done | agent |
+| M-70 | L | web lib: unit-тест (agent-local.ts) | `artifacts/web/src/lib/agent-local.ts` | l:artifacts/web/src/lib/agent-local.ts | pending | agent |
+| M-71 | L | web lib: unit-тест (api-errors.ts) | `artifacts/web/src/lib/api-errors.ts` | l:artifacts/web/src/lib/api-errors.ts | pending | agent |
+| M-72 | L | web lib: unit-тест (ice-prewarm.ts) | `artifacts/web/src/lib/ice-prewarm.ts` | l:artifacts/web/src/lib/ice-prewarm.ts | pending | agent |
+| M-73 | L | web lib: unit-тест (put-external-blob.ts) | `artifacts/web/src/lib/put-external-blob.ts` | l:artifacts/web/src/lib/put-external-blob.ts | pending | agent |
+| M-74 | L | web lib: unit-тест (quota-compatibility.ts) | `artifacts/web/src/lib/quota-compatibility.ts` | l:artifacts/web/src/lib/quota-compatibility.ts | pending | agent |
+| M-75 | L | web lib: unit-тест (sentry.ts) | `artifacts/web/src/lib/sentry.ts` | l:artifacts/web/src/lib/sentry.ts | pending | agent |
+| M-76 | L | web lib: unit-тест (utils.ts) | `artifacts/web/src/lib/utils.ts` | l:artifacts/web/src/lib/utils.ts | pending | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).
