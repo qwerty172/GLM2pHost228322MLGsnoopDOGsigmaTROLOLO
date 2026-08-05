@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-226 (2026-08-05 22:59 UTC) {#marathon-m-226}
+
+| Проверка | Результат |
+|---|---|
+| authMiddleware.test.ts | PASS (8 tests) |
+
+**Изменения:** `artifacts/api-server/src/lib/authMiddleware.test.ts` — тесты для `resolveAuthUser` (JWT, legacy token, null) и `requirePlayerMiddleware` (missing/invalid/valid wallet token).
+
+**Следующий pick:** M-227 (тест не покрывает экспорты: economy).
+
 ## Marathon M-225 (2026-08-05 22:56 UTC) {#marathon-m-225}
 
 | Проверка | Результат |

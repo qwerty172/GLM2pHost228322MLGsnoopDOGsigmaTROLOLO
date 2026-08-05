@@ -578,7 +578,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-223 | V | тест не покрывает экспорты (1): agent-local | `artifacts/web/src/lib/agent-local.ts` | v:artifacts/web/src/lib/agent-local.ts | done | agent |
 | M-224 | V | тест не покрывает экспорты (1): use-browser-ping | `artifacts/web/src/hooks/use-browser-ping.ts` | v:artifacts/web/src/hooks/use-browser-ping.ts | done | agent |
 | M-225 | V | тест не покрывает экспорты (1): use-platform-events | `artifacts/web/src/hooks/use-platform-events.ts` | v:artifacts/web/src/hooks/use-platform-events.ts | done | agent |
-| M-226 | V | тест не покрывает экспорты (2): authMiddleware | `artifacts/api-server/src/lib/authMiddleware.ts` | v:artifacts/api-server/src/lib/authMiddleware.ts | pending | agent |
+| M-226 | V | тест не покрывает экспорты (2): authMiddleware | `artifacts/api-server/src/lib/authMiddleware.ts` | v:artifacts/api-server/src/lib/authMiddleware.ts | done | agent |
 | M-227 | V | тест не покрывает экспорты (11): economy | `artifacts/api-server/src/lib/economy.ts` | v:artifacts/api-server/src/lib/economy.ts | pending | agent |
 | M-228 | V | тест не покрывает экспорты (1): hostAuth | `artifacts/api-server/src/lib/hostAuth.ts` | v:artifacts/api-server/src/lib/hostAuth.ts | pending | agent |
 | M-229 | V | тест не покрывает экспорты (1): hostTier | `artifacts/api-server/src/lib/hostTier.ts` | v:artifacts/api-server/src/lib/hostTier.ts | pending | agent |
