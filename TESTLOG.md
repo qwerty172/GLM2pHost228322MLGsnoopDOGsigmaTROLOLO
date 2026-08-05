@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-234 (2026-08-05 23:25 UTC) {#marathon-m-234}
+
+| Проверка | Результат |
+|---|---|
+| objectStorage.test.ts | PASS (3 tests) |
+
+**Изменения:** `artifacts/api-server/src/lib/objectStorage.test.ts` — unit-тест для `objectStorageClient` (shared GCS client, bucket accessor).
+
+**Следующий pick:** M-235 (тест не покрывает экспорты: pgNotify).
+
 ## Marathon M-233 (2026-08-05 23:23 UTC) {#marathon-m-233}
 
 | Проверка | Результат |

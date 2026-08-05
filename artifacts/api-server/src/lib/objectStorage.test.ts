@@ -3,6 +3,7 @@ import {
   ObjectNotFoundError,
   ObjectStorageNotConfiguredError,
   isObjectStorageConfigured,
+  objectStorageClient,
 } from "./objectStorage";
 
 describe("objectStorage", () => {
@@ -26,5 +27,10 @@ describe("objectStorage", () => {
   it("exposes typed storage errors", () => {
     expect(new ObjectNotFoundError().name).toBe("ObjectNotFoundError");
     expect(new ObjectStorageNotConfiguredError().message).toContain("not configured");
+  });
+
+  it("exposes shared GCS client with bucket accessor", () => {
+    expect(objectStorageClient).toBeDefined();
+    expect(typeof objectStorageClient.bucket).toBe("function");
   });
 });

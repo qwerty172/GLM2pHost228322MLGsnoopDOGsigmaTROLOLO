@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-231 done; joinCodes export coverage)
+> **Последнее обновление:** 2026-08-05 (M-234 done; objectStorage export coverage)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 23:22 UTC|
-| Task ID | M-233|
-| Результат | objectAcl.test.ts PASS (11 tests): getObjectAclPolicy, setObjectAclPolicy|
+| Дата | 2026-08-05 23:26 UTC|
+| Task ID | M-234|
+| Результат | objectStorage.test.ts PASS (3 tests): objectStorageClient bucket accessor|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -586,7 +586,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-231 | V | тест не покрывает экспорты (3): joinCodes | `artifacts/api-server/src/lib/joinCodes.ts` | v:artifacts/api-server/src/lib/joinCodes.ts | done | agent |
 | M-232 | V | тест не покрывает экспорты (3): jwt | `artifacts/api-server/src/lib/jwt.ts` | v:artifacts/api-server/src/lib/jwt.ts | done | agent |
 | M-233 | V | тест не покрывает экспорты (2): objectAcl | `artifacts/api-server/src/lib/objectAcl.ts` | v:artifacts/api-server/src/lib/objectAcl.ts | done | agent |
-| M-234 | V | тест не покрывает экспорты (1): objectStorage | `artifacts/api-server/src/lib/objectStorage.ts` | v:artifacts/api-server/src/lib/objectStorage.ts | pending | agent |
+| M-234 | V | тест не покрывает экспорты (1): objectStorage | `artifacts/api-server/src/lib/objectStorage.ts` | v:artifacts/api-server/src/lib/objectStorage.ts | done | agent |
 | M-235 | V | тест не покрывает экспорты (3): pgNotify | `artifacts/api-server/src/lib/pgNotify.ts` | v:artifacts/api-server/src/lib/pgNotify.ts | pending | agent |
 | M-236 | V | тест не покрывает экспорты (5): quotaEngine | `artifacts/api-server/src/lib/quotaEngine.ts` | v:artifacts/api-server/src/lib/quotaEngine.ts | pending | agent |
 | M-237 | V | тест не покрывает экспорты (5): redis | `artifacts/api-server/src/lib/redis.ts` | v:artifacts/api-server/src/lib/redis.ts | pending | agent |
