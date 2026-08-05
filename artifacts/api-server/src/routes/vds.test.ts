@@ -119,10 +119,12 @@ const {
   mockIsWalletCryptoEnabled,
   mockEncryptSshKey,
   mockSshConnect,
+  mockSshClientThrows,
 } = vi.hoisted(() => ({
   mockIsWalletCryptoEnabled: vi.fn(() => true),
   mockEncryptSshKey: vi.fn((key: string) => `enc:${key}`),
   mockSshConnect: vi.fn(),
+  mockSshClientThrows: { value: false },
 }));
 
 vi.mock("../lib/walletOwner", () => ({
@@ -145,6 +147,9 @@ vi.mock("../lib/logger", () => ({
 vi.mock("ssh2", () => {
   class MockClient {
     on(event: string, cb: (...args: unknown[]) => void) {
+      if (mockSshClientThrows.value) {
+        throw new Error("SSH client setup failed");
+      }
       if (event === "ready") {
         queueMicrotask(() => cb());
       }
@@ -274,6 +279,7 @@ afterAll(async () => {
 beforeEach(() => {
   queryQueue.length = 0;
   vi.clearAllMocks();
+  mockSshClientThrows.value = false;
   mockIsWalletCryptoEnabled.mockReturnValue(true);
   mockEncryptSshKey.mockImplementation((key: string) => `enc:${key}`);
   mockSshConnect.mockImplementation(() => undefined);
@@ -331,6 +337,16 @@ describe("POST /quotas/vds/test-connection", () => {
     expect(res.status).toBe(200);
     expect(res.json).toEqual({ ok: true });
     expect(mockSshConnect).toHaveBeenCalled();
+  });
+
+  it("returns 500 when SSH client setup throws unexpectedly", async () => {
+    mockResolveOwnerByToken.mockResolvedValue({ id: HOST_ID, type: "host" });
+    mockSshClientThrows.value = true;
+    const res = await request("POST", "/quotas/vds/test-connection", {
+      body: testConnectionBody(),
+    });
+    expect(res.status).toBe(500);
+    expect(res.json).toEqual({ ok: false, error: "Internal error" });
   });
 });
 

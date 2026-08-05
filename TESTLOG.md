@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-222 (2026-08-05 22:46 UTC) {#marathon-m-222}
+
+| Проверка | Результат |
+|---|---|
+| vitest src/routes/vds.test.ts | PASS (26 tests) |
+
+**Изменения:** `artifacts/api-server/src/routes/vds.test.ts` — тест 500 для POST /quotas/vds/test-connection когда SSH client setup бросает исключение.
+
+**Следующий pick:** M-223 (тест не покрывает экспорты: agent-local).
+
 ## Marathon M-221 (2026-08-05 22:43 UTC) {#marathon-m-221}
 
 | Проверка | Результат |
