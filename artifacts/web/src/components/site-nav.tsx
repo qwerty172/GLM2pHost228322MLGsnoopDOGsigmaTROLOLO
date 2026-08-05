@@ -37,6 +37,36 @@ type NavKey =
   | "/exchange"
   | "/profile";
 
+export function isSiteNavHostActive(activePath?: string): boolean {
+  return (
+    activePath === "/host" ||
+    activePath === "/host/wallet" ||
+    activePath === "/wallet"
+  );
+}
+
+export function shouldHideSiteNavGuestBanner(activePath?: string): boolean {
+  return (
+    typeof activePath === "string" &&
+    (activePath.startsWith("/play") || activePath.startsWith("/host/play"))
+  );
+}
+
+export function isSiteNavPathActive(
+  activePath: string | undefined,
+  path: string,
+): boolean {
+  return activePath === path;
+}
+
+export function isGuestUpgradeNameValid(name: string): boolean {
+  return name.trim().length >= 2;
+}
+
+export function formatWalletBalanceLzt(blueLzt: number): string {
+  return `${new Intl.NumberFormat("ru-RU").format(Math.trunc(blueLzt))} LZT`;
+}
+
 interface Props {
   activePath?: NavKey | string;
 }
@@ -61,7 +91,7 @@ function BalanceChip({ walletToken }: { walletToken: string }) {
       data-testid="balance-chip"
     >
       <Zap className="w-3 h-3" />
-      {new Intl.NumberFormat("ru-RU").format(Math.trunc(blueLzt))} LZT
+      {formatWalletBalanceLzt(blueLzt)}
     </div>
   );
 }
@@ -75,14 +105,9 @@ export function SiteNav({ activePath }: Props) {
   const walletToken = playerWalletToken ?? hostToken ?? null;
   const [, navigate] = useLocation();
 
-  const isActive = (path: string) => activePath === path;
-  const isHostActive =
-    activePath === "/host" ||
-    activePath === "/host/wallet" ||
-    activePath === "/wallet";
-  const hideGuestBanner =
-    typeof activePath === "string" &&
-    (activePath.startsWith("/play") || activePath.startsWith("/host/play"));
+  const isActive = (path: string) => isSiteNavPathActive(activePath, path);
+  const isHostActive = isSiteNavHostActive(activePath);
+  const hideGuestBanner = shouldHideSiteNavGuestBanner(activePath);
 
   return (
     <nav
@@ -285,7 +310,7 @@ export function SiteNav({ activePath }: Props) {
               />
               <button
                 type="button"
-                disabled={upgrading || guestName.trim().length < 2}
+                disabled={upgrading || !isGuestUpgradeNameValid(guestName)}
                 className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 disabled:opacity-50"
                 onClick={() => {
                   setUpgrading(true);
@@ -317,10 +342,7 @@ export function SiteNav({ activePath }: Props) {
 }
 
 function MobileMenu({ activePath }: { activePath?: string }) {
-  const isHostActive =
-    activePath === "/host" ||
-    activePath === "/host/wallet" ||
-    activePath === "/wallet";
+  const isHostActive = isSiteNavHostActive(activePath);
 
   return (
     <div
