@@ -63,6 +63,15 @@
 
 **Следующий pick:** M-116 (games.ts).
 
+## Marathon M-116 (2026-08-05 11:36 UTC) {#marathon-m-116}
+
+| Проверка | Результат |
+|---|---|
+| games.test.ts | 7 тестов — GET /games (catalog+aggregates, 400 invalid bool, hasMods=false), GET /games/:slug (404 unknown/hidden, detail+live sessions, tag filter) |
+| api-server test (games) | PASS (7 tests) |
+
+**Следующий pick:** M-117 (health.ts).
+
 ## Marathon M-114 (2026-08-05 11:30 UTC) {#marathon-m-114}
 
 | Проверка | Результат |

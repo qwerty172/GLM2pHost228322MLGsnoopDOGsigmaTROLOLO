@@ -6,15 +6,15 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-115 done; events.test.ts)
+> **Последнее обновление:** 2026-08-05 (M-116 done; games.test.ts)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 11:33 UTC|
-| Task ID | M-115|
-| Результат | events.test.ts 3 теста PASS (GET /events/stream: SSE headers+connected, platform fan-out, unsubscribe on disconnect)|
+| Дата | 2026-08-05 11:36 UTC|
+| Task ID | M-116|
+| Результат | games.test.ts 7 тестов PASS (GET /games: catalog+aggregates, 400 invalid bool, hasMods=false; GET /games/:slug: 404 unknown/hidden, detail+live sessions, tag filter)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -360,7 +360,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-113 | P | api-server routes: unit-тест (embed.ts) | `routes/embed.ts` | p:artifacts/api-server/src/routes/embed.ts | done | agent |
 | M-114 | P | api-server routes: unit-тест (enrich.ts) | `routes/enrich.ts` | p:artifacts/api-server/src/routes/enrich.ts | done | agent |
 | M-115 | P | api-server routes: unit-тест (events.ts) | `routes/events.ts` | p:artifacts/api-server/src/routes/events.ts | done | agent |
-| M-116 | P | api-server routes: unit-тест (games.ts) | `routes/games.ts` | p:artifacts/api-server/src/routes/games.ts | pending | agent |
+| M-116 | P | api-server routes: unit-тест (games.ts) | `routes/games.ts` | p:artifacts/api-server/src/routes/games.ts | done | agent |
 | M-117 | P | api-server routes: unit-тест (health.ts) | `routes/health.ts` | p:artifacts/api-server/src/routes/health.ts | pending | agent |
 | M-118 | P | api-server routes: unit-тест (hosts.ts) | `routes/hosts.ts` | p:artifacts/api-server/src/routes/hosts.ts | pending | agent |
 | M-119 | P | api-server routes: unit-тест (joinCodes.ts) | `routes/joinCodes.ts` | p:artifacts/api-server/src/routes/joinCodes.ts | pending | agent |
