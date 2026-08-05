@@ -26,21 +26,14 @@ import {
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
-
-function formatInt(n: number): string {
-  // 1248 → "1 248" (Russian thin-space grouping).
-  return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-}
-function formatUsd(cents: number): string {
-  const dollars = Math.round(cents / 100);
-  return `$${formatInt(dollars)}`;
-}
-
-function coverSrc(url: string | null | undefined): string | null {
-  if (!url) return null;
-  if (url.startsWith("http")) return url;
-  return `${import.meta.env.BASE_URL}${url.replace(/^\//, "")}`;
-}
+import {
+  formatInt,
+  formatUsd,
+  resolveCoverImageUrl,
+  resolveJoinRedirectUrl,
+  filterPlayableHosts,
+  computeLztPerMin,
+} from "@/pages/landing-helpers";
 
 type LiveHost = {
   id: string;
@@ -89,36 +82,12 @@ export default function Landing() {
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
-    const raw = shareLink.trim();
-    if (!raw) return;
-
-    const extractAfter = (haystack: string, marker: string): string | null => {
-      const idx = haystack.indexOf(marker);
-      if (idx < 0) return null;
-      const rest = haystack.slice(idx + marker.length).split(/[/?#]/)[0];
-      return rest || null;
-    };
-
-    try {
-      const path =
-        raw.includes("://") || raw.startsWith("/")
-          ? new URL(raw, window.location.origin).pathname + new URL(raw, window.location.origin).search
-          : raw;
-      const inviteCode = extractAfter(path, "/play/i/") ?? extractAfter(raw, "/play/i/");
-      if (inviteCode) {
-        window.location.href = `${import.meta.env.BASE_URL}play/i/${inviteCode}`;
-        return;
-      }
-      const playerToken = extractAfter(path, "/play/") ?? extractAfter(raw, "/play/");
-      if (playerToken) {
-        window.location.href = `${import.meta.env.BASE_URL}play/${playerToken}`;
-        return;
-      }
-    } catch {
-      /* fall through to bare token */
-    }
-
-    window.location.href = `${import.meta.env.BASE_URL}play/${raw}`;
+    const target = resolveJoinRedirectUrl(
+      shareLink,
+      import.meta.env.BASE_URL,
+      window.location.origin,
+    );
+    if (target) window.location.href = target;
   };
 
   const handlePlayNow = (host: LiveHost) => {
@@ -128,9 +97,7 @@ export default function Landing() {
     navigate(`/play/i/${host.inviteCode}`);
   };
 
-  const playableHosts = (liveHosts ?? [])
-    .filter((h) => h.status === "online" && h.inviteCode)
-    .slice(0, 6);
+  const playableHosts = filterPlayableHosts(liveHosts);
 
   const statItems: { num: string; label: string; icon: React.ReactNode; testid: string }[] = [
     {
@@ -287,11 +254,10 @@ export default function Landing() {
             {playableHosts.map((host) => {
               const firstGame = host.games?.[0];
               const cover = firstGame?.coverImageUrl
-                ? coverSrc(firstGame.coverImageUrl)
+                ? resolveCoverImageUrl(firstGame.coverImageUrl, import.meta.env.BASE_URL)
                 : null;
               const gameTitle = firstGame?.title ?? host.boundAppLabel ?? "Игра";
-              const lztPerMin = firstGame?.pricePerMinuteLzt
-                ?? Math.round(host.minutePriceUsd * 200);
+              const lztPerMin = computeLztPerMin(firstGame, host.minutePriceUsd);
               return (
                 <div
                   key={host.id}
@@ -363,7 +329,7 @@ export default function Landing() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {catalogGames && catalogGames.length > 0 ? (
             catalogGames.slice(0, 3).map((g) => {
-                const src = coverSrc((g as any).coverImageUrl);
+                const src = resolveCoverImageUrl((g as any).coverImageUrl, import.meta.env.BASE_URL);
                 const isLive = ((g as any).liveHostsCount ?? 0) > 0;
                 const genre = (g as any).genre ?? (g as any).genres?.[0] ?? "";
                 return (

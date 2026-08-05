@@ -45,7 +45,19 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
-## Marathon M-100 (2026-08-05 10:35 UTC) {#marathon-m-100}
+## Marathon M-101 (2026-08-05 10:34 UTC) {#marathon-m-101}
+
+| Проверка | Результат |
+|---|---|
+| landing-helpers.ts | formatInt, formatUsd, resolveCoverImageUrl, extractAfter, resolveJoinRedirectUrl, filterPlayableHosts, computeLztPerMin |
+| landing.test.mjs | 9 тестов — int/USD format, cover URL, join redirect, playable hosts filter, LZT price |
+| landing.tsx | рефакторинг: хелперы в landing-helpers.ts |
+| web test (landing) | PASS (9 tests) |
+| typecheck | PASS (landing-helpers via unit tests) |
+
+**Следующий pick:** M-102 (play.tsx).
+
+## Marathon M-100 (2026-08-05 10:31 UTC) {#marathon-m-100}
 
 | Проверка | Результат |
 |---|---|

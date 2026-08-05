@@ -6,15 +6,15 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-100 done; hosts helpers + unit-тест)
+> **Последнее обновление:** 2026-08-05 (M-101 done; landing helpers + unit-тест)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 10:31 UTC|
-| Task ID | M-100|
-| Результат | hosts-helpers.ts + hosts.test.mjs (9 тестов): formatPrice, cover URL, latency, session status, sortPublicHosts|
+| Дата | 2026-08-05 10:35 UTC|
+| Task ID | M-101|
+| Результат | landing-helpers.ts + landing.test.mjs (9 тестов): formatInt/formatUsd, cover URL, join redirect, filterPlayableHosts, computeLztPerMin|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -40,7 +40,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** M-100 done; scanner cat O — 6 pending (web pages helpers).
+**Wave Maintenance:** M-101 done; scanner cat O — 5 pending (web pages helpers).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -345,7 +345,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-98 | O | web pages: unit-тест (host/library) | `pages/host/library.tsx` | o:artifacts/web/src/pages/host/library.tsx | done | agent |
 | M-99 | O | web pages: unit-тест (host/setup) | `pages/host/setup.tsx` | o:artifacts/web/src/pages/host/setup.tsx | done | agent |
 | M-100 | O | web pages: unit-тест (hosts) | `pages/hosts.tsx` | o:artifacts/web/src/pages/hosts.tsx | done | agent |
-| M-101 | O | web pages: unit-тест (landing) | `pages/landing.tsx` | o:artifacts/web/src/pages/landing.tsx | pending | agent |
+| M-101 | O | web pages: unit-тест (landing) | `pages/landing.tsx` | o:artifacts/web/src/pages/landing.tsx | done | agent |
 | M-102 | O | web pages: unit-тест (play) | `pages/play.tsx` | o:artifacts/web/src/pages/play.tsx | pending | agent |
 | M-103 | O | web pages: unit-тест (profile) | `pages/profile.tsx` | o:artifacts/web/src/pages/profile.tsx | pending | agent |
 | M-104 | O | web pages: unit-тест (quota-detail) | `pages/quota-detail.tsx` | o:artifacts/web/src/pages/quota-detail.tsx | pending | agent |
