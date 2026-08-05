@@ -15,6 +15,18 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-175 (2026-08-05 20:15 UTC) {#marathon-m-175}
+
+| Проверка | Результат |
+|---|---|
+| lib/integrations-anthropic-ai/test/client.test.ts | PASS — getAnthropicClient (null/cache/config), anthropic proxy (7 tests) |
+| pnpm --filter @workspace/integrations-anthropic-ai test | PASS (20 tests) |
+| pnpm --filter @workspace/integrations-anthropic-ai exec tsc --noEmit | PASS |
+
+**Изменения:** добавлен `client.test.ts` — lazy client, env guard, proxy delegation.
+
+**Следующий pick:** scanner idle (integrations-anthropic-ai src покрыт).
+
 ## Marathon M-174 (2026-08-05 20:10 UTC) {#marathon-m-174}
 
 | Проверка | Результат |
