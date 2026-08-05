@@ -10,7 +10,37 @@ interface VtScannerProps {
   label?: string;
 }
 
-const STATUS_CONFIG = {
+export const VT_SCANNER_DEFAULT_LABEL = "Проверить файл игры";
+
+const SHA256_HEX_RE = /^[a-fA-F0-9]{64}$/;
+const HTTP_URL_RE = /^https?:\/\//;
+
+/** SHA-256 hex (64 chars) или http(s) URL — допустимый ввод для VT. */
+export function isVtScannerInputValid(input: string): boolean {
+  const trimmed = input.trim();
+  return SHA256_HEX_RE.test(trimmed) || HTTP_URL_RE.test(trimmed);
+}
+
+/** Ввод — URL (для текста «URL-сканирование до 10 сек»). */
+export function isVtScannerUrlInput(input: string): boolean {
+  return HTTP_URL_RE.test(input.trim());
+}
+
+/** Результат при сетевой ошибке mutateAsync. */
+export function createVtScannerNetworkError(): VtResult {
+  return {
+    status: "error",
+    harmless: 0,
+    suspicious: 0,
+    malicious: 0,
+    undetected: 0,
+    total: 0,
+    permalink: "",
+    errorMessage: "Ошибка сети",
+  };
+}
+
+export const VT_SCANNER_STATUS_CONFIG = {
   clean: {
     icon: ShieldCheck,
     color: "#22c55e",
@@ -48,12 +78,12 @@ const STATUS_CONFIG = {
   },
 } as const;
 
-export function VtScanner({ ownerToken, label = "Проверить файл игры" }: VtScannerProps) {
+export function VtScanner({ ownerToken, label = VT_SCANNER_DEFAULT_LABEL }: VtScannerProps) {
   const [input, setInput] = useState("");
   const [result, setResult] = useState<VtResult | null>(null);
   const scanVt = useScanVt();
 
-  const isValid = /^[a-fA-F0-9]{64}$/.test(input.trim()) || /^https?:\/\/./.test(input.trim());
+  const isValid = isVtScannerInputValid(input);
   const scanning = scanVt.isPending;
 
   const scan = async () => {
@@ -65,20 +95,11 @@ export function VtScanner({ ownerToken, label = "Проверить файл и�
       });
       setResult(data);
     } catch {
-      setResult({
-        status: "error",
-        harmless: 0,
-        suspicious: 0,
-        malicious: 0,
-        undetected: 0,
-        total: 0,
-        permalink: "",
-        errorMessage: "Ошибка сети",
-      });
+      setResult(createVtScannerNetworkError());
     }
   };
 
-  const cfg = result ? STATUS_CONFIG[result.status] : null;
+  const cfg = result ? VT_SCANNER_STATUS_CONFIG[result.status] : null;
   const Icon = cfg?.icon ?? Shield;
 
   return (
@@ -141,7 +162,7 @@ export function VtScanner({ ownerToken, label = "Проверить файл и�
           fontSize: 13,
         }}>
           <Loader2 size={14} style={{ animation: "spin 1s linear infinite", flexShrink: 0 }} />
-          <span>Отправляю на проверку{/^https?:\/\//.test(input.trim()) ? " (URL-сканирование до 10 сек)" : ""}…</span>
+          <span>Отправляю на проверку{isVtScannerUrlInput(input) ? " (URL-сканирование до 10 сек)" : ""}…</span>
         </div>
       )}
 
