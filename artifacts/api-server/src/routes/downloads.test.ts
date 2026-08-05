@@ -150,6 +150,8 @@ afterAll(async () => {
 
 beforeEach(() => {
   delete process.env.HOST_AGENT_EXE_URL;
+  delete process.env.PLATFORM_PUBLIC_URL;
+  delete process.env.API_BASE_URL;
   githubReleaseResponse = null;
   resetHostAgentExeUrlCacheForTests();
   dbHostTokenRows = [];
@@ -167,17 +169,40 @@ describe("resolveApiBaseUrl", () => {
     expect(resolveApiBaseUrl(req as never)).toBe("http://127.0.0.1:5000");
   });
 
-  it("prefers x-forwarded headers behind a proxy", () => {
+  it("uses Express protocol and Host (as set by a trusted reverse proxy)", () => {
     const req = {
-      protocol: "http",
+      protocol: "https",
       get(name: string) {
-        if (name === "x-forwarded-proto") return "https,http";
-        if (name === "x-forwarded-host") return "gaming.example.com,internal";
-        if (name === "host") return "127.0.0.1:5000";
+        if (name === "host") return "gaming.example.com";
         return undefined;
       },
     };
     expect(resolveApiBaseUrl(req as never)).toBe("https://gaming.example.com");
+  });
+
+  it("prefers PLATFORM_PUBLIC_URL over request-derived origin", () => {
+    process.env.PLATFORM_PUBLIC_URL = "https://platform.example.com";
+    const req = {
+      protocol: "http",
+      get(name: string) {
+        if (name === "host") return "evil.com";
+        return undefined;
+      },
+    };
+    expect(resolveApiBaseUrl(req as never)).toBe("https://platform.example.com");
+  });
+
+  it("ignores client-spoofed X-Forwarded-Host when env is unset", () => {
+    const req = {
+      protocol: "http",
+      get(name: string) {
+        if (name === "x-forwarded-host") return "evil.attacker.com";
+        if (name === "x-forwarded-proto") return "https";
+        if (name === "host") return "127.0.0.1:5000";
+        return undefined;
+      },
+    };
+    expect(resolveApiBaseUrl(req as never)).toBe("http://127.0.0.1:5000");
   });
 });
 
