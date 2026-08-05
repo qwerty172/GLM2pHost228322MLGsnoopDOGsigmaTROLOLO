@@ -23,6 +23,7 @@
 //   L. web lib/*.ts without co-located test (by file)
 //   M. web hooks/*.{ts,tsx} without co-located test (by file)
 //   N. web components/*.{ts,tsx} without co-located test (by file, excludes ui/)
+//   O. web pages/**/*.tsx with inline helper functions (by file)
 //
 // Source of truth: working tree (== main after git pull).
 
@@ -404,6 +405,37 @@ if (existsSync(webComponentsDir)) {
   }
 }
 
+// --- O. web pages/**/*.tsx with inline helpers (by file) ------------------
+const webPagesDir = "artifacts/web/src/pages";
+function pageRelPath(absPath) {
+  return absPath.replace(/^artifacts\/web\/src\/pages\//, "");
+}
+function pageTestBase(rel) {
+  return rel.replace(/\.tsx?$/, "").replace(/\//g, "-");
+}
+if (existsSync(webPagesDir)) {
+  const pageFiles = walk(webPagesDir).filter((f) => f.endsWith(".tsx") || f.endsWith(".ts"));
+  for (const f of pageFiles) {
+    const rel = pageRelPath(f);
+    const base = pageTestBase(rel);
+    const testCandidates = [
+      `artifacts/web/test/${base}.test.mjs`,
+      `artifacts/web/test/${base}.test.ts`,
+    ];
+    if (testCandidates.some((t) => existsSync(t))) continue;
+    const txt = readFileSync(f, "utf8");
+    if (!/^(?:const|function) [a-z][\w]*/m.test(txt)) continue;
+    raw.push({
+      cat: "O",
+      groupKey: `o:${f}`,
+      title: `web pages: unit-тест helpers (${rel})`,
+      file: f,
+      detail: rel,
+      items: [rel],
+    });
+  }
+}
+
 // --- group raw hits (merge same groupKey) --------------------------------
 const grouped = new Map();
 for (const c of raw) {
@@ -600,7 +632,7 @@ if (NEXT || PICK) {
     console.log(`| ${c.id} | ${c.cat} | ${c.title} | \`${c.file}\` | ${(c.detail || "").replace(/\|/g, "\\|")} |`);
   }
   console.log(
-    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, J=main-тесты, K=shared-тесты, L=web-lib тесты, M=web-hooks тесты, N=web-components тесты, I=eslint suppressions.`,
+    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, J=main-тесты, K=shared-тесты, L=web-lib тесты, M=web-hooks тесты, N=web-components тесты, O=web-pages helpers, I=eslint suppressions.`,
   );
   console.log(`Синхронизация: node scripts/marathon-scan.mjs --sync-marathon`);
 }

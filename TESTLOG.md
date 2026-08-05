@@ -15,6 +15,18 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-90 (2026-08-05 09:25 UTC) {#marathon-m-90}
+
+| Проверка | Результат |
+|---|---|
+| marathon-scan.mjs | добавлена категория O (web pages с inline helpers) |
+| admin/games.tsx | экспорт ADMIN_GAMES_SECRET_KEY, adminRequestInit, getAdminApiErrorMessage, gameSubmissionStatusLabel, formatAdminAccessError, resolveAdminCoverImageUrl |
+| admin-games.test.mjs | 6 тестов — secret key, request init, API errors, status labels, access error, cover URL |
+| web test | PASS (admin-games 6/6) |
+| typecheck | PASS (web) |
+
+**Следующий pick:** M-91 (embed.tsx).
+
 ## Marathon M-89 (2026-08-05 08:58 UTC) {#marathon-m-89}
 
 | Проверка | Результат |
@@ -24,7 +36,7 @@
 | web test | PASS (130 tests) |
 | typecheck | PASS (web) |
 
-**Следующий pick:** scanner idle (cat N пуст).
+**Следующий pick:** M-90 (admin/games.tsx, cat O).
 
 ## Marathon M-88 (2026-08-05 07:52 UTC) {#marathon-m-88}
 
