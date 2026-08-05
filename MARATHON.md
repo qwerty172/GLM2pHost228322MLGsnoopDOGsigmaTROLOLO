@@ -595,7 +595,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-240 | V | тест не покрывает экспорты (6): storageRouteHelpers | `artifacts/api-server/src/lib/storageRouteHelpers.ts` | v:artifacts/api-server/src/lib/storageRouteHelpers.ts | done | agent |
 | M-241 | V | тест не покрывает экспорты (3): walletAddresses | `artifacts/api-server/src/lib/walletAddresses.ts` | v:artifacts/api-server/src/lib/walletAddresses.ts | done | agent |
 | M-242 | V | тест не покрывает экспорты (2): api-client | `artifacts/host-agent/src/main/api-client.ts` | v:artifacts/host-agent/src/main/api-client.ts | done | agent |
-| M-243 | V | тест не покрывает экспорты (4): config | `artifacts/host-agent/src/main/config.ts` | v:artifacts/host-agent/src/main/config.ts | pending | agent |
+| M-243 | V | тест не покрывает экспорты (4): config | `artifacts/host-agent/src/main/config.ts` | v:artifacts/host-agent/src/main/config.ts | done | agent |
 | M-244 | V | тест не покрывает экспорты (1): gamepad-injection | `artifacts/host-agent/src/main/gamepad-injection.ts` | v:artifacts/host-agent/src/main/gamepad-injection.ts | pending | agent |
 | M-245 | V | тест не покрывает экспорты (2): ping-server | `artifacts/host-agent/src/main/ping-server.ts` | v:artifacts/host-agent/src/main/ping-server.ts | pending | agent |
 | M-246 | V | тест не покрывает экспорты (3): agent-auth | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/agent-auth.ts | pending | agent |

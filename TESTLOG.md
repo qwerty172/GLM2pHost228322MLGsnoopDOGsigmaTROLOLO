@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-243 (2026-08-05 23:56 UTC) {#marathon-m-243}
+
+| Проверка | Результат |
+|---|---|
+| config.test.mjs | PASS (3 new main-process tests) |
+
+**Изменения:** `artifacts/host-agent/test/config.test.mjs` — unit-тесты для main `loadConfig`, `saveConfig`, `getCachedConfig`, `resetConfigCache`.
+
+**Следующий pick:** M-244 (тест не покрывает экспорты: gamepad-injection).
+
 ## Marathon M-242 (2026-08-05 23:51 UTC) {#marathon-m-242}
 
 | Проверка | Результат |
