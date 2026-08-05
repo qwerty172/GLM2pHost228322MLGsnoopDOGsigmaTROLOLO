@@ -45,6 +45,15 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-112 (2026-08-05 11:24 UTC) {#marathon-m-112}
+
+| Проверка | Результат |
+|---|---|
+| downloads.test.ts | 4 теста — GET /downloads/host-agent.exe (503/302 redirect), GET /downloads/host-agent.zip (503 без dist, zip bundle) |
+| api-server test (downloads) | PASS (4 tests) |
+
+**Следующий pick:** M-113 (embed.ts).
+
 ## Marathon M-111 (2026-08-05 11:21 UTC) {#marathon-m-111}
 
 | Проверка | Результат |
@@ -52,7 +61,7 @@
 | devKeys.test.ts | 12 тестов — POST /dev-keys (auth: secret/admin/open-create, validation), PATCH /dev-keys/:apiKey/rules |
 | api-server test (devKeys) | PASS (12 tests) |
 
-**Следующий pick:** M-112 (downloads.ts).
+**Следующий pick:** M-113 (embed.ts).
 
 ## Marathon M-110 (2026-08-05 11:19 UTC) {#marathon-m-110}
 
