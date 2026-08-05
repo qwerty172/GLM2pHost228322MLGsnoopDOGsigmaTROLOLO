@@ -6,15 +6,15 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-127 done; sessions.test.ts)
+> **Последнее обновление:** 2026-08-05 (M-129 done; submissions.test.ts)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 12:22 UTC|
-| Task ID | M-128|
-| Результат | storage.test.ts: 16 тестов (request-url, confirm, clip-upload, public-objects, objects ACL). vitest PASS.|
+| Дата | 2026-08-05 12:26 UTC|
+| Task ID | M-129|
+| Результат | submissions.test.ts: 20 тестов (submit, pending-config, my). vitest PASS.|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -373,7 +373,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-126 | P | api-server routes: unit-тест (saves.ts) | `routes/saves.ts` | p:artifacts/api-server/src/routes/saves.ts | done | agent |
 | M-127 | P | api-server routes: unit-тест (sessions.ts) | `routes/sessions.ts` | p:artifacts/api-server/src/routes/sessions.ts | done | agent |
 | M-128 | P | api-server routes: unit-тест (storage.ts) | `routes/storage.ts` | p:artifacts/api-server/src/routes/storage.ts | done | agent |
-| M-129 | P | api-server routes: unit-тест (submissions.ts) | `routes/submissions.ts` | p:artifacts/api-server/src/routes/submissions.ts | pending | agent |
+| M-129 | P | api-server routes: unit-тест (submissions.ts) | `routes/submissions.ts` | p:artifacts/api-server/src/routes/submissions.ts | done | agent |
 | M-130 | P | api-server routes: unit-тест (vds.ts) | `routes/vds.ts` | p:artifacts/api-server/src/routes/vds.ts | pending | agent |
 | M-131 | P | api-server routes: unit-тест (verifier.ts) | `routes/verifier.ts` | p:artifacts/api-server/src/routes/verifier.ts | pending | agent |
 | M-132 | P | api-server routes: unit-тест (vt.ts) | `routes/vt.ts` | p:artifacts/api-server/src/routes/vt.ts | pending | agent |

@@ -92,7 +92,16 @@
 
 **Следующий pick:** M-122 (premium.ts).
 
-**Следующий pick:** M-128 (storage.ts).
+**Следующий pick:** M-129 (submissions.ts).
+
+## Marathon M-129 (2026-08-05 12:26 UTC) {#marathon-m-129}
+
+| Проверка | Результат |
+|---|---|
+| submissions.test.ts | 20 тестов — POST /games/submit; PATCH /games/submissions/:id/pending-config; GET /games/submissions/my |
+| api-server test (submissions) | PASS (20 tests) |
+
+**Следующий pick:** M-130 (vds.ts).
 
 ## Marathon M-128 (2026-08-05 12:22 UTC) {#marathon-m-128}
 
