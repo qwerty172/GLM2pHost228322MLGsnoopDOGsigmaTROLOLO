@@ -10,6 +10,46 @@ interface VtScannerProps {
   label?: string;
 }
 
+export const VT_SCANNER_DEFAULT_LABEL = "Проверить файл игры";
+
+export const VT_SCANNER_STATUS_LABELS = {
+  clean: "Чисто",
+  suspicious: "Подозрительно",
+  malicious: "Угроза обнаружена",
+  unknown: "Нет в базе VT",
+  error: "Ошибка",
+} as const;
+
+export function isVtScannerInputValid(input: string): boolean {
+  const trimmed = input.trim();
+  return /^[a-fA-F0-9]{64}$/.test(trimmed) || /^https?:\/\/./.test(trimmed);
+}
+
+export function canVtScannerScan(
+  input: string,
+  ownerToken: string,
+  scanning: boolean,
+): boolean {
+  return isVtScannerInputValid(input) && ownerToken.length > 0 && !scanning;
+}
+
+export function isVtScannerUrlInput(input: string): boolean {
+  return /^https?:\/\//.test(input.trim());
+}
+
+export function buildVtScannerNetworkErrorResult(): VtResult {
+  return {
+    status: "error",
+    harmless: 0,
+    suspicious: 0,
+    malicious: 0,
+    undetected: 0,
+    total: 0,
+    permalink: "",
+    errorMessage: "Ошибка сети",
+  };
+}
+
 const STATUS_CONFIG = {
   clean: {
     icon: ShieldCheck,
@@ -48,16 +88,15 @@ const STATUS_CONFIG = {
   },
 } as const;
 
-export function VtScanner({ ownerToken, label = "Проверить файл игры" }: VtScannerProps) {
+export function VtScanner({ ownerToken, label = VT_SCANNER_DEFAULT_LABEL }: VtScannerProps) {
   const [input, setInput] = useState("");
   const [result, setResult] = useState<VtResult | null>(null);
   const scanVt = useScanVt();
 
-  const isValid = /^[a-fA-F0-9]{64}$/.test(input.trim()) || /^https?:\/\/./.test(input.trim());
   const scanning = scanVt.isPending;
 
   const scan = async () => {
-    if (!isValid || !ownerToken || scanning) return;
+    if (!canVtScannerScan(input, ownerToken, scanning)) return;
     setResult(null);
     try {
       const data = await scanVt.mutateAsync({
@@ -65,16 +104,7 @@ export function VtScanner({ ownerToken, label = "Проверить файл и�
       });
       setResult(data);
     } catch {
-      setResult({
-        status: "error",
-        harmless: 0,
-        suspicious: 0,
-        malicious: 0,
-        undetected: 0,
-        total: 0,
-        permalink: "",
-        errorMessage: "Ошибка сети",
-      });
+      setResult(buildVtScannerNetworkErrorResult());
     }
   };
 
@@ -102,7 +132,7 @@ export function VtScanner({ ownerToken, label = "Проверить файл и�
           type="button"
           variant="outline"
           size="sm"
-          disabled={!isValid || !ownerToken || scanning}
+          disabled={!canVtScannerScan(input, ownerToken, scanning)}
           onClick={scan}
           style={{
             background: "rgba(255,255,255,0.04)",
@@ -141,7 +171,7 @@ export function VtScanner({ ownerToken, label = "Проверить файл и�
           fontSize: 13,
         }}>
           <Loader2 size={14} style={{ animation: "spin 1s linear infinite", flexShrink: 0 }} />
-          <span>Отправляю на проверку{/^https?:\/\//.test(input.trim()) ? " (URL-сканирование до 10 сек)" : ""}…</span>
+          <span>Отправляю на проверку{isVtScannerUrlInput(input) ? " (URL-сканирование до 10 сек)" : ""}…</span>
         </div>
       )}
 
