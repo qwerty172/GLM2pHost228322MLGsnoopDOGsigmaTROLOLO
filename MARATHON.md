@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 04:00 UTC |
 | Task ID | M-77 |
 | Результат | web lib: unit-тест connection-labels.ts (ICE_CONNECTION_LABELS, ICE_TONE_STYLES); фикс regex сканера для `export const X:` |
-| Commit | 4218188 |
+| Commit | 191f763 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
