@@ -5,6 +5,21 @@ import { log, setStatus } from "./ui.js";
 import { showHostGamePicker } from "./library.js";
 import { connect, teardown } from "./session.js";
 
+async function ensureAgentVersionSupported(apiBaseUrl: string): Promise<boolean> {
+  try {
+    const result = await window.agent.checkVersionPolicy(apiBaseUrl);
+    if (!result.ok) {
+      setStatus("error", result.error ?? "Версия агента устарела");
+      log(result.error ?? "Версия агента устарела");
+      return false;
+    }
+    return true;
+  } catch (err) {
+    log(`Проверка версии агента не удалась: ${String(err)}`);
+    return true;
+  }
+}
+
 connectBtn.addEventListener("click", async () => {
   // One-session-at-a-time guard.
   if (session.currentSessionId) {
@@ -15,6 +30,10 @@ connectBtn.addEventListener("click", async () => {
   const cfg = await window.agent.setConfig(readForm());
   if (!cfg.hostToken || !cfg.apiBaseUrl) {
     setStatus("error", "Нужны токен хоста и URL платформы (или код привязки)");
+    return;
+  }
+
+  if (!(await ensureAgentVersionSupported(cfg.apiBaseUrl))) {
     return;
   }
 
@@ -52,6 +71,9 @@ confirmGameBtn.addEventListener("click", async () => {
   gamePickerCard.hidden = true;
   connectBtn.disabled = false;
   const cfg = await window.agent.setConfig(readForm());
+  if (!(await ensureAgentVersionSupported(cfg.apiBaseUrl))) {
+    return;
+  }
   session.currentGameId = gameId;
   await connect(cfg, gameId);
 });

@@ -97,6 +97,7 @@ declare global {
       saveSyncPush: (req: SaveSyncRequest) => Promise<SaveSyncResult>;
       onUpdateReady: (cb: () => void) => () => void;
       installUpdate: () => Promise<void>;
+      checkVersionPolicy: (apiBaseUrl: string) => Promise<{ ok: boolean; error?: string }>;
     };
   }
 }
