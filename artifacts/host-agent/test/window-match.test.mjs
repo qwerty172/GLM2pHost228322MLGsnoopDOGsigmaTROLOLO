@@ -65,18 +65,53 @@ test("findCaptureSourceByTitle matches exact and case-insensitive titles", () =>
   );
 });
 
-test("browserWindowStillOpen uses title heuristics, not pid/hwnd", () => {
+test("browserWindowStillOpen uses hostname heuristics before capture lock", () => {
   assert.equal(browserWindowStillOpen(sources, "shellshock.io"), true);
   assert.equal(browserWindowStillOpen([{ id: "window:9", name: "Notepad" }], "game.io"), false);
 });
 
-test("browserWindowStillOpen H-02: any Chrome counts as alive without hostname match", () => {
+test("browserWindowStillOpen does not treat unrelated Chrome as alive after capture lock", () => {
   const onlyChrome = [
     { id: "window:1", name: "New Tab - Google Chrome" },
     { id: "window:2", name: "Notepad" },
   ];
-  assert.equal(browserWindowStillOpen(onlyChrome, "shellshock.io"), true);
-  assert.equal(browserWindowStillOpen(onlyChrome, ""), true);
+  assert.equal(
+    browserWindowStillOpen(onlyChrome, "shellshock.io", {
+      captureTitle: "shellshock.io - Microsoft Edge",
+    }),
+    false,
+  );
+  assert.equal(
+    browserWindowStillOpen(onlyChrome, "shellshock.io"),
+    false,
+  );
+});
+
+test("browserWindowStillOpen tracks locked HWND after capture", () => {
+  const sourcesWithHwnd = [
+    { id: "window:100:0", name: "New Tab - Google Chrome" },
+    { id: "window:200:0", name: "shellshock.io - Microsoft Edge" },
+  ];
+  assert.equal(
+    browserWindowStillOpen(sourcesWithHwnd, "shellshock.io", { captureHwnd: 200 }),
+    true,
+  );
+  assert.equal(
+    browserWindowStillOpen(
+      [{ id: "window:100:0", name: "New Tab - Google Chrome" }],
+      "shellshock.io",
+      { captureHwnd: 200 },
+    ),
+    false,
+  );
+});
+
+test("browserWindowStillOpen matches locked capture title case-insensitively", () => {
+  const wins = [{ id: "window:1", name: "Game Tab - Google Chrome" }];
+  assert.equal(
+    browserWindowStillOpen(wins, "", { captureTitle: "game tab - google chrome" }),
+    true,
+  );
 });
 
 test("looksLikeBrowserWindow detects common browsers", () => {

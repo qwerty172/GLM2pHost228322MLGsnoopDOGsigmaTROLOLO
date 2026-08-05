@@ -133,10 +133,45 @@ export function findCaptureSourceByTitle(
   return sources.find((s) => s.name.toLowerCase() === lower);
 }
 
+export type BrowserWatchTarget = {
+  /** Locked capture window title from desktopCapturer (post-capture). */
+  captureTitle?: string | null;
+  /** HWND from locked capture source id — survives tab title changes. */
+  captureHwnd?: number | null;
+};
+
 /**
- * Browser session liveness — any browser window counts as alive (HOSTING H-02).
- * hostHint is kept for API compat; liveness does not require hostname in title.
+ * Browser session liveness for billing auto-end.
+ * After capture, tracks the locked window (HWND preferred, then exact title).
+ * Before capture, uses hostname heuristics only — never "any Chrome" (H-02).
  */
-export function browserWindowStillOpen(sources: CaptureSource[], _hostHint: string): boolean {
-  return windowSources(sources).some((s) => looksLikeBrowserWindow(s.name));
+export function browserWindowStillOpen(
+  sources: CaptureSource[],
+  hostHint: string,
+  target?: BrowserWatchTarget,
+): boolean {
+  const windows = windowSources(sources);
+
+  const hwnd = target?.captureHwnd;
+  if (hwnd != null && hwnd > 0) {
+    return windows.some((s) => parseHwndFromSourceId(s.id) === hwnd);
+  }
+
+  const trackedTitle = target?.captureTitle?.trim();
+  if (trackedTitle) {
+    const lower = trackedTitle.toLowerCase();
+    return windows.some((s) => s.name.toLowerCase() === lower);
+  }
+
+  const host = hostHint.trim().toLowerCase();
+  if (host) {
+    const byHostBrowser = windows.find((s) => {
+      const n = s.name.toLowerCase();
+      return n.includes(host) && looksLikeBrowserWindow(s.name);
+    });
+    if (byHostBrowser) return true;
+    return windows.some((s) => s.name.toLowerCase().includes(host));
+  }
+
+  return false;
 }

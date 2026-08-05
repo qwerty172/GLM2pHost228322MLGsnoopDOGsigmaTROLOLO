@@ -4,6 +4,7 @@ import {
   findCaptureSourceByHwnds,
   findCaptureSourceByTitle,
   findNativeCaptureSource,
+  parseHwndFromSourceId,
   resolveTargetExeName,
 } from "../shared/window-match.js";
 import { session } from "./state.js";
@@ -198,7 +199,8 @@ export async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
   const sourceId = chosen.id;
   log(`Capturing source: ${chosen.name}`);
   session.currentCaptureSourceName = chosen.name;
-  window.agent.setCaptureSource(chosen.name);
+  const captureHwnd = parseHwndFromSourceId(chosen.id);
+  window.agent.setCaptureSource(chosen.name, captureHwnd ?? undefined);
   setPipelineStep("window", "done", chosen.name);
 
   const audioMode = cfg.audioMode ?? "off";
