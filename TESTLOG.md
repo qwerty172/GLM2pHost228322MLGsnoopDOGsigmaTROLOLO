@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-230 (2026-08-05 23:14 UTC) {#marathon-m-230}
+
+| Проверка | Результат |
+|---|---|
+| invites.test.ts | PASS (3 tests) |
+
+**Изменения:** `artifacts/api-server/src/lib/invites.test.ts` — unit-тест для `generateInviteCode`: 12-символьный base64url-код.
+
+**Следующий pick:** M-231 (тест не покрывает экспорты: joinCodes).
+
 ## Marathon M-229 (2026-08-05 23:11 UTC) {#marathon-m-229}
 
 | Проверка | Результат |

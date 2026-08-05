@@ -7,7 +7,7 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-229 done; hostTier STREAM_OVERHEAD export coverage)
+> **Последнее обновление:** 2026-08-05 (M-230 done; invites generateInviteCode export coverage)
 
 ## Last run (automation)
 
@@ -582,7 +582,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-227 | V | тест не покрывает экспорты (11): economy | `artifacts/api-server/src/lib/economy.ts` | v:artifacts/api-server/src/lib/economy.ts | done | agent |
 | M-228 | V | тест не покрывает экспорты (1): hostAuth | `artifacts/api-server/src/lib/hostAuth.ts` | v:artifacts/api-server/src/lib/hostAuth.ts | done | agent |
 | M-229 | V | тест не покрывает экспорты (1): hostTier | `artifacts/api-server/src/lib/hostTier.ts` | v:artifacts/api-server/src/lib/hostTier.ts | done | agent |
-| M-230 | V | тест не покрывает экспорты (1): invites | `artifacts/api-server/src/lib/invites.ts` | v:artifacts/api-server/src/lib/invites.ts | pending | agent |
+| M-230 | V | тест не покрывает экспорты (1): invites | `artifacts/api-server/src/lib/invites.ts` | v:artifacts/api-server/src/lib/invites.ts | done | agent |
 | M-231 | V | тест не покрывает экспорты (3): joinCodes | `artifacts/api-server/src/lib/joinCodes.ts` | v:artifacts/api-server/src/lib/joinCodes.ts | pending | agent |
 | M-232 | V | тест не покрывает экспорты (3): jwt | `artifacts/api-server/src/lib/jwt.ts` | v:artifacts/api-server/src/lib/jwt.ts | pending | agent |
 | M-233 | V | тест не покрывает экспорты (2): objectAcl | `artifacts/api-server/src/lib/objectAcl.ts` | v:artifacts/api-server/src/lib/objectAcl.ts | pending | agent |

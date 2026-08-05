@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { defaultInviteExpiresAt, isInviteExpired } from "./invites";
+import { defaultInviteExpiresAt, generateInviteCode, isInviteExpired } from "./invites";
 
 describe("invites", () => {
+  it("generates url-safe invite codes", () => {
+    const code = generateInviteCode();
+    expect(code).toHaveLength(12);
+    expect(code).toMatch(/^[A-Za-z0-9_-]+$/);
+  });
+
   it("defaults expiry to +7 days", () => {
     const from = new Date("2026-01-01T00:00:00.000Z");
     const expires = defaultInviteExpiresAt(from);
