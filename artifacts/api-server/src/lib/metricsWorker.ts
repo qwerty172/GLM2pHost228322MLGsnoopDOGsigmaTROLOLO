@@ -1,42 +1,62 @@
 // Aggregates session_metrics into sessions.qualityScore / avgRttMs / avgLossPct.
 
-import { eq, sql, lt } from "drizzle-orm";
+import { eq, sql, lt, gt } from "drizzle-orm";
 import { db, sessionMetricsTable, sessionsTable } from "@workspace/db";
 import { logger } from "./logger";
 
 const AGGREGATE_MS = 30_000;
+/** Rolling window for quality averages — avoids full-table scans as metrics age. */
+const AGGREGATION_WINDOW_MS = 60 * 60 * 1000;
 const METRICS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
+let isAggregating = false;
+
+/** Pure score helper — exported for unit tests. */
+export function computeQualityScore(
+  rtt: number,
+  loss: number,
+  bitrate: number,
+): number {
+  let score = 100;
+  score -= Math.min(50, loss * 5);
+  score -= Math.min(30, Math.max(0, rtt - 50) / 10);
+  if (bitrate < 2000) score -= 10;
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
 async function aggregateSessionMetrics(): Promise<void> {
-  const rows = await db
-    .select({
-      sessionId: sessionMetricsTable.sessionId,
-      avgRtt: sql<number>`coalesce(avg(${sessionMetricsTable.rttMs}), 0)::int`,
-      avgLoss: sql<number>`coalesce(avg(${sessionMetricsTable.packetLossPct}), 0)::int`,
-      avgBitrate: sql<number>`coalesce(avg(${sessionMetricsTable.bitrateKbps}), 0)::int`,
-    })
-    .from(sessionMetricsTable)
-    .groupBy(sessionMetricsTable.sessionId);
-
-  for (const row of rows) {
-    const loss = Number(row.avgLoss) || 0;
-    const rtt = Number(row.avgRtt) || 0;
-    const bitrate = Number(row.avgBitrate) || 0;
-    // Simple quality score 0–100: penalize loss and RTT, reward bitrate headroom.
-    let score = 100;
-    score -= Math.min(50, loss * 5);
-    score -= Math.min(30, Math.max(0, rtt - 50) / 10);
-    if (bitrate < 2000) score -= 10;
-    score = Math.max(0, Math.min(100, Math.round(score)));
-
-    await db
-      .update(sessionsTable)
-      .set({
-        qualityScore: score,
-        avgRttMs: rtt,
-        avgLossPct: loss,
+  if (isAggregating) return;
+  isAggregating = true;
+  try {
+    const windowStart = new Date(Date.now() - AGGREGATION_WINDOW_MS);
+    const rows = await db
+      .select({
+        sessionId: sessionMetricsTable.sessionId,
+        avgRtt: sql<number>`coalesce(avg(${sessionMetricsTable.rttMs}), 0)::int`,
+        avgLoss: sql<number>`coalesce(avg(${sessionMetricsTable.packetLossPct}), 0)::int`,
+        avgBitrate: sql<number>`coalesce(avg(${sessionMetricsTable.bitrateKbps}), 0)::int`,
       })
-      .where(eq(sessionsTable.id, row.sessionId));
+      .from(sessionMetricsTable)
+      .where(gt(sessionMetricsTable.sampledAt, windowStart))
+      .groupBy(sessionMetricsTable.sessionId);
+
+    for (const row of rows) {
+      const loss = Number(row.avgLoss) || 0;
+      const rtt = Number(row.avgRtt) || 0;
+      const bitrate = Number(row.avgBitrate) || 0;
+      const score = computeQualityScore(rtt, loss, bitrate);
+
+      await db
+        .update(sessionsTable)
+        .set({
+          qualityScore: score,
+          avgRttMs: rtt,
+          avgLossPct: loss,
+        })
+        .where(eq(sessionsTable.id, row.sessionId));
+    }
+  } finally {
+    isAggregating = false;
   }
 }
 
