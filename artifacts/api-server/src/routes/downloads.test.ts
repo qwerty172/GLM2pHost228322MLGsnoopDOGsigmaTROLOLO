@@ -416,6 +416,17 @@ describe("GET /downloads/host-agent.zip", () => {
     expect(install).not.toMatch(/скопир.*токен/i);
   });
 
+  it("bundles INSTALL.txt with firewall port range 18080–18083 (U-33)", async () => {
+    const rawRes = await fetch(`${baseUrl}/downloads/host-agent.zip`);
+    const zip = new AdmZip(Buffer.from(await rawRes.arrayBuffer()));
+    const install = zip.readAsText(zip.getEntry("INSTALL.txt")!);
+    expect(install).toMatch(/18080.18083/);
+    expect(install).toContain("18081");
+    expect(install).toContain("18082");
+    expect(install).toContain("18083");
+    expect(install).not.toMatch(/блокирует порт 18080\?/);
+  });
+
   // U-32: the byte-search assertions above only prove the *filename* is
   // present in the archive — they would still pass if config.json existed
   // but was missing hostToken (exactly the regression U-02 must prevent).

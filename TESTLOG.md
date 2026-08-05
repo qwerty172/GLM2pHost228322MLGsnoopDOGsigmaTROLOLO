@@ -15,6 +15,18 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-158 (2026-08-05 15:15 UTC) {#marathon-m-158}
+
+| Проверка | Результат |
+|---|---|
+| install-u33.test.mjs | PASS — INSTALL.txt упоминает 18080–18083 |
+| downloads.test.ts (U-33) | PASS — ZIP INSTALL.txt согласован с UI и ping-server |
+| pnpm typecheck | PASS |
+
+**Изменения (U-33):** INSTALL.txt, встроенный в ZIP через downloads.ts, теперь описывает диапазон портов 18080–18083 (как dashboard-чеклист и `PING_PORT_FALLBACKS` в ping-server.ts); добавлены тесты install-u33 и downloads U-33.
+
+**Следующий pick:** M-159 (U-15 версия агента из сборки).
+
 ## Marathon M-157 (2026-08-05 15:11 UTC) {#marathon-m-157}
 
 | Проверка | Результат |
