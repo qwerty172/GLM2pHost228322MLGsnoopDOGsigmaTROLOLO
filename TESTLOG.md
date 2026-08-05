@@ -92,7 +92,16 @@
 
 **Следующий pick:** M-122 (premium.ts).
 
-**Следующий pick:** M-125 (quotas.ts).
+**Следующий pick:** M-126 (saves.ts).
+
+## Marathon M-125 (2026-08-05 12:07 UTC) {#marathon-m-125}
+
+| Проверка | Результат |
+|---|---|
+| quotas.test.ts | 26 тестов — GET /quotas, /mine, /applied, /match-my-host, /applicable, /:id; POST /quotas (validation+create), /ai-suggest-specs, /:id/publish, /:id/regenerate-code |
+| api-server test (quotas) | PASS (26 tests) |
+
+**Следующий pick:** M-126 (saves.ts).
 
 ## Marathon M-124 (2026-08-05 12:04 UTC) {#marathon-m-124}
 
@@ -100,8 +109,6 @@
 |---|---|
 | quotaAiChat.test.ts | 7 тестов — POST /quotas/ai-chat (validation 400/401, Anthropic reply+formPatch, default reply, fallback, 500 error) |
 | api-server test (quotaAiChat) | PASS (7 tests) |
-
-**Следующий pick:** M-125 (quotas.ts).
 
 ## Marathon M-123 (2026-08-05 12:01 UTC) {#marathon-m-123}
 

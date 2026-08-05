@@ -6,15 +6,15 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-124 done; quotaAiChat.test.ts)
+> **Последнее обновление:** 2026-08-05 (M-125 done; quotas.test.ts)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 12:04 UTC|
-| Task ID | M-124|
-| Результат | quotaAiChat.test.ts: 7 unit tests (POST /quotas/ai-chat validation 400/401, Anthropic reply/formPatch, fallback reply, 500 error); vitest PASS|
+| Дата | 2026-08-05 12:08 UTC|
+| Task ID | M-125|
+| Результат | quotas.test.ts: 26 unit tests (GET/POST quotas routes, ai-suggest-specs, publish/regenerate-code validation); vitest PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -369,7 +369,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-122 | P | api-server routes: unit-тест (premium.ts) | `routes/premium.ts` | p:artifacts/api-server/src/routes/premium.ts | done | agent |
 | M-123 | P | api-server routes: unit-тест (public.ts) | `routes/public.ts` | p:artifacts/api-server/src/routes/public.ts | done | agent |
 | M-124 | P | api-server routes: unit-тест (quotaAiChat.ts) | `routes/quotaAiChat.ts` | p:artifacts/api-server/src/routes/quotaAiChat.ts | done | agent |
-| M-125 | P | api-server routes: unit-тест (quotas.ts) | `routes/quotas.ts` | p:artifacts/api-server/src/routes/quotas.ts | pending | agent |
+| M-125 | P | api-server routes: unit-тест (quotas.ts) | `routes/quotas.ts` | p:artifacts/api-server/src/routes/quotas.ts | done | agent |
 | M-126 | P | api-server routes: unit-тест (saves.ts) | `routes/saves.ts` | p:artifacts/api-server/src/routes/saves.ts | pending | agent |
 | M-127 | P | api-server routes: unit-тест (sessions.ts) | `routes/sessions.ts` | p:artifacts/api-server/src/routes/sessions.ts | pending | agent |
 | M-128 | P | api-server routes: unit-тест (storage.ts) | `routes/storage.ts` | p:artifacts/api-server/src/routes/storage.ts | pending | agent |
