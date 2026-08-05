@@ -40,62 +40,55 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
-Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
+**Две команды — и работает:**
 
-**Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
+```bash
+pnpm setup    # .env, Docker Postgres+Redis, миграции, typecheck
+pnpm dev      # API :8080 + Web :5000
+```
 
-**Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN (обход страниц в браузере).
+Открой http://localhost:5000 — каталог игр, дашборд хоста, всё сразу.
+
+**Что опционально (можно на потом):**
+- TURN/coturn (`TURN_SECRET`, `TURN_URLS`) — для WebRTC за NAT
+- Object Storage — загрузки файлов
+- VirusTotal, Anthropic AI — сканирование и AI-чат
+- Windows-агент (`artifacts/host-agent`) — нативный стрим с ПК
+
+Полный план тестирования — [`TESTPLAN.md`](./TESTPLAN.md). Подробности — [`LOCAL_SETUP.md`](./LOCAL_SETUP.md).
 
 ### Требования
 
-- Node.js 20+
+- Node.js 20+ (CI использует 22)
 - pnpm 9+
-- PostgreSQL 16
-- Git Bash / WSL (для Windows) или Linux/macOS
+- Docker (рекомендуется) **или** PostgreSQL 16 вручную
 
 ### Клонирование
 
 ```bash
-git clone https://github.com/qwerty172/glm2phost228322mlgsnoopdogsigmatrololo.git decentral-hub
+git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git decentral-hub
 cd decentral-hub
+pnpm setup
+pnpm dev
 ```
 
-### Первичная настройка
+**Windows (cmd):** `scripts\setup-local.bat` → `pnpm dev` или `scripts\dev-local.bat`
 
-**Windows (cmd или двойной клик):**
-
-```bat
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-copy .env.example .env
-notepad .env
-scripts\setup-local.bat
-scripts\dev-local.bat
-```
-
-**Git Bash / Linux / macOS:**
+### Инфраструктура отдельно
 
 ```bash
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-cp .env.example .env
-# отредактируй DATABASE_URL
-
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
+pnpm infra:up     # только Postgres + Redis в Docker
+pnpm infra:down   # остановить
+pnpm db:push      # применить схему БД
 ```
-
-Подробнее — [LOCAL_SETUP.md](./LOCAL_SETUP.md).
 
 ### Переменные окружения (`.env`)
 
 | Переменная | Назначение |
 |---|---|
-| `DATABASE_URL` | PostgreSQL, база `decentral_hub` |
+| `DATABASE_URL` | PostgreSQL (docker: `decentral_hub:decentral_hub@localhost`) |
 | `PORT` | API-сервер (8080) |
+| `WEB_PORT` | Web Vite dev-сервер (5000) |
 | `WALLET_ENCRYPTION_KEY` | 32-байт hex, обязателен для кошелька |
 | `ADMIN_SECRET` | Секрет admin-роутов (`X-Admin-Secret`) |
 | `API_PROXY_TARGET` | Куда Vite проксирует `/api` (http://localhost:8080) |
@@ -103,22 +96,13 @@ chmod +x scripts/*.sh
 
 `.env` подхватывается автоматически через `dotenv-cli` в dev-скриптах. На Replit переменные задаёт платформа.
 
-### Запуск (два терминала или один скрипт)
-
-**Вариант A — скрипт (Git Bash / Linux / macOS):**
+### Запуск
 
 ```bash
-./scripts/dev-local.sh
-```
-
-**Вариант B — вручную:**
-
-```bash
-# Терминал 1: API (порт 8080)
-pnpm --filter @workspace/api-server run dev
-
-# Терминал 2: Web (порт 5000, прокси /api -> :8080)
-pnpm --filter @workspace/web run dev
+pnpm dev
+# или вручную в двух терминалах:
+# pnpm --filter @workspace/api-server run dev
+# pnpm --filter @workspace/web run dev
 ```
 
 Открой http://localhost:5000
