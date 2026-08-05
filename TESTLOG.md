@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-197 (2026-08-05 21:14 UTC) {#marathon-m-197}
+
+| Проверка | Результат |
+|---|---|
+| pnpm --filter @workspace/db test | PASS (54 tests) |
+
+**Изменения:** `lib/db/test/playerGameSaves.test.ts` — колонки и notNull для playerGameSaves.
+
+**Следующий pick:** M-198 (db schema: players.ts).
+
 ## Marathon M-196 (2026-08-05 21:12 UTC) {#marathon-m-196}
 
 | Проверка | Результат |
