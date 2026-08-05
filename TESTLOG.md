@@ -15,16 +15,14 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
-## Marathon M-81 (2026-08-05 05:38 UTC) {#marathon-m-81}
+## Marathon M-81 (2026-08-05 05:42 UTC) {#marathon-m-81}
 
 | Проверка | Результат |
 |---|---|
-| idle-анализ | сканер пуст — 9 web components без тестов |
-| marathon-scan.mjs | категория N: web components/*.{ts,tsx} |
-| KeyboardOverlay.tsx | экспорт KEYBOARD_OVERLAY_STORAGE_KEY, loadKeyboardLayout, saveKeyboardLayout |
-| keyboard-overlay.test.mjs | 7 тестов — catalogue, presets, layout load/save/fallback |
-| web test | PASS (82 tests) |
-| typecheck | PASS |
+| groom reopen | M-81 done, но сканер не видел keyboard-overlay.test.mjs (ожидает `ComponentName.test.mjs`) |
+| fix | переименование → `KeyboardOverlay.test.mjs` |
+| KeyboardOverlay.test.mjs | 7 тестов — catalogue, presets, layout load/save/fallback |
+| marathon-scan --next | M-82 (TouchOverlay.tsx) |
 
 **Следующий pick:** M-82 (TouchOverlay.tsx).
 

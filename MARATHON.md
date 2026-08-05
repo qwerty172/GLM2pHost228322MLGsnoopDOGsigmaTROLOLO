@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-81 done; KeyboardOverlay.tsx unit-тест + scanner cat N)
+> **Последнее обновление:** 2026-08-05 (M-81 done; KeyboardOverlay.test.mjs — имя по конвенции сканера)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 05:38 UTC |
+| Дата | 2026-08-05 05:42 UTC |
 | Task ID | M-81 |
-| Результат | web components: unit-тест KeyboardOverlay.tsx (KEY_CATALOGUE, KEYBOARD_PRESETS, load/save layout) + scanner cat N |
-| Commit | 82adc16 |
+| Результат | переименование keyboard-overlay.test.mjs → KeyboardOverlay.test.mjs (сканер cat N) |
+| Commit | *(этот run)* |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
