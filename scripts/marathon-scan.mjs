@@ -310,7 +310,7 @@ if (existsSync(sharedDir)) {
     ];
     if (testCandidates.some((t) => existsSync(t))) continue;
     const txt = readFileSync(`${sharedDir}/${mod}`, "utf8");
-    if (!/\bexport (async )?function\b|\bexport const \w+ =/.test(txt)) continue;
+    if (!/\bexport (async )?function\b|\bexport const \w+\s*[=:]/.test(txt)) continue;
     const f = `${sharedDir}/${mod}`;
     raw.push({
       cat: "K",
@@ -335,7 +335,7 @@ if (existsSync(webLibDir)) {
     ];
     if (testCandidates.some((t) => existsSync(t))) continue;
     const txt = readFileSync(`${webLibDir}/${mod}`, "utf8");
-    if (!/\bexport (async )?function\b|\bexport const \w+ =/.test(txt)) continue;
+    if (!/\bexport (async )?function\b|\bexport const \w+\s*[=:]/.test(txt)) continue;
     const f = `${webLibDir}/${mod}`;
     raw.push({
       cat: "L",
