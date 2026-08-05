@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 03:54 UTC |
 | Task ID | M-77 |
 | Результат | KeyboardOverlay KEY_CATALOGUE/PRESETS unit-тесты; scanner cat N (web components) + regex `export const X:`; connection-labels.ts gap-fill |
-| Commit | (pending) |
+| Commit | 9792c74 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
