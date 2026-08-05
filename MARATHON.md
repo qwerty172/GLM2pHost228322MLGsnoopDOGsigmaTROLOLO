@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-193 done; ledger schema test)
+> **Последнее обновление:** 2026-08-05 (M-194 done; loans schema test)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 21:04 UTC|
-| Task ID | M-193|
-| Результат | ledger.test.ts: колонки и notNull для ledger; db test PASS (39)|
+| Дата | 2026-08-05 21:06 UTC|
+| Task ID | M-194|
+| Результат | loans.test.ts: loanRequestsTable + loansTable колонки и notNull; db test PASS (45)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -528,7 +528,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-191 | U | db schema: unit-тест (hosts.ts) | `db/hosts.ts` | u:lib/db/src/schema/hosts.ts | done | agent |
 | M-192 | U | db schema: unit-тест (joinCodes.ts) | `db/joinCodes.ts` | u:lib/db/src/schema/joinCodes.ts | done | agent |
 | M-193 | U | db schema: unit-тест (ledger.ts) | `db/ledger.ts` | u:lib/db/src/schema/ledger.ts | done | agent |
-| M-194 | U | db schema: unit-тест (loans.ts) | `db/loans.ts` | u:lib/db/src/schema/loans.ts | pending | agent |
+| M-194 | U | db schema: unit-тест (loans.ts) | `db/loans.ts` | u:lib/db/src/schema/loans.ts | done | agent |
 | M-195 | U | db schema: unit-тест (messages.ts) | `db/messages.ts` | u:lib/db/src/schema/messages.ts | pending | agent |
 | M-196 | U | db schema: unit-тест (outbox.ts) | `db/outbox.ts` | u:lib/db/src/schema/outbox.ts | pending | agent |
 | M-197 | U | db schema: unit-тест (playerGameSaves.ts) | `db/playerGameSaves.ts` | u:lib/db/src/schema/playerGameSaves.ts | pending | agent |
