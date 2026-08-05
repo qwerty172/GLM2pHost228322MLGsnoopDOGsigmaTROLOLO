@@ -94,6 +94,15 @@
 
 **Следующий pick:** M-128 (storage.ts).
 
+## Marathon M-128 (2026-08-05 12:22 UTC) {#marathon-m-128}
+
+| Проверка | Результат |
+|---|---|
+| storage.test.ts | 16 тестов — POST /storage/uploads/request-url, /confirm, /clip-upload; GET /storage/public-objects/*, /objects/* |
+| api-server test (storage) | PASS (16 tests) |
+
+**Следующий pick:** M-129 (submissions.ts).
+
 ## Marathon M-127 (2026-08-05 12:17 UTC) {#marathon-m-127}
 
 | Проверка | Результат |

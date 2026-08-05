@@ -12,9 +12,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 12:17 UTC|
-| Task ID | M-127|
-| Результат | sessions.test.ts: 37 unit tests (create/browser-host/test sessions, claim, end, invite, metrics, rate); vitest PASS|
+| Дата | 2026-08-05 12:22 UTC|
+| Task ID | M-128|
+| Результат | storage.test.ts: 16 тестов (request-url, confirm, clip-upload, public-objects, objects ACL). vitest PASS.|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -372,7 +372,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-125 | P | api-server routes: unit-тест (quotas.ts) | `routes/quotas.ts` | p:artifacts/api-server/src/routes/quotas.ts | done | agent |
 | M-126 | P | api-server routes: unit-тест (saves.ts) | `routes/saves.ts` | p:artifacts/api-server/src/routes/saves.ts | done | agent |
 | M-127 | P | api-server routes: unit-тест (sessions.ts) | `routes/sessions.ts` | p:artifacts/api-server/src/routes/sessions.ts | done | agent |
-| M-128 | P | api-server routes: unit-тест (storage.ts) | `routes/storage.ts` | p:artifacts/api-server/src/routes/storage.ts | pending | agent |
+| M-128 | P | api-server routes: unit-тест (storage.ts) | `routes/storage.ts` | p:artifacts/api-server/src/routes/storage.ts | done | agent |
 | M-129 | P | api-server routes: unit-тест (submissions.ts) | `routes/submissions.ts` | p:artifacts/api-server/src/routes/submissions.ts | pending | agent |
 | M-130 | P | api-server routes: unit-тест (vds.ts) | `routes/vds.ts` | p:artifacts/api-server/src/routes/vds.ts | pending | agent |
 | M-131 | P | api-server routes: unit-тест (verifier.ts) | `routes/verifier.ts` | p:artifacts/api-server/src/routes/verifier.ts | pending | agent |
