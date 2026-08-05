@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 06:18 UTC |
 | Task ID | M-84 |
 | Результат | HostLayout: host-layout-nav.ts + layout.test.mjs (4 теста — nav items, active path) |
-| Commit | (this run) |
+| Commit | 2375a07 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
