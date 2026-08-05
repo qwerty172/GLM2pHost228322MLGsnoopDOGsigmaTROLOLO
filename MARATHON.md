@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 14:52 UTC|
-| Task ID | M-154|
-| Результат | U-09: форма «У меня уже есть токен» на /host с валидацией GET /api/hosts/:token; web 326 tests + typecheck PASS|
+| Дата | 2026-08-05 14:58 UTC|
+| Task ID | M-155|
+| Результат | U-10: add-game-modal.tsx — общий AddGameModal для library и dashboard QuickAddFirstGame; web 327 tests PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -486,7 +486,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-152 | R | UX U-07 (P1): Убрать дублирующий legacy BindingForm с ценами в USD | `pages/host/binding-form.tsx` | r:U-07 | done | agent |
 | M-153 | R | UX U-08 (P1): Кнопка «Войти на сайте» в агенте открывает существующий марш | `artifacts/host-agent/src/main/index.ts` | r:U-08 | done | agent |
 | M-154 | R | UX U-09 (P1): Возврат хоста по сохранённому токену — поле «у меня уже есть | `artifacts/web/src/components/host-auth-guard.tsx` | r:U-09 | done | agent |
-| M-155 | R | UX U-10 (P1): Библиотека и «быстрое добавление игры» — один компонент | `pages/host/library.tsx` | r:U-10 | pending | agent |
+| M-155 | R | UX U-10 (P1): Библиотека и «быстрое добавление игры» — один компонент | `pages/host/add-game-modal.tsx` | r:U-10 | done | agent |
 | M-156 | R | UX U-11 (P2): Русский язык во всём UI агента | `renderer/*.ts` | r:U-11 | pending | agent |
 | M-157 | R | UX U-12 (P2): INSTALL.txt и подсказки дашборда описывают один и тот же пот | `artifacts/host-agent/INSTALL.txt` | r:U-12 | pending | agent |
 | M-158 | R | UX U-33 (P1): Порты файрвола согласованы между документацией и кодом | `artifacts/host-agent/INSTALL.txt` | r:U-33 | pending | agent |

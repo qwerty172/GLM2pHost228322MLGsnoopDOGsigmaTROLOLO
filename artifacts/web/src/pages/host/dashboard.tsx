@@ -13,15 +13,12 @@ import {
   useListHostLibrary,
   useRemoveHostLibraryEntry,
   useDetachQuotaFromSession,
-  useAddHostLibraryEntry,
-  useListGames,
   getGetHostQueryKey,
   getGetHostStatsQueryKey,
   getGetHostActivityQueryKey,
   getListHostSessionsQueryKey,
   getGetHostCurrentQuotaQueryKey,
   getListHostLibraryQueryKey,
-  getListGamesQueryKey,
   issueAgentBindCode,
   createTestSession,
   getHostReadiness,
@@ -109,6 +106,7 @@ import {
   evaluateHostReadiness,
   type HostReadinessResult,
 } from "./dashboard-helpers";
+import { QuickAddFirstGame } from "./add-game-modal";
 
 const cardStyle = {
   background: "#0a1018",
@@ -1136,114 +1134,6 @@ function HostQuickStartCard({
         )}
       </CardContent>
     </Card>
-  );
-}
-
-function QuickAddFirstGame({ hostToken, guided = false }: { hostToken: string; guided?: boolean }) {
-  const [q, setQ] = useState("");
-  const [appPath, setAppPath] = useState("");
-  const [price, setPrice] = useState("10");
-  const [busy, setBusy] = useState(false);
-  const addEntry = useAddHostLibraryEntry();
-  const queryClient = useQueryClient();
-
-  const listParams = { search: q.trim() || undefined } as Record<
-    string,
-    string | undefined
-  >;
-  const { data: games } = useListGames(listParams, {
-    query: {
-      enabled: q.trim().length >= 2,
-      staleTime: 30_000,
-      queryKey: getListGamesQueryKey(listParams),
-    },
-  });
-
-  const picks = (games ?? []).slice(0, 5);
-
-  const addGame = async (gameId: string, title: string) => {
-    const pricePerMinuteLzt = Math.max(0, Number(price) || 0);
-    if (!appPath.trim()) {
-      toast.error("Укажи путь к .exe игры на этом ПК");
-      return;
-    }
-    setBusy(true);
-    try {
-      await addEntry.mutateAsync({
-        hostToken,
-        data: {
-          gameId,
-          pricePerMinuteLzt,
-          appPath: appPath.trim(),
-          boundUrl: "",
-          launchArgs: "",
-        },
-      });
-      toast.success(`«${title}» добавлена`);
-      void queryClient.invalidateQueries({
-        queryKey: getListHostLibraryQueryKey(hostToken),
-      });
-    } catch (err) {
-      toast.error(formatApiError(err, "Не удалось добавить"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div
-      className="rounded-lg p-3 space-y-3"
-      style={{ background: "rgba(0,0,0,0.25)", border: "1px solid rgba(255,255,255,0.06)" }}
-      data-testid="quick-add-first-game"
-    >
-      <p className="text-sm font-medium text-white">Первая игра</p>
-      <Input
-        placeholder="Поиск в каталоге…"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        className="h-8 text-sm"
-        style={{ background: "#0a1018", borderColor: "rgba(255,255,255,0.12)", color: "#fff" }}
-      />
-      <Input
-        placeholder="C:\Games\Game\game.exe"
-        value={appPath}
-        onChange={(e) => setAppPath(e.target.value)}
-        className="h-8 text-sm font-mono"
-        style={{ background: "#0a1018", borderColor: "rgba(255,255,255,0.12)", color: "#fff" }}
-      />
-      <div className="flex items-center gap-2">
-        <Input
-          type="number"
-          min={0}
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          className="h-8 w-24 text-sm"
-          style={{ background: "#0a1018", borderColor: "rgba(255,255,255,0.12)", color: "#fff" }}
-        />
-        <span className="text-xs text-slate-500">LZT/мин</span>
-        {!guided && (
-          <Link href="/host/library" className="ml-auto text-xs text-sky-400 hover:underline">
-            Полная библиотека →
-          </Link>
-        )}
-      </div>
-      {picks.length > 0 && (
-        <ul className="space-y-1 max-h-40 overflow-y-auto">
-          {picks.map((g) => (
-            <li key={g.id}>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void addGame(g.id, g.title)}
-                className="w-full text-left px-2 py-1.5 rounded text-sm text-slate-300 hover:bg-white/5 disabled:opacity-50"
-              >
-                {g.title}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
   );
 }
 

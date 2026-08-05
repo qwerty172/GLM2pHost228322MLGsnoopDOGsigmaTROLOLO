@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-155 (2026-08-05 14:55 UTC) {#marathon-m-155}
+
+| Проверка | Результат |
+|---|---|
+| add-game-modal.test.mjs | +1 тест: экспорт AddGameModal и QuickAddFirstGame |
+| web test suite | 327 тестов — PASS |
+
+**Изменения (U-10):** форма добавления игры вынесена в `add-game-modal.tsx` (`AddGameModal` + `QuickAddFirstGame`); библиотека и онбординг дашборда используют один и тот же модальный поток (поиск → настройка → предложить новую).
+
+**Следующий pick:** M-156 (U-11 русский язык во всём UI агента).
+
 ## Marathon M-154 (2026-08-05 14:50 UTC) {#marathon-m-154}
 
 | Проверка | Результат |
