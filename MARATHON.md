@@ -6,15 +6,15 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-123 done; public.test.ts)
+> **Последнее обновление:** 2026-08-05 (M-124 done; quotaAiChat.test.ts)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 12:01 UTC|
-| Task ID | M-123|
-| Результат | public.test.ts: 18 unit tests (GET /public/ping, /public/ice-config, /stats, /public/games, /hosts, /public/games/:slug/hosts, POST /public/sessions, POST /public/preview-session); vitest PASS|
+| Дата | 2026-08-05 12:04 UTC|
+| Task ID | M-124|
+| Результат | quotaAiChat.test.ts: 7 unit tests (POST /quotas/ai-chat validation 400/401, Anthropic reply/formPatch, fallback reply, 500 error); vitest PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -368,7 +368,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-121 | P | api-server routes: unit-тест (players.ts) | `routes/players.ts` | p:artifacts/api-server/src/routes/players.ts | done | agent |
 | M-122 | P | api-server routes: unit-тест (premium.ts) | `routes/premium.ts` | p:artifacts/api-server/src/routes/premium.ts | done | agent |
 | M-123 | P | api-server routes: unit-тест (public.ts) | `routes/public.ts` | p:artifacts/api-server/src/routes/public.ts | done | agent |
-| M-124 | P | api-server routes: unit-тест (quotaAiChat.ts) | `routes/quotaAiChat.ts` | p:artifacts/api-server/src/routes/quotaAiChat.ts | pending | agent |
+| M-124 | P | api-server routes: unit-тест (quotaAiChat.ts) | `routes/quotaAiChat.ts` | p:artifacts/api-server/src/routes/quotaAiChat.ts | done | agent |
 | M-125 | P | api-server routes: unit-тест (quotas.ts) | `routes/quotas.ts` | p:artifacts/api-server/src/routes/quotas.ts | pending | agent |
 | M-126 | P | api-server routes: unit-тест (saves.ts) | `routes/saves.ts` | p:artifacts/api-server/src/routes/saves.ts | pending | agent |
 | M-127 | P | api-server routes: unit-тест (sessions.ts) | `routes/sessions.ts` | p:artifacts/api-server/src/routes/sessions.ts | pending | agent |
