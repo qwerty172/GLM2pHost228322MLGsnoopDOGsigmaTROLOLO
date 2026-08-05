@@ -490,8 +490,8 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-156 | R | UX U-11 (P2): Русский язык во всём UI агента | `renderer/*.ts` | r:U-11 | done | agent |
 | M-157 | R | UX U-12 (P2): INSTALL.txt и подсказки дашборда описывают один и тот же пот | `artifacts/host-agent/INSTALL.txt` | r:U-12 | done | agent |
 | M-158 | R | UX U-33 (P1): Порты файрвола согласованы между документацией и кодом | `artifacts/host-agent/INSTALL.txt` | r:U-33 | done | agent |
-| M-159 | R | UX U-15 (P1): Версия агента берётся из сборки, а не из захардкоженной стро | `artifacts/host-agent/src/main/index.ts` | r:U-15 | done | agent |
-| M-160 | R | UX U-16 (P1): Обновление агента видно и устанавливается одной кнопкой | `artifacts/host-agent/src/main/index.ts` | r:U-16 | pending | agent |
+| M-159 | R | UX U-15 (P1): Версия агента берётся из сборки, а не из захардкоженной стро | `artifacts/host-agent/src/main/index.ts` | r:U-15 | pending | agent |
+| M-160 | R | UX U-16 (P1): Обновление агента видно и устанавливается одной кнопкой | `artifacts/host-agent/src/main/index.ts` | r:U-16 | done | agent |
 | M-161 | R | UX U-17 (P1): Несовместимая версия агента объясняется до запуска стрима | `routes/hosts.ts` | r:U-17 | pending | agent |
 | M-162 | R | UX U-18 (P1): Единая карточка диагностики вместо разрозненных heartbeat и  | `pages/host/dashboard.tsx` | r:U-18 | pending | agent |
 | M-163 | R | UX U-19 (P1): Диагностический отчёт копируется одной кнопкой без секретов | `pages/host/dashboard.tsx` | r:U-19 | pending | agent |

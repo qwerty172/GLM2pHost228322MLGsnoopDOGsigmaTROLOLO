@@ -85,6 +85,8 @@ export function setupRendererEnv() {
     markSteamGamesAdded: async () => {},
     scanSteamLibrary: async () => ({ games: [] }),
     matchSteamCatalog: async () => ({ games: [] }),
+    onUpdateReady: () => () => {},
+    installUpdate: async () => {},
   };
 
   domWindow.agent = agent;

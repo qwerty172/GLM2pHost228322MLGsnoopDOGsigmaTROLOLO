@@ -21,6 +21,7 @@ import { showAutoQuotaCard, applyQuotaStatus, autoQuotaCheckbox } from "./quota.
 import { runSteamScan } from "./steam.js";
 import { teardown } from "./session.js";
 import { log } from "./ui.js";
+import { initUpdateBanner } from "./update-banner.js";
 
 void loadFormFromConfig().then(async (cfg) => {
   window.agent.onInputPanic(() => {
@@ -30,20 +31,7 @@ void loadFormFromConfig().then(async (cfg) => {
   });
   log("Интерфейс агента загружен.");
   void initAgentKey();
-  if (typeof (window.agent as { onUpdateReady?: (cb: () => void) => () => void }).onUpdateReady === "function") {
-    (window.agent as unknown as { onUpdateReady: (cb: () => void) => () => void }).onUpdateReady(() => {
-      const banner = document.createElement("div");
-      banner.style.cssText =
-        "position:fixed;bottom:16px;right:16px;z-index:9999;padding:12px 16px;" +
-        "background:#065f46;color:#fff;border-radius:8px;font-size:13px;cursor:pointer;" +
-        "box-shadow:0 4px 12px rgba(0,0,0,0.4);";
-      banner.textContent = "Обновление готово — нажми, чтобы перезапустить";
-      banner.onclick = () => {
-        void (window.agent as unknown as { installUpdate?: () => Promise<void> }).installUpdate?.();
-      };
-      document.body.appendChild(banner);
-    });
-  }
+  initUpdateBanner();
   void window.agent.getInjectorStatus().then((st) => {
     if (!st.ok && st.platform === "win32") {
       log(`⚠ ${st.error}`);

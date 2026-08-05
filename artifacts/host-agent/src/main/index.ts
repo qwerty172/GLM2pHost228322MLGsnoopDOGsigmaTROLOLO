@@ -43,6 +43,7 @@ import { parseInputEvent, parseGamepadState } from "../shared/input";
 import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry, SteamScanResult, QuotaStatusEvent, SaveSyncRequest, SaveSyncResult } from "../shared/messages";
 
 let mainWindow: BrowserWindow | null = null;
+let updateDownloaded = false;
 let pingServer: http.Server | null = null;
 let pingPortInUse = PING_PORT;
 /** Window title currently captured by WebRTC — used to sync RTMP gdigrab. */
@@ -145,6 +146,9 @@ function createWindow(): void {
   mainWindow.loadFile(
     path.join(__dirname, "..", "..", "renderer", "index.html"),
   );
+  mainWindow.webContents.on("did-finish-load", () => {
+    notifyUpdateReadyIfNeeded();
+  });
   mainWindow.on("close", (e) => {
     // Hide to tray instead of quitting on window close.
     if (!(app as unknown as { isQuitting?: boolean }).isQuitting) {
@@ -1137,6 +1141,11 @@ app.on("before-quit", () => {
   }
 });
 
+function notifyUpdateReadyIfNeeded(): void {
+  if (!updateDownloaded || !mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send("agent:update-ready");
+}
+
 function initAutoUpdater(): void {
   if (!app.isPackaged) return;
   autoUpdater.autoDownload = true;
@@ -1144,9 +1153,8 @@ function initAutoUpdater(): void {
 
   autoUpdater.on("update-downloaded", () => {
     log("info", "Update downloaded — notifying renderer");
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("agent:update-ready");
-    }
+    updateDownloaded = true;
+    notifyUpdateReadyIfNeeded();
   });
 
   autoUpdater.on("error", (err: Error) => {
