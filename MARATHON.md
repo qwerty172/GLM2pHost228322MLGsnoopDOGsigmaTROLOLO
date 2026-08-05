@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 04:22 UTC |
 | Task ID | M-79 |
 | Результат | web hooks: unit-тест use-mobile.tsx (MOBILE_BREAKPOINT, isMobileViewport, mobileMediaQuery) |
-| Commit | (этот run) |
+| Commit | 7e062c2 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
