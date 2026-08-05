@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-231 (2026-08-05 23:17 UTC) {#marathon-m-231}
+
+| Проверка | Результат |
+|---|---|
+| joinCodes.test.ts | PASS (11 tests) |
+
+**Изменения:** `artifacts/api-server/src/lib/joinCodes.test.ts` — unit-тесты для `ensureJoinCodeForSession`, `exchangeJoinCode`, `ensureJoinCodeForPlayerToken` с моком БД.
+
+**Следующий pick:** M-232 (тест не покрывает экспорты: jwt).
+
 ## Marathon M-230 (2026-08-05 23:14 UTC) {#marathon-m-230}
 
 | Проверка | Результат |

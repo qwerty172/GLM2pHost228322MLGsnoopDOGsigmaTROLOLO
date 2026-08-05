@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-230 done; invites generateInviteCode export coverage)
+> **Последнее обновление:** 2026-08-05 (M-231 done; joinCodes export coverage)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 23:11 UTC|
-| Task ID | M-229|
-| Результат | hostTier.test.ts PASS (3 tests): STREAM_OVERHEAD CPU overhead → below_min tier|
+| Дата | 2026-08-05 23:16 UTC|
+| Task ID | M-231|
+| Результат | joinCodes.test.ts PASS (11 tests): ensureJoinCodeForSession, exchangeJoinCode, ensureJoinCodeForPlayerToken|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -583,7 +583,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-228 | V | тест не покрывает экспорты (1): hostAuth | `artifacts/api-server/src/lib/hostAuth.ts` | v:artifacts/api-server/src/lib/hostAuth.ts | done | agent |
 | M-229 | V | тест не покрывает экспорты (1): hostTier | `artifacts/api-server/src/lib/hostTier.ts` | v:artifacts/api-server/src/lib/hostTier.ts | done | agent |
 | M-230 | V | тест не покрывает экспорты (1): invites | `artifacts/api-server/src/lib/invites.ts` | v:artifacts/api-server/src/lib/invites.ts | done | agent |
-| M-231 | V | тест не покрывает экспорты (3): joinCodes | `artifacts/api-server/src/lib/joinCodes.ts` | v:artifacts/api-server/src/lib/joinCodes.ts | pending | agent |
+| M-231 | V | тест не покрывает экспорты (3): joinCodes | `artifacts/api-server/src/lib/joinCodes.ts` | v:artifacts/api-server/src/lib/joinCodes.ts | done | agent |
 | M-232 | V | тест не покрывает экспорты (3): jwt | `artifacts/api-server/src/lib/jwt.ts` | v:artifacts/api-server/src/lib/jwt.ts | pending | agent |
 | M-233 | V | тест не покрывает экспорты (2): objectAcl | `artifacts/api-server/src/lib/objectAcl.ts` | v:artifacts/api-server/src/lib/objectAcl.ts | pending | agent |
 | M-234 | V | тест не покрывает экспорты (1): objectStorage | `artifacts/api-server/src/lib/objectStorage.ts` | v:artifacts/api-server/src/lib/objectStorage.ts | pending | agent |
