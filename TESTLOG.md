@@ -45,6 +45,15 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-113 (2026-08-05 11:27 UTC) {#marathon-m-113}
+
+| Проверка | Результат |
+|---|---|
+| embed.test.ts | 7 тестов — POST /embed/sessions (400 invalid body, 403 invalid/disabled key, 404 game/host, 402 balance, 201 session) |
+| api-server test (embed) | PASS (7 tests) |
+
+**Следующий pick:** M-114 (enrich.ts).
+
 ## Marathon M-112 (2026-08-05 11:24 UTC) {#marathon-m-112}
 
 | Проверка | Результат |
