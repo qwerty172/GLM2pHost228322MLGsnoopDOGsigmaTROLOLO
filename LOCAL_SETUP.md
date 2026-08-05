@@ -38,13 +38,15 @@
 
 - [Node.js 20+](https://nodejs.org/)
 - [pnpm](https://pnpm.io/installation): `npm install -g pnpm`
-- [PostgreSQL 16](https://www.postgresql.org/download/windows/)
+- [Docker](https://www.docker.com/) (рекомендуется) **или** [PostgreSQL 16](https://www.postgresql.org/download/windows/)
 
-База данных:
+С Docker `pnpm setup` поднимет postgres и redis сам. Без Docker — создай базу:
 
 ```sql
 CREATE DATABASE decentral_hub;
 ```
+
+и укажи `DATABASE_URL` в `.env`.
 
 ---
 
@@ -53,19 +55,7 @@ CREATE DATABASE decentral_hub;
 ```bat
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-
 copy .env.example .env
-notepad .env
-```
-
-В `.env` измените `DATABASE_URL`:
-
-```
-DATABASE_URL=postgresql://postgres:ВАШ_ПАРОЛЬ@localhost:5432/decentral_hub
-```
-
-```bat
 scripts\setup-local.bat
 scripts\dev-local.bat
 scripts\smoke-api.bat
@@ -83,14 +73,10 @@ scripts\smoke-api.bat
 ```bash
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-
 cp .env.example .env
-# отредактируй DATABASE_URL
-
 chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
+pnpm setup
+pnpm dev
 ./scripts/smoke-api.sh
 ```
 

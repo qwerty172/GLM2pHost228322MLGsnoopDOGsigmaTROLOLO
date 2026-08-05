@@ -33,7 +33,7 @@ P2P cloud gaming where Windows hosts stream games to players via WebRTC. The web
 ### Games Library
 
 - Public catalog at `/games` with capability filters: mods, multiplayer, host-spectates, has-quests, plus a "live now" toggle, free-text search, and a host-capability tag filter (mirrored to `?tag=` query param). Detail page at `/games/:slug` lists currently-live hosts with join links; `?tag=` on the detail narrows live hosts to those whose capability tags contain the value (case-insensitive).
-- Catalog table: `lib/db/src/schema/games.ts`. 8 games are seeded on API server boot via `artifacts/api-server/src/lib/seedGames.ts` (idempotent by slug).
+- Catalog table: `lib/db/src/schema/games.ts`. 1 demo game is seeded on API server boot via `artifacts/api-server/src/lib/seedGames.ts` (idempotent by slug).
 - API: `GET /api/games` and `GET /api/games/:slug` (see `lib/api-spec/openapi.yaml` and `artifacts/api-server/src/routes/games.ts`).
 - v1 link between sessions and games is by case-insensitive title match on `sessions.appName` (no FK yet) — host agent still sends free-text app names. Adding `sessions.gameId` is a planned follow-up.
 

@@ -3,7 +3,7 @@ chcp 65001 >nul
 cd /d "%~dp0.."
 
 if not exist .env (
-  echo Нет .env — сначала запусти: scripts\setup-local.bat
+  echo Нет .env — сначала запусти: pnpm setup  или  scripts\setup-local.bat
   exit /b 1
 )
 

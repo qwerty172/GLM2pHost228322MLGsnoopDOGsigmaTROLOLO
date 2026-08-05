@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 if [[ ! -f .env ]]; then
-  echo "Нет .env — сначала запусти: ./scripts/setup-local.sh" >&2
+  echo "Нет .env — сначала запусти: pnpm setup" >&2
   exit 1
 fi
 
@@ -15,7 +15,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-echo "==> API-сервер (порт из .env, обычно 8080)"
+echo "==> API-сервер (http://localhost:8080)"
 pnpm --filter @workspace/api-server run dev &
 API_PID=$!
 
