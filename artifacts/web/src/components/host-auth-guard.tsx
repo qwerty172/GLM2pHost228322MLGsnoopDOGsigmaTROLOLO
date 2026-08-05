@@ -8,6 +8,24 @@ import { Loader2, Cpu, Zap, CircleDollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { SiteNav } from "@/components/site-nav";
 
+export const HOST_AUTH_FEATURES = [
+  { title: "P2P стриминг", text: "WebRTC напрямую" },
+  { title: "Крипто-выплаты", text: "95% дохода тебе" },
+  { title: "Агент хоста", text: "Простая установка" },
+] as const;
+
+export const HOST_AUTH_REGISTER_TOAST = {
+  clipboardOk: "Узел создан — токен скопирован",
+  clipboardFail: "Узел зарегистрирован!",
+  error: "Не удалось зарегистрировать хост",
+} as const;
+
+export function isHostDisplayNameValid(displayName: string): boolean {
+  return displayName.trim().length > 0;
+}
+
+const HOST_AUTH_FEATURE_ICONS = [Zap, CircleDollarSign, Cpu] as const;
+
 export function HostAuthGuard({ children }: { children: React.ReactNode }) {
   const { hostToken, setHostToken } = useAuth();
   const [displayName, setDisplayName] = useState("");
@@ -16,7 +34,7 @@ export function HostAuthGuard({ children }: { children: React.ReactNode }) {
 
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!displayName.trim()) return;
+    if (!isHostDisplayNameValid(displayName)) return;
 
     registerHost.mutate(
       { data: { displayName } },
@@ -24,12 +42,12 @@ export function HostAuthGuard({ children }: { children: React.ReactNode }) {
         onSuccess: (data) => {
           setHostToken(data.hostToken);
           void navigator.clipboard.writeText(data.hostToken).then(
-            () => toast.success("Узел создан — токен скопирован"),
-            () => toast.success("Узел зарегистрирован!"),
+            () => toast.success(HOST_AUTH_REGISTER_TOAST.clipboardOk),
+            () => toast.success(HOST_AUTH_REGISTER_TOAST.clipboardFail),
           );
         },
         onError: () => {
-          toast.error("Не удалось зарегистрировать хост");
+          toast.error(HOST_AUTH_REGISTER_TOAST.error);
         },
       },
     );
@@ -61,21 +79,24 @@ export function HostAuthGuard({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="grid grid-cols-3 gap-3 mb-8">
-            {[
-              { icon: <Zap className="w-4 h-4 text-sky-400" />, title: "P2P стриминг", text: "WebRTC напрямую" },
-              { icon: <CircleDollarSign className="w-4 h-4 text-teal-400" />, title: "Крипто-выплаты", text: "95% дохода тебе" },
-              { icon: <Cpu className="w-4 h-4 text-sky-400" />, title: "Агент хоста", text: "Простая установка" },
-            ].map((f) => (
+            {HOST_AUTH_FEATURES.map((f, i) => {
+              const Icon = HOST_AUTH_FEATURE_ICONS[i];
+              const iconClass =
+                i === 1 ? "w-4 h-4 text-teal-400" : "w-4 h-4 text-sky-400";
+              return (
               <div
                 key={f.title}
                 className="p-3 rounded-xl text-center"
                 style={{ background: "#0a1018", border: "1px solid rgba(255,255,255,0.06)" }}
               >
-                <div className="flex justify-center mb-1.5">{f.icon}</div>
+                <div className="flex justify-center mb-1.5">
+                  <Icon className={iconClass} />
+                </div>
                 <div className="text-[11px] font-semibold text-white mb-0.5">{f.title}</div>
                 <div className="text-[10px] text-slate-500">{f.text}</div>
               </div>
-            ))}
+            );
+            })}
           </div>
 
           <div
@@ -111,7 +132,7 @@ export function HostAuthGuard({ children }: { children: React.ReactNode }) {
                 type="submit"
                 className="w-full h-10 font-bold text-sm"
                 style={{ background: "#0ea5e9", color: "#fff" }}
-                disabled={registerHost.isPending || !displayName.trim()}
+                disabled={registerHost.isPending || !isHostDisplayNameValid(displayName)}
               >
                 {registerHost.isPending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
