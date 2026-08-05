@@ -279,6 +279,24 @@ describe("POST /players/register", () => {
       PLAYER_ID,
     );
   });
+
+  it("returns 500 when guest insert returns empty", async () => {
+    queueResults([]);
+    const res = await request("POST", "/players/register", {
+      body: { guest: true },
+    });
+    expect(res.status).toBe(500);
+    expect(res.json).toMatchObject({ error: "Failed to create guest player" });
+  });
+
+  it("returns 500 when full player insert returns empty", async () => {
+    queueResults([]);
+    const res = await request("POST", "/players/register", {
+      body: { displayName: "Fail Player" },
+    });
+    expect(res.status).toBe(500);
+    expect(res.json).toMatchObject({ error: "Failed to create player" });
+  });
 });
 
 describe("GET /players/:playerToken", () => {
@@ -363,6 +381,17 @@ describe("POST /players/claim-guest", () => {
       "full-player-1",
     );
   });
+
+  it("returns 500 when full player insert returns empty", async () => {
+    queueResults([HOST_ROW], [GUEST_ROW], []);
+    const res = await request("POST", "/players/claim-guest", {
+      body: { guestToken: GUEST_TOKEN, hostToken: HOST_TOKEN },
+    });
+    expect(res.status).toBe(500);
+    expect(res.json).toMatchObject({
+      error: "Failed to create full player account",
+    });
+  });
 });
 
 describe("POST /players/upgrade-guest", () => {
@@ -428,6 +457,15 @@ describe("POST /players/upgrade-guest", () => {
       "player",
       GUEST_ID,
     );
+  });
+
+  it("returns 500 when upgrade update returns empty", async () => {
+    queueResults([GUEST_ROW], []);
+    const res = await request("POST", "/players/upgrade-guest", {
+      body: { guestToken: GUEST_TOKEN, displayName: "Upgraded" },
+    });
+    expect(res.status).toBe(500);
+    expect(res.json).toMatchObject({ error: "Upgrade failed" });
   });
 });
 
@@ -511,5 +549,19 @@ describe("PATCH /players/me/credit-settings", () => {
     });
     expect(res.status).toBe(200);
     expect(res.json).toEqual({ creditLimitLzt: 500 });
+  });
+
+  it("returns 500 when credit settings update returns empty", async () => {
+    mockResolveOwnerByToken.mockResolvedValueOnce({
+      id: PLAYER_ID,
+      type: "player",
+    });
+    queueResults([PLAYER_ROW], []);
+    const res = await request("PATCH", "/players/me/credit-settings", {
+      headers: { "X-User-Token": PLAYER_TOKEN },
+      body: { creditEnabled: true },
+    });
+    expect(res.status).toBe(500);
+    expect(res.json).toMatchObject({ error: "Update failed" });
   });
 });

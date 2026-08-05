@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-216 (2026-08-05 22:27 UTC) {#marathon-m-216}
+
+| Проверка | Результат |
+|---|---|
+| vitest src/routes/players.test.ts | PASS (25 tests) |
+
+**Изменения:** `artifacts/api-server/src/routes/players.test.ts` — тесты 500 для register (guest/full), claim-guest, upgrade-guest, credit-settings.
+
+**Следующий pick:** M-217 (route error-paths 409/429: public.ts).
+
 ## Marathon M-215 (2026-08-05 22:24 UTC) {#marathon-m-215}
 
 | Проверка | Результат |

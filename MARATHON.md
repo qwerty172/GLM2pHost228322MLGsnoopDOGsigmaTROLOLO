@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 22:24 UTC|
-| Task ID | M-215|
-| Результат | vitest joinCodes.test.ts PASS (4); 400 invalid join code param (safeParse)|
+| Дата | 2026-08-05 22:27 UTC|
+| Task ID | M-216|
+| Результат | players.test.ts: 5 тестов 500 (register guest/full, claim-guest, upgrade-guest, credit-settings); vitest 25/25 PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -568,7 +568,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-213 | W | route error-paths без теста (409) : embed.ts | `routes/embed.ts` | w:artifacts/api-server/src/routes/embed.ts | done | agent |
 | M-214 | W | route error-paths без теста (403/409/500/503) : hosts.ts | `routes/hosts.ts` | w:artifacts/api-server/src/routes/hosts.ts | done | agent |
 | M-215 | W | route error-paths без теста (400) : joinCodes.ts | `routes/joinCodes.ts` | w:artifacts/api-server/src/routes/joinCodes.ts | done | agent |
-| M-216 | W | route error-paths без теста (500) : players.ts | `routes/players.ts` | w:artifacts/api-server/src/routes/players.ts | pending | agent |
+| M-216 | W | route error-paths без теста (500) : players.ts | `routes/players.ts` | w:artifacts/api-server/src/routes/players.ts | done | agent |
 | M-217 | W | route error-paths без теста (409/429) : public.ts | `routes/public.ts` | w:artifacts/api-server/src/routes/public.ts | pending | agent |
 | M-218 | W | route error-paths без теста (503) : quotaAiChat.ts | `routes/quotaAiChat.ts` | w:artifacts/api-server/src/routes/quotaAiChat.ts | pending | agent |
 | M-219 | W | route error-paths без теста (500) : quotas.ts | `routes/quotas.ts` | w:artifacts/api-server/src/routes/quotas.ts | pending | agent |
