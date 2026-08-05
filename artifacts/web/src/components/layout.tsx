@@ -3,22 +3,41 @@ import { useAuth } from "@/hooks/use-auth";
 import { LayoutDashboard, Wallet, LogOut, Library } from "lucide-react";
 import { SiteNav } from "@/components/site-nav";
 
+export const HOST_LAYOUT_NAV_ITEMS = [
+  { href: "/host", label: "Дашборд" },
+  { href: "/host/library", label: "Моя библиотека" },
+  { href: "/host/wallet", label: "Кошелёк" },
+] as const;
+
+const HOST_LAYOUT_NAV_ICONS = [LayoutDashboard, Library, Wallet] as const;
+
+export function resolveHostSiteNavActivePath(location: string): "/host" | "/host/wallet" {
+  return location.startsWith("/host/wallet") ? "/host/wallet" : "/host";
+}
+
+export function isHostNavItemActive(location: string, href: string): boolean {
+  return location === href;
+}
+
+export function hostNavLinkTestId(href: string): string {
+  return `link-host-${href.replace(/\//g, "-")}`;
+}
+
 export function HostLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { logout } = useAuth();
 
-  const navItems = [
-    { href: "/host", label: "Дашборд", icon: LayoutDashboard },
-    { href: "/host/library", label: "Моя библиотека", icon: Library },
-    { href: "/host/wallet", label: "Кошелёк", icon: Wallet },
-  ];
+  const navItems = HOST_LAYOUT_NAV_ITEMS.map((item, index) => ({
+    ...item,
+    icon: HOST_LAYOUT_NAV_ICONS[index],
+  }));
 
   return (
     <div
       className="min-h-screen flex flex-col text-slate-300"
       style={{ background: "#06090e" }}
     >
-      <SiteNav activePath={location.startsWith("/host/wallet") ? "/host/wallet" : "/host"} />
+      <SiteNav activePath={resolveHostSiteNavActivePath(location)} />
       <div
         className="border-b"
         style={{
@@ -28,13 +47,13 @@ export function HostLayout({ children }: { children: React.ReactNode }) {
       >
         <div className="max-w-6xl mx-auto px-6 h-11 flex items-center gap-6">
           {navItems.map((item) => {
-            const isActive = location === item.href;
+            const isActive = isHostNavItemActive(location, item.href);
             const Icon = item.icon;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                data-testid={`link-host-${item.href.replace(/\//g, "-")}`}
+                data-testid={hostNavLinkTestId(item.href)}
               >
                 <span
                   className="flex items-center gap-1.5 text-[12.5px] font-medium cursor-pointer transition-colors"
