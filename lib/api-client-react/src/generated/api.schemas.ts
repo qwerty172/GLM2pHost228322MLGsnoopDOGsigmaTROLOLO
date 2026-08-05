@@ -296,6 +296,11 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface ReadinessStatus {
+  status: string;
+  db?: string;
+}
+
 export interface ErrorResponse {
   error: string;
 }
