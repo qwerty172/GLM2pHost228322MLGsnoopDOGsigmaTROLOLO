@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-204 done; sessionMetrics schema test)
+> **Последнее обновление:** 2026-08-05 (M-205 done; sessionRatings schema test)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 21:30 UTC|
-| Task ID | M-204|
-| Результат | sessionMetrics.test.ts: колонки и notNull; db test PASS (78)|
+| Дата | 2026-08-05 21:32 UTC|
+| Task ID | M-205|
+| Результат | sessionRatings.test.ts: колонки и notNull; db test PASS (81)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -539,7 +539,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-202 | U | db schema: unit-тест (rateLimitBuckets.ts) | `db/rateLimitBuckets.ts` | u:lib/db/src/schema/rateLimitBuckets.ts | done | agent |
 | M-203 | U | db schema: unit-тест (refreshTokens.ts) | `db/refreshTokens.ts` | u:lib/db/src/schema/refreshTokens.ts | done | agent |
 | M-204 | U | db schema: unit-тест (sessionMetrics.ts) | `db/sessionMetrics.ts` | u:lib/db/src/schema/sessionMetrics.ts | done | agent |
-| M-205 | U | db schema: unit-тест (sessionRatings.ts) | `db/sessionRatings.ts` | u:lib/db/src/schema/sessionRatings.ts | pending | agent |
+| M-205 | U | db schema: unit-тест (sessionRatings.ts) | `db/sessionRatings.ts` | u:lib/db/src/schema/sessionRatings.ts | done | agent |
 | M-206 | U | db schema: unit-тест (sessions.ts) | `db/sessions.ts` | u:lib/db/src/schema/sessions.ts | pending | agent |
 | M-207 | U | db schema: unit-тест (systemAccounts.ts) | `db/systemAccounts.ts` | u:lib/db/src/schema/systemAccounts.ts | pending | agent |
 | M-208 | U | db schema: unit-тест (verifierLinks.ts) | `db/verifierLinks.ts` | u:lib/db/src/schema/verifierLinks.ts | pending | agent |
