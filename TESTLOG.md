@@ -81,6 +81,15 @@
 
 **Следующий pick:** M-119 (joinCodes.ts).
 
+## Marathon M-119 (2026-08-05 11:47 UTC) {#marathon-m-119}
+
+| Проверка | Результат |
+|---|---|
+| joinCodes.test.ts | 3 теста — POST /join-codes/:code/exchange (404 invalid/expired, 200 playerToken+sessionId, Deprecation header) |
+| api-server test (joinCodes) | PASS (3 tests) |
+
+**Следующий pick:** M-120 (loans.ts).
+
 ## Marathon M-117 (2026-08-05 11:38 UTC) {#marathon-m-117}
 
 | Проверка | Результат |
