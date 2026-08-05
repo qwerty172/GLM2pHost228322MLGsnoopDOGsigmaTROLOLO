@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 00:20 UTC |
 | Task ID | M-68 |
 | Результат | input.ts unit-тесты: parseInputEvent (mode/coords/buttons/keys), parseGamepadState, parseHostConfigPatch |
-| Commit | (this run) |
+| Commit | 652943d |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
