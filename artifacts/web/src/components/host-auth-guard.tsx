@@ -1,5 +1,5 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useRegisterHost } from "@workspace/api-client-react";
+import { getHost, useRegisterHost } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,8 +20,31 @@ export const HOST_AUTH_REGISTER_TOAST = {
   error: "Не удалось зарегистрировать хост",
 } as const;
 
+export const HOST_AUTH_EXISTING_TOKEN_TOAST = {
+  success: (displayName: string) => `Вход выполнен: ${displayName}`,
+  error: "Токен не найден. Проверьте правильность и попробуйте снова.",
+} as const;
+
 export function isHostDisplayNameValid(displayName: string): boolean {
   return displayName.trim().length > 0;
+}
+
+export function isExistingHostTokenValid(token: string): boolean {
+  return token.trim().length > 0;
+}
+
+export async function validateExistingHostToken(
+  token: string,
+  lookup: typeof getHost = getHost,
+): Promise<{ ok: true; displayName: string } | { ok: false }> {
+  const trimmed = token.trim();
+  if (!isExistingHostTokenValid(trimmed)) return { ok: false };
+  try {
+    const host = await lookup(trimmed);
+    return { ok: true, displayName: host.displayName };
+  } catch {
+    return { ok: false };
+  }
 }
 
 const HOST_AUTH_FEATURE_ICONS = [Zap, CircleDollarSign, Cpu] as const;
@@ -29,6 +52,8 @@ const HOST_AUTH_FEATURE_ICONS = [Zap, CircleDollarSign, Cpu] as const;
 export function HostAuthGuard({ children }: { children: React.ReactNode }) {
   const { hostToken, setHostToken } = useAuth();
   const [displayName, setDisplayName] = useState("");
+  const [existingToken, setExistingToken] = useState("");
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   const registerHost = useRegisterHost();
 
@@ -51,6 +76,24 @@ export function HostAuthGuard({ children }: { children: React.ReactNode }) {
         },
       },
     );
+  };
+
+  const handleExistingToken = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isExistingHostTokenValid(existingToken) || isSigningIn) return;
+
+    setIsSigningIn(true);
+    try {
+      const result = await validateExistingHostToken(existingToken);
+      if (!result.ok) {
+        toast.error(HOST_AUTH_EXISTING_TOKEN_TOAST.error);
+        return;
+      }
+      setHostToken(existingToken.trim());
+      toast.success(HOST_AUTH_EXISTING_TOKEN_TOAST.success(result.displayName));
+    } finally {
+      setIsSigningIn(false);
+    }
   };
 
   if (hostToken) {
@@ -140,11 +183,57 @@ export function HostAuthGuard({ children }: { children: React.ReactNode }) {
                 {registerHost.isPending ? "Регистрируем…" : "Создать узел"}
               </Button>
             </form>
-          </div>
 
-          <p className="text-center text-[11px] text-slate-600 mt-4">
-            Уже есть токен? Он сохраняется автоматически в браузере.
-          </p>
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }} />
+              </div>
+              <div className="relative flex justify-center text-[11px] uppercase tracking-wider">
+                <span className="px-3 text-slate-600" style={{ background: "#0a1018" }}>
+                  или
+                </span>
+              </div>
+            </div>
+
+            <h2 className="text-base font-semibold text-white mb-4">
+              У меня уже есть токен
+            </h2>
+            <form onSubmit={handleExistingToken} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="existingHostToken" className="text-slate-400 text-xs">
+                  Токен хоста
+                </Label>
+                <Input
+                  id="existingHostToken"
+                  placeholder="Вставьте токен из ZIP или дашборда"
+                  value={existingToken}
+                  onChange={(e) => setExistingToken(e.target.value)}
+                  className="h-10 text-sm font-mono"
+                  style={{
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    color: "#e2e8f0",
+                  }}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <p className="text-[11px] text-slate-600">
+                  Токен сохранится в браузере — при следующем визите вход будет автоматическим
+                </p>
+              </div>
+              <Button
+                type="submit"
+                variant="outline"
+                className="w-full h-10 font-bold text-sm border-white/10 hover:border-sky-500/40 text-slate-300 hover:text-white"
+                disabled={isSigningIn || !isExistingHostTokenValid(existingToken)}
+              >
+                {isSigningIn ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                {isSigningIn ? "Проверяем…" : "Войти"}
+              </Button>
+            </form>
+          </div>
         </div>
       </div>
     </div>

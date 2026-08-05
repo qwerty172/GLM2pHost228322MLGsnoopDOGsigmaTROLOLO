@@ -15,6 +15,18 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-154 (2026-08-05 14:50 UTC) {#marathon-m-154}
+
+| Проверка | Результат |
+|---|---|
+| host-auth-guard.test.mjs | +7 тестов: validateExistingHostToken, isExistingHostTokenValid |
+| web test suite | 326 тестов — PASS |
+| pnpm typecheck | PASS |
+
+**Изменения (U-09):** на экране «Стать хостом» добавлена форма «У меня уже есть токен» с проверкой через GET /api/hosts/:token; после успешного входа — сразу дашборд (токен в localStorage).
+
+**Следующий pick:** M-155 (U-10 библиотека и быстрое добавление игры).
+
 ## Marathon M-153 (2026-08-05 14:46 UTC) {#marathon-m-153}
 
 | Проверка | Результат |
