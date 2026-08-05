@@ -37,6 +37,38 @@ type NavKey =
   | "/exchange"
   | "/profile";
 
+export const SITE_NAV_GUEST_TOAST = {
+  success: "Аккаунт создан",
+  error: "Не удалось создать аккаунт",
+} as const;
+
+export function isSiteNavPathActive(activePath: string | undefined, path: string): boolean {
+  return activePath === path;
+}
+
+export function isSiteNavHostActive(activePath: string | undefined): boolean {
+  return (
+    activePath === "/host" ||
+    activePath === "/host/wallet" ||
+    activePath === "/wallet"
+  );
+}
+
+export function shouldHideSiteNavGuestBanner(activePath: string | undefined): boolean {
+  return (
+    typeof activePath === "string" &&
+    (activePath.startsWith("/play") || activePath.startsWith("/host/play"))
+  );
+}
+
+export function formatLztBalanceChip(blueLzt: number): string {
+  return `${new Intl.NumberFormat("ru-RU").format(Math.trunc(blueLzt))} LZT`;
+}
+
+export function isGuestAccountNameValid(name: string): boolean {
+  return name.trim().length >= 2;
+}
+
 interface Props {
   activePath?: NavKey | string;
 }
@@ -61,7 +93,7 @@ function BalanceChip({ walletToken }: { walletToken: string }) {
       data-testid="balance-chip"
     >
       <Zap className="w-3 h-3" />
-      {new Intl.NumberFormat("ru-RU").format(Math.trunc(blueLzt))} LZT
+      {formatLztBalanceChip(blueLzt)}
     </div>
   );
 }
@@ -75,14 +107,8 @@ export function SiteNav({ activePath }: Props) {
   const walletToken = playerWalletToken ?? hostToken ?? null;
   const [, navigate] = useLocation();
 
-  const isActive = (path: string) => activePath === path;
-  const isHostActive =
-    activePath === "/host" ||
-    activePath === "/host/wallet" ||
-    activePath === "/wallet";
-  const hideGuestBanner =
-    typeof activePath === "string" &&
-    (activePath.startsWith("/play") || activePath.startsWith("/host/play"));
+  const isHostActive = isSiteNavHostActive(activePath);
+  const hideGuestBanner = shouldHideSiteNavGuestBanner(activePath);
 
   return (
     <nav
@@ -115,8 +141,8 @@ export function SiteNav({ activePath }: Props) {
             <span
               className="flex items-center gap-1.5 text-[13px] font-semibold transition-colors cursor-pointer px-3 py-1.5 rounded-md"
               style={{
-                color: isActive("/hosts") ? "#38bdf8" : "#e2e8f0",
-                background: isActive("/hosts") ? "rgba(14,165,233,0.08)" : "transparent",
+                color: isSiteNavPathActive(activePath, "/hosts") ? "#38bdf8" : "#e2e8f0",
+                background: isSiteNavPathActive(activePath, "/hosts") ? "rgba(14,165,233,0.08)" : "transparent",
               }}
               data-testid="link-nav-games"
             >
@@ -174,9 +200,9 @@ export function SiteNav({ activePath }: Props) {
                 type="button"
                 className="w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-white/8"
                 style={{
-                  background: isActive("/profile") ? "rgba(14,165,233,0.15)" : "rgba(255,255,255,0.06)",
-                  border: isActive("/profile") ? "1px solid rgba(14,165,233,0.3)" : "1px solid rgba(255,255,255,0.1)",
-                  color: isActive("/profile") ? "#38bdf8" : "#94a3b8",
+                  background: isSiteNavPathActive(activePath, "/profile") ? "rgba(14,165,233,0.15)" : "rgba(255,255,255,0.06)",
+                  border: isSiteNavPathActive(activePath, "/profile") ? "1px solid rgba(14,165,233,0.3)" : "1px solid rgba(255,255,255,0.1)",
+                  color: isSiteNavPathActive(activePath, "/profile") ? "#38bdf8" : "#94a3b8",
                 }}
                 aria-label="Профиль"
                 data-testid="button-nav-avatar"
@@ -285,16 +311,16 @@ export function SiteNav({ activePath }: Props) {
               />
               <button
                 type="button"
-                disabled={upgrading || guestName.trim().length < 2}
+                disabled={upgrading || !isGuestAccountNameValid(guestName)}
                 className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 disabled:opacity-50"
                 onClick={() => {
                   setUpgrading(true);
                   void upgradeGuest(guestName.trim()).then((ok) => {
                     setUpgrading(false);
                     if (ok) {
-                      toast.success("Аккаунт создан");
+                      toast.success(SITE_NAV_GUEST_TOAST.success);
                       setGuestExpanded(false);
-                    } else toast.error("Не удалось создать аккаунт");
+                    } else toast.error(SITE_NAV_GUEST_TOAST.error);
                   });
                 }}
               >
@@ -317,10 +343,7 @@ export function SiteNav({ activePath }: Props) {
 }
 
 function MobileMenu({ activePath }: { activePath?: string }) {
-  const isHostActive =
-    activePath === "/host" ||
-    activePath === "/host/wallet" ||
-    activePath === "/wallet";
+  const isHostActive = isSiteNavHostActive(activePath);
 
   return (
     <div
@@ -331,7 +354,7 @@ function MobileMenu({ activePath }: { activePath?: string }) {
       <Link href="/games">
         <span
           className="flex items-center gap-1 text-[12px] font-semibold px-3 py-1 rounded whitespace-nowrap"
-          style={{ color: activePath === "/games" ? "#38bdf8" : "#e2e8f0" }}
+          style={{ color: isSiteNavPathActive(activePath, "/games") ? "#38bdf8" : "#e2e8f0" }}
           data-testid="link-mobile-games"
         >
           <Gamepad2 className="w-3 h-3" /> Играть
@@ -363,7 +386,7 @@ function MobileMenu({ activePath }: { activePath?: string }) {
       <Link href="/profile">
         <span
           className="flex items-center gap-1 text-[12px] font-medium px-3 py-1 rounded whitespace-nowrap"
-          style={{ color: activePath === "/profile" ? "#38bdf8" : "#64748b" }}
+          style={{ color: isSiteNavPathActive(activePath, "/profile") ? "#38bdf8" : "#64748b" }}
           data-testid="link-mobile-profile"
         >
           <UserCircle2 className="w-3 h-3" /> Профиль
@@ -372,7 +395,7 @@ function MobileMenu({ activePath }: { activePath?: string }) {
       <Link href="/wallet">
         <span
           className="flex items-center gap-1 text-[12px] font-medium px-3 py-1 rounded whitespace-nowrap"
-          style={{ color: activePath === "/wallet" ? "#38bdf8" : "#64748b" }}
+          style={{ color: isSiteNavPathActive(activePath, "/wallet") ? "#38bdf8" : "#64748b" }}
           data-testid="link-mobile-wallet"
         >
           <Wallet className="w-3 h-3" /> Кошелёк
@@ -381,7 +404,7 @@ function MobileMenu({ activePath }: { activePath?: string }) {
       <Link href="/exchange">
         <span
           className="flex items-center gap-1 text-[12px] font-medium px-3 py-1 rounded whitespace-nowrap"
-          style={{ color: activePath === "/exchange" ? "#38bdf8" : "#64748b" }}
+          style={{ color: isSiteNavPathActive(activePath, "/exchange") ? "#38bdf8" : "#64748b" }}
           data-testid="link-mobile-exchange"
         >
           <ArrowLeftRight className="w-3 h-3" /> Биржа
@@ -390,7 +413,7 @@ function MobileMenu({ activePath }: { activePath?: string }) {
       <Link href="/quotas">
         <span
           className="flex items-center gap-1 text-[12px] font-medium px-3 py-1 rounded whitespace-nowrap"
-          style={{ color: activePath === "/quotas" ? "#38bdf8" : "#64748b" }}
+          style={{ color: isSiteNavPathActive(activePath, "/quotas") ? "#38bdf8" : "#64748b" }}
           data-testid="link-mobile-quotas"
         >
           <Coins className="w-3 h-3" /> Квоты
