@@ -112,6 +112,15 @@
 
 **Следующий pick:** M-133 (wallet.ts).
 
+## Marathon M-133 (2026-08-05 12:40 UTC) {#marathon-m-133}
+
+| Проверка | Результат |
+|---|---|
+| wallet.test.ts | 10 тестов — GET /wallet/:userToken; GET /wallet/:userToken/transactions; POST /wallet/:userToken/withdraw |
+| api-server test (wallet) | PASS (10 tests) |
+
+**Следующий pick:** (scanner empty — groom expand).
+
 ## Marathon M-131 (2026-08-05 12:33 UTC) {#marathon-m-131}
 
 | Проверка | Результат |

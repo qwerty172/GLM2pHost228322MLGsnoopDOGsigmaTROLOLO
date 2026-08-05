@@ -6,15 +6,15 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-132 done; vt.test.ts)
+> **Последнее обновление:** 2026-08-05 (M-133 done; wallet.test.ts)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 12:37 UTC|
-| Task ID | M-132|
-| Результат | vt.test.ts: 14 тестов (POST /vt/scan sha256+URL, GET /vt/lookup). vitest PASS.|
+| Дата | 2026-08-05 12:40 UTC|
+| Task ID | M-133|
+| Результат | wallet.test.ts: 10 тестов (GET /wallet, GET /wallet/transactions, POST /wallet/withdraw). vitest PASS.|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -377,7 +377,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-130 | P | api-server routes: unit-тест (vds.ts) | `routes/vds.ts` | p:artifacts/api-server/src/routes/vds.ts | done | agent |
 | M-131 | P | api-server routes: unit-тест (verifier.ts) | `routes/verifier.ts` | p:artifacts/api-server/src/routes/verifier.ts | done | agent |
 | M-132 | P | api-server routes: unit-тест (vt.ts) | `routes/vt.ts` | p:artifacts/api-server/src/routes/vt.ts | done | agent |
-| M-133 | P | api-server routes: unit-тест (wallet.ts) | `routes/wallet.ts` | p:artifacts/api-server/src/routes/wallet.ts | pending | agent |
+| M-133 | P | api-server routes: unit-тест (wallet.ts) | `routes/wallet.ts` | p:artifacts/api-server/src/routes/wallet.ts | done | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).
