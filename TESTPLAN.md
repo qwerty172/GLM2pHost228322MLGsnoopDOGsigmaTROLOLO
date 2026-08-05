@@ -31,12 +31,9 @@
 ```bat
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
 
-copy .env.example .env
-notepad .env
-scripts\setup-local.bat
-scripts\dev-local.bat
+pnpm setup
+pnpm dev
 ```
 
 | Сервис | URL |
