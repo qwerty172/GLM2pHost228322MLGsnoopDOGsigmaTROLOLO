@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-160 (2026-08-05 16:10 UTC) {#marathon-m-160}
+
+| Проверка | Результат |
+|---|---|
+| update-banner.test.mjs | PASS — плашка «Обновление готово» + кнопка «Перезапустить и обновить» |
+| host-agent build + test | PASS (207 tests) |
+
+**Изменения (U-16):** Плашка обновления в `index.html` + `update-banner.ts`; `autoUpdater` уведомляет renderer при `update-downloaded` и при открытии окна если обновление уже скачано; установка одной кнопкой через `installUpdate()` без повторного ZIP.
+
+**Следующий pick:** M-161 (U-17 несовместимая версия агента).
+
 ## Marathon M-159 (2026-08-05 15:20 UTC) {#marathon-m-159}
 
 | Проверка | Результат |
