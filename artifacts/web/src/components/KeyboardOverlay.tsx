@@ -112,18 +112,20 @@ export const KEYBOARD_PRESETS: Record<PresetName, { label: string; buttons: KeyB
   },
 };
 
-const STORAGE_KEY = "keyboardOverlayLayout_v1";
+export const KEYBOARD_OVERLAY_STORAGE_KEY = "keyboardOverlayLayout_v1";
 
-function loadLayout(): { preset: PresetName; buttons: KeyButton[] } {
+export function loadKeyboardLayout(): { preset: PresetName; buttons: KeyButton[] } {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(KEYBOARD_OVERLAY_STORAGE_KEY);
     if (raw) return JSON.parse(raw) as { preset: PresetName; buttons: KeyButton[] };
   } catch { /* ignore */ }
   return { preset: "wasd", buttons: structuredClone(KEYBOARD_PRESETS.wasd.buttons) };
 }
 
-function saveLayout(preset: PresetName, buttons: KeyButton[]) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ preset, buttons })); } catch { /* ignore */ }
+export function saveKeyboardLayout(preset: PresetName, buttons: KeyButton[]) {
+  try {
+    localStorage.setItem(KEYBOARD_OVERLAY_STORAGE_KEY, JSON.stringify({ preset, buttons }));
+  } catch { /* ignore */ }
 }
 
 // ── Individual draggable key button ───────────────────────────────────────────
@@ -479,13 +481,13 @@ export interface KeyboardOverlayProps {
 }
 
 export function KeyboardOverlay({ onKeyInput, editMode = false }: KeyboardOverlayProps) {
-  const [{ preset, buttons }, setLayout] = useState<{ preset: PresetName; buttons: KeyButton[] }>(loadLayout);
+  const [{ preset, buttons }, setLayout] = useState<{ preset: PresetName; buttons: KeyButton[] }>(loadKeyboardLayout);
   const [editingBtn, setEditingBtn] = useState<KeyButton | null>(null);
   const [showPresets, setShowPresets] = useState(false);
 
   // Sync to localStorage whenever layout changes
   useEffect(() => {
-    saveLayout(preset, buttons);
+    saveKeyboardLayout(preset, buttons);
   }, [preset, buttons]);
 
   const updatePos = useCallback((id: string, pos: { x: number; y: number }) => {
