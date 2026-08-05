@@ -45,6 +45,15 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-108 (2026-08-05 11:13 UTC) {#marathon-m-108}
+
+| Проверка | Результат |
+|---|---|
+| agentAuth.test.ts | 19 тестов — challenge, bind-code, bind-agent-key, agent-login, pairing-code/status, agent-pair |
+| api-server test (agentAuth) | PASS (19 tests) |
+
+**Следующий pick:** M-109 (agentTelemetry.ts).
+
 ## Marathon M-134 (2026-08-05 11:08 UTC) {#marathon-m-134-fix}
 
 | Проверка | Результат |
