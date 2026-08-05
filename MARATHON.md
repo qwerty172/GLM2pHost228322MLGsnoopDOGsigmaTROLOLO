@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 00:28 UTC |
 | Task ID | M-69 |
 | Результат | web lib agent-event-labels.ts unit-тесты (localizeAgentEventMessage, 3 cases); сканер расширен кат. L |
-| Commit | (pending) |
+| Commit | 33a6242 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
