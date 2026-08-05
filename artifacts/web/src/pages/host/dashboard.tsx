@@ -98,6 +98,8 @@ import {
   buildBrowserHostStorageKeys,
   computeQuickStartSteps,
   downloadHostAgentBundle,
+  markHostAgentDownloaded,
+  readHostAgentDownloaded,
 } from "./dashboard-helpers";
 
 const cardStyle = {
@@ -935,12 +937,14 @@ function HostQuickStartCard({
   libraryCount: number;
   hasActiveSession: boolean;
 }) {
+  const [agentDownloaded, setAgentDownloaded] = useState(() => readHostAgentDownloaded());
   const { steps, doneCount, allDone } = computeQuickStartSteps({
     agent,
     heartbeat,
     agentKeyBound,
     libraryCount,
     hasActiveSession,
+    agentDownloaded,
   });
   const agentOnline = steps[1].done;
 
@@ -952,6 +956,8 @@ function HostQuickStartCard({
   };
 
   const handleDownloadAgent = () => {
+    markHostAgentDownloaded();
+    setAgentDownloaded(true);
     void downloadHostAgentBundle().catch(() => {
       toast.error("Не удалось скачать агент");
     });

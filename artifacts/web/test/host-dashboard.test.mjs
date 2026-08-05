@@ -5,11 +5,13 @@ const {
   HEARTBEAT_FRESH_MS,
   HOST_TOKEN_STORAGE_PREFIX,
   BROWSER_HOST_URL_STORAGE_PREFIX,
+  HOST_AGENT_DOWNLOADED_STORAGE_KEY,
   AUDIO_MODE_LABELS,
   EVENT_LEVEL_STYLES,
   getAgentDiagnosis,
   resolveHeartbeatState,
   isAgentOnline,
+  isAgentOnceSeen,
   agentNeedsAdvancedPanel,
   getAgentEventLevelStyle,
   buildPlayerPlayLink,
@@ -17,6 +19,8 @@ const {
   buildTestSessionFullUrl,
   buildBrowserHostStorageKeys,
   computeQuickStartSteps,
+  readHostAgentDownloaded,
+  markHostAgentDownloaded,
 } = await import("../src/pages/host/dashboard-helpers.ts");
 
 const offlineAgent = { status: "offline" };
@@ -33,6 +37,7 @@ test("HEARTBEAT_FRESH_MS and storage prefixes are stable", () => {
   assert.equal(HEARTBEAT_FRESH_MS, 45_000);
   assert.equal(HOST_TOKEN_STORAGE_PREFIX, "streamline.browserHostToken:");
   assert.equal(BROWSER_HOST_URL_STORAGE_PREFIX, "streamline.browserHostUrl:");
+  assert.equal(HOST_AGENT_DOWNLOADED_STORAGE_KEY, "streamline.hostAgentDownloaded");
 });
 
 test("AUDIO_MODE_LABELS maps all audio modes to Russian labels", () => {
@@ -168,10 +173,23 @@ test("computeQuickStartSteps tracks onboarding progress", () => {
     agentKeyBound: false,
     libraryCount: 0,
     hasActiveSession: false,
+    agentDownloaded: false,
   });
-  assert.equal(early.doneCount, 1);
+  assert.equal(early.doneCount, 0);
   assert.equal(early.allDone, false);
+  assert.equal(early.steps[0].done, false);
   assert.equal(early.steps[1].done, false);
+
+  const afterDownload = computeQuickStartSteps({
+    agent: offlineAgent,
+    heartbeat: { status: "never" },
+    agentKeyBound: false,
+    libraryCount: 0,
+    hasActiveSession: false,
+    agentDownloaded: true,
+  });
+  assert.equal(afterDownload.steps[0].done, true);
+  assert.equal(afterDownload.doneCount, 1);
 
   const ready = computeQuickStartSteps({
     agent: onlineAgent,
@@ -179,8 +197,26 @@ test("computeQuickStartSteps tracks onboarding progress", () => {
     agentKeyBound: true,
     libraryCount: 2,
     hasActiveSession: false,
+    agentDownloaded: false,
   });
   assert.equal(ready.doneCount, 5);
   assert.equal(ready.allDone, true);
+  assert.equal(ready.steps[0].done, true);
   assert.match(ready.steps[1].hint, /localhost:18080/);
+});
+
+test("isAgentOnceSeen is true for online agent, fresh or stale heartbeat", () => {
+  assert.equal(isAgentOnceSeen(offlineAgent, { status: "never" }), false);
+  assert.equal(isAgentOnceSeen(offlineAgent, { status: "unknown" }), false);
+  assert.equal(isAgentOnceSeen(onlineAgent, { status: "never" }), true);
+  assert.equal(isAgentOnceSeen(offlineAgent, freshHeartbeat), true);
+  assert.equal(isAgentOnceSeen(offlineAgent, staleHeartbeat), true);
+});
+
+test("readHostAgentDownloaded and markHostAgentDownloaded use localStorage", () => {
+  const storage = { data: {}, getItem(k) { return this.data[k] ?? null; }, setItem(k, v) { this.data[k] = v; } };
+  assert.equal(readHostAgentDownloaded(storage), false);
+  markHostAgentDownloaded(storage);
+  assert.equal(readHostAgentDownloaded(storage), true);
+  assert.equal(storage.data[HOST_AGENT_DOWNLOADED_STORAGE_KEY], "1");
 });

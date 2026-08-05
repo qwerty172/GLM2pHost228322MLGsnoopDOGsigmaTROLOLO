@@ -4,6 +4,7 @@ export const HEARTBEAT_FRESH_MS = 45_000;
 
 export const HOST_TOKEN_STORAGE_PREFIX = "streamline.browserHostToken:";
 export const BROWSER_HOST_URL_STORAGE_PREFIX = "streamline.browserHostUrl:";
+export const HOST_AGENT_DOWNLOADED_STORAGE_KEY = "streamline.hostAgentDownloaded";
 
 export type AudioMode = "off" | "voice" | "standard" | "quality";
 
@@ -99,6 +100,30 @@ export function isAgentOnline(agent: AgentState, heartbeat: HeartbeatState): boo
   return agent.status === "online" || heartbeat.status === "fresh";
 }
 
+export function isAgentOnceSeen(agent: AgentState, heartbeat: HeartbeatState): boolean {
+  return (
+    agent.status === "online" ||
+    heartbeat.status === "fresh" ||
+    heartbeat.status === "stale"
+  );
+}
+
+export function readHostAgentDownloaded(
+  storage: Pick<Storage, "getItem"> = localStorage,
+): boolean {
+  return storage.getItem(HOST_AGENT_DOWNLOADED_STORAGE_KEY) === "1";
+}
+
+export function markHostAgentDownloaded(
+  storage: Pick<Storage, "setItem"> = localStorage,
+): void {
+  try {
+    storage.setItem(HOST_AGENT_DOWNLOADED_STORAGE_KEY, "1");
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
 export function agentNeedsAdvancedPanel(
   agent: AgentState,
   heartbeat: HeartbeatState,
@@ -175,13 +200,20 @@ export function computeQuickStartSteps(opts: {
   agentKeyBound: boolean;
   libraryCount: number;
   hasActiveSession: boolean;
+  agentDownloaded?: boolean;
 }): { steps: QuickStartStep[]; doneCount: number; allDone: boolean } {
   const agentOnline = isAgentOnline(opts.agent, opts.heartbeat);
+  const agentOnceSeen = isAgentOnceSeen(opts.agent, opts.heartbeat);
+  const downloadDone = Boolean(opts.agentDownloaded) || agentOnceSeen;
   const steps: QuickStartStep[] = [
     {
-      done: true,
+      done: downloadDone,
       title: "Скачай агент",
-      hint: "ZIP → start.bat на Windows-ПК",
+      hint: downloadDone
+        ? agentOnceSeen && !opts.agentDownloaded
+          ? "Агент уже установлен на этом ПК"
+          : "ZIP → start.bat на Windows-ПК"
+        : "Нажми «Скачать агент» выше",
     },
     {
       done: agentOnline,
