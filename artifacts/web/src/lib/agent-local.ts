@@ -63,6 +63,7 @@ export async function discoverAgentPort(opts?: {
       return info;
     }
   }
+  cachedPort = null;
   return null;
 }
 

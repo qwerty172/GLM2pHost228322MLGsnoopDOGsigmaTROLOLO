@@ -15,6 +15,19 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-69 (2026-08-05 01:00 UTC) {#marathon-m-69}
+
+| Проверка | Результат |
+|---|---|
+| marathon-scan cat L | web lib/*.ts без тестов — 7 задач (M-69…M-75) |
+| agent-local.test.mjs | 6 тестов — discoverAgentPort cache/probe, postAgentInput secret/offline |
+| agent-event-labels.test.mjs | 2 теста — localizeAgentEventMessage RU mapping |
+| web test | PASS (8 tests) |
+| web typecheck | PASS |
+| fix | `discoverAgentPort` сбрасывает cachedPort при полном probe-fail |
+
+**Следующий pick:** M-70 `api-errors.ts`.
+
 ## Marathon M-68 (2026-08-05 00:25 UTC) {#marathon-m-68}
 
 | Проверка | Результат |
