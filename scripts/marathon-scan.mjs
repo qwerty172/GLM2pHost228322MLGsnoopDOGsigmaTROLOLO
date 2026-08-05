@@ -26,6 +26,7 @@
 //   O. web pages/**/*.tsx without co-located test (by file, module-level helpers)
 //   P. api-server routes/*.ts without route test (by file, excludes index.ts)
 //   Q. lib/auth-verifier/src/**/*.ts without co-located test (by file, excludes index.ts)
+//   R. UX_BACKLOG.md items (U-NN with status todo) — ВСЕГДА первый приоритет
 //
 // Source of truth: working tree (== main after git pull).
 
@@ -228,6 +229,32 @@ try {
       file: "HOSTING.md",
       detail: problem.slice(0, 80),
       items: [id],
+    });
+  }
+} catch {}
+
+// --- R. UX_BACKLOG.md (U-NN, status todo) — приоритет над техдолгом --------
+// Формат строки: | U-NN | P0|P1|P2 | Задача | Файлы | Критерий | todo |
+try {
+  const uxMd = readFileSync("UX_BACKLOG.md", "utf8");
+  const uxRows = [];
+  for (const m of uxMd.matchAll(
+    /\|\s*(U-\d+)\s*\|\s*(P\d)\s*\|\s*([^|]+?)\s*\|\s*([^|]*?)\s*\|\s*([^|]*?)\s*\|\s*todo\s*\|/g,
+  )) {
+    uxRows.push({ id: m[1], prio: m[2], title: m[3].trim(), files: m[4].trim() });
+  }
+  // Пока открыт хоть один P0 — P1/P2 в очередь не попадают.
+  const hasP0 = uxRows.some((r) => r.prio === "P0");
+  for (const r of uxRows) {
+    if (hasP0 && r.prio !== "P0") continue;
+    const firstFile = (r.files.match(/`([^`]+)`/) ?? [])[1] ?? "UX_BACKLOG.md";
+    raw.push({
+      cat: "R",
+      groupKey: `r:${r.id}`,
+      title: `UX ${r.id} (${r.prio}): ${r.title.slice(0, 60)}`,
+      file: firstFile,
+      detail: r.title.slice(0, 90),
+      items: [r.id],
     });
   }
 } catch {}
@@ -548,7 +575,8 @@ for (const line of marathonMd.split("\n")) {
   if (status === "done" || status === "in_progress") doneOrActiveKeys.add(groupKey);
 }
 
-const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, Q: 7, J: 8, K: 9, L: 10, M: 11, N: 12, O: 13, P: 14, D: 15, I: 16 };
+// R (UX_BACKLOG) — всегда первым: удобство важнее покрытия тестами.
+const CAT_ORDER = { R: -1, B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, Q: 7, J: 8, K: 9, L: 10, M: 11, N: 12, O: 13, P: 14, D: 15, I: 16 };
 const filtered = candidates
   .filter((c) => !doneOrActiveKeys.has(c.groupKey))
   .sort((a, b) => (CAT_ORDER[a.cat] ?? 9) - (CAT_ORDER[b.cat] ?? 9));
@@ -702,7 +730,7 @@ if (NEXT || PICK) {
     console.log(`| ${c.id} | ${c.cat} | ${c.title} | \`${c.file}\` | ${(c.detail || "").replace(/\|/g, "\\|")} |`);
   }
   console.log(
-    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, Q=auth-verifier тесты, J=main-тесты, K=shared-тесты, L=web-lib тесты, M=web-hooks тесты, N=web-components тесты, O=web-pages тесты, P=api-routes тесты, I=eslint suppressions.`,
+    `\nКатегории: R=UX_BACKLOG (приоритет), A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, Q=auth-verifier тесты, J=main-тесты, K=shared-тесты, L=web-lib тесты, M=web-hooks тесты, N=web-components тесты, O=web-pages тесты, P=api-routes тесты, I=eslint suppressions.`,
   );
   console.log(`Синхронизация: node scripts/marathon-scan.mjs --sync-marathon`);
 }

@@ -1,6 +1,6 @@
 # DecentralHub Marathon — живой бэклог
 
-> **Активный цикл:** Wave Maintenance (каждый run — scan + одна M-NN)  
+> **Активный цикл:** Wave UX — удобство и ранний ручной тест ([UX_BACKLOG.md](./UX_BACKLOG.md)), затем остатки техдолга  
 > **Automation:** Cursor Automation `DecentralHub Marathon — следующий цикл`  
 > **Cron (факт):** `0/2 * * * *` (каждые 2 мин) — **каждый run выполняет одну M-NN**, без интервального skip  
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
@@ -40,7 +40,10 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** M-109 done; scanner cat P — 24 pending (api-server routes).
+**Wave UX (текущий приоритет):** [UX_BACKLOG.md](./UX_BACKLOG.md) — 23 задачи U-NN на удобство
+и ранний самостоятельный тест. Категория **R** идёт в очереди раньше техдолга; пока открыт P0 — P1/P2 не берутся.
+
+**Wave Maintenance:** техдолг cat A–Q почти исчерпан — остались auth-verifier тесты (M-135…M-139).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -87,10 +90,14 @@
 
 | Ситуация | Действие |
 |------------|----------|
-| scanner_empty | **СРАЗУ EXPAND SCANNER** — новая категория в `marathon-scan.mjs` → `--sync-marathon` → один feat-коммит |
 | pendingMnn>0 | **EXECUTE** первую M-NN — без анализа, без meta, без efficiency-отдельного-run |
+| scanner_empty | **СНАЧАЛА пополнить [UX_BACKLOG.md](./UX_BACKLOG.md)** по § Генератор UX-задач (техдолг исчерпан → качаем удобство). Только если UX-бэклог тоже пуст — новая техническая категория в `marathon-scan.mjs`. |
 | pr_in_flight | STOP или закрыть мёртвый PR >1ч |
 | полный idle | `exit 3` — cron не поднимает агента вообще (экономия токенов) |
+
+**Направление на текущем этапе (важнее покрытия тестами):** платформа должна стать пригодной для
+**самостоятельного ручного теста владельцем** — меньше окон, меньше копипаста, меньше предварительных знаний.
+Категория **R** (`UX_BACKLOG.md`) идёт в очереди **раньше** любых тестовых категорий; пока открыт **P0** — P1/P2 не берутся.
 
 **Запрещено (все три петли из 1000+ пустых runs):**
 1. **Idle-коммит** — «Marathon idle» + commit Last run (~300 мусорных коммитов 03.08)
@@ -106,12 +113,72 @@
 **Статусы:** `161e0d7` | `in_progress` | `done` | `blocked` | `skipped`  
 **Owner:** `agent` | `human`
 
+### Генератор UX-задач
+
+Запускать, когда в [UX_BACKLOG.md](./UX_BACKLOG.md) не осталось строк со статусом `todo`.
+Промпт ниже вставляется в composer как есть — он самодостаточный.
+
+```
+Ты работаешь в монорепо DecentralHub (/workspace) — P2P cloud gaming: хосты стримят игры
+с Windows-ПК через WebRTC, игроки играют в браузере. Весь UI на русском.
+
+ЦЕЛЬ: владелец проекта должен сам сесть и протестировать платформу от начала до конца,
+не читая код и документацию. Твоя работа — найти, что этому мешает, и выписать задачи.
+
+ЧТО ЦЕНИМ (в порядке важности):
+1. Меньше окон, приложений и переключений контекста.
+2. Меньше ручного копипаста (токены, URL, пути к файлам) — система должна подставлять сама.
+3. Меньше предварительных знаний (что такое квота, LZT, hostToken, invite-код).
+4. Меньше шагов до результата: «скачал → запустил → играю» вместо чек-листа из 15 пунктов.
+5. Понятные состояния: загрузка, пусто, ошибка — по-русски и с понятным следующим действием.
+
+СДЕЛАЙ:
+1. Пройди реальные потоки по коду (не выдумывай):
+   - Хост: artifacts/web/src/pages/host/*, artifacts/web/src/components/host-auth-guard.tsx,
+     artifacts/host-agent/src/renderer/*, artifacts/host-agent/src/main/*,
+     artifacts/api-server/src/routes/downloads.ts
+   - Игрок: artifacts/web/src/pages/{landing,games,game-detail,hosts,play,wallet,profile}.tsx,
+     artifacts/web/src/components/*
+2. Для каждого потока посчитай: сколько кликов, экранов, окон, ручных вводов до результата.
+3. Найди места, где: дублируется функциональность; основное действие спрятано в свёрнутом блоке;
+   показывается технический текст; десктоп и мобила ведут себя по-разному; нужен ручной путь к файлу.
+4. Выпиши 10–15 задач в таблицу формата UX_BACKLOG.md:
+
+| U-NN | P0|P1|P2 | Задача | `путь/к/файлу.tsx`, `второй/файл.ts` | Критерий готовности | todo |
+
+ПРАВИЛА ЗАДАЧ:
+- Одна задача = один связный результат, выполнимый за один прогон агента.
+- Заголовок описывает РЕЗУЛЬТАТ для пользователя, не рефакторинг.
+  Хорошо: «Токен хоста вшит в скачиваемый агент — ноль копипаста».
+  Плохо: «Улучшить UX онбординга», «Отрефакторить dashboard.tsx».
+- Критерий готовности проверяемый: что увидит/сделает пользователь, чтобы понять «готово».
+  Хорошо: «После start.bat агент уже привязан, поле токена не показывается».
+  Плохо: «Стало удобнее».
+- Файлы — реальные пути из репозитория, в обратных кавычках.
+- P0 = блокирует первый самостоятельный тест. P1 = тест возможен, но больно. P2 = полировка.
+- Нумерацию продолжай от последнего U-NN в файле, не переиспользуй ID.
+- Не дублируй задачи со статусом done в UX_BACKLOG.md.
+
+ОГРАНИЧЕНИЯ ПРОЕКТА (соблюдать):
+- UI на русском; технические идентификаторы на английском.
+- Типы API только из lib/api-client-react / lib/api-zod (не писать руками).
+- Роутинг — wouter; UI — shadcn/ui + Tailwind v4; иконки lucide-react; тосты sonner.
+- Логирование на сервере — pino, не console.log.
+- Не редактировать lib/api-client-react/src/ и lib/api-zod/src/ (автогенерат).
+
+РЕЗУЛЬТАТ: только строки таблицы для вставки в UX_BACKLOG.md. Без вступлений и рассуждений.
+```
+
+После генерации: вставить строки в `UX_BACKLOG.md` → `node scripts/marathon-scan.mjs --sync-marathon`
+→ один коммит `feat(marathon): пополнить UX_BACKLOG (N задач)` → merge в `main`.
+
 ### Контракт automation (жёсткие правила)
 
 - **`done` = код в `main` + CI зелёный + acceptance пройден.** Docs-only `done` без кода = баг.
 - **Старые задачи (C1–C4, UX, REG) со статусом `done` — НЕ ТРОГАТЬ.** Reconcile подтверждает evidence в main; повтор = баг.
 - **M-NN со статусом `done`/`in_progress` — НЕ ТРОГАТЬ.** Сканер пропускает их по файлу.
 - **Unmerged ветки ≠ done.** Если фикс в ветке, но не в main → не mark done.
+- **Задача категории R (UX):** статус меняется в **двух** местах — `M-NN → done` в MARATHON.md **и** `U-NN: todo → done` в [UX_BACKLOG.md](./UX_BACKLOG.md). Если забыть второе, groom увидит `done_but_active` и вернёт задачу в очередь.
 - **Открытые PR игнорируются** при выборе задачи.
 - **Reconcile в начале каждого run** (`--apply`) — только статусы, без кода.
 - **Один канал доставки:** push в main. ~100 DRAFT-PR — superseded, не трогать.
@@ -380,6 +447,13 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-133 | P | api-server routes: unit-тест (wallet.ts) | `routes/wallet.ts` | p:artifacts/api-server/src/routes/wallet.ts | done | agent |
 | M-134 | Q | auth-verifier: unit-тест (challenge.ts) | `auth-verifier/challenge.ts` | q:lib/auth-verifier/src/challenge.ts | done | agent |
 | M-135 | Q | auth-verifier: unit-тест (link.ts) | `auth-verifier/link.ts` | q:lib/auth-verifier/src/link.ts | done | agent |
+| M-140 | R | UX U-01 (P0): Platform URL в агенте заполняется сам — не вводить руками | `routes/downloads.ts` | r:U-01 | pending | agent |
+| M-141 | R | UX U-02 (P0): Токен хоста вшит в скачиваемый агент — ноль копипаста | `routes/downloads.ts` | r:U-02 | pending | agent |
+| M-142 | R | UX U-03 (P0): «Выйти в онлайн» на главном экране агента, не в свёрнутых на | `renderer/*.ts` | r:U-03 | pending | agent |
+| M-143 | R | UX U-04 (P0): Выбор `.exe` через файловый диалог вместо ручного пути | `pages/host/library.tsx` | r:U-04 | pending | agent |
+| M-144 | R | UX U-05 (P0): Квик-старт показывает реальное состояние, а не «шаг 1 всегда | `pages/host/dashboard-helpers.ts` | r:U-05 | pending | agent |
+| M-145 | R | UX U-20 (P0): «Играть» ведёт в одно и то же место на десктопе и мобиле | `artifacts/web/src/components/site-nav.tsx` | r:U-20 | pending | agent |
+| M-146 | R | UX U-21 (P0): Кнопка «Играть сейчас» подбирает хост сама — без выбора из с | `pages/landing.tsx` | r:U-21 | pending | agent |
 | M-136 | Q | auth-verifier: unit-тест (otp.ts) | `auth-verifier/otp.ts` | q:lib/auth-verifier/src/otp.ts | pending | agent |
 | M-137 | Q | auth-verifier: unit-тест (providers/discord.ts) | `auth-verifier/providers/discord.ts` | q:lib/auth-verifier/src/providers/discord.ts | pending | agent |
 | M-138 | Q | auth-verifier: unit-тест (providers/telegram.ts) | `auth-verifier/providers/telegram.ts` | q:lib/auth-verifier/src/providers/telegram.ts | pending | agent |
