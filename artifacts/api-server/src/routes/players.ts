@@ -39,7 +39,9 @@ const claimGuestLimiter = rateLimit({
   keyFn: ipKey,
 });
 
-const GUEST_CREDIT_LIMIT_LZT = 500;
+/** Стартовый баланс гостя — хватает на первую сессию без пополнения. */
+const GUEST_WELCOME_BONUS_LZT = 500;
+const GUEST_CREDIT_LIMIT_LZT = GUEST_WELCOME_BONUS_LZT;
 const DEFAULT_CREDIT_LIMIT_LZT = 3000;
 
 function serialize(p: typeof playersTable.$inferSelect) {
@@ -67,6 +69,7 @@ router.post("/players/register", registerLimiter, async (req, res): Promise<void
         playerToken,
         displayName: guestName,
         isGuest: true,
+        internalBalanceLzt: GUEST_WELCOME_BONUS_LZT,
         creditLimitLzt: GUEST_CREDIT_LIMIT_LZT,
       })
       .returning();
