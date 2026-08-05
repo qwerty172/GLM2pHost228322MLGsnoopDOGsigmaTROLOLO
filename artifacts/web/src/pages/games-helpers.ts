@@ -132,3 +132,27 @@ export function formatPriceLabel(minLzt: number | null | undefined): string {
 export function formatUsdFromLzt(minLzt: number): string {
   return (minLzt / LZT_PER_USDT).toFixed(3);
 }
+
+/** U-28: честная подпись для офлайн-игр в каталоге. */
+export function getOfflineAvailabilityLabel(): string {
+  return "Сейчас нет хостов";
+}
+
+export function getPrimaryGameGenre(game: GameCatalogItem): string | null {
+  const genre = game.genres?.[0] ?? game.genre ?? null;
+  return genre?.trim() ? genre : null;
+}
+
+export function buildSimilarGamesHref(genre: string | null): string {
+  if (!genre) return "/games";
+  return `/games?genre=${encodeURIComponent(genre)}`;
+}
+
+export function getOfflineNotifyMessage(title: string): string {
+  return `Готово! Мы покажем «${title}» выше в каталоге, когда появится хост.`;
+}
+
+export function parseGamesGenreFromSearch(search: string): string | null {
+  const genre = new URLSearchParams(search).get("genre")?.trim();
+  return genre || null;
+}

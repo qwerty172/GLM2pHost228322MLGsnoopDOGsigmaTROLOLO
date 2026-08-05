@@ -1,4 +1,4 @@
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useListGames,
@@ -13,6 +13,7 @@ import {
   Activity,
   AlertCircle,
   ArrowRight,
+  Bell,
   Gamepad2,
   Rocket,
   Search,
@@ -34,6 +35,11 @@ import {
   formatPriceLabel,
   formatUsdFromLzt,
   getLiveHostsCount,
+  getOfflineAvailabilityLabel,
+  getOfflineNotifyMessage,
+  getPrimaryGameGenre,
+  buildSimilarGamesHref,
+  parseGamesGenreFromSearch,
   isGameLive,
   resolveCoverImageUrl,
   type BoolFilterKey,
@@ -76,6 +82,7 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 export default function GamesPage() {
+  const urlSearch = useSearch();
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [liveOnly, setLiveOnly] = useState(false);
@@ -91,6 +98,16 @@ export default function GamesPage() {
   const [maxLzt, setMaxLzt] = useState<number>(9999);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const sliderInitRef = useRef(false);
+  const genreFromUrlAppliedRef = useRef(false);
+
+  useEffect(() => {
+    if (genreFromUrlAppliedRef.current) return;
+    const genre = parseGamesGenreFromSearch(urlSearch);
+    if (genre) {
+      setSelectedGenres([genre]);
+      genreFromUrlAppliedRef.current = true;
+    }
+  }, [urlSearch]);
 
   const apiParams = useMemo(
     () => buildGamesApiParams({ boolFilters, liveOnly, debouncedSearch, category }),
@@ -464,7 +481,13 @@ export default function GamesPage() {
   );
 }
 
-function GameCard({ game, vdsBadge }: { game: GameEnriched; vdsBadge?: boolean }) {
+function GameCard({
+  game,
+  vdsBadge,
+}: {
+  game: GameEnriched;
+  vdsBadge?: boolean;
+}) {
   const [, navigate] = useLocation();
   const { playerWalletToken, isRegistering } = usePlayerWallet();
   const createBrowserHost = useCreateBrowserHostSession();
@@ -496,6 +519,9 @@ function GameCard({ game, vdsBadge }: { game: GameEnriched; vdsBadge?: boolean }
   const minLzt = game.minPricePerMinuteLzt;
   const priceLabel = formatPriceLabel(minLzt);
   const isLive = isGameLive(game);
+  const offlineLabel = getOfflineAvailabilityLabel();
+  const primaryGenre = getPrimaryGameGenre(game);
+  const similarHref = buildSimilarGamesHref(primaryGenre);
 
   return (
     <div
@@ -530,8 +556,8 @@ function GameCard({ game, vdsBadge }: { game: GameEnriched; vdsBadge?: boolean }
         </div>
       )}
 
-      {/* Live hosts badge */}
-      {isLive && (
+      {/* Live / offline badge */}
+      {isLive ? (
         <div className="absolute top-2.5 right-2.5">
           <span
             className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded"
@@ -541,7 +567,17 @@ function GameCard({ game, vdsBadge }: { game: GameEnriched; vdsBadge?: boolean }
             {liveHosts}
           </span>
         </div>
-      )}
+      ) : !vdsBadge && !game.hasVdsHosts ? (
+        <div className="absolute top-2.5 right-2.5">
+          <span
+            className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+            style={{ background: "rgba(251,191,36,0.9)", color: "#1c1917" }}
+            data-testid={`badge-offline-${game.slug}`}
+          >
+            {offlineLabel}
+          </span>
+        </div>
+      ) : null}
 
       {/* Gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-[#06090e]/96 via-[#06090e]/30 to-transparent p-3 flex flex-col justify-end">
@@ -549,32 +585,97 @@ function GameCard({ game, vdsBadge }: { game: GameEnriched; vdsBadge?: boolean }
         {game.genre && (
           <p className="text-[10px] text-sky-400 font-mono mt-0.5 truncate">{game.genre}</p>
         )}
-        <p
-          className="text-[10px] font-mono mt-1"
-          style={{ color: isLive ? "#34d399" : "#64748b" }}
-          data-testid={`text-price-${game.slug}`}
-        >
-          {priceLabel}
-          {minLzt != null && (
-            <span className="text-slate-600"> · ≈${formatUsdFromLzt(minLzt)}</span>
-          )}
-        </p>
+        {isLive ? (
+          <p
+            className="text-[10px] font-mono mt-1"
+            style={{ color: "#34d399" }}
+            data-testid={`text-price-${game.slug}`}
+          >
+            {priceLabel}
+            {minLzt != null && (
+              <span className="text-slate-600"> · ≈${formatUsdFromLzt(minLzt)}</span>
+            )}
+          </p>
+        ) : (
+          <p
+            className="text-[10px] mt-1 leading-snug"
+            style={{ color: "#fbbf24" }}
+            data-testid={`text-offline-${game.slug}`}
+          >
+            Игра недоступна — {offlineLabel.toLowerCase()}
+          </p>
+        )}
         <div className="mt-2 flex flex-col gap-1">
-          <Link href={`/games/${game.slug}`}>
-            <Button
-              size="sm"
-              className="w-full h-7 text-[11px] font-semibold rounded-md"
-              style={{
-                background: isLive ? "#0ea5e9" : "rgba(14,165,233,0.10)",
-                color: isLive ? "#fff" : "#38bdf8",
-                border: isLive ? "none" : "1px solid rgba(14,165,233,0.2)",
-              }}
-              data-testid={`button-open-${game.slug}`}
-            >
-              {isLive ? "Играть" : "Подробнее"}
-              <ArrowRight className="ml-1 h-3 w-3" />
-            </Button>
-          </Link>
+          {isLive ? (
+            <Link href={`/games/${game.slug}`}>
+              <Button
+                size="sm"
+                className="w-full h-7 text-[11px] font-semibold rounded-md"
+                style={{
+                  background: "#0ea5e9",
+                  color: "#fff",
+                }}
+                data-testid={`button-open-${game.slug}`}
+              >
+                Играть
+                <ArrowRight className="ml-1 h-3 w-3" />
+              </Button>
+            </Link>
+          ) : (
+            <>
+              <Link href={`/games/${game.slug}`}>
+                <Button
+                  size="sm"
+                  className="w-full h-7 text-[11px] font-semibold rounded-md"
+                  style={{
+                    background: "rgba(14,165,233,0.10)",
+                    color: "#38bdf8",
+                    border: "1px solid rgba(14,165,233,0.2)",
+                  }}
+                  data-testid={`button-open-${game.slug}`}
+                >
+                  Подробнее
+                  <ArrowRight className="ml-1 h-3 w-3" />
+                </Button>
+              </Link>
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  type="button"
+                  className="flex-1 h-7 text-[10px] font-semibold rounded-md px-1"
+                  style={{
+                    background: "rgba(255,255,255,0.04)",
+                    color: "#94a3b8",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                  }}
+                  data-testid={`button-notify-${game.slug}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toast.success(getOfflineNotifyMessage(game.title), { duration: 4000 });
+                  }}
+                >
+                  <Bell className="mr-0.5 h-3 w-3 shrink-0" />
+                  Уведомить
+                </Button>
+                <Link href={similarHref}>
+                  <Button
+                    size="sm"
+                    type="button"
+                    className="flex-1 h-7 text-[10px] font-semibold rounded-md px-1"
+                    style={{
+                      background: "rgba(14,165,233,0.08)",
+                      color: "#38bdf8",
+                      border: "1px solid rgba(14,165,233,0.2)",
+                    }}
+                    data-testid={`button-similar-${game.slug}`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Похожие
+                  </Button>
+                </Link>
+              </div>
+            </>
+          )}
           {game.browserHostUrl && (
             <Button
               size="sm"

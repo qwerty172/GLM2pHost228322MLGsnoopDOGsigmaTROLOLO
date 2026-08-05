@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-170 (2026-08-05 19:25 UTC) {#marathon-m-170}
+
+| Проверка | Результат |
+|---|---|
+| games.test.mjs U-28 offline helpers | PASS — честная подпись, notify, похожие по жанру |
+| pnpm --filter @workspace/web test | PASS (344 tests) |
+
+**Изменения (U-28):** у офлайн-игр в каталоге бейдж «Сейчас нет хостов», текст «Игра недоступна», кнопки «Уведомить» и «Похожие» (фильтр по жанру через `?genre=`).
+
+**Следующий pick:** M-171 (U-29 фильтры каталога на мобиле).
+
 ## Marathon M-169 (2026-08-05 18:54 UTC) {#marathon-m-169}
 
 | Проверка | Результат |

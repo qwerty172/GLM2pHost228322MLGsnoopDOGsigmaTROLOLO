@@ -16,6 +16,11 @@ const {
   isGameLive,
   formatPriceLabel,
   formatUsdFromLzt,
+  getOfflineAvailabilityLabel,
+  getPrimaryGameGenre,
+  buildSimilarGamesHref,
+  getOfflineNotifyMessage,
+  parseGamesGenreFromSearch,
 } = await import("../src/pages/games-helpers.ts");
 
 const emptyBoolFilters = {
@@ -133,4 +138,16 @@ test("formatPriceLabel and formatUsdFromLzt", () => {
   assert.equal(formatPriceLabel(8), "8 LZT/мин");
   assert.equal(formatPriceLabel(null), `${Math.round(DEFAULT_PRICE_PER_MIN_USD * LZT_PER_USDT)} LZT/мин`);
   assert.equal(formatUsdFromLzt(10), "0.050");
+});
+
+test("U-28 offline catalog helpers expose honest label and next steps", () => {
+  assert.equal(getOfflineAvailabilityLabel(), "Сейчас нет хостов");
+  assert.equal(getPrimaryGameGenre({ genres: ["Action", "Shooter"] }), "Action");
+  assert.equal(getPrimaryGameGenre({ genre: "Puzzle" }), "Puzzle");
+  assert.equal(getPrimaryGameGenre({}), null);
+  assert.equal(buildSimilarGamesHref("Action"), "/games?genre=Action");
+  assert.equal(buildSimilarGamesHref(null), "/games");
+  assert.match(getOfflineNotifyMessage("CS2"), /CS2/);
+  assert.equal(parseGamesGenreFromSearch("?genre=Action"), "Action");
+  assert.equal(parseGamesGenreFromSearch(""), null);
 });
