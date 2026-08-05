@@ -15,6 +15,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  computeTotalLatency,
+  formatPrice,
+  getLatencyColor,
+  getMinGamePriceLzt,
+  mapSessionHttpStatus,
+  resolveCoverImageUrl,
+  sortPublicHosts,
+} from "@/pages/hosts-helpers";
 
 type LibraryGame = {
   gameId: string;
@@ -27,7 +36,7 @@ type LibraryGame = {
 
 function LatencyBadge({ totalMs }: { totalMs: number | null }) {
   if (totalMs == null) return null;
-  const color = totalMs < 80 ? "#22c55e" : totalMs < 150 ? "#eab308" : "#ef4444";
+  const color = getLatencyColor(totalMs);
   return (
     <span
       title={`~${totalMs} мс задержки`}
@@ -38,17 +47,6 @@ function LatencyBadge({ totalMs }: { totalMs: number | null }) {
       ~{totalMs} мс
     </span>
   );
-}
-
-function formatPrice(usd: number): string {
-  const sign = usd < 0 ? "−" : "";
-  return `${sign}$${Math.abs(usd).toFixed(2)}`;
-}
-
-function coverSrc(url: string | null | undefined): string | null {
-  if (!url) return null;
-  if (url.startsWith("http")) return url;
-  return `${import.meta.env.BASE_URL}${url.replace(/^\//, "")}`;
 }
 
 function GameChips({ games }: { games: LibraryGame[] }) {
@@ -64,7 +62,7 @@ function GameChips({ games }: { games: LibraryGame[] }) {
       </div>
       <div className="flex flex-wrap gap-1.5">
         {visible.map((g) => {
-          const src = coverSrc(g.coverImageUrl);
+          const src = resolveCoverImageUrl(g.coverImageUrl, import.meta.env.BASE_URL);
           return (
             <Link key={g.gameId} href={`/games/${g.slug}`}>
               <span
@@ -149,9 +147,7 @@ async function requestSession(
     return { ok: true, inviteCode: data.inviteCode };
   } catch (err) {
     const status = (err as { status?: number }).status;
-    if (status === 409) return { ok: false, reason: "game_unavailable" };
-    if (status === 503 || status === 404) return { ok: false, reason: "host_offline" };
-    return { ok: false, reason: "error" };
+    return { ok: false, reason: mapSessionHttpStatus(status) };
   }
 }
 
@@ -180,7 +176,7 @@ function GamePickerDialog({
         </DialogHeader>
         <div className="flex flex-col gap-2 mt-2 max-h-80 overflow-y-auto pr-1">
           {games.map((g) => {
-            const src = coverSrc(g.coverImageUrl);
+            const src = resolveCoverImageUrl(g.coverImageUrl, import.meta.env.BASE_URL);
             return (
               <button
                 key={g.gameId}
@@ -346,24 +342,7 @@ export default function HostsPage() {
 
   const sortedHosts = useMemo(() => {
     if (!hosts) return hosts;
-    const tierRank = (t: unknown) => (t === "above_rec" ? 0 : 1);
-    let list = [...hosts];
-    if (onlineOnly) {
-      list = list.filter((h) => !!(h as any).isOnline);
-    }
-    return list.sort((a, b) => {
-      // Online hosts first, then recommended-and-above, then by latency.
-      const onlineA = (a as any).isOnline ? 0 : 1;
-      const onlineB = (b as any).isOnline ? 0 : 1;
-      if (onlineA !== onlineB) return onlineA - onlineB;
-      const tierDiff = tierRank((a as any).hostTier) - tierRank((b as any).hostTier);
-      if (tierDiff !== 0) return tierDiff;
-      const pa = (a as any).pingMs as number | null | undefined;
-      const pb = (b as any).pingMs as number | null | undefined;
-      const scoreA = pa != null ? (browserRtt ?? 0) + pa : Infinity;
-      const scoreB = pb != null ? (browserRtt ?? 0) + pb : Infinity;
-      return scoreA - scoreB;
-    });
+    return sortPublicHosts(hosts, browserRtt, onlineOnly);
   }, [hosts, browserRtt, onlineOnly]);
 
   return (
@@ -498,9 +477,10 @@ export default function HostsPage() {
               const games = ((h as any).games ?? []) as LibraryGame[];
               const isOnline = !!(h as any).isOnline;
               const hostPingMs = (h as any).pingMs as number | null | undefined;
-              const totalLatency = hostPingMs != null ? Math.round((browserRtt ?? 0) + hostPingMs) : null;
+              const totalLatency = computeTotalLatency(browserRtt, hostPingMs);
               const isTop = (h as any).hostTier === "above_rec";
               const pcSpecs = (h as any).pcSpecs as { cpu?: string; gpu?: string; ramGb?: number } | null | undefined;
+              const minGamePrice = getMinGamePriceLzt(games);
 
               return (
                 <div
@@ -591,9 +571,9 @@ export default function HostsPage() {
                         <div className="text-[10px] text-slate-600 font-mono">
                           {formatPrice(h.minutePriceUsd)}/мин
                         </div>
-                        {games.length > 0 && (
+                        {minGamePrice != null && (
                           <div className="text-[10px] text-blue-500 font-mono mt-0.5">
-                            {Math.min(...games.map((g) => g.pricePerMinuteLzt))}+ LZT/мин
+                            {minGamePrice}+ LZT/мин
                           </div>
                         )}
                       </div>

@@ -1,0 +1,101 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+
+const {
+  formatPrice,
+  resolveCoverImageUrl,
+  getLatencyColor,
+  computeTotalLatency,
+  mapSessionHttpStatus,
+  getMinGamePriceLzt,
+  sortPublicHosts,
+} = await import("../src/pages/hosts-helpers.ts");
+
+function host(overrides = {}) {
+  return {
+    id: "h1",
+    displayName: "Host",
+    boundAppLabel: "app",
+    boundUrlHost: "",
+    tags: [],
+    pricePerHourUsd: 2.4,
+    launchPriceUsd: 0,
+    minutePriceUsd: 0.04,
+    status: "online",
+    inviteCode: null,
+    ...overrides,
+  };
+}
+
+test("formatPrice formats positive, negative and zero USD", () => {
+  assert.equal(formatPrice(2.4), "$2.40");
+  assert.equal(formatPrice(-0.05), "−$0.05");
+  assert.equal(formatPrice(0), "$0.00");
+});
+
+test("resolveCoverImageUrl handles absolute and relative paths", () => {
+  assert.equal(resolveCoverImageUrl("https://cdn/img.png", "/"), "https://cdn/img.png");
+  assert.equal(resolveCoverImageUrl("/covers/a.png", "https://app/"), "https://app/covers/a.png");
+  assert.equal(resolveCoverImageUrl(null, "/"), null);
+  assert.equal(resolveCoverImageUrl("", "/"), null);
+});
+
+test("getLatencyColor returns green, yellow and red thresholds", () => {
+  assert.equal(getLatencyColor(50), "#22c55e");
+  assert.equal(getLatencyColor(100), "#eab308");
+  assert.equal(getLatencyColor(200), "#ef4444");
+});
+
+test("computeTotalLatency sums browser RTT and host ping", () => {
+  assert.equal(computeTotalLatency(20, 30), 50);
+  assert.equal(computeTotalLatency(null, 40), 40);
+  assert.equal(computeTotalLatency(10, null), null);
+});
+
+test("mapSessionHttpStatus maps API errors to session failure reasons", () => {
+  assert.equal(mapSessionHttpStatus(409), "game_unavailable");
+  assert.equal(mapSessionHttpStatus(503), "host_offline");
+  assert.equal(mapSessionHttpStatus(404), "host_offline");
+  assert.equal(mapSessionHttpStatus(500), "error");
+  assert.equal(mapSessionHttpStatus(undefined), "error");
+});
+
+test("getMinGamePriceLzt returns minimum LZT price or null", () => {
+  assert.equal(
+    getMinGamePriceLzt([
+      { gameId: "g1", slug: "a", title: "A", pricePerMinuteLzt: 12 },
+      { gameId: "g2", slug: "b", title: "B", pricePerMinuteLzt: 8 },
+    ]),
+    8,
+  );
+  assert.equal(getMinGamePriceLzt([]), null);
+});
+
+test("sortPublicHosts ranks online first, then above_rec, then by latency", () => {
+  const hosts = [
+    host({ id: "offline-slow", isOnline: false, hostTier: "meets_min", pingMs: 100 }),
+    host({ id: "online-fast", isOnline: true, hostTier: "meets_min", pingMs: 20 }),
+    host({ id: "online-top", isOnline: true, hostTier: "above_rec", pingMs: 200 }),
+  ];
+  const sorted = sortPublicHosts(hosts, 10, false);
+  assert.deepEqual(sorted.map((h) => h.id), ["online-top", "online-fast", "offline-slow"]);
+});
+
+test("sortPublicHosts filters to online-only when requested", () => {
+  const hosts = [
+    host({ id: "online", isOnline: true, pingMs: 50 }),
+    host({ id: "offline", isOnline: false, pingMs: 10 }),
+  ];
+  const sorted = sortPublicHosts(hosts, 0, true);
+  assert.deepEqual(sorted.map((h) => h.id), ["online"]);
+});
+
+test("sortPublicHosts treats missing pingMs as Infinity", () => {
+  const hosts = [
+    host({ id: "no-ping", isOnline: true, pingMs: null }),
+    host({ id: "has-ping", isOnline: true, pingMs: 50 }),
+  ];
+  const sorted = sortPublicHosts(hosts, 0, false);
+  assert.equal(sorted[0].id, "has-ping");
+  assert.equal(sorted[1].id, "no-ping");
+});

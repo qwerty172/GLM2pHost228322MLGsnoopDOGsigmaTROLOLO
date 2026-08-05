@@ -45,6 +45,18 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-100 (2026-08-05 10:35 UTC) {#marathon-m-100}
+
+| Проверка | Результат |
+|---|---|
+| hosts-helpers.ts | formatPrice, resolveCoverImageUrl, getLatencyColor, computeTotalLatency, mapSessionHttpStatus, getMinGamePriceLzt, sortPublicHosts |
+| hosts.test.mjs | 9 тестов — price format, cover URL, latency color/total, session HTTP status, min game price, host sorting/filter |
+| hosts.tsx | рефакторинг: хелперы в hosts-helpers.ts |
+| web test (hosts) | PASS (9 tests) |
+| typecheck | PASS (hosts-helpers via unit tests) |
+
+**Следующий pick:** M-101 (landing.tsx).
+
 ## Marathon M-99 (2026-08-05 10:30 UTC) {#marathon-m-99}
 
 | Проверка | Результат |
