@@ -14,7 +14,12 @@ export { exeBasename } from "../shared/window-match.js";
 function currentBoundUrl(cfg: HostConfig): string {
   if (session.currentGameId) {
     const entry = session.libraryEntries.find((e) => e.gameId === session.currentGameId);
-    if (entry?.boundUrl?.trim()) return entry.boundUrl.trim();
+    if (entry) {
+      const url = entry.boundUrl?.trim();
+      if (url) return url;
+      // Native library entry — ignore legacy host-level boundUrl.
+      return "";
+    }
   }
   return (cfg.boundUrl ?? "").trim();
 }
