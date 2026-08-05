@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 23:35 UTC|
-| Task ID | M-237|
-| Результат | redis.test.ts PASS (13 tests): initRedis, getRedis, getRedisSubscriber, redisHealthCheck, shutdownRedis|
+| Дата | 2026-08-05 23:38 UTC|
+| Task ID | M-238|
+| Результат | sessionSerialize.test.ts PASS (5 tests): enrichSession, enrichSessionBatch|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -590,7 +590,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-235 | V | тест не покрывает экспорты (3): pgNotify | `artifacts/api-server/src/lib/pgNotify.ts` | v:artifacts/api-server/src/lib/pgNotify.ts | done | agent |
 | M-236 | V | тест не покрывает экспорты (5): quotaEngine | `artifacts/api-server/src/lib/quotaEngine.ts` | v:artifacts/api-server/src/lib/quotaEngine.ts | done | agent |
 | M-237 | V | тест не покрывает экспорты (5): redis | `artifacts/api-server/src/lib/redis.ts` | v:artifacts/api-server/src/lib/redis.ts | done | agent |
-| M-238 | V | тест не покрывает экспорты (2): sessionSerialize | `artifacts/api-server/src/lib/sessionSerialize.ts` | v:artifacts/api-server/src/lib/sessionSerialize.ts | pending | agent |
+| M-238 | V | тест не покрывает экспорты (2): sessionSerialize | `artifacts/api-server/src/lib/sessionSerialize.ts` | v:artifacts/api-server/src/lib/sessionSerialize.ts | done | agent |
 | M-239 | V | тест не покрывает экспорты (3): signaling | `artifacts/api-server/src/lib/signaling.ts` | v:artifacts/api-server/src/lib/signaling.ts | pending | agent |
 | M-240 | V | тест не покрывает экспорты (6): storageRouteHelpers | `artifacts/api-server/src/lib/storageRouteHelpers.ts` | v:artifacts/api-server/src/lib/storageRouteHelpers.ts | pending | agent |
 | M-241 | V | тест не покрывает экспорты (3): walletAddresses | `artifacts/api-server/src/lib/walletAddresses.ts` | v:artifacts/api-server/src/lib/walletAddresses.ts | pending | agent |

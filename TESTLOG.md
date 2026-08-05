@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-238 (2026-08-05 23:38 UTC) {#marathon-m-238}
+
+| Проверка | Результат |
+|---|---|
+| sessionSerialize.test.ts | PASS (5 tests) |
+
+**Изменения:** `artifacts/api-server/src/lib/sessionSerialize.test.ts` — unit-тесты для `enrichSession`, `enrichSessionBatch` (мок db.select + blockMinsRemaining).
+
+**Следующий pick:** M-239 (тест не покрывает экспорты: signaling).
+
 ## Marathon M-237 (2026-08-05 23:35 UTC) {#marathon-m-237}
 
 | Проверка | Результат |
