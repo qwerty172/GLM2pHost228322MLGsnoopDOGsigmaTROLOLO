@@ -270,6 +270,59 @@ export async function creditPayoutToUser(
   return split;
 }
 
+// Debit the player's gaming credit line (increases creditDebtLzt). Used when
+// green/blue buckets are empty but the player still has credit headroom.
+export async function spendGamingCredit(
+  tx: DbTx,
+  args: {
+    playerId: string;
+    amountLzt: number;
+    kind: string;
+    refType?: string | null;
+    refId?: string | null;
+    note?: string | null;
+  },
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const amt = Math.floor(args.amountLzt);
+  if (amt <= 0) return { ok: true };
+  const balances = await getUserBalances(tx, "player", args.playerId);
+  if (!balances) return { ok: false, reason: "player not found" };
+  const [player] = await tx
+    .select({ creditLimitLzt: playersTable.creditLimitLzt })
+    .from(playersTable)
+    .where(eq(playersTable.id, args.playerId));
+  const limit = player?.creditLimitLzt ?? 0;
+  const available = limit - balances.debt;
+  if (available < amt) {
+    return { ok: false, reason: "insufficient gaming credit" };
+  }
+  const debited = await adjustUserBucket(
+    tx,
+    "player",
+    args.playerId,
+    "debt",
+    amt,
+  );
+  if (!debited) {
+    return { ok: false, reason: "insufficient gaming credit" };
+  }
+  const groupId = randomUUID();
+  await writeLedger(tx, [
+    {
+      groupId,
+      kind: args.kind,
+      ownerType: "player",
+      ownerId: args.playerId,
+      bucket: "debt",
+      deltaLzt: amt,
+      refType: args.refType ?? null,
+      refId: args.refId ?? null,
+      note: args.note ?? null,
+    },
+  ]);
+  return { ok: true };
+}
+
 // Debit a user's chosen bucket(s) and route the cleared amount through
 // `creditPayoutToUser` to the recipient. Used for internal payments (a
 // freelance order paid out of `balance`, a manual transfer, etc.).

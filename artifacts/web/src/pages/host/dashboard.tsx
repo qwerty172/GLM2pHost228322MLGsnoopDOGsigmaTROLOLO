@@ -23,7 +23,10 @@ import {
   getListHostLibraryQueryKey,
   getListGamesQueryKey,
   issueAgentBindCode,
+  issueAgentPairingCode,
   createTestSession,
+  useGetAgentPairingStatus,
+  getGetAgentPairingStatusQueryKey,
   type HostLibraryEntry,
 } from "@workspace/api-client-react";
 import BindingForm from "./binding-form";
@@ -991,6 +994,9 @@ function HostQuickStartCard({
   agentKeyBound,
   libraryCount,
   hasActiveSession,
+  testSessionDone,
+  onTestSession,
+  testLoading,
 }: {
   hostToken: string;
   agent: AgentState;
@@ -998,14 +1004,19 @@ function HostQuickStartCard({
   agentKeyBound: boolean;
   libraryCount: number;
   hasActiveSession: boolean;
+  testSessionDone: boolean;
+  onTestSession: () => void;
+  testLoading: boolean;
 }) {
   const agentOnline =
     agent.status === "online" || heartbeat.status === "fresh";
   const steps = [
     {
-      done: true,
-      title: "Скачай агент",
-      hint: "ZIP → start.bat на Windows-ПК",
+      done: testSessionDone,
+      title: "Проверь стрим",
+      hint: testSessionDone
+        ? "Тест прошёл — можно принимать игроков"
+        : "Бесплатно в браузере, без установки агента",
     },
     {
       done: agentOnline,
@@ -1014,12 +1025,12 @@ function HostQuickStartCard({
         ? agent.status === "online"
           ? `localhost:${agent.port}`
           : "на связи через heartbeat"
-        : "Запусти start.bat",
+        : "Скачай ZIP → start.bat (можно позже)",
     },
     {
       done: agentKeyBound,
       title: "Агент привязан",
-      hint: "Код привязки ниже → вставь в агенте",
+      hint: "6-значный код ниже → введи в агенте",
     },
     {
       done: libraryCount > 0,
@@ -1094,6 +1105,34 @@ function HostQuickStartCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {!testSessionDone && (
+          <div
+            className="rounded-lg p-3 flex flex-col sm:flex-row sm:items-center gap-3"
+            style={{ background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.25)" }}
+          >
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white">Начни с теста — без агента</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Проверь стрим в браузере за 10 секунд. Агент и библиотеку настроишь потом.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              className="shrink-0 gap-1.5 h-8 text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white"
+              onClick={onTestSession}
+              disabled={testLoading}
+              data-testid="button-quick-test-session"
+            >
+              {testLoading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <FlaskConical className="h-3.5 w-3.5" />
+              )}
+              {testLoading ? "Создаём…" : "Проверить стрим"}
+            </Button>
+          </div>
+        )}
+
         <ol className="space-y-2">
           {steps.map((s, i) => (
             <li key={s.title} className="flex items-start gap-3">
@@ -1127,7 +1166,7 @@ function HostQuickStartCard({
         )}
 
         {agentOnline && !agentKeyBound && (
-          <AgentBindCodeCard hostToken={hostToken} />
+          <AgentPairingCodeCard hostToken={hostToken} />
         )}
 
         {agentKeyBound && libraryCount === 0 && (
@@ -1250,6 +1289,128 @@ function QuickAddFirstGame({ hostToken }: { hostToken: string }) {
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+function AgentPairingCodeCard({ hostToken }: { hostToken: string }) {
+  const [code, setCode] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: pairingStatus } = useGetAgentPairingStatus({
+    query: {
+      enabled: !!hostToken && !!code,
+      queryKey: getGetAgentPairingStatusQueryKey(),
+      refetchInterval: code ? 3000 : false,
+      staleTime: 0,
+    },
+    request: {
+      headers: {
+        Authorization: `Bearer ${hostToken}`,
+        "X-User-Token": hostToken,
+      },
+    },
+  });
+
+  useEffect(() => {
+    if (pairingStatus?.status === "paired") {
+      toast.success("Агент привязан!");
+      void queryClient.invalidateQueries({ queryKey: getGetHostQueryKey(hostToken) });
+      setCode(null);
+    }
+  }, [pairingStatus?.status, hostToken, queryClient]);
+
+  const issueCode = async () => {
+    setLoading(true);
+    try {
+      const json = await issueAgentPairingCode({
+        headers: {
+          Authorization: `Bearer ${hostToken}`,
+          "X-User-Token": hostToken,
+        },
+      });
+      if (!json.code) {
+        toast.error("Не удалось выдать код");
+        return;
+      }
+      setCode(json.code);
+      setExpiresAt(json.expiresAt ?? null);
+      toast.success("Введи код в агенте на Windows-ПК");
+    } catch (err) {
+      const msg = (err as { data?: { error?: string } }).data?.error;
+      toast.error(msg ?? "Нет соединения");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyCode = () => {
+    if (!code) return;
+    void navigator.clipboard.writeText(code).then(
+      () => toast.success("Код скопирован"),
+      () => toast.error("Не удалось скопировать"),
+    );
+  };
+
+  const expired =
+    expiresAt != null && Date.now() > new Date(expiresAt).getTime();
+
+  return (
+    <div
+      className="rounded-lg p-3 space-y-3"
+      style={{ background: "rgba(0,0,0,0.25)", border: "1px solid rgba(255,255,255,0.06)" }}
+      data-testid="agent-pairing-code"
+    >
+      <p className="text-sm font-medium text-white flex items-center gap-2">
+        <KeyRound className="h-4 w-4 text-sky-400" />
+        Код привязки агента
+      </p>
+      <p className="text-xs text-slate-500">
+        6 цифр — введи в агенте на Windows-ПК. Действует несколько минут.
+      </p>
+      {code && !expired ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <code
+            className="font-mono text-2xl tracking-[0.3em] text-sky-300 px-3 py-1.5 rounded"
+            style={{
+              background: "rgba(14,165,233,0.08)",
+              border: "1px solid rgba(14,165,233,0.25)",
+            }}
+          >
+            {code}
+          </code>
+          <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={copyCode}>
+            <Copy className="h-3 w-3" />
+            Копировать
+          </Button>
+          {expiresAt && (
+            <span className="text-xs text-slate-500">
+              действует{" "}
+              {formatDistanceToNow(new Date(expiresAt), { addSuffix: true, locale: ru })}
+            </span>
+          )}
+        </div>
+      ) : (
+        <p className="text-xs text-slate-500">
+          {expired ? "Код истёк — создай новый." : "Нажми кнопку — код появится здесь."}
+        </p>
+      )}
+      <Button
+        size="sm"
+        className="gap-1.5 h-8 text-xs font-semibold"
+        style={{ background: "#0ea5e9", color: "#fff" }}
+        onClick={() => void issueCode()}
+        disabled={loading}
+      >
+        {loading ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <RefreshCw className="h-3.5 w-3.5" />
+        )}
+        {code && !expired ? "Новый код" : "Получить код"}
+      </Button>
     </div>
   );
 }
@@ -1474,6 +1635,7 @@ export default function Dashboard() {
 
   const [testLoading, setTestLoading] = useState(false);
   const [testUrl, setTestUrl] = useState("");
+  const [testSessionDone, setTestSessionDone] = useState(false);
   const handleTestSession = async () => {
     if (!hostToken) return;
     setTestLoading(true);
@@ -1490,6 +1652,7 @@ export default function Dashboard() {
         },
       );
       refetchSessions();
+      setTestSessionDone(true);
       if (data.isExternalUrl && data.hostBoundUrl) {
         // Arbitrary external site: iframes are blocked by most sites, so the
         // honest test is a real WebRTC stream. Open the host streaming page
@@ -1553,7 +1716,7 @@ export default function Dashboard() {
           Дашборд хоста
         </h1>
         <p className="text-sm text-slate-500">
-          Пять шагов до приёма игроков — без лишних экранов.
+          Сначала проверь стрим — остальное можно настроить потом.
         </p>
       </div>
 
@@ -1565,6 +1728,9 @@ export default function Dashboard() {
           agentKeyBound={agentKeyBound}
           libraryCount={libraryCount}
           hasActiveSession={hasActiveSession}
+          testSessionDone={testSessionDone}
+          onTestSession={() => void handleTestSession()}
+          testLoading={testLoading}
         />
       )}
 

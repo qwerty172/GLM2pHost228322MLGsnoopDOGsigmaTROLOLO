@@ -1,10 +1,11 @@
 import { eq } from "drizzle-orm";
 import { db, hostsTable, playersTable } from "@workspace/db";
-import { usdtToLztRound, pickPlayerBucket } from "./lzt";
+import { usdtToLztRound, pickPlayerFundingSource } from "./lzt";
 import {
   adjustUserBucket,
   creditPayoutToUser,
   payInternal,
+  spendGamingCredit,
   writeLedger,
 } from "./economy";
 import { randomUUID } from "node:crypto";
@@ -38,23 +39,49 @@ export async function applyLaunchFee(args: {
           .select({
             green: playersTable.withdrawableBalanceLzt,
             blue: playersTable.internalBalanceLzt,
+            creditLimitLzt: playersTable.creditLimitLzt,
+            creditDebtLzt: playersTable.creditDebtLzt,
           })
           .from(playersTable)
           .where(eq(playersTable.id, args.playerId));
         const green = player?.green ?? 0;
         const blue = player?.blue ?? 0;
-        const bucket = pickPlayerBucket(
+        const funding = pickPlayerFundingSource(
           args.paymentSource,
           feeLzt,
           green,
           blue,
+          player?.creditLimitLzt ?? 0,
+          player?.creditDebtLzt ?? 0,
         );
-        if (bucket === null) {
+        if (funding === null) {
           return {
             ok: false,
             reason: "Insufficient LZT in selected bucket for launch fee",
           };
         }
+        if (funding === "credit") {
+          const spent = await spendGamingCredit(tx, {
+            playerId: args.playerId,
+            amountLzt: feeLzt,
+            kind: "launch_fee",
+            refType: "session",
+            refId: args.sessionId,
+          });
+          if (!spent.ok) {
+            return { ok: false, reason: spent.reason };
+          }
+          await creditPayoutToUser(tx, {
+            ownerType: "host",
+            ownerId: args.hostId,
+            amountLzt: feeLzt,
+            kind: "launch_fee",
+            refType: "session",
+            refId: args.sessionId,
+          });
+          return { ok: true };
+        }
+        const bucket = funding;
         const result = await payInternal(tx, {
           fromType: "player",
           fromId: args.playerId,
