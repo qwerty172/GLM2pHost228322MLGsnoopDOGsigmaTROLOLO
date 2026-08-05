@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 08:12 UTC |
 | Task ID | M-89 |
 | Результат | webgl-video-shader: webgl-video-shader.test.mjs — SHADER_PRESETS (6 тестов: presets, RU labels, GLSL uniforms, passthrough none) |
-| Commit | 0dfaed9 |
+| Commit | c68d090 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
