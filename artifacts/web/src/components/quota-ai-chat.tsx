@@ -83,11 +83,23 @@ type Props = {
   onFormPatch: (patch: QuotaFormPatch) => void;
 };
 
-const STARTERS = [
+export const QUOTA_AI_CHAT_STARTERS = [
   "Спонсирую плейтест Cyberpunk — бюджет 50000 LZT, хосту 100 LZT/мин",
   "Беру 10% royalty из доли хоста для своих модов",
   "Бесплатные 30 минут новичкам — спонсорская квота, игроку 5 LZT/мин",
-];
+] as const;
+
+export function shouldSendQuotaMessageOnEnter(key: string, shiftKey: boolean): boolean {
+  return key === "Enter" && !shiftKey;
+}
+
+export function canSendQuotaMessage(text: string, loading: boolean): boolean {
+  return text.trim().length > 0 && !loading;
+}
+
+export function hasQuotaFormPatch(patch: QuotaFormPatch | null | undefined): boolean {
+  return patch != null && Object.keys(patch).length > 0;
+}
 
 const panelStyle = {
   background: "#0a1018",
@@ -120,8 +132,8 @@ export function QuotaAiChat({ ownerToken, currentFormState, availableGames, onFo
   }, [messages]);
 
   const sendMessage = async (text: string) => {
+    if (!canSendQuotaMessage(text, loading)) return;
     const trimmed = text.trim();
-    if (!trimmed || loading) return;
 
     const userMsg: Message = { role: "user", content: trimmed };
     const nextMessages = [...messages, userMsg];
@@ -138,7 +150,7 @@ export function QuotaAiChat({ ownerToken, currentFormState, availableGames, onFo
         },
       });
       setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
-      if (data.formPatch && Object.keys(data.formPatch).length > 0) {
+      if (hasQuotaFormPatch(data.formPatch as QuotaFormPatch)) {
         onFormPatch(data.formPatch as QuotaFormPatch);
       }
     } catch (err) {
@@ -153,7 +165,7 @@ export function QuotaAiChat({ ownerToken, currentFormState, availableGames, onFo
   };
 
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (shouldSendQuotaMessageOnEnter(e.key, e.shiftKey)) {
       e.preventDefault();
       sendMessage(input);
     }
@@ -176,7 +188,7 @@ export function QuotaAiChat({ ownerToken, currentFormState, availableGames, onFo
             <p className="text-xs text-slate-500 text-center py-2">
               Напиши, что хочешь создать, или выбери пример:
             </p>
-            {STARTERS.map((s, i) => (
+            {QUOTA_AI_CHAT_STARTERS.map((s, i) => (
               <button
                 key={i}
                 onClick={() => sendMessage(s)}
