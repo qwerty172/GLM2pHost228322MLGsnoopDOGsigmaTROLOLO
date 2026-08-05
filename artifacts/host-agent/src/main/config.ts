@@ -81,13 +81,31 @@ function toDiskPayload(cfg: HostConfig): StoredConfigFile {
   return { ...rest, hostToken };
 }
 
+async function loadBundleDefaults(): Promise<Partial<HostConfig>> {
+  try {
+    const bundlePath = path.join(app.getAppPath(), "bundle-defaults.json");
+    const buf = await fs.readFile(bundlePath, "utf-8");
+    const parsed = JSON.parse(buf) as Partial<HostConfig>;
+    if (typeof parsed.apiBaseUrl === "string" && parsed.apiBaseUrl.trim()) {
+      return { apiBaseUrl: parsed.apiBaseUrl.trim() };
+    }
+  } catch {
+    // Portable ZIP may ship without bundle defaults.
+  }
+  return {};
+}
+
 export async function loadConfig(): Promise<HostConfig> {
   if (cached) return cached;
+  const bundleDefaults = await loadBundleDefaults();
   try {
     const buf = await fs.readFile(configPath(), "utf-8");
     const parsed = JSON.parse(buf) as StoredConfigFile;
     const hostToken = resolveHostToken(parsed);
-    cached = { ...DEFAULTS, ...parsed, hostToken };
+    cached = { ...DEFAULTS, ...bundleDefaults, ...parsed, hostToken };
+    if (!cached.apiBaseUrl && bundleDefaults.apiBaseUrl) {
+      cached.apiBaseUrl = bundleDefaults.apiBaseUrl;
+    }
     // Drop disk-only fields from runtime object.
     delete (cached as StoredConfigFile).hostTokenEnc;
     delete (cached as StoredConfigFile).hostTokenProtected;
@@ -101,7 +119,7 @@ export async function loadConfig(): Promise<HostConfig> {
       await persist(cached);
     }
   } catch {
-    cached = { ...DEFAULTS };
+    cached = { ...DEFAULTS, ...bundleDefaults };
   }
   return cached;
 }

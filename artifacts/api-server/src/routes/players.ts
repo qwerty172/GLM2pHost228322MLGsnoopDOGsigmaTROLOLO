@@ -40,6 +40,8 @@ const claimGuestLimiter = rateLimit({
 });
 
 const GUEST_CREDIT_LIMIT_LZT = 500;
+/** One-time playable balance so guests can claim a session without depositing first. */
+const GUEST_WELCOME_BONUS_LZT = 400;
 const DEFAULT_CREDIT_LIMIT_LZT = 3000;
 
 function serialize(p: typeof playersTable.$inferSelect) {
@@ -68,6 +70,7 @@ router.post("/players/register", registerLimiter, async (req, res): Promise<void
         displayName: guestName,
         isGuest: true,
         creditLimitLzt: GUEST_CREDIT_LIMIT_LZT,
+        internalBalanceLzt: GUEST_WELCOME_BONUS_LZT,
       })
       .returning();
 
@@ -76,7 +79,10 @@ router.post("/players/register", registerLimiter, async (req, res): Promise<void
       return;
     }
 
-    req.log.info({ playerId: player.id, isGuest: true }, "Guest player registered");
+    req.log.info(
+      { playerId: player.id, isGuest: true, welcomeBonusLzt: GUEST_WELCOME_BONUS_LZT },
+      "Guest player registered",
+    );
     res.status(201).json(serialize(player));
     return;
   }

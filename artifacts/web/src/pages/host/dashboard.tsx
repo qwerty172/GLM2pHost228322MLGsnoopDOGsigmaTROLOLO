@@ -991,6 +991,8 @@ function HostQuickStartCard({
   agentKeyBound,
   libraryCount,
   hasActiveSession,
+  onTestSession,
+  testLoading,
 }: {
   hostToken: string;
   agent: AgentState;
@@ -998,15 +1000,19 @@ function HostQuickStartCard({
   agentKeyBound: boolean;
   libraryCount: number;
   hasActiveSession: boolean;
+  onTestSession: () => void;
+  testLoading: boolean;
 }) {
   const agentOnline =
     agent.status === "online" || heartbeat.status === "fresh";
-  const steps = [
-    {
-      done: true,
-      title: "Скачай агент",
-      hint: "ZIP → start.bat на Windows-ПК",
-    },
+  const agentSetupStarted = agentOnline || agentKeyBound || libraryCount > 0;
+  const [agentOpen, setAgentOpen] = useState(agentSetupStarted);
+
+  useEffect(() => {
+    if (agentSetupStarted) setAgentOpen(true);
+  }, [agentSetupStarted]);
+
+  const agentSteps = [
     {
       done: agentOnline,
       title: "Агент онлайн",
@@ -1014,12 +1020,12 @@ function HostQuickStartCard({
         ? agent.status === "online"
           ? `localhost:${agent.port}`
           : "на связи через heartbeat"
-        : "Запусти start.bat",
+        : "Скачай ZIP → запусти start.bat",
     },
     {
       done: agentKeyBound,
       title: "Агент привязан",
-      hint: "Код привязки ниже → вставь в агенте",
+      hint: "Код привязки — ниже",
     },
     {
       done: libraryCount > 0,
@@ -1034,8 +1040,8 @@ function HostQuickStartCard({
         : "В агенте нажми «Выйти в онлайн»",
     },
   ];
-  const doneCount = steps.filter((s) => s.done).length;
-  const allDone = doneCount === steps.length;
+  const agentDoneCount = agentSteps.filter((s) => s.done).length;
+  const agentAllDone = agentDoneCount === agentSteps.length;
 
   const copyToken = () => {
     void navigator.clipboard.writeText(hostToken).then(
@@ -1047,8 +1053,8 @@ function HostQuickStartCard({
   return (
     <Card
       style={{
-        background: allDone ? "rgba(16,185,129,0.06)" : "rgba(14,165,233,0.05)",
-        border: allDone
+        background: agentAllDone ? "rgba(16,185,129,0.06)" : "rgba(14,165,233,0.05)",
+        border: agentAllDone
           ? "1px solid rgba(16,185,129,0.3)"
           : "1px solid rgba(14,165,233,0.25)",
       }}
@@ -1058,91 +1064,145 @@ function HostQuickStartCard({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="text-white text-base flex items-center gap-2">
-              {allDone ? (
+              {agentAllDone ? (
                 <Wifi className="h-4 w-4 text-emerald-400" />
               ) : (
                 <Gamepad2 className="h-4 w-4 text-sky-400" />
               )}
-              {allDone ? "Готов принимать игроков" : "Быстрый старт"}
+              Быстрый старт
             </CardTitle>
             <CardDescription className="text-slate-500">
-              {doneCount} из {steps.length} шагов
+              Сначала попробуй в браузере — агент настроишь, когда будет удобно
             </CardDescription>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 gap-1.5 text-xs"
-              onClick={copyToken}
-              data-testid="button-copy-host-token"
-            >
-              <Copy className="h-3 w-3" />
-              Скопировать токен
-            </Button>
-            <a href="/api/downloads/host-agent.zip" download="cloud-gaming-host-agent.zip">
-              <Button
-                size="sm"
-                className="h-8 gap-1.5 text-xs font-semibold"
-                style={{ background: "#0ea5e9", color: "#fff" }}
-              >
-                <Download className="h-3.5 w-3.5" />
-                Скачать агент
-              </Button>
-            </a>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <ol className="space-y-2">
-          {steps.map((s, i) => (
-            <li key={s.title} className="flex items-start gap-3">
-              <span
-                className="shrink-0 w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center mt-0.5"
-                style={{
-                  background: s.done
-                    ? "rgba(16,185,129,0.2)"
-                    : "rgba(14,165,233,0.12)",
-                  color: s.done ? "#34d399" : "#38bdf8",
-                }}
-              >
-                {s.done ? "✓" : i + 1}
-              </span>
-              <div className="min-w-0">
-                <p className={`text-sm font-medium ${s.done ? "text-emerald-300" : "text-white"}`}>
-                  {s.title}
-                </p>
-                <p className="text-xs text-slate-500">{s.hint}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-
-        {!agentOnline && (
-          <div className="rounded-lg p-3 text-xs text-slate-400" style={{ background: "rgba(0,0,0,0.25)" }}>
-            После установки запусти <span className="font-mono text-sky-400">start.bat</span>.
-            Агент уйдёт в трей — окно настроек открой по клику на иконку.
-            <AgentTroubleshootChecklist agent={agent} heartbeat={heartbeat} />
+        <div
+          className="rounded-lg p-4 space-y-3"
+          style={{
+            background: "rgba(139,92,246,0.08)",
+            border: "1px solid rgba(139,92,246,0.3)",
+          }}
+          data-testid="host-quick-start-now"
+        >
+          <div>
+            <p className="text-sm font-semibold text-violet-200 flex items-center gap-2">
+              <FlaskConical className="h-4 w-4" />
+              Сейчас — за минуту
+            </p>
+            <p className="text-xs text-slate-400 mt-1">
+              Бесплатная тест-сессия в браузере. Без установки агента и без игроков в каталоге.
+            </p>
           </div>
-        )}
+          <Button
+            onClick={onTestSession}
+            disabled={testLoading}
+            className="gap-2 bg-violet-600 hover:bg-violet-500 text-white font-semibold"
+            data-testid="button-quick-test-session"
+          >
+            {testLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <MonitorPlay className="h-4 w-4" />
+            )}
+            {testLoading ? "Создаём..." : "Попробовать стрим в браузере"}
+          </Button>
+        </div>
 
-        {agentOnline && !agentKeyBound && (
-          <AgentBindCodeCard hostToken={hostToken} />
-        )}
+        <details
+          className="rounded-lg overflow-hidden"
+          open={agentOpen}
+          onToggle={(e) => setAgentOpen((e.target as HTMLDetailsElement).open)}
+          data-testid="host-quick-start-later"
+        >
+          <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-slate-300 hover:text-white select-none list-none flex items-center justify-between gap-2">
+            <span className="flex items-center gap-2">
+              <Download className="h-4 w-4 text-sky-400" />
+              Потом — Windows-агент для приёма игроков
+            </span>
+            <Badge variant="outline" className="text-[10px] border-slate-600 text-slate-400">
+              {agentDoneCount}/{agentSteps.length}
+            </Badge>
+          </summary>
+          <div
+            className="px-4 pb-4 space-y-4 border-t border-white/5 pt-4"
+            style={{ background: "rgba(0,0,0,0.15)" }}
+          >
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-xs"
+                onClick={copyToken}
+                data-testid="button-copy-host-token"
+              >
+                <Copy className="h-3 w-3" />
+                Скопировать токен
+              </Button>
+              <a href="/api/downloads/host-agent.zip" download="cloud-gaming-host-agent.zip">
+                <Button
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs font-semibold"
+                  style={{ background: "#0ea5e9", color: "#fff" }}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Скачать агент
+                </Button>
+              </a>
+            </div>
 
-        {agentKeyBound && libraryCount === 0 && (
-          <QuickAddFirstGame hostToken={hostToken} />
-        )}
+            <ol className="space-y-2">
+              {agentSteps.map((s, i) => (
+                <li key={s.title} className="flex items-start gap-3">
+                  <span
+                    className="shrink-0 w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center mt-0.5"
+                    style={{
+                      background: s.done
+                        ? "rgba(16,185,129,0.2)"
+                        : "rgba(14,165,233,0.12)",
+                      color: s.done ? "#34d399" : "#38bdf8",
+                    }}
+                  >
+                    {s.done ? "✓" : i + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <p className={`text-sm font-medium ${s.done ? "text-emerald-300" : "text-white"}`}>
+                      {s.title}
+                    </p>
+                    <p className="text-xs text-slate-500">{s.hint}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
 
-        {agentKeyBound && libraryCount > 0 && !hasActiveSession && (
-          <p className="text-xs text-slate-400">
-            В агенте нажми <span className="text-sky-300 font-medium">«Выйти в онлайн»</span> —
-            игроки увидят тебя в каталоге.
-            <a href="decenthub://open" className="text-sky-400 hover:underline ml-1">
-              Открыть агент
-            </a>
-          </p>
-        )}
+            {!agentOnline && (
+              <div className="rounded-lg p-3 text-xs text-slate-400" style={{ background: "rgba(0,0,0,0.25)" }}>
+                После установки запусти <span className="font-mono text-sky-400">start.bat</span>.
+                URL платформы подставится автоматически из скачанного ZIP.
+                <AgentTroubleshootChecklist agent={agent} heartbeat={heartbeat} />
+              </div>
+            )}
+
+            {agentOnline && !agentKeyBound && (
+              <AgentBindCodeCard hostToken={hostToken} />
+            )}
+
+            {agentKeyBound && libraryCount === 0 && (
+              <QuickAddFirstGame hostToken={hostToken} />
+            )}
+
+            {agentKeyBound && libraryCount > 0 && !hasActiveSession && (
+              <p className="text-xs text-slate-400">
+                В агенте нажми <span className="text-sky-300 font-medium">«Выйти в онлайн»</span> —
+                игроки увидят тебя в каталоге.
+                <a href="decenthub://open" className="text-sky-400 hover:underline ml-1">
+                  Открыть агент
+                </a>
+              </p>
+            )}
+          </div>
+        </details>
       </CardContent>
     </Card>
   );
@@ -1291,8 +1351,26 @@ function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
     );
   };
 
+  const copyLaunchCmd = () => {
+    if (!bindCode) return;
+    const cmd = `start.bat --bind-code=${bindCode}`;
+    void navigator.clipboard.writeText(cmd).then(
+      () => toast.success("Команда для start.bat скопирована"),
+      () => toast.error("Не удалось скопировать"),
+    );
+  };
+
+  const openAgentDeepLink = () => {
+    if (!bindCode) return;
+    window.location.href = `decenthub://open#bind=${encodeURIComponent(bindCode)}`;
+  };
+
   const expired =
     expiresAt != null && Date.now() > expiresAt;
+
+  const agentDownloadHref = bindCode && !expired
+    ? `/api/downloads/host-agent.zip?bind=${encodeURIComponent(bindCode)}`
+    : "/api/downloads/host-agent.zip";
 
   return (
     <Card style={cardStyle}>
@@ -1307,26 +1385,58 @@ function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
       </CardHeader>
       <CardContent className="space-y-3">
         {bindCode && !expired ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <code
-              className="font-mono text-lg tracking-widest text-sky-300 px-3 py-1.5 rounded"
-              style={{
-                background: "rgba(14,165,233,0.08)",
-                border: "1px solid rgba(14,165,233,0.25)",
-              }}
-            >
-              {bindCode}
-            </code>
-            <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={copyCode}>
-              <Copy className="h-3 w-3" />
-              Копировать
-            </Button>
-            {expiresAt != null && (
-              <span className="text-xs text-slate-500">
-                действует{" "}
-                {formatDistanceToNow(new Date(expiresAt), { addSuffix: true, locale: ru })}
-              </span>
-            )}
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <code
+                className="font-mono text-lg tracking-widest text-sky-300 px-3 py-1.5 rounded"
+                style={{
+                  background: "rgba(14,165,233,0.08)",
+                  border: "1px solid rgba(14,165,233,0.25)",
+                }}
+              >
+                {bindCode}
+              </code>
+              <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={copyCode}>
+                <Copy className="h-3 w-3" />
+                Копировать
+              </Button>
+              {expiresAt != null && (
+                <span className="text-xs text-slate-500">
+                  действует{" "}
+                  {formatDistanceToNow(new Date(expiresAt), { addSuffix: true, locale: ru })}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-xs"
+                onClick={copyLaunchCmd}
+              >
+                <Copy className="h-3 w-3" />
+                Команда start.bat
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-xs"
+                onClick={openAgentDeepLink}
+              >
+                <ExternalLink className="h-3 w-3" />
+                Открыть агент
+              </Button>
+              <a href={agentDownloadHref} download="cloud-gaming-host-agent.zip">
+                <Button
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs font-semibold"
+                  style={{ background: "#0ea5e9", color: "#fff" }}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  ZIP с кодом
+                </Button>
+              </a>
+            </div>
           </div>
         ) : (
           <p className="text-sm text-slate-500">
@@ -1553,7 +1663,7 @@ export default function Dashboard() {
           Дашборд хоста
         </h1>
         <p className="text-sm text-slate-500">
-          Пять шагов до приёма игроков — без лишних экранов.
+          Сначала попробуй в браузере — агент настроишь, когда будет удобно.
         </p>
       </div>
 
@@ -1565,6 +1675,8 @@ export default function Dashboard() {
           agentKeyBound={agentKeyBound}
           libraryCount={libraryCount}
           hasActiveSession={hasActiveSession}
+          onTestSession={() => void handleTestSession()}
+          testLoading={testLoading}
         />
       )}
 
@@ -1658,7 +1770,7 @@ export default function Dashboard() {
               </Button>
             </div>
             <p className="text-xs text-slate-500">
-              Тест-сессия для себя — не на критическом пути онбординга
+              Дополнительные настройки — не обязательны для первого запуска
             </p>
           </div>
 
