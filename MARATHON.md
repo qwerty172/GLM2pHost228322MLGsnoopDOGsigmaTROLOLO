@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-135 done; link.test.ts)
+> **Последнее обновление:** 2026-08-05 (M-137 done; discord.test.ts)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 19:48 UTC|
-| Task ID | M-172|
-| Результат | U-30: первая минута на game-detail — цена LZT/USD, объяснение LZT и кредита; web test 346 PASS|
+| Дата | 2026-08-05 19:51 UTC|
+| Task ID | M-137|
+| Результат | discord.test.ts: 10 тестов sendOtp/parseMessage; auth-verifier 42 PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -504,7 +504,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-170 | R | UX U-28 (P2): В каталоге у офлайн-игр честная подпись и путь дальше | `pages/games.tsx` | r:U-28 | done | agent |
 | M-171 | R | UX U-29 (P2): Фильтры каталога доступны на мобиле | `pages/games.tsx` | r:U-29 | done | agent |
 | M-172 | R | UX U-30 (P2): Понятная первая минута: сколько стоит и что такое LZT | `pages/game-detail.tsx` | r:U-30 | done | agent |
-| M-137 | Q | auth-verifier: unit-тест (providers/discord.ts) | `auth-verifier/providers/discord.ts` | q:lib/auth-verifier/src/providers/discord.ts | pending | agent |
+| M-137 | Q | auth-verifier: unit-тест (providers/discord.ts) | `auth-verifier/providers/discord.ts` | q:lib/auth-verifier/src/providers/discord.ts | done | agent |
 | M-138 | Q | auth-verifier: unit-тест (providers/telegram.ts) | `auth-verifier/providers/telegram.ts` | q:lib/auth-verifier/src/providers/telegram.ts | pending | agent |
 | M-139 | Q | auth-verifier: unit-тест (router.ts) | `auth-verifier/router.ts` | q:lib/auth-verifier/src/router.ts | pending | agent |
 | M-173 | N | web components: unit-тест (pre-session-screen.tsx) | `artifacts/web/src/components/pre-session-screen.tsx` | n:artifacts/web/src/components/pre-session-screen.tsx | pending | agent |
