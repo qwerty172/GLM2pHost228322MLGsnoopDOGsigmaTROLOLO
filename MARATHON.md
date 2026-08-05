@@ -15,7 +15,11 @@
 | Дата | 2026-08-05 05:44 UTC |
 | Task ID | M-81 |
 | Результат | fix: keyboard-overlay.test.mjs → KeyboardOverlay.test.mjs (scanner cat N ожидает имя компонента) |
+<<<<<<< HEAD
 | Commit | *(этот run)* |
+=======
+| Commit | 27696df |
+>>>>>>> e03f5e4 (feat(marathon): M-81 rename KeyboardOverlay.test.mjs — fix scanner cat N naming)
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
