@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-236 (2026-08-05 23:32 UTC) {#marathon-m-236}
+
+| Проверка | Результат |
+|---|---|
+| quotaEngine.test.ts | PASS (11 tests) |
+
+**Изменения:** `artifacts/api-server/src/lib/quotaEngine.test.ts` — unit-тесты для `generateAccessCode`, `creditOwnerGreen`, `decrementEscrow`, `recordQuotaMovement`, `bumpQuotaSessionTotals` (мок tx + существующие computeQuotaEffect/isQuotaActiveNow).
+
+**Следующий pick:** M-237 (тест не покрывает экспорты: redis).
+
 ## Marathon M-235 (2026-08-05 23:28 UTC) {#marathon-m-235}
 
 | Проверка | Результат |
