@@ -326,6 +326,37 @@ describe("POST /admin/games/submissions/:id/approve", () => {
       libraryAutoCreated: false,
     });
   });
+
+  it("returns 500 when game insert returns no row", async () => {
+    const sub = {
+      id: "sub-1",
+      status: "pending",
+      title: "Cool Game",
+      slug: "cool-game",
+      category: "action",
+      genres: ["fps"],
+      description: "desc",
+      coverImageUrl: null,
+      steamAppId: null,
+      kind: "native",
+      defaultBrowserUrl: "",
+      hostId: "host-2",
+      pendingHostConfig: null,
+    };
+    queueResults(
+      [{ id: "admin-1", isAdmin: true }],
+      [sub],
+      [],
+      [],
+    );
+    const res = await request(
+      "POST",
+      "/admin/games/submissions/sub-1/approve",
+      { headers: ADMIN_HEADERS, body: {} },
+    );
+    expect(res.status).toBe(500);
+    expect(res.json).toEqual({ error: "Failed to create game" });
+  });
 });
 
 describe("POST /admin/games/submissions/:id/reject", () => {

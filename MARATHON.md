@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 21:42 UTC|
-| Task ID | M-209|
-| Результат | withdrawals.test.ts: колонки и notNull; db test PASS (99)|
+| Дата | 2026-08-05 22:01 UTC|
+| Task ID | M-210|
+| Результат | admin.test.ts: 500 при пустом insert в approve submission (19 tests PASS)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -562,7 +562,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-207 | U | db schema: unit-тест (systemAccounts.ts) | `db/systemAccounts.ts` | u:lib/db/src/schema/systemAccounts.ts | done | agent |
 | M-208 | U | db schema: unit-тест (verifierLinks.ts) | `db/verifierLinks.ts` | u:lib/db/src/schema/verifierLinks.ts | done | agent |
 | M-209 | U | db schema: unit-тест (withdrawals.ts) | `db/withdrawals.ts` | u:lib/db/src/schema/withdrawals.ts | done | agent |
-| M-210 | W | route error-paths без теста (500) : admin.ts | `routes/admin.ts` | w:artifacts/api-server/src/routes/admin.ts | pending | agent |
+| M-210 | W | route error-paths без теста (500) : admin.ts | `routes/admin.ts` | w:artifacts/api-server/src/routes/admin.ts | done | agent |
 | M-211 | W | route error-paths без теста (409) : agentAuth.ts | `routes/agentAuth.ts` | w:artifacts/api-server/src/routes/agentAuth.ts | pending | agent |
 | M-212 | W | route error-paths без теста (500) : downloads.ts | `routes/downloads.ts` | w:artifacts/api-server/src/routes/downloads.ts | pending | agent |
 | M-213 | W | route error-paths без теста (409) : embed.ts | `routes/embed.ts` | w:artifacts/api-server/src/routes/embed.ts | pending | agent |

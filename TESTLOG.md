@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-210 (2026-08-05 22:02 UTC) {#marathon-m-210}
+
+| Проверка | Результат |
+|---|---|
+| vitest src/routes/admin.test.ts | PASS (19 tests) |
+
+**Изменения:** `artifacts/api-server/src/routes/admin.test.ts` — тест 500 при пустом insert в approve submission.
+
+**Следующий pick:** M-211 (route error-paths 409: agentAuth.ts).
+
 ## Marathon M-209 (2026-08-05 21:43 UTC) {#marathon-m-209}
 
 | Проверка | Результат |
