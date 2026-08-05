@@ -6,15 +6,15 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-108 done; agentAuth.test.ts)
+> **Последнее обновление:** 2026-08-05 (M-109 done; agentTelemetry.test.ts)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 11:13 UTC|
-| Task ID | M-108|
-| Результат | agentAuth.test.ts 19 тестов PASS (challenge, bind-code, bind-agent-key, login, pairing)|
+| Дата | 2026-08-05 11:15 UTC|
+| Task ID | M-109|
+| Результат | agentTelemetry.test.ts 7 тестов PASS (POST telemetry, GET agent-events)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -40,7 +40,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** M-108 done; scanner cat P — 25 pending (api-server routes).
+**Wave Maintenance:** M-109 done; scanner cat P — 24 pending (api-server routes).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -353,7 +353,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-106 | O | web pages: unit-тест (wallet) | `pages/wallet.tsx` | o:artifacts/web/src/pages/wallet.tsx | done | agent |
 | M-107 | P | api-server routes: unit-тест (admin.ts) | `routes/admin.ts` | p:artifacts/api-server/src/routes/admin.ts | done | agent |
 | M-108 | P | api-server routes: unit-тест (agentAuth.ts) | `routes/agentAuth.ts` | p:artifacts/api-server/src/routes/agentAuth.ts | done | agent |
-| M-109 | P | api-server routes: unit-тест (agentTelemetry.ts) | `routes/agentTelemetry.ts` | p:artifacts/api-server/src/routes/agentTelemetry.ts | pending | agent |
+| M-109 | P | api-server routes: unit-тест (agentTelemetry.ts) | `routes/agentTelemetry.ts` | p:artifacts/api-server/src/routes/agentTelemetry.ts | done | agent |
 | M-110 | P | api-server routes: unit-тест (auth.ts) | `routes/auth.ts` | p:artifacts/api-server/src/routes/auth.ts | pending | agent |
 | M-111 | P | api-server routes: unit-тест (devKeys.ts) | `routes/devKeys.ts` | p:artifacts/api-server/src/routes/devKeys.ts | pending | agent |
 | M-112 | P | api-server routes: unit-тест (downloads.ts) | `routes/downloads.ts` | p:artifacts/api-server/src/routes/downloads.ts | pending | agent |

@@ -45,6 +45,15 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-109 (2026-08-05 11:16 UTC) {#marathon-m-109}
+
+| Проверка | Результат |
+|---|---|
+| agentTelemetry.test.ts | 7 тестов — POST /agent-telemetry (auth, validation, store+prune), GET /hosts/:hostToken/agent-events |
+| api-server test (agentTelemetry) | PASS (7 tests) |
+
+**Следующий pick:** M-110 (auth.ts).
+
 ## Marathon M-108 (2026-08-05 11:13 UTC) {#marathon-m-108}
 
 | Проверка | Результат |
