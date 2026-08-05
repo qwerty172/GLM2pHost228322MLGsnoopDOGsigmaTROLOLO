@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 03:48 UTC |
 | Task ID | M-77 |
 | Результат | scanner idle analysis → connection-labels.ts gap; unit-тест ICE labels/tones; regex `export const X:` в категориях J–M |
-| Commit | 1950cf5 |
+| Commit | becfbe2 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
