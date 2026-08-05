@@ -45,6 +45,18 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-96 (2026-08-05 10:10 UTC) {#marathon-m-96}
+
+| Проверка | Результат |
+|---|---|
+| browser-play-helpers.ts | getStoredHostToken, resolveBrowserHostUrl, isExternalBrowserHostUrl, buildBrowserPlayIframeSrc, buildBrowserPlayShareUrl, sanitizeIceServers, buildBrowserHostSignalWsUrl, computeEarnedLzt |
+| host-browser-play.test.mjs | 11 тестов — storage prefixes, host token fallback, browser URL resolve, external URL, iframe/share URLs, ICE sanitize, signal WS, earnings |
+| browser-play.tsx | рефакторинг: хелперы в browser-play-helpers.ts |
+| web test (host-browser-play) | PASS (11 tests) |
+| typecheck | PASS (web helpers) |
+
+**Следующий pick:** M-97 (host/dashboard.tsx).
+
 ## Marathon M-95 (2026-08-05 10:02 UTC) {#marathon-m-95}
 
 | Проверка | Результат |

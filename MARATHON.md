@@ -6,15 +6,15 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-95 done; binding-form helpers + unit-тест)
+> **Последнее обновление:** 2026-08-05 (M-96 done; browser-play helpers + unit-тест)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 10:04 UTC|
-| Task ID | M-95|
-| Результат | binding-form-helpers.ts + host-binding-form.test.mjs (12 тестов): time slots, binding kind, prices, schedule, URL, tags, stream key, config body|
+| Дата | 2026-08-05 10:13 UTC|
+| Task ID | M-96|
+| Результат | browser-play-helpers.ts + host-browser-play.test.mjs (11 тестов): storage, URL resolve, iframe/share URLs, ICE sanitize, signal WS, earnings|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -40,7 +40,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** M-95 done; scanner cat O — 11 pending (web pages helpers).
+**Wave Maintenance:** M-96 done; scanner cat O — 10 pending (web pages helpers).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -340,7 +340,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-93 | O | web pages: unit-тест (game-detail) | `pages/game-detail.tsx` | o:artifacts/web/src/pages/game-detail.tsx | done | agent |
 | M-94 | O | web pages: unit-тест (games) | `pages/games.tsx` | o:artifacts/web/src/pages/games.tsx | done | agent |
 | M-95 | O | web pages: unit-тест (host/binding-form) | `pages/host/binding-form.tsx` | o:artifacts/web/src/pages/host/binding-form.tsx | done | agent |
-| M-96 | O | web pages: unit-тест (host/browser-play) | `pages/host/browser-play.tsx` | o:artifacts/web/src/pages/host/browser-play.tsx | pending | agent |
+| M-96 | O | web pages: unit-тест (host/browser-play) | `pages/host/browser-play.tsx` | o:artifacts/web/src/pages/host/browser-play.tsx | done | agent |
 | M-97 | O | web pages: unit-тест (host/dashboard) | `pages/host/dashboard.tsx` | o:artifacts/web/src/pages/host/dashboard.tsx | pending | agent |
 | M-98 | O | web pages: unit-тест (host/library) | `pages/host/library.tsx` | o:artifacts/web/src/pages/host/library.tsx | pending | agent |
 | M-99 | O | web pages: unit-тест (host/setup) | `pages/host/setup.tsx` | o:artifacts/web/src/pages/host/setup.tsx | pending | agent |

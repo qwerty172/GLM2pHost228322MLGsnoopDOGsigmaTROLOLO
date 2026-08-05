@@ -22,9 +22,19 @@ import {
   getPublicIceConfig,
 } from "@workspace/api-client-react";
 import { postAgentInput } from "@/lib/agent-local";
-
-const HOST_TOKEN_STORAGE_PREFIX = "streamline.browserHostToken:";
-const BROWSER_HOST_URL_STORAGE_PREFIX = "streamline.browserHostUrl:";
+import {
+  HOST_TOKEN_STORAGE_PREFIX,
+  BROWSER_HOST_URL_STORAGE_PREFIX,
+  getStoredHostToken,
+  getStoredBrowserHostUrl,
+  resolveBrowserHostUrl,
+  isExternalBrowserHostUrl,
+  buildBrowserPlayIframeSrc,
+  buildBrowserPlayShareUrl,
+  sanitizeIceServers,
+  buildBrowserHostSignalWsUrl,
+  computeEarnedLzt,
+} from "./browser-play-helpers";
 
 const isDev = import.meta.env.DEV;
 const devWarn = (...args: unknown[]) => {
@@ -33,27 +43,6 @@ const devWarn = (...args: unknown[]) => {
 const devError = (...args: unknown[]) => {
   if (isDev) console.error(...args);
 };
-
-function getStoredHostToken(sessionId: string): string | null {
-  try {
-    // Prefer the session-scoped key; fall back to the global host token so the
-    // page works even when the popup was blocked or localStorage was cleared.
-    return (
-      localStorage.getItem(HOST_TOKEN_STORAGE_PREFIX + sessionId) ||
-      localStorage.getItem("streamline.hostToken")
-    );
-  } catch {
-    return null;
-  }
-}
-
-function getStoredBrowserHostUrl(sessionId: string): string | null {
-  try {
-    return localStorage.getItem(BROWSER_HOST_URL_STORAGE_PREFIX + sessionId);
-  } catch {
-    return null;
-  }
-}
 
 export default function BrowserPlay() {
   const [, params] = useRoute("/host/play/:sessionId");
@@ -75,15 +64,12 @@ export default function BrowserPlay() {
     },
   );
 
-  // Derive browserHostUrl: prefer localStorage, fall back to session.appName
-  // when it looks like an external URL (test sessions store the boundUrl there).
-  const browserHostUrl: string | null =
-    storedBrowserHostUrl ||
-    (/^https?:\/\//i.test(session?.appName ?? "") ? (session?.appName ?? null) : null);
+  const browserHostUrl = resolveBrowserHostUrl(
+    storedBrowserHostUrl,
+    session?.appName,
+  );
 
-  // True when the host is streaming an arbitrary external https site via tab
-  // capture (getDisplayMedia). Defined here so handleInputMessage can use it.
-  const isExternal = /^https?:\/\//i.test(browserHostUrl ?? "");
+  const isExternal = isExternalBrowserHostUrl(browserHostUrl);
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -108,12 +94,14 @@ export default function BrowserPlay() {
 
   useEffect(() => {
     if (!session) return;
-    const origin = window.location.origin;
-    const base = import.meta.env.BASE_URL;
     setShareUrl(
-      (session as typeof session & { inviteCode?: string | null }).inviteCode
-        ? `${origin}${base.replace(/\/$/, "")}/play/i/${(session as typeof session & { inviteCode?: string }).inviteCode}`
-        : `${origin}${base.replace(/\/$/, "")}/play/${session.playerToken}`,
+      buildBrowserPlayShareUrl({
+        origin: window.location.origin,
+        baseUrl: import.meta.env.BASE_URL,
+        inviteCode: (session as typeof session & { inviteCode?: string | null })
+          .inviteCode,
+        playerToken: session.playerToken,
+      }),
     );
   }, [session]);
 
@@ -198,21 +186,10 @@ export default function BrowserPlay() {
     try {
     const videoStream = externalStream ?? canvas!.captureStream(30);
 
-    // Fetch ICE server config (STUN + optional TURN) from the API.
     let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
     try {
       const cfgJson = await getPublicIceConfig();
-      if (Array.isArray(cfgJson.iceServers) && cfgJson.iceServers.length > 0) {
-        // Sanitize: drop entries whose urls are not valid ICE URIs so a
-        // bad server config can never hard-crash RTCPeerConnection.
-        const valid = cfgJson.iceServers.filter((s) => {
-          const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
-          return urls.every(
-            (u) => typeof u === "string" && /^(stun|stuns|turn|turns):/i.test(u),
-          );
-        });
-        if (valid.length > 0) iceServers = valid;
-      }
+      iceServers = sanitizeIceServers(cfgJson.iceServers);
     } catch {
       devWarn("[ice] Failed to fetch ICE config, using default STUN only");
     }
@@ -299,11 +276,13 @@ export default function BrowserPlay() {
       ev.channel.onmessage = (m) => handleInputMessage(m.data);
     };
 
-    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl =
-      `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal` +
-      `?role=host&sessionId=${encodeURIComponent(sessionId)}` +
-      `&hostToken=${encodeURIComponent(hostToken)}`;
+    const wsUrl = buildBrowserHostSignalWsUrl({
+      sessionId,
+      hostToken,
+      pageProtocol: window.location.protocol,
+      host: window.location.host,
+      baseUrl: import.meta.env.BASE_URL,
+    });
 
     const cancelDeferredTeardown = () => {
       if (teardownTimerRef.current) {
@@ -518,12 +497,8 @@ export default function BrowserPlay() {
     if (!session || session.status === "ended" || !session.startedAt) {
       return;
     }
-    const startMs = new Date(session.startedAt).getTime();
-    const ratePerMinUsd = session.ratePerMinute || 0;
-    const ratePerMinLzt = Math.round(ratePerMinUsd * 200);
     const tick = () => {
-      const elapsedMin = Math.max(0, (Date.now() - startMs) / 60000);
-      setEarnedLzt(Math.floor(elapsedMin * ratePerMinLzt));
+      setEarnedLzt(computeEarnedLzt(session.startedAt, session.ratePerMinute || 0));
     };
     tick();
     const id = setInterval(tick, 1000);
@@ -618,10 +593,7 @@ export default function BrowserPlay() {
     );
   }
 
-  const iframeSrc =
-    import.meta.env.BASE_URL.replace(/\/$/, "") +
-    "/" +
-    browserHostUrl.replace(/^\//, "");
+  const iframeSrc = buildBrowserPlayIframeSrc(import.meta.env.BASE_URL, browserHostUrl);
 
   return (
     <div
