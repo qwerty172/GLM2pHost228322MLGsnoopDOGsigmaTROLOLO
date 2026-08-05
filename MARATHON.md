@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-80 done; use-player-wallet.tsx unit-тест)
+> **Последнее обновление:** 2026-08-05 (M-81 done; KeyboardOverlay unit-тест + категория N)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 04:58 UTC |
-| Task ID | M-80 |
-| Результат | web hooks: unit-тест use-player-wallet.tsx (storage keys, registerGuestWallet, upgradeGuestWallet) |
-| Commit | 7324150 |
+| Дата | 2026-08-05 05:34 UTC |
+| Task ID | M-81 |
+| Результат | idle-анализ → категория N (web components); unit-тест KeyboardOverlay.tsx (KEY_CATALOGUE, KEYBOARD_PRESETS) |
+| Commit | d214b1f |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** M-80 done; очередь M пуста — idle.
+**Wave Maintenance:** M-81 done; M-82…M-89 pending (кат. N — web components).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -237,7 +237,7 @@ Automation **каждый run** создаёт и выполняет одну н
 2. **Один M-NN за run.**
 3. **Никогда не повторять:** legacy `done`, M-NN `done`/`in_progress`, blocked human.
 4. **Группировка:** C = по route-файлу; E/H = lib/renderer без тестов одной задачей; F = raw fetch по файлу; G = HOSTING backlog (H-NN); vendor `public/games/` и `isDev` console — исключены.
-5. Приоритет категорий: B TODO → C OpenAPI → A RU → G HOSTING → F fetch → E renderer-тесты → H api-lib → D debug → I eslint.
+5. Приоритет категорий: B TODO → C OpenAPI → A RU → G HOSTING → F fetch → E renderer-тесты → H api-lib → J/K/L/M/N тесты → D debug → I eslint.
 
 ### Очередь M-NN
 
@@ -300,6 +300,15 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-78 | M | web hooks: unit-тест (use-auth.tsx) | `artifacts/web/src/hooks/use-auth.tsx` | m:artifacts/web/src/hooks/use-auth.tsx | done | agent |
 | M-79 | M | web hooks: unit-тест (use-mobile.tsx) | `artifacts/web/src/hooks/use-mobile.tsx` | m:artifacts/web/src/hooks/use-mobile.tsx | done | agent |
 | M-80 | M | web hooks: unit-тест (use-player-wallet.tsx) | `artifacts/web/src/hooks/use-player-wallet.tsx` | m:artifacts/web/src/hooks/use-player-wallet.tsx | done | agent |
+| M-81 | N | web components: unit-тест (KeyboardOverlay.tsx) | `artifacts/web/src/components/KeyboardOverlay.tsx` | n:artifacts/web/src/components/KeyboardOverlay.tsx | done | agent |
+| M-82 | N | web components: unit-тест (TouchOverlay.tsx) | `artifacts/web/src/components/TouchOverlay.tsx` | n:artifacts/web/src/components/TouchOverlay.tsx | pending | agent |
+| M-83 | N | web components: unit-тест (host-auth-guard.tsx) | `artifacts/web/src/components/host-auth-guard.tsx` | n:artifacts/web/src/components/host-auth-guard.tsx | pending | agent |
+| M-84 | N | web components: unit-тест (layout.tsx) | `artifacts/web/src/components/layout.tsx` | n:artifacts/web/src/components/layout.tsx | pending | agent |
+| M-85 | N | web components: unit-тест (quota-ai-chat.tsx) | `artifacts/web/src/components/quota-ai-chat.tsx` | n:artifacts/web/src/components/quota-ai-chat.tsx | pending | agent |
+| M-86 | N | web components: unit-тест (site-nav.tsx) | `artifacts/web/src/components/site-nav.tsx` | n:artifacts/web/src/components/site-nav.tsx | pending | agent |
+| M-87 | N | web components: unit-тест (vt-scanner.tsx) | `artifacts/web/src/components/vt-scanner.tsx` | n:artifacts/web/src/components/vt-scanner.tsx | pending | agent |
+| M-88 | N | web components: unit-тест (wallet-history.tsx) | `artifacts/web/src/components/wallet-history.tsx` | n:artifacts/web/src/components/wallet-history.tsx | pending | agent |
+| M-89 | N | web components: unit-тест (webgl-video-shader.tsx) | `artifacts/web/src/components/webgl-video-shader.tsx` | n:artifacts/web/src/components/webgl-video-shader.tsx | pending | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).

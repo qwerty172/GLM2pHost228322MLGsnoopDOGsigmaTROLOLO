@@ -22,6 +22,7 @@
 //   K. host-agent shared/*.ts without co-located test (by file)
 //   L. web lib/*.ts without co-located test (by file)
 //   M. web hooks/*.{ts,tsx} without co-located test (by file)
+//   N. web components/*.tsx (not ui/) without co-located test (by file)
 //
 // Source of truth: working tree (== main after git pull).
 
@@ -351,6 +352,33 @@ if (existsSync(webHooksDir)) {
   }
 }
 
+// --- N. web components/*.tsx (not ui/) without co-located test (by file) --
+const webCompDir = "artifacts/web/src/components";
+if (existsSync(webCompDir)) {
+  const compModules = readdirSync(webCompDir).filter(
+    (f) => f.endsWith(".tsx") && !f.endsWith(".d.ts"),
+  );
+  for (const mod of compModules) {
+    const base = mod.replace(/\.tsx$/, "");
+    const testCandidates = [
+      `artifacts/web/test/${base}.test.mjs`,
+      `artifacts/web/test/${base}.test.ts`,
+    ];
+    if (testCandidates.some((t) => existsSync(t))) continue;
+    const txt = readFileSync(`${webCompDir}/${mod}`, "utf8");
+    if (!/\bexport (async )?function\b|\bexport const \w+/.test(txt)) continue;
+    const f = `${webCompDir}/${mod}`;
+    raw.push({
+      cat: "N",
+      groupKey: `n:${f}`,
+      title: `web components: unit-тест (${mod})`,
+      file: f,
+      detail: mod,
+      items: [mod],
+    });
+  }
+}
+
 // --- L. web lib/*.ts without co-located test (by file) --------------------
 const webLibDir = "artifacts/web/src/lib";
 if (existsSync(webLibDir)) {
@@ -422,7 +450,7 @@ for (const line of marathonMd.split("\n")) {
   if (status === "done" || status === "in_progress") doneOrActiveKeys.add(groupKey);
 }
 
-const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, J: 7, K: 8, L: 9, M: 10, D: 11, I: 12 };
+const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, J: 7, K: 8, L: 9, M: 10, N: 11, D: 12, I: 13 };
 const filtered = candidates
   .filter((c) => !doneOrActiveKeys.has(c.groupKey))
   .sort((a, b) => (CAT_ORDER[a.cat] ?? 9) - (CAT_ORDER[b.cat] ?? 9));
@@ -572,7 +600,7 @@ if (NEXT || PICK) {
     console.log(`| ${c.id} | ${c.cat} | ${c.title} | \`${c.file}\` | ${(c.detail || "").replace(/\|/g, "\\|")} |`);
   }
   console.log(
-    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, J=main-тесты, K=shared-тесты, L=web-lib тесты, M=web-hooks тесты, I=eslint suppressions.`,
+    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, J=main-тесты, K=shared-тесты, L=web-lib тесты, M=web-hooks тесты, N=web-components тесты, I=eslint suppressions.`,
   );
   console.log(`Синхронизация: node scripts/marathon-scan.mjs --sync-marathon`);
 }
