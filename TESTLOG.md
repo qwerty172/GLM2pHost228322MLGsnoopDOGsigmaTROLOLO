@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-177 (2026-08-05 20:22 UTC) {#marathon-m-177}
+
+| Проверка | Результат |
+|---|---|
+| pnpm typecheck | PASS |
+
+**Изменения:** `landing.tsx` — убраны 3× `as any` в каталоге популярных игр (coverImageUrl, liveHostsCount, genre/genres через GameListItem).
+
+**Следующий pick:** M-178 (`as any` escape в hosts.tsx).
+
 ## Marathon M-176 (2026-08-05 20:20 UTC) {#marathon-m-176}
 
 | Проверка | Результат |
