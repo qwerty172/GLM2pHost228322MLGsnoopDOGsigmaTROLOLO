@@ -32,9 +32,23 @@ import {
   type IceConnectionKind,
 } from "@/lib/connection-labels";
 import { formatApiError } from "@/lib/api-errors";
-
-const LZT_PER_USDT = 200;
-type PaymentSource = "auto" | "blue" | "green";
+import {
+  LZT_PER_USDT,
+  type PaymentSource,
+  parseBlockMinutesParam,
+  resolveGameBrowserHostUrl,
+  resolveCoverImageUrl,
+  isTestBrowserSession as checkTestBrowserSession,
+  computeRatePerMinLzt,
+  computeSourceBalance,
+  computeMinutesAffordable,
+  needsSessionTopUp,
+  buildClipFilename,
+  getControlRejectMessage,
+  buildPlayerSignalWsUrl,
+  getConnectionBadgeLabel,
+  computeWalletBalanceForSession,
+} from "./play-helpers";
 
 const isDev = import.meta.env.DEV;
 const devLog = (...args: unknown[]) => {
@@ -183,11 +197,7 @@ export default function Play() {
     ? resolvedToken
     : (tokenParams?.playerToken || "");
   const search$ = useSearch();
-  const blockMinutesParam = (() => {
-    const sp = new URLSearchParams(search$);
-    const v = Number(sp.get("block"));
-    return v === 10 || v === 15 || v === 25 ? v : undefined;
-  })();
+  const blockMinutesParam = parseBlockMinutesParam(search$);
 
   const { data: session, isLoading, isError } = useGetSessionByPlayerToken(playerToken, {
     query: {
@@ -199,8 +209,8 @@ export default function Play() {
 
   // Detect test sessions with a browser-hosted game early so all effects can
   // skip WebRTC / billing logic before the early-return iframe branch fires.
-  const isTestBrowserSession = !!(
-    (session as any)?.isTest && (session as any)?.gameBrowserHostUrl
+  const isTestBrowserSession = checkTestBrowserSession(
+    session as { isTest?: boolean; is_test?: boolean; gameBrowserHostUrl?: string | null },
   );
   const sessionId = session?.id;
   const sessionStatus = session?.status;
@@ -320,10 +330,8 @@ export default function Play() {
   // Sync estimated balance from actual wallet data (30s API sync)
   useEffect(() => {
     if (!wallet || !session) return;
-    const greenLzt = wallet.withdrawableBalanceLzt ?? 0;
-    const blueLzt = wallet.internalBalanceLzt ?? 0;
-    const src = (session as typeof session & { paymentSource?: string }).paymentSource ?? "auto";
-    const bal = src === "blue" ? blueLzt : src === "green" ? greenLzt : greenLzt + blueLzt;
+    const src = (session as typeof session & { paymentSource?: string }).paymentSource;
+    const bal = computeWalletBalanceForSession(wallet, src);
     setEstimatedBalanceLzt(bal);
     const rateLztPerMin = Math.round(Number(session.ratePerMinute) * LZT_PER_USDT);
     ratePerSecLztRef.current = rateLztPerMin / 60;
@@ -588,10 +596,8 @@ export default function Play() {
     setIsSavingClip(true);
     try {
       const blob = new Blob(chunks, { type: "video/webm" });
-      const gameTitle = (session as typeof session & { gameTitle?: string | null })?.gameTitle || session?.appName || "game";
-      const safeGame = gameTitle.replace(/[^a-z0-9]/gi, "-").toLowerCase().slice(0, 40);
-      const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-      const filename = `clip-${safeGame}-${ts}.webm`;
+      const gameTitle = (session as typeof session & { gameTitle?: string | null })?.gameTitle;
+      const filename = buildClipFilename(gameTitle, session?.appName ?? "game");
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -684,13 +690,7 @@ export default function Play() {
           await pc.addIceCandidate(new RTCIceCandidate(msg["candidate"] as RTCIceCandidateInit));
         } else if (type === "control" && msg["action"] === "reject") {
           const reason: string = (msg["reason"] as string) ?? "unknown";
-          const msgText =
-            reason === "host_busy"
-              ? "Хост сейчас занят с другим игроком. Попробуй позже."
-              : reason === "game_unavailable"
-                ? "Игра временно недоступна на этом хосте."
-                : `Хост отклонил соединение (${reason}).`;
-          toast.error(msgText);
+          toast.error(getControlRejectMessage(reason));
           cleanupConnection();
         } else if (type === "block-warning") {
           const minsLeft = (msg["minsLeft"] as number) ?? 2;
@@ -741,25 +741,34 @@ export default function Play() {
     setIsPlaying(true);
     setConnectionState("connecting");
 
-    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-
     // Prefer a short-lived WS ticket so long-lived tokens never appear in URLs
     // (server logs, browser history, referrer headers). Falls back to the
     // legacy query-string path when JWT auth is not yet configured on the server.
     let wsUrl: string;
     const wsSessionId = session?.id;
+    const wsBase = {
+      pageProtocol: window.location.protocol,
+      host: window.location.host,
+      baseUrl: import.meta.env.BASE_URL,
+      playerToken,
+      playerWalletToken,
+    };
     if (wsSessionId) {
       try {
         const { wsTicket } = await issueWsTicket(
           { role: "player", sessionId: wsSessionId },
           { headers: { "x-player-wallet-token": playerWalletToken } },
         );
-        wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&wsTicket=${encodeURIComponent(wsTicket)}&sessionId=${encodeURIComponent(wsSessionId)}`;
+        wsUrl = buildPlayerSignalWsUrl({
+          ...wsBase,
+          wsTicket,
+          sessionId: wsSessionId,
+        });
       } catch {
-        wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&playerToken=${encodeURIComponent(playerToken)}&playerWalletToken=${encodeURIComponent(playerWalletToken)}`;
+        wsUrl = buildPlayerSignalWsUrl(wsBase);
       }
     } else {
-      wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&playerToken=${encodeURIComponent(playerToken)}&playerWalletToken=${encodeURIComponent(playerWalletToken)}`;
+      wsUrl = buildPlayerSignalWsUrl(wsBase);
     }
     wsUrlRef.current = wsUrl;
 
@@ -1283,10 +1292,11 @@ export default function Play() {
   // No WebRTC, no billing, no agent needed.
   const sAny = session as any;
   const gameBrowserHostUrl: string | null = sAny.gameBrowserHostUrl ?? null;
-  if ((sAny.isTest || sAny.is_test) && gameBrowserHostUrl) {
-    const iframeUrl = gameBrowserHostUrl.startsWith("http")
-      ? gameBrowserHostUrl
-      : `${import.meta.env.BASE_URL}${gameBrowserHostUrl.replace(/^\//, "")}`;
+  if (isTestBrowserSession) {
+    const iframeUrl = resolveGameBrowserHostUrl(
+      gameBrowserHostUrl!,
+      import.meta.env.BASE_URL,
+    );
     return (
       <IframeTestSession
         iframeUrl={iframeUrl}
@@ -1300,18 +1310,10 @@ export default function Play() {
     const blueLzt = wallet?.internalBalanceLzt ?? 0;
     // Claim принимает только green/blue — не суммируем с кредитным лимитом.
     const totalLzt = greenLzt + blueLzt;
-    const ratePerMinUsd = session.ratePerMinute;
-    const ratePerMinLzt = Math.round(ratePerMinUsd * LZT_PER_USDT);
-    const sourceBalance =
-      paymentSource === "blue"
-        ? blueLzt
-        : paymentSource === "green"
-          ? greenLzt
-          : totalLzt;
-    const minutesAffordable =
-      ratePerMinLzt > 0 ? Math.floor(sourceBalance / ratePerMinLzt) : 0;
-    const needsTopUp =
-      ratePerMinLzt > 0 && sourceBalance < ratePerMinLzt && !hasClaimed;
+    const ratePerMinLzt = computeRatePerMinLzt(session.ratePerMinute);
+    const sourceBalance = computeSourceBalance(paymentSource, greenLzt, blueLzt);
+    const minutesAffordable = computeMinutesAffordable(sourceBalance, ratePerMinLzt);
+    const needsTopUp = needsSessionTopUp(sourceBalance, ratePerMinLzt, hasClaimed);
     const connecting =
       !needsTopUp &&
       !claimError &&
@@ -1321,11 +1323,7 @@ export default function Play() {
       gameCoverImageUrl?: string | null;
       gameTitle?: string | null;
     };
-    const cover = s.gameCoverImageUrl
-      ? s.gameCoverImageUrl.startsWith("http")
-        ? s.gameCoverImageUrl
-        : `${import.meta.env.BASE_URL}${s.gameCoverImageUrl.replace(/^\//, "")}`
-      : null;
+    const cover = resolveCoverImageUrl(s.gameCoverImageUrl, import.meta.env.BASE_URL);
 
     // Happy path: fullscreen «Подключаемся…» without payment radios.
     if (connecting && !showPaymentOptions) {
@@ -1692,21 +1690,7 @@ export default function Play() {
             ) : (
               <WifiOff className="w-3 h-3 mr-2 inline" />
             )}
-            {reconnecting
-              ? "ПЕРЕПОДКЛЮЧЕНИЕ..."
-              : connectionState === "connected"
-                ? "ПОДКЛЮЧЕНО"
-                : connectionState === "connecting"
-                  ? "СОЕДИНЕНИЕ"
-                  : connectionState === "disconnected"
-                    ? "ОТКЛЮЧЕНО"
-                    : connectionState === "failed"
-                      ? "ОШИБКА СВЯЗИ"
-                      : connectionState === "closed"
-                        ? "ЗАКРЫТО"
-                        : connectionState === "new"
-                          ? "ИНИЦИАЛИЗАЦИЯ"
-                          : "ПОДКЛЮЧЕНИЕ"}
+            {getConnectionBadgeLabel(connectionState, reconnecting)}
           </Badge>
           {iceType && !reconnecting && (() => {
             const meta = ICE_CONNECTION_LABELS[iceType];

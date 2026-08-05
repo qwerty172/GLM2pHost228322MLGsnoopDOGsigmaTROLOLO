@@ -45,6 +45,18 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-102 (2026-08-05 10:38 UTC) {#marathon-m-102}
+
+| Проверка | Результат |
+|---|---|
+| play-helpers.ts | parseBlockMinutesParam, resolveGameBrowserHostUrl, resolveCoverImageUrl, isTestBrowserSession, computeRatePerMinLzt, computeSourceBalance, computeMinutesAffordable, needsSessionTopUp, buildClipFilename, getControlRejectMessage, buildPlayerSignalWsUrl, getConnectionBadgeLabel, computeWalletBalanceForSession |
+| play.test.mjs | 13 тестов — block param, browser/cover URL, test session, LZT billing, clip filename, WS URL, connection badge, wallet balance |
+| play.tsx | рефакторинг: хелперы в play-helpers.ts |
+| web test (play) | PASS (13 tests) |
+| typecheck | PASS (play-helpers via unit tests) |
+
+**Следующий pick:** M-103 (profile.tsx).
+
 ## Marathon M-101 (2026-08-05 10:34 UTC) {#marathon-m-101}
 
 | Проверка | Результат |
