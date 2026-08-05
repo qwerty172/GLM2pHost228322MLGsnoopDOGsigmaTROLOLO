@@ -15,6 +15,18 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-159 (2026-08-05 15:20 UTC) {#marathon-m-159}
+
+| Проверка | Результат |
+|---|---|
+| agent-version.test.mjs | PASS — getAgentVersion() = app.getVersion() |
+| ping-server.test.mjs | PASS — /ping отдаёт version из getInfo |
+| host-agent typecheck | PASS |
+
+**Изменения (U-15):** `/ping` и `/readiness` возвращают версию через `app.getVersion()` (модуль `agent-version.ts`), а не захардкоженную `"0.1.0"`; дашборд показывает ту же версию из локального probe.
+
+**Следующий pick:** M-160 (U-16 обновление агента одной кнопкой).
+
 ## Marathon M-158 (2026-08-05 15:15 UTC) {#marathon-m-158}
 
 | Проверка | Результат |

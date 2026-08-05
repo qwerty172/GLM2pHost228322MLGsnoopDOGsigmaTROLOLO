@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 15:15 UTC|
-| Task ID | M-158|
-| Результат | U-33: INSTALL.txt и ZIP описывают порты 18080–18083 как dashboard и ping-server; install-u33 + downloads U-33 + typecheck PASS|
+| Дата | 2026-08-05 15:18 UTC|
+| Task ID | M-159|
+| Результат | U-15: версия агента через app.getVersion() в /ping; agent-version.ts + тесты; host-agent typecheck PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -490,7 +490,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-156 | R | UX U-11 (P2): Русский язык во всём UI агента | `renderer/*.ts` | r:U-11 | done | agent |
 | M-157 | R | UX U-12 (P2): INSTALL.txt и подсказки дашборда описывают один и тот же пот | `artifacts/host-agent/INSTALL.txt` | r:U-12 | done | agent |
 | M-158 | R | UX U-33 (P1): Порты файрвола согласованы между документацией и кодом | `artifacts/host-agent/INSTALL.txt` | r:U-33 | done | agent |
-| M-159 | R | UX U-15 (P1): Версия агента берётся из сборки, а не из захардкоженной стро | `artifacts/host-agent/src/main/index.ts` | r:U-15 | pending | agent |
+| M-159 | R | UX U-15 (P1): Версия агента берётся из сборки, а не из захардкоженной стро | `artifacts/host-agent/src/main/index.ts` | r:U-15 | done | agent |
 | M-160 | R | UX U-16 (P1): Обновление агента видно и устанавливается одной кнопкой | `artifacts/host-agent/src/main/index.ts` | r:U-16 | pending | agent |
 | M-161 | R | UX U-17 (P1): Несовместимая версия агента объясняется до запуска стрима | `routes/hosts.ts` | r:U-17 | pending | agent |
 | M-162 | R | UX U-18 (P1): Единая карточка диагностики вместо разрозненных heartbeat и  | `pages/host/dashboard.tsx` | r:U-18 | pending | agent |

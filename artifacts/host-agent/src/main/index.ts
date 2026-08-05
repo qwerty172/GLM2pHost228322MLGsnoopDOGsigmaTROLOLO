@@ -38,6 +38,7 @@ import { pullSave, pushSave, restoreSave, backupSave, type SaveManifestEntry } f
 import { scanSteam, loadScanState, saveScanState } from "./steam-scanner";
 import { loadOrGenerateKeyPair, signChallenge } from "./crypto-key";
 import { log } from "./logger";
+import { getAgentVersion } from "./agent-version";
 import { parseInputEvent, parseGamepadState } from "../shared/input";
 import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry, SteamScanResult, QuotaStatusEvent, SaveSyncRequest, SaveSyncResult } from "../shared/messages";
 
@@ -597,7 +598,7 @@ async function startAgent(): Promise<void> {
     getInfo: async () => {
       const cfg = await loadConfig().catch(() => null);
       return {
-        version: "0.1.0",
+        version: getAgentVersion(),
         audioMode: cfg?.audioMode ?? "off",
         port: pingPortInUse,
       };

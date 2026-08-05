@@ -249,7 +249,14 @@ export function createPingServer(deps: PingServerDeps): http.Server {
 
     void deps
       .getInfo()
-      .catch(() => ({ version: "0.1.0", audioMode: "off" }))
+      .catch(async () => {
+        try {
+          const { getAgentVersion } = await import("./agent-version.js");
+          return { version: getAgentVersion(), audioMode: "off" };
+        } catch {
+          return { version: "unknown", audioMode: "off" };
+        }
+      })
       .then((info) => {
         let inputOk = true;
         if (isReadiness) {
