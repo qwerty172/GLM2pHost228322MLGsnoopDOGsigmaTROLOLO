@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 02:16 UTC |
 | Task ID | M-72 |
 | Результат | unit-тест put-external-blob.ts — PUT blob/headers, 2xx resolve, non-2xx/network reject |
-| Commit | (this run) |
+| Commit | 847cccf |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
