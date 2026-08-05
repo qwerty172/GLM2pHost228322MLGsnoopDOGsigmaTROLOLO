@@ -21,6 +21,8 @@ const {
   getConnectionBadgeLabel,
   computeWalletBalanceForSession,
   isTouchCapableDevice,
+  shouldShowConnectingOverlay,
+  shouldAutoClaimFromSession,
 } = await import("../src/pages/play-helpers.ts");
 
 test("LZT_PER_USDT is stable", () => {
@@ -162,4 +164,18 @@ test("isTouchCapableDevice (U-25) enables overlays when maxTouchPoints > 0", () 
   assert.equal(isTouchCapableDevice(0), false);
   assert.equal(isTouchCapableDevice(1), true);
   assert.equal(isTouchCapableDevice(5), true);
+});
+
+test("shouldShowConnectingOverlay hides spinner for ended sessions", () => {
+  assert.equal(shouldShowConnectingOverlay(true, "active"), true);
+  assert.equal(shouldShowConnectingOverlay(true, "pending"), true);
+  assert.equal(shouldShowConnectingOverlay(true, "ended"), false);
+  assert.equal(shouldShowConnectingOverlay(false, "active"), false);
+});
+
+test("shouldAutoClaimFromSession requires matching wallet owner", () => {
+  assert.equal(shouldAutoClaimFromSession("p1", "p1"), true);
+  assert.equal(shouldAutoClaimFromSession("p1", "p2"), false);
+  assert.equal(shouldAutoClaimFromSession(null, "p1"), false);
+  assert.equal(shouldAutoClaimFromSession("p1", null), false);
 });
