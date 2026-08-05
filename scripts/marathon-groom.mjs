@@ -62,6 +62,20 @@ function nextPendingId(rows) {
   return row?.id ?? null;
 }
 
+/** Задача уже закоммичена в origin/main (дедуп: работа сделана, статус отстал). */
+function isDoneOnMain(taskId) {
+  if (!taskId) return false;
+  try {
+    const out = execSync(
+      `git log origin/main --oneline -1 --grep="feat(marathon): ${taskId} " --fixed-strings`,
+      { encoding: "utf8", timeout: 15000 },
+    ).trim();
+    return out.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 /** Open non-draft PR с тем же M-NN в title — другой run уже в работе. DRAFT не блокирует. */
 function hasOpenPrForTask(taskId) {
   if (!taskId) return false;
@@ -125,7 +139,22 @@ if (SHOULD_RUN) {
   const lastRun = parseLastRun();
   const hasInProgress = state.existingRows.some((r) => r.status === "in_progress");
   const pendingMnn = state.existingRows.filter((r) => r.status === "pending").length;
-  const nextId = nextPendingId(state.existingRows);
+  let nextId = nextPendingId(state.existingRows);
+  // Дедуп: pending, но работа уже в main → сразу флипаем в done, берём следующую.
+  const dedupFlipped = [];
+  while (nextId && isDoneOnMain(nextId)) {
+    const row = state.existingRows.find((r) => r.id === nextId);
+    if (!row) break;
+    let md = readFileSync(MARATHON, "utf8");
+    const fixed = replaceRowStatus(row.line, "done");
+    if (md.includes(row.line)) {
+      md = md.replace(row.line, fixed);
+      writeFileSync(MARATHON, md);
+    }
+    row.status = "done";
+    dedupFlipped.push(nextId);
+    nextId = nextPendingId(state.existingRows);
+  }
   const prInFlight = hasOpenPrForTask(nextId);
   const ageMs = lastRun.ms ? Date.now() - lastRun.ms : null;
   // Cron каждую минуту: НЕ блокировать по интервалу — каждый run берёт следующую M-NN.
@@ -171,6 +200,7 @@ if (SHOULD_RUN) {
     hasInProgress,
     idleStreak,
     scannerEmpty,
+    dedupFlipped,
     efficiency: efficiency
       ? {
           taskHitPct: efficiency.metrics?.taskHitPct,
@@ -183,7 +213,7 @@ if (SHOULD_RUN) {
     agentInstruction: skip
       ? `STOP: ${prInFlight ? "pr_in_flight" : "in_progress_active"} — commit MARATHON if needed, exit`
       : nextId
-        ? `EXECUTE ${nextId} only: code/tests per marathon-scan --next. Last run: node scripts/marathon-last-run.mjs --task ${nextId} --result "..." в ТОМ ЖЕ коммите. NO hash-only commit. NO list-cloud-agents/automation_memory`
+        ? `EXECUTE ${nextId} only: code/tests per marathon-scan --next. Last run: node scripts/marathon-last-run.mjs --task ${nextId} --result "..." в ТОМ ЖЕ коммите. В КОНЦЕ: merge своей ветки в main + git push origin main (без merge работа теряется). NO hash commit, NO idle commit, NO list-cloud-agents/automation_memory`
         : expandNow
           ? `EXPAND SCANNER NOW: grouped=0. Add category to marathon-scan.mjs → --sync-marathon → one feat commit. NO analysis-only exit.`
           : needsExpand
@@ -245,6 +275,14 @@ if (missingInTable.length) {
   issues.push({ kind: "queue_drift", count: missingInTable.length, msg: "сканер нашёл задачи, которых нет в таблице — нужен --sync-marathon" });
 }
 
+// 5b. Pending, но работа уже в main (run сделал задачу, статус не долетел)
+for (const row of state.existingRows.filter((r) => r.status === "pending")) {
+  if (isDoneOnMain(row.id)) {
+    issues.push({ kind: "done_on_main", id: row.id, msg: "feat-коммит уже в main — флип в done без работы" });
+    if (APPLY) fixes.push({ row, action: "done", reason: "" });
+  }
+}
+
 // 6. Raw explosion — плохая группировка
 if (state.rawHits > 0 && state.grouped > 0 && state.rawHits / state.grouped > 4) {
   issues.push({ kind: "raw_explosion", raw: state.rawHits, grouped: state.grouped, msg: "слишком много raw vs grouped — улучшить marathon-scan.mjs" });
@@ -267,6 +305,8 @@ if (APPLY && fixes.length) {
     } else if (f.action === "pending") {
       newLine = replaceRowStatus(newLine, "pending");
       newLine = replaceRowTitle(newLine, f.reason);
+    } else if (f.action === "done") {
+      newLine = replaceRowStatus(newLine, "done");
     }
     md = md.replace(f.row.line, newLine);
   }

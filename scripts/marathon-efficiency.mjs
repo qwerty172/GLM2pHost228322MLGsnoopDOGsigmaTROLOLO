@@ -186,7 +186,7 @@ function buildAnalysis() {
   };
 }
 
-function updateLastRun(taskId, result, commit) {
+function updateLastRun(taskId, result) {
   let md = readFileSync(MARATHON, "utf8");
   const now = new Date();
   const pad = (n) => String(n).padStart(2, "0");
@@ -195,11 +195,11 @@ function updateLastRun(taskId, result, commit) {
   md = md.replace(/(\|\s*Дата\s*\|\s*)[^|]+(\s*\|)/, `$1${dateStr} UTC$2`);
   md = md.replace(/(\|\s*Task ID\s*\|\s*)[^|]+(\s*\|)/, `$1${taskId}$2`);
   md = md.replace(/(\|\s*Результат\s*\|\s*)[^|]+(\s*\|)/, `$1${result.replace(/\|/g, "\\|")}$2`);
-  if (commit) {
-    md = md.replace(/(\|\s*Commit\s*\|\s*)[^|]+(\s*\|)/, `$1${commit.slice(0, 7)}$2`);
-  }
+  // Поле Commit — источник вечного цикла «fix hash» (хэш коммита нельзя записать
+  // внутрь него самого). Строку удаляем совсем; поиск по ID: git log --grep.
+  md = md.replace(/\|\s*Commit\s*\|[^|]*\|\n/, "");
   writeFileSync(MARATHON, md);
-  console.log(JSON.stringify({ updated: true, taskId, commit: commit?.slice(0, 7) ?? null }));
+  console.log(JSON.stringify({ updated: true, taskId }));
 }
 
 function applyFixes(analysis) {
@@ -224,13 +224,12 @@ function applyFixes(analysis) {
 }
 
 function updateMarathonEfficiencySection(analysis) {
-  if (!existsSync(MARATHON)) return;
+  if (!existsSync(MARATHON)) return false;
   let md = readFileSync(MARATHON, "utf8");
   const marker = "### Efficiency (auto)";
-  const section = [
-    marker,
-    "",
-    `> Обновлено: ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`,
+  // ВАЖНО: без timestamp внутри секции — иначе каждый run порождает diff → новый
+  // коммит → та же петля мусорных коммитов, что и с «fix hash».
+  const body = [
     "",
     "| Метрика | 7d |",
     "|---|---|",
@@ -246,29 +245,32 @@ function updateMarathonEfficiencySection(analysis) {
       : "**Рекомендации:** нет — pipeline OK",
     "",
   ].join("\n");
+  const section = marker + "\n" + body;
 
   const start = md.indexOf(marker);
+  let next;
   if (start >= 0) {
     const end = md.indexOf("\n---\n", start);
-    md = md.slice(0, start) + section + (end >= 0 ? md.slice(end) : "");
+    const current = md.slice(start, end >= 0 ? end : md.length);
+    if (current.trim() === section.trim()) return false; // метрики не изменились — не трогаем файл
+    next = md.slice(0, start) + section + (end >= 0 ? md.slice(end) : "");
   } else {
     const insertAt = md.indexOf("\n---\n\n## Сейчас в очереди");
-    if (insertAt >= 0) {
-      md = md.slice(0, insertAt) + "\n\n" + section + md.slice(insertAt);
-    }
+    if (insertAt < 0) return false;
+    next = md.slice(0, insertAt) + "\n\n" + section + md.slice(insertAt);
   }
-  writeFileSync(MARATHON, md);
+  writeFileSync(MARATHON, next);
+  return true;
 }
 
 if (UPDATE_LAST) {
   const task = arg("task");
   const result = arg("result");
-  const commit = arg("commit") ?? git("git rev-parse HEAD");
   if (!task || !result) {
-    console.error("Usage: --update-last-run --task M-NN --result \"...\" [--commit abc]");
+    console.error("Usage: --update-last-run --task M-NN --result \"...\"");
     process.exit(1);
   }
-  updateLastRun(task, result, commit);
+  updateLastRun(task, result);
   process.exit(0);
 }
 

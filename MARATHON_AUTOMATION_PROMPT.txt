@@ -1,41 +1,36 @@
-# Вставить в Cursor Automation trigger (заменить «Прочитай MARATHON / проверяй прошлые runs»)
-# ПРИОРИТЕТ: если groom --should-run выводит agentInstruction — следуй ему, ИГНОРИРУЙ старый trigger-текст.
+# Вставить в Cursor Automation trigger (заменить старый текст ЦЕЛИКОМ)
+# ПРИОРИТЕТ: agentInstruction из groom --should-run. Скрипты — единственный источник решений.
 
-git pull origin main
-node scripts/marathon-efficiency.mjs --apply || true
+git fetch origin main && git merge origin/main --no-edit || git pull origin main
+
 node scripts/marathon-groom.mjs --should-run --mark-skipped
 GROOM_EXIT=$?
-# exit 2 = STOP (pr_in_flight / in_progress)
-# exit 3 = no agent needed (pure idle) — exit 0
-if [ "$GROOM_EXIT" -eq 3 ]; then exit 0; fi
-if [ "$GROOM_EXIT" -eq 2 ]; then exit 0; fi
+# exit 2 = STOP (pr_in_flight / in_progress) → exit 0 БЕЗ коммитов
+# exit 3 = pure idle, агент не нужен → node scripts/marathon-efficiency.mjs --apply; exit 0
+if [ "$GROOM_EXIT" -ne 0 ]; then exit 0; fi
 
 node scripts/marathon-reconcile.mjs --apply
-node scripts/marathon-groom.mjs --apply
+node scripts/marathon-groom.mjs --apply        # включая done_on_main дедуп
 node scripts/marathon-scan.mjs --sync-marathon
-
-if git diff --quiet; then
-  :
-else
-  git add -A && git commit -m "chore(marathon): groom+sync" && git push origin main || true
-fi
 
 PICK=$(node scripts/marathon-scan.mjs --next)
 echo "$PICK"
 
-# pick.id → СРАЗУ работа по pick. Один коммит:
-#   feat(marathon): M-NN ...
-#   + node scripts/marathon-last-run.mjs --task M-NN --result "..." --commit $(git rev-parse HEAD)
-#   + TESTLOG + M-NN done в MARATHON
-#   git push origin main
+# ЕДИНСТВЕННЫЙ сценарий работы (pick.id есть):
+#   1. Сделать задачу (код/тесты). pnpm typecheck / tests — gate.
+#   2. node scripts/marathon-last-run.mjs --task M-NN --result "..."
+#   3. Обновить статус M-NN → done в MARATHON.md + TESTLOG.
+#   4. ОДИН коммит: git add -A && git commit -m "feat(marathon): M-NN ..."
+#   5. ОБЯЗАТЕЛЬНО ДОСТАВИТЬ В MAIN:
+#      git checkout main && git pull origin main && git merge <run-branch> --no-edit && git push origin main
+#      (529 из 541 PR никогда не смержили — работа без merge в main = работа в мусор)
 #
-# ЗАПРЕЩЕНО:
-#   - отдельный commit «docs: commit hash»
-#   - «Marathon idle» + commit Last run
-#   - list-cloud-agents / automation_memory / читать MARATHON при pendingMnn>0
-#   - push в feature-ветку вместо main (cron читает main)
-
-# idle / scanner_empty_expand → EXPAND SCANNER NOW (без idleStreak≥3)
-# reason=ok + pick.id → pnpm typecheck → push main
-
-node scripts/marathon-efficiency.mjs --record --outcome "$(echo "$PICK" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const j=JSON.parse(d);process.stdout.write(j.pick?.id?'task_pending':j.idle?'idle':'unknown')}catch{process.stdout.write('unknown')}})")" || true
+# idle:true при GROOM_EXIT=0 → это баг groom; НЕ коммитить, exit 0.
+#
+# ЗАПРЕЩЕНО НАВСЕГДА (источники 1000+ пустых runs):
+#   - коммит с «Marathon idle» в message (любой)
+#   - коммит «fix/sync commit hash» (поле Commit удалено из Last run)
+#   - анализ/исследование вместо задачи при pendingMnn>0
+#   - list-cloud-agents / automation_memory / чтение MARATHON.md (скрипты уже дали pick)
+#   - открывать PR как замену merge в main
+#   - commit при пустом git diff

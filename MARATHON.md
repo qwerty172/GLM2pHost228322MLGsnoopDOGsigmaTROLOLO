@@ -21,8 +21,6 @@
 
 ### Efficiency (auto)
 
-> Обновлено: 2026-08-05 09:28 UTC
-
 | Метрика | 7d |
 |---|---|
 | feat(marathon) | 234 |
@@ -35,7 +33,7 @@
 **Рекомендации:**
 - `no_hash_commits`: 250 отдельных commit-hash за 7д — используй scripts/marathon-efficiency.mjs --update-last-run в том же коммите
 - `close_idle_drafts`: 41 draft PR «Marathon idle» — закрыть: node scripts/marathon-efficiency.mjs --apply
-- `low_hit_rate`: Hit rate 29% (234 feat / 814 marathon commits) — см. idle-политику и push main
+- `low_hit_rate`: Hit rate 29% (234 feat / 815 marathon commits) — см. idle-политику и push main
 
 ---
 
