@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 08:00 UTC |
 | Task ID | M-89 |
 | Результат | WebGLVideoShader: экспорт resolveShaderFragCode, fragmentShaderUsesUniform, SHADER_PRESET_KEYS, SHADER_STORAGE_KEYS, compileShader, createShaderProgram + webgl-video-shader.test.mjs (13 тестов) |
-| Commit | 211386a |
+| Commit | f0bc217 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
