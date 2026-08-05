@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 06:04 UTC |
 | Task ID | M-82 |
 | Результат | TouchOverlay: экспорт layout API + TouchOverlay.test.mjs (6 тестов) |
-| Commit | f9bb5c5 |
+| Commit | e460959 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
