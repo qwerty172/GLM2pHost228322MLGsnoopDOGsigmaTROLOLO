@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 07:22 UTC |
 | Task ID | M-88 |
 | Результат | WalletHistory: экспорт formatWalletHistoryLzt, formatWalletHistoryTimestamp, walletHistoryKindMeta, walletHistoryBucketMeta, isWalletHistoryDebtTx, WALLET_HISTORY_FILTERS + wallet-history.test.mjs (7 тестов) |
-| Commit | pending |
+| Commit | dff97d9 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
