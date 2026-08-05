@@ -442,7 +442,11 @@ if (existsSync(webPagesDir)) {
 const routesDir = "artifacts/api-server/src/routes";
 if (existsSync(routesDir)) {
   const routeModules = readdirSync(routesDir).filter(
-    (f) => f.endsWith(".ts") && f !== "index.ts" && !f.endsWith(".d.ts"),
+    (f) =>
+      f.endsWith(".ts") &&
+      f !== "index.ts" &&
+      !f.endsWith(".d.ts") &&
+      !f.endsWith(".test.ts"),
   );
   for (const mod of routeModules) {
     const base = mod.replace(/\.ts$/, "");

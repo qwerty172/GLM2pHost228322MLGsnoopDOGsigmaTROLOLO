@@ -45,6 +45,16 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-134 (2026-08-05 11:08 UTC) {#marathon-m-134-fix}
+
+| Проверка | Результат |
+|---|---|
+| admin.test.ts | 18 тестов PASS (auth, games, submissions, approve/reject, DELETE/PATCH) |
+| marathon-scan.mjs | Исключены `*.test.ts` из route scan — устранён ложный pending M-134 |
+| api-server test (admin) | PASS (18 tests) |
+
+**Следующий pick:** M-108 (agentAuth.ts).
+
 ## Marathon M-134 (2026-08-05 11:06 UTC) {#marathon-m-134}
 
 | Проверка | Результат |
