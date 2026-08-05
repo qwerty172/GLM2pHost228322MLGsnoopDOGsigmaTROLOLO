@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 03:42 UTC |
 | Task ID | M-76 |
 | Результат | web hooks: parsePlatformEventMessage + buildPlatformEventsStreamUrl; use-browser-ping probeBrowserPingMs; категория M в marathon-scan |
-| Commit | *(after push)* |
+| Commit | b6bb9ec |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
