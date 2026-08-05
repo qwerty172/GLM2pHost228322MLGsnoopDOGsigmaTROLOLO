@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-84 done; layout nav helpers unit-тест)
+> **Последнее обновление:** 2026-08-05 (M-85 done; quota-ai-chat helpers unit-тест)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 06:38 UTC |
-| Task ID | M-84 |
-| Результат | HostLayout: экспорт HOST_NAV_ITEMS, resolveHostSiteNavActivePath, isHostNavItemActive, hostNavLinkTestId + layout.test.mjs (5 тестов) |
-| Commit | 84a944a |
+| Дата | 2026-08-05 06:42 UTC |
+| Task ID | M-85 |
+| Результат | quota-ai-chat: lib/quota-ai-chat.ts (QUOTA_AI_CHAT_STARTERS, canSendQuotaChatMessage, shouldSubmitQuotaChatOnEnter, hasQuotaFormPatch, formatQuotaAiChatError) + quota-ai-chat.test.mjs (7 тестов) |
+| Commit | pending |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** M-84 done; M-85…M-89 pending (scanner cat N).
+**Wave Maintenance:** M-85 done; M-86…M-89 pending (scanner cat N).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -304,7 +304,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-82 | N | web components: unit-тест (TouchOverlay.tsx) | `artifacts/web/src/components/TouchOverlay.tsx` | n:artifacts/web/src/components/TouchOverlay.tsx | done | agent |
 | M-83 | N | web components: unit-тест (host-auth-guard.tsx) | `artifacts/web/src/components/host-auth-guard.tsx` | n:artifacts/web/src/components/host-auth-guard.tsx | done | agent |
 | M-84 | N | web components: unit-тест (layout.tsx) | `artifacts/web/src/components/layout.tsx` | n:artifacts/web/src/components/layout.tsx | done | agent |
-| M-85 | N | web components: unit-тест (quota-ai-chat.tsx) | `artifacts/web/src/components/quota-ai-chat.tsx` | n:artifacts/web/src/components/quota-ai-chat.tsx | pending | agent |
+| M-85 | N | web components: unit-тест (quota-ai-chat.tsx) | `artifacts/web/src/components/quota-ai-chat.tsx` | n:artifacts/web/src/components/quota-ai-chat.tsx | done | agent |
 | M-86 | N | web components: unit-тест (site-nav.tsx) | `artifacts/web/src/components/site-nav.tsx` | n:artifacts/web/src/components/site-nav.tsx | pending | agent |
 | M-87 | N | web components: unit-тест (vt-scanner.tsx) | `artifacts/web/src/components/vt-scanner.tsx` | n:artifacts/web/src/components/vt-scanner.tsx | pending | agent |
 | M-88 | N | web components: unit-тест (wallet-history.tsx) | `artifacts/web/src/components/wallet-history.tsx` | n:artifacts/web/src/components/wallet-history.tsx | pending | agent |
