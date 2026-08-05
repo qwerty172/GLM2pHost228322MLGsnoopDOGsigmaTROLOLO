@@ -10,7 +10,7 @@ import {
   sessionsTable,
 } from "@workspace/db";
 import { logger } from "./logger";
-import { writeLedger } from "./economy";
+import { hasBlockRefundLedger, writeLedger } from "./economy";
 import { randomUUID } from "node:crypto";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -56,6 +56,9 @@ export async function refundBlockRemainder(
   const costUsed = minutesUsed * costPerMinute;
   const refundLzt = Math.max(0, session.blockReservedLzt - costUsed);
   if (refundLzt <= 0) return;
+
+  // Idempotent per session — host-health worker and PATCH /end can race.
+  if (await hasBlockRefundLedger(tx, session.id)) return;
 
   // Determine which bucket was used (based on paymentSource). On "auto" we
   // prefer green, matching the claim-time reservation logic.

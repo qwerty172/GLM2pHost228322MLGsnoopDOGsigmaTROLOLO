@@ -912,6 +912,25 @@ export async function hasBlockReserveLedger(
   return !!row;
 }
 
+/** Returns true if block remainder was already refunded for this session. */
+export async function hasBlockRefundLedger(
+  tx: DbTx,
+  sessionId: string,
+): Promise<boolean> {
+  const [row] = await tx
+    .select({ id: ledgerTable.id })
+    .from(ledgerTable)
+    .where(
+      and(
+        eq(ledgerTable.kind, "block_refund"),
+        eq(ledgerTable.refType, "session"),
+        eq(ledgerTable.refId, sessionId),
+      ),
+    )
+    .limit(1);
+  return !!row;
+}
+
 /**
  * Debit the player's bucket for a prepaid block session.
  * Idempotent per sessionId — safe on reclaim/reconnect.
