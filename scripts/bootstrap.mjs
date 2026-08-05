@@ -111,12 +111,16 @@ async function main() {
   run("pnpm install");
 
   if (env.DATABASE_URL && !env.DATABASE_URL.includes("user:password")) {
-    log("==> db push");
-    try {
+    if (!runPgProbe(env.DATABASE_URL)) {
+      log("⚠ PostgreSQL недоступен — db push пропущен (pnpm dev:db && pnpm setup --docker-db)");
+    } else {
+      log("==> db push");
       run("pnpm --filter @workspace/db run push");
-      log("✓ Схема БД применена");
-    } catch {
-      log("⚠ db push не удался — проверь PostgreSQL и DATABASE_URL");
+      if (runPgProbe(env.DATABASE_URL)) {
+        log("✓ Схема БД применена");
+      } else {
+        log("⚠ db push мог не завершиться — проверь PostgreSQL");
+      }
     }
   }
 
