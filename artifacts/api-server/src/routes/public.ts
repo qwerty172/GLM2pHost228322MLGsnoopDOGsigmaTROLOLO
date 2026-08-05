@@ -103,8 +103,9 @@ router.get("/public/games", async (req, res): Promise<void> => {
 });
 
 // Public, anonymous-safe list of hosts currently offering a session.
-// A "live" host is one with at least one non-ended session and whose schedule
-// says it's open right now. We surface only display-safe fields.
+// A "live" host is one with at least one non-ended, non-test session and whose
+// schedule says it's open right now. Self-test sessions (isTest) are excluded:
+// they are free and must not appear in «Играть сейчас» / public host cards.
 // Each host now includes a `games[]` array from their multi-game library so
 // the player-facing catalog can show what a host offers without a separate call.
 router.get("/hosts", async (_req, res): Promise<void> => {
@@ -115,7 +116,9 @@ router.get("/hosts", async (_req, res): Promise<void> => {
     })
     .from(sessionsTable)
     .innerJoin(hostsTable, eq(sessionsTable.hostId, hostsTable.id))
-    .where(ne(sessionsTable.status, "ended"))
+    .where(
+      and(ne(sessionsTable.status, "ended"), eq(sessionsTable.isTest, false)),
+    )
     .orderBy(desc(sessionsTable.createdAt));
 
   const now = new Date();
@@ -290,6 +293,7 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
     .where(
       and(
         ne(sessionsTable.status, "ended"),
+        eq(sessionsTable.isTest, false),
         eq(sessionsTable.gameId, game.id),
         inArray(sessionsTable.hostId, hostIds),
       ),
@@ -373,6 +377,7 @@ router.post("/public/sessions", publicSessionsLimiter, async (req, res): Promise
   // Find the best active session for this host, preferring the requested game.
   const conditions = [
     ne(sessionsTable.status, "ended"),
+    eq(sessionsTable.isTest, false),
     eq(sessionsTable.hostId, hostId),
   ] as ReturnType<typeof eq>[];
 
@@ -400,6 +405,7 @@ router.post("/public/sessions", publicSessionsLimiter, async (req, res): Promise
         .where(
           and(
             ne(sessionsTable.status, "ended"),
+            eq(sessionsTable.isTest, false),
             eq(sessionsTable.hostId, hostId),
           ),
         )
