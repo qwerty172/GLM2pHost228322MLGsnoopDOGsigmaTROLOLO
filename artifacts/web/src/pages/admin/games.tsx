@@ -29,6 +29,45 @@ import {
 
 const ADMIN_SECRET_KEY = "streamline.adminSecret";
 
+export { ADMIN_SECRET_KEY as ADMIN_GAMES_SECRET_KEY };
+
+export function adminRequestInit(hostToken: string, adminSecret: string): RequestInit {
+  return {
+    headers: {
+      "X-Host-Token": hostToken,
+      ...(adminSecret ? { "X-Admin-Secret": adminSecret } : {}),
+    },
+  };
+}
+
+export function getAdminApiErrorMessage(err: unknown): string {
+  if (err && typeof err === "object" && "data" in err) {
+    const data = (err as { data: unknown }).data;
+    if (data && typeof data === "object" && "error" in data) {
+      return String((data as { error: unknown }).error);
+    }
+  }
+  return err instanceof Error ? err.message : "Неизвестная ошибка";
+}
+
+export function gameSubmissionStatusLabel(
+  status: GameSubmissionItem["status"],
+): string {
+  if (status === "pending") return "На рассмотрении";
+  if (status === "approved") return "Одобрено";
+  return "Отклонено";
+}
+
+export function formatAdminAccessError(error: string): string {
+  return error === "Admin access required" ? "У тебя нет прав администратора." : error;
+}
+
+export function resolveAdminCoverImageUrl(coverImageUrl: string, baseUrl: string): string {
+  return coverImageUrl.startsWith("/api")
+    ? `${baseUrl}${coverImageUrl.replace(/^\//, "")}`
+    : coverImageUrl;
+}
+
 function readAdminSecret(): string {
   try {
     return sessionStorage.getItem(ADMIN_SECRET_KEY) ?? "";
@@ -49,25 +88,6 @@ function writeAdminSecret(value: string): void {
   } catch {
     /* ignore */
   }
-}
-
-function adminRequestInit(hostToken: string, adminSecret: string): RequestInit {
-  return {
-    headers: {
-      "X-Host-Token": hostToken,
-      ...(adminSecret ? { "X-Admin-Secret": adminSecret } : {}),
-    },
-  };
-}
-
-function getApiErrorMessage(err: unknown): string {
-  if (err && typeof err === "object" && "data" in err) {
-    const data = (err as { data: unknown }).data;
-    if (data && typeof data === "object" && "error" in data) {
-      return String((data as { error: unknown }).error);
-    }
-  }
-  return err instanceof Error ? err.message : "Неизвестная ошибка";
 }
 
 function CatalogGameRow({
@@ -93,7 +113,7 @@ function CatalogGameRow({
       toast.success(isHidden ? `«${game.title}» показана` : `«${game.title}» скрыта`);
       onAction();
     } catch (err) {
-      toast.error(getApiErrorMessage(err));
+      toast.error(getAdminApiErrorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -106,7 +126,7 @@ function CatalogGameRow({
       toast.success(`«${game.title}» удалена`);
       onAction();
     } catch (err) {
-      toast.error(getApiErrorMessage(err));
+      toast.error(getAdminApiErrorMessage(err));
     } finally {
       setBusy(false);
       setConfirmDelete(false);
@@ -124,11 +144,7 @@ function CatalogGameRow({
     >
       {game.coverImageUrl ? (
         <img
-          src={
-            game.coverImageUrl.startsWith("/api")
-              ? `${import.meta.env.BASE_URL}${game.coverImageUrl.replace(/^\//, "")}`
-              : game.coverImageUrl
-          }
+          src={resolveAdminCoverImageUrl(game.coverImageUrl, import.meta.env.BASE_URL)}
           alt={game.title}
           className="w-10 h-12 object-cover rounded flex-shrink-0"
           style={{ background: "#0d1823" }}
@@ -265,7 +281,7 @@ function SubmissionCard({
       toast.success(`Игра одобрена: ${res.game.slug}`);
       onAction();
     } catch (err) {
-      toast.error(getApiErrorMessage(err));
+      toast.error(getAdminApiErrorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -282,7 +298,7 @@ function SubmissionCard({
       toast.success("Заявка отклонена");
       onAction();
     } catch (err) {
-      toast.error(getApiErrorMessage(err));
+      toast.error(getAdminApiErrorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -308,11 +324,7 @@ function SubmissionCard({
         <div className="flex items-start gap-4 min-w-0">
           {sub.coverImageUrl ? (
             <img
-              src={
-                sub.coverImageUrl.startsWith("/api")
-                  ? `${import.meta.env.BASE_URL}${sub.coverImageUrl.replace(/^\//, "")}`
-                  : sub.coverImageUrl
-              }
+              src={resolveAdminCoverImageUrl(sub.coverImageUrl, import.meta.env.BASE_URL)}
               alt={sub.title}
               className="w-16 h-20 object-cover rounded-md flex-shrink-0"
               style={{ background: "#0d1823" }}
@@ -335,11 +347,7 @@ function SubmissionCard({
                 className="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide"
                 style={{ background: `${statusColor}22`, color: statusColor }}
               >
-                {sub.status === "pending"
-                  ? "На рассмотрении"
-                  : sub.status === "approved"
-                    ? "Одобрено"
-                    : "Отклонено"}
+                {gameSubmissionStatusLabel(sub.status)}
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -500,8 +508,8 @@ export default function AdminGamesPage() {
     },
   );
 
-  const catError = catQueryError ? getApiErrorMessage(catQueryError) : null;
-  const subError = subQueryError ? getApiErrorMessage(subQueryError) : null;
+  const catError = catQueryError ? getAdminApiErrorMessage(catQueryError) : null;
+  const subError = subQueryError ? getAdminApiErrorMessage(subQueryError) : null;
 
   if (!hostToken) {
     return (
@@ -595,9 +603,7 @@ export default function AdminGamesPage() {
                 className="rounded-xl p-6 text-center text-sm"
                 style={{ background: "#0a1018", color: "#f87171" }}
               >
-                {catError === "Admin access required"
-                  ? "У тебя нет прав администратора."
-                  : catError}
+                {formatAdminAccessError(catError)}
               </div>
             )}
 
@@ -679,9 +685,7 @@ export default function AdminGamesPage() {
                 className="rounded-xl p-6 text-center text-sm"
                 style={{ background: "#0a1018", color: "#f87171" }}
               >
-                {subError === "Admin access required"
-                  ? "У тебя нет прав администратора."
-                  : subError}
+                {formatAdminAccessError(subError)}
               </div>
             )}
 

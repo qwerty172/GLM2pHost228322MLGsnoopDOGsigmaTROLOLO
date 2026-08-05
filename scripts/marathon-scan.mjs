@@ -23,6 +23,7 @@
 //   L. web lib/*.ts without co-located test (by file)
 //   M. web hooks/*.{ts,tsx} without co-located test (by file)
 //   N. web components/*.{ts,tsx} without co-located test (by file, excludes ui/)
+//   O. web pages/**/*.tsx with inline helper functions (by file)
 //
 // Source of truth: working tree (== main after git pull).
 
@@ -373,6 +374,37 @@ if (existsSync(webLibDir)) {
       file: f,
       detail: mod,
       items: [mod],
+    });
+  }
+}
+
+// --- O. web pages/**/*.tsx with inline helpers (by file) ------------------
+const webPagesDir = "artifacts/web/src/pages";
+function pageRelPath(absPath) {
+  return absPath.replace(/^artifacts\/web\/src\/pages\//, "");
+}
+function pageTestBase(rel) {
+  return rel.replace(/\.tsx?$/, "").replace(/\//g, "-");
+}
+if (existsSync(webPagesDir)) {
+  const pageFiles = walk(webPagesDir).filter((f) => f.endsWith(".tsx") || f.endsWith(".ts"));
+  for (const f of pageFiles) {
+    const rel = pageRelPath(f);
+    const base = pageTestBase(rel);
+    const testCandidates = [
+      `artifacts/web/test/${base}.test.mjs`,
+      `artifacts/web/test/${base}.test.ts`,
+    ];
+    if (testCandidates.some((t) => existsSync(t))) continue;
+    const txt = readFileSync(f, "utf8");
+    if (!/^(?:const|function) [a-z][\w]*/m.test(txt)) continue;
+    raw.push({
+      cat: "O",
+      groupKey: `o:${f}`,
+      title: `web pages: unit-тест helpers (${rel})`,
+      file: f,
+      detail: rel,
+      items: [rel],
     });
   }
 }
