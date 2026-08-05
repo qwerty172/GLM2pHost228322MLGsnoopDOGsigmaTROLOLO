@@ -15,6 +15,18 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-77 (2026-08-05 04:00 UTC) {#marathon-m-77}
+
+| Проверка | Результат |
+|---|---|
+| idle-анализ | `connection-labels.ts` пропущен сканером — regex требовал `export const X =`, не ловил typed `export const X:` |
+| connection-labels.test.mjs | 2 теста — ICE_CONNECTION_LABELS (host/srflx/relay RU), ICE_TONE_STYLES |
+| marathon-scan.mjs | regex fix в категориях K/L/M: `\bexport const \w+` |
+| web test | PASS (52 tests) |
+| web typecheck | PASS |
+
+**Следующий pick:** idle — web lib полностью покрыт.
+
 ## Marathon M-76 (2026-08-05 03:42 UTC) {#marathon-m-76}
 
 | Проверка | Результат |
