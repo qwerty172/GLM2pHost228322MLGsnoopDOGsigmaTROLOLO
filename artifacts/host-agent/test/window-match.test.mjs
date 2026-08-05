@@ -43,13 +43,12 @@ test("findBrowserCaptureSource prefers hostname + browser hint in title", () => 
   assert.equal(picked?.id, "window:2");
 });
 
-test("findBrowserCaptureSource falls back to any browser window", () => {
+test("findBrowserCaptureSource returns undefined without hostname match", () => {
   const onlyChrome = [
     { id: "window:1", name: "New Tab - Google Chrome" },
     { id: "window:3", name: "Notepad" },
   ];
-  const picked = findBrowserCaptureSource(onlyChrome, "https://unknown.example");
-  assert.equal(picked?.id, "window:1");
+  assert.equal(findBrowserCaptureSource(onlyChrome, "https://unknown.example"), undefined);
 });
 
 test("findNativeCaptureSource matches exe basename in window title", () => {

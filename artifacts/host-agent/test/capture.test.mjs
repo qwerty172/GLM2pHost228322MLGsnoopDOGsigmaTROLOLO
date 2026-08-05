@@ -69,6 +69,21 @@ test("captureScreen uses configured captureSourceName when set", async () => {
   assert.equal(session.currentCaptureSourceName, "My Custom Window");
 });
 
+test("captureScreen ignores captureSourceName for browser games", async () => {
+  window.agent.getCaptureSources = async () => [
+    { id: "screen:0", name: "Primary Screen" },
+    { id: "window:1", name: "Discord" },
+    { id: "window:2", name: "shellshock.io - Google Chrome" },
+  ];
+  await captureScreen({
+    ...defaultHostConfig,
+    captureSourceName: "Discord",
+    boundUrl: "https://shellshock.io/play",
+    appPath: "",
+  });
+  assert.equal(session.currentCaptureSourceName, "shellshock.io - Google Chrome");
+});
+
 test("captureScreen prefers HWND match from spawned PID over title heuristics", async () => {
   window.agent.getSpawnHwnds = async () => ({ pid: 4242, hwnds: [98765] });
   window.agent.getCaptureSources = async () => [

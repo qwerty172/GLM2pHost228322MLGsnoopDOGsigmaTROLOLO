@@ -86,13 +86,15 @@ export async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
   if (sources.length === 0) {
     throw new Error("Нет доступных источников захвата экрана/окна");
   }
-  let chosen: { id: string; name: string } | undefined;
-  if (cfg.captureSourceName) {
-    chosen = findCaptureSourceByTitle(sources, cfg.captureSourceName);
-  }
-
   const boundUrl = currentBoundUrl(cfg);
   const browserGame = isBrowserGameSession(cfg);
+
+  let chosen: { id: string; name: string } | undefined;
+  // Global captureSourceName is for native games only — applying it to browser
+  // sessions would stream the wrong window (e.g. Discord) instead of the game tab.
+  if (cfg.captureSourceName && !browserGame) {
+    chosen = findCaptureSourceByTitle(sources, cfg.captureSourceName);
+  }
 
   if (!chosen && browserGame) {
     // Browser games: capture the browser window, not the whole desktop.
@@ -163,24 +165,9 @@ export async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
   }
 
   if (!chosen && targetName) {
-    // Auto-match failed: for a single known game, fall back to primary screen
-    // instead of blocking on the window picker (host can fix capture later).
-    const enabledCount = session.libraryEntries.filter(
-      (e) => e.enabled && (e.boundUrl || e.localAvailable),
-    ).length;
-    if (enabledCount <= 1) {
-      chosen = sources.find((s) => s.id.startsWith("screen:"));
-      if (chosen) {
-        log(
-          `Окно «${targetName}» не найдено — стримим весь экран (одна игра в библиотеке).`,
-        );
-      }
-    }
-    if (!chosen) {
-      log(`Окно «${targetName}» не найдено автоматически — открываю ручной выбор.`);
-      setPipelineStep("window", "active", "выбери окно вручную");
-      chosen = await pickWindowManually();
-    }
+    log(`Окно «${targetName}» не найдено автоматически — открываю ручной выбор.`);
+    setPipelineStep("window", "active", "выбери окно вручную");
+    chosen = await pickWindowManually();
   }
 
   if (!chosen && !browserGame) {
