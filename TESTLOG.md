@@ -45,6 +45,18 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-99 (2026-08-05 10:30 UTC) {#marathon-m-99}
+
+| Проверка | Результат |
+|---|---|
+| setup-helpers.ts | resolvePresetGames, buildApplicableQuotasParams, canCreateSession, isSubmitDisabled, normalizeQuotaAccessCode, buildShareLink, formatQuotaRateLabel, buildCreateSessionBody |
+| host-setup.test.mjs | 10 тестов — preset games, quota params, session validation, share link, quota rate label, create session body |
+| setup.tsx | рефакторинг: хелперы в setup-helpers.ts |
+| web test (host-setup) | PASS (10 tests) |
+| typecheck | PASS (setup-helpers) |
+
+**Следующий pick:** M-100 (hosts.tsx).
+
 ## Marathon M-98 (2026-08-05 10:22 UTC) {#marathon-m-98}
 
 | Проверка | Результат |

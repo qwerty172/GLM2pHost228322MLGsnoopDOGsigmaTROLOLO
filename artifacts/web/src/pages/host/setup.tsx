@@ -33,7 +33,16 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "wouter";
-
+import {
+  buildApplicableQuotasParams,
+  buildCreateSessionBody,
+  buildShareLink,
+  canCreateSession,
+  formatQuotaRateLabel,
+  isSubmitDisabled,
+  normalizeQuotaAccessCode,
+  resolvePresetGames,
+} from "./setup-helpers";
 
 const cardStyle = {
   background: "#0a1018",
@@ -57,16 +66,10 @@ export default function SetupSession() {
     {},
     { query: { queryKey: getListGamesQueryKey({}), staleTime: 60_000 } },
   );
-  const presetGames =
-    catalogGames && catalogGames.length > 0
-      ? catalogGames.slice(0, 6).map((g) => g.title)
-      : ["Cyberpunk 2077", "Witcher 3", "Elden Ring", "Helldivers 2", "CS2"];
+  const presetGames = resolvePresetGames(catalogGames);
 
   const createSession = useCreateSession();
-  const applicableParams = {
-    hostToken: hostToken ?? "",
-    ...(accessCode ? { accessCode } : {}),
-  };
+  const applicableParams = buildApplicableQuotasParams(hostToken, accessCode);
   const { data: applicableQuotas } = useListApplicableQuotas(
     applicableParams,
     {
@@ -79,18 +82,18 @@ export default function SetupSession() {
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!hostToken || !appName.trim()) return;
+    if (!canCreateSession(hostToken, appName)) return;
 
     createSession.mutate(
       {
-        data: {
-          hostToken,
+        data: buildCreateSessionBody({
+          hostToken: hostToken!,
           appName,
           resolution,
           bitrateKbps: bitrateKbps[0],
-          quotaId: selectedQuotaId,
-          quotaAccessCode: accessCode || undefined,
-        },
+          selectedQuotaId,
+          accessCode,
+        }),
       },
       {
         onSuccess: (session) => {
@@ -108,9 +111,12 @@ export default function SetupSession() {
   };
 
   if (createdSession) {
-    const shareLink = createdSession.inviteCode
-      ? `${window.location.origin}${import.meta.env.BASE_URL}play/i/${createdSession.inviteCode}`
-      : `${window.location.origin}${import.meta.env.BASE_URL}play/${createdSession.playerToken}`;
+    const shareLink = buildShareLink({
+      origin: window.location.origin,
+      baseUrl: import.meta.env.BASE_URL,
+      playerToken: createdSession.playerToken,
+      inviteCode: createdSession.inviteCode,
+    });
     const handleCopy = async () => {
       try {
         await navigator.clipboard.writeText(shareLink);
@@ -296,7 +302,7 @@ export default function SetupSession() {
               <Input
                 placeholder="например, A3F9KMP2"
                 value={accessCode}
-                onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+                onChange={(e) => setAccessCode(normalizeQuotaAccessCode(e.target.value))}
                 className="font-mono"
                 style={{
                   background: "rgba(255,255,255,0.03)",
@@ -389,7 +395,7 @@ export default function SetupSession() {
             <Button
               type="submit"
               size="lg"
-              disabled={createSession.isPending || !appName.trim()}
+              disabled={isSubmitDisabled(createSession.isPending, appName)}
               className="font-bold"
               style={{ background: "#0ea5e9", color: "#fff" }}
             >
@@ -478,11 +484,7 @@ function QuotaPicker({
             </span>
           </div>
           <div className="text-[11px] text-slate-500 font-mono">
-            {q.kind === "royalty"
-              ? q.royaltyBasis === "percent"
-                ? `${q.royaltyValue}% / мин`
-                : `${q.royaltyValue} LZT/мин`
-              : `Хост +${q.sponsorHostPerMinuteLzt ?? 0} · Игрок +${q.sponsorPlayerPerMinuteLzt ?? 0} LZT/мин`}
+            {formatQuotaRateLabel(q)}
           </div>
         </button>
       ))}

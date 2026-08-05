@@ -6,15 +6,15 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-98 done; library helpers + unit-тест)
+> **Последнее обновление:** 2026-08-05 (M-99 done; setup helpers + unit-тест)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 10:23 UTC|
-| Task ID | M-98|
-| Результат | library-helpers.ts + host-library.test.mjs (13 тестов): entry kind, path validation, config normalize, Steam ID, catalog search, delete conflict|
+| Дата | 2026-08-05 10:27 UTC|
+| Task ID | M-99|
+| Результат | setup-helpers.ts + host-setup.test.mjs (10 тестов): preset games, quota params, session body, share link, quota rate label|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -40,7 +40,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** M-98 done; scanner cat O — 8 pending (web pages helpers).
+**Wave Maintenance:** M-99 done; scanner cat O — 7 pending (web pages helpers).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -343,7 +343,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-96 | O | web pages: unit-тест (host/browser-play) | `pages/host/browser-play.tsx` | o:artifacts/web/src/pages/host/browser-play.tsx | done | agent |
 | M-97 | O | web pages: unit-тест (host/dashboard) | `pages/host/dashboard.tsx` | o:artifacts/web/src/pages/host/dashboard.tsx | done | agent |
 | M-98 | O | web pages: unit-тест (host/library) | `pages/host/library.tsx` | o:artifacts/web/src/pages/host/library.tsx | done | agent |
-| M-99 | O | web pages: unit-тест (host/setup) | `pages/host/setup.tsx` | o:artifacts/web/src/pages/host/setup.tsx | pending | agent |
+| M-99 | O | web pages: unit-тест (host/setup) | `pages/host/setup.tsx` | o:artifacts/web/src/pages/host/setup.tsx | done | agent |
 | M-100 | O | web pages: unit-тест (hosts) | `pages/hosts.tsx` | o:artifacts/web/src/pages/hosts.tsx | pending | agent |
 | M-101 | O | web pages: unit-тест (landing) | `pages/landing.tsx` | o:artifacts/web/src/pages/landing.tsx | pending | agent |
 | M-102 | O | web pages: unit-тест (play) | `pages/play.tsx` | o:artifacts/web/src/pages/play.tsx | pending | agent |
