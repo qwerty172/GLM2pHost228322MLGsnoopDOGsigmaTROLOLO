@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-185 (2026-08-05 20:45 UTC) {#marathon-m-185}
+
+| Проверка | Результат |
+|---|---|
+| pnpm --filter @workspace/db test | PASS (15 tests) |
+| lib/db tsc --noEmit | PASS |
+
+**Изменения:** `lib/db/test/depositAddresses.test.ts` — колонки и notNull для deposit_addresses.
+
+**Следующий pick:** M-186 (db schema: deposits.ts).
+
 ## Marathon M-184 (2026-08-05 20:43 UTC) {#marathon-m-184}
 
 | Проверка | Результат |
