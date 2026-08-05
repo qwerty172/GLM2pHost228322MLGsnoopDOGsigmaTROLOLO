@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-185 done; depositAddresses schema test)
+> **Последнее обновление:** 2026-08-05 (M-186 done; deposits schema test)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 20:45 UTC|
-| Task ID | M-185|
-| Результат | depositAddresses.test.ts: колонки и notNull для deposit_addresses; db test PASS (15)|
+| Дата | 2026-08-05 20:47 UTC|
+| Task ID | M-186|
+| Результат | deposits.test.ts: колонки и notNull для deposits; db test PASS (18)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -520,7 +520,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-183 | U | db schema: unit-тест (billingEvents.ts) | `db/billingEvents.ts` | u:lib/db/src/schema/billingEvents.ts | done | agent |
 | M-184 | U | db schema: unit-тест (conversations.ts) | `db/conversations.ts` | u:lib/db/src/schema/conversations.ts | done | agent |
 | M-185 | U | db schema: unit-тест (depositAddresses.ts) | `db/depositAddresses.ts` | u:lib/db/src/schema/depositAddresses.ts | done | agent |
-| M-186 | U | db schema: unit-тест (deposits.ts) | `db/deposits.ts` | u:lib/db/src/schema/deposits.ts | pending | agent |
+| M-186 | U | db schema: unit-тест (deposits.ts) | `db/deposits.ts` | u:lib/db/src/schema/deposits.ts | done | agent |
 | M-187 | U | db schema: unit-тест (devKeys.ts) | `db/devKeys.ts` | u:lib/db/src/schema/devKeys.ts | pending | agent |
 | M-188 | U | db schema: unit-тест (gameSubmissions.ts) | `db/gameSubmissions.ts` | u:lib/db/src/schema/gameSubmissions.ts | pending | agent |
 | M-189 | U | db schema: unit-тест (games.ts) | `db/games.ts` | u:lib/db/src/schema/games.ts | pending | agent |
