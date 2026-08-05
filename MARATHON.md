@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 06:10 UTC |
 | Task ID | M-83 |
 | Результат | HostAuthGuard: экспорт HOST_AUTH_FEATURES, isHostDisplayNameValid + host-auth-guard.test.mjs (4 теста) |
-| Commit | (this run) |
+| Commit | 889ebc2 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
