@@ -822,7 +822,7 @@ async function startAgent(): Promise<void> {
         } catch (err) {
           log("warn", `[agent-login] clipboard write failed: ${String(err)}`);
         }
-        const dashboardUrl = `${base}/host/dashboard`;
+        const dashboardUrl = `${base}/host`;
         await shell.openExternal(dashboardUrl);
         if (Notification.isSupported()) {
           new Notification({

@@ -15,6 +15,15 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-153 (2026-08-05 14:46 UTC) {#marathon-m-153}
+
+| Проверка | Результат |
+|---|---|
+| host-agent typecheck | PASS |
+| host-agent test suite | 205 тестов — PASS |
+
+**Изменения (U-08):** `agent:login` открывает `/host` (существующий маршрут дашборда), а не несуществующий `/host/dashboard`.
+
 ## Marathon M-152 (2026-08-05 14:45 UTC) {#marathon-m-152}
 
 | Проверка | Результат |

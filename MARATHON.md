@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 14:44 UTC|
-| Task ID | M-152|
-| Результат | U-07: удалён legacy BindingForm (USD); игры и LZT/мин только через library; dashboard 21 tests, web tests PASS, typecheck PASS|
+| Дата | 2026-08-05 14:48 UTC|
+| Task ID | M-153|
+| Результат | U-08: agent:login открывает /host вместо /host/dashboard; host-agent typecheck + 205 tests PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -484,7 +484,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-136 | Q | auth-verifier: unit-тест (otp.ts) | `auth-verifier/otp.ts` | q:lib/auth-verifier/src/otp.ts | done | agent |
 | M-151 | R | UX U-06 (P1): Один способ привязки агента вместо трёх | `pages/host/dashboard.tsx` | r:U-06 | done | agent |
 | M-152 | R | UX U-07 (P1): Убрать дублирующий legacy BindingForm с ценами в USD | `pages/host/binding-form.tsx` | r:U-07 | done | agent |
-| M-153 | R | UX U-08 (P1): Кнопка «Войти на сайте» в агенте открывает существующий марш | `artifacts/host-agent/src/main/index.ts` | r:U-08 | pending | agent |
+| M-153 | R | UX U-08 (P1): Кнопка «Войти на сайте» в агенте открывает существующий марш | `artifacts/host-agent/src/main/index.ts` | r:U-08 | done | agent |
 | M-154 | R | UX U-09 (P1): Возврат хоста по сохранённому токену — поле «у меня уже есть | `artifacts/web/src/components/host-auth-guard.tsx` | r:U-09 | pending | agent |
 | M-155 | R | UX U-10 (P1): Библиотека и «быстрое добавление игры» — один компонент | `pages/host/library.tsx` | r:U-10 | pending | agent |
 | M-156 | R | UX U-11 (P2): Русский язык во всём UI агента | `renderer/*.ts` | r:U-11 | pending | agent |
