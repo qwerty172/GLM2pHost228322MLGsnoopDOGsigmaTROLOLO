@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 03:26 UTC |
 | Task ID | M-76 |
 | Результат | scanner expand (L `export const:` + cat M hooks) + unit-тест connection-labels.ts |
-| Commit | *(после push)* |
+| Commit | 41f0666 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
