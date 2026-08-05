@@ -527,6 +527,9 @@ export async function onPlayerJoined(cfg: HostConfig): Promise<void> {
   session.pc.onconnectionstatechange = () => {
     log(`Peer state: ${session.pc?.connectionState}`);
     if (session.pc?.connectionState === "connected") {
+      // ICE may recover after a transient disconnect/failed state; cancel any
+      // deferred teardown scheduled during the outage.
+      cancelDeferredTeardown();
       setStatus("streaming", "Streaming to player");
       setPipelineStep("stream", "done");
       setPipelineStep("player", "done");

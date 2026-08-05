@@ -82,3 +82,26 @@ test("captureScreen prefers HWND match from spawned PID over title heuristics", 
   });
   assert.equal(session.currentCaptureSourceName, "Unrelated Title");
 });
+
+test("captureScreen ignores legacy host boundUrl for native library entry", async () => {
+  session.currentGameId = "game-native";
+  session.libraryEntries = [
+    {
+      gameId: "game-native",
+      appPath: "D:\\Games\\RogueFable3.exe",
+      enabled: true,
+      localAvailable: true,
+    },
+  ];
+  window.agent.getCaptureSources = async () => [
+    { id: "screen:0", name: "Primary Screen" },
+    { id: "window:1", name: "shellshock.io - Microsoft Edge" },
+    { id: "window:2", name: "RogueFable3" },
+  ];
+  await captureScreen({
+    ...defaultHostConfig,
+    boundUrl: "https://shellshock.io/play",
+    appPath: "",
+  });
+  assert.equal(session.currentCaptureSourceName, "RogueFable3");
+});

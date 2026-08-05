@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { registerPlayer, upgradeGuestPlayer } from "@workspace/api-client-react";
 
@@ -23,12 +23,14 @@ export function usePlayerWallet(): PlayerWalletState {
   );
   const [isRegistering, setIsRegistering] = useState(false);
   const [registerError, setRegisterError] = useState<string | null>(null);
+  const isRegisteringRef = useRef(false);
 
   const registerGuest = useCallback(async (): Promise<string | null> => {
-    if (isRegistering) return null;
+    if (isRegisteringRef.current) return null;
     const existing = localStorage.getItem(STORAGE_KEY);
     if (existing) return existing;
 
+    isRegisteringRef.current = true;
     setIsRegistering(true);
     setRegisterError(null);
     try {
@@ -45,9 +47,10 @@ export function usePlayerWallet(): PlayerWalletState {
       toast.error(msg);
       return null;
     } finally {
+      isRegisteringRef.current = false;
       setIsRegistering(false);
     }
-  }, [isRegistering]);
+  }, []);
 
   const upgradeGuest = useCallback(async (displayName: string): Promise<boolean> => {
     const guestToken = localStorage.getItem(STORAGE_KEY);
