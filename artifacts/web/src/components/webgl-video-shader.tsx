@@ -131,6 +131,21 @@ void main() {
 
 export type PresetKey = keyof typeof SHADER_PRESETS | "custom";
 
+export const SHADER_PRESET_STORAGE_KEY = "shaderPreset";
+export const SHADER_CUSTOM_CODE_STORAGE_KEY = "shaderCustomCode";
+
+export const SHADER_BUILTIN_PRESET_KEYS = Object.keys(SHADER_PRESETS) as (keyof typeof SHADER_PRESETS)[];
+
+export function isShaderPresetActive(preset: PresetKey): boolean {
+  return preset !== "none";
+}
+
+export function resolveShaderFragCode(preset: PresetKey, customCode: string): string {
+  if (preset === "custom") return customCode;
+  if (preset === "none") return SHADER_PRESETS.none.code;
+  return SHADER_PRESETS[preset]?.code ?? SHADER_PRESETS.none.code;
+}
+
 // ─── Vertex shader (shared for all presets) ──────────────────────────────────
 
 const VERT_SRC = `
