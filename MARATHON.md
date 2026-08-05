@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 06:24 UTC |
 | Task ID | M-84 |
 | Результат | layout-nav.ts: HOST_LAYOUT_NAV_ITEMS, resolveHostSiteNavActivePath, isHostNavItemActive + layout.test.mjs (4 теста) |
-| Commit | 58155cd |
+| Commit | 1af06be |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
