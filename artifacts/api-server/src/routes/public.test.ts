@@ -521,6 +521,18 @@ describe("POST /public/sessions", () => {
     expect(res.json).toMatchObject({ error: "host_offline" });
   });
 
+  it("returns 409 when host is online for a different game", async () => {
+    queueResults([{ id: HOST_ID }], [], [{ id: SESSION_ID }]);
+    const res = await request("POST", "/public/sessions", {
+      body: { hostId: HOST_ID, gameId: GAME_ID },
+    });
+    expect(res.status).toBe(409);
+    expect(res.json).toEqual({
+      error: "host_busy",
+      reason: "game_unavailable",
+    });
+  });
+
   it("returns invite code for an active session", async () => {
     queueResults(
       [{ id: HOST_ID }],
@@ -576,6 +588,27 @@ describe("POST /public/preview-session", () => {
     expect(res.json).toEqual({
       previewToken: `preview-${HOST_ID}`,
       hostId: HOST_ID,
+    });
+  });
+
+  it("returns 429 when preview cooldown is active for the host", async () => {
+    const cooldownHostId = "host-preview-cooldown";
+    queueResults(
+      [{ id: cooldownHostId, lastSeenAt: new Date() }],
+      [{ id: cooldownHostId, lastSeenAt: new Date() }],
+    );
+    const first = await request("POST", "/public/preview-session", {
+      body: { hostId: cooldownHostId },
+    });
+    expect(first.status).toBe(200);
+
+    const res = await request("POST", "/public/preview-session", {
+      body: { hostId: cooldownHostId },
+    });
+    expect(res.status).toBe(429);
+    expect(res.json).toMatchObject({
+      error: "too_many_requests",
+      message: expect.stringContaining("cooldown"),
     });
   });
 });
