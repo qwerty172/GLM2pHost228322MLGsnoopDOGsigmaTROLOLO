@@ -466,17 +466,18 @@ export default function GamesPage() {
 
 function GameCard({ game, vdsBadge }: { game: GameEnriched; vdsBadge?: boolean }) {
   const [, navigate] = useLocation();
-  const { playerWalletToken, isRegistering } = usePlayerWallet();
+  const { playerWalletToken, isRegistering, registerGuest } = usePlayerWallet();
   const createBrowserHost = useCreateBrowserHostSession();
 
   const handleHost = async () => {
-    if (!playerWalletToken) {
-      toast.error("Создаём кошелёк, попробуй ещё раз через секунду");
-      return;
+    let token = playerWalletToken;
+    if (!token) {
+      token = await registerGuest();
+      if (!token) return;
     }
     try {
       const res = await createBrowserHost.mutateAsync({
-        data: { playerWalletToken, gameSlug: game.slug },
+        data: { playerWalletToken: token, gameSlug: game.slug },
       });
       try {
         localStorage.setItem(HOST_TOKEN_STORAGE_PREFIX + res.session.id, res.hostToken);

@@ -40,6 +40,16 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
+**3 команды до демо в браузере:** [`QUICKSTART.md`](./QUICKSTART.md)
+
+```bash
+pnpm dev:db    # Postgres в Docker (если нужно)
+pnpm setup     # .env + install + db
+pnpm dev       # API + Web
+```
+
+Демо без Windows-агента: http://localhost:5000/games/rogue-fable-3
+
 Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
 
 **Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
