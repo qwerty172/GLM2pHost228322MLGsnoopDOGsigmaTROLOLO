@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 20:16 UTC|
-| Task ID | M-175|
-| Результат | client.ts: getAnthropicClient null/cache/config + anthropic proxy (7 tests); integrations-anthropic-ai test PASS (20)|
+| Дата | 2026-08-05 20:21 UTC|
+| Task ID | M-176|
+| Результат | play.tsx: typed session enrichment вместо 2× as any (gameBrowserHostUrl, gameTitle); web test PASS (358)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -510,6 +510,11 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-173 | N | web components: unit-тест (pre-session-screen.tsx) | `artifacts/web/src/components/pre-session-screen.tsx` | n:artifacts/web/src/components/pre-session-screen.tsx | done | agent |
 | M-174 | S | integrations-anthropic-ai: unit-тест (batch/utils.ts) | `anthropic-ai/batch/utils.ts` | s:lib/integrations-anthropic-ai/src/batch/utils.ts | done | agent |
 | M-175 | S | integrations-anthropic-ai: unit-тест (client.ts) | `anthropic-ai/client.ts` | s:lib/integrations-anthropic-ai/src/client.ts | done | agent |
+| M-176 | T | `as any` escape (2) | `pages/play.tsx` | t:artifacts/web/src/pages/play.tsx | done | agent |
+| M-177 | T | `as any` escape (3) | `pages/landing.tsx` | t:artifacts/web/src/pages/landing.tsx | pending | agent |
+| M-178 | T | `as any` escape (5) | `pages/hosts.tsx` | t:artifacts/web/src/pages/hosts.tsx | pending | agent |
+| M-179 | T | `as any` escape (5) | `routes/public.ts` | t:artifacts/api-server/src/routes/public.ts | pending | agent |
+| M-180 | T | `as any` escape (3) | `routes/admin.ts` | t:artifacts/api-server/src/routes/admin.ts | pending | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).

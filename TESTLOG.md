@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-176 (2026-08-05 20:20 UTC) {#marathon-m-176}
+
+| Проверка | Результат |
+|---|---|
+| pnpm typecheck | PASS |
+| pnpm --filter @workspace/web test | PASS (358 tests) |
+
+**Изменения:** `play.tsx` — убраны 2× `as any`, typed enrichment для `gameBrowserHostUrl` и `gameTitle` в test-browser iframe path.
+
+**Следующий pick:** M-177 (`as any` escape в admin.ts).
+
 ## Marathon M-175 (2026-08-05 20:15 UTC) {#marathon-m-175}
 
 | Проверка | Результат |

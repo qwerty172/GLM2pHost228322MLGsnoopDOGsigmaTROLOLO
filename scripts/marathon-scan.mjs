@@ -28,6 +28,7 @@
 //   Q. lib/auth-verifier/src/**/*.ts without co-located test (by file, excludes index.ts)
 //   R. UX_BACKLOG.md items (U-NN with status todo) — ВСЕГДА первый приоритет
 //   S. lib/integrations-anthropic-ai/src/**/*.ts without co-located test (by file, excludes index.ts)
+//   T. `as any` type escapes in source (grouped by file, excludes tests/codegen)
 //
 // Source of truth: working tree (== main after git pull).
 
@@ -561,6 +562,43 @@ if (existsSync(anthropicDir)) {
   }
 }
 
+// --- T. `as any` type escapes in source (grouped by file) -----------------
+const anyHits = rg(" as any\\b", ["artifacts", "lib"], [
+  "-n",
+  "--glob",
+  "!**/*.test.*",
+  "--glob",
+  "!**/__tests__/**",
+  "--glob",
+  "!lib/api-zod/**",
+  "--glob",
+  "!lib/api-client-react/**",
+]);
+const anyByFile = new Map();
+for (const line of (anyHits || "").split("\n")) {
+  const m = line.match(/^([^:]+):(\d+):(.*)$/);
+  if (!m) continue;
+  if (/node_modules|\/dist\/|\/public\/games\/|scripts\//.test(m[1])) continue;
+  if (!anyByFile.has(m[1])) anyByFile.set(m[1], 0);
+  anyByFile.set(m[1], anyByFile.get(m[1]) + 1);
+}
+for (const [f, count] of anyByFile) {
+  const short =
+    f.startsWith("artifacts/api-server/src/routes/")
+      ? shortRouteFile(f)
+      : f.startsWith("artifacts/web/src/")
+        ? shortPageFile(f)
+        : f.replace(/^artifacts\//, "");
+  raw.push({
+    cat: "T",
+    groupKey: `t:${f}`,
+    title: `\`as any\` escape (${count})`,
+    file: f,
+    detail: short,
+    items: [short],
+  });
+}
+
 // --- group raw hits (merge same groupKey) --------------------------------
 const grouped = new Map();
 for (const c of raw) {
@@ -608,7 +646,7 @@ for (const line of marathonMd.split("\n")) {
 }
 
 // R (UX_BACKLOG) — всегда первым: удобство важнее покрытия тестами.
-const CAT_ORDER = { R: -1, B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, Q: 7, S: 8, J: 9, K: 10, L: 11, M: 12, N: 13, O: 14, P: 15, D: 16, I: 17 };
+const CAT_ORDER = { R: -1, B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, Q: 7, S: 8, T: 9, J: 10, K: 11, L: 12, M: 13, N: 14, O: 15, P: 16, D: 17, I: 18 };
 const filtered = candidates
   .filter((c) => !doneOrActiveKeys.has(c.groupKey))
   .sort((a, b) => (CAT_ORDER[a.cat] ?? 9) - (CAT_ORDER[b.cat] ?? 9));
@@ -764,7 +802,7 @@ if (NEXT || PICK) {
     console.log(`| ${c.id} | ${c.cat} | ${c.title} | \`${c.file}\` | ${(c.detail || "").replace(/\|/g, "\\|")} |`);
   }
   console.log(
-    `\nКатегории: R=UX_BACKLOG (приоритет), A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, Q=auth-verifier тесты, S=anthropic-ai тесты, J=main-тесты, K=shared-тесты, L=web-lib тесты, M=web-hooks тесты, N=web-components тесты, O=web-pages тесты, P=api-routes тесты, I=eslint suppressions.`,
+    `\nКатегории: R=UX_BACKLOG (приоритет), A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, Q=auth-verifier тесты, S=anthropic-ai тесты, T=as-any escapes, J=main-тесты, K=shared-тесты, L=web-lib тесты, M=web-hooks тесты, N=web-components тесты, O=web-pages тесты, P=api-routes тесты, I=eslint suppressions.`,
   );
   console.log(`Синхронизация: node scripts/marathon-scan.mjs --sync-marathon`);
 }

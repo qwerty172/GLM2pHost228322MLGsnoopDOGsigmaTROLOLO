@@ -1281,8 +1281,11 @@ export default function Play() {
 
   // Test session with a browser-hosted game: render it directly in an iframe.
   // No WebRTC, no billing, no agent needed.
-  const sAny = session as any;
-  const gameBrowserHostUrl: string | null = sAny.gameBrowserHostUrl ?? null;
+  const enrichedSession = session as typeof session & {
+    gameBrowserHostUrl?: string | null;
+    gameTitle?: string | null;
+  };
+  const gameBrowserHostUrl: string | null = enrichedSession.gameBrowserHostUrl ?? null;
   if (isTestBrowserSession) {
     const iframeUrl = resolveGameBrowserHostUrl(
       gameBrowserHostUrl!,
@@ -1291,7 +1294,7 @@ export default function Play() {
     return (
       <IframeTestSession
         iframeUrl={iframeUrl}
-        gameTitle={(session as any).gameTitle || session.appName}
+        gameTitle={enrichedSession.gameTitle || session.appName}
       />
     );
   }
