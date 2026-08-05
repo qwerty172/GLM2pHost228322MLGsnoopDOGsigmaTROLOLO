@@ -112,6 +112,15 @@
 
 **Следующий pick:** M-133 (wallet.ts).
 
+## Marathon M-134 (2026-08-05 12:44 UTC) {#marathon-m-134}
+
+| Проверка | Результат |
+|---|---|
+| challenge.test.ts | 15 тестов — createChallenge (2), submitCode (9), getChallengeStatus (4) |
+| auth-verifier test (challenge) | PASS (15 tests) |
+
+**Следующий pick:** M-135 (link.ts).
+
 ## Marathon M-133 (2026-08-05 12:40 UTC) {#marathon-m-133}
 
 | Проверка | Результат |

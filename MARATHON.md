@@ -6,15 +6,15 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-133 done; wallet.test.ts)
+> **Последнее обновление:** 2026-08-05 (M-134 done; challenge.test.ts)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 12:40 UTC|
-| Task ID | M-133|
-| Результат | wallet.test.ts: 10 тестов (GET /wallet, GET /wallet/transactions, POST /wallet/withdraw). vitest PASS.|
+| Дата | 2026-08-05 12:48 UTC|
+| Task ID | M-134|
+| Результат | challenge.test.ts: 15 тестов (createChallenge, submitCode, getChallengeStatus). node:test PASS.|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -378,7 +378,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-131 | P | api-server routes: unit-тест (verifier.ts) | `routes/verifier.ts` | p:artifacts/api-server/src/routes/verifier.ts | done | agent |
 | M-132 | P | api-server routes: unit-тест (vt.ts) | `routes/vt.ts` | p:artifacts/api-server/src/routes/vt.ts | done | agent |
 | M-133 | P | api-server routes: unit-тест (wallet.ts) | `routes/wallet.ts` | p:artifacts/api-server/src/routes/wallet.ts | done | agent |
-| M-134 | Q | auth-verifier: unit-тест (challenge.ts) | `auth-verifier/challenge.ts` | q:lib/auth-verifier/src/challenge.ts | pending | agent |
+| M-134 | Q | auth-verifier: unit-тест (challenge.ts) | `auth-verifier/challenge.ts` | q:lib/auth-verifier/src/challenge.ts | done | agent |
 | M-135 | Q | auth-verifier: unit-тест (link.ts) | `auth-verifier/link.ts` | q:lib/auth-verifier/src/link.ts | pending | agent |
 | M-136 | Q | auth-verifier: unit-тест (otp.ts) | `auth-verifier/otp.ts` | q:lib/auth-verifier/src/otp.ts | pending | agent |
 | M-137 | Q | auth-verifier: unit-тест (providers/discord.ts) | `auth-verifier/providers/discord.ts` | q:lib/auth-verifier/src/providers/discord.ts | pending | agent |

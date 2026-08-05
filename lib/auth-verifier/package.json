@@ -11,8 +11,12 @@
     "drizzle-orm": "catalog:",
     "zod": "catalog:"
   },
+  "scripts": {
+    "test": "node --import tsx --test test/**/*.test.ts"
+  },
   "devDependencies": {
     "@types/express": "^5.0.3",
-    "@types/node": "catalog:"
+    "@types/node": "catalog:",
+    "tsx": "^4.19.4"
   }
 }
