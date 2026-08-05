@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-149 (2026-08-05 14:18 UTC) {#marathon-m-149}
+
+| Проверка | Результат |
+|---|---|
+| dashboard-helpers.ts | resolveGuidedNextAction, hasCompletedFirstStream, read/markHostGoOnlineAck — guided-flow U-13 |
+| host-dashboard.test.mjs | 19 тестов (+4: first stream, guided phases) |
+| dashboard.tsx | одно CTA до первого стрима; stats/шаблоны/сессии скрыты в онбординге |
+| web test (host-dashboard) | PASS (19 tests) |
+
+**Следующий pick:** M-150 (U-14 «Проверить готовность»).
+
 ## Верификация всей волны + 2 найденных бага (2026-08-05 14:15 UTC) {#verification-2026-08-05}
 
 Полная проверка ранее сделанного. Итог: **1043 теста зелёные**, `pnpm typecheck` **exit 0** впервые

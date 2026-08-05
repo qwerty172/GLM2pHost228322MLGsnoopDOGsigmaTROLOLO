@@ -20,6 +20,9 @@ const {
   buildTestSessionFullUrl,
   buildBrowserHostStorageKeys,
   computeQuickStartSteps,
+  resolveGuidedNextAction,
+  hasCompletedFirstStream,
+  ONBOARDING_TOTAL_STEPS,
   readHostAgentDownloaded,
   markHostAgentDownloaded,
 } = await import("../src/pages/host/dashboard-helpers.ts");
@@ -198,7 +201,7 @@ test("computeQuickStartSteps tracks onboarding progress", () => {
     heartbeat: { status: "never" },
     agentKeyBound: true,
     libraryCount: 2,
-    hasActiveSession: false,
+    hasActiveSession: true,
     agentDownloaded: false,
   });
   assert.equal(ready.doneCount, 5);
@@ -221,4 +224,88 @@ test("readHostAgentDownloaded and markHostAgentDownloaded use localStorage", () 
   markHostAgentDownloaded(storage);
   assert.equal(readHostAgentDownloaded(storage), true);
   assert.equal(storage.data[HOST_AGENT_DOWNLOADED_STORAGE_KEY], "1");
+});
+
+test("hasCompletedFirstStream is true when any session exists", () => {
+  assert.equal(hasCompletedFirstStream([]), false);
+  assert.equal(hasCompletedFirstStream(null), false);
+  assert.equal(hasCompletedFirstStream([{ status: "ended" }]), true);
+  assert.equal(hasCompletedFirstStream([{ status: "active" }]), true);
+});
+
+test("resolveGuidedNextAction returns one phase at a time until first stream (U-13)", () => {
+  const base = {
+    agent: offlineAgent,
+    heartbeat: { status: "never" },
+    agentKeyBound: false,
+    libraryCount: 0,
+    hasActiveSession: false,
+    agentDownloaded: false,
+    hasFirstStream: false,
+  };
+
+  const download = resolveGuidedNextAction(base);
+  assert.equal(download.phase, "download");
+  assert.equal(download.cta, "download");
+  assert.equal(download.stepNumber, 1);
+
+  const wait = resolveGuidedNextAction({ ...base, agentDownloaded: true });
+  assert.equal(wait.phase, "wait-agent");
+  assert.equal(wait.cta, "wait");
+
+  const bind = resolveGuidedNextAction({
+    ...base,
+    agent: onlineAgent,
+    agentDownloaded: true,
+  });
+  assert.equal(bind.phase, "bind");
+  assert.equal(bind.cta, "bind");
+
+  const addGame = resolveGuidedNextAction({
+    ...base,
+    agent: onlineAgent,
+    agentKeyBound: true,
+    agentDownloaded: true,
+  });
+  assert.equal(addGame.phase, "add-game");
+  assert.equal(addGame.cta, "add-game");
+
+  const goOnline = resolveGuidedNextAction({
+    ...base,
+    agent: onlineAgent,
+    agentKeyBound: true,
+    libraryCount: 1,
+    agentDownloaded: true,
+  });
+  assert.equal(goOnline.phase, "go-online");
+  assert.equal(goOnline.cta, "open-agent");
+
+  const testStreamReady = resolveGuidedNextAction({
+    ...base,
+    agent: onlineAgent,
+    agentKeyBound: true,
+    libraryCount: 1,
+    goOnlineAck: true,
+    agentDownloaded: true,
+  });
+  assert.equal(testStreamReady.phase, "test-stream");
+  assert.equal(testStreamReady.cta, "test-stream");
+  assert.equal(testStreamReady.stepNumber, ONBOARDING_TOTAL_STEPS);
+
+  const testStreamViaSession = resolveGuidedNextAction({
+    ...base,
+    agent: onlineAgent,
+    agentKeyBound: true,
+    libraryCount: 1,
+    hasActiveSession: true,
+    agentDownloaded: true,
+  });
+  assert.equal(testStreamViaSession.phase, "test-stream");
+
+  const done = resolveGuidedNextAction({
+    ...base,
+    hasFirstStream: true,
+  });
+  assert.equal(done.phase, "complete");
+  assert.equal(done.cta, "none");
 });

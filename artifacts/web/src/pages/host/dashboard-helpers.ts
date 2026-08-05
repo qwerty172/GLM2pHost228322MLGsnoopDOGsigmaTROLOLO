@@ -5,6 +5,7 @@ export const HEARTBEAT_FRESH_MS = 45_000;
 export const HOST_TOKEN_STORAGE_PREFIX = "streamline.browserHostToken:";
 export const BROWSER_HOST_URL_STORAGE_PREFIX = "streamline.browserHostUrl:";
 export const HOST_AGENT_DOWNLOADED_STORAGE_KEY = "streamline.hostAgentDownloaded";
+export const HOST_GO_ONLINE_ACK_STORAGE_KEY = "streamline.hostGoOnlineAck";
 
 /**
  * Installer download (U-31): no Node.js/npm install required, unlike the ZIP.
@@ -133,6 +134,22 @@ export function markHostAgentDownloaded(
   }
 }
 
+export function readHostGoOnlineAck(
+  storage: Pick<Storage, "getItem"> = localStorage,
+): boolean {
+  return storage.getItem(HOST_GO_ONLINE_ACK_STORAGE_KEY) === "1";
+}
+
+export function markHostGoOnlineAck(
+  storage: Pick<Storage, "setItem"> = localStorage,
+): void {
+  try {
+    storage.setItem(HOST_GO_ONLINE_ACK_STORAGE_KEY, "1");
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
 export function agentNeedsAdvancedPanel(
   agent: AgentState,
   heartbeat: HeartbeatState,
@@ -203,6 +220,132 @@ export function buildBrowserHostStorageKeys(sessionId: string): {
 
 export type QuickStartStep = { done: boolean; title: string; hint: string };
 
+export type OnboardingPhase =
+  | "download"
+  | "wait-agent"
+  | "bind"
+  | "add-game"
+  | "go-online"
+  | "test-stream"
+  | "complete";
+
+export type GuidedNextAction = {
+  phase: OnboardingPhase;
+  stepNumber: number;
+  totalSteps: number;
+  title: string;
+  hint: string;
+  /** Which primary control to render — at most one per screen (U-13). */
+  cta:
+    | "download"
+    | "wait"
+    | "bind"
+    | "add-game"
+    | "open-agent"
+    | "test-stream"
+    | "none";
+};
+
+export const ONBOARDING_TOTAL_STEPS = 6;
+
+export function hasCompletedFirstStream(
+  sessions: Array<{ status: string }> | null | undefined,
+): boolean {
+  return (sessions?.length ?? 0) > 0;
+}
+
+export function resolveGuidedNextAction(opts: {
+  agent: AgentState;
+  heartbeat: HeartbeatState;
+  agentKeyBound: boolean;
+  libraryCount: number;
+  hasActiveSession: boolean;
+  agentDownloaded?: boolean;
+  goOnlineAck?: boolean;
+  hasFirstStream?: boolean;
+}): GuidedNextAction {
+  if (opts.hasFirstStream) {
+    return {
+      phase: "complete",
+      stepNumber: ONBOARDING_TOTAL_STEPS,
+      totalSteps: ONBOARDING_TOTAL_STEPS,
+      title: "Первый стрим готов",
+      hint: "Можно принимать игроков и пользоваться полным дашбордом",
+      cta: "none",
+    };
+  }
+
+  const agentOnline = isAgentOnline(opts.agent, opts.heartbeat);
+  const downloadDone =
+    Boolean(opts.agentDownloaded) || isAgentOnceSeen(opts.agent, opts.heartbeat);
+
+  if (!downloadDone) {
+    return {
+      phase: "download",
+      stepNumber: 1,
+      totalSteps: ONBOARDING_TOTAL_STEPS,
+      title: "Скачай агент",
+      hint: "Один ZIP с твоим токеном — распакуй на Windows-ПК и запусти start.bat",
+      cta: "download",
+    };
+  }
+
+  if (!agentOnline) {
+    return {
+      phase: "wait-agent",
+      stepNumber: 2,
+      totalSteps: ONBOARDING_TOTAL_STEPS,
+      title: "Дождись связи с агентом",
+      hint: "Запусти start.bat — здесь появится «Агент онлайн»",
+      cta: "wait",
+    };
+  }
+
+  if (!opts.agentKeyBound) {
+    return {
+      phase: "bind",
+      stepNumber: 3,
+      totalSteps: ONBOARDING_TOTAL_STEPS,
+      title: "Привяжи агент",
+      hint: "Получи одноразовый код и вставь его в окне агента",
+      cta: "bind",
+    };
+  }
+
+  if (opts.libraryCount === 0) {
+    return {
+      phase: "add-game",
+      stepNumber: 4,
+      totalSteps: ONBOARDING_TOTAL_STEPS,
+      title: "Добавь первую игру",
+      hint: "Укажи путь к .exe и выбери игру из каталога",
+      cta: "add-game",
+    };
+  }
+
+  const goOnlineAck = Boolean(opts.goOnlineAck) || opts.hasActiveSession;
+
+  if (!goOnlineAck) {
+    return {
+      phase: "go-online",
+      stepNumber: 5,
+      totalSteps: ONBOARDING_TOTAL_STEPS,
+      title: "Выйди в онлайн",
+      hint: "В агенте нажми «Выйти в онлайн» — игроки увидят тебя в каталоге",
+      cta: "open-agent",
+    };
+  }
+
+  return {
+    phase: "test-stream",
+    stepNumber: 6,
+    totalSteps: ONBOARDING_TOTAL_STEPS,
+    title: "Проверь стрим",
+    hint: "Создай тест-сессию и убедись, что картинка и управление работают",
+    cta: "test-stream",
+  };
+}
+
 export function computeQuickStartSteps(opts: {
   agent: AgentState;
   heartbeat: HeartbeatState;
@@ -210,6 +353,7 @@ export function computeQuickStartSteps(opts: {
   libraryCount: number;
   hasActiveSession: boolean;
   agentDownloaded?: boolean;
+  goOnlineAck?: boolean;
 }): { steps: QuickStartStep[]; doneCount: number; allDone: boolean } {
   const agentOnline = isAgentOnline(opts.agent, opts.heartbeat);
   const agentOnceSeen = isAgentOnceSeen(opts.agent, opts.heartbeat);
@@ -246,7 +390,7 @@ export function computeQuickStartSteps(opts: {
     {
       done:
         opts.hasActiveSession ||
-        (agentOnline && opts.libraryCount > 0 && opts.agentKeyBound),
+        Boolean(opts.goOnlineAck),
       title: "В онлайн",
       hint: opts.hasActiveSession
         ? "Принимаешь игроков"

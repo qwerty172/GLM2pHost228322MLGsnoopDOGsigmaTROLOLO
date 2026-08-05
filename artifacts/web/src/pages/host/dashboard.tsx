@@ -97,9 +97,13 @@ import {
   buildTestSessionFullUrl,
   buildBrowserHostStorageKeys,
   computeQuickStartSteps,
+  resolveGuidedNextAction,
+  hasCompletedFirstStream,
   downloadHostAgentBundle,
   markHostAgentDownloaded,
   readHostAgentDownloaded,
+  readHostGoOnlineAck,
+  markHostGoOnlineAck,
   HOST_AGENT_EXE_DOWNLOAD_URL,
 } from "./dashboard-helpers";
 
@@ -941,6 +945,9 @@ function HostQuickStartCard({
   agentKeyBound,
   libraryCount,
   hasActiveSession,
+  hasFirstStream,
+  onTestStream,
+  testLoading,
 }: {
   hostToken: string;
   agent: AgentState;
@@ -948,24 +955,33 @@ function HostQuickStartCard({
   agentKeyBound: boolean;
   libraryCount: number;
   hasActiveSession: boolean;
+  hasFirstStream: boolean;
+  onTestStream: () => void;
+  testLoading: boolean;
 }) {
   const [agentDownloaded, setAgentDownloaded] = useState(() => readHostAgentDownloaded());
-  const { steps, doneCount, allDone } = computeQuickStartSteps({
+  const [goOnlineAck, setGoOnlineAck] = useState(() => readHostGoOnlineAck());
+  const { steps, allDone } = computeQuickStartSteps({
     agent,
     heartbeat,
     agentKeyBound,
     libraryCount,
     hasActiveSession,
     agentDownloaded,
+    goOnlineAck,
   });
-  const agentOnline = steps[1].done;
-
-  const copyToken = () => {
-    void navigator.clipboard.writeText(hostToken).then(
-      () => toast.success("Токен скопирован"),
-      () => toast.error("Не удалось скопировать"),
-    );
-  };
+  const guided = resolveGuidedNextAction({
+    agent,
+    heartbeat,
+    agentKeyBound,
+    libraryCount,
+    hasActiveSession,
+    agentDownloaded,
+    goOnlineAck,
+    hasFirstStream,
+  });
+  const onboarding = !hasFirstStream && guided.phase !== "complete";
+  const completedSteps = steps.filter((s) => s.done);
 
   const handleDownloadAgent = () => {
     markHostAgentDownloaded();
@@ -975,120 +991,154 @@ function HostQuickStartCard({
     });
   };
 
+  if (!onboarding) {
+    return (
+      <Card
+        style={{
+          background: "rgba(16,185,129,0.06)",
+          border: "1px solid rgba(16,185,129,0.3)",
+        }}
+        data-testid="host-quick-start"
+      >
+        <CardContent className="py-4 flex items-center gap-3">
+          <Wifi className="h-5 w-5 text-emerald-400 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-emerald-300">
+              {allDone ? "Готов принимать игроков" : "Онбординг завершён"}
+            </p>
+            <p className="text-xs text-slate-500">
+              Первый стрим прошёл — ниже полный дашборд
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card
       style={{
-        background: allDone ? "rgba(16,185,129,0.06)" : "rgba(14,165,233,0.05)",
-        border: allDone
-          ? "1px solid rgba(16,185,129,0.3)"
-          : "1px solid rgba(14,165,233,0.25)",
+        background: "rgba(14,165,233,0.05)",
+        border: "1px solid rgba(14,165,233,0.25)",
       }}
       data-testid="host-quick-start"
+      data-guided-phase={guided.phase}
     >
       <CardHeader className="pb-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle className="text-white text-base flex items-center gap-2">
-              {allDone ? (
-                <Wifi className="h-4 w-4 text-emerald-400" />
-              ) : (
-                <Gamepad2 className="h-4 w-4 text-sky-400" />
-              )}
-              {allDone ? "Готов принимать игроков" : "Быстрый старт"}
-            </CardTitle>
-            <CardDescription className="text-slate-500">
-              {doneCount} из {steps.length} шагов
-            </CardDescription>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 text-xs"
-                onClick={copyToken}
-                data-testid="button-copy-host-token"
-              >
-                <Copy className="h-3 w-3" />
-                Скопировать токен
-              </Button>
-              <Button
-                size="sm"
-                className="h-8 gap-1.5 text-xs font-semibold"
-                style={{ background: "#0ea5e9", color: "#fff" }}
-                onClick={handleDownloadAgent}
-              >
-                <Download className="h-3.5 w-3.5" />
-                Скачать агент
-              </Button>
-            </div>
-            <a
-              href={HOST_AGENT_EXE_DOWNLOAD_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[11px] text-slate-500 hover:text-sky-400 underline-offset-2 hover:underline"
-            >
-              Или .exe без Node.js (нужен код привязки)
-            </a>
-          </div>
-        </div>
+        <CardDescription className="text-sky-400/80 text-xs font-medium">
+          Шаг {guided.stepNumber} из {guided.totalSteps}
+        </CardDescription>
+        <CardTitle className="text-white text-lg flex items-center gap-2 mt-1">
+          <Gamepad2 className="h-5 w-5 text-sky-400 shrink-0" />
+          {guided.title}
+        </CardTitle>
+        <CardDescription className="text-slate-400 text-sm mt-1">
+          {guided.hint}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <ol className="space-y-2">
-          {steps.map((s, i) => (
-            <li key={s.title} className="flex items-start gap-3">
-              <span
-                className="shrink-0 w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center mt-0.5"
-                style={{
-                  background: s.done
-                    ? "rgba(16,185,129,0.2)"
-                    : "rgba(14,165,233,0.12)",
-                  color: s.done ? "#34d399" : "#38bdf8",
-                }}
-              >
-                {s.done ? "✓" : i + 1}
+        {completedSteps.length > 0 && (
+          <div
+            className="flex flex-wrap gap-2 text-xs text-emerald-400/90"
+            data-testid="guided-completed-steps"
+          >
+            {completedSteps.map((s) => (
+              <span key={s.title} className="inline-flex items-center gap-1">
+                <span aria-hidden>✓</span>
+                {s.title}
               </span>
-              <div className="min-w-0">
-                <p className={`text-sm font-medium ${s.done ? "text-emerald-300" : "text-white"}`}>
-                  {s.title}
-                </p>
-                <p className="text-xs text-slate-500">{s.hint}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
+            ))}
+          </div>
+        )}
 
-        {!agentOnline && (
-          <div className="rounded-lg p-3 text-xs text-slate-400" style={{ background: "rgba(0,0,0,0.25)" }}>
-            После установки запусти <span className="font-mono text-sky-400">start.bat</span>.
-            Агент уйдёт в трей — окно настроек открой по клику на иконку.
+        {guided.cta === "download" && (
+          <div className="space-y-2">
+            <Button
+              size="lg"
+              className="w-full sm:w-auto gap-2 font-semibold"
+              style={{ background: "#0ea5e9", color: "#fff" }}
+              data-testid="link-download-host-agent"
+              onClick={handleDownloadAgent}
+            >
+              <Download className="h-4 w-4" />
+              Скачать агент
+            </Button>
+            <p className="text-[11px] text-slate-500">
+              Или{" "}
+              <a
+                href={HOST_AGENT_EXE_DOWNLOAD_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-slate-500 hover:text-sky-400 underline-offset-2 hover:underline"
+                data-testid="link-download-host-agent-exe"
+              >
+                .exe без Node.js
+              </a>{" "}
+              — понадобится код привязки на шаге 3
+            </p>
+          </div>
+        )}
+
+        {guided.cta === "wait" && (
+          <div
+            className="rounded-lg p-4 space-y-3"
+            style={{ background: "rgba(0,0,0,0.25)" }}
+            data-testid="guided-wait-agent"
+          >
+            <div className="flex items-center gap-2 text-sm text-slate-300">
+              <Loader2 className="h-4 w-4 animate-spin text-sky-400" />
+              Ждём агент на связи…
+            </div>
+            <p className="text-xs text-slate-400">
+              Запусти <span className="font-mono text-sky-400">start.bat</span> на Windows-ПК.
+              Окно уйдёт в трей — настройки открой по иконке в трее.
+            </p>
             <AgentTroubleshootChecklist agent={agent} heartbeat={heartbeat} />
           </div>
         )}
 
-        {agentOnline && !agentKeyBound && (
-          <AgentBindCodeCard hostToken={hostToken} />
-        )}
+        {guided.cta === "bind" && <AgentBindCodeCard hostToken={hostToken} guided />}
 
-        {agentKeyBound && libraryCount === 0 && (
-          <QuickAddFirstGame hostToken={hostToken} />
-        )}
+        {guided.cta === "add-game" && <QuickAddFirstGame hostToken={hostToken} guided />}
 
-        {agentKeyBound && libraryCount > 0 && !hasActiveSession && (
-          <p className="text-xs text-slate-400">
-            В агенте нажми <span className="text-sky-300 font-medium">«Выйти в онлайн»</span> —
-            игроки увидят тебя в каталоге.
-            <a href="decenthub://open" className="text-sky-400 hover:underline ml-1">
+        {guided.cta === "open-agent" && (
+          <a
+            href="decenthub://open"
+            data-testid="guided-open-agent"
+            onClick={() => {
+              markHostGoOnlineAck();
+              setGoOnlineAck(true);
+            }}
+          >
+            <Button
+              size="lg"
+              className="w-full sm:w-auto gap-2 font-semibold"
+              style={{ background: "#0ea5e9", color: "#fff" }}
+            >
+              <ExternalLink className="h-4 w-4" />
               Открыть агент
-            </a>
-          </p>
+            </Button>
+          </a>
+        )}
+
+        {guided.cta === "test-stream" && (
+          <Button
+            size="lg"
+            className="w-full sm:w-auto gap-2 font-semibold bg-violet-600 hover:bg-violet-500 text-white"
+            onClick={onTestStream}
+            disabled={testLoading}
+            data-testid="button-test-session"
+          >
+            <FlaskConical className="h-4 w-4" />
+            {testLoading ? "Создаём…" : "Проверить стрим"}
+          </Button>
         )}
       </CardContent>
     </Card>
   );
 }
 
-function QuickAddFirstGame({ hostToken }: { hostToken: string }) {
+function QuickAddFirstGame({ hostToken, guided = false }: { hostToken: string; guided?: boolean }) {
   const [q, setQ] = useState("");
   const [appPath, setAppPath] = useState("");
   const [price, setPrice] = useState("10");
@@ -1170,9 +1220,11 @@ function QuickAddFirstGame({ hostToken }: { hostToken: string }) {
           style={{ background: "#0a1018", borderColor: "rgba(255,255,255,0.12)", color: "#fff" }}
         />
         <span className="text-xs text-slate-500">LZT/мин</span>
-        <Link href="/host/library" className="ml-auto text-xs text-sky-400 hover:underline">
-          Полная библиотека →
-        </Link>
+        {!guided && (
+          <Link href="/host/library" className="ml-auto text-xs text-sky-400 hover:underline">
+            Полная библиотека →
+          </Link>
+        )}
       </div>
       {picks.length > 0 && (
         <ul className="space-y-1 max-h-40 overflow-y-auto">
@@ -1194,7 +1246,7 @@ function QuickAddFirstGame({ hostToken }: { hostToken: string }) {
   );
 }
 
-function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
+function AgentBindCodeCard({ hostToken, guided = false }: { hostToken: string; guided?: boolean }) {
   const [bindCode, setBindCode] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1234,6 +1286,59 @@ function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
   const expired =
     expiresAt != null && Date.now() > expiresAt;
 
+  const body = (
+    <div className="space-y-3" data-testid={guided ? "guided-bind-agent" : undefined}>
+      {bindCode && !expired ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <code
+            className="font-mono text-lg tracking-widest text-sky-300 px-3 py-1.5 rounded"
+            style={{
+              background: "rgba(14,165,233,0.08)",
+              border: "1px solid rgba(14,165,233,0.25)",
+            }}
+          >
+            {bindCode}
+          </code>
+          <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={copyCode}>
+            <Copy className="h-3 w-3" />
+            Копировать
+          </Button>
+          {expiresAt != null && (
+            <span className="text-xs text-slate-500">
+              действует{" "}
+              {formatDistanceToNow(new Date(expiresAt), { addSuffix: true, locale: ru })}
+            </span>
+          )}
+        </div>
+      ) : (
+        <p className="text-sm text-slate-500">
+          {expired
+            ? "Код истёк — создай новый."
+            : guided
+              ? "Нажми кнопку ниже — код действует короткое время."
+              : "Код ещё не создан. Действует короткое время и сгорает после использования."}
+        </p>
+      )}
+      <Button
+        size={guided ? "lg" : "sm"}
+        className={`gap-1.5 font-semibold ${guided ? "w-full sm:w-auto" : "h-8 text-xs"}`}
+        style={{ background: "#0ea5e9", color: "#fff" }}
+        onClick={() => void issueCode()}
+        disabled={loading}
+        data-testid="button-issue-bind-code"
+      >
+        {loading ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <RefreshCw className="h-3.5 w-3.5" />
+        )}
+        {bindCode && !expired ? "Выдать новый код" : "Получить код привязки"}
+      </Button>
+    </div>
+  );
+
+  if (guided) return body;
+
   return (
     <Card style={cardStyle}>
       <CardHeader className="pb-3">
@@ -1245,51 +1350,7 @@ function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
           Одноразовый код вместо долгоживущего токена — вставь его в агенте при привязке ключа.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {bindCode && !expired ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <code
-              className="font-mono text-lg tracking-widest text-sky-300 px-3 py-1.5 rounded"
-              style={{
-                background: "rgba(14,165,233,0.08)",
-                border: "1px solid rgba(14,165,233,0.25)",
-              }}
-            >
-              {bindCode}
-            </code>
-            <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={copyCode}>
-              <Copy className="h-3 w-3" />
-              Копировать
-            </Button>
-            {expiresAt != null && (
-              <span className="text-xs text-slate-500">
-                действует{" "}
-                {formatDistanceToNow(new Date(expiresAt), { addSuffix: true, locale: ru })}
-              </span>
-            )}
-          </div>
-        ) : (
-          <p className="text-sm text-slate-500">
-            {expired
-              ? "Код истёк — создай новый."
-              : "Код ещё не создан. Действует короткое время и сгорает после использования."}
-          </p>
-        )}
-        <Button
-          size="sm"
-          className="gap-1.5 h-8 text-xs font-semibold"
-          style={{ background: "#0ea5e9", color: "#fff" }}
-          onClick={() => void issueCode()}
-          disabled={loading}
-        >
-          {loading ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <RefreshCw className="h-3.5 w-3.5" />
-          )}
-          {bindCode && !expired ? "Выдать новый код" : "Получить код"}
-        </Button>
-      </CardContent>
+      <CardContent className="pt-0">{body}</CardContent>
     </Card>
   );
 }
@@ -1374,6 +1435,8 @@ export default function Dashboard() {
   const hasActiveSession = (sessions ?? []).some(
     (s) => s.status === "active" || s.status === "pending",
   );
+  const hasFirstStream = hasCompletedFirstStream(sessions);
+  const onboarding = !hasFirstStream;
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const agentNeedsAttention = agentNeedsAdvancedPanel(agent, heartbeat);
@@ -1477,7 +1540,9 @@ export default function Dashboard() {
           Дашборд хоста
         </h1>
         <p className="text-sm text-slate-500">
-          Пять шагов до приёма игроков — без лишних экранов.
+          {onboarding
+            ? "Одно следующее действие — до первого стрима"
+            : "Статистика, шаблоны и сессии"}
         </p>
       </div>
 
@@ -1489,11 +1554,14 @@ export default function Dashboard() {
           agentKeyBound={agentKeyBound}
           libraryCount={libraryCount}
           hasActiveSession={hasActiveSession}
+          hasFirstStream={hasFirstStream}
+          onTestStream={() => void handleTestSession()}
+          testLoading={testLoading}
         />
       )}
 
       {/* PC Specs card — shown only when the agent has reported specs */}
-      {pcSpecs && (
+      {!onboarding && pcSpecs && (
         <Card style={cardStyle}>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-white text-base">
@@ -1551,53 +1619,65 @@ export default function Dashboard() {
         onToggle={(e) => setAdvancedOpen((e.target as HTMLDetailsElement).open)}
       >
         <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-slate-400 hover:text-white select-none">
-          Расширенно — тест-сессия, привязка игры, квоты
+          {onboarding
+            ? "Если не работает — диагностика"
+            : "Расширенно — тест-сессия, привязка игры, квоты"}
         </summary>
         <div className="px-4 pb-4 space-y-4 border-t border-white/5 pt-4">
-          <div className="flex flex-col gap-2">
-            <div className="flex gap-2 flex-wrap">
-              <Input
-                placeholder="https://… или пусто"
-                value={testUrl}
-                onChange={(e) => setTestUrl(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !testLoading) void handleTestSession();
-                }}
-                className="w-64 text-sm"
-                style={{
-                  background: "#06090e",
-                  borderColor: "rgba(255,255,255,0.12)",
-                  color: "#fff",
-                }}
-                data-testid="input-test-url"
-              />
-              <Button
-                onClick={() => void handleTestSession()}
-                disabled={testLoading || !hostToken}
-                className="bg-violet-600 hover:bg-violet-500 text-white shrink-0"
-                data-testid="button-test-session"
-              >
-                <FlaskConical className="h-4 w-4 mr-2" />
-                {testLoading ? "Создаём..." : "Проверить самому"}
-              </Button>
+          {!onboarding && (
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2 flex-wrap">
+                <Input
+                  placeholder="https://… или пусто"
+                  value={testUrl}
+                  onChange={(e) => setTestUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !testLoading) void handleTestSession();
+                  }}
+                  className="w-64 text-sm"
+                  style={{
+                    background: "#06090e",
+                    borderColor: "rgba(255,255,255,0.12)",
+                    color: "#fff",
+                  }}
+                  data-testid="input-test-url"
+                />
+                <Button
+                  onClick={() => void handleTestSession()}
+                  disabled={testLoading || !hostToken}
+                  className="bg-violet-600 hover:bg-violet-500 text-white shrink-0"
+                  data-testid="button-test-session-advanced"
+                >
+                  <FlaskConical className="h-4 w-4 mr-2" />
+                  {testLoading ? "Создаём..." : "Проверить самому"}
+                </Button>
+              </div>
+              <p className="text-xs text-slate-500">
+                Тест-сессия для себя — не на критическом пути онбординга
+              </p>
             </div>
-            <p className="text-xs text-slate-500">
-              Тест-сессия для себя — не на критическом пути онбординга
-            </p>
-          </div>
+          )}
 
-          {hostToken && !agentKeyBound && <AgentBindCodeCard hostToken={hostToken} />}
+          {!onboarding && hostToken && !agentKeyBound && (
+            <AgentBindCodeCard hostToken={hostToken} />
+          )}
 
-          {hostToken && <BindingForm hostToken={hostToken} />}
+          {!onboarding && hostToken && <BindingForm hostToken={hostToken} />}
 
-          {agent.status !== "checking" && (
+          {!onboarding && agent.status !== "checking" && (
             <AgentStatusCard agent={agent} heartbeat={heartbeat} />
+          )}
+
+          {onboarding && agent.status !== "checking" && (
+            <AgentTroubleshootChecklist agent={agent} heartbeat={heartbeat} />
           )}
 
           {hostToken && <AgentEventsCard hostToken={hostToken} />}
         </div>
       </details>
 
+      {!onboarding && (
+      <>
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {[
@@ -1875,6 +1955,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+      </>
+      )}
 
       <Dialog
         open={!!endSessionId}
