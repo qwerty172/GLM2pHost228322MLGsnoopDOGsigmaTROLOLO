@@ -161,6 +161,22 @@ test("GET /readiness returns inputOk after probe injection (U-14)", async () => 
   assert.equal(injected[injected.length - 1].kind, "mousemove");
 });
 
+test("GET /diagnostics returns safe export without secrets (U-19)", async () => {
+  const countBefore = injected.length;
+  const res = await fetch(`${baseUrl}/diagnostics`, {
+    headers: { Origin: "http://localhost:5173" },
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.status, "ok");
+  assert.equal(body.version, "test-1");
+  assert.equal(body.inputOk, true);
+  assert.equal(typeof body.platform, "string");
+  assert.equal(body.secret, undefined);
+  assert.equal(body.token, undefined);
+  assert.equal(injected.length, countBefore + 1);
+});
+
 test("POST /pick-exe returns picked path when authorized", async () => {
   const pickServer = createPingServer({
     getInfo: async () => ({ version: "test-1", audioMode: "off" }),

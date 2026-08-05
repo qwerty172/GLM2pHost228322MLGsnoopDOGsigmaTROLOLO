@@ -3,6 +3,7 @@
 // Endpoints:
 //   GET  /ping         → { status, version, audioMode }  — dashboard presence check
 //   GET  /readiness    → { status, version, audioMode, inputOk } — full local probe (U-14)
+//   GET  /diagnostics  → { status, version, audioMode, port, inputOk, platform } — safe export (U-19)
 //   GET  /steam-games  → { games: [...] }                — local Steam installs with exe paths
 //   POST /input        → 204 | 400 | 401                 — relay InputEvent to SendInput
 //   POST /pick-exe     → { path } | { path: null }        — open native file dialog (.exe)
@@ -241,7 +242,8 @@ export function createPingServer(deps: PingServerDeps): http.Server {
 
     const isPing = req.url === "/ping";
     const isReadiness = req.url === "/readiness";
-    if (!isPing && !isReadiness) {
+    const isDiagnostics = req.url === "/diagnostics";
+    if (!isPing && !isReadiness && !isDiagnostics) {
       res.writeHead(404);
       res.end(JSON.stringify({ error: "not_found" }));
       return;
@@ -259,7 +261,7 @@ export function createPingServer(deps: PingServerDeps): http.Server {
       })
       .then((info) => {
         let inputOk = true;
-        if (isReadiness) {
+        if (isReadiness || isDiagnostics) {
           try {
             deps.injectInput({ kind: "mousemove", x: 0, y: 0 });
           } catch {
@@ -267,6 +269,21 @@ export function createPingServer(deps: PingServerDeps): http.Server {
           }
         }
         res.writeHead(200);
+        if (isDiagnostics) {
+          const port =
+            "port" in info && typeof info.port === "number" ? info.port : PING_PORT;
+          res.end(
+            JSON.stringify({
+              status: "ok",
+              version: info.version,
+              audioMode: info.audioMode,
+              port,
+              inputOk,
+              platform: process.platform,
+            }),
+          );
+          return;
+        }
         res.end(
           JSON.stringify(
             isReadiness ? { status: "ok", ...info, inputOk } : { status: "ok", ...info },

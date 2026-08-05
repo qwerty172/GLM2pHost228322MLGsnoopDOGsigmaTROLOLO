@@ -32,6 +32,9 @@ const {
   compareAgentVersions,
   evaluateAgentVersionCompatibility,
   isAgentVersionBlockingStream,
+  redactDiagnosticSecrets,
+  buildHostDiagnosticReport,
+  DIAGNOSTIC_REDACTED,
 } = await import("../src/pages/host/dashboard-helpers.ts");
 
 const offlineAgent = { status: "offline" };
@@ -467,4 +470,60 @@ test("buildLiveHostDiagnostics aggregates props into readiness snapshot (U-18)",
   });
   assert.equal(live.ready, true);
   assert.ok(live.checks.length >= 7);
+});
+
+test("redactDiagnosticSecrets strips tokens, URLs and personal paths (U-19)", () => {
+  const raw = JSON.stringify({
+    hostToken: "host-secret-token-abc",
+    playerToken: "player-secret-token-xyz",
+    link: "https://app.example/play/i/inviteCode12345",
+    path: "C:\\Users\\Ivan\\Games\\game.exe",
+    email: "user@example.com",
+    checks: [{ id: "api", ok: true }],
+  });
+  const redacted = redactDiagnosticSecrets(raw);
+  assert.doesNotMatch(redacted, /host-secret-token-abc/);
+  assert.doesNotMatch(redacted, /player-secret-token-xyz/);
+  assert.doesNotMatch(redacted, /inviteCode12345/);
+  assert.doesNotMatch(redacted, /Ivan/);
+  assert.doesNotMatch(redacted, /user@example.com/);
+  assert.match(redacted, /"api"/);
+  assert.match(redacted, /\[REDACTED\]/);
+});
+
+test("buildHostDiagnosticReport includes safe check codes without secrets (U-19)", () => {
+  const report = buildHostDiagnosticReport({
+    generatedAt: "2026-01-01T12:00:00.000Z",
+    readiness: {
+      ready: false,
+      headline: "Не готово",
+      nextFix: "Проверь агент",
+      checks: [
+        { id: "api", ok: true, label: "Связь с API" },
+        { id: "heartbeat", ok: false, label: "Heartbeat" },
+      ],
+    },
+    agent: onlineAgent,
+    heartbeat: staleHeartbeat,
+    agentKeyBound: true,
+    enabledGamesCount: 2,
+    hasActiveSession: false,
+    minSupportedAgentVersion: "0.1.0",
+    agentEvents: [
+      {
+        level: "error",
+        message: "token=super-secret bindCode=ABCDEF12",
+        agentVersion: "1.2.3",
+        createdAt: "2026-01-01T11:00:00.000Z",
+      },
+    ],
+    localProbe: { version: "1.2.3", audioMode: "off", inputOk: true, port: 18080 },
+  });
+  assert.match(report, /decentralhub-host-diagnostics\/1/);
+  assert.match(report, /"heartbeat"/);
+  assert.match(report, /"lastSeenAt"/);
+  assert.match(report, /"version": "1.2.3"/);
+  assert.doesNotMatch(report, /super-secret/);
+  assert.doesNotMatch(report, /ABCDEF12/);
+  assert.doesNotMatch(report, /hostToken/);
 });

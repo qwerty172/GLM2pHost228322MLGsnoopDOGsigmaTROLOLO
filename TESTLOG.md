@@ -15,6 +15,18 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-163 (2026-08-05 18:08 UTC) {#marathon-m-163}
+
+| Проверка | Результат |
+|---|---|
+| host-dashboard.test.mjs (U-19) | PASS — redactDiagnosticSecrets, buildHostDiagnosticReport |
+| node --test test/host-dashboard.test.mjs | PASS (31 tests) |
+| ping-server.test.mjs (U-19) | PASS — GET /diagnostics без секретов |
+
+**Изменения (U-19):** кнопка «Скопировать диагностику» в `HostDiagnosticsCard`; `buildHostDiagnosticReport` + `redactDiagnosticSecrets` в dashboard-helpers; агент `GET /diagnostics` для безопасного экспорта.
+
+**Следующий pick:** M-164 (U-22 лендинг без онлайн-хостов).
+
 ## Marathon M-162 (2026-08-05 17:55 UTC) {#marathon-m-162}
 
 | Проверка | Результат |

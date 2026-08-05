@@ -90,6 +90,7 @@ import {
   buildLiveHostDiagnostics,
   findFirstFailedDiagnosticAction,
   resolveHostDiagnosticAction,
+  buildHostDiagnosticReport,
   getAgentEventLevelStyle,
   buildPlayerPlayLink,
   resolveTestSessionOpenTarget,
@@ -1062,6 +1063,20 @@ function HostDiagnosticsCard({
   const [checking, setChecking] = useState(false);
   const [probed, setProbed] = useState(false);
   const [result, setResult] = useState<HostReadinessResult | null>(null);
+  const [localProbe, setLocalProbe] = useState<{
+    version?: string;
+    audioMode?: string;
+    inputOk?: boolean;
+    port?: number;
+  } | null>(null);
+
+  const { data: agentEvents } = useGetHostAgentEvents(hostToken, {
+    query: {
+      enabled: !!hostToken,
+      queryKey: getGetHostAgentEventsQueryKey(hostToken),
+      refetchInterval: 30_000,
+    },
+  });
 
   const agentForLive =
     agent.status === "checking" ? ({ status: "offline" } as AgentState) : agent;
@@ -1114,6 +1129,17 @@ function HostDiagnosticsCard({
       const localInputOk = localProbe?.inputOk === true;
       const ack = readHostGoOnlineAck();
 
+      if (localProbe) {
+        setLocalProbe({
+          version: localProbe.version,
+          audioMode: localProbe.audioMode,
+          inputOk: localProbe.inputOk,
+          port: localProbe.port,
+        });
+      } else {
+        setLocalProbe(null);
+      }
+
       const heartbeatForEval: HeartbeatState = serverHeartbeatFresh
         ? heartbeat.status === "fresh"
           ? heartbeat
@@ -1157,6 +1183,30 @@ function HostDiagnosticsCard({
   useEffect(() => {
     void runCheck(false);
   }, [hostToken]);
+
+  const handleCopyDiagnostics = () => {
+    const report = buildHostDiagnosticReport({
+      generatedAt: new Date().toISOString(),
+      readiness: display,
+      agent: agentForLive,
+      heartbeat,
+      agentKeyBound,
+      enabledGamesCount: libraryCount,
+      hasActiveSession,
+      minSupportedAgentVersion,
+      agentEvents: (agentEvents ?? []).map((e) => ({
+        level: e.level,
+        message: localizeAgentEventMessage(e.message),
+        agentVersion: e.agentVersion,
+        createdAt: e.createdAt,
+      })),
+      localProbe,
+    });
+    void navigator.clipboard.writeText(report).then(
+      () => toast.success("Диагностика скопирована — без токенов и паролей"),
+      () => toast.error("Не удалось скопировать"),
+    );
+  };
 
   const handleDiagnosticAction = () => {
     if (!failedAction) return;
@@ -1209,17 +1259,29 @@ function HostDiagnosticsCard({
               API, агент, привязка, игра и сессия — одна проверка и одно действие при проблеме.
             </CardDescription>
           </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-8 gap-1.5 text-xs text-slate-400 hover:text-white shrink-0"
-            onClick={() => void runCheck(true)}
-            disabled={checking}
-            data-testid="button-refresh-host-diagnostics"
-          >
-            <RefreshCw className={`h-3 w-3 ${checking ? "animate-spin" : ""}`} />
-            Обновить
-          </Button>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 gap-1.5 text-xs text-slate-400 hover:text-white"
+              onClick={handleCopyDiagnostics}
+              data-testid="button-copy-host-diagnostics"
+            >
+              <Copy className="h-3 w-3" />
+              Скопировать диагностику
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 gap-1.5 text-xs text-slate-400 hover:text-white"
+              onClick={() => void runCheck(true)}
+              disabled={checking}
+              data-testid="button-refresh-host-diagnostics"
+            >
+              <RefreshCw className={`h-3 w-3 ${checking ? "animate-spin" : ""}`} />
+              Обновить
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4 pt-0">

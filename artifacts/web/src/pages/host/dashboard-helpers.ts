@@ -698,6 +698,125 @@ export function buildLiveHostDiagnostics(opts: {
   });
 }
 
+/** Placeholder for secrets stripped from diagnostic exports (U-19). */
+export const DIAGNOSTIC_REDACTED = "[REDACTED]";
+
+/**
+ * Removes tokens, credentials and personal data from diagnostic text (U-19).
+ * Safe to run on JSON.stringify output before clipboard copy.
+ */
+export function redactDiagnosticSecrets(text: string): string {
+  let out = text;
+
+  out = out.replace(/Bearer\s+[A-Za-z0-9._\-+/=]+/gi, `Bearer ${DIAGNOSTIC_REDACTED}`);
+
+  out = out.replace(
+    /"(hostToken|playerToken|password|bindCode|secret|authorization|apiKey|accessToken|refreshToken)"\s*:\s*"[^"]*"/gi,
+    `"$1":"${DIAGNOSTIC_REDACTED}"`,
+  );
+
+  out = out.replace(
+    /([?&](token|code|secret|password|invite|bind|key)=)[^&\s"']+/gi,
+    `$1${DIAGNOSTIC_REDACTED}`,
+  );
+
+  out = out.replace(
+    /\b(token|bindCode|password|secret|code)=([^\s"',}]+)/gi,
+    `$1=${DIAGNOSTIC_REDACTED}`,
+  );
+
+  out = out.replace(/\/play\/(?:i\/)?[A-Za-z0-9_-]{6,}/g, `/play/${DIAGNOSTIC_REDACTED}`);
+
+  out = out.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, DIAGNOSTIC_REDACTED);
+
+  out = out.replace(
+    /[A-Z]:(?:\\{1,2})Users(?:\\{1,2})[^"']+/gi,
+    `C:\\\\Users\\\\${DIAGNOSTIC_REDACTED}`,
+  );
+
+  out = out.replace(/\b[A-Za-z0-9+/=_-]{40,}\b/g, DIAGNOSTIC_REDACTED);
+
+  return out;
+}
+
+export type HostDiagnosticAgentEvent = {
+  level: string;
+  message: string;
+  agentVersion?: string | null;
+  createdAt: string;
+};
+
+export type HostDiagnosticReportInput = {
+  generatedAt: string;
+  readiness: HostReadinessResult;
+  agent: AgentState;
+  heartbeat: HeartbeatState;
+  agentKeyBound: boolean;
+  enabledGamesCount: number;
+  hasActiveSession: boolean;
+  minSupportedAgentVersion?: string;
+  agentEvents?: HostDiagnosticAgentEvent[];
+  localProbe?: {
+    version?: string;
+    audioMode?: string;
+    inputOk?: boolean;
+    port?: number;
+  } | null;
+};
+
+/** Builds a clipboard-safe JSON diagnostic report (U-19). */
+export function buildHostDiagnosticReport(opts: HostDiagnosticReportInput): string {
+  const agentBlock =
+    opts.agent.status === "online"
+      ? {
+          status: "online" as const,
+          version: opts.agent.version,
+          audioMode: opts.agent.audioMode,
+          port: opts.agent.port,
+        }
+      : { status: opts.agent.status };
+
+  const heartbeatBlock =
+    opts.heartbeat.status === "fresh" || opts.heartbeat.status === "stale"
+      ? { status: opts.heartbeat.status, lastSeenAt: opts.heartbeat.lastSeenAt }
+      : { status: opts.heartbeat.status };
+
+  const payload = {
+    schema: "decentralhub-host-diagnostics/1",
+    generatedAt: opts.generatedAt,
+    summary: {
+      ready: opts.readiness.ready,
+      headline: opts.readiness.headline,
+      nextFix: opts.readiness.nextFix,
+    },
+    versions: {
+      agent: opts.agent.status === "online" ? opts.agent.version : null,
+      minSupportedAgent: opts.minSupportedAgentVersion ?? null,
+    },
+    heartbeat: heartbeatBlock,
+    agent: agentBlock,
+    flags: {
+      agentKeyBound: opts.agentKeyBound,
+      enabledGamesCount: opts.enabledGamesCount,
+      hasActiveSession: opts.hasActiveSession,
+    },
+    checks: opts.readiness.checks.map((c) => ({
+      id: c.id,
+      ok: c.ok,
+      label: c.label,
+    })),
+    localProbe: opts.localProbe ?? null,
+    recentAgentEvents: (opts.agentEvents ?? []).slice(0, 8).map((e) => ({
+      level: e.level,
+      message: e.message,
+      at: e.createdAt,
+      agentVersion: e.agentVersion ?? null,
+    })),
+  };
+
+  return redactDiagnosticSecrets(JSON.stringify(payload, null, 2));
+}
+
 /** Download a personalized host-agent ZIP (Bearer token via customFetch). */
 export async function downloadHostAgentBundle(): Promise<void> {
   const blob = await downloadHostAgentZip();

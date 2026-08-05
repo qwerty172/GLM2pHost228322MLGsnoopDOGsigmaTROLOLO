@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 18:00 UTC|
-| Task ID | M-162|
-| Результат | U-18: HostDiagnosticsCard — единая диагностика API/агент/привязка/игра/сессия; host-dashboard.test.mjs PASS (29)|
+| Дата | 2026-08-05 18:11 UTC|
+| Task ID | M-163|
+| Результат | U-19: Скопировать диагностику — redactDiagnosticSecrets, buildHostDiagnosticReport, GET /diagnostics; host-dashboard.test.mjs PASS (31), ping-server.test.mjs PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -494,7 +494,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-159 | R | UX U-15 (P1): Версия агента берётся из сборки, а не из захардкоженной стро | `artifacts/host-agent/src/main/index.ts` | r:U-15 | done | agent |
 | M-161 | R | UX U-17 (P1): Несовместимая версия агента объясняется до запуска стрима | `routes/hosts.ts` | r:U-17 | done | agent |
 | M-162 | R | UX U-18 (P1): Единая карточка диагностики вместо разрозненных heartbeat и  | `pages/host/dashboard.tsx` | r:U-18 | done | agent |
-| M-163 | R | UX U-19 (P1): Диагностический отчёт копируется одной кнопкой без секретов | `pages/host/dashboard.tsx` | r:U-19 | pending | agent |
+| M-163 | R | UX U-19 (P1): Диагностический отчёт копируется одной кнопкой без секретов | `pages/host/dashboard.tsx` | r:U-19 | done | agent |
 | M-164 | R | UX U-22 (P1): Лендинг не прячет блок, когда онлайн-хостов нет | `pages/landing.tsx` | r:U-22 | pending | agent |
 | M-165 | R | UX U-23 (P1): Выбор игры у хоста — раскрывающийся список вместо модалки | `pages/hosts.tsx` | r:U-23 | pending | agent |
 | M-166 | R | UX U-24 (P1): Один экран подготовки сессии вместо модалки и дубля на `/pla | `pages/game-detail.tsx` | r:U-24 | pending | agent |
