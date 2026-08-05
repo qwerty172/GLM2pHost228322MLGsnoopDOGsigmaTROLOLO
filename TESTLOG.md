@@ -15,14 +15,15 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
-## Marathon M-157 (2026-08-05 15:10 UTC) {#marathon-m-157}
+## Marathon M-157 (2026-08-05 15:11 UTC) {#marathon-m-157}
 
 | Проверка | Результат |
 |---|---|
 | install-u12.test.mjs | PASS |
+| downloads.test.ts (U-12) | PASS — INSTALL.txt в ZIP без ручного копипаста токена |
 | pnpm typecheck | PASS |
 
-**Изменения (U-12):** `INSTALL.txt` приведён к потоку дашборда после U-01/U-02 — скачать ZIP с дашборда, `start.bat`, автоматический вход («Вход выполнен»), добавить игру в библиотеку, «Выйти в онлайн»; убраны устаревшие шаги с ручным копированием токена.
+**Изменения (U-12):** INSTALL.txt и подсказки дашборда описывают один 5-шаговый поток (ZIP с дашборда → start.bat → агент онлайн → игра → тест-стрим); токен вшит в архив; downloads.ts берёт INSTALL.txt из `artifacts/host-agent/` вместо дублирующего inline-текста.
 
 **Следующий pick:** M-158 (U-33 порты файрвола).
 
