@@ -1,8 +1,17 @@
 import path from "node:path";
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import archiver from "archiver";
 import { logger } from "../lib/logger";
+
+/** Public platform origin for bundled host-agent config (U-01). */
+export function resolveApiBaseUrl(req: Request): string {
+  const forwardedProto = req.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const proto = forwardedProto || req.protocol || "https";
+  const forwardedHost = req.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const host = forwardedHost || req.get("host") || "localhost";
+  return `${proto}://${host}`.replace(/\/$/, "");
+}
 
 const router: IRouter = Router();
 
@@ -313,6 +322,11 @@ router.get("/downloads/host-agent.zip", (req, res): void => {
 
   archive.append(START_BAT, { name: "start.bat" });
   archive.append(INSTALL_TXT, { name: "INSTALL.txt" });
+
+  const apiBaseUrl = resolveApiBaseUrl(req);
+  archive.append(JSON.stringify({ apiBaseUrl }, null, 2) + "\n", {
+    name: "config.json",
+  });
 
   archive.finalize().catch((err) => {
     logger.error({ err }, "archiver finalize failed");

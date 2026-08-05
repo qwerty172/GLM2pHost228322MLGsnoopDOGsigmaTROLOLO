@@ -12,9 +12,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 12:51 UTC|
-| Task ID | M-135|
-| Результат | link.test.ts: 5 тестов (startLinkFlow, confirmLinkToken). node:test PASS.|
+| Дата | 2026-08-05 13:05 UTC|
+| Task ID | M-140|
+| Результат | U-01: config.json в ZIP с apiBaseUrl; bundled config в агенте; UI предзаполнение. downloads.test 6 PASS, bundled-config 2 PASS.|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -447,7 +447,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-133 | P | api-server routes: unit-тест (wallet.ts) | `routes/wallet.ts` | p:artifacts/api-server/src/routes/wallet.ts | done | agent |
 | M-134 | Q | auth-verifier: unit-тест (challenge.ts) | `auth-verifier/challenge.ts` | q:lib/auth-verifier/src/challenge.ts | done | agent |
 | M-135 | Q | auth-verifier: unit-тест (link.ts) | `auth-verifier/link.ts` | q:lib/auth-verifier/src/link.ts | done | agent |
-| M-140 | R | UX U-01 (P0): Platform URL в агенте заполняется сам — не вводить руками | `routes/downloads.ts` | r:U-01 | pending | agent |
+| M-140 | R | UX U-01 (P0): Platform URL в агенте заполняется сам — не вводить руками | `routes/downloads.ts` | r:U-01 | done | agent |
 | M-141 | R | UX U-02 (P0): Токен хоста вшит в скачиваемый агент — ноль копипаста | `routes/downloads.ts` | r:U-02 | pending | agent |
 | M-142 | R | UX U-03 (P0): «Выйти в онлайн» на главном экране агента, не в свёрнутых на | `renderer/*.ts` | r:U-03 | pending | agent |
 | M-143 | R | UX U-04 (P0): Выбор `.exe` через файловый диалог вместо ручного пути | `pages/host/library.tsx` | r:U-04 | pending | agent |

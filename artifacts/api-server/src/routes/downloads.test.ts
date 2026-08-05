@@ -31,7 +31,7 @@ const AGENT_DIR = path.resolve(
 const DIST_DIR = path.join(AGENT_DIR, "dist");
 const hadDistBefore = existsSync(DIST_DIR);
 
-const { default: downloadsRouter } = await import("./downloads");
+const { default: downloadsRouter, resolveApiBaseUrl } = await import("./downloads");
 
 let baseUrl = "";
 let server: Server;
@@ -98,6 +98,32 @@ beforeEach(() => {
   delete process.env.HOST_AGENT_EXE_URL;
 });
 
+describe("resolveApiBaseUrl", () => {
+  it("uses request host and protocol", () => {
+    const req = {
+      protocol: "http",
+      get(name: string) {
+        if (name === "host") return "127.0.0.1:5000";
+        return undefined;
+      },
+    };
+    expect(resolveApiBaseUrl(req as never)).toBe("http://127.0.0.1:5000");
+  });
+
+  it("prefers x-forwarded headers behind a proxy", () => {
+    const req = {
+      protocol: "http",
+      get(name: string) {
+        if (name === "x-forwarded-proto") return "https,http";
+        if (name === "x-forwarded-host") return "gaming.example.com,internal";
+        if (name === "host") return "127.0.0.1:5000";
+        return undefined;
+      },
+    };
+    expect(resolveApiBaseUrl(req as never)).toBe("https://gaming.example.com");
+  });
+});
+
 describe("GET /downloads/host-agent.exe", () => {
   it("returns 503 when HOST_AGENT_EXE_URL is not configured", async () => {
     const res = await request("GET", "/downloads/host-agent.exe");
@@ -153,6 +179,7 @@ describe("GET /downloads/host-agent.zip", () => {
     expect(res.buffer.subarray(0, 2).toString("utf8")).toBe("PK");
     expect(res.buffer.includes(Buffer.from("start.bat"))).toBe(true);
     expect(res.buffer.includes(Buffer.from("INSTALL.txt"))).toBe(true);
+    expect(res.buffer.includes(Buffer.from("config.json"))).toBe(true);
     expect(res.buffer.includes(Buffer.from("package.json"))).toBe(true);
   });
 });

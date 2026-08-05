@@ -35,6 +35,24 @@ function configPath(): string {
   return path.join(app.getPath("userData"), "config.json");
 }
 
+function bundledConfigPath(): string {
+  return path.join(app.getAppPath(), "config.json");
+}
+
+async function loadBundledDefaults(): Promise<Partial<HostConfig>> {
+  try {
+    const buf = await fs.readFile(bundledConfigPath(), "utf-8");
+    const parsed = JSON.parse(buf) as Partial<HostConfig>;
+    const out: Partial<HostConfig> = {};
+    if (typeof parsed.apiBaseUrl === "string" && parsed.apiBaseUrl.trim()) {
+      out.apiBaseUrl = parsed.apiBaseUrl.trim();
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 function encryptToken(plain: string): string | null {
   if (!plain) return null;
   try {
@@ -83,11 +101,15 @@ function toDiskPayload(cfg: HostConfig): StoredConfigFile {
 
 export async function loadConfig(): Promise<HostConfig> {
   if (cached) return cached;
+  const bundled = await loadBundledDefaults();
   try {
     const buf = await fs.readFile(configPath(), "utf-8");
     const parsed = JSON.parse(buf) as StoredConfigFile;
     const hostToken = resolveHostToken(parsed);
-    cached = { ...DEFAULTS, ...parsed, hostToken };
+    cached = { ...DEFAULTS, ...bundled, ...parsed, hostToken };
+    if (!cached.apiBaseUrl?.trim() && bundled.apiBaseUrl) {
+      cached.apiBaseUrl = bundled.apiBaseUrl;
+    }
     // Drop disk-only fields from runtime object.
     delete (cached as StoredConfigFile).hostTokenEnc;
     delete (cached as StoredConfigFile).hostTokenProtected;
@@ -101,7 +123,7 @@ export async function loadConfig(): Promise<HostConfig> {
       await persist(cached);
     }
   } catch {
-    cached = { ...DEFAULTS };
+    cached = { ...DEFAULTS, ...bundled };
   }
   return cached;
 }
@@ -123,4 +145,9 @@ export async function saveConfig(next: HostConfig): Promise<HostConfig> {
 
 export function getCachedConfig(): HostConfig | null {
   return cached;
+}
+
+/** Clears in-memory cache (used by unit tests and after bundled config updates). */
+export function resetConfigCache(): void {
+  cached = null;
 }

@@ -41,9 +41,18 @@ Platform URL / токена / пути к `.exe`, «Выйти в онлайн»
 | flip всех P0 → done | всплывают P1/P2 (16 задач) |
 | --sync-marathon | M-140…M-151, next pick = M-140 (U-01) |
 
-**Следующий pick:** M-140 — Platform URL в агенте заполняется сам.
+**Следующий pick:** M-141 — Токен хоста вшит в скачиваемый агент.
 
-## Marathon efficiency v3 — разбор 1000+ runs (2026-08-05 09:35 UTC) {#marathon-efficiency-v3}
+## M-140 — Platform URL автозаполнение (2026-08-05 13:05 UTC) {#marathon-m140}
+
+| Проверка | Результат |
+|---|---|
+| downloads.test.ts | 6 тестов — resolveApiBaseUrl, config.json в ZIP |
+| bundled-config.test.mjs | 2 теста — bundled config.json → apiBaseUrl, user override |
+| host-agent typecheck | PASS |
+
+**Изменения:** ZIP `/api/downloads/host-agent.zip` включает `config.json` с `apiBaseUrl` текущего домена; агент читает bundled config при первом запуске; поле Platform URL предзаполняется в UI.
+
 
 **Аудит:** 541 PR (529 unmerged), 519 marathon-веток, 479 marathon-коммитов в main только за 03.08.
 
