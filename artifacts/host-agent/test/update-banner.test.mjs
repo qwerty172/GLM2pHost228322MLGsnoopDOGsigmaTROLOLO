@@ -7,7 +7,7 @@ setupRendererEnv();
 const { initUpdateBanner } = await import("../dist/renderer/renderer/update-banner.js");
 
 test("initUpdateBanner shows Russian banner and install button on update-ready", () => {
-  let readyCb: (() => void) | null = null;
+  let readyCb = null;
   window.agent.onUpdateReady = (cb) => {
     readyCb = cb;
     return () => {
@@ -29,7 +29,7 @@ test("initUpdateBanner shows Russian banner and install button on update-ready",
   assert.match(banner.querySelector(".update-ready-text").textContent, /Обновление готово/);
   assert.equal(btn.textContent, "Перезапустить и обновить");
 
-  readyCb?.();
+  readyCb();
   assert.equal(banner.hidden, false);
 
   btn.click();

@@ -95,6 +95,8 @@ declare global {
       quotaGetState: () => Promise<{ statusText: string; attachedQuotaId: string | null; attachedQuotaTitle: string | null; hasAttached: boolean }>;
       saveSyncPull: (req: SaveSyncRequest) => Promise<SaveSyncResult>;
       saveSyncPush: (req: SaveSyncRequest) => Promise<SaveSyncResult>;
+      onUpdateReady: (cb: () => void) => () => void;
+      installUpdate: () => Promise<void>;
     };
   }
 }
