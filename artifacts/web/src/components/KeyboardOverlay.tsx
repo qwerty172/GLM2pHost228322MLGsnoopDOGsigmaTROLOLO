@@ -112,18 +112,28 @@ export const KEYBOARD_PRESETS: Record<PresetName, { label: string; buttons: KeyB
   },
 };
 
-const STORAGE_KEY = "keyboardOverlayLayout_v1";
+export const KEYBOARD_OVERLAY_STORAGE_KEY = "keyboardOverlayLayout_v1";
 
-function loadLayout(): { preset: PresetName; buttons: KeyButton[] } {
+export function loadKeyboardOverlayLayout(): { preset: PresetName; buttons: KeyButton[] } {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(KEYBOARD_OVERLAY_STORAGE_KEY);
     if (raw) return JSON.parse(raw) as { preset: PresetName; buttons: KeyButton[] };
   } catch { /* ignore */ }
   return { preset: "wasd", buttons: structuredClone(KEYBOARD_PRESETS.wasd.buttons) };
 }
 
+export function saveKeyboardOverlayLayout(preset: PresetName, buttons: KeyButton[]) {
+  try {
+    localStorage.setItem(KEYBOARD_OVERLAY_STORAGE_KEY, JSON.stringify({ preset, buttons }));
+  } catch { /* ignore */ }
+}
+
+function loadLayout(): { preset: PresetName; buttons: KeyButton[] } {
+  return loadKeyboardOverlayLayout();
+}
+
 function saveLayout(preset: PresetName, buttons: KeyButton[]) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ preset, buttons })); } catch { /* ignore */ }
+  saveKeyboardOverlayLayout(preset, buttons);
 }
 
 // ── Individual draggable key button ───────────────────────────────────────────
