@@ -50,24 +50,32 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 - Node.js 20+
 - pnpm 9+
-- PostgreSQL 16
+- Docker (рекомендуется) **или** PostgreSQL 16 вручную
 - Git Bash / WSL (для Windows) или Linux/macOS
 
-### Клонирование
+### Самый быстрый путь (рекомендуется)
+
+Нужны только Node, pnpm и Docker — PostgreSQL ставится автоматически:
 
 ```bash
-git clone https://github.com/qwerty172/glm2phost228322mlgsnoopdogsigmatrololo.git decentral-hub
+git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git decentral-hub
 cd decentral-hub
+
+chmod +x scripts/*.sh
+./scripts/bootstrap.sh    # Docker Postgres+Redis, .env, install, db push
+./scripts/dev-local.sh    # или: pnpm dev
+./scripts/smoke-api.sh
 ```
 
-### Первичная настройка
+Открой http://localhost:5000 → **«Попробовать демо»** — браузерный хост Rogue Fable III без Windows-агента.
+
+### Первичная настройка (без Docker)
 
 **Windows (cmd или двойной клик):**
 
 ```bat
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
 copy .env.example .env
 notepad .env
 scripts\setup-local.bat
@@ -79,7 +87,6 @@ scripts\dev-local.bat
 ```bash
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
 cp .env.example .env
 # отредактируй DATABASE_URL
 

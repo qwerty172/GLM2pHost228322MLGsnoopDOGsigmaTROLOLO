@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Play,
   Server,
+  Rocket,
   Bell,
 } from "lucide-react";
 import { useState } from "react";
@@ -25,9 +26,15 @@ import {
   getListGamesQueryKey,
   useListPublicHosts,
   getListPublicHostsQueryKey,
+  useCreateBrowserHostSession,
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { formatApiError } from "@/lib/api-errors";
+import {
+  HOST_TOKEN_STORAGE_PREFIX,
+  BROWSER_HOST_URL_STORAGE_PREFIX,
+} from "@/pages/games-helpers";
 import {
   formatInt,
   formatUsd,
@@ -38,6 +45,7 @@ import {
   pickBestPlayableHost,
   resolvePlayNowInvitePath,
   PLAY_NOW_FALLBACK_HREF,
+  findBrowserHostDemoGame,
 } from "@/pages/landing-helpers";
 
 type LiveHost = {
@@ -66,7 +74,8 @@ export default function Landing() {
   const [shareLink, setShareLink] = useState("");
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [, navigate] = useLocation();
-  const { playerWalletToken, registerGuest } = usePlayerWallet();
+  const { playerWalletToken, registerGuest, isRegistering } = usePlayerWallet();
+  const createBrowserHost = useCreateBrowserHostSession();
   const { data: liveHosts } = useLiveHosts();
   const { data: stats } = useGetPublicStats({
     query: {
@@ -105,6 +114,31 @@ export default function Landing() {
   const playableHosts = filterPlayableHosts(liveHosts);
   const bestPlayableHost = pickBestPlayableHost(liveHosts);
   const playNowPath = resolvePlayNowInvitePath(bestPlayableHost);
+  const demoGame = findBrowserHostDemoGame(catalogGames);
+
+  const handleTryDemo = async () => {
+    if (!demoGame) return;
+    if (!playerWalletToken) {
+      toast.error("Создаём кошелёк, попробуй ещё раз через секунду");
+      void registerGuest();
+      return;
+    }
+    try {
+      const res = await createBrowserHost.mutateAsync({
+        data: { playerWalletToken, gameSlug: demoGame.slug },
+      });
+      try {
+        localStorage.setItem(HOST_TOKEN_STORAGE_PREFIX + res.session.id, res.hostToken);
+        localStorage.setItem(
+          BROWSER_HOST_URL_STORAGE_PREFIX + res.session.id,
+          res.browserHostUrl,
+        );
+      } catch { /* ignore */ }
+      navigate(`/host/play/${res.session.id}`);
+    } catch (err) {
+      toast.error(formatApiError(err, "Не удалось запустить демо"));
+    }
+  };
 
   const handleHeroPlayNow = () => {
     if (!playNowPath) {
@@ -192,6 +226,18 @@ export default function Landing() {
               <Play className="w-3.5 h-3.5 mr-1.5" />
               {playNowPath ? "Играть сейчас" : "Смотреть каталог"}
             </Button>
+            {demoGame && (
+              <Button
+                variant="outline"
+                className="h-9 px-5 text-sm font-semibold rounded-md border-teal-500/30 text-teal-300 hover:text-white hover:bg-teal-500/10"
+                onClick={() => void handleTryDemo()}
+                disabled={createBrowserHost.isPending || isRegistering}
+                data-testid="button-try-demo-hero"
+              >
+                <Rocket className="w-3.5 h-3.5 mr-1.5" />
+                {createBrowserHost.isPending ? "Запуск…" : "Попробовать демо"}
+              </Button>
+            )}
             <Link href="/host">
               <Button
                 variant="ghost"
@@ -355,8 +401,21 @@ export default function Landing() {
                   загляни в каталог
                 </span>
               </Link>
-              .
+              {demoGame ? " или запусти демо без агента." : "."}
             </p>
+            {demoGame && (
+              <Button
+                size="sm"
+                className="mt-3 h-8 px-4 text-xs font-semibold rounded-md"
+                style={{ background: "#14b8a6", color: "#fff" }}
+                onClick={() => void handleTryDemo()}
+                disabled={createBrowserHost.isPending || isRegistering}
+                data-testid="button-try-demo-empty-shelf"
+              >
+                <Rocket className="w-3 h-3 mr-1.5" />
+                {createBrowserHost.isPending ? "Запуск…" : `Попробовать ${demoGame.title ?? "демо"}`}
+              </Button>
+            )}
             <button
               type="button"
               className="mt-4 inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md transition-colors"

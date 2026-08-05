@@ -14,6 +14,8 @@ const {
   pickBestPlayableHost,
   resolvePlayNowInvitePath,
   PLAY_NOW_FALLBACK_HREF,
+  DEMO_BROWSER_GAME_SLUG,
+  findBrowserHostDemoGame,
 } = await import("../src/pages/landing-helpers.ts");
 
 test("LZT_PER_USD is stable", () => {
@@ -127,4 +129,23 @@ test("resolvePlayNowInvitePath builds /play/i path", () => {
 
 test("PLAY_NOW_FALLBACK_HREF points to games catalog", () => {
   assert.equal(PLAY_NOW_FALLBACK_HREF, "/games");
+});
+
+test("DEMO_BROWSER_GAME_SLUG is rogue-fable-3", () => {
+  assert.equal(DEMO_BROWSER_GAME_SLUG, "rogue-fable-3");
+});
+
+test("findBrowserHostDemoGame prefers canonical demo slug", () => {
+  const games = [
+    { slug: "other", browserHostUrl: "games/x" },
+    { slug: DEMO_BROWSER_GAME_SLUG, browserHostUrl: "games/rf3/index.html", title: "Rogue Fable III" },
+  ];
+  const demo = findBrowserHostDemoGame(games);
+  assert.equal(demo?.slug, DEMO_BROWSER_GAME_SLUG);
+});
+
+test("findBrowserHostDemoGame falls back to any browser-host game", () => {
+  assert.equal(findBrowserHostDemoGame([{ slug: "x", browserHostUrl: "games/x" }])?.slug, "x");
+  assert.equal(findBrowserHostDemoGame([{ slug: "y", browserHostUrl: null }]), null);
+  assert.equal(findBrowserHostDemoGame(null), null);
 });

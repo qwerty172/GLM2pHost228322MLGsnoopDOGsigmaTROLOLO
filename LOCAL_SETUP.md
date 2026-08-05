@@ -50,10 +50,21 @@ CREATE DATABASE decentral_hub;
 
 ## Быстрый старт (Windows)
 
+**С Docker (рекомендуется):**
+
 ```bat
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
+scripts\bootstrap.bat
+scripts\dev-local.bat
+scripts\smoke-api.bat
+```
+
+**Без Docker — PostgreSQL вручную:**
+
+```bat
+git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
+cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
 
 copy .env.example .env
 notepad .env
@@ -75,15 +86,29 @@ scripts\smoke-api.bat
 |---|---|
 | Web | http://localhost:5000 |
 | API health | http://localhost:8080/api/healthz |
+| Демо | Главная → **Попробовать демо** (без Windows-агента) |
 
 ---
 
 ## Быстрый старт (Git Bash / Linux / macOS)
 
+**С Docker (рекомендуется):**
+
 ```bash
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
+
+chmod +x scripts/*.sh
+./scripts/bootstrap.sh
+./scripts/dev-local.sh
+./scripts/smoke-api.sh
+```
+
+**Без Docker:**
+
+```bash
+git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
+cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
 
 cp .env.example .env
 # отредактируй DATABASE_URL
