@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-156 (2026-08-05 15:04 UTC) {#marathon-m-156}
+
+| Проверка | Результат |
+|---|---|
+| host-agent build | PASS |
+| host-agent test suite | PASS (library, connect-events, ui и др.) |
+
+**Изменения (U-11):** весь пользовательский интерфейс агента переведён на русский — `index.html`, статусы сессии, библиотека, Steam-скан, настройки, журнал событий; технические идентификаторы (hostToken, file_not_found и т.п.) не переводились.
+
+**Следующий pick:** M-157 (U-12 INSTALL.txt и подсказки дашборда).
+
 ## Marathon M-155 (2026-08-05 14:55 UTC) {#marathon-m-155}
 
 | Проверка | Результат |

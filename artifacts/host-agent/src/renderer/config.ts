@@ -25,12 +25,12 @@ export async function refreshCaptureSources(selected: string): Promise<void> {
   try {
     sources = await window.agent.getCaptureSources();
   } catch (err) {
-    log(`Could not enumerate capture sources: ${String(err)}`);
+    log(`Не удалось получить список источников захвата: ${String(err)}`);
   }
   sel.innerHTML = "";
   const auto = document.createElement("option");
   auto.value = "";
-  auto.textContent = "(auto — match launched app, else primary screen)";
+  auto.textContent = "(авто — окно запущенной игры, иначе основной экран)";
   sel.appendChild(auto);
   for (const s of sources) {
     const opt = document.createElement("option");

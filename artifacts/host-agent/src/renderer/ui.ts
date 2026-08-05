@@ -11,10 +11,10 @@ export function setStatus(status: AgentStatus, message?: string): void {
   statusText.textContent =
     message ??
     {
-      idle: "Idle — waiting for player",
-      connecting: "Connecting…",
-      streaming: "Streaming",
-      error: "Error",
+      idle: "Ожидание — ждём игрока",
+      connecting: "Подключение…",
+      streaming: "Идёт стрим",
+      error: "Ошибка",
     }[status];
   window.agent.setStatus(status, message);
 }

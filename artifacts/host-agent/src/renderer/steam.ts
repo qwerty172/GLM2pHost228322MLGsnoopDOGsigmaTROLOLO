@@ -139,10 +139,10 @@ function renderSteamTab(tab: SteamTab): void {
     empty.style.padding = "16px 0";
     empty.textContent =
       tab === "catalog"
-        ? "No installed Steam games found in the platform catalog."
+        ? "Установленные игры Steam не найдены в каталоге платформы."
         : tab === "new"
-          ? "No installed games outside the catalog. All are already listed!"
-          : "No games added yet.";
+          ? "Нет установленных игр вне каталога — все уже добавлены!"
+          : "Пока ничего не добавлено.";
     steamGameList.appendChild(empty);
     updateSteamActionButtons();
     return;
@@ -199,13 +199,13 @@ function renderSteamTab(tab: SteamTab): void {
     badge.className = "steam-badge";
     if (game.alreadyInLibrary) {
       badge.classList.add("already-added");
-      badge.textContent = "✔ Added";
+      badge.textContent = "✔ Добавлена";
     } else if (game.catalogGame) {
       badge.classList.add("in-catalog");
-      badge.textContent = "In catalog";
+      badge.textContent = "В каталоге";
     } else {
       badge.classList.add("not-in-catalog");
-      badge.textContent = "Not listed";
+      badge.textContent = "Не в каталоге";
     }
     item.appendChild(badge);
 
@@ -325,7 +325,7 @@ function renderSteamRecommendations(): void {
 export async function runSteamScan(opts: { openModal?: boolean } = {}): Promise<void> {
   const cfg = readForm();
   if (!cfg.hostToken || !cfg.apiBaseUrl) {
-    log("Сначала сохрани Host Token и Platform URL, затем сканируй Steam.");
+    log("Сначала сохрани токен хоста и URL платформы, затем сканируй Steam.");
     return;
   }
   if (window.agent.platform !== "win32") {
@@ -395,11 +395,11 @@ export async function runSteamScan(opts: { openModal?: boolean } = {}): Promise<
     steamScanProgress.hidden = true;
     if (opts.openModal) {
       steamScanError.hidden = false;
-      steamScanErrorText.textContent = `Scan failed: ${String(err)}`;
+      steamScanErrorText.textContent = `Ошибка скана: ${String(err)}`;
     }
     steamRecommendCard.hidden = false;
     steamRecommendStatus.textContent = `Ошибка скана Steam: ${String(err)}`;
-    log(`Steam scan error: ${String(err)}`);
+    log(`Ошибка скана Steam: ${String(err)}`);
   } finally {
     scanSteamBtn.disabled = false;
     session.steamScanInFlight = false;
@@ -454,7 +454,7 @@ steamRecommendAddBtn.addEventListener("click", async () => {
         if (g) g.alreadyInLibrary = true;
       }
     } catch (err) {
-      log(`Add error for ${game.name}: ${String(err)}`);
+      log(`Ошибка добавления ${game.name}: ${String(err)}`);
     }
   }
 
@@ -512,11 +512,11 @@ steamAddLibraryBtn.addEventListener("click", async () => {
         if (g) g.alreadyInLibrary = true;
       } else {
         failCount++;
-        log(`Failed to add ${game.name} (${resp.status}).`);
+        log(`Не удалось добавить ${game.name} (${resp.status}).`);
       }
     } catch (err) {
       failCount++;
-      log(`Add error for ${game.name}: ${String(err)}`);
+      log(`Ошибка добавления ${game.name}: ${String(err)}`);
     }
   }
 
@@ -526,8 +526,8 @@ steamAddLibraryBtn.addEventListener("click", async () => {
   }
 
   const msg = successCount > 0
-    ? `Added ${successCount} game${successCount !== 1 ? "s" : ""} to library${failCount > 0 ? `, ${failCount} failed` : ""}. Refreshing…`
-    : `All ${failCount} add${failCount !== 1 ? "s" : ""} failed.`;
+    ? `Добавлено в библиотеку: ${successCount}${failCount > 0 ? `, не удалось: ${failCount}` : ""}. Обновляем…`
+    : `Не удалось добавить ни одной игры (${failCount}).`;
   log(msg);
 
   // Refresh badge counts and re-render tab.
@@ -592,19 +592,19 @@ steamSubmitReviewBtn.addEventListener("click", async () => {
       } else if (resp.status === 409) {
         skipped++; // Already submitted / already in catalog.
       } else {
-        log(`Submit failed for ${game.name} (${resp.status}).`);
+        log(`Не удалось отправить ${game.name} (${resp.status}).`);
       }
     } catch (err) {
-      log(`Submit error for ${game.name}: ${String(err)}`);
+      log(`Ошибка отправки ${game.name}: ${String(err)}`);
     }
   }
 
   log(
     submitted > 0
-      ? `Submitted ${submitted} game${submitted !== 1 ? "s" : ""} for review${skipped > 0 ? ` (${skipped} already pending)` : ""}.`
+      ? `Отправлено на модерацию: ${submitted}${skipped > 0 ? ` (${skipped} уже на рассмотрении)` : ""}.`
       : skipped > 0
-        ? `${skipped} game${skipped !== 1 ? "s" : ""} already submitted.`
-        : "No games were submitted.",
+        ? `${skipped} уже на рассмотрении.`
+        : "Ни одна игра не отправлена.",
   );
   steamSubmitReviewBtn.disabled = false;
 });

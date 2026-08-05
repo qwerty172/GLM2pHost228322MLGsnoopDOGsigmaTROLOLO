@@ -143,11 +143,11 @@ bindKeyBtn.addEventListener("click", async () => {
   const bindCodeInput = document.getElementById("agentBindCode") as HTMLInputElement | null;
   const bindCode = bindCodeInput?.value.trim() ?? "";
   if (!cfg.apiBaseUrl) {
-    log("Bind key: сначала сохрани Platform URL.");
+    log("Привязка ключа: сначала сохрани URL платформы.");
     return;
   }
   if (!bindCode && !cfg.hostToken) {
-    log("Bind key: нужен код привязки из дашборда или Host Token.");
+    log("Привязка ключа: нужен код привязки из дашборда или токен хоста.");
     return;
   }
   bindKeyBtn.disabled = true;
@@ -164,15 +164,15 @@ bindKeyBtn.addEventListener("click", async () => {
     if (bindCodeInput) bindCodeInput.value = "";
     applyBoundAgentKeyUi(true, true);
   } else {
-    agentKeyStatusEl.textContent = `Ошибка привязки: ${result.error ?? "Unknown error"}`;
-    log(`Bind key error: ${result.error ?? "Unknown"}`);
+    agentKeyStatusEl.textContent = `Ошибка привязки: ${result.error ?? "неизвестная ошибка"}`;
+    log(`Ошибка привязки ключа: ${result.error ?? "неизвестно"}`);
   }
 });
 
 agentLoginBtn.addEventListener("click", async () => {
   const cfg = session.currentConfig ?? (await window.agent.getConfig());
   if (!cfg.apiBaseUrl) {
-    log("Login: сначала сохрани Platform URL.");
+    log("Вход: сначала сохрани URL платформы.");
     return;
   }
   agentLoginBtn.disabled = true;
@@ -183,8 +183,8 @@ agentLoginBtn.addEventListener("click", async () => {
     agentKeyStatusEl.textContent = "Браузер открыт — дашборд загружается.";
     log("Открыт браузер с дашбордом (agent login).");
   } else {
-    agentKeyStatusEl.textContent = `Ошибка входа: ${result.error ?? "Unknown error"}`;
-    log(`Agent login error: ${result.error ?? "Unknown"}`);
+    agentKeyStatusEl.textContent = `Ошибка входа: ${result.error ?? "неизвестная ошибка"}`;
+    log(`Ошибка входа агента: ${result.error ?? "неизвестно"}`);
   }
 });
 
@@ -216,7 +216,7 @@ async function runUploadSpeedtest(apiBaseUrl: string, hostToken: string): Promis
 updatePcSpecsBtn.addEventListener("click", async () => {
   const cfg = session.currentConfig ?? (await window.agent.getConfig());
   if (!cfg.hostToken || !cfg.apiBaseUrl) {
-    log("Update specs: сначала сохрани Host Token и Platform URL.");
+    log("Обновление характеристик: сначала сохрани токен хоста и URL платформы.");
     return;
   }
   updatePcSpecsBtn.disabled = true;
@@ -229,6 +229,6 @@ updatePcSpecsBtn.addEventListener("click", async () => {
     pcSpecsInfoEl.textContent = `CPU: ${s.cpu} · GPU: ${s.gpu} · RAM: ${s.ramGb} GB`;
     log(`PC-спецификации обновлены. GPU: ${s.gpu}, RAM: ${s.ramGb}GB`);
   } else {
-    log(`Update PC specs error: ${result.error ?? "Unknown"}`);
+    log(`Ошибка обновления характеристик ПК: ${result.error ?? "неизвестно"}`);
   }
 });

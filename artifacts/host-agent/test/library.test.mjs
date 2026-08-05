@@ -19,7 +19,7 @@ test("renderLibraryEntry renders enabled local game", () => {
   assert.equal(li.dataset.gameId, "g1");
   assert.match(li.textContent, /Test Game/);
   assert.match(li.textContent, /5 LZT\/min/);
-  assert.match(li.textContent, /ready/);
+  assert.match(li.textContent, /готова/);
 });
 
 test("renderLibraryEntry marks browser games with URL", () => {

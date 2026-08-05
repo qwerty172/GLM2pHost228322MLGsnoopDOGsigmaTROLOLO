@@ -196,7 +196,7 @@ export async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
     );
   }
   const sourceId = chosen.id;
-  log(`Capturing source: ${chosen.name}`);
+  log(`Захват источника: ${chosen.name}`);
   session.currentCaptureSourceName = chosen.name;
   window.agent.setCaptureSource(chosen.name);
   setPipelineStep("window", "done", chosen.name);

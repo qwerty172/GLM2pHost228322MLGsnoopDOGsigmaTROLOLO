@@ -28,7 +28,7 @@ void loadFormFromConfig().then(async (cfg) => {
     window.agent.killApp();
     teardown("Паника: ввод заблокирован хостом");
   });
-  log("Agent UI loaded.");
+  log("Интерфейс агента загружен.");
   void initAgentKey();
   if (typeof (window.agent as { onUpdateReady?: (cb: () => void) => () => void }).onUpdateReady === "function") {
     (window.agent as unknown as { onUpdateReady: (cb: () => void) => () => void }).onUpdateReady(() => {
@@ -50,7 +50,7 @@ void loadFormFromConfig().then(async (cfg) => {
     }
   }).catch(() => { /* older main without the handler */ });
   if (cfg.hostToken && cfg.apiBaseUrl) {
-    log("Stored credentials detected. Loading library…");
+    log("Сохранённые учётные данные найдены. Загружаем библиотеку…");
 
     const displayName = await validateHostToken(cfg.apiBaseUrl, cfg.hostToken);
     if (displayName) {
@@ -58,7 +58,7 @@ void loadFormFromConfig().then(async (cfg) => {
       log(`Вход выполнен как: ${displayName}`);
       setConnectionTroubleshootVisible(false);
     } else {
-      log("Не удалось проверить токен. Введи заново или проверь Platform URL.");
+      log("Не удалось проверить токен. Введи заново или проверь URL платформы.");
     }
 
     await loadLibrary(cfg);

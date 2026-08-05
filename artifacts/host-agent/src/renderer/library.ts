@@ -19,10 +19,10 @@ export function renderLibraryEntry(entry: LibraryEntry): HTMLLIElement {
       ? "✅"
       : "❌";
   const statusLabel = !entry.enabled
-    ? "disabled"
+    ? "выключена"
     : isAvailable
-      ? "ready"
-      : `not found (${entry.lastError || "file_not_found"})`;
+      ? "готова"
+      : `не найдена (${entry.lastError || "file_not_found"})`;
 
   const priceLabel = `🔵 ${entry.pricePerMinuteLzt} LZT/min`;
 
@@ -34,7 +34,7 @@ export function renderLibraryEntry(entry: LibraryEntry): HTMLLIElement {
       <span class="library-entry-status muted">${statusLabel}</span>
     </div>
     <div class="library-entry-path muted">
-      ${isBrowser ? `🌐 ${escHtml(entry.boundUrl)}` : escHtml(entry.appPath || "(no path set)")}
+      ${isBrowser ? `🌐 ${escHtml(entry.boundUrl)}` : escHtml(entry.appPath || "(путь не задан)")}
     </div>
     <div class="library-entry-actions"></div>
   `;
@@ -44,7 +44,7 @@ export function renderLibraryEntry(entry: LibraryEntry): HTMLLIElement {
   if (!isBrowser && entry.appPath) {
     const openBtn = document.createElement("button");
     openBtn.type = "button";
-    openBtn.textContent = "Open in Explorer";
+    openBtn.textContent = "Открыть в проводнике";
     openBtn.addEventListener("click", () => {
       window.agent.openExplorer(entry.appPath);
     });
@@ -54,13 +54,13 @@ export function renderLibraryEntry(entry: LibraryEntry): HTMLLIElement {
   if (!isBrowser) {
     const changeBtn = document.createElement("button");
     changeBtn.type = "button";
-    changeBtn.textContent = "Change path…";
+    changeBtn.textContent = "Изменить путь…";
     changeBtn.addEventListener("click", async () => {
       const picked = await window.agent.openFileDialog();
       if (!picked) return;
       const cfg = readForm();
       if (!cfg.hostToken || !cfg.apiBaseUrl) {
-        log("Set host token and platform URL before changing game path.");
+        log("Сначала укажи токен хоста и URL платформы, затем меняй путь к игре.");
         return;
       }
       changeBtn.disabled = true;
@@ -74,10 +74,10 @@ export function renderLibraryEntry(entry: LibraryEntry): HTMLLIElement {
           },
         );
         if (!resp.ok) {
-          log(`Failed to update path (${resp.status}).`);
+          log(`Не удалось обновить путь (${resp.status}).`);
           return;
         }
-        log(`Updated ${entry.game.title} path → ${pathBasename(picked)}`);
+        log(`Путь обновлён: ${entry.game.title} → ${pathBasename(picked)}`);
         await window.agent.patchLibraryAvailability(
           cfg.hostToken,
           cfg.apiBaseUrl,
@@ -87,7 +87,7 @@ export function renderLibraryEntry(entry: LibraryEntry): HTMLLIElement {
         );
         await loadLibrary(cfg);
       } catch (err) {
-        log(`Change path error: ${String(err)}`);
+        log(`Ошибка смены пути: ${String(err)}`);
       } finally {
         changeBtn.disabled = false;
       }
@@ -109,7 +109,7 @@ export function renderLibrary(entries: LibraryEntry[]): void {
   }
   const enabled = entries.filter((e) => e.enabled);
   const disabled = entries.filter((e) => !e.enabled);
-  libraryStatus.textContent = `${enabled.length} enabled game${enabled.length !== 1 ? "s" : ""} · ${disabled.length} disabled`;
+  libraryStatus.textContent = `${enabled.length} включено · ${disabled.length} выключено`;
 
   for (const entry of entries) {
     libraryList.appendChild(renderLibraryEntry(entry));
@@ -163,15 +163,15 @@ export async function showHostGamePicker(): Promise<void> {
 export async function loadLibrary(cfg: HostConfig): Promise<void> {
   if (!cfg.hostToken || !cfg.apiBaseUrl) return;
   libraryCard.hidden = false;
-  libraryStatus.textContent = "Loading…";
+  libraryStatus.textContent = "Загрузка…";
   try {
     const entries = await window.agent.fetchLibrary(cfg.hostToken, cfg.apiBaseUrl);
     session.libraryEntries = entries;
     renderLibrary(entries);
-    log(`Library loaded: ${entries.length} game(s).`);
+    log(`Библиотека загружена: ${entries.length} игр.`);
   } catch (err) {
-    libraryStatus.textContent = "Failed to load library.";
-    log(`Library load error: ${String(err)}`);
+    libraryStatus.textContent = "Не удалось загрузить библиотеку.";
+    log(`Ошибка загрузки библиотеки: ${String(err)}`);
   }
 }
 

@@ -13,7 +13,7 @@ test("connect-events wires connect button and blocks when session active", async
   const { logEl } = await import("../dist/renderer/renderer/dom.js");
   const before = logEl.textContent;
   connectBtn.click();
-  assert.match(logEl.textContent, /Already online/);
+  assert.match(logEl.textContent, /Уже онлайн/);
   assert.notEqual(logEl.textContent, before);
   session.currentSessionId = null;
 });

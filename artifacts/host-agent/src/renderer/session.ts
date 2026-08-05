@@ -15,7 +15,7 @@ export async function createSession(
   const url = `${cfg.apiBaseUrl.replace(/\/$/, "")}/api/sessions`;
 
   // Find game name for the session appName field.
-  let appName = cfg.appName || "Streamed App";
+  let appName = cfg.appName || "Стримимое приложение";
   if (requestedGameId) {
     const entry = session.libraryEntries.find((e) => e.gameId === requestedGameId);
     if (entry) appName = entry.game.title;
@@ -61,7 +61,7 @@ export async function connect(cfg: HostConfig, gameId: string | null): Promise<v
   cancelDeferredTeardown();
   session.currentConfig = cfg;
   session.currentGameId = gameId;
-  setStatus("connecting", "Creating session…");
+  setStatus("connecting", "Создаём сессию…");
   connectBtn.disabled = true;
   let created: { sessionId: string; playerToken: string; gameId?: string };
   try {
@@ -69,19 +69,19 @@ export async function connect(cfg: HostConfig, gameId: string | null): Promise<v
     session.currentSessionId = created.sessionId;
     if (created.gameId) session.currentGameId = created.gameId;
     showPlayerLink(cfg, created.playerToken);
-    log(`Session created: ${created.sessionId}`);
+    log(`Сессия создана: ${created.sessionId}`);
   } catch (err) {
-    setStatus("error", `Could not create session: ${String(err)}`);
+    setStatus("error", `Не удалось создать сессию: ${String(err)}`);
     connectBtn.disabled = false;
     return;
   }
 
-  setStatus("connecting", "Connecting to signaling server…");
+  setStatus("connecting", "Подключаемся к серверу сигналинга…");
   let url: URL;
   try {
     url = new URL(deriveSignalingUrl(cfg));
   } catch (err) {
-    setStatus("error", `Bad signaling URL: ${String(err)}`);
+    setStatus("error", `Некорректный URL сигналинга: ${String(err)}`);
     connectBtn.disabled = false;
     return;
   }
@@ -92,8 +92,8 @@ export async function connect(cfg: HostConfig, gameId: string | null): Promise<v
   session.ws = new WebSocket(url.toString());
 
   session.ws.onopen = () => {
-    log("Signaling connected. Waiting for the player to join…");
-    setStatus("idle", "Online — share the player link");
+    log("Сигналинг подключён. Ждём игрока…");
+    setStatus("idle", "В сети — отправь ссылку игроку");
     disconnectBtn.disabled = false;
     // Open the preview signaling channel alongside the main session.
     connectPreviewWs(cfg);
@@ -158,14 +158,14 @@ export async function connect(cfg: HostConfig, gameId: string | null): Promise<v
       // Player WS dropped — might be a transient reconnect; give 20s grace
       // before tearing down, in case the player's WS reconnects.
       log("[reconnect] Player left signaling — deferred teardown in 20s");
-      teardownDeferred("Player left — no reconnect", 20_000);
+      teardownDeferred("Игрок ушёл — переподключения не было", 20_000);
     } else if (msg.type === "error") {
-      log(`Signaling error: ${String(msg["error"])}`);
+      log(`Ошибка сигналинга: ${String(msg["error"])}`);
     }
   };
 
   session.ws.onerror = () => {
-    setStatus("error", "Signaling connection error");
+    setStatus("error", "Ошибка соединения с сигналингом");
   };
 
   // Reconnect the WS with exponential backoff when streaming.
@@ -173,9 +173,9 @@ export async function connect(cfg: HostConfig, gameId: string | null): Promise<v
   // would otherwise recover — the host needs WS alive to exchange re-offers.
   let wsReconnectDelay = 1000;
   session.ws.onclose = () => {
-    log("Signaling closed.");
+    log("Сигналинг закрыт.");
     if (!session.isStreaming) {
-      teardownDeferred("Signaling closed", 8000);
+      teardownDeferred("Сигналинг закрыт", 8000);
       return;
     }
     const delay = wsReconnectDelay;
@@ -249,7 +249,7 @@ export function attachWsHandlers(newWs: WebSocket, cfg: HostConfig, initialDelay
     } else if (msg.type === "peer-left" && msg["role"] === "player") {
       // Grace period: player may be reconnecting their WS.
       log("[reconnect] Player left signaling (reconnected WS) — deferred teardown in 20s");
-      teardownDeferred("Player left — no reconnect", 20_000);
+      teardownDeferred("Игрок ушёл — переподключения не было", 20_000);
     } else if (msg.type === "peer-joined" && msg["role"] === "player") {
       if (session.isStreaming) {
         // Same-session player reconnect — cancel deferred teardown, wait for re-offer.
@@ -267,7 +267,7 @@ export function attachWsHandlers(newWs: WebSocket, cfg: HostConfig, initialDelay
 
   newWs.onclose = () => {
     if (!session.isStreaming) {
-      teardownDeferred("Signaling closed", 8000);
+      teardownDeferred("Сигналинг закрыт", 8000);
       return;
     }
     const delay = wsReconnectDelay;
@@ -350,7 +350,7 @@ export async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     }
   });
 
-  setStatus("connecting", "Player joined — preparing stream…");
+  setStatus("connecting", "Игрок подключился — готовим стрим…");
   resetPipeline(true);
 
   // Fetch authoritative session context from the server before launching.
@@ -373,8 +373,8 @@ export async function onPlayerJoined(cfg: HostConfig): Promise<void> {
   // Register exit callback BEFORE launching. When the game process exits,
   // main sends "app:game-exited" → we auto-end the session.
   window.agent.onGameExited(() => {
-    log("Game process exited — ending session automatically.");
-    void teardown("Game exited");
+    log("Процесс игры завершился — сессия закрывается автоматически.");
+    void teardown("Игра завершилась");
   });
 
   // Library-based launch
@@ -385,7 +385,7 @@ export async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     if (!entry) {
       log(`[game_unavailable] Game ${resolvedGameId} not in library or disabled.`);
       setPipelineStep("launch", "error", "игры нет в библиотеке или она выключена");
-      setStatus("error", "Game unavailable");
+      setStatus("error", "Игра недоступна");
       sendControlReject("game_unavailable");
       session.isStreaming = false;
       void teardown("game_unavailable");
@@ -397,7 +397,7 @@ export async function onPlayerJoined(cfg: HostConfig): Promise<void> {
         `[game_unavailable] ${entry.game.title}: ${entry.lastError || "file not found"}`,
       );
       setPipelineStep("launch", "error", `файл игры не найден: ${entry.game.title}`);
-      setStatus("error", `Game file not found: ${entry.game.title}`);
+      setStatus("error", `Файл игры не найден: ${entry.game.title}`);
       sendControlReject("game_unavailable");
       session.isStreaming = false;
       void teardown("game_unavailable");
@@ -429,7 +429,7 @@ export async function onPlayerJoined(cfg: HostConfig): Promise<void> {
         steamAppId: entry.game.steamAppId ?? null,
       };
       if (!pullResult.ok) {
-        log(`Save pull failed: ${pullResult.error ?? "unknown"}`);
+        log(`Ошибка загрузки сейва: ${pullResult.error ?? "неизвестно"}`);
         setPipelineStep("saves", "error", pullResult.error ?? "ошибка загрузки");
       } else if (pullResult.skipped) {
         const note =
@@ -456,13 +456,13 @@ export async function onPlayerJoined(cfg: HostConfig): Promise<void> {
       // Hard-fail: do not start WebRTC capture when the game couldn't launch.
       log(`[game_unavailable] Launch failed for ${entry.game.title}: ${launchResult.error}`);
       setPipelineStep("launch", "error", `запуск не удался: ${launchResult.error}`);
-      setStatus("error", `Launch failed: ${launchResult.error}`);
+      setStatus("error", `Запуск не удался: ${launchResult.error}`);
       sendControlReject("game_unavailable");
       session.isStreaming = false;
       void teardown("game_unavailable");
       return;
     }
-    log(`Launched ${entry.game.title} (pid=${launchResult.pid ?? "browser"}).`);
+    log(`Запущена ${entry.game.title} (pid=${launchResult.pid ?? "browser"}).`);
     setPipelineStep("launch", "done", entry.game.title);
   } else {
     setPipelineStep("saves", "done", "не требуется");
@@ -473,13 +473,13 @@ export async function onPlayerJoined(cfg: HostConfig): Promise<void> {
       // Hard-fail: do not capture if legacy app couldn't launch.
       log(`[game_unavailable] Legacy launch failed: ${launchResult.error}`);
       setPipelineStep("launch", "error", `запуск не удался: ${launchResult.error}`);
-      setStatus("error", `Launch failed: ${launchResult.error}`);
+      setStatus("error", `Запуск не удался: ${launchResult.error}`);
       sendControlReject("game_unavailable");
       session.isStreaming = false;
       void teardown("game_unavailable");
       return;
     }
-    log(`App launched (pid=${launchResult.pid}).`);
+    log(`Приложение запущено (pid=${launchResult.pid}).`);
     setPipelineStep("launch", "done");
   }
 
@@ -488,7 +488,7 @@ export async function onPlayerJoined(cfg: HostConfig): Promise<void> {
     session.captureStream = await captureScreen(cfg);
   } catch (err) {
     setPipelineStep("window", "error", String(err));
-    setStatus("error", `Capture failed: ${String(err)}`);
+    setStatus("error", `Захват не удался: ${String(err)}`);
     sendControlReject("game_unavailable");
     session.isStreaming = false;
     void teardown("capture_failed");
@@ -527,7 +527,7 @@ export async function onPlayerJoined(cfg: HostConfig): Promise<void> {
   session.pc.onconnectionstatechange = () => {
     log(`Peer state: ${session.pc?.connectionState}`);
     if (session.pc?.connectionState === "connected") {
-      setStatus("streaming", "Streaming to player");
+      setStatus("streaming", "Стрим для игрока");
       setPipelineStep("stream", "done");
       setPipelineStep("player", "done");
       if (session.hostStatsTimer) clearInterval(session.hostStatsTimer);
@@ -550,16 +550,16 @@ export async function onPlayerJoined(cfg: HostConfig): Promise<void> {
       });
     } else if (session.pc?.connectionState === "closed") {
       // Terminal state — end billing session (teardownPeer alone left billing running).
-      teardown("Peer connection closed");
+      teardown("Соединение закрыто");
     } else if (session.pc?.connectionState === "failed") {
       // ICE negotiation failed; give 30s for ICE restart to recover before
       // tearing down.  The player side triggers restartIce() automatically.
       log("[ice] connectionState failed — deferred teardown in 30s");
-      teardownDeferred("ICE failed — no recovery", 30_000);
+      teardownDeferred("ICE не восстановился", 30_000);
     } else if (session.pc?.connectionState === "disconnected") {
       // Transient loss (e.g. Wi-Fi handover).  Give 30s for ICE restart.
       log("[ice] connectionState disconnected — deferred teardown in 30s");
-      teardownDeferred("ICE disconnected — no recovery", 30_000);
+      teardownDeferred("ICE разорван — восстановление не удалось", 30_000);
     }
   };
 
@@ -805,7 +805,7 @@ export function teardownPeer(cfg: HostConfig): void {
   if (cfg.killAppOnDisconnect) {
     window.agent.killApp();
   }
-  setStatus("idle", "Player disconnected — waiting");
+  setStatus("idle", "Игрок отключился — ожидание");
 }
 
 
@@ -856,17 +856,17 @@ export async function teardownAsync(reason: string): Promise<void> {
         }),
       ]);
       if (!pushResult.ok) {
-        log(`Save push failed: ${pushResult.error ?? "unknown"}`);
+        log(`Ошибка сохранения сейва: ${pushResult.error ?? "неизвестно"}`);
         setPipelineStep("saves", "error", pushResult.error ?? "ошибка сохранения");
       } else if (pushResult.skipped) {
-        log(`Save push skipped: ${pushResult.reason ?? "unknown"}`);
+        log(`Сохранение сейва пропущено: ${pushResult.reason ?? "неизвестно"}`);
         setPipelineStep("saves", "done", "нечего сохранять");
       } else {
-        log("Save uploaded to cloud.");
+        log("Сейв загружен в облако.");
         setPipelineStep("saves", "done", "сейв сохранён");
       }
     } catch (err) {
-      log(`Save push error: ${String(err)}`);
+      log(`Ошибка сохранения сейва: ${String(err)}`);
       setPipelineStep("saves", "error", "таймаут сохранения");
     }
   }
@@ -878,7 +878,7 @@ export async function teardownAsync(reason: string): Promise<void> {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ hostToken: session.currentConfig.hostToken }),
-    }).catch((err) => log(`Failed to end session on server: ${String(err)}`));
+    }).catch((err) => log(`Не удалось завершить сессию на сервере: ${String(err)}`));
   }
   try { session.dataChannel?.close(); } catch { /* */ }
   session.dataChannel = null;

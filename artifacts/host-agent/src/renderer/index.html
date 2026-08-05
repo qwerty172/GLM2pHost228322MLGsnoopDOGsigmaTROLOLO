@@ -1,17 +1,17 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="utf-8" />
-    <title>Cloud Gaming Host Agent</title>
+    <title>Агент хоста DecentralHub</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="shell">
       <header>
-        <h1>Cloud Gaming Host Agent</h1>
+        <h1>Агент хоста DecentralHub</h1>
         <div class="status" id="status">
           <span class="dot" data-status="idle"></span>
-          <span id="status-text">Idle</span>
+          <span id="status-text">Ожидание</span>
           <span id="preview-indicator" hidden style="margin-left:10px;padding:2px 8px;border-radius:4px;font-size:11px;background:rgba(14,165,233,0.18);color:#7dd3fc;border:1px solid rgba(14,165,233,0.3);">
             📺 Идёт превью
           </span>
@@ -63,14 +63,14 @@
       </div>
 
       <section class="card" id="share-card" hidden>
-        <h2>Share with player</h2>
+        <h2>Ссылка для игрока</h2>
         <p class="muted">
-          Send this link to the player. They will be able to claim the session
-          and connect once their wallet has enough balance.
+          Отправь эту ссылку игроку. Он сможет занять сессию и подключиться,
+          когда на балансе хватит средств.
         </p>
         <div class="row share">
           <input id="player-link" type="text" readonly />
-          <button type="button" id="copy-link">Copy</button>
+          <button type="button" id="copy-link">Копировать</button>
         </div>
       </section>
 
@@ -159,11 +159,11 @@
 
       <!-- My Library — populated from GET /api/hosts/:token/library -->
       <section class="card" id="library-card" hidden>
-        <h2>My Library</h2>
-        <p class="muted" id="library-status">Loading…</p>
+        <h2>Моя библиотека</h2>
+        <p class="muted" id="library-status">Загрузка…</p>
         <ul id="library-list" class="library-list"></ul>
         <div class="actions" style="margin-top:8px">
-          <button type="button" id="refresh-library">Refresh library</button>
+          <button type="button" id="refresh-library">Обновить библиотеку</button>
           <button type="button" id="scan-steam" hidden>Сканировать Steam</button>
         </div>
       </section>
@@ -173,14 +173,14 @@
         <div class="modal-box">
           <div class="modal-header">
             <h2 style="margin:0;color:#e7ecf3;font-size:16px;text-transform:none;letter-spacing:0">
-              Steam Library Scan
+              Сканирование библиотеки Steam
             </h2>
             <button type="button" id="steam-modal-close" class="modal-close">✕</button>
           </div>
 
           <div id="steam-scan-progress" hidden>
             <div class="scan-spinner"></div>
-            <p class="muted" style="margin:8px 0 0">Scanning Steam library…</p>
+            <p class="muted" style="margin:8px 0 0">Сканируем библиотеку Steam…</p>
           </div>
 
           <div id="steam-scan-error" hidden>
@@ -192,20 +192,20 @@
               <p class="muted" id="steam-scan-summary" style="margin:0"></p>
               <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8593a6;cursor:pointer;margin:0">
                 <input type="checkbox" id="steam-delta-mode" />
-                New only
+                Только новые
               </label>
             </div>
 
             <!-- Tabs: In Catalog / Not in Catalog -->
             <div class="steam-tabs" id="steam-tabs">
               <button type="button" class="steam-tab active" data-tab="catalog" id="tab-catalog">
-                In catalog <span class="tab-badge" id="badge-catalog">0</span>
+                В каталоге <span class="tab-badge" id="badge-catalog">0</span>
               </button>
               <button type="button" class="steam-tab" data-tab="new" id="tab-new">
-                New games <span class="tab-badge" id="badge-new">0</span>
+                Новые игры <span class="tab-badge" id="badge-new">0</span>
               </button>
               <button type="button" class="steam-tab" data-tab="added" id="tab-added">
-                Already added <span class="tab-badge" id="badge-added">0</span>
+                Уже добавлены <span class="tab-badge" id="badge-added">0</span>
               </button>
             </div>
 
@@ -214,14 +214,14 @@
             <div class="modal-actions" style="margin-top:12px">
               <label style="font-size:12px;color:#8593a6;display:flex;align-items:center;gap:6px;cursor:pointer">
                 <input type="checkbox" id="steam-select-all" />
-                Select all visible
+                Выбрать все видимые
               </label>
               <div style="display:flex;gap:8px;margin-left:auto">
                 <button type="button" id="steam-add-library" disabled>
-                  Add to library
+                  Добавить в библиотеку
                 </button>
                 <button type="button" id="steam-submit-review" disabled>
-                  Submit for review
+                  Отправить на модерацию
                 </button>
               </div>
             </div>
@@ -257,20 +257,20 @@
       </section>
 
       <section class="card">
-        <h2>Settings</h2>
+        <h2>Настройки</h2>
         <details id="advanced-settings">
           <summary style="cursor:pointer;margin-bottom:8px;color:#888">Расширенные настройки (токен вручную)</summary>
         <form id="settings-form">
           <label>
-            <span>Host token</span>
+            <span>Токен хоста</span>
             <input
               id="hostToken"
               type="text"
-              placeholder="Paste from web dashboard"
+              placeholder="Вставь из веб-дашборда"
             />
           </label>
           <label>
-            <span>Platform URL</span>
+            <span>URL платформы</span>
             <input
               id="apiBaseUrl"
               type="url"
@@ -279,7 +279,7 @@
             <small class="muted">Заполняется автоматически при скачивании агента с платформы</small>
           </label>
           <label>
-            <span>Signaling URL (optional override)</span>
+            <span>URL сигналинга (необязательно)</span>
             <input
               id="signalingUrl"
               type="text"
@@ -292,20 +292,20 @@
               Устаревшее — одна игра (лучше используй библиотеку выше)
             </summary>
             <label>
-              <span>Executable path on this PC</span>
+              <span>Путь к .exe на этом ПК</span>
               <div class="row share">
                 <input
                   id="appPath"
                   type="text"
-                  placeholder="Choose a file…"
+                  placeholder="Выбери файл…"
                   readonly
                   style="flex:1;cursor:default;"
                 />
-                <button type="button" id="browse-exe">Browse…</button>
+                <button type="button" id="browse-exe">Обзор…</button>
               </div>
             </label>
             <label>
-              <span>Browser URL (for browser games — overrides app path)</span>
+              <span>URL браузерной игры (заменяет путь к .exe)</span>
               <input
                 id="boundUrl"
                 type="url"
@@ -313,27 +313,27 @@
               />
             </label>
             <label>
-              <span>Launch args (optional, .exe only)</span>
+              <span>Аргументы запуска (необязательно, только .exe)</span>
               <input id="appArgs" type="text" placeholder="-windowed -nosplash" />
             </label>
             <label>
-              <span>App name shown to players</span>
-              <input id="appName" type="text" placeholder="My Game" />
+              <span>Название для игроков</span>
+              <input id="appName" type="text" placeholder="Моя игра" />
             </label>
           </details>
 
           <label>
-            <span>Capture target</span>
+            <span>Источник захвата</span>
             <div class="row share">
               <select id="captureSourceName">
-                <option value="">(auto — match launched app, else screen)</option>
+                <option value="">(авто — окно запущенной игры, иначе экран)</option>
               </select>
-              <button type="button" id="refresh-sources">Refresh</button>
+              <button type="button" id="refresh-sources">Обновить</button>
             </div>
           </label>
           <div class="row">
             <label>
-              <span>Rate per minute (USD)</span>
+              <span>Цена за минуту (USD)</span>
               <input
                 id="ratePerMinute"
                 type="number"
@@ -342,7 +342,7 @@
               />
             </label>
             <label>
-              <span>Your share (0–1)</span>
+              <span>Ваша доля (0–1)</span>
               <input
                 id="commissionSplit"
                 type="number"
@@ -352,7 +352,7 @@
               />
             </label>
             <label>
-              <span>Bitrate (kbps)</span>
+              <span>Битрейт (кбит/с)</span>
               <input id="bitrateKbps" type="number" min="500" max="50000" />
             </label>
             <label>
@@ -367,25 +367,25 @@
           </div>
           <div class="row">
             <label>
-              <span>Width</span>
+              <span>Ширина</span>
               <input id="width" type="number" min="640" max="3840" />
             </label>
             <label>
-              <span>Height</span>
+              <span>Высота</span>
               <input id="height" type="number" min="480" max="2160" />
             </label>
           </div>
           <label class="checkbox">
             <input id="killAppOnDisconnect" type="checkbox" />
-            <span>Close the game when the player disconnects</span>
+            <span>Закрывать игру при отключении игрока</span>
           </label>
           <label class="checkbox">
             <input id="autoLaunchAtStartup" type="checkbox" />
-            <span>Start automatically when Windows logs in</span>
+            <span>Запускать при входе в Windows</span>
           </label>
           <label class="checkbox">
             <input id="allowPreview" type="checkbox" checked />
-            <span>Allow 30-second free preview stream for players (no billing, view-only)</span>
+            <span>Разрешить бесплатное 30-секундное превью для игроков (без оплаты, только просмотр)</span>
           </label>
           <div class="actions">
             <button type="submit" id="save">Сохранить</button>
@@ -398,7 +398,7 @@
       </section>
 
       <section class="card log">
-        <h2>Activity</h2>
+        <h2>Журнал событий</h2>
         <pre id="log"></pre>
       </section>
     </main>

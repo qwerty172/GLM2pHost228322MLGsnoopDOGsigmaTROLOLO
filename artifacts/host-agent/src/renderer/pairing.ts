@@ -20,7 +20,7 @@ async function submitPairingCode(): Promise<void> {
     return;
   }
   if (!apiBaseUrl) {
-    pairingStatusEl.textContent = "Сначала укажи Platform URL в расширенных настройках";
+    pairingStatusEl.textContent = "Сначала укажи URL платформы в расширенных настройках";
     return;
   }
   pairingSubmitBtn.disabled = true;
@@ -48,7 +48,7 @@ async function submitPairingCode(): Promise<void> {
     startLibraryPolling(newCfg);
     showAutoQuotaCard();
   } catch {
-    pairingStatusEl.textContent = "Ошибка сети — проверь Platform URL";
+    pairingStatusEl.textContent = "Ошибка сети — проверь URL платформы";
   } finally {
     pairingSubmitBtn.disabled = false;
   }

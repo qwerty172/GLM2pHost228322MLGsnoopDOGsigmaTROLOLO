@@ -8,7 +8,7 @@ import { connect, teardown } from "./session.js";
 connectBtn.addEventListener("click", async () => {
   // One-session-at-a-time guard.
   if (session.currentSessionId) {
-    log("Already online — disconnect first before starting a new session.");
+    log("Уже онлайн — сначала отключись, чтобы начать новую сессию.");
     return;
   }
 
@@ -46,7 +46,7 @@ connectBtn.addEventListener("click", async () => {
 confirmGameBtn.addEventListener("click", async () => {
   const gameId = selectedGameSelect.value;
   if (!gameId) {
-    log("Please choose a game from the list.");
+    log("Выбери игру из списка.");
     return;
   }
   gamePickerCard.hidden = true;
@@ -62,5 +62,5 @@ cancelGamePickerBtn.addEventListener("click", () => {
 });
 
 disconnectBtn.addEventListener("click", () => {
-  teardown("Disconnected by host");
+  teardown("Отключено хостом");
 });

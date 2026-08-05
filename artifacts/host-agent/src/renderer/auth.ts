@@ -36,7 +36,7 @@ switchAccountBtn.addEventListener("click", () => {
   hideSigninBanner();
   setConnectionTroubleshootVisible(true);
   ($("hostToken") as HTMLInputElement).focus();
-  log("Введи новый Host Token в «Если не подключается» или скачай ZIP с дашборда.");
+  log("Введи новый токен хоста в «Если не подключается» или скачай ZIP с дашборда.");
 });
 
 // Validate a host token by calling GET /api/hosts/:token and return the display name.
@@ -64,16 +64,16 @@ form.addEventListener("submit", async (e) => {
     saveBtn.textContent = "Проверяем токен…";
     const displayName = await validateHostToken(cfg.apiBaseUrl, cfg.hostToken);
     saveBtn.disabled = false;
-    saveBtn.textContent = "Save";
+    saveBtn.textContent = "Сохранить";
     if (!displayName) {
-      log("Ошибка: токен не найден или платформа недоступна. Проверь Host Token и Platform URL.");
+      log("Ошибка: токен не найден или платформа недоступна. Проверь токен хоста и URL платформы.");
       return;
     }
     log(`Токен подтверждён: ${displayName}`);
   }
 
   await window.agent.setConfig(cfg);
-  log("Settings saved.");
+  log("Настройки сохранены.");
 
   if (cfg.hostToken && cfg.apiBaseUrl) {
     // Show the signed-in banner and collapse the form.
@@ -105,7 +105,7 @@ pullBtn.addEventListener("click", async () => {
   // Use the Library section above to manage games and their exe paths.
   const cfg = readForm();
   if (!cfg.hostToken || !cfg.apiBaseUrl) {
-    log("Set host token and platform URL before pulling from the server.");
+    log("Сначала укажи токен хоста и URL платформы, затем подтяни данные с сервера.");
     return;
   }
   pullBtn.disabled = true;
@@ -113,7 +113,7 @@ pullBtn.addEventListener("click", async () => {
     const url = `${cfg.apiBaseUrl.replace(/\/$/, "")}/api/hosts/${encodeURIComponent(cfg.hostToken)}`;
     const resp = await fetch(url);
     if (!resp.ok) {
-      log(`Pull failed (${resp.status}).`);
+      log(`Не удалось подтянуть данные (${resp.status}).`);
       return;
     }
     const data = (await resp.json()) as {
@@ -125,11 +125,11 @@ pullBtn.addEventListener("click", async () => {
       touched++;
     }
     const note = touched > 0
-      ? `Pulled ${touched} field(s) from server. Click Save to persist.`
-      : "No updateable fields returned from server. Manage games via the Library section.";
+      ? `Подтянуто полей с сервера: ${touched}. Нажми «Сохранить», чтобы применить.`
+      : "С сервера нечего обновлять. Управляй играми в разделе «Моя библиотека».";
     log(note);
   } catch (err) {
-    log(`Pull failed: ${String(err)}`);
+    log(`Ошибка подтягивания с сервера: ${String(err)}`);
   } finally {
     pullBtn.disabled = false;
   }
