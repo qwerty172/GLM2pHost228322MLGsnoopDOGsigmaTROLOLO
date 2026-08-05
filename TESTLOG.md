@@ -45,6 +45,18 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-97 (2026-08-05 10:14 UTC) {#marathon-m-97}
+
+| Проверка | Результат |
+|---|---|
+| dashboard-helpers.ts | resolveHeartbeatState, getAgentDiagnosis, isAgentOnline, agentNeedsAdvancedPanel, buildPlayerPlayLink, resolveTestSessionOpenTarget, buildTestSessionFullUrl, buildBrowserHostStorageKeys, computeQuickStartSteps |
+| host-dashboard.test.mjs | 15 тестов — heartbeat, agent diagnosis, play/test URLs, quick start steps, event levels |
+| dashboard.tsx | рефакторинг: хелперы в dashboard-helpers.ts |
+| web test (host-dashboard) | PASS (15 tests) |
+| typecheck | PASS (web helpers) |
+
+**Следующий pick:** M-98 (host/library.tsx).
+
 ## Marathon M-96 (2026-08-05 10:10 UTC) {#marathon-m-96}
 
 | Проверка | Результат |

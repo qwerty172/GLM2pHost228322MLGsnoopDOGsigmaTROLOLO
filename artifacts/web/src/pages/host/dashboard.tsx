@@ -83,6 +83,21 @@ import { Link } from "wouter";
 import { discoverAgentPort } from "@/lib/agent-local";
 import { localizeAgentEventMessage } from "@/lib/agent-event-labels";
 import { formatApiError } from "@/lib/api-errors";
+import {
+  type AgentState,
+  type HeartbeatState,
+  type AudioMode,
+  AUDIO_MODE_LABELS,
+  getAgentDiagnosis,
+  resolveHeartbeatState,
+  agentNeedsAdvancedPanel,
+  getAgentEventLevelStyle,
+  buildPlayerPlayLink,
+  resolveTestSessionOpenTarget,
+  buildTestSessionFullUrl,
+  buildBrowserHostStorageKeys,
+  computeQuickStartSteps,
+} from "./dashboard-helpers";
 
 const cardStyle = {
   background: "#0a1018",
@@ -90,31 +105,6 @@ const cardStyle = {
 };
 
 // ── Agent ping check ──────────────────────────────────────────────────────
-
-type AudioMode = "off" | "voice" | "standard" | "quality";
-
-type AgentState =
-  | { status: "checking" }
-  | { status: "online"; version: string; audioMode: AudioMode; port: number }
-  | { status: "offline" };
-
-// Heartbeat freshness: the agent sends a heartbeat to the API every 15s.
-// If lastSeenAt is fresher than this, the agent is considered connected even
-// when the local ping fails (agent may run on a different PC than the browser).
-const HEARTBEAT_FRESH_MS = 45_000;
-
-type HeartbeatState =
-  | { status: "unknown" }
-  | { status: "fresh"; lastSeenAt: string }
-  | { status: "stale"; lastSeenAt: string }
-  | { status: "never" };
-
-const AUDIO_MODE_LABELS: Record<AudioMode, string> = {
-  off: "Без звука",
-  voice: "Голос ~12kbps",
-  standard: "Стандарт ~32kbps",
-  quality: "Качество ~64kbps",
-};
 
 async function pingAgent(): Promise<AgentState> {
   const info = await discoverAgentPort({ force: true, timeoutMs: 900 });
@@ -125,56 +115,6 @@ async function pingAgent(): Promise<AgentState> {
     audioMode: (info.audioMode ?? "off") as AudioMode,
     port: info.port,
   };
-}
-
-type AgentDiagnosis = {
-  symptom: string;
-  likelyCause: string;
-  action: string;
-};
-
-function getAgentDiagnosis(
-  agent: AgentState,
-  heartbeat: HeartbeatState,
-): AgentDiagnosis[] {
-  const rows: AgentDiagnosis[] = [];
-
-  if (agent.status === "offline" && heartbeat.status === "fresh") {
-    rows.push({
-      symptom: "Браузер не видит агент на этом ПК",
-      likelyCause: "Агент запущен на другом компьютере",
-      action: "Открой дашборд на том же ПК, где работает start.bat, или установи агент здесь",
-    });
-  }
-
-  if (heartbeat.status === "stale") {
-    rows.push({
-      symptom: "Агент перестал отвечать",
-      likelyCause: "Процесс завершился или пропал интернет",
-      action: "Перезапусти start.bat и проверь сеть на ПК с агентом",
-    });
-  }
-
-  if (
-    agent.status === "offline" &&
-    (heartbeat.status === "never" || heartbeat.status === "unknown")
-  ) {
-    rows.push({
-      symptom: "Агент ни разу не подключался",
-      likelyCause: "start.bat не запускали или агент упал при старте",
-      action: "Скачай ZIP, запусти start.bat от имени администратора",
-    });
-  }
-
-  if (agent.status === "offline" && heartbeat.status !== "fresh") {
-    rows.push({
-      symptom: "Порт 18080 недоступен",
-      likelyCause: "Файрвол блокирует или агент не слушает",
-      action: "Разреши порты 18080–18083 в брандмауэре Windows",
-    });
-  }
-
-  return rows;
 }
 
 function AgentSymptomTable({
@@ -279,13 +219,6 @@ function AgentTroubleshootChecklist({
 // The agent pushes startup/error events to the server; this card makes them
 // visible on the dashboard so a silently-dying agent still leaves a trace.
 
-const EVENT_LEVEL_STYLES: Record<string, { badge: string; label: string }> = {
-  fatal: { badge: "bg-red-500/15 text-red-300 border-red-500/30", label: "FATAL" },
-  error: { badge: "bg-red-500/10 text-red-400 border-red-500/20", label: "ERROR" },
-  warn: { badge: "bg-amber-500/10 text-amber-300 border-amber-500/20", label: "WARN" },
-  info: { badge: "bg-slate-500/10 text-slate-400 border-slate-500/20", label: "INFO" },
-};
-
 function AgentEventsCard({ hostToken }: { hostToken: string }) {
   const { data: events, isLoading, refetch, isRefetching } = useGetHostAgentEvents(
     hostToken,
@@ -348,7 +281,7 @@ function AgentEventsCard({ hostToken }: { hostToken: string }) {
         ) : (
           <ul className="space-y-1.5 max-h-56 overflow-y-auto pr-1" data-testid="list-agent-events">
             {events.map((e) => {
-              const style = EVENT_LEVEL_STYLES[e.level] ?? EVENT_LEVEL_STYLES.info;
+              const style = getAgentEventLevelStyle(e.level);
               return (
                 <li key={e.id} className="flex items-start gap-2 text-xs">
                   <span
@@ -999,43 +932,14 @@ function HostQuickStartCard({
   libraryCount: number;
   hasActiveSession: boolean;
 }) {
-  const agentOnline =
-    agent.status === "online" || heartbeat.status === "fresh";
-  const steps = [
-    {
-      done: true,
-      title: "Скачай агент",
-      hint: "ZIP → start.bat на Windows-ПК",
-    },
-    {
-      done: agentOnline,
-      title: "Агент онлайн",
-      hint: agentOnline
-        ? agent.status === "online"
-          ? `localhost:${agent.port}`
-          : "на связи через heartbeat"
-        : "Запусти start.bat",
-    },
-    {
-      done: agentKeyBound,
-      title: "Агент привязан",
-      hint: "Код привязки ниже → вставь в агенте",
-    },
-    {
-      done: libraryCount > 0,
-      title: "Добавь игру",
-      hint: libraryCount > 0 ? `${libraryCount} в библиотеке` : "Одна игра — и можно стримить",
-    },
-    {
-      done: hasActiveSession || (agentOnline && libraryCount > 0 && agentKeyBound),
-      title: "В онлайн",
-      hint: hasActiveSession
-        ? "Принимаешь игроков"
-        : "В агенте нажми «Выйти в онлайн»",
-    },
-  ];
-  const doneCount = steps.filter((s) => s.done).length;
-  const allDone = doneCount === steps.length;
+  const { steps, doneCount, allDone } = computeQuickStartSteps({
+    agent,
+    heartbeat,
+    agentKeyBound,
+    libraryCount,
+    hasActiveSession,
+  });
+  const agentOnline = steps[1].done;
 
   const copyToken = () => {
     void navigator.clipboard.writeText(hostToken).then(
@@ -1391,15 +1295,7 @@ export default function Dashboard() {
   });
 
   const pcSpecs = (hostMe as { pcSpecs?: PcSpecs | null } | undefined)?.pcSpecs ?? null;
-  const heartbeat: HeartbeatState = (() => {
-    if (!hostMe) return { status: "unknown" };
-    const lastSeenAt = hostMe.lastSeenAt;
-    if (!lastSeenAt) return { status: "never" };
-    if (Date.now() - new Date(lastSeenAt).getTime() < HEARTBEAT_FRESH_MS) {
-      return { status: "fresh", lastSeenAt };
-    }
-    return { status: "stale", lastSeenAt };
-  })();
+  const heartbeat = resolveHeartbeatState(hostMe?.lastSeenAt, !!hostMe);
 
   const { data: stats, isLoading: statsLoading } = useGetHostStats(
     hostToken || "",
@@ -1444,10 +1340,7 @@ export default function Dashboard() {
   );
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
-  const agentNeedsAttention =
-    agent.status === "offline" ||
-    heartbeat.status === "stale" ||
-    heartbeat.status === "never";
+  const agentNeedsAttention = agentNeedsAdvancedPanel(agent, heartbeat);
 
   useEffect(() => {
     if (agentNeedsAttention && agent.status !== "checking") {
@@ -1459,10 +1352,12 @@ export default function Dashboard() {
   const [endSessionId, setEndSessionId] = useState<string | null>(null);
 
   const handleCopyLink = (s: { playerToken: string; inviteCode?: string | null }) => {
-    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-    const link = s.inviteCode
-      ? `${window.location.origin}${base}/play/i/${s.inviteCode}`
-      : `${window.location.origin}${base}/play/${s.playerToken}`;
+    const link = buildPlayerPlayLink({
+      origin: window.location.origin,
+      baseUrl: import.meta.env.BASE_URL,
+      playerToken: s.playerToken,
+      inviteCode: s.inviteCode,
+    });
     void navigator.clipboard.writeText(link).then(
       () =>
         toast.success(
@@ -1490,37 +1385,30 @@ export default function Dashboard() {
         },
       );
       refetchSessions();
-      if (data.isExternalUrl && data.hostBoundUrl) {
+      const target = resolveTestSessionOpenTarget(data);
+      if (target.kind === "host-play") {
         // Arbitrary external site: iframes are blocked by most sites, so the
         // honest test is a real WebRTC stream. Open the host streaming page
         // where the host shares their tab; the guest link is shown there.
         try {
-          localStorage.setItem(
-            "streamline.browserHostToken:" + data.session.id,
-            hostToken,
-          );
-          localStorage.setItem(
-            "streamline.browserHostUrl:" + data.session.id,
-            data.hostBoundUrl,
-          );
+          const keys = buildBrowserHostStorageKeys(data.session.id);
+          localStorage.setItem(keys.hostTokenKey, hostToken);
+          localStorage.setItem(keys.browserHostUrlKey, data.hostBoundUrl ?? "");
         } catch {
           // localStorage unavailable — the host page will show an error
         }
         toast.success("Тест-сессия создана — поделись вкладкой со стримом");
-        window.open(
-          `${window.location.origin}${import.meta.env.BASE_URL}host/play/${data.session.id}`,
-          "_blank",
-        );
       } else {
         toast.success("Тест-сессия создана — открываю плеер");
-        const playPath = data.session.inviteCode
-          ? `play/i/${data.session.inviteCode}`
-          : `play/${data.session.playerToken}`;
-        window.open(
-          `${window.location.origin}${import.meta.env.BASE_URL}${playPath}`,
-          "_blank",
-        );
       }
+      window.open(
+        buildTestSessionFullUrl(
+          window.location.origin,
+          import.meta.env.BASE_URL,
+          target,
+        ),
+        "_blank",
+      );
     } catch (err) {
       toast.error(formatApiError(err, "Ошибка сети при создании тест-сессии"));
     } finally {

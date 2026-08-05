@@ -12,9 +12,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 10:13 UTC|
-| Task ID | M-96|
-| Результат | browser-play-helpers.ts + host-browser-play.test.mjs (11 тестов): storage, URL resolve, iframe/share URLs, ICE sanitize, signal WS, earnings|
+| Дата | 2026-08-05 10:18 UTC|
+| Task ID | M-97|
+| Результат | dashboard-helpers.ts + host-dashboard.test.mjs (15 тестов): heartbeat, agent diagnosis, play/test URLs, quick start, event levels|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -341,7 +341,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-94 | O | web pages: unit-тест (games) | `pages/games.tsx` | o:artifacts/web/src/pages/games.tsx | done | agent |
 | M-95 | O | web pages: unit-тест (host/binding-form) | `pages/host/binding-form.tsx` | o:artifacts/web/src/pages/host/binding-form.tsx | done | agent |
 | M-96 | O | web pages: unit-тест (host/browser-play) | `pages/host/browser-play.tsx` | o:artifacts/web/src/pages/host/browser-play.tsx | done | agent |
-| M-97 | O | web pages: unit-тест (host/dashboard) | `pages/host/dashboard.tsx` | o:artifacts/web/src/pages/host/dashboard.tsx | pending | agent |
+| M-97 | O | web pages: unit-тест (host/dashboard) | `pages/host/dashboard.tsx` | o:artifacts/web/src/pages/host/dashboard.tsx | done | agent |
 | M-98 | O | web pages: unit-тест (host/library) | `pages/host/library.tsx` | o:artifacts/web/src/pages/host/library.tsx | pending | agent |
 | M-99 | O | web pages: unit-тест (host/setup) | `pages/host/setup.tsx` | o:artifacts/web/src/pages/host/setup.tsx | pending | agent |
 | M-100 | O | web pages: unit-тест (hosts) | `pages/hosts.tsx` | o:artifacts/web/src/pages/hosts.tsx | pending | agent |
