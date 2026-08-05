@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-70 (2026-08-05 01:16 UTC) {#marathon-m-70}
+
+| Проверка | Результат |
+|---|---|
+| api-errors.test.mjs | 6 тестов — extractApiErrorPayload (string/nested/HTTP), formatApiError (коды, exact EN, patterns, RU, fallback), formatApiErrorPanel (title by code) |
+| web test | PASS (14 tests) |
+| web typecheck | PASS |
+
+**Следующий pick:** M-71 `ice-prewarm.ts`.
+
 ## Marathon M-69 (2026-08-05 01:00 UTC) {#marathon-m-69}
 
 | Проверка | Результат |
@@ -25,8 +35,6 @@
 | web test | PASS (8 tests) |
 | web typecheck | PASS |
 | fix | `discoverAgentPort` сбрасывает cachedPort при полном probe-fail |
-
-**Следующий pick:** M-70 `api-errors.ts`.
 
 ## Marathon M-68 (2026-08-05 00:25 UTC) {#marathon-m-68}
 
