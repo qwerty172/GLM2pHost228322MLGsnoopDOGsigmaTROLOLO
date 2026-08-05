@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 05:20 UTC |
 | Task ID | M-81 |
 | Результат | web components: unit-тест KeyboardOverlay.tsx (KEY_CATALOGUE, KEYBOARD_PRESETS, layout storage) + категория N в сканере |
-| Commit | *(после push)* |
+| Commit | 4167d20 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
