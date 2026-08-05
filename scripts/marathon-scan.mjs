@@ -25,6 +25,7 @@
 //   N. web components/*.{ts,tsx} without co-located test (by file, excludes ui/)
 //   O. web pages/**/*.tsx without co-located test (by file, module-level helpers)
 //   P. api-server routes/*.ts without route test (by file, excludes index.ts)
+//   Q. lib/auth-verifier/src/**/*.ts without co-located test (by file, excludes index.ts)
 //
 // Source of truth: working tree (== main after git pull).
 
@@ -74,6 +75,10 @@ function shortRouteFile(file) {
 
 function shortPageFile(file) {
   return file.replace(/^artifacts\/web\/src\//, "");
+}
+
+function shortVerifierFile(file) {
+  return file.replace(/^lib\/auth-verifier\/src\//, "");
 }
 
 const raw = [];
@@ -470,6 +475,33 @@ if (existsSync(routesDir)) {
   }
 }
 
+// --- Q. lib/auth-verifier src modules without co-located test (by file) ---
+const verifierDir = "lib/auth-verifier/src";
+if (existsSync(verifierDir)) {
+  const verifierModules = walk(verifierDir).filter(
+    (f) => f.endsWith(".ts") && !f.endsWith("/index.ts") && !f.endsWith(".d.ts"),
+  );
+  for (const f of verifierModules) {
+    const rel = shortVerifierFile(f);
+    const base = rel.replace(/\.ts$/, "").replace(/\//g, "-");
+    const testCandidates = [
+      `lib/auth-verifier/test/${base}.test.mjs`,
+      `lib/auth-verifier/test/${base}.test.ts`,
+    ];
+    if (testCandidates.some((t) => existsSync(t))) continue;
+    const txt = readFileSync(f, "utf8");
+    if (!/\bexport (async )?function\b|\bexport (const|class) \w+/.test(txt)) continue;
+    raw.push({
+      cat: "Q",
+      groupKey: `q:${f}`,
+      title: `auth-verifier: unit-тест (${rel})`,
+      file: f,
+      detail: rel,
+      items: [rel],
+    });
+  }
+}
+
 // --- group raw hits (merge same groupKey) --------------------------------
 const grouped = new Map();
 for (const c of raw) {
@@ -516,7 +548,7 @@ for (const line of marathonMd.split("\n")) {
   if (status === "done" || status === "in_progress") doneOrActiveKeys.add(groupKey);
 }
 
-const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, J: 7, K: 8, L: 9, M: 10, N: 11, O: 12, P: 13, D: 14, I: 15 };
+const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, Q: 7, J: 8, K: 9, L: 10, M: 11, N: 12, O: 13, P: 14, D: 15, I: 16 };
 const filtered = candidates
   .filter((c) => !doneOrActiveKeys.has(c.groupKey))
   .sort((a, b) => (CAT_ORDER[a.cat] ?? 9) - (CAT_ORDER[b.cat] ?? 9));
@@ -540,9 +572,11 @@ for (const c of filtered) {
 function formatRow(c, status = "pending") {
   const fileCell = c.file.includes("renderer")
     ? "`renderer/*.ts`"
-    : c.file.includes("artifacts/web/src/pages")
-      ? `\`${shortPageFile(c.file)}\``
-      : `\`${shortRouteFile(c.file)}\``;
+    : c.file.startsWith("lib/auth-verifier/")
+      ? `\`auth-verifier/${shortVerifierFile(c.file)}\``
+      : c.file.includes("artifacts/web/src/pages")
+        ? `\`${shortPageFile(c.file)}\``
+        : `\`${shortRouteFile(c.file)}\``;
   const detail = (c.detail || "").replace(/\|/g, "\\|");
   return `| ${c.id} | ${c.cat} | ${c.title} | ${fileCell} | ${c.groupKey} | ${status} | agent |`;
 }
@@ -668,7 +702,7 @@ if (NEXT || PICK) {
     console.log(`| ${c.id} | ${c.cat} | ${c.title} | \`${c.file}\` | ${(c.detail || "").replace(/\|/g, "\\|")} |`);
   }
   console.log(
-    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, J=main-тесты, K=shared-тесты, L=web-lib тесты, M=web-hooks тесты, N=web-components тесты, O=web-pages тесты, P=api-routes тесты, I=eslint suppressions.`,
+    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, Q=auth-verifier тесты, J=main-тесты, K=shared-тесты, L=web-lib тесты, M=web-hooks тесты, N=web-components тесты, O=web-pages тесты, P=api-routes тесты, I=eslint suppressions.`,
   );
   console.log(`Синхронизация: node scripts/marathon-scan.mjs --sync-marathon`);
 }
