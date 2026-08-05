@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-229 (2026-08-05 23:11 UTC) {#marathon-m-229}
+
+| Проверка | Результат |
+|---|---|
+| hostTier.test.ts | PASS (3 tests) |
+
+**Изменения:** `artifacts/api-server/src/lib/hostTier.test.ts` — unit-тест для `STREAM_OVERHEAD`: CPU на 1 ядро ниже порога с учётом overhead → `below_min`.
+
+**Следующий pick:** M-230 (тест не покрывает экспорты: invites).
+
 ## Marathon M-228 (2026-08-05 23:08 UTC) {#marathon-m-228}
 
 | Проверка | Результат |
