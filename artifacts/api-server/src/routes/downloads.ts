@@ -372,15 +372,71 @@ router.get("/downloads/host-agent.zip", async (req, res): Promise<void> => {
   });
 });
 
-// Redirect to latest GitHub Release installer when configured, else 503.
-router.get("/downloads/host-agent.exe", (_req, res): void => {
-  const releaseUrl = process.env.HOST_AGENT_EXE_URL;
+// GitHub repo that publishes the signed installer via .github/workflows/agent-build.yml
+// on tags matching `host-agent-v*`. Override for forks/self-hosted mirrors.
+const RELEASE_REPO = process.env.HOST_AGENT_RELEASE_REPO ?? "qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO";
+const RELEASE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+let releaseCache: { url: string | null; expiresAt: number } | null = null;
+
+/** Test-only: clear the in-memory GitHub Release cache between test cases. */
+export function resetHostAgentExeUrlCacheForTests(): void {
+  releaseCache = null;
+}
+
+/** True when a release asset filename looks like the Windows installer. */
+function isInstallerAsset(name: string): boolean {
+  return /\.exe$/i.test(name);
+}
+
+/**
+ * Resolve the latest published installer URL from GitHub Releases (U-31).
+ * `HOST_AGENT_EXE_URL` always wins when set (explicit override / CDN mirror).
+ * Result is cached briefly to avoid hitting GitHub's API on every request.
+ */
+export async function resolveHostAgentExeUrl(): Promise<string | null> {
+  const override = process.env.HOST_AGENT_EXE_URL;
+  if (override) return override;
+
+  const now = Date.now();
+  if (releaseCache && releaseCache.expiresAt > now) {
+    return releaseCache.url;
+  }
+
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${RELEASE_REPO}/releases/latest`,
+      { headers: { Accept: "application/vnd.github+json" } },
+    );
+    if (!res.ok) {
+      releaseCache = { url: null, expiresAt: now + RELEASE_CACHE_TTL_MS };
+      return null;
+    }
+    const release = (await res.json()) as {
+      assets?: Array<{ name: string; browser_download_url: string }>;
+    };
+    const asset = release.assets?.find((a) => isInstallerAsset(a.name));
+    const url = asset?.browser_download_url ?? null;
+    releaseCache = { url, expiresAt: now + RELEASE_CACHE_TTL_MS };
+    return url;
+  } catch (err) {
+    logger.warn({ err }, "GitHub release lookup failed for host-agent.exe");
+    releaseCache = { url: null, expiresAt: now + RELEASE_CACHE_TTL_MS };
+    return null;
+  }
+}
+
+// Redirect to the latest installer (GitHub Release asset, or HOST_AGENT_EXE_URL
+// override), else a clear 503 pointing at the ZIP fallback (U-31).
+router.get("/downloads/host-agent.exe", async (_req, res): Promise<void> => {
+  const releaseUrl = await resolveHostAgentExeUrl();
   if (releaseUrl) {
     res.redirect(302, releaseUrl);
     return;
   }
   res.status(503).json({
-    error: "Installer not available. Use /api/downloads/host-agent.zip or build via CI.",
+    error:
+      "Установщик пока не опубликован. Используйте /api/downloads/host-agent.zip, либо соберите релиз через .github/workflows/agent-build.yml (тег host-agent-v*).",
   });
 });
 

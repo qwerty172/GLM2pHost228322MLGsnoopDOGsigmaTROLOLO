@@ -6,6 +6,15 @@ export const HOST_TOKEN_STORAGE_PREFIX = "streamline.browserHostToken:";
 export const BROWSER_HOST_URL_STORAGE_PREFIX = "streamline.browserHostUrl:";
 export const HOST_AGENT_DOWNLOADED_STORAGE_KEY = "streamline.hostAgentDownloaded";
 
+/**
+ * Installer download (U-31): no Node.js/npm install required, unlike the ZIP.
+ * Resolves server-side to the latest GitHub Release asset (or falls back to
+ * a clear 503 if none has been published yet) — see routes/downloads.ts.
+ * Needs no Authorization header: the installer itself carries no per-host
+ * config, so a plain navigation/new-tab link is enough.
+ */
+export const HOST_AGENT_EXE_DOWNLOAD_URL = "/api/downloads/host-agent.exe";
+
 export type AudioMode = "off" | "voice" | "standard" | "quality";
 
 export type AgentState =

@@ -6,6 +6,7 @@ const {
   HOST_TOKEN_STORAGE_PREFIX,
   BROWSER_HOST_URL_STORAGE_PREFIX,
   HOST_AGENT_DOWNLOADED_STORAGE_KEY,
+  HOST_AGENT_EXE_DOWNLOAD_URL,
   AUDIO_MODE_LABELS,
   EVENT_LEVEL_STYLES,
   getAgentDiagnosis,
@@ -38,6 +39,7 @@ test("HEARTBEAT_FRESH_MS and storage prefixes are stable", () => {
   assert.equal(HOST_TOKEN_STORAGE_PREFIX, "streamline.browserHostToken:");
   assert.equal(BROWSER_HOST_URL_STORAGE_PREFIX, "streamline.browserHostUrl:");
   assert.equal(HOST_AGENT_DOWNLOADED_STORAGE_KEY, "streamline.hostAgentDownloaded");
+  assert.equal(HOST_AGENT_EXE_DOWNLOAD_URL, "/api/downloads/host-agent.exe");
 });
 
 test("AUDIO_MODE_LABELS maps all audio modes to Russian labels", () => {

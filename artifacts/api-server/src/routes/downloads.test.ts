@@ -7,6 +7,7 @@ import {
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
+import AdmZip from "adm-zip";
 import express from "express";
 import {
   afterAll,
@@ -21,6 +22,23 @@ import {
 process.env.DATABASE_URL ??= "postgresql://test:test@127.0.0.1:5432/test";
 process.env.RATE_LIMIT_STORAGE = "memory";
 
+// Controls what `resolveBundledHostToken`'s DB lookup "finds" (U-32): a row
+// present means the requested token belongs to a real host, empty means it
+// doesn't (or the request was unauthenticated).
+let dbHostTokenRows: Array<{ hostToken: string }> = [];
+vi.mock("@workspace/db", () => ({
+  db: {
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          limit: vi.fn(async () => dbHostTokenRows),
+        })),
+      })),
+    })),
+  },
+  hostsTable: { id: "id", hostToken: "hostToken" },
+}));
+
 const AGENT_DIR = path.resolve(
   import.meta.dirname,
   "..",
@@ -31,8 +49,33 @@ const AGENT_DIR = path.resolve(
 const DIST_DIR = path.join(AGENT_DIR, "dist");
 const hadDistBefore = existsSync(DIST_DIR);
 
-const { default: downloadsRouter, resolveApiBaseUrl, buildBundledAgentConfig } =
-  await import("./downloads");
+const {
+  default: downloadsRouter,
+  resolveApiBaseUrl,
+  buildBundledAgentConfig,
+  resetHostAgentExeUrlCacheForTests,
+} = await import("./downloads");
+
+// Controllable mock for GitHub's `GET /repos/:repo/releases/latest`. Real
+// network calls would be flaky/blocked in CI, so we intercept only requests
+// to api.github.com and pass everything else (the local test server) through
+// to the real fetch implementation.
+const realFetch = globalThis.fetch;
+let githubReleaseResponse: { status: number; body: unknown } | null = null;
+vi.stubGlobal(
+  "fetch",
+  vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("api.github.com")) {
+      const mocked = githubReleaseResponse ?? { status: 404, body: { message: "Not Found" } };
+      return new Response(JSON.stringify(mocked.body), {
+        status: mocked.status,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    return realFetch(input, init);
+  }),
+);
 
 let baseUrl = "";
 let server: Server;
@@ -97,6 +140,9 @@ afterAll(async () => {
 
 beforeEach(() => {
   delete process.env.HOST_AGENT_EXE_URL;
+  githubReleaseResponse = null;
+  resetHostAgentExeUrlCacheForTests();
+  dbHostTokenRows = [];
 });
 
 describe("resolveApiBaseUrl", () => {
@@ -152,22 +198,74 @@ describe("buildBundledAgentConfig", () => {
 });
 
 describe("GET /downloads/host-agent.exe", () => {
-  it("returns 503 when HOST_AGENT_EXE_URL is not configured", async () => {
+  it("returns a clear 503 when no GitHub Release and no override are available (U-31)", async () => {
+    githubReleaseResponse = { status: 404, body: { message: "Not Found" } };
     const res = await request("GET", "/downloads/host-agent.exe");
     expect(res.status).toBe(503);
     expect(res.json).toMatchObject({
-      error: expect.stringContaining("Installer not available"),
+      error: expect.stringContaining("host-agent-v"),
     });
   });
 
-  it("redirects to HOST_AGENT_EXE_URL when configured", async () => {
+  it("redirects to HOST_AGENT_EXE_URL override even when a release exists", async () => {
     process.env.HOST_AGENT_EXE_URL =
-      "https://github.com/example/releases/host-agent.exe";
+      "https://cdn.example.com/host-agent.exe";
     const res = await request("GET", "/downloads/host-agent.exe", {
       redirect: "manual",
     });
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe(process.env.HOST_AGENT_EXE_URL);
+  });
+
+  it("auto-resolves the latest GitHub Release installer asset (U-31)", async () => {
+    githubReleaseResponse = {
+      status: 200,
+      body: {
+        tag_name: "host-agent-v1.2.3",
+        assets: [
+          { name: "host-agent-Setup-1.2.3.exe", browser_download_url: "https://github.com/x/releases/download/host-agent-v1.2.3/host-agent-Setup-1.2.3.exe" },
+          { name: "host-agent-Setup-1.2.3.exe.blockmap", browser_download_url: "https://github.com/x/releases/download/host-agent-v1.2.3/host-agent-Setup-1.2.3.exe.blockmap" },
+        ],
+      },
+    };
+    const res = await request("GET", "/downloads/host-agent.exe", {
+      redirect: "manual",
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(
+      "https://github.com/x/releases/download/host-agent-v1.2.3/host-agent-Setup-1.2.3.exe",
+    );
+  });
+
+  it("returns 503 when the latest release has no .exe asset", async () => {
+    githubReleaseResponse = {
+      status: 200,
+      body: { tag_name: "v0.0.1", assets: [{ name: "README.txt", browser_download_url: "https://example.com/README.txt" }] },
+    };
+    const res = await request("GET", "/downloads/host-agent.exe");
+    expect(res.status).toBe(503);
+  });
+
+  it("caches the resolved release URL instead of re-querying GitHub every request", async () => {
+    githubReleaseResponse = {
+      status: 200,
+      body: {
+        tag_name: "host-agent-v1.0.0",
+        assets: [{ name: "host-agent-Setup-1.0.0.exe", browser_download_url: "https://github.com/x/releases/download/host-agent-v1.0.0/host-agent-Setup-1.0.0.exe" }],
+      },
+    };
+    await request("GET", "/downloads/host-agent.exe", { redirect: "manual" });
+    const callsAfterFirst = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.filter((c) =>
+      String(c[0]).includes("api.github.com"),
+    ).length;
+    // Change the mocked response — a cached lookup must NOT pick this up immediately.
+    githubReleaseResponse = { status: 404, body: {} };
+    const res2 = await request("GET", "/downloads/host-agent.exe", { redirect: "manual" });
+    expect(res2.status).toBe(302);
+    const callsAfterSecond = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.filter((c) =>
+      String(c[0]).includes("api.github.com"),
+    ).length;
+    expect(callsAfterSecond).toBe(callsAfterFirst);
   });
 });
 
@@ -208,5 +306,47 @@ describe("GET /downloads/host-agent.zip", () => {
     expect(res.buffer.includes(Buffer.from("INSTALL.txt"))).toBe(true);
     expect(res.buffer.includes(Buffer.from("config.json"))).toBe(true);
     expect(res.buffer.includes(Buffer.from("package.json"))).toBe(true);
+  });
+
+  // U-32: the byte-search assertions above only prove the *filename* is
+  // present in the archive — they would still pass if config.json existed
+  // but was missing hostToken (exactly the regression U-02 must prevent).
+  // These tests actually unzip the archive and parse config.json as JSON.
+  it("embeds the real hostToken inside config.json when the request is authenticated (U-32)", async () => {
+    dbHostTokenRows = [{ hostToken: "host-token-real-abc123" }];
+    const rawRes = await fetch(`${baseUrl}/downloads/host-agent.zip`, {
+      headers: { Authorization: "Bearer host-token-real-abc123" },
+    });
+    expect(rawRes.status).toBe(200);
+    const zip = new AdmZip(Buffer.from(await rawRes.arrayBuffer()));
+    const entry = zip.getEntry("config.json");
+    expect(entry).not.toBeNull();
+    const config = JSON.parse(zip.readAsText(entry!)) as {
+      apiBaseUrl?: string;
+      hostToken?: string;
+    };
+    expect(config.hostToken).toBe("host-token-real-abc123");
+    expect(config.apiBaseUrl).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
+  });
+
+  it("does not embed a hostToken when the request is unauthenticated", async () => {
+    const rawRes = await fetch(`${baseUrl}/downloads/host-agent.zip`);
+    const zip = new AdmZip(Buffer.from(await rawRes.arrayBuffer()));
+    const config = JSON.parse(
+      zip.readAsText(zip.getEntry("config.json")!),
+    ) as { hostToken?: string };
+    expect(config.hostToken).toBeUndefined();
+  });
+
+  it("does not embed a hostToken for an unrecognized token (no matching host)", async () => {
+    dbHostTokenRows = []; // token doesn't match any host row
+    const rawRes = await fetch(`${baseUrl}/downloads/host-agent.zip`, {
+      headers: { Authorization: "Bearer some-unknown-token" },
+    });
+    const zip = new AdmZip(Buffer.from(await rawRes.arrayBuffer()));
+    const config = JSON.parse(
+      zip.readAsText(zip.getEntry("config.json")!),
+    ) as { hostToken?: string };
+    expect(config.hostToken).toBeUndefined();
   });
 });

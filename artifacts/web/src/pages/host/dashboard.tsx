@@ -100,6 +100,7 @@ import {
   downloadHostAgentBundle,
   markHostAgentDownloaded,
   readHostAgentDownloaded,
+  HOST_AGENT_EXE_DOWNLOAD_URL,
 } from "./dashboard-helpers";
 
 const cardStyle = {
@@ -462,16 +463,27 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
               <span className="font-mono text-sky-400">start.bat</span> на своём Windows-ПК.
             </CardDescription>
           </div>
-          <Button
-            size="sm"
-            className="gap-2 h-8 text-xs font-semibold shrink-0"
-            style={{ background: "#0ea5e9", color: "#fff" }}
-            data-testid="link-download-host-agent"
-            onClick={handleDownloadAgent}
-          >
-            <Download className="h-3.5 w-3.5" />
-            Скачать агент
-          </Button>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <Button
+              size="sm"
+              className="gap-2 h-8 text-xs font-semibold"
+              style={{ background: "#0ea5e9", color: "#fff" }}
+              data-testid="link-download-host-agent"
+              onClick={handleDownloadAgent}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Скачать агент
+            </Button>
+            <a
+              href={HOST_AGENT_EXE_DOWNLOAD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-slate-500 hover:text-sky-400 underline-offset-2 hover:underline"
+              data-testid="link-download-host-agent-exe"
+            >
+              Или .exe без Node.js (нужен код привязки)
+            </a>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
@@ -988,26 +1000,36 @@ function HostQuickStartCard({
               {doneCount} из {steps.length} шагов
             </CardDescription>
           </div>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 gap-1.5 text-xs"
-              onClick={copyToken}
-              data-testid="button-copy-host-token"
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-xs"
+                onClick={copyToken}
+                data-testid="button-copy-host-token"
+              >
+                <Copy className="h-3 w-3" />
+                Скопировать токен
+              </Button>
+              <Button
+                size="sm"
+                className="h-8 gap-1.5 text-xs font-semibold"
+                style={{ background: "#0ea5e9", color: "#fff" }}
+                onClick={handleDownloadAgent}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Скачать агент
+              </Button>
+            </div>
+            <a
+              href={HOST_AGENT_EXE_DOWNLOAD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-slate-500 hover:text-sky-400 underline-offset-2 hover:underline"
             >
-              <Copy className="h-3 w-3" />
-              Скопировать токен
-            </Button>
-            <Button
-              size="sm"
-              className="h-8 gap-1.5 text-xs font-semibold"
-              style={{ background: "#0ea5e9", color: "#fff" }}
-              onClick={handleDownloadAgent}
-            >
-              <Download className="h-3.5 w-3.5" />
-              Скачать агент
-            </Button>
+              Или .exe без Node.js (нужен код привязки)
+            </a>
           </div>
         </div>
       </CardHeader>
