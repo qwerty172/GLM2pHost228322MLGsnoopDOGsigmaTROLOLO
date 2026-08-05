@@ -45,6 +45,18 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-93 (2026-08-05 09:50 UTC) {#marathon-m-93}
+
+| Проверка | Результат |
+|---|---|
+| game-detail-helpers.ts | formatScheduleSummary, sortHostsByLatency, formatDuration, latency/ping tiers, filterHostsByTag, resolveCoverImageUrl, mins/block affordability |
+| game-detail.test.mjs | 13 тестов — schedule, host sort, duration, latency, tags, cover URL, ping, balance |
+| game-detail.tsx | рефакторинг: хелперы в game-detail-helpers.ts |
+| web test (game-detail) | PASS (13 tests) |
+| typecheck | PASS (web) |
+
+**Следующий pick:** M-94 (games.tsx).
+
 ## Marathon M-92 (2026-08-05 09:45 UTC) {#marathon-m-92}
 
 | Проверка | Результат |

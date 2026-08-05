@@ -36,34 +36,25 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import type { ScheduleSlot } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { SiteNav } from "@/components/site-nav";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import {
+  chip,
+  computeMinsAvailable,
+  computeTotalLatency,
+  canAffordBlock,
+  filterHostsByTag,
+  formatDuration,
+  getLatencyColor,
+  getLatencyLabel,
+  getPingColor,
+  getPingLabel,
+  resolveCoverImageUrl,
+  sortHostsByLatency,
+} from "@/pages/game-detail-helpers";
 
-const LZT_PER_USD = 200;
 const DEFAULT_CREDIT_LZT = 3000;
-
-const DAY_LABELS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
-function formatScheduleSummary(slots: ScheduleSlot[]): string {
-  if (!slots || slots.length === 0) return "нет слотов";
-  return (
-    slots
-      .slice(0, 3)
-      .map((s) => {
-        const fmt = (m: number) =>
-          `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-        return `${DAY_LABELS[s.day] ?? "?"} ${fmt(s.startMin)}–${fmt(s.endMin)}`;
-      })
-      .join(", ") + (slots.length > 3 ? "…" : "")
-  );
-}
-
-const chip = (active: boolean) => ({
-  background: active ? "#0ea5e9" : "rgba(14,165,233,0.08)",
-  color: active ? "#fff" : "#7dd3fc",
-  border: active ? "1px solid #0ea5e9" : "1px solid rgba(14,165,233,0.18)",
-});
 
 type GameEnriched = {
   steamAppId?: string | null;
@@ -81,25 +72,10 @@ function SteamPlayerCount({ steamAppId }: { steamAppId: string }) {
   );
 }
 
-function sortHostsByLatency(
-  hosts: PublicGameHostItem[],
-  browserRtt: number | null,
-): PublicGameHostItem[] {
-  const tierRank = (t: unknown) => (t === "above_rec" ? 0 : 1);
-  return [...hosts].sort((a, b) => {
-    // Recommended-and-above hosts always come first, regardless of latency.
-    const tierDiff = tierRank(a.hostTier) - tierRank(b.hostTier);
-    if (tierDiff !== 0) return tierDiff;
-    const scoreA = a.pingMs != null ? (browserRtt ?? 0) + a.pingMs : Infinity;
-    const scoreB = b.pingMs != null ? (browserRtt ?? 0) + b.pingMs : Infinity;
-    return scoreA - scoreB;
-  });
-}
-
 function LatencyBadge({ totalMs }: { totalMs: number | null }) {
   if (totalMs == null) return null;
-  const color = totalMs < 80 ? "#22c55e" : totalMs < 150 ? "#eab308" : "#ef4444";
-  const label = totalMs < 80 ? "низкая задержка" : totalMs < 150 ? "средняя задержка" : "высокая задержка";
+  const color = getLatencyColor(totalMs);
+  const label = getLatencyLabel(totalMs);
   return (
     <span
       title={`~${totalMs} мс задержки (${label})`}
@@ -110,14 +86,6 @@ function LatencyBadge({ totalMs }: { totalMs: number | null }) {
       ~{totalMs} мс
     </span>
   );
-}
-
-function formatDuration(totalMinutes: number): string {
-  if (totalMinutes <= 0) return "0 мин";
-  if (totalMinutes < 60) return `${totalMinutes} мин`;
-  const h = Math.floor(totalMinutes / 60);
-  const m = totalMinutes % 60;
-  return m > 0 ? `${h} ч ${m} мин` : `${h} ч`;
 }
 
 export default function GameDetailPage() {
@@ -188,11 +156,7 @@ export default function GameDetailPage() {
     [libraryHosts, browserRtt],
   );
 
-  const filteredLibraryHosts = tag
-    ? sortedLibraryHosts.filter((h) =>
-        (h.tags ?? []).some((t) => t.toLowerCase() === tag.toLowerCase()),
-      )
-    : sortedLibraryHosts;
+  const filteredLibraryHosts = filterHostsByTag(sortedLibraryHosts, tag);
 
   const totalHostCount = (libraryHosts ?? []).length;
 
@@ -261,11 +225,7 @@ export default function GameDetailPage() {
               >
                 {game.coverImageUrl ? (
                   <img
-                    src={
-                      game.coverImageUrl.startsWith("http")
-                        ? game.coverImageUrl
-                        : `${import.meta.env.BASE_URL}${game.coverImageUrl.replace(/^\//, "")}`
-                    }
+                    src={resolveCoverImageUrl(game.coverImageUrl, import.meta.env.BASE_URL)}
                     alt={game.title}
                     className="w-full h-full object-cover"
                   />
@@ -471,7 +431,7 @@ function LibraryHostRow({
 
   const lztPerHour = h.pricePerMinuteLzt * 60;
   const usdPerHour = (h.pricePerMinuteUsd * 60).toFixed(2);
-  const totalLatency = h.pingMs != null ? Math.round((browserRtt ?? 0) + h.pingMs) : null;
+  const totalLatency = computeTotalLatency(browserRtt, h.pingMs);
   const isTop = h.hostTier === "above_rec";
 
   return (
@@ -938,9 +898,7 @@ function PreSessionModal({
   const creditLimit = (wallet as { creditLimitLzt?: number } | undefined)?.creditLimitLzt ?? DEFAULT_CREDIT_LZT;
   const creditUsed = wallet?.creditDebtLzt ?? 0;
   const creditAvailable = Math.max(0, creditLimit - creditUsed);
-  const minsAvailable = host.pricePerMinuteLzt > 0
-    ? Math.floor(totalAvailableLzt / host.pricePerMinuteLzt)
-    : 9999;
+  const minsAvailable = computeMinsAvailable(totalAvailableLzt, host.pricePerMinuteLzt);
 
   const blockOptions: Array<{ mins: 10 | 15 | 25; label: string }> = [
     { mins: 10, label: "10 мин" },
@@ -949,20 +907,11 @@ function PreSessionModal({
   ];
   const selectedBlockMins = blockChoice === "unlimited" ? null : (Number(blockChoice) as 10 | 15 | 25);
   const blockCost = selectedBlockMins ? selectedBlockMins * host.pricePerMinuteLzt : null;
-  const canAffordBlock = blockCost === null || totalAvailableLzt >= blockCost;
-  const canStart = minsAvailable >= 1 && canAffordBlock;
+  const blockAffordable = canAffordBlock(totalAvailableLzt, blockCost);
+  const canStart = minsAvailable >= 1 && blockAffordable;
 
-  const pingColor =
-    pingMs === null ? "#64748b"
-    : pingMs < 60 ? "#2dd4bf"
-    : pingMs < 120 ? "#eab308"
-    : "#ef4444";
-
-  const pingLabel =
-    pingMs === null ? "нет данных"
-    : pingMs < 60 ? "отлично"
-    : pingMs < 120 ? "нормально"
-    : "высокий";
+  const pingColor = getPingColor(pingMs);
+  const pingLabel = getPingLabel(pingMs);
 
   return (
     <div
@@ -1159,7 +1108,7 @@ function PreSessionModal({
             disabled={!canStart}
           >
             {!canStart
-              ? (!canAffordBlock ? "Недостаточно для блока" : "Недостаточно баланса")
+              ? (!blockAffordable ? "Недостаточно для блока" : "Недостаточно баланса")
               : blockCost !== null
                 ? `Зарезервировать ${blockCost.toLocaleString("ru-RU")} LZT и начать`
                 : "Начать игру"}
