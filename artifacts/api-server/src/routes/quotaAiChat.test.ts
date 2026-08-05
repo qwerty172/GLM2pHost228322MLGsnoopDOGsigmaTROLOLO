@@ -135,6 +135,44 @@ describe("POST /quotas/ai-chat", () => {
     expect(res.json).toMatchObject({ error: "Invalid owner token" });
   });
 
+  it("returns 503 when Anthropic is not configured", async () => {
+    const prevUrl = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+    const prevKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+    delete process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+    delete process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+    vi.resetModules();
+    mockResolveOwnerByToken.mockResolvedValue({ id: HOST_ID, type: "host" });
+
+    const { default: freshRouter } = await import("./quotaAiChat");
+    const app = express();
+    app.use(express.json());
+    app.use(freshRouter);
+    const tmpServer = createServer(app);
+    const tmpUrl = await new Promise<string>((resolve) => {
+      tmpServer.listen(0, "127.0.0.1", () => {
+        const addr = tmpServer.address() as AddressInfo;
+        resolve(`http://127.0.0.1:${addr.port}`);
+      });
+    });
+    const res = await fetch(`${tmpUrl}/quotas/ai-chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validBody()),
+    });
+    expect(res.status).toBe(503);
+    const json = await res.json();
+    expect(json).toMatchObject({
+      error: "AI assistant is not available in this environment",
+    });
+    await new Promise<void>((resolve, reject) => {
+      tmpServer.close((err) => (err ? reject(err) : resolve()));
+    });
+    if (prevUrl) process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL = prevUrl;
+    if (prevKey) process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY = prevKey;
+    vi.resetModules();
+    await import("./quotaAiChat");
+  });
+
   it("returns AI reply with sanitized form patch from tool_use", async () => {
     mockResolveOwnerByToken.mockResolvedValue({ id: HOST_ID, type: "host" });
     mockMessagesCreate.mockResolvedValue({

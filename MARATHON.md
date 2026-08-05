@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 22:30 UTC|
-| Task ID | M-217|
-| Результат | public.test.ts: 409 host_busy/game_unavailable, 429 preview cooldown; vitest 21/21 PASS|
+| Дата | 2026-08-05 22:33 UTC|
+| Task ID | M-218|
+| Результат | vitest quotaAiChat.test.ts PASS (8 tests); 503 when Anthropic not configured|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -570,7 +570,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-215 | W | route error-paths без теста (400) : joinCodes.ts | `routes/joinCodes.ts` | w:artifacts/api-server/src/routes/joinCodes.ts | done | agent |
 | M-216 | W | route error-paths без теста (500) : players.ts | `routes/players.ts` | w:artifacts/api-server/src/routes/players.ts | done | agent |
 | M-217 | W | route error-paths без теста (409/429) : public.ts | `routes/public.ts` | w:artifacts/api-server/src/routes/public.ts | done | agent |
-| M-218 | W | route error-paths без теста (503) : quotaAiChat.ts | `routes/quotaAiChat.ts` | w:artifacts/api-server/src/routes/quotaAiChat.ts | pending | agent |
+| M-218 | W | route error-paths без теста (503) : quotaAiChat.ts | `routes/quotaAiChat.ts` | w:artifacts/api-server/src/routes/quotaAiChat.ts | done | agent |
 | M-219 | W | route error-paths без теста (500) : quotas.ts | `routes/quotas.ts` | w:artifacts/api-server/src/routes/quotas.ts | pending | agent |
 | M-220 | W | route error-paths без теста (500) : sessions.ts | `routes/sessions.ts` | w:artifacts/api-server/src/routes/sessions.ts | pending | agent |
 | M-221 | W | route error-paths без теста (502) : storage.ts | `routes/storage.ts` | w:artifacts/api-server/src/routes/storage.ts | pending | agent |

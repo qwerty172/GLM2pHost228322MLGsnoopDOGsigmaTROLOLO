@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-218 (2026-08-05 22:34 UTC) {#marathon-m-218}
+
+| Проверка | Результат |
+|---|---|
+| vitest src/routes/quotaAiChat.test.ts | PASS (8 tests) |
+
+**Изменения:** `artifacts/api-server/src/routes/quotaAiChat.test.ts` — тест 503 когда Anthropic не сконфигурирован (POST /quotas/ai-chat).
+
+**Следующий pick:** M-219 (route error-paths 500: quotas.ts).
+
 ## Marathon M-217 (2026-08-05 22:30 UTC) {#marathon-m-217}
 
 | Проверка | Результат |
@@ -23,7 +33,7 @@
 
 **Изменения:** `artifacts/api-server/src/routes/public.test.ts` — тесты 409 host_busy/game_unavailable (POST /public/sessions) и 429 preview cooldown (POST /public/preview-session).
 
-**Следующий pick:** M-218 (route error-paths 503: quotaAiChat.ts).
+**Следующий pick:** M-219 (route error-paths 500: quotas.ts).
 
 ## Marathon M-216 (2026-08-05 22:27 UTC) {#marathon-m-216}
 
