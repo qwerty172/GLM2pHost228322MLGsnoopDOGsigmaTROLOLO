@@ -69,6 +69,14 @@ function shortRouteFile(file) {
   return file.replace(/^artifacts\/api-server\/src\/routes\//, "routes/");
 }
 
+/** Skip type-only modules; include `export const X:` (typed const) and `export const X =`. */
+function hasExportableSymbols(txt) {
+  return (
+    /\bexport (async )?function\b/.test(txt) ||
+    /\bexport const \w+\s*[=:]/.test(txt)
+  );
+}
+
 const raw = [];
 
 // --- A. English user-facing strings in shadcn/web UI ----------------------
@@ -311,7 +319,7 @@ if (existsSync(sharedDir)) {
     ];
     if (testCandidates.some((t) => existsSync(t))) continue;
     const txt = readFileSync(`${sharedDir}/${mod}`, "utf8");
-    if (!/\bexport (async )?function\b|\bexport const \w+ =/.test(txt)) continue;
+    if (!hasExportableSymbols(txt)) continue;
     const f = `${sharedDir}/${mod}`;
     raw.push({
       cat: "K",
@@ -324,10 +332,10 @@ if (existsSync(sharedDir)) {
   }
 }
 
-// --- M. web hooks/*.ts without co-located test (by file) ------------------
+// --- M. web hooks/*.{ts,tsx} without co-located test (by file) ------------
 const webHooksDir = "artifacts/web/src/hooks";
 if (existsSync(webHooksDir)) {
-  const hookModules = readdirSync(webHooksDir).filter((f) => f.endsWith(".ts") && !f.endsWith(".d.ts"));
+  const hookModules = readdirSync(webHooksDir).filter((f) => /\.tsx?$/.test(f) && !f.endsWith(".d.ts"));
   for (const mod of hookModules) {
     const base = mod.replace(/\.ts$/, "");
     const testCandidates = [
@@ -336,7 +344,7 @@ if (existsSync(webHooksDir)) {
     ];
     if (testCandidates.some((t) => existsSync(t))) continue;
     const txt = readFileSync(`${webHooksDir}/${mod}`, "utf8");
-    if (!/\bexport (async )?function\b|\bexport const \w+ =/.test(txt)) continue;
+    if (!hasExportableSymbols(txt)) continue;
     const f = `${webHooksDir}/${mod}`;
     raw.push({
       cat: "M",
@@ -361,7 +369,7 @@ if (existsSync(webLibDir)) {
     ];
     if (testCandidates.some((t) => existsSync(t))) continue;
     const txt = readFileSync(`${webLibDir}/${mod}`, "utf8");
-    if (!/\bexport (async )?function\b|\bexport const \w+ =/.test(txt)) continue;
+    if (!hasExportableSymbols(txt)) continue;
     const f = `${webLibDir}/${mod}`;
     raw.push({
       cat: "L",
