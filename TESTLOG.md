@@ -45,6 +45,18 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-92 (2026-08-05 09:45 UTC) {#marathon-m-92}
+
+| Проверка | Результат |
+|---|---|
+| exchange-helpers.ts | formatLzt, bpsToPercent, serverErrorToRu, loanRequestStatusRu, loanStatusRu, fundedPercent |
+| exchange.test.mjs | 7 тестов — LZT формат, bps→%, API errors RU, статусы заявок/займов, fundedPercent |
+| exchange.tsx | рефакторинг: хелперы в exchange-helpers.ts |
+| web test (exchange) | PASS (7 tests) |
+| typecheck | PASS (web) |
+
+**Следующий pick:** M-93 (game-detail.tsx).
+
 ## Marathon M-91 (2026-08-05 09:40 UTC) {#marathon-m-91}
 
 | Проверка | Результат |
