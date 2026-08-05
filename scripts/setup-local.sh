@@ -6,34 +6,42 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 echo "==> DecentralHub — локальная настройка"
+echo ""
 
-if [[ ! -f .env ]]; then
-  cp .env.example .env
-  echo "Создан .env из .env.example — отредактируй DATABASE_URL и WALLET_ENCRYPTION_KEY"
+USE_DOCKER=false
+if command -v docker >/dev/null 2>&1; then
+  USE_DOCKER=true
+  echo "Docker найден — поднимем postgres + redis автоматически"
+  chmod +x scripts/docker-infra.sh
+  ./scripts/docker-infra.sh up
+  node scripts/wait-for-port.mjs 127.0.0.1 5432 90000
 else
-  echo ".env уже существует — пропускаем копирование"
+  echo "Docker не найден — нужен свой PostgreSQL и DATABASE_URL в .env"
 fi
 
-if [[ -z "${WALLET_ENCRYPTION_KEY:-}" ]] && grep -q '^WALLET_ENCRYPTION_KEY=$' .env 2>/dev/null; then
-  KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
-  if [[ "$(uname -s)" == "Darwin" ]]; then
-    sed -i '' "s/^WALLET_ENCRYPTION_KEY=$/WALLET_ENCRYPTION_KEY=$KEY/" .env
-  else
-    sed -i "s/^WALLET_ENCRYPTION_KEY=$/WALLET_ENCRYPTION_KEY=$KEY/" .env
-  fi
-  echo "Сгенерирован WALLET_ENCRYPTION_KEY"
+if [[ "$USE_DOCKER" == true ]]; then
+  node scripts/ensure-env.mjs --docker
+else
+  node scripts/ensure-env.mjs
 fi
 
+echo ""
 echo "==> pnpm install"
 pnpm install
 
-echo "==> Применение схемы БД (нужен запущенный PostgreSQL и DATABASE_URL в .env)"
+echo ""
+echo "==> Применение схемы БД"
 pnpm --filter @workspace/db run push
 
-echo "==> Проверка типов"
-pnpm run typecheck
-
 echo ""
-echo "Готово. Запуск:"
-echo "  ./scripts/dev-local.sh          — API + Web"
-echo "  или см. README.md"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Готово! Запуск одной командой:"
+echo ""
+echo "    pnpm dev"
+echo ""
+echo "  Web:  http://localhost:5000"
+echo "  API:  http://localhost:8080/api/healthz"
+echo ""
+echo "  Проверка:  pnpm smoke"
+echo "  Типы:      pnpm typecheck   (можно позже)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

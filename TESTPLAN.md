@@ -31,19 +31,16 @@
 ```bat
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
 
-copy .env.example .env
-notepad .env
-scripts\setup-local.bat
-scripts\dev-local.bat
+pnpm run setup:win
+pnpm dev
 ```
 
 | Сервис | URL |
 |---|---|
 | Web | http://localhost:5000 |
 | API | http://localhost:8080/api/healthz |
-| Smoke-тест API | `scripts\smoke-api.bat` |
+| Smoke-тест API | `pnpm smoke` |
 | Invite-flow smoke | `pnpm smoke:invite` (API + Postgres) |
 | Features smoke (invite/rating/guest) | `pnpm smoke:features` |
 
