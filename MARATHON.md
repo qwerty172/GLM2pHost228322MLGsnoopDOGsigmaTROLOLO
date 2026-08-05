@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-178 done; hosts.tsx as any)
+> **Последнее обновление:** 2026-08-05 (M-179 done; public.ts as any)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 20:27 UTC|
-| Task ID | M-178|
-| Результат | hosts.tsx: убраны 5× as any (PublicHostListItem + readHostPcSpecs); web typecheck + test PASS (358)|
+| Дата | 2026-08-05 20:29 UTC|
+| Task ID | M-179|
+| Результат | public.ts: убраны 5× as any (conds/conditions без явной типизации, как в games.ts); api-server typecheck PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -513,8 +513,8 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-176 | T | `as any` escape (2) | `pages/play.tsx` | t:artifacts/web/src/pages/play.tsx | done | agent |
 | M-177 | T | `as any` escape (3) | `pages/landing.tsx` | t:artifacts/web/src/pages/landing.tsx | done | agent |
 | M-178 | T | `as any` escape (5) | `pages/hosts.tsx` | t:artifacts/web/src/pages/hosts.tsx | done | agent |
+| M-179 | T | `as any` escape (5) | `routes/public.ts` | t:artifacts/api-server/src/routes/public.ts | done | agent |
 | M-180 | T | `as any` escape (3) | `routes/admin.ts` | t:artifacts/api-server/src/routes/admin.ts | pending | agent |
-| M-179 | T | `as any` escape (5) | `routes/public.ts` | t:artifacts/api-server/src/routes/public.ts | pending | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).

@@ -59,9 +59,9 @@ router.get("/public/games", async (req, res): Promise<void> => {
   const search = (req.query.search as string | undefined)?.trim() ?? "";
   const liveOnly = req.query.liveOnly === "true" || req.query.liveOnly === "1";
 
-  const conds: ReturnType<typeof eq>[] = [];
-  if (category) conds.push(eq(gamesTable.category, category) as any);
-  if (search) conds.push(ilike(gamesTable.title, `%${search}%`) as any);
+  const conds = [];
+  if (category) conds.push(eq(gamesTable.category, category));
+  if (search) conds.push(ilike(gamesTable.title, `%${search}%`));
 
   const games = await db
     .select({
@@ -81,7 +81,7 @@ router.get("/public/games", async (req, res): Promise<void> => {
       browserHostUrl: gamesTable.browserHostUrl,
     })
     .from(gamesTable)
-    .where(conds.length > 0 ? and(...(conds as any)) : undefined)
+    .where(conds.length > 0 ? and(...conds) : undefined)
     .orderBy(gamesTable.title);
 
   // Count live sessions per game via title match (backward compat).
@@ -375,10 +375,10 @@ router.post("/public/sessions", publicSessionsLimiter, async (req, res): Promise
   const conditions = [
     ne(sessionsTable.status, "ended"),
     eq(sessionsTable.hostId, hostId),
-  ] as ReturnType<typeof eq>[];
+  ];
 
   if (gameId) {
-    conditions.push(eq(sessionsTable.gameId, gameId) as any);
+    conditions.push(eq(sessionsTable.gameId, gameId));
   }
 
   const sessions = await db
@@ -388,7 +388,7 @@ router.post("/public/sessions", publicSessionsLimiter, async (req, res): Promise
       status: sessionsTable.status,
     })
     .from(sessionsTable)
-    .where(and(...(conditions as any)))
+    .where(and(...conditions))
     .orderBy(desc(sessionsTable.createdAt))
     .limit(1);
 

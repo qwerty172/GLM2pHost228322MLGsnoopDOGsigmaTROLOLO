@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-179 (2026-08-05 20:30 UTC) {#marathon-m-179}
+
+| Проверка | Результат |
+|---|---|
+| pnpm --filter @workspace/api-server typecheck | PASS |
+
+**Изменения:** `public.ts` — убраны 5× `as any` (conds/conditions без явной типизации, как в games.ts).
+
+**Следующий pick:** M-180 (`as any` escape в admin.ts).
+
 ## Marathon M-178 (2026-08-05 20:26 UTC) {#marathon-m-178}
 
 | Проверка | Результат |
