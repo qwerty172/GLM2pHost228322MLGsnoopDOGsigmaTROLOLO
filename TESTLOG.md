@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-215 (2026-08-05 22:24 UTC) {#marathon-m-215}
+
+| Проверка | Результат |
+|---|---|
+| vitest src/routes/joinCodes.test.ts | PASS (4 tests) |
+
+**Изменения:** `artifacts/api-server/src/routes/joinCodes.test.ts` — тест 400 при невалидном path-параметре code (safeParse).
+
+**Следующий pick:** M-216 (route error-paths 500: players.ts).
+
 ## Marathon M-214 (2026-08-05 22:19 UTC) {#marathon-m-214}
 
 | Проверка | Результат |

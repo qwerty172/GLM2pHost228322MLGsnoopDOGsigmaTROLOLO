@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-213 done; embed 409 tests)
+> **Последнее обновление:** 2026-08-05 (M-215 done; joinCodes 400 test)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 22:20 UTC|
-| Task ID | M-214|
-| Результат | vitest hosts.test.ts PASS (23); 403 attach-quota key-exclusive, 409 quota conflict, 500 register/config/decrypt, 503 streamKey/stream-relay|
+| Дата | 2026-08-05 22:24 UTC|
+| Task ID | M-215|
+| Результат | vitest joinCodes.test.ts PASS (4); 400 invalid join code param (safeParse)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -567,7 +567,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-212 | W | route error-paths без теста (500) : downloads.ts | `routes/downloads.ts` | w:artifacts/api-server/src/routes/downloads.ts | done | agent |
 | M-213 | W | route error-paths без теста (409) : embed.ts | `routes/embed.ts` | w:artifacts/api-server/src/routes/embed.ts | done | agent |
 | M-214 | W | route error-paths без теста (403/409/500/503) : hosts.ts | `routes/hosts.ts` | w:artifacts/api-server/src/routes/hosts.ts | done | agent |
-| M-215 | W | route error-paths без теста (400) : joinCodes.ts | `routes/joinCodes.ts` | w:artifacts/api-server/src/routes/joinCodes.ts | pending | agent |
+| M-215 | W | route error-paths без теста (400) : joinCodes.ts | `routes/joinCodes.ts` | w:artifacts/api-server/src/routes/joinCodes.ts | done | agent |
 | M-216 | W | route error-paths без теста (500) : players.ts | `routes/players.ts` | w:artifacts/api-server/src/routes/players.ts | pending | agent |
 | M-217 | W | route error-paths без теста (409/429) : public.ts | `routes/public.ts` | w:artifacts/api-server/src/routes/public.ts | pending | agent |
 | M-218 | W | route error-paths без теста (503) : quotaAiChat.ts | `routes/quotaAiChat.ts` | w:artifacts/api-server/src/routes/quotaAiChat.ts | pending | agent |

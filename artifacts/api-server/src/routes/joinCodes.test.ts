@@ -1,6 +1,7 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import express from "express";
+import * as apiZod from "@workspace/api-zod";
 import {
   afterAll,
   beforeAll,
@@ -83,6 +84,22 @@ beforeEach(() => {
 });
 
 describe("POST /join-codes/:code/exchange", () => {
+  it("returns 400 when join code param fails validation", async () => {
+    const spy = vi
+      .spyOn(apiZod.ExchangeJoinCodeParams, "safeParse")
+      .mockReturnValueOnce({
+        success: false,
+        error: { message: "Invalid join code" },
+      } as ReturnType<typeof apiZod.ExchangeJoinCodeParams.safeParse>);
+
+    const res = await request(JOIN_CODE);
+
+    expect(res.status).toBe(400);
+    expect(res.json).toMatchObject({ error: "Invalid join code" });
+    expect(mockExchangeJoinCode).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
   it("returns 404 when join code is invalid or expired", async () => {
     mockExchangeJoinCode.mockResolvedValue(null);
     const res = await request(JOIN_CODE);
