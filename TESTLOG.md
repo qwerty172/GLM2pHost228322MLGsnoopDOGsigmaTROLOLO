@@ -15,6 +15,18 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon efficiency v2 (2026-08-05 09:25 UTC) {#marathon-efficiency-v2}
+
+| Изменение | Результат |
+|---|---|
+| marathon-efficiency.mjs | метрики 7d, рекомендации, auto-close draft idle PR |
+| marathon-last-run.mjs | Last run + commit hash в **одном** feat-коммите |
+| marathon-groom.mjs | expand scanner сразу (idleStreak=0), shouldRunAgent, efficiency в payload |
+| idle-политика | убран analyze-only exit; hash-only commits запрещены |
+| push | только main (cron source of truth) |
+
+**Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
+
 ## Marathon M-90 (2026-08-05 09:10 UTC) {#marathon-m-90}
 
 | Проверка | Результат |

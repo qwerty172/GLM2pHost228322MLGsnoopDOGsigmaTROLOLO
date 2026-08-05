@@ -16,8 +16,7 @@ const APPLY = process.argv.includes("--apply");
 const SHOULD_RUN = process.argv.includes("--should-run");
 const MARK_SKIPPED = process.argv.includes("--mark-skipped");
 const STALE_HOURS = 24;
-const IDLE_EXPAND_AFTER = 3; // consecutive idle runs → expand scanner
-const IDLE_COMMIT_MIN_MIN = 30; // don't commit Last run more often than this
+const IDLE_EXPAND_AFTER = 0; // 0 = expand scanner immediately when empty (no idle streak wait)
 
 function parseLastRun() {
   const md = readFileSync(MARATHON, "utf8");
@@ -136,17 +135,33 @@ if (SHOULD_RUN) {
   const needsExpand = pendingMnn === 0 && scannerEmpty;
   const expandNow = needsExpand && idleStreak >= IDLE_EXPAND_AFTER;
   const skip = prInFlight || hasInProgress;
-  const payload = {
-    shouldRun: !skip,
-    reason: skip
-      ? prInFlight
-        ? "pr_in_flight"
-        : "in_progress_active"
-      : expandNow
-        ? "scanner_empty_expand"
+
+  let efficiency = null;
+  try {
+    const eff = spawnSync("node", ["scripts/marathon-efficiency.mjs", "--analyze"], { encoding: "utf8", timeout: 45000 });
+    const line = (eff.stdout || "").split("\n").find((l) => l.startsWith("{"));
+    if (line) efficiency = JSON.parse(line);
+  } catch {
+    /* optional */
+  }
+
+  const topRec = efficiency?.recommendations?.[0];
+  const reason = skip
+    ? prInFlight
+      ? "pr_in_flight"
+      : "in_progress_active"
+    : expandNow
+      ? "scanner_empty_expand"
+      : nextId
+        ? "ok"
         : needsExpand
           ? "scanner_empty"
-          : "ok",
+          : "idle";
+
+  const payload = {
+    shouldRun: !skip && (Boolean(nextId) || expandNow || needsExpand),
+    shouldRunAgent: !skip && (Boolean(nextId) || expandNow),
+    reason,
     ageMin: ageMs != null ? Math.round(ageMs / 60000) : null,
     pendingMnn,
     nextPending: nextId,
@@ -154,22 +169,33 @@ if (SHOULD_RUN) {
     hasInProgress,
     idleStreak,
     scannerEmpty,
+    efficiency: efficiency
+      ? {
+          taskHitPct: efficiency.metrics?.taskHitPct,
+          hashWastePct: efficiency.metrics?.hashWastePct,
+          idleDraftPrs: efficiency.metrics?.idleDraftPrs,
+          branchAhead: efficiency.metrics?.branchLag?.ahead,
+          topRecommendation: topRec?.id ?? null,
+        }
+      : null,
     agentInstruction: skip
       ? `STOP: ${prInFlight ? "pr_in_flight" : "in_progress_active"} — commit MARATHON if needed, exit`
       : nextId
-        ? `EXECUTE ${nextId} only: OpenAPI/codegen or code per marathon-scan --next. NO read MARATHON, NO list-cloud-agents, NO prompt meta, NO automation_memory`
+        ? `EXECUTE ${nextId} only: code/tests per marathon-scan --next. Last run: node scripts/marathon-last-run.mjs --task ${nextId} --result "..." в ТОМ ЖЕ коммите. NO hash-only commit. NO list-cloud-agents/automation_memory`
         : expandNow
-          ? `EXPAND SCANNER: grouped=0 after ${idleStreak} idle runs. Add category to marathon-scan.mjs (HOSTING backlog, raw fetch, missing tests, eslint, deps outdated, audit) → --sync-marathon → commit. NO empty Last-run commit.`
+          ? `EXPAND SCANNER NOW: grouped=0. Add category to marathon-scan.mjs → --sync-marathon → one feat commit. NO analysis-only exit.`
           : needsExpand
-            ? `Marathon idle (${idleStreak}/${IDLE_EXPAND_AFTER}) — ANALYZE why scanner=0: rg new patterns, pnpm outdated, audit, git log. If clean → TESTLOG note, exit 0. NO commit MARATHON.`
-            : "Marathon idle — check pnpm outdated/audit or exit 0, NO Last-run commit",
+            ? `EXPAND SCANNER NOW (was: idle analyze). Add marathon-scan category → sync → commit.`
+            : `IDLE: node scripts/marathon-efficiency.mjs --apply → exit 0. NO Last-run commit.${topRec ? ` Fix: ${topRec.id}` : ""}`,
   };
   console.log(JSON.stringify(payload));
   if (skip && MARK_SKIPPED) {
     const updated = markLastRunSkipped(payload.reason);
     if (updated) console.log(`Last run → skipped (${payload.reason}) [Date preserved]`);
   }
-  process.exit(skip ? 2 : 0);
+  if (skip) process.exit(2);
+  if (!payload.shouldRunAgent) process.exit(3); // cron: skip agent spawn — efficiency-only
+  process.exit(0);
 }
 
 // 1. Phantom pending — в таблице, но сканер больше не видит проблему

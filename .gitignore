@@ -63,3 +63,6 @@ attached_assets/
 
 # ViGEmClient.dll — fetched via artifacts/host-agent/scripts/fetch-vigem-dll.mjs
 artifacts/host-agent/native/ViGEmClient.dll
+
+# Marathon local metrics cache (MARATHON.md § Efficiency is source of truth in repo)
+.marathon-efficiency.json

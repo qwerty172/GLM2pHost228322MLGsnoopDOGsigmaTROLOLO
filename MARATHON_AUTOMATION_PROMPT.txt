@@ -2,16 +2,19 @@
 # ПРИОРИТЕТ: если groom --should-run выводит agentInstruction — следуй ему, ИГНОРИРУЙ старый trigger-текст.
 
 git pull origin main
-node scripts/marathon-groom.mjs --should-run --mark-skipped || exit 0
-# exit 2 = STOP (pr_in_flight / in_progress) — commit MARATHON если Result изменился
+node scripts/marathon-efficiency.mjs --apply || true
+node scripts/marathon-groom.mjs --should-run --mark-skipped
+GROOM_EXIT=$?
+# exit 2 = STOP (pr_in_flight / in_progress)
+# exit 3 = no agent needed (pure idle) — exit 0
+if [ "$GROOM_EXIT" -eq 3 ]; then exit 0; fi
+if [ "$GROOM_EXIT" -eq 2 ]; then exit 0; fi
 
-# Шаг 1: meta-only — НИКОГДА не коммитить, если нет изменений
 node scripts/marathon-reconcile.mjs --apply
 node scripts/marathon-groom.mjs --apply
 node scripts/marathon-scan.mjs --sync-marathon
 
-# Шаг 2: если изменения — коммитим, иначе НЕ коммитить
-if git diff --cached --quiet && git diff --quiet; then
+if git diff --quiet; then
   :
 else
   git add -A && git commit -m "chore(marathon): groom+sync" && git push origin main || true
@@ -19,48 +22,20 @@ fi
 
 PICK=$(node scripts/marathon-scan.mjs --next)
 echo "$PICK"
-# pick.id → СРАЗУ работа по pick (OpenAPI/codegen/тесты), БЕЗ:
-#   - читать MARATHON.md (скрипты уже дали pick)
-#   - list-cloud-agents / automation_memory / анализ прошлых runs
-#   - «улучшать промпт» при pendingMnn>0
-#   - коммитить Last run, если ageMin<30 и нет реальных изменений
-# одна M-NN → pnpm --filter @workspace/api-spec run codegen → pnpm typecheck → done + TESTLOG
 
-# ============================================================
-# ЕСЛИ НИЧЕГО НЕ НАШЛОСЬ — НЕ ВЫХОДИ. НАЙДИ ПРИЧИНУ.
-# ============================================================
-# idle:true или pendingMnn=0 → агент ОБЯЗАН сделать одно из:
-#
-# 1. reason=scanner_empty_expand (idleStreak≥3)
-#    → ДОБАВИТЬ категорию в scripts/marathon-scan.mjs:
-#      - HOSTING.md backlog (H-NN)
-#      - raw fetch в web
-#      - TODO/FIXME в docs/*.md
-#      - eslint-disable / @ts-ignore
-#      - отсутствующие тесты (api, lib, web)
-#      - устаревшие зависимости (pnpm outdated)
-#      - .env.example drift
-#      - уязвимости (pnpm audit)
-#    → node scripts/marathon-scan.mjs --sync-marathon
-#    → git add -A && git commit -m "feat(marathon): расширить сканер <новая категория>"
-#
-# 2. reason=scanner_empty (idleStreak<3)
-#    → ПРОАНАЛИЗИРОВАТЬ: почему сканер 0?
-#      - rg по новым паттернам (console, fetch, TODO, ts-ignore)
-#      - pnpm outdated / pnpm audit
-#      - git log --since="1 day" — что менялось, есть ли след?
-#    → если нашёл проблему → добавить в scan + commit
-#    → если действительно чисто → записать в TESTLOG.md «сканер исчерпан, следующий expand»
-#    → exit 0 БЕЗ commit MARATHON
-#
-# 3. pr_in_flight / in_progress
-#    → проверить: gh pr list --search "M-NN in:title" — жив ли PR?
-#    → если PR мёртв >1ч → закрыть как superseded, вернуть M-NN в pending
-#    → иначе exit 0
+# pick.id → СРАЗУ работа по pick. Один коммит:
+#   feat(marathon): M-NN ...
+#   + node scripts/marathon-last-run.mjs --task M-NN --result "..." --commit $(git rev-parse HEAD)
+#   + TESTLOG + M-NN done в MARATHON
+#   git push origin main
 #
 # ЗАПРЕЩЕНО:
-#   - «Marathon idle» + commit Last run + exit (это сжигание токенов)
-#   - отдельный commit «fix Last run commit hash»
-#   - commit при git diff --quiet
-#   - обновлять Last run без реальных изменений
-#   - exit без записи в TESTLOG, если idleStreak≥3
+#   - отдельный commit «docs: commit hash»
+#   - «Marathon idle» + commit Last run
+#   - list-cloud-agents / automation_memory / читать MARATHON при pendingMnn>0
+#   - push в feature-ветку вместо main (cron читает main)
+
+# idle / scanner_empty_expand → EXPAND SCANNER NOW (без idleStreak≥3)
+# reason=ok + pick.id → pnpm typecheck → push main
+
+node scripts/marathon-efficiency.mjs --record --outcome "$(echo "$PICK" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const j=JSON.parse(d);process.stdout.write(j.pick?.id?'task_pending':j.idle?'idle':'unknown')}catch{process.stdout.write('unknown')}})")" || true

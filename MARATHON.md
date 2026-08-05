@@ -17,7 +17,26 @@
 | Результат | admin/games: ADMIN_SECRET_STORAGE_KEY, adminRequestInit, getApiErrorMessage + admin-games.test.mjs (4 теста); scanner cat O (web pages) |
 | Commit | 4fc122a |
 
-**Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
+**Commit hash** в Last run — только в **том же коммите**, что feat (`marathon-last-run.mjs`). Отдельный hash-commit запрещён.
+
+### Efficiency (auto)
+
+> Обновлено: 2026-08-05 09:25 UTC
+
+| Метрика | 7d |
+|---|---|
+| feat(marathon) | 232 |
+| commit-hash waste | 249 (52%) |
+| task hit rate | 29% |
+| idle draft PRs | 41 |
+| pending M-NN | 16 |
+| branch lag (ahead main) | 2 |
+
+**Рекомендации:**
+- `no_hash_commits`: 249 отдельных commit-hash за 7д — используй scripts/marathon-efficiency.mjs --update-last-run в том же коммите
+- `close_idle_drafts`: 41 draft PR «Marathon idle» — закрыть: node scripts/marathon-efficiency.mjs --apply
+- `merge_to_main`: Ветка cursor/marathon-5e33 опережает main на 2 коммитов — merge/push в main, иначе cron видит stale state
+- `low_hit_rate`: Hit rate 29% (232 feat / 811 marathon commits) — см. idle-политику и push main
 
 ---
 
@@ -70,13 +89,18 @@
 
 Когда `pendingMnn=0` и сканер `grouped=0`:
 
-| idleStreak | Действие |
+| Ситуация | Действие |
 |------------|----------|
-| 0–2 | **Анализ:** rg новых паттернов, `pnpm outdated`, `audit`, git log. Если нашёл → добавить в scan. Чисто → TESTLOG note, exit **без commit**. |
-| ≥3 | **EXPAND SCANNER** — добавить категорию в `marathon-scan.mjs` (deps, audit, docs TODO, .env drift…) → `--sync-marathon` → commit. |
-| pr_in_flight | Проверить жив ли PR; мёртв >1ч → закрыть, вернуть M-NN в pending. |
+| scanner_empty | **СРАЗУ EXPAND SCANNER** — новая категория в `marathon-scan.mjs` → `--sync-marathon` → один feat-коммит |
+| pendingMnn>0 | **EXECUTE** первую M-NN — без анализа, без meta |
+| pr_in_flight | STOP или закрыть мёртвый PR >1ч |
+| полный idle | `marathon-efficiency.mjs --apply` (метрики + закрыть draft idle PR) → exit 0 |
 
-**Запрещено:** «Marathon idle» + commit Last run + exit. Это сжигание токенов.
+**Запрещено:** «Marathon idle» + commit Last run; отдельный commit «fix hash»; push не в main.
+
+**Efficiency:** каждый run → `node scripts/marathon-efficiency.mjs --apply` (метрики в § Efficiency ниже).
+
+**Last run:** `node scripts/marathon-last-run.mjs --task M-NN --result "..."` — **в том же коммите**, что feat.
 
 **Статусы:** `161e0d7` | `in_progress` | `done` | `blocked` | `skipped`  
 **Owner:** `agent` | `human`
@@ -340,7 +364,8 @@ Automation **каждый run** создаёт и выполняет одну н
 > Готовый текст: **[MARATHON_AUTOMATION_PROMPT.txt](./MARATHON_AUTOMATION_PROMPT.txt)** — скопировать целиком в trigger.
 
 > **ЗАПРЕЩЕНО при 161e0d7Mnn>0:** «Прочитай MARATHON.md», list-cloud-agents, automation_memory, анализ прошлых runs, правка промпта — это жжёт токены впустую. Скрипты уже дали pick.
-> **Meta-улучшения** — при groom issues (phantom/stale/drift) **или** `reason: scanner_empty_expand` (3+ idle runs, сканер пуст).
+> **Meta-улучшения** — groom issues **или** `scanner_empty` → немедленный EXPAND (без idleStreak≥3).
+> **Efficiency** — `marathon-efficiency.mjs --apply` каждый run.
 > **pr_in_flight** — только non-DRAFT PR; DRAFT не блокирует.
 
 **Полный:**
