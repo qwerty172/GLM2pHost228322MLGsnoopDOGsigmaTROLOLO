@@ -23,7 +23,7 @@
 | host-agent test | PASS (199 tests) |
 | typecheck | PASS (host-agent) |
 
-**Следующий pick:** после `--sync-marathon` (shared messages.ts или idle).
+**Следующий pick:** idle (scanner empty после M-68).
 
 ## Marathon M-67 (2026-08-05 00:12 UTC) {#marathon-m-67}
 
