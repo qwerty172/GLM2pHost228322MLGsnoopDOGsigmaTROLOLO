@@ -15,6 +15,18 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-89 (2026-08-05 08:00 UTC) {#marathon-m-89}
+
+| Проверка | Результат |
+|---|---|
+| webgl-video-shader.tsx | экспорт resolveShaderFragCode, fragmentShaderUsesUniform, SHADER_PRESET_KEYS, SHADER_STORAGE_KEYS, SHADER_WEBGL_UNAVAILABLE_MSG, VERTEX_SHADER_SRC, compileShader, createShaderProgram |
+| webgl-video-shader.test.mjs | 13 тестов — presets, resolveShaderFragCode, uniform detection, mock WebGL compile/link |
+| web test | PASS (137 tests) |
+| typecheck | PASS |
+| marathon-scan | webgl-video-shader.tsx больше не в raw hits N |
+
+**Следующий pick:** idle — категория N закрыта.
+
 ## Marathon M-88 (2026-08-05 07:52 UTC) {#marathon-m-88}
 
 | Проверка | Результат |
