@@ -536,14 +536,60 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-199 | U | db schema: unit-тест (quotaSessions.ts) | `db/quotaSessions.ts` | u:lib/db/src/schema/quotaSessions.ts | done | agent |
 | M-200 | U | db schema: unit-тест (quotaVds.ts) | `db/quotaVds.ts` | u:lib/db/src/schema/quotaVds.ts | done | agent |
 | M-201 | U | db schema: unit-тест (quotas.ts) | `db/quotas.ts` | u:lib/db/src/schema/quotas.ts | done | agent |
-| M-202 | U | db schema: unit-тест (rateLimitBuckets.ts) | `db/rateLimitBuckets.ts` | u:lib/db/src/schema/rateLimitBuckets.ts | pending | agent |
-| M-203 | U | db schema: unit-тест (refreshTokens.ts) | `db/refreshTokens.ts` | u:lib/db/src/schema/refreshTokens.ts | pending | agent |
-| M-204 | U | db schema: unit-тест (sessionMetrics.ts) | `db/sessionMetrics.ts` | u:lib/db/src/schema/sessionMetrics.ts | pending | agent |
-| M-205 | U | db schema: unit-тест (sessionRatings.ts) | `db/sessionRatings.ts` | u:lib/db/src/schema/sessionRatings.ts | pending | agent |
-| M-206 | U | db schema: unit-тест (sessions.ts) | `db/sessions.ts` | u:lib/db/src/schema/sessions.ts | pending | agent |
-| M-207 | U | db schema: unit-тест (systemAccounts.ts) | `db/systemAccounts.ts` | u:lib/db/src/schema/systemAccounts.ts | pending | agent |
+| M-202 | U | db schema: unit-тест (rateLimitBuckets.ts) | `db/rateLimitBuckets.ts` | u:lib/db/src/schema/rateLimitBuckets.ts | done | agent |
+| M-203 | U | db schema: unit-тест (refreshTokens.ts) | `db/refreshTokens.ts` | u:lib/db/src/schema/refreshTokens.ts | done | agent |
+| M-204 | U | db schema: unit-тест (sessionMetrics.ts) | `db/sessionMetrics.ts` | u:lib/db/src/schema/sessionMetrics.ts | done | agent |
+| M-205 | U | db schema: unit-тест (sessionRatings.ts) | `db/sessionRatings.ts` | u:lib/db/src/schema/sessionRatings.ts | done | agent |
+| M-206 | U | db schema: unit-тест (sessions.ts) | `db/sessions.ts` | u:lib/db/src/schema/sessions.ts | done | agent |
+| M-207 | U | db schema: unit-тест (systemAccounts.ts) | `db/systemAccounts.ts` | u:lib/db/src/schema/systemAccounts.ts | done | agent |
+| M-210 | W | route error-paths без теста (500) : admin.ts | `routes/admin.ts` | w:artifacts/api-server/src/routes/admin.ts | pending | agent |
+| M-211 | W | route error-paths без теста (409) : agentAuth.ts | `routes/agentAuth.ts` | w:artifacts/api-server/src/routes/agentAuth.ts | pending | agent |
+| M-212 | W | route error-paths без теста (500) : downloads.ts | `routes/downloads.ts` | w:artifacts/api-server/src/routes/downloads.ts | pending | agent |
+| M-213 | W | route error-paths без теста (409) : embed.ts | `routes/embed.ts` | w:artifacts/api-server/src/routes/embed.ts | pending | agent |
+| M-214 | W | route error-paths без теста (403/409/500/503) : hosts.ts | `routes/hosts.ts` | w:artifacts/api-server/src/routes/hosts.ts | pending | agent |
+| M-215 | W | route error-paths без теста (400) : joinCodes.ts | `routes/joinCodes.ts` | w:artifacts/api-server/src/routes/joinCodes.ts | pending | agent |
+| M-216 | W | route error-paths без теста (500) : players.ts | `routes/players.ts` | w:artifacts/api-server/src/routes/players.ts | pending | agent |
+| M-217 | W | route error-paths без теста (409/429) : public.ts | `routes/public.ts` | w:artifacts/api-server/src/routes/public.ts | pending | agent |
+| M-218 | W | route error-paths без теста (503) : quotaAiChat.ts | `routes/quotaAiChat.ts` | w:artifacts/api-server/src/routes/quotaAiChat.ts | pending | agent |
+| M-219 | W | route error-paths без теста (500) : quotas.ts | `routes/quotas.ts` | w:artifacts/api-server/src/routes/quotas.ts | pending | agent |
+| M-220 | W | route error-paths без теста (500) : sessions.ts | `routes/sessions.ts` | w:artifacts/api-server/src/routes/sessions.ts | pending | agent |
+| M-221 | W | route error-paths без теста (502) : storage.ts | `routes/storage.ts` | w:artifacts/api-server/src/routes/storage.ts | pending | agent |
+| M-222 | W | route error-paths без теста (500) : vds.ts | `routes/vds.ts` | w:artifacts/api-server/src/routes/vds.ts | pending | agent |
 | M-208 | U | db schema: unit-тест (verifierLinks.ts) | `db/verifierLinks.ts` | u:lib/db/src/schema/verifierLinks.ts | pending | agent |
 | M-209 | U | db schema: unit-тест (withdrawals.ts) | `db/withdrawals.ts` | u:lib/db/src/schema/withdrawals.ts | pending | agent |
+| M-223 | V | тест не покрывает экспорты (1): agent-local | `artifacts/web/src/lib/agent-local.ts` | v:artifacts/web/src/lib/agent-local.ts | pending | agent |
+| M-224 | V | тест не покрывает экспорты (1): use-browser-ping | `artifacts/web/src/hooks/use-browser-ping.ts` | v:artifacts/web/src/hooks/use-browser-ping.ts | pending | agent |
+| M-225 | V | тест не покрывает экспорты (1): use-platform-events | `artifacts/web/src/hooks/use-platform-events.ts` | v:artifacts/web/src/hooks/use-platform-events.ts | pending | agent |
+| M-226 | V | тест не покрывает экспорты (2): authMiddleware | `artifacts/api-server/src/lib/authMiddleware.ts` | v:artifacts/api-server/src/lib/authMiddleware.ts | pending | agent |
+| M-227 | V | тест не покрывает экспорты (11): economy | `artifacts/api-server/src/lib/economy.ts` | v:artifacts/api-server/src/lib/economy.ts | pending | agent |
+| M-228 | V | тест не покрывает экспорты (1): hostAuth | `artifacts/api-server/src/lib/hostAuth.ts` | v:artifacts/api-server/src/lib/hostAuth.ts | pending | agent |
+| M-229 | V | тест не покрывает экспорты (1): hostTier | `artifacts/api-server/src/lib/hostTier.ts` | v:artifacts/api-server/src/lib/hostTier.ts | pending | agent |
+| M-230 | V | тест не покрывает экспорты (1): invites | `artifacts/api-server/src/lib/invites.ts` | v:artifacts/api-server/src/lib/invites.ts | pending | agent |
+| M-231 | V | тест не покрывает экспорты (3): joinCodes | `artifacts/api-server/src/lib/joinCodes.ts` | v:artifacts/api-server/src/lib/joinCodes.ts | pending | agent |
+| M-232 | V | тест не покрывает экспорты (3): jwt | `artifacts/api-server/src/lib/jwt.ts` | v:artifacts/api-server/src/lib/jwt.ts | pending | agent |
+| M-233 | V | тест не покрывает экспорты (2): objectAcl | `artifacts/api-server/src/lib/objectAcl.ts` | v:artifacts/api-server/src/lib/objectAcl.ts | pending | agent |
+| M-234 | V | тест не покрывает экспорты (1): objectStorage | `artifacts/api-server/src/lib/objectStorage.ts` | v:artifacts/api-server/src/lib/objectStorage.ts | pending | agent |
+| M-235 | V | тест не покрывает экспорты (3): pgNotify | `artifacts/api-server/src/lib/pgNotify.ts` | v:artifacts/api-server/src/lib/pgNotify.ts | pending | agent |
+| M-236 | V | тест не покрывает экспорты (5): quotaEngine | `artifacts/api-server/src/lib/quotaEngine.ts` | v:artifacts/api-server/src/lib/quotaEngine.ts | pending | agent |
+| M-237 | V | тест не покрывает экспорты (5): redis | `artifacts/api-server/src/lib/redis.ts` | v:artifacts/api-server/src/lib/redis.ts | pending | agent |
+| M-238 | V | тест не покрывает экспорты (2): sessionSerialize | `artifacts/api-server/src/lib/sessionSerialize.ts` | v:artifacts/api-server/src/lib/sessionSerialize.ts | pending | agent |
+| M-239 | V | тест не покрывает экспорты (3): signaling | `artifacts/api-server/src/lib/signaling.ts` | v:artifacts/api-server/src/lib/signaling.ts | pending | agent |
+| M-240 | V | тест не покрывает экспорты (6): storageRouteHelpers | `artifacts/api-server/src/lib/storageRouteHelpers.ts` | v:artifacts/api-server/src/lib/storageRouteHelpers.ts | pending | agent |
+| M-241 | V | тест не покрывает экспорты (3): walletAddresses | `artifacts/api-server/src/lib/walletAddresses.ts` | v:artifacts/api-server/src/lib/walletAddresses.ts | pending | agent |
+| M-242 | V | тест не покрывает экспорты (2): api-client | `artifacts/host-agent/src/main/api-client.ts` | v:artifacts/host-agent/src/main/api-client.ts | pending | agent |
+| M-243 | V | тест не покрывает экспорты (4): config | `artifacts/host-agent/src/main/config.ts` | v:artifacts/host-agent/src/main/config.ts | pending | agent |
+| M-244 | V | тест не покрывает экспорты (1): gamepad-injection | `artifacts/host-agent/src/main/gamepad-injection.ts` | v:artifacts/host-agent/src/main/gamepad-injection.ts | pending | agent |
+| M-245 | V | тест не покрывает экспорты (2): ping-server | `artifacts/host-agent/src/main/ping-server.ts` | v:artifacts/host-agent/src/main/ping-server.ts | pending | agent |
+| M-246 | V | тест не покрывает экспорты (3): agent-auth | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/agent-auth.ts | pending | agent |
+| M-247 | V | тест не покрывает экспорты (3): config | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/config.ts | pending | agent |
+| M-248 | V | тест не покрывает экспорты (1): input-guard | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/input-guard.ts | pending | agent |
+| M-249 | V | тест не покрывает экспорты (1): input-mapping | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/input-mapping.ts | pending | agent |
+| M-250 | V | тест не покрывает экспорты (4): library | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/library.ts | pending | agent |
+| M-251 | V | тест не покрывает экспорты (1): preview | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/preview.ts | pending | agent |
+| M-252 | V | тест не покрывает экспорты (12): session | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/session.ts | pending | agent |
+| M-253 | V | тест не покрывает экспорты (2): steam | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/steam.ts | pending | agent |
+| M-254 | V | тест не покрывает экспорты (1): ui | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/ui.ts | pending | agent |
+| M-255 | V | тест не покрывает экспорты (2): window-match | `artifacts/host-agent/src/shared/window-match.ts` | v:artifacts/host-agent/src/shared/window-match.ts | pending | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).

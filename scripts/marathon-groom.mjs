@@ -16,7 +16,10 @@ const APPLY = process.argv.includes("--apply");
 const SHOULD_RUN = process.argv.includes("--should-run");
 const MARK_SKIPPED = process.argv.includes("--mark-skipped");
 const STALE_HOURS = 24;
-const IDLE_EXPAND_AFTER = 0; // 0 = expand scanner immediately when empty (no idle streak wait)
+// Пустая очередь НЕ поднимает агента: «придумай себе задачу» каждую минуту —
+// это и была петля на 1000+ пустых runs. Пополнение бэклога делает человек
+// (UX_BACKLOG.md: planned → todo) или отдельный осознанный запуск.
+const EXPAND_ON_EMPTY = process.env.MARATHON_ALLOW_EXPAND === "1";
 
 function parseLastRun() {
   const md = readFileSync(MARATHON, "utf8");
@@ -162,7 +165,7 @@ if (SHOULD_RUN) {
   const idleStreak = countRecentIdleRuns();
   const scannerEmpty = isScannerEmpty(state);
   const needsExpand = pendingMnn === 0 && scannerEmpty;
-  const expandNow = needsExpand && idleStreak >= IDLE_EXPAND_AFTER;
+  const expandNow = needsExpand && EXPAND_ON_EMPTY;
   const skip = prInFlight || hasInProgress;
 
   let efficiency = null;
@@ -181,16 +184,16 @@ if (SHOULD_RUN) {
     ? prInFlight
       ? "pr_in_flight"
       : "in_progress_active"
-    : expandNow
-      ? "scanner_empty_expand"
-      : nextId
-        ? "ok"
+    : nextId
+      ? "ok"
+      : expandNow
+        ? "scanner_empty_expand"
         : needsExpand
-          ? "scanner_empty"
+          ? "scanner_empty_idle"
           : "idle";
 
   const payload = {
-    shouldRun: !skip && (Boolean(nextId) || expandNow || needsExpand),
+    shouldRun: !skip && (Boolean(nextId) || expandNow),
     shouldRunAgent: !skip && (Boolean(nextId) || expandNow),
     reason,
     ageMin: ageMs != null ? Math.round(ageMs / 60000) : null,
@@ -215,12 +218,10 @@ if (SHOULD_RUN) {
     agentInstruction: skip
       ? `STOP: ${prInFlight ? "pr_in_flight" : "in_progress_active"} — commit MARATHON if needed, exit`
       : nextId
-        ? `EXECUTE ${nextId} only: code/tests per marathon-scan --next. Last run: marathon-last-run.mjs в том же коммите. Merge→main + push. IGNORE все open DRAFT PR (legacy, не закрывать). NO hash/idle commits. NO list-cloud-agents/automation_memory`
+        ? `EXECUTE ${nextId} only: code/tests per marathon-scan --next. Gate: node scripts/marathon-verify.mjs --task ${nextId} (exit 0 = можно done). Last run: marathon-last-run.mjs в том же коммите. Merge→main + push. IGNORE все open DRAFT PR (legacy, не закрывать). NO hash/idle commits. NO list-cloud-agents/automation_memory`
         : expandNow
-          ? `EXPAND SCANNER NOW: grouped=0. Add category to marathon-scan.mjs → --sync-marathon → one feat commit. NO analysis-only exit.`
-          : needsExpand
-            ? `EXPAND SCANNER NOW (was: idle analyze). Add marathon-scan category → sync → commit.`
-            : `IDLE: node scripts/marathon-efficiency.mjs --apply → exit 0. NO Last-run commit.${topRec ? ` Fix: ${topRec.id}` : ""}`,
+          ? `EXPAND SCANNER (явно разрешено MARATHON_ALLOW_EXPAND=1): add category to marathon-scan.mjs → --sync-marathon → one feat commit.`
+          : `IDLE: очередь пуста — агент не нужен, exit без коммитов. Пополнение бэклога: UX_BACKLOG.md planned → todo (человек).`,
   };
   console.log(JSON.stringify(payload));
   if (skip && MARK_SKIPPED) {

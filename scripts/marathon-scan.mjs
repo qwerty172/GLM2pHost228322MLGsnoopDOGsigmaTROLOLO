@@ -30,6 +30,10 @@
 //   S. lib/integrations-anthropic-ai/src/**/*.ts without co-located test (by file, excludes index.ts)
 //   T. `as any` type escapes in source (grouped by file, excludes tests/codegen)
 //   U. lib/db schema/*.ts without co-located test (by file, excludes index.ts)
+//   V. exported symbols never referenced in the module's EXISTING test file
+//      (deepens coverage instead of only checking "test file exists")
+//   W. route error responses (4xx/5xx) present in source but never asserted
+//      in the route's EXISTING test file
 //
 // Source of truth: working tree (== main after git pull).
 
@@ -632,6 +636,99 @@ for (const [f, count] of anyByFile) {
   });
 }
 
+// --- V. exported symbols not referenced in the module's existing test -----
+// Категории J/L/M/N/O/P/Q/S/U ловят «теста нет вообще». V идёт дальше: тест
+// есть, но часть экспортов в нём ни разу не упомянута — покрытие поверхностное.
+const SYMBOL_TEST_GROUPS = [
+  ["artifacts/web/src/lib", "artifacts/web/test"],
+  ["artifacts/web/src/hooks", "artifacts/web/test"],
+  ["artifacts/web/src/components", "artifacts/web/test"],
+  ["artifacts/web/src/pages", "artifacts/web/test"],
+  ["artifacts/api-server/src/lib", "artifacts/api-server/src/lib"],
+  ["artifacts/host-agent/src/main", "artifacts/host-agent/test"],
+  ["artifacts/host-agent/src/renderer", "artifacts/host-agent/test"],
+  ["artifacts/host-agent/src/shared", "artifacts/host-agent/test"],
+  ["lib/auth-verifier/src", "lib/auth-verifier/test"],
+  ["lib/integrations-anthropic-ai/src", "lib/integrations-anthropic-ai/test"],
+];
+for (const [srcDir, testDir] of SYMBOL_TEST_GROUPS) {
+  if (!existsSync(srcDir)) continue;
+  for (const f of walk(srcDir)) {
+    // .tsx исключены целиком: это React-компоненты и хуки, для них в проекте
+    // нет DOM-раннера — тестируются вынесенные *-helpers.ts.
+    if (!/\.ts$/.test(f)) continue;
+    if (/\.test\.|\.d\.ts$|\/ui\//.test(f)) continue;
+    const base = f.split("/").pop().replace(/\.tsx?$/, "");
+    const testFile = [
+      `${testDir}/${base}.test.mjs`,
+      `${testDir}/${base}.test.ts`,
+    ].find((t) => existsSync(t));
+    if (!testFile) continue; // «теста нет» — это другие категории
+    const src = readFileSync(f, "utf8");
+    const testTxt = readFileSync(testFile, "utf8");
+    const symbols = [
+      ...src.matchAll(/^export (?:async )?function (\w+)|^export const (\w+)\s*[=:]/gm),
+    ]
+      .map((m) => m[1] || m[2])
+      // React-компоненты и провайдеры (PascalCase) не покрываются node:test —
+      // в проекте тестируются только module-level хелперы.
+      .filter((s) => !/^[A-Z][a-z]/.test(s))
+      // Ссылки на DOM-узлы (renderer) — не логика, тестировать нечего.
+      .filter((s) => {
+        const decl = src.match(
+          new RegExp(`^export (?:const|let) ${s}\\s*[=:][^\\n]*`, "m"),
+        )?.[0];
+        return !decl || !/document\.(getElementById|querySelector)|=\s*\$\(/.test(decl);
+      });
+    const missing = symbols.filter((s) => !new RegExp(`\\b${s}\\b`).test(testTxt));
+    if (!missing.length) continue;
+    raw.push({
+      cat: "V",
+      groupKey: `v:${f}`,
+      title: `тест не покрывает экспорты (${missing.length}): ${base}`,
+      file: f,
+      detail: missing.slice(0, 5).join(", ") + (missing.length > 5 ? `, +${missing.length - 5}` : ""),
+      items: missing,
+    });
+  }
+}
+
+// --- W. route error responses never asserted in the route's test ----------
+const ROUTE_TEST_DIRS = [
+  "artifacts/api-server/src/routes",
+  "artifacts/api-server/src/__tests__",
+  "artifacts/api-server/src/__tests__/routes",
+];
+if (existsSync(routesDir)) {
+  const routeFiles = readdirSync(routesDir).filter(
+    (f) => f.endsWith(".ts") && f !== "index.ts" && !f.endsWith(".test.ts") && !f.endsWith(".d.ts"),
+  );
+  for (const mod of routeFiles) {
+    const base = mod.replace(/\.ts$/, "");
+    const testFile = ROUTE_TEST_DIRS.map((d) => `${d}/${base}.test.ts`).find((t) => existsSync(t));
+    if (!testFile) continue; // «теста нет» — категория P
+    const f = `${routesDir}/${mod}`;
+    const src = readFileSync(f, "utf8");
+    const testTxt = readFileSync(testFile, "utf8");
+    const srcStatuses = new Set(
+      [...src.matchAll(/status\((4\d\d|5\d\d)\)/g)].map((m) => m[1]),
+    );
+    const testedStatuses = new Set(
+      [...testTxt.matchAll(/(?:toBe\(|toEqual\(|status,\s*)(\d{3})/g)].map((m) => m[1]),
+    );
+    const missing = [...srcStatuses].filter((s) => !testedStatuses.has(s)).sort();
+    if (!missing.length) continue;
+    raw.push({
+      cat: "W",
+      groupKey: `w:${f}`,
+      title: `route error-paths без теста (${missing.join("/")}) : ${mod}`,
+      file: f,
+      detail: `не проверены ответы ${missing.join(", ")}`,
+      items: missing,
+    });
+  }
+}
+
 // --- group raw hits (merge same groupKey) --------------------------------
 const grouped = new Map();
 for (const c of raw) {
@@ -679,7 +776,7 @@ for (const line of marathonMd.split("\n")) {
 }
 
 // R (UX_BACKLOG) — всегда первым: удобство важнее покрытия тестами.
-const CAT_ORDER = { R: -1, B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, Q: 7, S: 8, U: 9, T: 10, J: 11, K: 12, L: 13, M: 14, N: 15, O: 16, P: 17, D: 18, I: 19 };
+const CAT_ORDER = { R: -1, B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, W: 5.5, H: 6, Q: 7, S: 8, U: 9, V: 9.5, T: 10, J: 11, K: 12, L: 13, M: 14, N: 15, O: 16, P: 17, D: 18, I: 19 };
 const filtered = candidates
   .filter((c) => !doneOrActiveKeys.has(c.groupKey))
   .sort((a, b) => (CAT_ORDER[a.cat] ?? 9) - (CAT_ORDER[b.cat] ?? 9));
@@ -837,7 +934,7 @@ if (NEXT || PICK) {
     console.log(`| ${c.id} | ${c.cat} | ${c.title} | \`${c.file}\` | ${(c.detail || "").replace(/\|/g, "\\|")} |`);
   }
   console.log(
-    `\nКатегории: R=UX_BACKLOG (приоритет), A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, Q=auth-verifier тесты, S=anthropic-ai тесты, U=db-schema тесты, T=as-any escapes, J=main-тесты, K=shared-тесты, L=web-lib тесты, M=web-hooks тесты, N=web-components тесты, O=web-pages тесты, P=api-routes тесты, I=eslint suppressions.`,
+    `\nКатегории: R=UX_BACKLOG (приоритет), A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, Q=auth-verifier тесты, S=anthropic-ai тесты, U=db-schema тесты, V=непокрытые экспорты, W=route error-paths, T=as-any escapes, J=main-тесты, K=shared-тесты, L=web-lib тесты, M=web-hooks тесты, N=web-components тесты, O=web-pages тесты, P=api-routes тесты, I=eslint suppressions.`,
   );
   console.log(`Синхронизация: node scripts/marathon-scan.mjs --sync-marathon`);
 }
