@@ -48,28 +48,29 @@ CREATE DATABASE decentral_hub;
 
 ---
 
-## Быстрый старт (Windows)
+## Быстрый старт
+
+```bash
+pnpm setup   # первый раз
+pnpm dev     # каждый день
+```
+
+Web: http://localhost:5000 · API: http://localhost:8080/api/healthz
+
+С Docker `pnpm setup` сам поднимет Postgres и Redis. Без Docker — свой PostgreSQL 16 и `DATABASE_URL` в `.env`.
+
+### Windows (cmd)
 
 ```bat
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-
-copy .env.example .env
-notepad .env
+pnpm setup
+pnpm dev
 ```
 
-В `.env` измените `DATABASE_URL`:
+Или: `scripts\setup-local.bat` → `scripts\dev-local.bat`
 
-```
-DATABASE_URL=postgresql://postgres:ВАШ_ПАРОЛЬ@localhost:5432/decentral_hub
-```
+---
 
-```bat
-scripts\setup-local.bat
-scripts\dev-local.bat
-scripts\smoke-api.bat
-```
+## Быстрый старт (Windows, подробно)
 
 | Сервис | URL |
 |---|---|
