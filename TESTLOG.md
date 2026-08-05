@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-87 (2026-08-05 07:06 UTC) {#marathon-m-87}
+
+| Проверка | Результат |
+|---|---|
+| vt-scanner.tsx | экспорт VT_STATUS_LABELS, isValidVtInput, canTriggerVtScan, isVtUrlInput, buildVtNetworkErrorResult |
+| vt-scanner.test.mjs | 7 тестов — status labels, SHA-256/URL validation, scan guard, URL hint, network error |
+| web test | PASS (115 tests) |
+| typecheck | PASS |
+
+**Следующий pick:** M-88 (wallet-history.tsx).
+
 ## Marathon M-86 (2026-08-05 06:56 UTC) {#marathon-m-86}
 
 | Проверка | Результат |

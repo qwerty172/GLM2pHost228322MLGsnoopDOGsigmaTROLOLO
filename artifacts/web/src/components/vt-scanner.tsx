@@ -10,54 +10,92 @@ interface VtScannerProps {
   label?: string;
 }
 
+export const VT_STATUS_LABELS = {
+  clean: "Чисто",
+  suspicious: "Подозрительно",
+  malicious: "Угроза обнаружена",
+  unknown: "Нет в базе VT",
+  error: "Ошибка",
+} as const;
+
 const STATUS_CONFIG = {
   clean: {
     icon: ShieldCheck,
     color: "#22c55e",
     bg: "rgba(34,197,94,0.08)",
     border: "rgba(34,197,94,0.25)",
-    label: "Чисто",
+    label: VT_STATUS_LABELS.clean,
   },
   suspicious: {
     icon: ShieldAlert,
     color: "#f59e0b",
     bg: "rgba(245,158,11,0.08)",
     border: "rgba(245,158,11,0.25)",
-    label: "Подозрительно",
+    label: VT_STATUS_LABELS.suspicious,
   },
   malicious: {
     icon: ShieldX,
     color: "#ef4444",
     bg: "rgba(239,68,68,0.08)",
     border: "rgba(239,68,68,0.25)",
-    label: "Угроза обнаружена",
+    label: VT_STATUS_LABELS.malicious,
   },
   unknown: {
     icon: Shield,
     color: "#94a3b8",
     bg: "rgba(148,163,184,0.08)",
     border: "rgba(148,163,184,0.2)",
-    label: "Нет в базе VT",
+    label: VT_STATUS_LABELS.unknown,
   },
   error: {
     icon: Shield,
     color: "#94a3b8",
     bg: "rgba(148,163,184,0.08)",
     border: "rgba(148,163,184,0.2)",
-    label: "Ошибка",
+    label: VT_STATUS_LABELS.error,
   },
 } as const;
+
+export function isValidVtInput(input: string): boolean {
+  const trimmed = input.trim();
+  return /^[a-fA-F0-9]{64}$/.test(trimmed) || /^https?:\/\/./.test(trimmed);
+}
+
+export function canTriggerVtScan(
+  input: string,
+  ownerToken: string,
+  scanning: boolean,
+): boolean {
+  return isValidVtInput(input) && Boolean(ownerToken) && !scanning;
+}
+
+export function isVtUrlInput(input: string): boolean {
+  return /^https?:\/\//.test(input.trim());
+}
+
+export function buildVtNetworkErrorResult(): VtResult {
+  return {
+    status: "error",
+    harmless: 0,
+    suspicious: 0,
+    malicious: 0,
+    undetected: 0,
+    total: 0,
+    permalink: "",
+    errorMessage: "Ошибка сети",
+  };
+}
 
 export function VtScanner({ ownerToken, label = "Проверить файл игры" }: VtScannerProps) {
   const [input, setInput] = useState("");
   const [result, setResult] = useState<VtResult | null>(null);
   const scanVt = useScanVt();
 
-  const isValid = /^[a-fA-F0-9]{64}$/.test(input.trim()) || /^https?:\/\/./.test(input.trim());
+  const isValid = isValidVtInput(input);
   const scanning = scanVt.isPending;
 
   const scan = async () => {
-    if (!isValid || !ownerToken || scanning) return;
+    if (!canTriggerVtScan(input, ownerToken, scanning)) return;
     setResult(null);
     try {
       const data = await scanVt.mutateAsync({
@@ -65,16 +103,7 @@ export function VtScanner({ ownerToken, label = "Проверить файл и�
       });
       setResult(data);
     } catch {
-      setResult({
-        status: "error",
-        harmless: 0,
-        suspicious: 0,
-        malicious: 0,
-        undetected: 0,
-        total: 0,
-        permalink: "",
-        errorMessage: "Ошибка сети",
-      });
+      setResult(buildVtNetworkErrorResult());
     }
   };
 
@@ -102,7 +131,7 @@ export function VtScanner({ ownerToken, label = "Проверить файл и�
           type="button"
           variant="outline"
           size="sm"
-          disabled={!isValid || !ownerToken || scanning}
+          disabled={!canTriggerVtScan(input, ownerToken, scanning)}
           onClick={scan}
           style={{
             background: "rgba(255,255,255,0.04)",
@@ -141,7 +170,7 @@ export function VtScanner({ ownerToken, label = "Проверить файл и�
           fontSize: 13,
         }}>
           <Loader2 size={14} style={{ animation: "spin 1s linear infinite", flexShrink: 0 }} />
-          <span>Отправляю на проверку{/^https?:\/\//.test(input.trim()) ? " (URL-сканирование до 10 сек)" : ""}…</span>
+          <span>Отправляю на проверку{isVtUrlInput(input) ? " (URL-сканирование до 10 сек)" : ""}…</span>
         </div>
       )}
 
