@@ -222,6 +222,7 @@ vi.mock("@workspace/db", () => ({
     inviteCode: "inviteCode",
     createdAt: "createdAt",
     gameId: "gameId",
+    isTest: "isTest",
   },
   billingEventsTable: {
     hostCreditLzt: "hostCreditLzt",
@@ -450,6 +451,13 @@ describe("GET /hosts", () => {
       ],
     });
   });
+
+  it("returns empty list when host only has a self-test session (isTest filtered server-side)", async () => {
+    queueResults([], []);
+    const res = await request("GET", "/hosts");
+    expect(res.status).toBe(200);
+    expect(res.json).toEqual([]);
+  });
 });
 
 describe("GET /public/games/:slug/hosts", () => {
@@ -503,6 +511,15 @@ describe("POST /public/sessions", () => {
   });
 
   it("returns 503 when host has no active session", async () => {
+    queueResults([{ id: HOST_ID }], []);
+    const res = await request("POST", "/public/sessions", {
+      body: { hostId: HOST_ID },
+    });
+    expect(res.status).toBe(503);
+    expect(res.json).toMatchObject({ error: "host_offline" });
+  });
+
+  it("returns 503 when host only has a self-test session (isTest filtered server-side)", async () => {
     queueResults([{ id: HOST_ID }], []);
     const res = await request("POST", "/public/sessions", {
       body: { hostId: HOST_ID },
