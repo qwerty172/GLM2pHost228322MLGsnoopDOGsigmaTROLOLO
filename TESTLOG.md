@@ -45,6 +45,18 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-98 (2026-08-05 10:22 UTC) {#marathon-m-98}
+
+| Проверка | Результат |
+|---|---|
+| library-helpers.ts | lztToUsd, resolveEntryKind, isWindowsPath, validateLibraryAppPath, normalizeLibraryConfigValues, isValidSteamAppId, getAddModalTitle, buildCatalogSearchParams, formatCatalogGameMeta, resolveDeleteConflictStatus |
+| host-library.test.mjs | 13 тестов — LZT/USD, entry kind, path validation, config normalize, Steam ID, catalog search, delete conflict |
+| library.tsx | рефакторинг: хелперы в library-helpers.ts |
+| web test (host-library) | PASS (13 tests) |
+| typecheck | PASS (library-helpers) |
+
+**Следующий pick:** M-99 (host/setup.tsx).
+
 ## Marathon M-97 (2026-08-05 10:14 UTC) {#marathon-m-97}
 
 | Проверка | Результат |

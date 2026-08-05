@@ -75,6 +75,17 @@ import {
   type RawgSearchResultItem,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  lztToUsd,
+  resolveEntryKind,
+  normalizeLibraryConfigValues,
+  isValidSteamAppId,
+  getAddModalTitle,
+  buildCatalogSearchParams,
+  formatCatalogGameMeta,
+  isBrowserCatalogGame,
+  resolveDeleteConflictStatus,
+} from "./library-helpers";
 
 const cardStyle = {
   background: "#0a1018",
@@ -106,19 +117,6 @@ interface CatalogGame {
 
 type LibraryEntry = HostLibraryEntry;
 
-function entryKind(e: LibraryEntry): "native" | "browser" {
-  return e.boundUrl || e.game.browserHostUrl ? "browser" : "native";
-}
-
-// --------------------------------------------------------------------------
-// Helpers
-// --------------------------------------------------------------------------
-const LZT_PER_USD = 200;
-
-function lztToUsd(lzt: number) {
-  return (lzt / LZT_PER_USD).toFixed(2);
-}
-
 function LztBadge({ lzt, className = "" }: { lzt: number; className?: string }) {
   return (
     <span className={`inline-flex items-center gap-1 font-mono ${className}`}>
@@ -137,10 +135,6 @@ function LztBadge({ lzt, className = "" }: { lzt: number; className?: string }) 
       <span className="text-slate-600 text-xs">≈${lztToUsd(lzt)}</span>
     </span>
   );
-}
-
-function isWindowsPath(s: string) {
-  return /^[a-zA-Z]:\\/.test(s) || s.startsWith("\\\\") || s.startsWith("/");
 }
 
 // --------------------------------------------------------------------------
@@ -171,7 +165,7 @@ function SortableRow({
     zIndex: isDragging ? 50 : undefined,
   };
 
-  const isBrowser = entryKind(entry) === "browser";
+  const isBrowser = resolveEntryKind(entry) === "browser";
 
   return (
     <div
@@ -309,7 +303,7 @@ function CatalogSearch({
   }, [query]);
 
   const listParams = useMemo(
-    () => ({ search: debouncedQuery.trim() || undefined }),
+    () => buildCatalogSearchParams(debouncedQuery),
     [debouncedQuery],
   );
   const { data: games, isLoading: loading } = useListGames(listParams, {
@@ -369,7 +363,7 @@ function CatalogSearch({
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-white truncate">{g.title}</div>
                 <div className="text-[11px] text-slate-500 truncate">
-                  {[g.category, g.genre, g.genres?.join(", ")].filter(Boolean).join(" · ") || "Без категории"}
+                  {formatCatalogGameMeta(g.category, g.genre, g.genres)}
                 </div>
               </div>
               {g.browserHostUrl && (
@@ -418,7 +412,7 @@ function LibraryConfigForm({
   submitting: boolean;
   isPending?: boolean;
 }) {
-  const isBrowser = !!(game.browserHostUrl);
+  const isBrowser = isBrowserCatalogGame(game);
   const [price, setPrice] = useState("8");
   const [appPath, setAppPath] = useState("");
   const [boundUrl, setBoundUrl] = useState(game.browserHostUrl ?? "");
@@ -427,17 +421,19 @@ function LibraryConfigForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isBrowser && appPath.trim() && !isWindowsPath(appPath.trim())) {
-      setPathErr("Путь должен выглядеть как C:\\path\\to\\game.exe или /path/to/binary");
+    const { values, pathError } = normalizeLibraryConfigValues({
+      isBrowser,
+      price,
+      appPath,
+      boundUrl,
+      launchArgs,
+    });
+    if (pathError) {
+      setPathErr(pathError);
       return;
     }
     setPathErr("");
-    onSubmit({
-      pricePerMinuteLzt: Math.max(0, parseInt(price, 10) || 0),
-      appPath: isBrowser ? "" : appPath.trim(),
-      boundUrl: isBrowser ? boundUrl.trim() : "",
-      launchArgs: launchArgs.trim(),
-    });
+    onSubmit(values);
   };
 
   return (
@@ -608,7 +604,7 @@ function SubmitGameForm({
   // Fetch Steam metadata by App ID and auto-fill form
   const fetchSteamData = async () => {
     const id = steamId.trim();
-    if (!id || !/^\d+$/.test(id)) {
+    if (!isValidSteamAppId(id)) {
       toast.error("Введи числовой Steam App ID");
       return;
     }
@@ -836,21 +832,23 @@ function EditModal({
   }, [entry]);
 
   if (!entry) return null;
-  const isBrowser = entryKind(entry) === "browser";
+  const isBrowser = resolveEntryKind(entry) === "browser";
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isBrowser && appPath.trim() && !isWindowsPath(appPath.trim())) {
-      setPathErr("Путь должен выглядеть как C:\\path\\to\\game.exe");
+    const { values, pathError } = normalizeLibraryConfigValues({
+      isBrowser,
+      price,
+      appPath,
+      boundUrl,
+      launchArgs,
+    });
+    if (pathError) {
+      setPathErr(pathError);
       return;
     }
     setSaving(true);
-    await onSave(entry.gameId, {
-      pricePerMinuteLzt: Math.max(0, parseInt(price, 10) || 0),
-      appPath: isBrowser ? "" : appPath.trim(),
-      boundUrl: isBrowser ? boundUrl.trim() : "",
-      launchArgs: launchArgs.trim(),
-    });
+    await onSave(entry.gameId, values);
     setSaving(false);
   };
 
@@ -1017,17 +1015,11 @@ function AddGameModal({
     setStep("config");
   };
 
-  const titleMap: Record<AddStep, string> = {
-    search: "Добавить игру в библиотеку",
-    config: pendingSubmissionId ? "Настройка запуска (ожидает модерации)" : "Настройка запуска",
-    suggest: "Предложить новую игру",
-  };
-
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
       <DialogContent className="sm:max-w-lg" style={{ background: "#0d1520", border: "1px solid rgba(255,255,255,0.08)" }}>
         <DialogHeader>
-          <DialogTitle className="text-white">{titleMap[step]}</DialogTitle>
+          <DialogTitle className="text-white">{getAddModalTitle(step, pendingSubmissionId)}</DialogTitle>
           {step === "config" && pendingSubmissionId && (
             <p className="text-xs text-amber-400/80 mt-1">
               Заявка отправлена на модерацию. Прописанный путь и цена сохранятся — игра автоматически появится в библиотеке после одобрения.
@@ -1193,11 +1185,9 @@ export default function HostLibrary() {
       setDeleteEntry(null);
       invalidateLibrary();
     } catch (err) {
-      const status =
-        err && typeof err === "object" && "status" in err
-          ? (err as { status: number }).status
-          : 0;
-      if (status === 409) toast.error("Нельзя удалить: идёт активная сессия");
+      if (resolveDeleteConflictStatus(err) === 409) {
+        toast.error("Нельзя удалить: идёт активная сессия");
+      }
       else toast.error(formatApiError(err, "Не удалось удалить"));
     }
   };
