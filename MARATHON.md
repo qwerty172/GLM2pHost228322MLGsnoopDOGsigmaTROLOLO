@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 00:04 UTC |
 | Task ID | M-67 |
 | Результат | wake-scheduler.ts unit-тесты: non-win32 skip, clear tasks, register wake tasks, prefix delete, error swallow |
-| Commit | (pending) |
+| Commit | 4379119 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
