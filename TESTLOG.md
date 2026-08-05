@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-138 (2026-08-05 20:00 UTC) {#marathon-m-138}
+
+| Проверка | Результат |
+|---|---|
+| lib/auth-verifier/test/providers-telegram.test.ts | 10 тестов: sendOtp, setWebhook (успех + ошибки API) + parseUpdate (private, group, пустой text) |
+| auth-verifier test suite | PASS (52 tests) |
+
+**Изменения:** добавлен `providers-telegram.test.ts` по образцу providers-discord.
+
+**Следующий pick:** M-139 (auth-verifier unit-тест router.ts).
+
 ## Marathon M-137 (2026-08-05 19:55 UTC) {#marathon-m-137}
 
 | Проверка | Результат |
@@ -24,7 +35,7 @@
 
 **Изменения:** переименован `discord.test.ts` → `providers-discord.test.ts` (соглашение marathon-scan для вложенных модулей).
 
-**Следующий pick:** M-138 (auth-verifier unit-тест providers/telegram.ts).
+**Следующий pick:** M-139 (auth-verifier unit-тест router.ts).
 
 ## Marathon M-172 (2026-08-05 19:46 UTC) {#marathon-m-172}
 
