@@ -93,16 +93,17 @@ function BalanceChip({ walletToken }: { walletToken: string }) {
 
   return (
     <div
-      className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold"
+      className="flex items-center gap-0.5 sm:gap-1 px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[11px] sm:text-[12px] font-semibold shrink-0 max-w-[7.5rem] sm:max-w-none"
       style={{
         background: "rgba(14,165,233,0.1)",
         border: "1px solid rgba(14,165,233,0.2)",
         color: "#38bdf8",
       }}
       data-testid="balance-chip"
+      title={formatWalletBalanceLzt(blueLzt)}
     >
-      <Zap className="w-3 h-3" />
-      {formatWalletBalanceLzt(blueLzt)}
+      <Zap className="w-3 h-3 shrink-0" aria-hidden />
+      <span className="truncate">{formatWalletBalanceLzt(blueLzt)}</span>
     </div>
   );
 }

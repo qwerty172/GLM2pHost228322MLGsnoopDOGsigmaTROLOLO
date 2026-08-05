@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-169 (2026-08-05 18:54 UTC) {#marathon-m-169}
+
+| Проверка | Результат |
+|---|---|
+| site-nav BalanceChip на мобиле (U-27) | PASS — убран `hidden sm:flex`, компактные отступы/шрифт, truncate + title |
+| pnpm --filter @workspace/web test | PASS (343 tests) |
+
+**Изменения (U-27):** чип баланса LZT в шапке виден на малых экранах: компактный размер, обрезка длинных сумм с полным значением в `title`.
+
+**Следующий pick:** M-170 (U-28 офлайн-игры в каталоге).
+
 ## Marathon M-168 (2026-08-05 18:30 UTC) {#marathon-m-168}
 
 | Проверка | Результат |

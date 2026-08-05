@@ -65,7 +65,7 @@
 | U-24 | P1 | Один экран подготовки сессии вместо модалки и дубля на `/play` | `artifacts/web/src/pages/game-detail.tsx`, `artifacts/web/src/pages/play.tsx` | Баланс/пинг/блок-время показаны в одном месте; нет двух похожих UI с разной вёрсткой | done |
 | U-25 | P1 | Экранная клавиатура включена по умолчанию на тач-устройствах | `artifacts/web/src/pages/play.tsx` | При `maxTouchPoints > 0` клавиатура активна как и геймпад; можно выключить | done |
 | U-26 | P1 | Никаких технических терминов в сообщениях игроку | `artifacts/web/src/pages/play-helpers.ts`, `artifacts/web/src/pages/play.tsx`, `artifacts/web/src/lib/api-errors.ts` | Нет «WebRTC», «ICE», «токен игрока», сырых reason-кодов и англоязычных fallback-сообщений в пользовательском тексте | done |
-| U-27 | P2 | Баланс LZT виден на мобиле | `artifacts/web/src/components/site-nav.tsx` | Чип баланса отображается на малых экранах (компактно) | todo |
+| U-27 | P2 | Баланс LZT виден на мобиле | `artifacts/web/src/components/site-nav.tsx` | Чип баланса отображается на малых экранах (компактно) | done |
 | U-28 | P2 | В каталоге у офлайн-игр честная подпись и путь дальше | `artifacts/web/src/pages/games.tsx` | Понятно, что игра сейчас недоступна, и что можно сделать (уведомить / посмотреть похожие) | todo |
 | U-29 | P2 | Фильтры каталога доступны на мобиле | `artifacts/web/src/pages/games.tsx` | Жанры/цена/категории доступны через шит или сворачиваемый блок на малых экранах | todo |
 | U-30 | P2 | Понятная первая минута: сколько стоит и что такое LZT | `artifacts/web/src/pages/game-detail.tsx`, `artifacts/web/src/pages/play.tsx`, `artifacts/web/src/pages/profile.tsx` | Перед запуском видно цену за минуту в понятных единицах; расхождение «кредит нельзя на claim» устранено или объяснено | todo |
