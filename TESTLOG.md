@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-152 (2026-08-05 14:45 UTC) {#marathon-m-152}
+
+| Проверка | Результат |
+|---|---|
+| host-dashboard.test.mjs | 21 тест — дашборд без legacy BindingForm, PASS |
+| web test suite | PASS (host-binding-form удалён, −12 тестов) |
+| pnpm typecheck | PASS |
+
+**Изменения (U-07):** удалены `binding-form.tsx`, `binding-form-helpers.ts` и карточка на дашборде; настройка игр и цены LZT/мин только через `/host/library`.
+
 ## Marathon M-151 (2026-08-05 14:34 UTC) {#marathon-m-151}
 
 | Проверка | Результат |

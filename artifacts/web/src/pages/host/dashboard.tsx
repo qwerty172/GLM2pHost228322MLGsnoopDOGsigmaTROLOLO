@@ -27,7 +27,6 @@ import {
   getHostReadiness,
   type HostLibraryEntry,
 } from "@workspace/api-client-react";
-import BindingForm from "./binding-form";
 import {
   Card,
   CardContent,
@@ -1827,8 +1826,6 @@ export default function Dashboard() {
           {hostToken && !agentKeyBound && (
             <AgentBindCodeCard hostToken={hostToken} />
           )}
-
-          {!onboarding && hostToken && <BindingForm hostToken={hostToken} />}
 
           {!onboarding && agent.status !== "checking" && (
             <AgentStatusCard agent={agent} heartbeat={heartbeat} />
