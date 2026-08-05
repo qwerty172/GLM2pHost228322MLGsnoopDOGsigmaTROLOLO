@@ -90,6 +90,17 @@
 
 **Следующий pick:** M-120 (loans.ts).
 
+**Следующий pick:** M-122 (premium.ts).
+
+## Marathon M-121 (2026-08-05 11:54 UTC) {#marathon-m-121}
+
+| Проверка | Результат |
+|---|---|
+| players.test.ts | 20 тестов — POST /players/register (guest, validation, full), GET /players/:token, POST claim-guest, POST upgrade-guest, PATCH credit-settings |
+| api-server test (players) | PASS (20 tests) |
+
+**Следующий pick:** M-122 (premium.ts).
+
 ## Marathon M-120 (2026-08-05 11:51 UTC) {#marathon-m-120}
 
 | Проверка | Результат |

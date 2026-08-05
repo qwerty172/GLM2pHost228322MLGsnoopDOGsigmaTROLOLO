@@ -6,15 +6,15 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-120 done; loans.test.ts)
+> **Последнее обновление:** 2026-08-05 (M-121 done; players.test.ts)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 11:50 UTC|
-| Task ID | M-120|
-| Результат | loans.test.ts: 21 unit tests (requests create/list, fund, mine, repay); vitest PASS|
+| Дата | 2026-08-05 11:54 UTC|
+| Task ID | M-121|
+| Результат | players.test.ts: 20 unit tests (register guest/full, GET, claim-guest, upgrade-guest, credit-settings); vitest PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -365,7 +365,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-118 | P | api-server routes: unit-тест (hosts.ts) | `routes/hosts.ts` | p:artifacts/api-server/src/routes/hosts.ts | done | agent |
 | M-119 | P | api-server routes: unit-тест (joinCodes.ts) | `routes/joinCodes.ts` | p:artifacts/api-server/src/routes/joinCodes.ts | done | agent |
 | M-120 | P | api-server routes: unit-тест (loans.ts) | `routes/loans.ts` | p:artifacts/api-server/src/routes/loans.ts | done | agent |
-| M-121 | P | api-server routes: unit-тест (players.ts) | `routes/players.ts` | p:artifacts/api-server/src/routes/players.ts | pending | agent |
+| M-121 | P | api-server routes: unit-тест (players.ts) | `routes/players.ts` | p:artifacts/api-server/src/routes/players.ts | done | agent |
 | M-122 | P | api-server routes: unit-тест (premium.ts) | `routes/premium.ts` | p:artifacts/api-server/src/routes/premium.ts | pending | agent |
 | M-123 | P | api-server routes: unit-тест (public.ts) | `routes/public.ts` | p:artifacts/api-server/src/routes/public.ts | pending | agent |
 | M-124 | P | api-server routes: unit-тест (quotaAiChat.ts) | `routes/quotaAiChat.ts` | p:artifacts/api-server/src/routes/quotaAiChat.ts | pending | agent |
