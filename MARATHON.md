@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** M-79 done; M-80 pending (.tsx hooks).
+**Wave Maintenance:** M-80 done; Wave Maintenance M-queue пуста.
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -299,7 +299,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-77 | L | web lib: unit-тест (connection-labels.ts) | `artifacts/web/src/lib/connection-labels.ts` | l:artifacts/web/src/lib/connection-labels.ts | done | agent |
 | M-78 | M | web hooks: unit-тест (use-auth.tsx) | `artifacts/web/src/hooks/use-auth.tsx` | m:artifacts/web/src/hooks/use-auth.tsx | done | agent |
 | M-79 | M | web hooks: unit-тест (use-mobile.tsx) | `artifacts/web/src/hooks/use-mobile.tsx` | m:artifacts/web/src/hooks/use-mobile.tsx | done | agent |
-| M-80 | M | web hooks: unit-тест (use-player-wallet.tsx) | `artifacts/web/src/hooks/use-player-wallet.tsx` | m:artifacts/web/src/hooks/use-player-wallet.tsx | pending | agent |
+| M-80 | M | web hooks: unit-тест (use-player-wallet.tsx) | `artifacts/web/src/hooks/use-player-wallet.tsx` | m:artifacts/web/src/hooks/use-player-wallet.tsx | done | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).
