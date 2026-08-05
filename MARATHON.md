@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 03:02 UTC |
 | Task ID | M-73 |
 | Результат | unit-тест quota-compatibility.ts — specsFromPcSpecs, computeQuotaHostTier, getQuotaCompatibility, validateQuotaFormFields |
-| Commit | pending |
+| Commit | 9c9ed3a |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
