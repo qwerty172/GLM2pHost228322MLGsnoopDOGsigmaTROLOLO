@@ -508,6 +508,8 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-138 | Q | auth-verifier: unit-тест (providers/telegram.ts) | `auth-verifier/providers/telegram.ts` | q:lib/auth-verifier/src/providers/telegram.ts | done | agent |
 | M-139 | Q | auth-verifier: unit-тест (router.ts) | `auth-verifier/router.ts` | q:lib/auth-verifier/src/router.ts | done | agent |
 | M-173 | N | web components: unit-тест (pre-session-screen.tsx) | `artifacts/web/src/components/pre-session-screen.tsx` | n:artifacts/web/src/components/pre-session-screen.tsx | done | agent |
+| M-174 | S | integrations-anthropic-ai: unit-тест (batch/utils.ts) | `anthropic-ai/batch/utils.ts` | s:lib/integrations-anthropic-ai/src/batch/utils.ts | pending | agent |
+| M-175 | S | integrations-anthropic-ai: unit-тест (client.ts) | `anthropic-ai/client.ts` | s:lib/integrations-anthropic-ai/src/client.ts | pending | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).
