@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-78 (2026-08-05 04:08 UTC) {#marathon-m-78}
+
+| Проверка | Результат |
+|---|---|
+| idle-анализ | scanner=0 — не было категории для `web/components/*.tsx` с `export const` (KeyboardOverlay, webgl-video-shader) |
+| marathon-scan.mjs | Категория **N** — web components с export const без co-located test |
+| keyboard-overlay.test.mjs | 3 теста — KEY_CATALOGUE уникальные codes, KEYBOARD_PRESETS wasd/arrows/custom |
+| web test | PASS (55 tests) |
+
+**Следующий pick:** M-79 — webgl-video-shader SHADER_PRESETS.
+
 ## Marathon M-77 (2026-08-05 04:00 UTC) {#marathon-m-77}
 
 | Проверка | Результат |
