@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-73 (2026-08-05 02:46 UTC) {#marathon-m-73}
+
+| Проверка | Результат |
+|---|---|
+| quota-compatibility.test.mjs | 8 тестов — specsFromPcSpecs, computeQuotaHostTier, getQuotaCompatibility (tier/reason), validateQuotaFormFields |
+| web test | PASS (33 tests) |
+| web typecheck | PASS |
+
+**Следующий pick:** M-74 `sentry.ts`.
+
 ## Marathon M-72 (2026-08-05 02:22 UTC) {#marathon-m-72}
 
 | Проверка | Результат |
