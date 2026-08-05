@@ -16,13 +16,7 @@ sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='decentral_hu
 sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';" 2>/dev/null || true
 
 echo "==> .env"
-if [[ ! -f .env ]]; then
-  cp .env.example .env
-  KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
-  sed -i "s|^DATABASE_URL=.*|DATABASE_URL=postgresql://postgres:postgres@localhost:5432/decentral_hub|" .env
-  sed -i "s|^WALLET_ENCRYPTION_KEY=.*|WALLET_ENCRYPTION_KEY=$KEY|" .env
-  sed -i "s|^ADMIN_SECRET=.*|ADMIN_SECRET=cloud-dev-secret|" .env
-fi
+node scripts/setup-env.mjs --docker
 
 echo "==> pnpm install"
 pnpm install

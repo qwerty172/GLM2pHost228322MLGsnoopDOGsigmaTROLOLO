@@ -1,4 +1,6 @@
 services:
+  # Только Postgres нужен для pnpm setup / pnpm dev.
+  # Redis и coturn — опционально: docker compose -f infra/docker-compose.dev.yml up -d redis coturn
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
