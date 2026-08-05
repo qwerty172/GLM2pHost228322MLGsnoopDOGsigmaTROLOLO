@@ -43,6 +43,20 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import { WalletHistory } from "@/components/wallet-history";
+import {
+  LZT_PER_USDT,
+  WITHDRAW_CURRENCIES,
+  formatLzt,
+  lztToUsdt,
+  isTransakEnabled,
+  buildTransakUrl,
+  resolveWalletToken,
+  parseWithdrawAmountLzt,
+  isWithdrawOverGreen,
+  validateWithdrawAmountLzt,
+  findUsdtTrc20Address,
+  formatUsdtAddressPreview,
+} from "./wallet-helpers";
 
 const cardStyle = {
   background: "#0a1018",
@@ -55,38 +69,8 @@ const inputStyle = {
   color: "#e2e8f0",
 };
 
-const LZT_PER_USDT = 200;
-const formatLzt = (lzt: number) =>
-  new Intl.NumberFormat("ru-RU").format(Math.trunc(lzt));
-const lztToUsdt = (lzt: number) => lzt / LZT_PER_USDT;
-
 const TRANSAK_API_KEY = (import.meta.env.VITE_TRANSAK_API_KEY as string | undefined)?.trim();
-const TRANSAK_ENABLED = Boolean(TRANSAK_API_KEY);
-const TRANSAK_HOST = "https://global.transak.com";
-
-function buildTransakUrl(opts: {
-  walletAddress: string;
-  defaultFiatAmount?: number;
-  email?: string;
-}) {
-  if (!TRANSAK_API_KEY) {
-    throw new Error("VITE_TRANSAK_API_KEY is not configured");
-  }
-  const params = new URLSearchParams({
-    apiKey: TRANSAK_API_KEY,
-    walletAddress: opts.walletAddress,
-    cryptoCurrencyCode: "USDT",
-    network: "tron",
-    fiatCurrency: "USD",
-    defaultFiatAmount: String(opts.defaultFiatAmount ?? 50),
-    themeColor: "0ea5e9",
-    hideMenu: "true",
-    disableWalletAddressForm: "true",
-    productsAvailed: "BUY",
-  });
-  if (opts.email) params.set("email", opts.email);
-  return `${TRANSAK_HOST}/?${params.toString()}`;
-}
+const TRANSAK_ENABLED = isTransakEnabled(TRANSAK_API_KEY);
 
 function CardTopUp({
   usdtAddress,
@@ -108,7 +92,10 @@ function CardTopUp({
     );
   }
 
-  const widgetUrl = buildTransakUrl({ walletAddress: usdtAddress });
+  const widgetUrl = buildTransakUrl({
+    apiKey: TRANSAK_API_KEY!,
+    walletAddress: usdtAddress,
+  });
 
   if (!opened) {
     return (
@@ -160,8 +147,7 @@ function CardTopUp({
         <span>
           Адрес зачисления:{" "}
           <span className="font-mono text-slate-300">
-            {usdtAddress.substring(0, 8)}…
-            {usdtAddress.substring(usdtAddress.length - 6)}
+            {formatUsdtAddressPreview(usdtAddress)}
           </span>{" "}
           (USDT-TRC20)
         </span>
@@ -225,7 +211,7 @@ function LeafIcon({ className }: { className?: string }) {
 export default function WalletPage() {
   const { hostToken } = useAuth();
   const { playerWalletToken, registerGuest } = usePlayerWallet();
-  const walletToken = playerWalletToken ?? hostToken ?? "";
+  const walletToken = resolveWalletToken(playerWalletToken, hostToken);
   const {
     data: wallet,
     isLoading,
@@ -259,12 +245,13 @@ export default function WalletPage() {
     if (!walletToken || !withdrawAddress || !withdrawAmountLzt) return;
 
     const amountLzt = parseInt(withdrawAmountLzt, 10);
-    if (!Number.isFinite(amountLzt) || amountLzt <= 0) {
-      toast.error("Введи положительное целое число LZT");
-      return;
-    }
-    if (amountLzt > greenLzt) {
-      toast.error("Недостаточно средств на балансе «К выводу»");
+    const validation = validateWithdrawAmountLzt(amountLzt, greenLzt);
+    if (!validation.ok) {
+      toast.error(
+        validation.error === "invalid"
+          ? "Введи положительное целое число LZT"
+          : "Недостаточно средств на балансе «К выводу»",
+      );
       return;
     }
 
@@ -291,8 +278,8 @@ export default function WalletPage() {
     );
   };
 
-  const parsedAmount = parseInt(withdrawAmountLzt || "0", 10) || 0;
-  const overGreen = parsedAmount > greenLzt;
+  const parsedAmount = parseWithdrawAmountLzt(withdrawAmountLzt);
+  const overGreen = isWithdrawOverGreen(parsedAmount, greenLzt);
 
   if (!walletToken) {
     return (
@@ -516,11 +503,7 @@ export default function WalletPage() {
                     {TRANSAK_ENABLED && (
                       <TabsContent value="card" className="mt-0">
                         <CardTopUp
-                          usdtAddress={
-                            wallet?.depositAddresses.find(
-                              (a) => a.currency === "USDT_TRC20",
-                            )?.address
-                          }
+                          usdtAddress={findUsdtTrc20Address(wallet?.depositAddresses)}
                           isLoading={isLoading}
                         />
                       </TabsContent>
@@ -633,11 +616,7 @@ export default function WalletPage() {
                     onValueChange={setWithdrawCurrency}
                     className="grid grid-cols-3 gap-2"
                   >
-                    {[
-                      { id: "USDT_TRC20", label: "USDT", net: "TRC20" },
-                      { id: "SOL", label: "SOL", net: "Solana" },
-                      { id: "NANO", label: "XNO", net: "Nano" },
-                    ].map((c) => (
+                    {WITHDRAW_CURRENCIES.map((c) => (
                       <div key={c.id}>
                         <RadioGroupItem
                           value={c.id}

@@ -45,6 +45,18 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-106 (2026-08-05 10:55 UTC) {#marathon-m-106}
+
+| Проверка | Результат |
+|---|---|
+| wallet-helpers.ts | formatLzt, lztToUsdt, isTransakEnabled, buildTransakUrl, resolveWalletToken, parseWithdrawAmountLzt, isWithdrawOverGreen, validateWithdrawAmountLzt, canSubmitWithdraw, formatUsdtAddressPreview, findUsdtTrc20Address, WITHDRAW_CURRENCIES |
+| wallet.test.mjs | 15 тестов — LZT format, USDT conversion, Transak URL, wallet token resolution, withdraw validation, address preview, deposit address lookup |
+| wallet.tsx | рефакторинг: хелперы в wallet-helpers.ts |
+| web test (wallet) | PASS (15 tests) |
+| typecheck | PASS (wallet-helpers via unit tests) |
+
+**Следующий pick:** idle (cat O web pages complete).
+
 ## Marathon M-105 (2026-08-05 10:52 UTC) {#marathon-m-105}
 
 | Проверка | Результат |

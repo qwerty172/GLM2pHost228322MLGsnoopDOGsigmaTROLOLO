@@ -6,15 +6,15 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-105 done; quotas helpers + unit-тест)
+> **Последнее обновление:** 2026-08-05 (M-106 done; wallet helpers + unit-тест)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 10:51 UTC|
-| Task ID | M-105|
-| Результат | quotas-helpers.ts + quotas.test.mjs (14 тестов): fmtLzt, status meta, filters, search, compatibility, loading/empty state, pricing lines|
+| Дата | 2026-08-05 10:56 UTC|
+| Task ID | M-106|
+| Результат | wallet-helpers.ts + wallet.test.mjs (15 тестов): formatLzt, lztToUsdt, Transak URL, withdraw validation, address preview, deposit lookup|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -40,7 +40,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** M-105 done; scanner cat O — 1 pending (web pages helpers).
+**Wave Maintenance:** M-106 done; scanner cat O — 0 pending (web pages helpers complete).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -350,7 +350,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-103 | O | web pages: unit-тест (profile) | `pages/profile.tsx` | o:artifacts/web/src/pages/profile.tsx | done | agent |
 | M-104 | O | web pages: unit-тест (quota-detail) | `pages/quota-detail.tsx` | o:artifacts/web/src/pages/quota-detail.tsx | done | agent |
 | M-105 | O | web pages: unit-тест (quotas) | `pages/quotas.tsx` | o:artifacts/web/src/pages/quotas.tsx | done | agent |
-| M-106 | O | web pages: unit-тест (wallet) | `pages/wallet.tsx` | o:artifacts/web/src/pages/wallet.tsx | pending | agent |
+| M-106 | O | web pages: unit-тест (wallet) | `pages/wallet.tsx` | o:artifacts/web/src/pages/wallet.tsx | done | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).
