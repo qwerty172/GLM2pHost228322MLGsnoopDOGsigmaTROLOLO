@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import type { VersionedTransactionResponse } from "@solana/web3.js";
 import {
   db,
   depositAddressesTable,
@@ -7,6 +8,12 @@ import {
 import { logger } from "./logger";
 import { isWalletCryptoEnabled } from "./encryption";
 import { applyDepositCents, creditDevKeyDeposit } from "./economy";
+import {
+  nativeUnitsToUsdtCents,
+  resolveUsdPerUnit,
+  toUsdtCents,
+  type NativeDepositCurrency,
+} from "./depositFx";
 
 const POLL_INTERVAL_MS = Number(
   process.env["WALLET_DEPOSIT_POLL_MS"] ?? 60_000,
@@ -20,6 +27,11 @@ const REQUEST_DELAY_MS = Number(
 const RATE_LIMIT_COOLDOWN_MS = Number(
   process.env["WALLET_DEPOSIT_COOLDOWN_MS"] ?? 5 * 60_000,
 );
+/** Signatures / history rows fetched per RPC page. */
+const POLL_PAGE_SIZE = Number(process.env["WALLET_DEPOSIT_PAGE_SIZE"] ?? 100);
+/** Max pages per address per poll — bounds RPC load while covering backlog. */
+const POLL_MAX_PAGES = Number(process.env["WALLET_DEPOSIT_MAX_PAGES"] ?? 10);
+
 let interval: NodeJS.Timeout | null = null;
 // Guard against overlapping runs: if a poll is still in flight when the next
 // tick fires, skip it instead of stacking concurrent external calls.
@@ -37,6 +49,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 interface DetectedDeposit {
   txHash: string;
+  /** Native units for SOL/NANO; USDT for TRC-20. */
   amount: number;
 }
 
@@ -47,6 +60,21 @@ interface PollResult {
   rateLimited: boolean;
 }
 
+/** Resolve deposit-address index for v0 transactions with address lookup tables. */
+export function solanaDepositAccountIndex(
+  tx: VersionedTransactionResponse,
+  address: string,
+): number {
+  const accountKeys = tx.transaction.message.getAccountKeys({
+    accountKeysFromLookups: tx.meta?.loadedAddresses,
+  });
+  for (let i = 0; i < accountKeys.length; i++) {
+    const key = accountKeys.get(i);
+    if (key?.toBase58() === address) return i;
+  }
+  return -1;
+}
+
 async function pollSolana(address: string): Promise<PollResult> {
   try {
     const { Connection, PublicKey } = await import("@solana/web3.js");
@@ -54,26 +82,32 @@ async function pollSolana(address: string): Promise<PollResult> {
       process.env["SOLANA_RPC_URL"] ?? "https://api.mainnet-beta.solana.com",
       "confirmed",
     );
-    const sigs = await conn.getSignaturesForAddress(new PublicKey(address), {
-      limit: 10,
-    });
+    const pubkey = new PublicKey(address);
     const out: DetectedDeposit[] = [];
-    for (const s of sigs) {
-      if (!s.signature) continue;
-      const tx = await conn.getTransaction(s.signature, {
-        maxSupportedTransactionVersion: 0,
+    let before: string | undefined;
+    for (let page = 0; page < POLL_MAX_PAGES; page++) {
+      const sigs = await conn.getSignaturesForAddress(pubkey, {
+        limit: POLL_PAGE_SIZE,
+        before,
       });
-      if (!tx?.meta) continue;
-      const idx = tx.transaction.message
-        .getAccountKeys()
-        .staticAccountKeys.findIndex((k) => k.toBase58() === address);
-      if (idx < 0) continue;
-      const pre = tx.meta.preBalances[idx] ?? 0;
-      const post = tx.meta.postBalances[idx] ?? 0;
-      const delta = post - pre;
-      if (delta > 0) {
-        out.push({ txHash: s.signature, amount: delta / 1e9 });
+      if (sigs.length === 0) break;
+      for (const s of sigs) {
+        if (!s.signature) continue;
+        const tx = await conn.getTransaction(s.signature, {
+          maxSupportedTransactionVersion: 0,
+        });
+        if (!tx?.meta) continue;
+        const idx = solanaDepositAccountIndex(tx, address);
+        if (idx < 0) continue;
+        const pre = tx.meta.preBalances[idx] ?? 0;
+        const post = tx.meta.postBalances[idx] ?? 0;
+        const delta = post - pre;
+        if (delta > 0) {
+          out.push({ txHash: s.signature, amount: delta / 1e9 });
+        }
       }
+      before = sigs[sigs.length - 1]?.signature;
+      if (!before || sigs.length < POLL_PAGE_SIZE) break;
     }
     return { deposits: out, rateLimited: false };
   } catch (err) {
@@ -86,25 +120,35 @@ async function pollSolana(address: string): Promise<PollResult> {
 async function pollNano(address: string): Promise<PollResult> {
   try {
     const url = process.env["NANO_RPC_URL"] ?? "https://mynano.ninja/api/node";
-    const resp = await fetch(url, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
+    const out: DetectedDeposit[] = [];
+    let head: string | undefined;
+    for (let page = 0; page < POLL_MAX_PAGES; page++) {
+      const body: Record<string, string> = {
         action: "account_history",
         account: address,
-        count: "10",
-      }),
-    });
-    if (resp.status === 429) return { deposits: [], rateLimited: true };
-    if (!resp.ok) return { deposits: [], rateLimited: false };
-    const data = (await resp.json()) as {
-      history?: Array<{ type: string; hash?: string; amount?: string }>;
-    };
-    const out: DetectedDeposit[] = [];
-    for (const h of data.history ?? []) {
-      if (h.type !== "receive" || !h.hash || !h.amount) continue;
-      const amount = Number(BigInt(h.amount)) / 1e30;
-      if (amount > 0) out.push({ txHash: h.hash, amount });
+        count: String(POLL_PAGE_SIZE),
+      };
+      if (head) body.head = head;
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (resp.status === 429) return { deposits: [], rateLimited: true };
+      if (!resp.ok) return { deposits: [], rateLimited: false };
+      const data = (await resp.json()) as {
+        history?: Array<{ type: string; hash?: string; amount?: string }>;
+      };
+      const history = data.history ?? [];
+      if (history.length === 0) break;
+      for (const h of history) {
+        if (h.type !== "receive" || !h.hash || !h.amount) continue;
+        const amount = Number(BigInt(h.amount)) / 1e30;
+        if (amount > 0) out.push({ txHash: h.hash, amount });
+      }
+      const lastHash = history[history.length - 1]?.hash;
+      if (!lastHash || history.length < POLL_PAGE_SIZE) break;
+      head = lastHash;
     }
     return { deposits: out, rateLimited: false };
   } catch (err) {
@@ -115,36 +159,42 @@ async function pollNano(address: string): Promise<PollResult> {
 
 async function pollTronUsdt(address: string): Promise<PollResult> {
   try {
-    const url = `https://api.trongrid.io/v1/accounts/${address}/transactions/trc20?limit=10&contract_address=TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t`;
-    const resp = await fetch(url);
-    if (resp.status === 429) return { deposits: [], rateLimited: true };
-    if (!resp.ok) return { deposits: [], rateLimited: false };
-    const data = (await resp.json()) as {
-      data?: Array<{
-        transaction_id?: string;
-        to?: string;
-        value?: string;
-        token_info?: { decimals?: number };
-      }>;
-    };
     const out: DetectedDeposit[] = [];
-    for (const t of data.data ?? []) {
-      if (!t.transaction_id || !t.value || t.to !== address) continue;
-      const decimals = t.token_info?.decimals ?? 6;
-      const amount = Number(t.value) / 10 ** decimals;
-      if (amount > 0) out.push({ txHash: t.transaction_id, amount });
+    let fingerprint: string | undefined;
+    for (let page = 0; page < POLL_MAX_PAGES; page++) {
+      const params = new URLSearchParams({
+        limit: String(POLL_PAGE_SIZE),
+        contract_address: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+      });
+      if (fingerprint) params.set("fingerprint", fingerprint);
+      const url = `https://api.trongrid.io/v1/accounts/${address}/transactions/trc20?${params}`;
+      const resp = await fetch(url);
+      if (resp.status === 429) return { deposits: [], rateLimited: true };
+      if (!resp.ok) return { deposits: [], rateLimited: false };
+      const data = (await resp.json()) as {
+        data?: Array<{
+          transaction_id?: string;
+          to?: string;
+          value?: string;
+          token_info?: { decimals?: number };
+        }>;
+        meta?: { fingerprint?: string };
+      };
+      const rows = data.data ?? [];
+      for (const t of rows) {
+        if (!t.transaction_id || !t.value || t.to !== address) continue;
+        const decimals = t.token_info?.decimals ?? 6;
+        const amount = Number(t.value) / 10 ** decimals;
+        if (amount > 0) out.push({ txHash: t.transaction_id, amount });
+      }
+      fingerprint = data.meta?.fingerprint;
+      if (!fingerprint || rows.length < POLL_PAGE_SIZE) break;
     }
     return { deposits: out, rateLimited: false };
   } catch (err) {
     logger.debug({ err }, "Tron USDT deposit poll failed");
     return { deposits: [], rateLimited: false };
   }
-}
-
-// Convert a 6-decimal USDT-equivalent number to integer cents (1¢ = 0.01 USDT).
-function toUsdtCents(n: number): number {
-  if (!Number.isFinite(n) || n <= 0) return 0;
-  return Math.floor(n * 100);
 }
 
 async function creditDeposit(
@@ -154,9 +204,10 @@ async function creditDeposit(
   currency: string,
   network: string,
   detected: DetectedDeposit,
+  grossUsdtCents: number,
 ): Promise<void> {
-  const grossCents = toUsdtCents(detected.amount);
-  if (grossCents <= 0) return;
+  if (grossUsdtCents <= 0) return;
+  const grossUsdt = grossUsdtCents / 100;
 
   try {
     const credited = await db.transaction(async (tx) => {
@@ -172,9 +223,9 @@ async function creditDeposit(
           // Deposit row stores marketing-style breakdown (in USDT). The tariff
           // is recomputed inside applyDepositCents — we mirror those numbers
           // here for reporting only.
-          grossAmount: detected.amount.toFixed(6),
+          grossAmount: grossUsdt.toFixed(6),
           commissionAmount: "0",
-          netAmount: detected.amount.toFixed(6),
+          netAmount: grossUsdt.toFixed(6),
           status: "credited",
           creditedAt: new Date(),
         })
@@ -189,7 +240,7 @@ async function creditDeposit(
       if (ownerType === "dev_key") {
         const devResult = await creditDevKeyDeposit(tx, {
           devKeyId: ownerId,
-          grossUsdtCents: grossCents,
+          grossUsdtCents: grossUsdtCents,
           refType: "deposit",
           refId: inserted[0]!.id,
         });
@@ -199,13 +250,13 @@ async function creditDeposit(
       const result = await applyDepositCents(tx, {
         ownerType,
         ownerId,
-        grossUsdtCents: grossCents,
+        grossUsdtCents: grossUsdtCents,
         refType: "deposit",
         refId: inserted[0]!.id,
       });
       // Mirror the actual tariff-applied commission back onto the deposit row.
       const feeUsdt = result.feeLzt / 200;
-      const netUsdt = detected.amount - feeUsdt;
+      const netUsdt = grossUsdt - feeUsdt;
       await tx
         .update(depositsTable)
         .set({
@@ -223,6 +274,7 @@ async function creditDeposit(
           ownerId,
           currency,
           txHash: detected.txHash,
+          grossUsdtCents,
           feeLzt: credited.feeLzt,
           cashLzt: credited.cashLzt,
           balanceLzt: credited.balanceLzt,
@@ -234,6 +286,32 @@ async function creditDeposit(
   } catch (err) {
     logger.error({ err, txHash: detected.txHash }, "Failed to credit deposit");
   }
+}
+
+async function resolveGrossUsdtCents(
+  currency: string,
+  detected: DetectedDeposit,
+): Promise<number | null> {
+  if (currency === "SOL" || currency === "NANO") {
+    const usdPerUnit = await resolveUsdPerUnit(currency as NativeDepositCurrency);
+    if (!usdPerUnit) {
+      logger.error(
+        { currency, txHash: detected.txHash, nativeAmount: detected.amount },
+        "Deposit skipped — no USD rate for native currency (set DEPOSIT_*_USD_RATE or ensure CoinGecko reachable)",
+      );
+      return null;
+    }
+    const cents = nativeUnitsToUsdtCents(detected.amount, usdPerUnit);
+    if (cents <= 0) {
+      logger.warn(
+        { currency, txHash: detected.txHash, nativeAmount: detected.amount, usdPerUnit },
+        "Deposit skipped — native amount below 1 cent after FX",
+      );
+      return null;
+    }
+    return cents;
+  }
+  return toUsdtCents(detected.amount);
 }
 
 async function pollOnce(): Promise<void> {
@@ -286,6 +364,8 @@ async function pollOnce(): Promise<void> {
       }
 
       for (const d of result.deposits) {
+        const grossUsdtCents = await resolveGrossUsdtCents(addr.currency, d);
+        if (grossUsdtCents === null) continue;
         await creditDeposit(
           addr.ownerType as "host" | "player" | "dev_key",
           addr.ownerId,
@@ -293,6 +373,7 @@ async function pollOnce(): Promise<void> {
           addr.currency,
           addr.network,
           d,
+          grossUsdtCents,
         );
       }
     }
