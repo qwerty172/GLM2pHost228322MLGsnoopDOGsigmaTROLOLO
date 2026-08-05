@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 09:10 UTC |
 | Task ID | M-90 |
 | Результат | admin/games: ADMIN_SECRET_STORAGE_KEY, adminRequestInit, getApiErrorMessage + admin-games.test.mjs (4 теста); scanner cat O (web pages) |
-| Commit | pending |
+| Commit | 4fc122a |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
