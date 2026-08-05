@@ -6,17 +6,13 @@ echo ==^> DecentralHub — локальная настройка (Windows)
 
 if not exist .env (
   copy .env.example .env >nul
-  echo Создан .env — открой его и настрой DATABASE_URL
+  echo Создан .env из .env.example
 ) else (
   echo .env уже есть
 )
 
-findstr /r /c:"^WALLET_ENCRYPTION_KEY=$" .env >nul 2>&1
-if %errorlevel%==0 (
-  for /f "delims=" %%K in ('node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"') do set KEY=%%K
-  powershell -NoProfile -Command "(Get-Content .env) -replace '^WALLET_ENCRYPTION_KEY=$', 'WALLET_ENCRYPTION_KEY=%KEY%' | Set-Content .env -Encoding UTF8"
-  echo Сгенерирован WALLET_ENCRYPTION_KEY
-)
+call :set_secret WALLET_ENCRYPTION_KEY
+call :set_secret JWT_SECRET
 
 echo.
 echo ==^> pnpm install
@@ -33,5 +29,15 @@ if errorlevel 1 (
 )
 
 echo.
-echo Готово. Запуск: scripts\dev-local.bat
+echo Готово. Запуск: scripts\dev-local.bat  или  pnpm dev
 echo Web: http://localhost:5000
+echo Демо: /games -^> Rogue Fable III -^> «Хостить в браузере»
+exit /b 0
+
+:set_secret
+findstr /r /c:"^%1=$" .env >nul 2>&1
+if %errorlevel% neq 0 exit /b 0
+for /f "delims=" %%K in ('node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"') do set KEY=%%K
+powershell -NoProfile -Command "(Get-Content .env) -replace '^%1=$', '%1=%KEY%' | Set-Content .env -Encoding UTF8"
+echo Сгенерирован %1
+exit /b 0

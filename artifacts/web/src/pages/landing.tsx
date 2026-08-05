@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Play,
   Server,
+  Rocket,
 } from "lucide-react";
 import { useState } from "react";
 import {
@@ -173,6 +174,14 @@ export default function Landing() {
                 style={{ background: "#0ea5e9", color: "#fff" }}
               >
                 <Play className="w-3.5 h-3.5 mr-1.5" /> Играть
+              </Button>
+            </Link>
+            <Link href="/games/rogue-fable-3">
+              <Button
+                variant="outline"
+                className="h-9 px-5 text-sm font-medium rounded-md border-sky-500/30 text-sky-300 hover:text-white hover:border-sky-400/50"
+              >
+                <Rocket className="w-3.5 h-3.5 mr-1.5" /> Демо без Windows
               </Button>
             </Link>
             <Link href="/host">

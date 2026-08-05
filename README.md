@@ -40,6 +40,8 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
+**Самый короткий путь:** [QUICKSTART.md](./QUICKSTART.md) — 3 команды до демо в браузере.
+
 Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
 
 **Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
@@ -50,43 +52,26 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 - Node.js 20+
 - pnpm 9+
-- PostgreSQL 16
+- PostgreSQL 16 (или Docker — см. QUICKSTART)
 - Git Bash / WSL (для Windows) или Linux/macOS
 
-### Клонирование
-
-```bash
-git clone https://github.com/qwerty172/glm2phost228322mlgsnoopdogsigmatrololo.git decentral-hub
-cd decentral-hub
-```
-
-### Первичная настройка
-
-**Windows (cmd или двойной клик):**
-
-```bat
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-copy .env.example .env
-notepad .env
-scripts\setup-local.bat
-scripts\dev-local.bat
-```
-
-**Git Bash / Linux / macOS:**
+### Клонирование и запуск
 
 ```bash
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
+
+# Postgres через Docker (опционально, но проще всего):
+docker compose -f infra/docker-compose.dev.yml up -d postgres
+
 cp .env.example .env
-# отредактируй DATABASE_URL
-
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
+pnpm setup    # install + секреты + схема БД
+pnpm dev      # API :8080 + Web :5000
 ```
+
+Открой http://localhost:5000 → **Демо без Windows** или `/games` → Rogue Fable III.
+
+**Windows:** те же шаги в Git Bash, или `scripts\setup-local.bat` + `scripts\dev-local.bat`.
 
 Подробнее — [LOCAL_SETUP.md](./LOCAL_SETUP.md).
 
@@ -98,35 +83,33 @@ chmod +x scripts/*.sh
 | `PORT` | API-сервер (8080) |
 | `WALLET_ENCRYPTION_KEY` | 32-байт hex, обязателен для кошелька |
 | `ADMIN_SECRET` | Секрет admin-роутов (`X-Admin-Secret`) |
+| `WEB_PORT` | Web dev-сервер Vite (5000) |
 | `API_PROXY_TARGET` | Куда Vite проксирует `/api` (http://localhost:8080) |
 | `BASE_PATH` | Базовый путь web (`/`) |
+| `JWT_SECRET` | JWT auth (генерируется в `pnpm setup`) |
 
-`.env` подхватывается автоматически через `dotenv-cli` в dev-скриптах. На Replit переменные задаёт платформа.
+Полный список и опциональные переменные — в `.env.example`. Минимальный путь — [QUICKSTART.md](./QUICKSTART.md).
 
-### Запуск (два терминала или один скрипт)
-
-**Вариант A — скрипт (Git Bash / Linux / macOS):**
-
-```bash
-./scripts/dev-local.sh
-```
-
-**Вариант B — вручную:**
+### Запуск
 
 ```bash
-# Терминал 1: API (порт 8080)
-pnpm --filter @workspace/api-server run dev
-
-# Терминал 2: Web (порт 5000, прокси /api -> :8080)
-pnpm --filter @workspace/web run dev
+pnpm dev
+# или: ./scripts/dev-local.sh
 ```
 
 Открой http://localhost:5000
 
+Вручную в двух терминалах:
+
+```bash
+pnpm --filter @workspace/api-server run dev   # :8080
+pnpm --filter @workspace/web run dev          # :5000
+```
+
 ### Smoke-тест API (фаза 1)
 
 ```bash
-./scripts/smoke-api.sh
+pnpm smoke
 # или: ./scripts/smoke-api.sh http://localhost:8080
 ```
 
