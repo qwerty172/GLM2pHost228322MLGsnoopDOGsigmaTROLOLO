@@ -45,6 +45,18 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-94 (2026-08-05 09:51 UTC) {#marathon-m-94}
+
+| Проверка | Результат |
+|---|---|
+| games-helpers.ts | buildGamesApiParams, extractCategories, extractAllGenres, computeGlobalMaxLzt, filterAndSortGames, resolveCoverImageUrl, live hosts, price labels |
+| games.test.mjs | 11 тестов — API params, categories, genres, max price, filter/sort, cover URL, live status, price format |
+| games.tsx | рефакторинг: хелперы в games-helpers.ts |
+| web test (games) | PASS (11 tests) |
+| typecheck | PASS (web) |
+
+**Следующий pick:** M-95 (host/binding-form.tsx).
+
 ## Marathon M-93 (2026-08-05 09:50 UTC) {#marathon-m-93}
 
 | Проверка | Результат |

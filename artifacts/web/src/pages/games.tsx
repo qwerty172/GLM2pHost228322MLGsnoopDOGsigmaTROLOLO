@@ -23,13 +23,24 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SiteNav } from "@/components/site-nav";
+import {
+  BROWSER_HOST_URL_STORAGE_PREFIX,
+  HOST_TOKEN_STORAGE_PREFIX,
+  buildGamesApiParams,
+  computeGlobalMaxLzt,
+  extractAllGenres,
+  extractCategories,
+  filterAndSortGames,
+  formatPriceLabel,
+  formatUsdFromLzt,
+  getLiveHostsCount,
+  isGameLive,
+  resolveCoverImageUrl,
+  type BoolFilterKey,
+  type SortKey,
+} from "./games-helpers";
 
-const LZT_PER_USDT = 200;
-const DEFAULT_PRICE_PER_MIN_USD = 0.04;
-
-type SortKey = "mostOnline" | "cheapest" | "newest";
-
-type FilterKey = "hasMods" | "isMultiplayer" | "hostSpectatesPlayer" | "hasQuests" | "liveOnly";
+type FilterKey = BoolFilterKey | "liveOnly";
 
 type GameEnriched = GameListItem & {
   category?: string;
@@ -81,14 +92,10 @@ export default function GamesPage() {
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const sliderInitRef = useRef(false);
 
-  const apiParams = useMemo(() => {
-    const p: Record<string, boolean | string> = {};
-    for (const f of BOOL_FILTERS) if (boolFilters[f.key]) p[f.key] = true;
-    if (liveOnly) p.liveOnly = true;
-    if (debouncedSearch.trim()) p.search = debouncedSearch.trim();
-    if (category) p.category = category;
-    return p;
-  }, [boolFilters, liveOnly, debouncedSearch, category]);
+  const apiParams = useMemo(
+    () => buildGamesApiParams({ boolFilters, liveOnly, debouncedSearch, category }),
+    [boolFilters, liveOnly, debouncedSearch, category],
+  );
 
   const { data: rawGames, isLoading, isError, refetch, isFetching } = useListGames(apiParams, {
     query: { queryKey: getListGamesQueryKey(apiParams) },
@@ -102,36 +109,11 @@ export default function GamesPage() {
 
   const games = (rawGames ?? []) as GameEnriched[];
 
-  const categories = useMemo(() => {
-    const seen = new Set<string>();
-    const all: string[] = [];
-    for (const g of games) {
-      const cat = (g as GameEnriched).category;
-      if (cat && !seen.has(cat)) { seen.add(cat); all.push(cat); }
-    }
-    return all.sort();
-  }, [games]);
+  const categories = useMemo(() => extractCategories(games), [games]);
 
-  const allGenres = useMemo(() => {
-    const seen = new Set<string>();
-    for (const g of games) {
-      const gg = (g as GameEnriched).genres ?? [];
-      for (const genre of gg) if (genre) seen.add(genre);
-      // also support legacy single genre field
-      const sg = (g as GameEnriched & { genre?: string }).genre;
-      if (sg) seen.add(sg);
-    }
-    return Array.from(seen).sort();
-  }, [games]);
+  const allGenres = useMemo(() => extractAllGenres(games), [games]);
 
-  const globalMaxLzt = useMemo(() => {
-    let m = 0;
-    for (const g of games) {
-      const p = (g as GameEnriched).minPricePerMinuteLzt;
-      if (p != null && p > m) m = p;
-    }
-    return m || Math.round(DEFAULT_PRICE_PER_MIN_USD * LZT_PER_USDT * 3);
-  }, [games]);
+  const globalMaxLzt = useMemo(() => computeGlobalMaxLzt(games), [games]);
 
   useEffect(() => {
     if (!sliderInitRef.current && globalMaxLzt > 0) {
@@ -145,35 +127,10 @@ export default function GamesPage() {
       prev.includes(genre) ? prev.filter((g) => g !== genre) : [...prev, genre],
     );
 
-  const sorted = useMemo(() => {
-    let list = [...games].filter((g) => {
-      const price = (g as GameEnriched).minPricePerMinuteLzt;
-      if (price != null && price > maxLzt) return false;
-      if (selectedGenres.length > 0) {
-        const gg = (g as GameEnriched).genres ?? [];
-        const sg = (g as GameEnriched & { genre?: string }).genre;
-        const gameGenres = new Set([...gg, ...(sg ? [sg] : [])]);
-        if (!selectedGenres.some((genre) => gameGenres.has(genre))) return false;
-      }
-      return true;
-    });
-    if (sort === "mostOnline") {
-      list.sort((a, b) => ((b as GameEnriched).liveHostsCount ?? 0) - ((a as GameEnriched).liveHostsCount ?? 0));
-    } else if (sort === "cheapest") {
-      list.sort((a, b) => {
-        const pa = (a as GameEnriched).minPricePerMinuteLzt ?? Infinity;
-        const pb = (b as GameEnriched).minPricePerMinuteLzt ?? Infinity;
-        return pa - pb;
-      });
-    } else if (sort === "newest") {
-      list.sort((a, b) => {
-        const da = (a as GameEnriched).createdAt ?? "";
-        const db = (b as GameEnriched).createdAt ?? "";
-        return db.localeCompare(da);
-      });
-    }
-    return list;
-  }, [games, sort, maxLzt, selectedGenres]);
+  const sorted = useMemo(
+    () => filterAndSortGames(games, sort, maxLzt, selectedGenres),
+    [games, sort, maxLzt, selectedGenres],
+  );
 
   const toggleBool = (key: FilterKey) =>
     setBoolFilters((s) => ({ ...s, [key]: !s[key] }));
@@ -507,9 +464,6 @@ export default function GamesPage() {
   );
 }
 
-const HOST_TOKEN_STORAGE_PREFIX = "streamline.browserHostToken:";
-const BROWSER_HOST_URL_STORAGE_PREFIX = "streamline.browserHostUrl:";
-
 function GameCard({ game, vdsBadge }: { game: GameEnriched; vdsBadge?: boolean }) {
   const [, navigate] = useLocation();
   const { playerWalletToken, isRegistering } = usePlayerWallet();
@@ -535,17 +489,13 @@ function GameCard({ game, vdsBadge }: { game: GameEnriched; vdsBadge?: boolean }
   };
 
   const cover = game.coverImageUrl
-    ? game.coverImageUrl.startsWith("http")
-      ? game.coverImageUrl
-      : `${import.meta.env.BASE_URL}${game.coverImageUrl.replace(/^\//, "")}`
+    ? resolveCoverImageUrl(game.coverImageUrl, import.meta.env.BASE_URL)
     : null;
 
-  const liveHosts = game.liveHostsCount ?? game.liveSessionCount ?? 0;
+  const liveHosts = getLiveHostsCount(game);
   const minLzt = game.minPricePerMinuteLzt;
-  const priceLabel = minLzt != null
-    ? `${minLzt} LZT/мин`
-    : `${Math.round(DEFAULT_PRICE_PER_MIN_USD * LZT_PER_USDT)} LZT/мин`;
-  const isLive = liveHosts > 0;
+  const priceLabel = formatPriceLabel(minLzt);
+  const isLive = isGameLive(game);
 
   return (
     <div
@@ -606,7 +556,7 @@ function GameCard({ game, vdsBadge }: { game: GameEnriched; vdsBadge?: boolean }
         >
           {priceLabel}
           {minLzt != null && (
-            <span className="text-slate-600"> · ≈${(minLzt / LZT_PER_USDT).toFixed(3)}</span>
+            <span className="text-slate-600"> · ≈${formatUsdFromLzt(minLzt)}</span>
           )}
         </p>
         <div className="mt-2 flex flex-col gap-1">
