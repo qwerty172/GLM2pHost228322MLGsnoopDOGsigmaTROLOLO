@@ -6,15 +6,15 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-103 done; profile helpers + unit-тест)
+> **Последнее обновление:** 2026-08-05 (M-104 done; quota-detail helpers + unit-тест)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 10:43 UTC|
-| Task ID | M-103|
-| Результат | profile-helpers.ts + profile.test.mjs (14 тестов): formatLzt/formatMinutes, kindLabel, tabs, VDS status, tx balances, agent presence, credit limits|
+| Дата | 2026-08-05 10:47 UTC|
+| Task ID | M-104|
+| Результат | quota-detail-helpers.ts + quota-detail.test.mjs (9 тестов): fmtLzt, kind labels, royalty rate/source, description, movement kind, closeable status, close button|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -40,7 +40,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** M-103 done; scanner cat O — 3 pending (web pages helpers).
+**Wave Maintenance:** M-104 done; scanner cat O — 2 pending (web pages helpers).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -348,7 +348,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-101 | O | web pages: unit-тест (landing) | `pages/landing.tsx` | o:artifacts/web/src/pages/landing.tsx | done | agent |
 | M-102 | O | web pages: unit-тест (play) | `pages/play.tsx` | o:artifacts/web/src/pages/play.tsx | done | agent |
 | M-103 | O | web pages: unit-тест (profile) | `pages/profile.tsx` | o:artifacts/web/src/pages/profile.tsx | done | agent |
-| M-104 | O | web pages: unit-тест (quota-detail) | `pages/quota-detail.tsx` | o:artifacts/web/src/pages/quota-detail.tsx | pending | agent |
+| M-104 | O | web pages: unit-тест (quota-detail) | `pages/quota-detail.tsx` | o:artifacts/web/src/pages/quota-detail.tsx | done | agent |
 | M-105 | O | web pages: unit-тест (quotas) | `pages/quotas.tsx` | o:artifacts/web/src/pages/quotas.tsx | pending | agent |
 | M-106 | O | web pages: unit-тест (wallet) | `pages/wallet.tsx` | o:artifacts/web/src/pages/wallet.tsx | pending | agent |
 

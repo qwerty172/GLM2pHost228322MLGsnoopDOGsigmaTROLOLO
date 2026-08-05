@@ -34,13 +34,22 @@ import {
   RefreshCw,
   Pencil,
 } from "lucide-react";
+import {
+  fmtLzt,
+  quotaKindLabel,
+  quotaKindAccentColor,
+  formatRoyaltyRate,
+  formatRoyaltySource,
+  formatQuotaDescription,
+  formatMovementKind,
+  isQuotaCloseable,
+  getCloseButtonLabel,
+} from "./quota-detail-helpers";
 
 const cardStyle = {
   background: "#0a1018",
   border: "1px solid rgba(255,255,255,0.06)",
 } as const;
-const fmtLzt = (n: number | null | undefined) =>
-  n == null ? "—" : new Intl.NumberFormat("ru-RU").format(n) + " LZT";
 
 export default function QuotaDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -148,9 +157,9 @@ export default function QuotaDetailPage() {
               )}
               <span
                 className="text-[10px] font-bold uppercase tracking-wider"
-                style={{ color: isRoyalty ? "#fbbf24" : "#38bdf8" }}
+                style={{ color: quotaKindAccentColor(quota.kind) }}
               >
-                {isRoyalty ? "Роялти" : "Спонсор"}
+                {quotaKindLabel(quota.kind)}
               </span>
               {quota.visibility === "private" ? (
                 <Lock className="h-3 w-3 text-slate-500" />
@@ -165,7 +174,7 @@ export default function QuotaDetailPage() {
               {quota.title}
             </CardTitle>
             <CardDescription className="text-slate-400 text-sm">
-              {quota.description || "Без описания"}
+              {formatQuotaDescription(quota.description)}
             </CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-4 text-sm">
@@ -173,19 +182,14 @@ export default function QuotaDetailPage() {
               <>
                 <Stat
                   label="Тариф"
-                  value={
-                    quota.royaltyBasis === "percent"
-                      ? `${quota.royaltyValue ?? 0}% / мин`
-                      : `${quota.royaltyValue ?? 0} LZT/мин`
-                  }
+                  value={formatRoyaltyRate(
+                    quota.royaltyBasis,
+                    quota.royaltyValue,
+                  )}
                 />
                 <Stat
                   label="Откуда"
-                  value={
-                    quota.royaltySource === "player"
-                      ? "Сверху с игрока"
-                      : "Из доли хоста"
-                  }
+                  value={formatRoyaltySource(quota.royaltySource)}
                 />
               </>
             ) : (
@@ -323,7 +327,7 @@ export default function QuotaDetailPage() {
                     <Play className="h-3.5 w-3.5 mr-1.5" /> Возобновить
                   </Button>
                 )}
-                {!["closed", "expired"].includes(quota.status) && (
+                {isQuotaCloseable(quota.status) && (
                   <Button
                     size="sm"
                     onClick={() => {
@@ -340,7 +344,7 @@ export default function QuotaDetailPage() {
                     data-testid="button-close"
                   >
                     <XCircle className="h-3.5 w-3.5 mr-1.5" />
-                    {confirmingClose ? "Подтвердить закрытие" : "Закрыть"}
+                    {getCloseButtonLabel(confirmingClose)}
                   </Button>
                 )}
               </div>
@@ -363,7 +367,7 @@ export default function QuotaDetailPage() {
                     className="py-2 flex items-center justify-between text-xs"
                   >
                     <span className="text-slate-400 font-mono">
-                      {m.kind.replace("quota_", "")}
+                      {formatMovementKind(m.kind)}
                     </span>
                     <span className="text-slate-500">
                       {new Date(m.billedAt).toLocaleString("ru-RU")}

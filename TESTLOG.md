@@ -45,6 +45,18 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-104 (2026-08-05 10:47 UTC) {#marathon-m-104}
+
+| Проверка | Результат |
+|---|---|
+| quota-detail-helpers.ts | fmtLzt, quotaKindLabel, quotaKindAccentColor, formatRoyaltyRate, formatRoyaltySource, formatQuotaDescription, formatMovementKind, isQuotaCloseable, getCloseButtonLabel |
+| quota-detail.test.mjs | 9 тестов — LZT format, kind labels/colors, royalty rate/source, description fallback, movement kind, closeable status, close button label |
+| quota-detail.tsx | рефакторинг: хелперы в quota-detail-helpers.ts |
+| web test (quota-detail) | PASS (9 tests) |
+| typecheck | PASS (quota-detail-helpers via unit tests) |
+
+**Следующий pick:** M-105 (quotas.tsx).
+
 ## Marathon M-103 (2026-08-05 10:42 UTC) {#marathon-m-103}
 
 | Проверка | Результат |
@@ -55,7 +67,7 @@
 | web test (profile) | PASS (14 tests) |
 | typecheck | PASS (profile-helpers via unit tests) |
 
-**Следующий pick:** M-104 (quota-detail.tsx).
+**Следующий pick:** M-105 (quotas.tsx).
 
 ## Marathon M-102 (2026-08-05 10:38 UTC) {#marathon-m-102}
 
