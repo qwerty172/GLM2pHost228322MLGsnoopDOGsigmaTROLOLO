@@ -96,6 +96,18 @@ export function setupRendererEnv() {
     href: "http://localhost/",
   };
 
+  g.fetch = async (url) => {
+    if (typeof url === "string" && url.includes("/api/hosts/")) {
+      return {
+        ok: true,
+        async json() {
+          return { agentKeyBound: false, displayName: "Test Host" };
+        },
+      };
+    }
+    return { ok: false, async json() { return {}; } };
+  };
+
   // Stub Web APIs used by session/preview modules when imported.
   domWindow.RTCPeerConnection = class {
     constructor() {

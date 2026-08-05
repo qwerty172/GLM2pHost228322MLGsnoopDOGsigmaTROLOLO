@@ -4,6 +4,7 @@ import { loadLibrary, startLibraryPolling } from "./library.js";
 import { log } from "./ui.js";
 import { showAutoQuotaCard, applyQuotaStatus, autoQuotaCheckbox } from "./quota.js";
 import { runSteamScan } from "./steam.js";
+import { setConnectionTroubleshootVisible } from "./agent-auth.js";
 
 // ─── Signed-in banner helpers ──────────────────────────────────────────────
 const signinBanner = document.getElementById("signin-banner") as HTMLElement;
@@ -33,8 +34,9 @@ function hideSigninBanner(): void {
 
 switchAccountBtn.addEventListener("click", () => {
   hideSigninBanner();
+  setConnectionTroubleshootVisible(true);
   ($("hostToken") as HTMLInputElement).focus();
-  log("Введи новый Host Token и нажми Save.");
+  log("Введи новый Host Token в «Если не подключается» или скачай ZIP с дашборда.");
 });
 
 // Validate a host token by calling GET /api/hosts/:token and return the display name.

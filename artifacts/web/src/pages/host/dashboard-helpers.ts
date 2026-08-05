@@ -223,7 +223,6 @@ export type QuickStartStep = { done: boolean; title: string; hint: string };
 export type OnboardingPhase =
   | "download"
   | "wait-agent"
-  | "bind"
   | "add-game"
   | "go-online"
   | "test-stream"
@@ -239,14 +238,13 @@ export type GuidedNextAction = {
   cta:
     | "download"
     | "wait"
-    | "bind"
     | "add-game"
     | "open-agent"
     | "test-stream"
     | "none";
 };
 
-export const ONBOARDING_TOTAL_STEPS = 6;
+export const ONBOARDING_TOTAL_STEPS = 5;
 
 export function hasCompletedFirstStream(
   sessions: Array<{ status: string }> | null | undefined,
@@ -296,26 +294,15 @@ export function resolveGuidedNextAction(opts: {
       stepNumber: 2,
       totalSteps: ONBOARDING_TOTAL_STEPS,
       title: "Дождись связи с агентом",
-      hint: "Запусти start.bat — здесь появится «Агент онлайн»",
+      hint: "Запусти start.bat — здесь появится «Агент онлайн». Токен и привязка ключа из ZIP выполняются сами",
       cta: "wait",
-    };
-  }
-
-  if (!opts.agentKeyBound) {
-    return {
-      phase: "bind",
-      stepNumber: 3,
-      totalSteps: ONBOARDING_TOTAL_STEPS,
-      title: "Привяжи агент",
-      hint: "Получи одноразовый код и вставь его в окне агента",
-      cta: "bind",
     };
   }
 
   if (opts.libraryCount === 0) {
     return {
       phase: "add-game",
-      stepNumber: 4,
+      stepNumber: 3,
       totalSteps: ONBOARDING_TOTAL_STEPS,
       title: "Добавь первую игру",
       hint: "Укажи путь к .exe и выбери игру из каталога",
@@ -328,7 +315,7 @@ export function resolveGuidedNextAction(opts: {
   if (!goOnlineAck) {
     return {
       phase: "go-online",
-      stepNumber: 5,
+      stepNumber: 4,
       totalSteps: ONBOARDING_TOTAL_STEPS,
       title: "Выйди в онлайн",
       hint: "В агенте нажми «Выйти в онлайн» — игроки увидят тебя в каталоге",
@@ -338,7 +325,7 @@ export function resolveGuidedNextAction(opts: {
 
   return {
     phase: "test-stream",
-    stepNumber: 6,
+    stepNumber: 5,
     totalSteps: ONBOARDING_TOTAL_STEPS,
     title: "Проверь стрим",
     hint: "Создай тест-сессию и убедись, что картинка и управление работают",
@@ -376,11 +363,6 @@ export function computeQuickStartSteps(opts: {
           ? `localhost:${opts.agent.port}`
           : "на связи через heartbeat"
         : "Запусти start.bat",
-    },
-    {
-      done: opts.agentKeyBound,
-      title: "Агент привязан",
-      hint: "Код привязки ниже → вставь в агенте",
     },
     {
       done: opts.libraryCount > 0,
@@ -488,7 +470,7 @@ export function evaluateHostReadiness(opts: {
 
   if (!opts.agentKeyBound) {
     return notReady(
-      "Привяжи агент — получи код привязки в разделе «Расширенно»",
+      "Привяжи ключ агента — перезапусти start.bat (ZIP с дашборда) или получи код в «Если не работает»",
     );
   }
 

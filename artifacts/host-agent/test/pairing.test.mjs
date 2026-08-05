@@ -5,8 +5,8 @@ import { setupRendererEnv } from "./helpers/renderer-env.mjs";
 setupRendererEnv();
 const { pairingCard } = await import("../dist/renderer/renderer/pairing.js");
 
-test("pairing module exposes pairing card element", () => {
-  assert.equal(pairingCard.id, "pairing-card");
+test("pairing module exposes pairing inputs inside troubleshoot panel", () => {
+  assert.equal(pairingCard.id, "pairing-card-inner");
   assert.equal(document.getElementById("pairing-code").getAttribute("maxlength"), "6");
 });
 

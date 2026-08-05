@@ -14,14 +14,13 @@ import "./agent-auth.js";
 import "./pairing.js";
 
 import { loadFormFromConfig } from "./config.js";
-import { initAgentKey } from "./agent-auth.js";
+import { initAgentKey, setConnectionTroubleshootVisible } from "./agent-auth.js";
 import { loadLibrary, startLibraryPolling } from "./library.js";
 import { showSigninBanner, validateHostToken } from "./auth.js";
 import { showAutoQuotaCard, applyQuotaStatus, autoQuotaCheckbox } from "./quota.js";
 import { runSteamScan } from "./steam.js";
 import { teardown } from "./session.js";
 import { log } from "./ui.js";
-import { pairingCard } from "./pairing.js";
 
 void loadFormFromConfig().then(async (cfg) => {
   window.agent.onInputPanic(() => {
@@ -57,7 +56,7 @@ void loadFormFromConfig().then(async (cfg) => {
     if (displayName) {
       showSigninBanner(displayName, cfg.apiBaseUrl);
       log(`Вход выполнен как: ${displayName}`);
-      pairingCard.hidden = true;
+      setConnectionTroubleshootVisible(false);
     } else {
       log("Не удалось проверить токен. Введи заново или проверь Platform URL.");
     }
@@ -79,6 +78,7 @@ void loadFormFromConfig().then(async (cfg) => {
       void runSteamScan({ openModal: false });
     }
   } else {
-    log("First launch — paste your host token from the web dashboard.");
+    log("Первый запуск — скачай агент с дашборда (ZIP с токеном). Если не вышло — «Если не подключается» ниже.");
+    setConnectionTroubleshootVisible(true);
   }
 });

@@ -7,7 +7,9 @@ import { log } from "./ui.js";
 const pairingCodeInput = document.getElementById("pairing-code") as HTMLInputElement;
 const pairingSubmitBtn = document.getElementById("pairing-submit") as HTMLButtonElement;
 const pairingStatusEl = document.getElementById("pairing-status") as HTMLParagraphElement;
-export const pairingCard = document.getElementById("pairing-card") as HTMLElement;
+export const pairingCard =
+  (document.getElementById("pairing-card") as HTMLElement | null) ??
+  (document.getElementById("pairing-card-inner") as HTMLElement);
 
 async function submitPairingCode(): Promise<void> {
   const code = pairingCodeInput.value.trim();
@@ -39,7 +41,7 @@ async function submitPairingCode(): Promise<void> {
     ($("hostToken") as HTMLInputElement).value = data.hostToken;
     ($("apiBaseUrl") as HTMLInputElement).value = apiBaseUrl;
     pairingStatusEl.textContent = `Подключено: ${data.displayName ?? "хост"}`;
-    pairingCard.hidden = true;
+    if (pairingCard) pairingCard.hidden = true;
     if (data.displayName) showSigninBanner(data.displayName, apiBaseUrl);
     log(`Вход по коду выполнен: ${data.displayName ?? data.hostToken.slice(0, 8)}…`);
     await loadLibrary(newCfg);

@@ -6,13 +6,76 @@ const bindKeyBtn = document.getElementById("bind-agent-key") as HTMLButtonElemen
 const agentLoginBtn = document.getElementById("agent-login") as HTMLButtonElement;
 const updatePcSpecsBtn = document.getElementById("update-pc-specs") as HTMLButtonElement;
 const pcSpecsInfoEl = document.getElementById("pc-specs-info") as HTMLParagraphElement;
+const agentKeyCard = document.getElementById("agent-key-card") as HTMLElement | null;
+const connectionTroubleshoot = document.getElementById(
+  "connection-troubleshoot",
+) as HTMLDetailsElement | null;
+
+/** Whether the host account already has this agent's public key (U-06). */
+export async function fetchAgentKeyBound(
+  apiBaseUrl: string,
+  hostToken: string,
+): Promise<boolean> {
+  try {
+    const url = `${apiBaseUrl.replace(/\/$/, "")}/api/hosts/${encodeURIComponent(hostToken)}`;
+    const resp = await fetch(url);
+    if (!resp.ok) return false;
+    const data = (await resp.json()) as { agentKeyBound?: boolean };
+    return !!data.agentKeyBound;
+  } catch {
+    return false;
+  }
+}
+
+/** Primary bind path after U-02: saved hostToken from ZIP config (U-06). */
+export async function tryAutoBindAgentKey(cfg: {
+  hostToken: string;
+  apiBaseUrl: string;
+}): Promise<boolean> {
+  if (!cfg.hostToken?.trim() || !cfg.apiBaseUrl?.trim()) return false;
+  if (await fetchAgentKeyBound(cfg.apiBaseUrl, cfg.hostToken)) return true;
+  const result = await window.agent.bindAgentKey(cfg.hostToken, cfg.apiBaseUrl);
+  if (result.ok) {
+    log("Ключ агента привязан автоматически (токен из ZIP).");
+    return true;
+  }
+  log(`Автопривязка не удалась: ${result.error ?? "неизвестная ошибка"}`);
+  return false;
+}
+
+export function setConnectionTroubleshootVisible(visible: boolean): void {
+  if (!connectionTroubleshoot) return;
+  if (visible) {
+    connectionTroubleshoot.hidden = false;
+  } else {
+    connectionTroubleshoot.hidden = true;
+    connectionTroubleshoot.open = false;
+  }
+}
+
+function applyBoundAgentKeyUi(bound: boolean, hasCredentials: boolean): void {
+  if (bound && hasCredentials) {
+    agentKeyStatusEl.textContent = "Ключ привязан к аккаунту.";
+    agentKeyCard?.setAttribute("hidden", "");
+    setConnectionTroubleshootVisible(false);
+    return;
+  }
+  agentKeyCard?.removeAttribute("hidden");
+  if (!hasCredentials) {
+    agentKeyStatusEl.textContent =
+      "Скачай агент с дашборда — токен подставится сам. Если не вышло — раздел ниже.";
+    setConnectionTroubleshootVisible(true);
+    connectionTroubleshoot!.open = true;
+    return;
+  }
+  agentKeyStatusEl.textContent = "Привязываем ключ к аккаунту…";
+  setConnectionTroubleshootVisible(true);
+}
 
 export async function initAgentKey(): Promise<void> {
   try {
     const pubkey = await window.agent.getAgentPubkey();
-    if (pubkey) {
-      agentKeyStatusEl.textContent = `Ключ: ${pubkey.slice(0, 16)}…${pubkey.slice(-8)} (готов к привязке)`;
-    } else {
+    if (!pubkey) {
       agentKeyStatusEl.textContent = "Ключ не найден. Перезапустите агент.";
     }
   } catch {
@@ -44,16 +107,35 @@ export async function initAgentKey(): Promise<void> {
     }
   }
 
-  // Run upload speed test silently in the background on every startup so that
-  // pcSpecs.uploadMbps is always up-to-date for quota matching.
+  let cfg: { hostToken: string; apiBaseUrl: string } = { hostToken: "", apiBaseUrl: "" };
   try {
-    const cfg = await window.agent.getConfig();
-    if (cfg.hostToken && cfg.apiBaseUrl) {
+    cfg = await window.agent.getConfig();
+  } catch {
+    /* ignore */
+  }
+
+  const hasCredentials = Boolean(cfg.hostToken?.trim() && cfg.apiBaseUrl?.trim());
+  let bound = false;
+  if (hasCredentials) {
+    bound = await tryAutoBindAgentKey(cfg);
+    if (!bound && bindCodeInput?.value.trim()) {
+      const manual = await window.agent.bindAgentKey(
+        cfg.hostToken,
+        cfg.apiBaseUrl,
+        bindCodeInput.value.trim(),
+      );
+      if (manual.ok) {
+        bound = true;
+        bindCodeInput.value = "";
+        log("Ключ агента привязан по коду из дашборда.");
+      }
+    }
+    if (bound) {
       void runUploadSpeedtest(cfg.apiBaseUrl, cfg.hostToken);
     }
-  } catch {
-    // Non-fatal — do not block startup
   }
+
+  applyBoundAgentKeyUi(bound, hasCredentials);
 }
 
 bindKeyBtn.addEventListener("click", async () => {
@@ -80,6 +162,7 @@ bindKeyBtn.addEventListener("click", async () => {
     agentKeyStatusEl.textContent = "Ключ успешно привязан к аккаунту.";
     log("Ключ агента привязан к аккаунту.");
     if (bindCodeInput) bindCodeInput.value = "";
+    applyBoundAgentKeyUi(true, true);
   } else {
     agentKeyStatusEl.textContent = `Ошибка привязки: ${result.error ?? "Unknown error"}`;
     log(`Bind key error: ${result.error ?? "Unknown"}`);

@@ -205,7 +205,7 @@ test("computeQuickStartSteps tracks onboarding progress", () => {
     hasActiveSession: true,
     agentDownloaded: false,
   });
-  assert.equal(ready.doneCount, 5);
+  assert.equal(ready.doneCount, 4);
   assert.equal(ready.allDone, true);
   assert.equal(ready.steps[0].done, true);
   assert.match(ready.steps[1].hint, /localhost:18080/);
@@ -254,22 +254,14 @@ test("resolveGuidedNextAction returns one phase at a time until first stream (U-
   assert.equal(wait.phase, "wait-agent");
   assert.equal(wait.cta, "wait");
 
-  const bind = resolveGuidedNextAction({
-    ...base,
-    agent: onlineAgent,
-    agentDownloaded: true,
-  });
-  assert.equal(bind.phase, "bind");
-  assert.equal(bind.cta, "bind");
-
   const addGame = resolveGuidedNextAction({
     ...base,
     agent: onlineAgent,
-    agentKeyBound: true,
     agentDownloaded: true,
   });
   assert.equal(addGame.phase, "add-game");
   assert.equal(addGame.cta, "add-game");
+  assert.equal(addGame.stepNumber, 3);
 
   const goOnline = resolveGuidedNextAction({
     ...base,
@@ -280,6 +272,7 @@ test("resolveGuidedNextAction returns one phase at a time until first stream (U-
   });
   assert.equal(goOnline.phase, "go-online");
   assert.equal(goOnline.cta, "open-agent");
+  assert.equal(goOnline.stepNumber, 4);
 
   const testStreamReady = resolveGuidedNextAction({
     ...base,

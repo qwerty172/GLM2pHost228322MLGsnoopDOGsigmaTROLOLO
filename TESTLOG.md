@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-151 (2026-08-05 14:34 UTC) {#marathon-m-151}
+
+| Проверка | Результат |
+|---|---|
+| host-dashboard.test.mjs | 21 тест — онбординг 5 шагов без отдельной фазы bind, PASS |
+| host-agent test suite | 205 тестов — auto-bind + pairing в troubleshoot, PASS |
+| pnpm typecheck | PASS |
+
+**Изменения (U-06):** основной путь — ZIP с токеном и автопривязка ключа в агенте; код привязки, pairing и ручной токен спрятаны в «Если не подключается»; дашборд убрал шаг bind из квик-старта.
+
 ## Marathon M-136 (2026-08-05 14:33 UTC) {#marathon-m-136}
 
 | Проверка | Результат |

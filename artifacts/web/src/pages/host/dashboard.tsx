@@ -214,7 +214,7 @@ function AgentTroubleshootChecklist({
           </li>
         )}
         <li>
-          В агенте вставлен токен хоста и есть надпись «Вход выполнен»
+          В агенте должна быть надпись «Вход выполнен» (токен из ZIP подставляется сам)
         </li>
         {heartbeat?.status === "stale" && (
           <li>
@@ -489,7 +489,7 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
               className="text-[11px] text-slate-500 hover:text-sky-400 underline-offset-2 hover:underline"
               data-testid="link-download-host-agent-exe"
             >
-              Или .exe без Node.js (нужен код привязки)
+              Или .exe без Node.js (нужен код привязки в «Если не работает»)
             </a>
           </div>
         </div>
@@ -1078,7 +1078,7 @@ function HostQuickStartCard({
               >
                 .exe без Node.js
               </a>{" "}
-              — понадобится код привязки на шаге 3
+              — понадобится код привязки в «Если не работает»
             </p>
           </div>
         )}
@@ -1100,8 +1100,6 @@ function HostQuickStartCard({
             <AgentTroubleshootChecklist agent={agent} heartbeat={heartbeat} />
           </div>
         )}
-
-        {guided.cta === "bind" && <AgentBindCodeCard hostToken={hostToken} guided />}
 
         {guided.cta === "add-game" && <QuickAddFirstGame hostToken={hostToken} guided />}
 
@@ -1351,7 +1349,7 @@ function AgentBindCodeCard({ hostToken, guided = false }: { hostToken: string; g
           Код привязки агента
         </CardTitle>
         <CardDescription className="text-slate-500">
-          Одноразовый код вместо долгоживущего токена — вставь его в агенте при привязке ключа.
+          Одноразовый код — только если ставили .exe или ZIP без токена. Основной путь: скачай ZIP с дашборда.
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-0">{body}</CardContent>
@@ -1778,7 +1776,7 @@ export default function Dashboard() {
       >
         <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-slate-400 hover:text-white select-none">
           {onboarding
-            ? "Если не работает — диагностика"
+            ? "Если не работает — диагностика и привязка"
             : "Расширенно — тест-сессия, привязка игры, квоты"}
         </summary>
         <div className="px-4 pb-4 space-y-4 border-t border-white/5 pt-4">
@@ -1826,7 +1824,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {!onboarding && hostToken && !agentKeyBound && (
+          {hostToken && !agentKeyBound && (
             <AgentBindCodeCard hostToken={hostToken} />
           )}
 

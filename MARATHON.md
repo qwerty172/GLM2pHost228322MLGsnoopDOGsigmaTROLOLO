@@ -481,7 +481,8 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-148 | R | UX U-32 (P0): Тест реально проверяет, что hostToken лежит внутри ZIP, а не | `routes/downloads.test.ts` | r:U-32 | done | agent |
 | M-149 | R | UX U-13 (P0): Дашборд всегда показывает одно следующее действие до первого | `pages/host/dashboard.tsx` | r:U-13 | done | agent |
 | M-150 | R | UX U-14 (P0): «Проверить готовность» проверяет весь путь хоста одной кнопк | `pages/host/dashboard.tsx` | r:U-14 | done | agent |
-| M-151 | R | UX U-06 (P1): Один способ привязки агента вместо трёх | `pages/host/dashboard.tsx` | r:U-06 | pending | agent |
+| M-136 | Q | auth-verifier: unit-тест (otp.ts) | `auth-verifier/otp.ts` | q:lib/auth-verifier/src/otp.ts | done | agent |
+| M-151 | R | UX U-06 (P1): Один способ привязки агента вместо трёх | `pages/host/dashboard.tsx` | r:U-06 | done | agent |
 | M-152 | R | UX U-07 (P1): Убрать дублирующий legacy BindingForm с ценами в USD | `pages/host/binding-form.tsx` | r:U-07 | pending | agent |
 | M-153 | R | UX U-08 (P1): Кнопка «Войти на сайте» в агенте открывает существующий марш | `artifacts/host-agent/src/main/index.ts` | r:U-08 | pending | agent |
 | M-154 | R | UX U-09 (P1): Возврат хоста по сохранённому токену — поле «у меня уже есть | `artifacts/web/src/components/host-auth-guard.tsx` | r:U-09 | pending | agent |
@@ -503,7 +504,6 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-170 | R | UX U-28 (P2): В каталоге у офлайн-игр честная подпись и путь дальше | `pages/games.tsx` | r:U-28 | pending | agent |
 | M-171 | R | UX U-29 (P2): Фильтры каталога доступны на мобиле | `pages/games.tsx` | r:U-29 | pending | agent |
 | M-172 | R | UX U-30 (P2): Понятная первая минута: сколько стоит и что такое LZT | `pages/game-detail.tsx` | r:U-30 | pending | agent |
-| M-136 | Q | auth-verifier: unit-тест (otp.ts) | `auth-verifier/otp.ts` | q:lib/auth-verifier/src/otp.ts | done | agent |
 | M-137 | Q | auth-verifier: unit-тест (providers/discord.ts) | `auth-verifier/providers/discord.ts` | q:lib/auth-verifier/src/providers/discord.ts | pending | agent |
 | M-138 | Q | auth-verifier: unit-тест (providers/telegram.ts) | `auth-verifier/providers/telegram.ts` | q:lib/auth-verifier/src/providers/telegram.ts | pending | agent |
 | M-139 | Q | auth-verifier: unit-тест (router.ts) | `auth-verifier/router.ts` | q:lib/auth-verifier/src/router.ts | pending | agent |

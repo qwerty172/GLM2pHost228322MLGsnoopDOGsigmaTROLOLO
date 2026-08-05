@@ -5,9 +5,10 @@ import { setupRendererEnv } from "./helpers/renderer-env.mjs";
 setupRendererEnv();
 const { initAgentKey, agentKeyStatusEl } = await import("../dist/renderer/renderer/agent-auth.js");
 
-test("initAgentKey shows pubkey prefix and PC specs", async () => {
+test("initAgentKey auto-binds when hostToken present", async () => {
   await initAgentKey();
-  assert.match(agentKeyStatusEl.textContent, /готов к привязке/);
+  assert.match(agentKeyStatusEl.textContent, /привязан/i);
+  assert.equal(document.getElementById("connection-troubleshoot").hidden, true);
   assert.match(document.getElementById("pc-specs-info").textContent, /Test CPU/);
   assert.equal(document.getElementById("bind-agent-key").disabled, false);
 });

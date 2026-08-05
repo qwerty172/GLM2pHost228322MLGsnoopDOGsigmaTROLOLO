@@ -102,26 +102,49 @@
         </div>
       </section>
 
-      <!-- Agent key & PC binding -->
+      <!-- Agent key status — hidden once bound (U-06) -->
       <section class="card" id="agent-key-card">
         <h2>Привязка агента</h2>
         <p class="muted" id="agent-key-status">Проверяем ключ…</p>
-        <label style="margin-top:8px;display:block">
-          <span>Код привязки (из дашборда)</span>
-          <input
-            id="agentBindCode"
-            type="text"
-            placeholder="Одноразовый код — предпочтительнее токена"
-            autocomplete="off"
-          />
-        </label>
         <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px">
-          <button type="button" id="bind-agent-key" disabled>Привязать к аккаунту</button>
-          <button type="button" id="agent-login" disabled>Войти на сайте</button>
           <button type="button" id="update-pc-specs" disabled>Обновить характеристики ПК</button>
         </div>
         <p class="muted" id="pc-specs-info" style="margin-top:6px;font-size:12px"></p>
       </section>
+
+      <!-- Fallback bind paths — only when ZIP auto-login did not work (U-06) -->
+      <details class="card" id="connection-troubleshoot" hidden>
+        <summary style="cursor:pointer;color:#94a3b8;font-size:13px">
+          Если не подключается — другие способы
+        </summary>
+        <div style="margin-top:12px">
+          <p class="muted" style="font-size:12px;margin:0 0 10px">
+            Основной путь — скачать ZIP с дашборда: токен и привязка ключа выполняются сами.
+            Ниже — только если ставили .exe или ZIP без токена.
+          </p>
+          <label style="display:block;margin-bottom:10px">
+            <span>Код привязки (из дашборда → «Если не работает»)</span>
+            <input
+              id="agentBindCode"
+              type="text"
+              placeholder="Одноразовый код"
+              autocomplete="off"
+            />
+          </label>
+          <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:12px">
+            <button type="button" id="bind-agent-key" disabled>Привязать по коду</button>
+            <button type="button" id="agent-login" disabled>Войти на сайте</button>
+          </div>
+          <div id="pairing-card-inner">
+            <p class="muted" style="font-size:12px;margin:0 0 6px">Или 6-значный код с дашборда:</p>
+            <div class="row share" style="gap:8px">
+              <input id="pairing-code" type="text" maxlength="6" pattern="[0-9]{6}" placeholder="000000" style="font-size:20px;letter-spacing:4px;text-align:center;max-width:140px" />
+              <button type="button" id="pairing-submit">Подключиться</button>
+            </div>
+            <p class="muted" id="pairing-status" style="margin-top:8px;font-size:12px"></p>
+          </div>
+        </div>
+      </details>
 
       <!-- Steam recommendations — filled after auto/manual Steam scan -->
       <section class="card" id="steam-recommend-card" hidden>
@@ -225,16 +248,6 @@
           </p>
           <ul id="game-picker-steam-list" class="library-list" style="max-height:180px;overflow-y:auto"></ul>
         </div>
-      </section>
-
-      <section class="card" id="pairing-card">
-        <h2>Подключение к платформе</h2>
-        <p class="muted">Введи 6-значный код с Host Dashboard на сайте</p>
-        <div class="row share" style="gap:8px">
-          <input id="pairing-code" type="text" maxlength="6" pattern="[0-9]{6}" placeholder="000000" style="font-size:20px;letter-spacing:4px;text-align:center;max-width:140px" />
-          <button type="button" id="pairing-submit">Подключиться</button>
-        </div>
-        <p class="muted" id="pairing-status" style="margin-top:8px;font-size:12px"></p>
       </section>
 
       <section class="card" id="auto-steam-card" hidden>
