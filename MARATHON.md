@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-78 done; use-auth.tsx unit-тест + сканер .tsx hooks)
+> **Последнее обновление:** 2026-08-05 (M-79 done; use-mobile.tsx unit-тест)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 04:10 UTC |
-| Task ID | M-78 |
-| Результат | web hooks: unit-тест use-auth.tsx (consumeTokenFromUrl, exchangeLegacyForJwt, refreshAccessJwt); сканер M расширен на .tsx hooks |
-| Commit | b060173 |
+| Дата | 2026-08-05 04:22 UTC |
+| Task ID | M-79 |
+| Результат | web hooks: unit-тест use-mobile.tsx (MOBILE_BREAKPOINT, isMobileViewport, mobileMediaQuery) |
+| Commit | (этот run) |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** M-78 done; M-79…M-80 pending (.tsx hooks); сканер M расширен на `.tsx`.
+**Wave Maintenance:** M-79 done; M-80 pending (.tsx hooks).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -298,7 +298,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-76 | M | web hooks: unit-тест (use-platform-events.ts) | `artifacts/web/src/hooks/use-platform-events.ts` | m:artifacts/web/src/hooks/use-platform-events.ts | done | agent |
 | M-77 | L | web lib: unit-тест (connection-labels.ts) | `artifacts/web/src/lib/connection-labels.ts` | l:artifacts/web/src/lib/connection-labels.ts | done | agent |
 | M-78 | M | web hooks: unit-тест (use-auth.tsx) | `artifacts/web/src/hooks/use-auth.tsx` | m:artifacts/web/src/hooks/use-auth.tsx | done | agent |
-| M-79 | M | web hooks: unit-тест (use-mobile.tsx) | `artifacts/web/src/hooks/use-mobile.tsx` | m:artifacts/web/src/hooks/use-mobile.tsx | pending | agent |
+| M-79 | M | web hooks: unit-тест (use-mobile.tsx) | `artifacts/web/src/hooks/use-mobile.tsx` | m:artifacts/web/src/hooks/use-mobile.tsx | done | agent |
 | M-80 | M | web hooks: unit-тест (use-player-wallet.tsx) | `artifacts/web/src/hooks/use-player-wallet.tsx` | m:artifacts/web/src/hooks/use-player-wallet.tsx | pending | agent |
 
 

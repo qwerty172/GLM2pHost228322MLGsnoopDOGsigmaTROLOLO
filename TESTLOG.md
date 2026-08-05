@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-79 (2026-08-05 04:22 UTC) {#marathon-m-79}
+
+| Проверка | Результат |
+|---|---|
+| use-mobile.tsx | экспорт MOBILE_BREAKPOINT, isMobileViewport, mobileMediaQuery |
+| use-mobile.test.mjs | 4 теста — breakpoint constant, media query string, viewport below/above 768 |
+| web test | PASS (63 tests) |
+| typecheck | PASS |
+
+**Следующий pick:** M-80 (use-player-wallet.tsx).
+
 ## Marathon M-78 (2026-08-05 04:10 UTC) {#marathon-m-78}
 
 | Проверка | Результат |
