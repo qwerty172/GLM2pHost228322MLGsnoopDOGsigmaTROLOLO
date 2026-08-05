@@ -1,6 +1,11 @@
 import { describe, it, mock } from "node:test";
 import assert from "node:assert/strict";
-import { startLinkFlow, confirmLinkToken } from "../src/link.ts";
+import {
+  startLinkFlow,
+  confirmLinkToken,
+  generateLinkToken,
+  LINK_TOKEN_LENGTH,
+} from "../src/link.ts";
 import type {
   ProviderName,
   UserType,
@@ -38,14 +43,41 @@ function makeCfg(
   };
 }
 
+describe("generateLinkToken", () => {
+  // Regression guard: the token used to come from base64url, which can emit
+  // `-` and `_`. That broke the API contract (uppercase alphanumeric) roughly
+  // one run in N — a flaky failure instead of an honest one.
+  it("only ever produces uppercase alphanumeric characters", () => {
+    for (let i = 0; i < 500; i++) {
+      assert.match(generateLinkToken(), /^[A-Z0-9]{8}$/);
+    }
+  });
+
+  it("excludes characters that are easy to misread (I, L, O, U)", () => {
+    for (let i = 0; i < 500; i++) {
+      assert.doesNotMatch(generateLinkToken(), /[ILOU]/);
+    }
+  });
+
+  it("honours a custom length", () => {
+    assert.equal(generateLinkToken(4).length, 4);
+    assert.equal(generateLinkToken().length, LINK_TOKEN_LENGTH);
+  });
+
+  it("does not repeat itself across calls", () => {
+    const seen = new Set(Array.from({ length: 50 }, () => generateLinkToken()));
+    assert.equal(seen.size, 50);
+  });
+});
+
 describe("startLinkFlow", () => {
   it("generates an 8-char uppercase token and inserts with default TTL", async () => {
     const db = makeDb();
     const before = Date.now();
     const result = await startLinkFlow(makeCfg(db), USER_ID, USER_TYPE, PROVIDER);
 
-    assert.ok(result.token.length > 0 && result.token.length <= 8);
-    assert.equal(result.token, result.token.toUpperCase());
+    assert.equal(result.token.length, LINK_TOKEN_LENGTH);
+    assert.match(result.token, /^[A-Z0-9]{8}$/);
     assert.equal(result.expiresIn, 600);
     assert.equal(
       (db.insertLinkToken as ReturnType<typeof mock.fn>).mock.calls.length,

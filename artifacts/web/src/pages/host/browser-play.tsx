@@ -497,8 +497,12 @@ export default function BrowserPlay() {
     if (!session || session.status === "ended" || !session.startedAt) {
       return;
     }
+    // Capture before the closure: narrowing from the guard above does not
+    // survive into a callback that reads the mutable `session` binding later.
+    const startedAt = session.startedAt;
+    const ratePerMinute = session.ratePerMinute || 0;
     const tick = () => {
-      setEarnedLzt(computeEarnedLzt(session.startedAt, session.ratePerMinute || 0));
+      setEarnedLzt(computeEarnedLzt(startedAt, ratePerMinute));
     };
     tick();
     const id = setInterval(tick, 1000);

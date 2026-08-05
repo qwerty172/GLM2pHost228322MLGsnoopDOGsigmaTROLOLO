@@ -54,6 +54,8 @@ const {
   resolveApiBaseUrl,
   buildBundledAgentConfig,
   resetHostAgentExeUrlCacheForTests,
+  resolveHostAgentExeUrl,
+  pickInstallerUrlFromReleases,
 } = await import("./downloads");
 
 // Controllable mock for GitHub's `GET /repos/:repo/releases/latest`. Real
@@ -62,6 +64,14 @@ const {
 // to the real fetch implementation.
 const realFetch = globalThis.fetch;
 let githubReleaseResponse: { status: number; body: unknown } | null = null;
+
+/** How many times the GitHub API has been called through the stubbed fetch. */
+function githubApiCallCount(): number {
+  return (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.filter((c) =>
+    String(c[0]).includes("api.github.com"),
+  ).length;
+}
+
 vi.stubGlobal(
   "fetch",
   vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -220,13 +230,15 @@ describe("GET /downloads/host-agent.exe", () => {
   it("auto-resolves the latest GitHub Release installer asset (U-31)", async () => {
     githubReleaseResponse = {
       status: 200,
-      body: {
-        tag_name: "host-agent-v1.2.3",
-        assets: [
-          { name: "host-agent-Setup-1.2.3.exe", browser_download_url: "https://github.com/x/releases/download/host-agent-v1.2.3/host-agent-Setup-1.2.3.exe" },
-          { name: "host-agent-Setup-1.2.3.exe.blockmap", browser_download_url: "https://github.com/x/releases/download/host-agent-v1.2.3/host-agent-Setup-1.2.3.exe.blockmap" },
-        ],
-      },
+      body: [
+        {
+          tag_name: "host-agent-v1.2.3",
+          assets: [
+            { name: "host-agent-Setup-1.2.3.exe", browser_download_url: "https://github.com/x/releases/download/host-agent-v1.2.3/host-agent-Setup-1.2.3.exe" },
+            { name: "host-agent-Setup-1.2.3.exe.blockmap", browser_download_url: "https://github.com/x/releases/download/host-agent-v1.2.3/host-agent-Setup-1.2.3.exe.blockmap" },
+          ],
+        },
+      ],
     };
     const res = await request("GET", "/downloads/host-agent.exe", {
       redirect: "manual",
@@ -237,35 +249,119 @@ describe("GET /downloads/host-agent.exe", () => {
     );
   });
 
-  it("returns 503 when the latest release has no .exe asset", async () => {
+  it("returns 503 when the host-agent release has no .exe asset", async () => {
     githubReleaseResponse = {
       status: 200,
-      body: { tag_name: "v0.0.1", assets: [{ name: "README.txt", browser_download_url: "https://example.com/README.txt" }] },
+      body: [
+        { tag_name: "host-agent-v0.0.1", assets: [{ name: "README.txt", browser_download_url: "https://example.com/README.txt" }] },
+      ],
     };
     const res = await request("GET", "/downloads/host-agent.exe");
     expect(res.status).toBe(503);
   });
 
+  it("skips releases of other monorepo components and picks the host-agent one", async () => {
+    githubReleaseResponse = {
+      status: 200,
+      body: [
+        // Newest release belongs to something else and has no installer.
+        { tag_name: "web-v9.9.9", assets: [{ name: "web-bundle.zip", browser_download_url: "https://example.com/web.zip" }] },
+        // Older, but it is the agent's own tag prefix.
+        {
+          tag_name: "host-agent-v1.1.0",
+          assets: [{ name: "host-agent-Setup-1.1.0.exe", browser_download_url: "https://github.com/x/host-agent-Setup-1.1.0.exe" }],
+        },
+      ],
+    };
+    const res = await request("GET", "/downloads/host-agent.exe", {
+      redirect: "manual",
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(
+      "https://github.com/x/host-agent-Setup-1.1.0.exe",
+    );
+  });
+
+  it("returns 503 when a GitHub request fails or times out", async () => {
+    githubReleaseResponse = { status: 500, body: { message: "boom" } };
+    const res = await request("GET", "/downloads/host-agent.exe");
+    expect(res.status).toBe(503);
+  });
+
+  it("shares a single GitHub lookup between concurrent cold-cache requests", async () => {
+    githubReleaseResponse = {
+      status: 200,
+      body: [
+        {
+          tag_name: "host-agent-v2.0.0",
+          assets: [{ name: "host-agent-Setup-2.0.0.exe", browser_download_url: "https://github.com/x/2.0.0.exe" }],
+        },
+      ],
+    };
+    const before = githubApiCallCount();
+    const results = await Promise.all([
+      resolveHostAgentExeUrl(),
+      resolveHostAgentExeUrl(),
+      resolveHostAgentExeUrl(),
+    ]);
+    expect(results).toEqual([
+      "https://github.com/x/2.0.0.exe",
+      "https://github.com/x/2.0.0.exe",
+      "https://github.com/x/2.0.0.exe",
+    ]);
+    expect(githubApiCallCount() - before).toBe(1);
+  });
+
   it("caches the resolved release URL instead of re-querying GitHub every request", async () => {
     githubReleaseResponse = {
       status: 200,
-      body: {
-        tag_name: "host-agent-v1.0.0",
-        assets: [{ name: "host-agent-Setup-1.0.0.exe", browser_download_url: "https://github.com/x/releases/download/host-agent-v1.0.0/host-agent-Setup-1.0.0.exe" }],
-      },
+      body: [
+        {
+          tag_name: "host-agent-v1.0.0",
+          assets: [{ name: "host-agent-Setup-1.0.0.exe", browser_download_url: "https://github.com/x/releases/download/host-agent-v1.0.0/host-agent-Setup-1.0.0.exe" }],
+        },
+      ],
     };
     await request("GET", "/downloads/host-agent.exe", { redirect: "manual" });
-    const callsAfterFirst = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.filter((c) =>
-      String(c[0]).includes("api.github.com"),
-    ).length;
+    const callsAfterFirst = githubApiCallCount();
     // Change the mocked response — a cached lookup must NOT pick this up immediately.
     githubReleaseResponse = { status: 404, body: {} };
     const res2 = await request("GET", "/downloads/host-agent.exe", { redirect: "manual" });
     expect(res2.status).toBe(302);
-    const callsAfterSecond = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.filter((c) =>
-      String(c[0]).includes("api.github.com"),
-    ).length;
-    expect(callsAfterSecond).toBe(callsAfterFirst);
+    expect(githubApiCallCount()).toBe(callsAfterFirst);
+  });
+});
+
+describe("pickInstallerUrlFromReleases", () => {
+  it("requires both the host-agent tag prefix and an .exe asset", () => {
+    expect(
+      pickInstallerUrlFromReleases([
+        { tag_name: "host-agent-v1.0.0", assets: [{ name: "notes.txt", browser_download_url: "https://x/notes.txt" }] },
+        { tag_name: "other-v2", assets: [{ name: "a.exe", browser_download_url: "https://x/a.exe" }] },
+        { tag_name: "host-agent-v0.9.0", assets: [{ name: "b.exe", browser_download_url: "https://x/b.exe" }] },
+      ]),
+    ).toBe("https://x/b.exe");
+  });
+
+  it("returns null for an empty list or when nothing matches", () => {
+    expect(pickInstallerUrlFromReleases([])).toBeNull();
+    expect(
+      pickInstallerUrlFromReleases([
+        { tag_name: "v1", assets: [{ name: "setup.exe", browser_download_url: "https://x/setup.exe" }] },
+      ]),
+    ).toBeNull();
+  });
+
+  it("tolerates releases with missing tags, assets or urls", () => {
+    expect(
+      pickInstallerUrlFromReleases([
+        {},
+        { tag_name: "host-agent-v1" },
+        { tag_name: "host-agent-v1", assets: [] },
+        { tag_name: "host-agent-v1", assets: [{ name: "x.exe" }] },
+        { tag_name: "host-agent-v1", assets: [{ name: "ok.exe", browser_download_url: "https://x/ok.exe" }] },
+      ]),
+    ).toBe("https://x/ok.exe");
   });
 });
 

@@ -2,6 +2,27 @@ import crypto from "node:crypto";
 import type { VerifierConfig, ProviderName, UserType } from "./types.js";
 
 /**
+ * Alphabet for link tokens: uppercase alphanumeric, minus the characters that
+ * are easy to misread when retyping a code from a screen into a chat (I, L, O,
+ * U). Exactly 32 symbols, so masking a random byte with 31 is unbiased.
+ *
+ * Deliberately NOT base64url: that alphabet contains `-` and `_`, which are
+ * awkward to type and, in Telegram, `_` is markdown syntax.
+ */
+const LINK_TOKEN_ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ0123456789";
+export const LINK_TOKEN_LENGTH = 8;
+
+/** Random uppercase-alphanumeric token a user can retype without mistakes. */
+export function generateLinkToken(length: number = LINK_TOKEN_LENGTH): string {
+  const bytes = crypto.randomBytes(length);
+  let token = "";
+  for (const byte of bytes) {
+    token += LINK_TOKEN_ALPHABET[byte & 31];
+  }
+  return token;
+}
+
+/**
  * Start a link flow: generate a short token the user pastes into the bot.
  * Returns the token and its TTL.
  */
@@ -12,8 +33,7 @@ export async function startLinkFlow(
   provider: ProviderName,
 ): Promise<{ token: string; expiresIn: number }> {
   const ttl = cfg.linkTtlSec ?? 600;
-  // 8-char uppercase alphanumeric, easy to type
-  const token = crypto.randomBytes(5).toString("base64url").toUpperCase().slice(0, 8);
+  const token = generateLinkToken();
   await cfg.db.insertLinkToken({
     token,
     userId,

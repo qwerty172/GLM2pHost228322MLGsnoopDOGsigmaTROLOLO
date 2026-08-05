@@ -375,55 +375,89 @@ router.get("/downloads/host-agent.zip", async (req, res): Promise<void> => {
 // GitHub repo that publishes the signed installer via .github/workflows/agent-build.yml
 // on tags matching `host-agent-v*`. Override for forks/self-hosted mirrors.
 const RELEASE_REPO = process.env.HOST_AGENT_RELEASE_REPO ?? "qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO";
+// This is a monorepo: `releases/latest` could point at a release of some other
+// component, so we match the agent's own tag prefix instead.
+const RELEASE_TAG_PREFIX = "host-agent-v";
 const RELEASE_CACHE_TTL_MS = 5 * 60 * 1000;
+const RELEASE_FETCH_TIMEOUT_MS = 5_000;
+
+type GithubRelease = {
+  tag_name?: string;
+  assets?: Array<{ name?: string; browser_download_url?: string }>;
+};
 
 let releaseCache: { url: string | null; expiresAt: number } | null = null;
+let releaseLookupInFlight: Promise<string | null> | null = null;
 
 /** Test-only: clear the in-memory GitHub Release cache between test cases. */
 export function resetHostAgentExeUrlCacheForTests(): void {
   releaseCache = null;
+  releaseLookupInFlight = null;
 }
 
 /** True when a release asset filename looks like the Windows installer. */
-function isInstallerAsset(name: string): boolean {
-  return /\.exe$/i.test(name);
+function isInstallerAsset(name: string | undefined): boolean {
+  return typeof name === "string" && /\.exe$/i.test(name);
+}
+
+/** First `.exe` asset URL of the newest release tagged `host-agent-v*`. */
+export function pickInstallerUrlFromReleases(
+  releases: GithubRelease[],
+): string | null {
+  for (const release of releases) {
+    if (!release.tag_name?.startsWith(RELEASE_TAG_PREFIX)) continue;
+    const asset = release.assets?.find((a) => isInstallerAsset(a.name));
+    if (asset?.browser_download_url) return asset.browser_download_url;
+  }
+  return null;
+}
+
+async function fetchInstallerUrlFromGithub(): Promise<string | null> {
+  // GitHub returns releases newest-first, so the first tag-matching release
+  // with an installer asset is the one we want.
+  const res = await fetch(
+    `https://api.github.com/repos/${RELEASE_REPO}/releases?per_page=100`,
+    {
+      headers: { Accept: "application/vnd.github+json" },
+      signal: AbortSignal.timeout(RELEASE_FETCH_TIMEOUT_MS),
+    },
+  );
+  if (!res.ok) return null;
+  const body = (await res.json()) as GithubRelease[] | GithubRelease;
+  const releases = Array.isArray(body) ? body : [body];
+  return pickInstallerUrlFromReleases(releases);
 }
 
 /**
  * Resolve the latest published installer URL from GitHub Releases (U-31).
  * `HOST_AGENT_EXE_URL` always wins when set (explicit override / CDN mirror).
- * Result is cached briefly to avoid hitting GitHub's API on every request.
+ * Cached briefly, and concurrent cold-cache requests share one lookup so a
+ * burst of downloads cannot spend the unauthenticated API rate limit.
  */
 export async function resolveHostAgentExeUrl(): Promise<string | null> {
   const override = process.env.HOST_AGENT_EXE_URL;
   if (override) return override;
 
-  const now = Date.now();
-  if (releaseCache && releaseCache.expiresAt > now) {
+  if (releaseCache && releaseCache.expiresAt > Date.now()) {
     return releaseCache.url;
   }
+  if (releaseLookupInFlight) return releaseLookupInFlight;
 
-  try {
-    const res = await fetch(
-      `https://api.github.com/repos/${RELEASE_REPO}/releases/latest`,
-      { headers: { Accept: "application/vnd.github+json" } },
-    );
-    if (!res.ok) {
-      releaseCache = { url: null, expiresAt: now + RELEASE_CACHE_TTL_MS };
-      return null;
+  releaseLookupInFlight = (async () => {
+    let url: string | null = null;
+    try {
+      url = await fetchInstallerUrlFromGithub();
+    } catch (err) {
+      logger.warn({ err }, "GitHub release lookup failed for host-agent.exe");
     }
-    const release = (await res.json()) as {
-      assets?: Array<{ name: string; browser_download_url: string }>;
-    };
-    const asset = release.assets?.find((a) => isInstallerAsset(a.name));
-    const url = asset?.browser_download_url ?? null;
-    releaseCache = { url, expiresAt: now + RELEASE_CACHE_TTL_MS };
+    // Negative results are cached too: without that, every download attempt
+    // before the first release is published would hit the GitHub API.
+    releaseCache = { url, expiresAt: Date.now() + RELEASE_CACHE_TTL_MS };
+    releaseLookupInFlight = null;
     return url;
-  } catch (err) {
-    logger.warn({ err }, "GitHub release lookup failed for host-agent.exe");
-    releaseCache = { url: null, expiresAt: now + RELEASE_CACHE_TTL_MS };
-    return null;
-  }
+  })();
+
+  return releaseLookupInFlight;
 }
 
 // Redirect to the latest installer (GitHub Release asset, or HOST_AGENT_EXE_URL
