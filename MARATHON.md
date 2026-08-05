@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-81 done; KeyboardOverlay.test.mjs — имя по конвенции сканера)
+> **Последнее обновление:** 2026-08-05 (M-82 done; TouchOverlay.test.mjs + экспорт layout-хелперов)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 05:44 UTC |
-| Task ID | M-81 |
-| Результат | fix: keyboard-overlay.test.mjs → KeyboardOverlay.test.mjs (scanner cat N ожидает имя компонента) |
-| Commit | 27696df |
+| Дата | 2026-08-05 06:00 UTC |
+| Task ID | M-82 |
+| Результат | TouchOverlay: экспорт loadTouchLayout/saveTouchLayout + TouchOverlay.test.mjs (7 тестов PASS) |
+| Commit | 4a72c74 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** M-81 done; M-82…M-89 pending (scanner cat N).
+**Wave Maintenance:** M-82 done; M-83…M-89 pending (scanner cat N).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -301,7 +301,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-79 | M | web hooks: unit-тест (use-mobile.tsx) | `artifacts/web/src/hooks/use-mobile.tsx` | m:artifacts/web/src/hooks/use-mobile.tsx | done | agent |
 | M-80 | M | web hooks: unit-тест (use-player-wallet.tsx) | `artifacts/web/src/hooks/use-player-wallet.tsx` | m:artifacts/web/src/hooks/use-player-wallet.tsx | done | agent |
 | M-81 | N | web components: unit-тест (KeyboardOverlay.tsx) | `artifacts/web/src/components/KeyboardOverlay.tsx` | n:artifacts/web/src/components/KeyboardOverlay.tsx | done | agent |
-| M-82 | N | web components: unit-тест (TouchOverlay.tsx) | `artifacts/web/src/components/TouchOverlay.tsx` | n:artifacts/web/src/components/TouchOverlay.tsx | pending | agent |
+| M-82 | N | web components: unit-тест (TouchOverlay.tsx) | `artifacts/web/src/components/TouchOverlay.tsx` | n:artifacts/web/src/components/TouchOverlay.tsx | done | agent |
 | M-83 | N | web components: unit-тест (host-auth-guard.tsx) | `artifacts/web/src/components/host-auth-guard.tsx` | n:artifacts/web/src/components/host-auth-guard.tsx | pending | agent |
 | M-84 | N | web components: unit-тест (layout.tsx) | `artifacts/web/src/components/layout.tsx` | n:artifacts/web/src/components/layout.tsx | pending | agent |
 | M-85 | N | web components: unit-тест (quota-ai-chat.tsx) | `artifacts/web/src/components/quota-ai-chat.tsx` | n:artifacts/web/src/components/quota-ai-chat.tsx | pending | agent |
