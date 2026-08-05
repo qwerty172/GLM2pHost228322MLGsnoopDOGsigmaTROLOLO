@@ -984,6 +984,8 @@ function CurrentQuotaCard({ hostToken }: { hostToken: string }) {
 
 // ── Quick start (5 steps) ─────────────────────────────────────────────────
 
+export const AGENT_DOWNLOAD_ACK_STORAGE_KEY = "streamline.agentDownloadAck";
+
 function HostQuickStartCard({
   hostToken,
   agent,
@@ -1001,11 +1003,31 @@ function HostQuickStartCard({
 }) {
   const agentOnline =
     agent.status === "online" || heartbeat.status === "fresh";
+
+  const [agentDownloadAck, setAgentDownloadAck] = useState(() => {
+    try {
+      return localStorage.getItem(AGENT_DOWNLOAD_ACK_STORAGE_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const markAgentDownloaded = () => {
+    try {
+      localStorage.setItem(AGENT_DOWNLOAD_ACK_STORAGE_KEY, "true");
+    } catch {
+      /* ignore */
+    }
+    setAgentDownloadAck(true);
+  };
+
   const steps = [
     {
-      done: true,
+      done: agentDownloadAck || agentOnline,
       title: "Скачай агент",
-      hint: "ZIP → start.bat на Windows-ПК",
+      hint: agentDownloadAck
+        ? "Архив скачан — установи на Windows-ПК"
+        : "ZIP → start.bat на Windows-ПК",
     },
     {
       done: agentOnline,
@@ -1080,7 +1102,11 @@ function HostQuickStartCard({
               <Copy className="h-3 w-3" />
               Скопировать токен
             </Button>
-            <a href="/api/downloads/host-agent.zip" download="cloud-gaming-host-agent.zip">
+            <a
+              href="/api/downloads/host-agent.zip"
+              download="cloud-gaming-host-agent.zip"
+              onClick={markAgentDownloaded}
+            >
               <Button
                 size="sm"
                 className="h-8 gap-1.5 text-xs font-semibold"

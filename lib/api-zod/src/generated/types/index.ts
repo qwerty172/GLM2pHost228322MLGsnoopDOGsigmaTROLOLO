@@ -49,6 +49,8 @@ export * from "./confirmUploadBody";
 export * from "./confirmUploadResponse";
 export * from "./createBrowserHostSessionBody";
 export * from "./createBrowserHostSessionResponse";
+export * from "./createDemoSessionBody";
+export * from "./createDemoSessionResponse";
 export * from "./createEmbedSessionBody";
 export * from "./createEmbedSessionResponse";
 export * from "./createLoanRequestBody";

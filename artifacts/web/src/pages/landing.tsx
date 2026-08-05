@@ -26,6 +26,7 @@ import {
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { useInstantDemo } from "@/hooks/use-instant-demo";
 
 function formatInt(n: number): string {
   // 1248 → "1 248" (Russian thin-space grouping).
@@ -69,6 +70,7 @@ export default function Landing() {
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [, navigate] = useLocation();
   const { playerWalletToken, registerGuest } = usePlayerWallet();
+  const { launchDemo, isLaunching: isDemoLaunching } = useInstantDemo();
   const { data: liveHosts } = useLiveHosts();
   const { data: stats } = useGetPublicStats({
     query: {
@@ -200,12 +202,22 @@ export default function Landing() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-start gap-3">
+            <Button
+              className="h-9 px-5 text-sm font-semibold rounded-md"
+              style={{ background: "#0ea5e9", color: "#fff" }}
+              disabled={isDemoLaunching}
+              onClick={() => void launchDemo()}
+              data-testid="button-try-demo"
+            >
+              <Zap className="w-3.5 h-3.5 mr-1.5" />
+              {isDemoLaunching ? "Запуск…" : "Попробовать демо"}
+            </Button>
             <Link href="/hosts">
               <Button
-                className="h-9 px-5 text-sm font-semibold rounded-md"
-                style={{ background: "#0ea5e9", color: "#fff" }}
+                variant="outline"
+                className="h-9 px-5 text-sm font-semibold rounded-md border-white/10 text-slate-300 hover:text-white"
               >
-                <Play className="w-3.5 h-3.5 mr-1.5" /> Играть
+                <Play className="w-3.5 h-3.5 mr-1.5" /> Играть у хоста
               </Button>
             </Link>
             <Link href="/host">
@@ -217,6 +229,9 @@ export default function Landing() {
               </Button>
             </Link>
           </div>
+          <p className="text-[11px] text-slate-600 mt-2">
+            Демо запускается сразу в браузере — без установки и регистрации.
+          </p>
 
           <div className="mt-5">
             {!showLinkInput ? (
@@ -270,6 +285,38 @@ export default function Landing() {
           ))}
         </div>
       </section>
+
+      {playableHosts.length === 0 && (
+        <section className="max-w-6xl mx-auto px-6 pb-6">
+          <div
+            className="rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+            style={{
+              background: "rgba(14,165,233,0.06)",
+              border: "1px solid rgba(14,165,233,0.2)",
+            }}
+            data-testid="banner-no-hosts-demo"
+          >
+            <div>
+              <p className="text-sm font-semibold text-white mb-0.5">
+                Сейчас нет хостов онлайн
+              </p>
+              <p className="text-xs text-slate-500">
+                Запусти бесплатное демо Rogue Fable III — игра откроется прямо здесь.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              className="h-8 px-4 text-xs font-semibold shrink-0"
+              style={{ background: "#0ea5e9", color: "#fff" }}
+              disabled={isDemoLaunching}
+              onClick={() => void launchDemo()}
+            >
+              <Play className="w-3 h-3 mr-1" />
+              {isDemoLaunching ? "Запуск…" : "Играть демо"}
+            </Button>
+          </div>
+        </section>
+      )}
 
       {playableHosts.length > 0 && (
         <section className="max-w-6xl mx-auto px-6 pb-10">

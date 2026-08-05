@@ -207,10 +207,14 @@ export default function SetupSession() {
       </div>
       <div>
         <h1 className="text-3xl font-extrabold tracking-tight text-white">
-          Новая сессия
+          Расширенная сессия
         </h1>
         <p className="text-sm text-slate-500">
-          Настрой игру, которую будешь стримить с этого ПК.
+          Битрейт, квоты и детали — для опытных хостов. Для быстрого старта хватит{" "}
+          <Link href="/host" className="text-sky-400 underline-offset-2 hover:underline">
+            дашборда
+          </Link>
+          .
         </p>
       </div>
 

@@ -377,6 +377,83 @@ const testSessionLimiter = rateLimit({
   keyFn: ipKey,
 });
 
+const demoSessionLimiter = rateLimit({
+  scope: "sessions:demo",
+  windowMs: 60_000,
+  max: 10,
+  keyFn: ipKey,
+});
+
+const CreateDemoSessionBody = z.object({
+  gameSlug: z.string().optional(),
+});
+
+// Public instant-play demo: no host registration, no agent — iframe in /play.
+router.post("/sessions/demo", demoSessionLimiter, async (req, res): Promise<void> => {
+  const parsed = CreateDemoSessionBody.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const gameSlug = parsed.data.gameSlug?.trim() || "rogue-fable-3";
+  const [game] = await db
+    .select()
+    .from(gamesTable)
+    .where(eq(gamesTable.slug, gameSlug));
+  if (!game?.browserHostUrl) {
+    res.status(404).json({ error: "Demo game not available" });
+    return;
+  }
+
+  const hostToken = generateToken();
+  const [host] = await db
+    .insert(hostsTable)
+    .values({
+      hostToken,
+      displayName: "Демо",
+      gameId: game.id,
+      boundUrl: game.browserHostUrl,
+      boundAppLabel: game.title,
+      description: `Мгновенное демо — ${game.title}.`,
+      scheduleMode: "always",
+      minutePriceUsd: "0",
+      launchPriceUsd: "0",
+    })
+    .returning();
+  if (!host) {
+    res.status(500).json({ error: "Failed to create demo host" });
+    return;
+  }
+
+  const playerToken = generateToken();
+  const [session] = await db
+    .insert(sessionsTable)
+    .values({
+      hostId: host.id,
+      gameId: game.id,
+      playerToken,
+      ...inviteFields(),
+      appName: game.title,
+      resolution: "1280x720",
+      bitrateKbps: 4000,
+      ratePerMinute: "0",
+      paymentSource: "auto",
+      isTest: true,
+    })
+    .returning();
+  if (!session) {
+    res.status(500).json({ error: "Failed to create demo session" });
+    return;
+  }
+
+  req.log.info(
+    { sessionId: session.id, gameSlug },
+    "Demo session created",
+  );
+  res.status(201).json({ session: serialize(session) });
+});
+
 // Self-test session: the host launches a session against their own PC to
 // verify the stream works end-to-end. Completely free — no launch fee, no
 // per-minute billing (billing worker skips isTest), no earnings.

@@ -23,6 +23,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SiteNav } from "@/components/site-nav";
+import { PlayerFirstRun } from "@/components/player-first-run";
+import { useInstantDemo } from "@/hooks/use-instant-demo";
 import {
   BROWSER_HOST_URL_STORAGE_PREFIX,
   HOST_TOKEN_STORAGE_PREFIX,
@@ -76,6 +78,13 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 export default function GamesPage() {
+  const { playerWalletToken, registerGuest } = usePlayerWallet();
+  const { launchDemo, isLaunching: isDemoLaunching } = useInstantDemo();
+
+  useEffect(() => {
+    if (!playerWalletToken) void registerGuest();
+  }, [playerWalletToken, registerGuest]);
+
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [liveOnly, setLiveOnly] = useState(false);
@@ -137,6 +146,7 @@ export default function GamesPage() {
 
   return (
     <div className="min-h-screen text-slate-300" style={{ background: "#06090e" }}>
+      <PlayerFirstRun />
       <SiteNav activePath="/games" />
 
       <main className="max-w-7xl mx-auto px-4 md:px-6 pt-8 pb-16">
@@ -149,6 +159,22 @@ export default function GamesPage() {
             <p className="text-sm text-slate-500 mt-1">
               Выбери игру и подключись к хосту в один клик.
             </p>
+            <Button
+              size="sm"
+              type="button"
+              className="mt-3 h-8 px-3 text-xs font-semibold"
+              style={{
+                background: "rgba(14,165,233,0.12)",
+                color: "#38bdf8",
+                border: "1px solid rgba(14,165,233,0.25)",
+              }}
+              disabled={isDemoLaunching}
+              onClick={() => void launchDemo()}
+              data-testid="button-catalog-demo"
+            >
+              <Rocket className="h-3 w-3 mr-1" />
+              {isDemoLaunching ? "Запуск…" : "Попробовать демо без хоста"}
+            </Button>
           </div>
           <div className="relative w-full md:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />

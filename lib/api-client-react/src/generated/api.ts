@@ -54,6 +54,8 @@ import type {
   ConfirmUploadResponse,
   CreateBrowserHostSessionBody,
   CreateBrowserHostSessionResponse,
+  CreateDemoSessionBody,
+  CreateDemoSessionResponse,
   CreateEmbedSessionBody,
   CreateEmbedSessionResponse,
   CreateLoanRequestBody,
@@ -3402,6 +3404,96 @@ export function useGetSessionByInvite<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Create a free instant-play demo session (no host registration or agent).
+Returns a test session the player can open directly in the browser.
+
+ */
+export const getCreateDemoSessionUrl = () => {
+  return `/api/sessions/demo`;
+};
+
+export const createDemoSession = async (
+  createDemoSessionBody?: CreateDemoSessionBody,
+  options?: RequestInit,
+): Promise<CreateDemoSessionResponse> => {
+  return customFetch<CreateDemoSessionResponse>(getCreateDemoSessionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createDemoSessionBody),
+  });
+};
+
+export const getCreateDemoSessionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createDemoSession>>,
+    TError,
+    { data: BodyType<CreateDemoSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createDemoSession>>,
+  TError,
+  { data: BodyType<CreateDemoSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["createDemoSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createDemoSession>>,
+    { data: BodyType<CreateDemoSessionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createDemoSession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateDemoSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createDemoSession>>
+>;
+export type CreateDemoSessionMutationBody = BodyType<CreateDemoSessionBody>;
+export type CreateDemoSessionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a free instant-play demo session (no host registration or agent).
+Returns a test session the player can open directly in the browser.
+
+ */
+export const useCreateDemoSession = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createDemoSession>>,
+    TError,
+    { data: BodyType<CreateDemoSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createDemoSession>>,
+  TError,
+  { data: BodyType<CreateDemoSessionBody> },
+  TContext
+> => {
+  return useMutation(getCreateDemoSessionMutationOptions(options));
+};
 
 /**
  * @summary Create a free host self-test session

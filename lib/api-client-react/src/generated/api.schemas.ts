@@ -926,6 +926,15 @@ export interface CreatePublicSessionResponse {
   playPath: string;
 }
 
+export interface CreateDemoSessionBody {
+  /** Catalog slug with browserHostUrl (default rogue-fable-3) */
+  gameSlug?: string;
+}
+
+export interface CreateDemoSessionResponse {
+  session: Session;
+}
+
 export interface CreateTestSessionResponse {
   session: Session;
   /** @nullable */

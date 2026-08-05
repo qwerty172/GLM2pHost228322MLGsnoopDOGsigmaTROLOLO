@@ -1693,6 +1693,18 @@ export const GetSessionByInviteResponse = zod
   );
 
 /**
+ * @summary Create a free instant-play demo session (no host registration or agent).
+Returns a test session the player can open directly in the browser.
+
+ */
+export const CreateDemoSessionBody = zod.object({
+  gameSlug: zod
+    .string()
+    .optional()
+    .describe("Catalog slug with browserHostUrl (default rogue-fable-3)"),
+});
+
+/**
  * @summary Create a free host self-test session
  */
 export const CreateTestSessionHeader = zod.object({

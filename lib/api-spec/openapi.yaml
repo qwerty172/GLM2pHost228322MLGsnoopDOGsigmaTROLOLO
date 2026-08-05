@@ -1209,6 +1209,39 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /sessions/demo:
+    post:
+      operationId: createDemoSession
+      tags: [sessions]
+      summary: |
+        Create a free instant-play demo session (no host registration or agent).
+        Returns a test session the player can open directly in the browser.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDemoSessionBody"
+      responses:
+        "201":
+          description: Demo session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateDemoSessionResponse"
+        "404":
+          description: Demo game not available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /sessions/test:
     post:
       operationId: createTestSession
@@ -5839,6 +5872,20 @@ components:
         playPath:
           type: string
           description: Frontend path e.g. /play/i/{inviteCode}
+
+    CreateDemoSessionBody:
+      type: object
+      properties:
+        gameSlug:
+          type: string
+          description: Catalog slug with browserHostUrl (default rogue-fable-3)
+
+    CreateDemoSessionResponse:
+      type: object
+      required: [session]
+      properties:
+        session:
+          $ref: "#/components/schemas/Session"
 
     CreateTestSessionResponse:
       type: object
