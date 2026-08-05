@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-71 done; web lib ice-prewarm unit-тест)
+> **Последнее обновление:** 2026-08-05 (M-72 done; web lib put-external-blob unit-тест)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 02:10 UTC |
-| Task ID | M-71 |
-| Результат | unit-тест ice-prewarm.ts — prewarmIce cache/fallback, takePrewarmedConnection TTL, discardPrewarm |
-| Commit | f3cbcff |
+| Дата | 2026-08-05 02:16 UTC |
+| Task ID | M-72 |
+| Результат | unit-тест put-external-blob.ts — PUT blob/headers, 2xx resolve, non-2xx/network reject |
+| Commit | 847cccf |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** 4 pending (M-72…M-75) — web lib unit-тесты (кат. L).
+**Wave Maintenance:** 3 pending (M-73…M-75) — web lib unit-тесты (кат. L).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -291,7 +291,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-69 | L | web lib: unit-тест (agent-local.ts) | `artifacts/web/src/lib/agent-local.ts` | l:artifacts/web/src/lib/agent-local.ts | done | agent |
 | M-70 | L | web lib: unit-тест (api-errors.ts) | `artifacts/web/src/lib/api-errors.ts` | l:artifacts/web/src/lib/api-errors.ts | done | agent |
 | M-71 | L | web lib: unit-тест (ice-prewarm.ts) | `artifacts/web/src/lib/ice-prewarm.ts` | l:artifacts/web/src/lib/ice-prewarm.ts | done | agent |
-| M-72 | L | web lib: unit-тест (put-external-blob.ts) | `artifacts/web/src/lib/put-external-blob.ts` | l:artifacts/web/src/lib/put-external-blob.ts | pending | agent |
+| M-72 | L | web lib: unit-тест (put-external-blob.ts) | `artifacts/web/src/lib/put-external-blob.ts` | l:artifacts/web/src/lib/put-external-blob.ts | done | agent |
 | M-73 | L | web lib: unit-тест (quota-compatibility.ts) | `artifacts/web/src/lib/quota-compatibility.ts` | l:artifacts/web/src/lib/quota-compatibility.ts | pending | agent |
 | M-74 | L | web lib: unit-тест (sentry.ts) | `artifacts/web/src/lib/sentry.ts` | l:artifacts/web/src/lib/sentry.ts | pending | agent |
 | M-75 | L | web lib: unit-тест (utils.ts) | `artifacts/web/src/lib/utils.ts` | l:artifacts/web/src/lib/utils.ts | pending | agent |
