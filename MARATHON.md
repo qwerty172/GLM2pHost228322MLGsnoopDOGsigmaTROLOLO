@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-88 done; wallet-history helpers unit-тест)
+> **Последнее обновление:** 2026-08-05 (M-89 done; webgl-video-shader helpers unit-тест)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 07:52 UTC |
-| Task ID | M-88 |
-| Результат | WalletHistory: экспорт formatWalletHistoryLzt, formatWalletHistoryTs, walletHistoryKindMeta, walletHistoryBucketMeta, isWalletHistoryDebtTx, WALLET_HISTORY_FILTERS + wallet-history.test.mjs (9 тестов) |
-| Commit | 7efbdb9 |
+| Дата | 2026-08-05 08:08 UTC |
+| Task ID | M-89 |
+| Результат | WebGLVideoShader: экспорт SHADER_PRESET_STORAGE_KEY, SHADER_CUSTOM_CODE_STORAGE_KEY, SHADER_BUILTIN_PRESET_KEYS, isShaderPresetActive, resolveShaderFragCode + webgl-video-shader.test.mjs (7 тестов) |
+| Commit | 68ef058 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** M-88 done; M-89 pending (scanner cat N).
+**Wave Maintenance:** M-89 done; scanner cat N idle.
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -308,7 +308,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-86 | N | web components: unit-тест (site-nav.tsx) | `artifacts/web/src/components/site-nav.tsx` | n:artifacts/web/src/components/site-nav.tsx | done | agent |
 | M-87 | N | web components: unit-тест (vt-scanner.tsx) | `artifacts/web/src/components/vt-scanner.tsx` | n:artifacts/web/src/components/vt-scanner.tsx | done | agent |
 | M-88 | N | web components: unit-тест (wallet-history.tsx) | `artifacts/web/src/components/wallet-history.tsx` | n:artifacts/web/src/components/wallet-history.tsx | done | agent |
-| M-89 | N | web components: unit-тест (webgl-video-shader.tsx) | `artifacts/web/src/components/webgl-video-shader.tsx` | n:artifacts/web/src/components/webgl-video-shader.tsx | pending | agent |
+| M-89 | N | web components: unit-тест (webgl-video-shader.tsx) | `artifacts/web/src/components/webgl-video-shader.tsx` | n:artifacts/web/src/components/webgl-video-shader.tsx | done | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).
