@@ -131,9 +131,29 @@ void main() {
 
 export type PresetKey = keyof typeof SHADER_PRESETS | "custom";
 
+export const SHADER_PRESET_KEYS = Object.keys(SHADER_PRESETS) as (keyof typeof SHADER_PRESETS)[];
+
+export const SHADER_STORAGE_KEYS = {
+  preset: "shaderPreset",
+  customCode: "shaderCustomCode",
+} as const;
+
+export const SHADER_WEBGL_UNAVAILABLE_MSG = "WebGL недоступен в этом браузере";
+
+/** Resolve fragment shader GLSL from preset key or custom editor text. */
+export function resolveShaderFragCode(preset: PresetKey, customCode: string): string {
+  if (preset === "custom") return customCode;
+  return SHADER_PRESETS[preset]?.code ?? SHADER_PRESETS.none.code;
+}
+
+/** Whether fragment shader source references a GLSL uniform by name. */
+export function fragmentShaderUsesUniform(code: string, uniform: string): boolean {
+  return new RegExp(`\\buniform\\s+\\w+\\s+${uniform}\\b`).test(code);
+}
+
 // ─── Vertex shader (shared for all presets) ──────────────────────────────────
 
-const VERT_SRC = `
+export const VERTEX_SHADER_SRC = `
 attribute vec2 aPosition;
 varying vec2 vTexCoord;
 void main() {
@@ -142,9 +162,11 @@ void main() {
   gl_Position = vec4(aPosition, 0.0, 1.0);
 }`;
 
+const VERT_SRC = VERTEX_SHADER_SRC;
+
 // ─── WebGL helpers ────────────────────────────────────────────────────────────
 
-function compileShader(gl: WebGLRenderingContext, type: number, src: string): WebGLShader | null {
+export function compileShader(gl: WebGLRenderingContext, type: number, src: string): WebGLShader | null {
   const s = gl.createShader(type);
   if (!s) return null;
   gl.shaderSource(s, src);
@@ -157,7 +179,7 @@ function compileShader(gl: WebGLRenderingContext, type: number, src: string): We
   return s;
 }
 
-function createProgram(
+export function createShaderProgram(
   gl: WebGLRenderingContext,
   vertSrc: string,
   fragSrc: string,
@@ -207,14 +229,14 @@ export const WebGLVideoShader = forwardRef<WebGLVideoShaderHandle, Props>(
 
       const gl = canvas.getContext("webgl", { antialias: false });
       if (!gl) {
-        onCompileError?.("WebGL недоступен в этом браузере");
+        onCompileError?.(SHADER_WEBGL_UNAVAILABLE_MSG);
         return;
       }
 
       // Build program
       let prog: WebGLProgram;
       try {
-        prog = createProgram(gl, VERT_SRC, fragCode);
+        prog = createShaderProgram(gl, VERT_SRC, fragCode);
         onCompileError?.(null);
       } catch (e) {
         onCompileError?.(e instanceof Error ? e.message : String(e));
