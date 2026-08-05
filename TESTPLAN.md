@@ -29,12 +29,10 @@
 ## Локальный Windows — быстрый старт
 
 ```bat
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
+git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git decentral-hub
+cd decentral-hub
 
-copy .env.example .env
-notepad .env
+docker compose -f infra/docker-compose.dev.yml up -d postgres
 scripts\setup-local.bat
 scripts\dev-local.bat
 ```

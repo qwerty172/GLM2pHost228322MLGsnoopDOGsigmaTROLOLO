@@ -1,71 +1,43 @@
 # Локальный запуск на своём ПК
 
 > Команды вводятся **на вашем компьютере** (cmd, Git Bash, Terminal в Cursor).
-> Cursor Agent чинит код; вы проверяете в браузере.
-
-Полный план тестирования: [TESTPLAN.md](./TESTPLAN.md). Журнал багов: [TESTLOG.md](./TESTLOG.md).
-
----
 
 ## Ты здесь
-
-Если у вас уже работает:
 
 | Проверка | URL |
 |---|---|
 | API | http://localhost:8080/api/healthz → `{"status":"ok"}` |
-| Web | http://localhost:5000 |
+| Web | http://localhost:5000/games — каталог игр |
 
-**→ Фазы 0–1 пройдены. Переходите к [TESTPLAN § Фаза 2](./TESTPLAN.md#фаза-2--web-обход-всех-страниц--сейчас).**
+**→ Работает?** Переходите к [TESTPLAN § Фаза 2](./TESTPLAN.md#фаза-2--web-обход-всех-страниц--сейчас).
 
-Быстрый чек перед обходом страниц:
-
-1. F12 → **Network** на :5000 — нет красных `/api`?
-2. Откройте http://localhost:5000/games — видна **Rogue Fable III**?
-3. Пройдите таблицу URL из TESTPLAN §2.2; баги — в TESTLOG
-
-Если healthz **не** ok — сначала [Быстрый старт](#быстрый-старт-windows) ниже.
+Если healthz **не** ok — [Быстрый старт](#быстрый-старт) ниже.
 
 ---
 
-## Куда вводить команды (Windows)
+## Быстрый старт
 
-1. [Git for Windows](https://git-scm.com/download/win) — если нет `git`
-2. **Git Bash**, **cmd** или **Windows Terminal** (Win+R → `cmd`)
-3. Или **Cursor → Terminal → New Terminal** в папке проекта
+**Требования:** Node.js 20+, pnpm 9+, Docker (или PostgreSQL 16).
 
-## Требования
+### Linux / macOS / Git Bash
 
-- [Node.js 20+](https://nodejs.org/)
-- [pnpm](https://pnpm.io/installation): `npm install -g pnpm`
-- [PostgreSQL 16](https://www.postgresql.org/download/windows/)
+```bash
+git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git decentral-hub
+cd decentral-hub
 
-База данных:
-
-```sql
-CREATE DATABASE decentral_hub;
+pnpm dev:db      # PostgreSQL в Docker
+pnpm setup       # .env + секреты + зависимости + схема БД
+pnpm dev         # API + Web
+./scripts/smoke-api.sh
 ```
 
----
-
-## Быстрый старт (Windows)
+### Windows (cmd)
 
 ```bat
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
+git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git decentral-hub
+cd decentral-hub
 
-copy .env.example .env
-notepad .env
-```
-
-В `.env` измените `DATABASE_URL`:
-
-```
-DATABASE_URL=postgresql://postgres:ВАШ_ПАРОЛЬ@localhost:5432/decentral_hub
-```
-
-```bat
+docker compose -f infra/docker-compose.dev.yml up -d postgres
 scripts\setup-local.bat
 scripts\dev-local.bat
 scripts\smoke-api.bat
@@ -74,25 +46,37 @@ scripts\smoke-api.bat
 | Сервис | URL |
 |---|---|
 | Web | http://localhost:5000 |
-| API health | http://localhost:8080/api/healthz |
+| API | http://localhost:8080/api/healthz |
+
+`pnpm setup` сам создаёт `.env`, генерирует `WALLET_ENCRYPTION_KEY` и `JWT_SECRET`, поднимает Postgres через Docker (если есть).
 
 ---
 
-## Быстрый старт (Git Bash / Linux / macOS)
+## Без Docker
+
+### Свой PostgreSQL
+
+1. Создай базу: `CREATE DATABASE decentral_hub;`
+2. В `.env` укажи свой `DATABASE_URL`
+3. `pnpm setup` и `pnpm dev`
+
+### Linux без Docker (Cloud Agent / VPS)
 
 ```bash
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-
-cp .env.example .env
-# отредактируй DATABASE_URL
-
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
-./scripts/smoke-api.sh
+./scripts/cloud-setup.sh   # apt install PostgreSQL, .env, db push
+pnpm dev
 ```
+
+---
+
+## Опционально (на потом)
+
+| Что | Когда нужно |
+|---|---|
+| Redis (`REDIS_URL`) | Горизонтальное масштабирование API |
+| coturn / TURN | WebRTC через NAT (см. `infra/docker-compose.dev.yml`) |
+| Object storage | Загрузки файлов в проде |
+| Windows-агент | Стриминг с ПК — [`artifacts/host-agent/README.md`](./artifacts/host-agent/README.md) |
 
 ---
 
@@ -100,7 +84,7 @@ chmod +x scripts/*.sh
 
 | Кто | Задача |
 |---|---|
-| **Вы** | Браузер, 2 окна WebRTC, Electron-агент, скрины/console при багах |
-| **Agent** | Фиксы в коде, TESTPLAN/TESTLOG, smoke при необходимости |
+| **Вы** | Браузер, WebRTC, Electron-агент, скрины при багах |
+| **Agent** | Фиксы в коде, TESTPLAN/TESTLOG |
 
-Не нужно заново clone/setup, если healthz ok и `dev-local.bat` уже запущен.
+Не нужно заново clone/setup, если healthz ok и `pnpm dev` уже запущен.

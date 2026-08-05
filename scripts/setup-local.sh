@@ -9,31 +9,60 @@ echo "==> DecentralHub — локальная настройка"
 
 if [[ ! -f .env ]]; then
   cp .env.example .env
-  echo "Создан .env из .env.example — отредактируй DATABASE_URL и WALLET_ENCRYPTION_KEY"
+  echo "Создан .env из .env.example"
 else
   echo ".env уже существует — пропускаем копирование"
 fi
 
-if [[ -z "${WALLET_ENCRYPTION_KEY:-}" ]] && grep -q '^WALLET_ENCRYPTION_KEY=$' .env 2>/dev/null; then
-  KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
-  if [[ "$(uname -s)" == "Darwin" ]]; then
-    sed -i '' "s/^WALLET_ENCRYPTION_KEY=$/WALLET_ENCRYPTION_KEY=$KEY/" .env
-  else
-    sed -i "s/^WALLET_ENCRYPTION_KEY=$/WALLET_ENCRYPTION_KEY=$KEY/" .env
+generate_secret() {
+  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+}
+
+set_env_if_empty() {
+  local key="$1"
+  local value="$2"
+  if grep -q "^${key}=$" .env 2>/dev/null; then
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+      sed -i '' "s/^${key}=$/${key}=${value}/" .env
+    else
+      sed -i "s/^${key}=$/${key}=${value}/" .env
+    fi
+    echo "Сгенерирован ${key}"
   fi
-  echo "Сгенерирован WALLET_ENCRYPTION_KEY"
+}
+
+set_env_if_empty "WALLET_ENCRYPTION_KEY" "$(generate_secret)"
+set_env_if_empty "JWT_SECRET" "$(generate_secret)"
+
+if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+  if ! docker compose -f infra/docker-compose.dev.yml ps --status running postgres 2>/dev/null | grep -q postgres; then
+    echo "==> Запуск PostgreSQL (docker compose)..."
+    docker compose -f infra/docker-compose.dev.yml up -d postgres
+    echo "Ожидание готовности PostgreSQL..."
+    for _ in $(seq 1 30); do
+      if docker compose -f infra/docker-compose.dev.yml exec -T postgres pg_isready -U decentral_hub >/dev/null 2>&1; then
+        break
+      fi
+      sleep 1
+    done
+  else
+    echo "PostgreSQL уже запущен (docker compose)"
+  fi
+else
+  echo "Docker не найден — убедись, что PostgreSQL запущен и DATABASE_URL в .env верный"
 fi
 
 echo "==> pnpm install"
 pnpm install
 
-echo "==> Применение схемы БД (нужен запущенный PostgreSQL и DATABASE_URL в .env)"
+echo "==> Применение схемы БД"
 pnpm --filter @workspace/db run push
-
-echo "==> Проверка типов"
-pnpm run typecheck
 
 echo ""
 echo "Готово. Запуск:"
-echo "  ./scripts/dev-local.sh          — API + Web"
-echo "  или см. README.md"
+echo "  pnpm dev                        — API + Web"
+echo "  ./scripts/dev-local.sh          — то же"
+echo "  ./scripts/smoke-api.sh          — проверка API"
+echo ""
+echo "Web:  http://localhost:5000/games"
+echo "API:  http://localhost:8080/api/healthz"

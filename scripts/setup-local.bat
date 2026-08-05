@@ -1,21 +1,37 @@
 @echo off
 chcp 65001 >nul
+setlocal enabledelayedexpansion
 cd /d "%~dp0.."
 
 echo ==^> DecentralHub — локальная настройка (Windows)
 
 if not exist .env (
   copy .env.example .env >nul
-  echo Создан .env — открой его и настрой DATABASE_URL
+  echo Создан .env из .env.example
 ) else (
   echo .env уже есть
 )
 
-findstr /r /c:"^WALLET_ENCRYPTION_KEY=$" .env >nul 2>&1
+call :gen_secret WALLET_ENCRYPTION_KEY
+call :gen_secret JWT_SECRET
+goto :after_secrets
+
+:gen_secret
+findstr /r /c:"^%1=$" .env >nul 2>&1
 if %errorlevel%==0 (
   for /f "delims=" %%K in ('node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"') do set KEY=%%K
-  powershell -NoProfile -Command "(Get-Content .env) -replace '^WALLET_ENCRYPTION_KEY=$', 'WALLET_ENCRYPTION_KEY=%KEY%' | Set-Content .env -Encoding UTF8"
-  echo Сгенерирован WALLET_ENCRYPTION_KEY
+  powershell -NoProfile -Command "(Get-Content .env) -replace '^%1=$', '%1=%KEY%' | Set-Content .env -Encoding UTF8"
+  echo Сгенерирован %1
+)
+exit /b 0
+
+:after_secrets
+where docker >nul 2>&1
+if %errorlevel%==0 (
+  echo ==^> Запуск PostgreSQL (docker compose)...
+  docker compose -f infra/docker-compose.dev.yml up -d postgres
+) else (
+  echo Docker не найден — убедись что PostgreSQL запущен и DATABASE_URL в .env верный
 )
 
 echo.
@@ -24,7 +40,7 @@ call pnpm install
 if errorlevel 1 exit /b 1
 
 echo.
-echo ==^> Схема БД (нужен PostgreSQL и DATABASE_URL в .env)
+echo ==^> Схема БД
 call pnpm --filter @workspace/db run push
 if errorlevel 1 (
   echo.
@@ -33,5 +49,6 @@ if errorlevel 1 (
 )
 
 echo.
-echo Готово. Запуск: scripts\dev-local.bat
-echo Web: http://localhost:5000
+echo Готово. Запуск: pnpm dev  или  scripts\dev-local.bat
+echo Web:  http://localhost:5000/games
+echo API:  http://localhost:8080/api/healthz
