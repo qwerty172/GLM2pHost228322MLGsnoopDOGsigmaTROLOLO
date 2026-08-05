@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 00:08 UTC |
 | Task ID | M-67 |
 | Результат | wake-scheduler.ts unit-тесты: non-win32 no-op, stale task cleanup, PowerShell WakeToRun registration, prefix filter, error swallow |
-| Commit | (this run) |
+| Commit | becedbf |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
