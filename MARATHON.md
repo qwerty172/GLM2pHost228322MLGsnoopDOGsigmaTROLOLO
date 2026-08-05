@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 04:54 UTC |
 | Task ID | M-80 |
 | Результат | web hooks: unit-тест use-player-wallet.tsx (guest register/upgrade, localStorage keys) |
-| Commit | pending |
+| Commit | 0a0a76a |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
