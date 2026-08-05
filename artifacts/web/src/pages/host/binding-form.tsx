@@ -5,7 +5,18 @@ import {
   useListGames,
   getGetHostQueryKey,
 } from "@workspace/api-client-react";
-import type { ScheduleSlot, UpdateHostConfigBody } from "@workspace/api-client-react";
+import type { ScheduleSlot } from "@workspace/api-client-react";
+import {
+  DAYS,
+  minutesToHHMM,
+  hhmmToMinutes,
+  resolveBindingKind,
+  validatePrices,
+  validateScheduleSlots,
+  validateBrowserUrl,
+  resolveBindingFields,
+  buildBindingConfigBody,
+} from "./binding-form-helpers";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -28,19 +39,6 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Save, Trash2, Calendar, AlertTriangle } from "lucide-react";
-
-const DAYS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
-
-function minutesToHHMM(min: number): string {
-  const h = Math.floor(min / 60).toString().padStart(2, "0");
-  const m = (min % 60).toString().padStart(2, "0");
-  return `${h}:${m}`;
-}
-function hhmmToMinutes(s: string): number {
-  const [h, m] = s.split(":").map((v) => Number(v));
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return 0;
-  return Math.max(0, Math.min(1440, h * 60 + m));
-}
 
 interface Props {
   hostToken: string;
@@ -85,12 +83,7 @@ export default function BindingForm({ hostToken }: Props) {
     setGameId(host.gameId);
     setBoundAppPath(host.boundAppPath ?? "");
     setBoundUrl(host.boundUrl ?? "");
-    // Switch to "browser" mode when the saved offer has a URL but no .exe.
-    setBindingKind(
-      (host.boundUrl ?? "").length > 0 && (host.boundAppPath ?? "").length === 0
-        ? "browser"
-        : "app",
-    );
+    setBindingKind(resolveBindingKind(host.boundUrl, host.boundAppPath));
     setBoundAppLabel(host.boundAppLabel ?? "");
     setDescription(host.description ?? "");
     setTags(host.tags ?? []);
@@ -129,83 +122,43 @@ export default function BindingForm({ hostToken }: Props) {
   }
 
   function onSave() {
-    const lp = Number(launchPriceUsd);
-    const mp = Number(minutePriceUsd);
-    if (!Number.isFinite(lp) || Math.abs(lp) > 100) {
-      toast.error("Цена запуска: число, |значение| ≤ 100");
+    const priceError = validatePrices(launchPriceUsd, minutePriceUsd);
+    if (priceError) {
+      toast.error(priceError);
       return;
     }
-    if (!Number.isFinite(mp) || Math.abs(mp) > 100) {
-      toast.error("Цена за минуту: число, |значение| ≤ 100");
+    const scheduleError = validateScheduleSlots(scheduleMode, scheduleJson);
+    if (scheduleError) {
+      toast.error(scheduleError);
       return;
     }
-    if (scheduleMode === "scheduled") {
-      for (const slot of scheduleJson) {
-        if (slot.startMin === slot.endMin) {
-          toast.error("Пустой слот расписания");
-          return;
-        }
-        if (slot.startMin < 0 || slot.startMin > 1439 ||
-            slot.endMin < 0 || slot.endMin > 1439) {
-          toast.error("Время слота должно быть в диапазоне 00:00–23:59");
-          return;
-        }
-      }
-    }
-    // Browser/app are mutually exclusive at runtime — clear the other field
-    // when saving so the agent doesn't see stale data.
     const isBrowser = bindingKind === "browser";
-    const sendAppPath = isBrowser ? "" : boundAppPath;
-    const sendUrl = isBrowser ? boundUrl.trim() : "";
+    const { sendUrl } = resolveBindingFields(bindingKind, boundAppPath, boundUrl);
     if (isBrowser) {
-      if (!sendUrl) {
-        toast.error("Для браузерной игры нужен URL");
-        return;
-      }
-      try {
-        const u = new URL(sendUrl);
-        if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error("");
-      } catch {
-        toast.error("URL должен начинаться с http:// или https://");
+      const urlError = validateBrowserUrl(sendUrl);
+      if (urlError) {
+        toast.error(urlError);
         return;
       }
     }
-    const defaultLabel = isBrowser
-      ? (() => {
-          try {
-            return new URL(sendUrl).hostname;
-          } catch {
-            return "";
-          }
-        })()
-      : sendAppPath.split(/[\\/]/).pop() || "";
-    // Merge any text the host typed in the chip input but hasn't committed
-    // (Enter / comma) so it isn't silently lost on save.
-    const pendingTag = tagsInput.trim();
-    const allTags = pendingTag ? [...tags, pendingTag] : tags;
-    const body: UpdateHostConfigBody = {
+    const body = buildBindingConfigBody({
       gameId,
-      boundAppPath: sendAppPath,
-      boundUrl: sendUrl,
-      boundAppLabel: boundAppLabel || defaultLabel,
+      bindingKind,
+      boundAppPath,
+      boundUrl,
+      boundAppLabel,
       description,
-      tags: allTags,
-      launchPriceUsd: lp,
-      minutePriceUsd: mp,
+      tags,
+      tagsInput,
+      launchPriceUsd,
+      minutePriceUsd,
       scheduleMode,
       scheduleJson,
       streamPlatform,
       streamUrl,
-    };
-    // Only send streamKey when the user typed something (an empty field
-    // preserves the existing value). To explicitly remove the previously
-    // saved key, the user toggles "Clear stream key" — we then send an empty
-    // string, which the API treats as "wipe".
-    if (clearStreamKey) {
-      body.streamKey = "";
-    } else if (streamKey.length > 0) {
-      body.streamKey = streamKey;
-    }
+      clearStreamKey,
+      streamKey,
+    });
 
     update.mutate(
       { data: body },

@@ -45,6 +45,18 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-95 (2026-08-05 10:02 UTC) {#marathon-m-95}
+
+| Проверка | Результат |
+|---|---|
+| binding-form-helpers.ts | minutesToHHMM, hhmmToMinutes, resolveBindingKind, validatePrices, validateScheduleSlots, validateBrowserUrl, resolveBindingFields, computeDefaultAppLabel, mergeTagsWithPending, resolveStreamKeyBody, buildBindingConfigBody |
+| host-binding-form.test.mjs | 12 тестов — DAYS, time conversion, binding kind, prices, schedule, URL, fields, label, tags, stream key, config body |
+| binding-form.tsx | рефакторинг: хелперы в binding-form-helpers.ts |
+| web test (host-binding-form) | PASS (12 tests) |
+| typecheck | PASS (web) |
+
+**Следующий pick:** M-96 (host/browser-play.tsx).
+
 ## Marathon M-94 (2026-08-05 09:51 UTC) {#marathon-m-94}
 
 | Проверка | Результат |
