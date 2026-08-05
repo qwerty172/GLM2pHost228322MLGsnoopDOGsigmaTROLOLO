@@ -98,6 +98,7 @@ import type {
   HostHeartbeat200,
   HostHeartbeatBody,
   HostLibraryEntry,
+  HostReadinessResponse,
   HostSpeedtestDownloadParams,
   HostSpeedtestUpload200,
   HostStats,
@@ -8015,6 +8016,83 @@ export const useCheckSteamAutoHostable = <
 > => {
   return useMutation(getCheckSteamAutoHostableMutationOptions(options));
 };
+
+/**
+ * Authenticate with Authorization Bearer host token or X-User-Token. Returns API, binding, heartbeat, library and session flags for the dashboard «Проверить готовность» button.
+
+ * @summary Server-side host path readiness probe (U-14)
+ */
+export const getGetHostReadinessUrl = () => {
+  return `/api/hosts/me/readiness`;
+};
+
+export const getHostReadiness = async (
+  options?: RequestInit,
+): Promise<HostReadinessResponse> => {
+  return customFetch<HostReadinessResponse>(getGetHostReadinessUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetHostReadinessQueryKey = () => {
+  return [`/api/hosts/me/readiness`] as const;
+};
+
+export const getGetHostReadinessQueryOptions = <
+  TData = Awaited<ReturnType<typeof getHostReadiness>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getHostReadiness>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetHostReadinessQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getHostReadiness>>
+  > = ({ signal }) => getHostReadiness({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getHostReadiness>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetHostReadinessQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getHostReadiness>>
+>;
+export type GetHostReadinessQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Server-side host path readiness probe (U-14)
+ */
+
+export function useGetHostReadiness<
+  TData = Awaited<ReturnType<typeof getHostReadiness>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getHostReadiness>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetHostReadinessQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * Authenticate with Authorization Bearer / X-User-Token, or hostToken in body.

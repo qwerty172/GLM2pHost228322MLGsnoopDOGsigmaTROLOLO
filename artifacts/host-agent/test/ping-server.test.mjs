@@ -148,6 +148,19 @@ test("POST /input with unknown kind returns 400 and injects nothing", async () =
   assert.equal(injected.length, count);
 });
 
+test("GET /readiness returns inputOk after probe injection (U-14)", async () => {
+  const countBefore = injected.length;
+  const res = await fetch(`${baseUrl}/readiness`, {
+    headers: { Origin: "http://localhost:5173" },
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.status, "ok");
+  assert.equal(body.inputOk, true);
+  assert.equal(injected.length, countBefore + 1);
+  assert.equal(injected[injected.length - 1].kind, "mousemove");
+});
+
 test("POST /pick-exe returns picked path when authorized", async () => {
   const pickServer = createPingServer({
     getInfo: async () => ({ version: "test-1", audioMode: "off" }),

@@ -549,6 +549,17 @@ export interface SteamAutoHostableResponse {
   skipped: SteamAutoHostableResponseSkippedItem[];
 }
 
+export interface HostReadinessResponse {
+  apiOk: boolean;
+  agentKeyBound: boolean;
+  heartbeatFresh: boolean;
+  /** @nullable */
+  lastSeenAt?: string | null;
+  /** @minimum 0 */
+  enabledGamesCount: number;
+  hasActiveSession: boolean;
+}
+
 export type BulkPublishLibraryBodyItemsItem = {
   gameId: string;
   appPath?: string;

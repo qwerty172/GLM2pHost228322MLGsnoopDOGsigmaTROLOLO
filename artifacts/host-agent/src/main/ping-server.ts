@@ -2,6 +2,7 @@
 //
 // Endpoints:
 //   GET  /ping         → { status, version, audioMode }  — dashboard presence check
+//   GET  /readiness    → { status, version, audioMode, inputOk } — full local probe (U-14)
 //   GET  /steam-games  → { games: [...] }                — local Steam installs with exe paths
 //   POST /input        → 204 | 400 | 401                 — relay InputEvent to SendInput
 //   POST /pick-exe     → { path } | { path: null }        — open native file dialog (.exe)
@@ -238,7 +239,9 @@ export function createPingServer(deps: PingServerDeps): http.Server {
       return;
     }
 
-    if (req.url !== "/ping") {
+    const isPing = req.url === "/ping";
+    const isReadiness = req.url === "/readiness";
+    if (!isPing && !isReadiness) {
       res.writeHead(404);
       res.end(JSON.stringify({ error: "not_found" }));
       return;
@@ -248,8 +251,20 @@ export function createPingServer(deps: PingServerDeps): http.Server {
       .getInfo()
       .catch(() => ({ version: "0.1.0", audioMode: "off" }))
       .then((info) => {
+        let inputOk = true;
+        if (isReadiness) {
+          try {
+            deps.injectInput({ kind: "mousemove", x: 0, y: 0 });
+          } catch {
+            inputOk = false;
+          }
+        }
         res.writeHead(200);
-        res.end(JSON.stringify({ status: "ok", ...info }));
+        res.end(
+          JSON.stringify(
+            isReadiness ? { status: "ok", ...info, inputOk } : { status: "ok", ...info },
+          ),
+        );
       });
   });
 }

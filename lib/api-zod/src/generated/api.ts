@@ -4352,6 +4352,24 @@ export const CheckSteamAutoHostableResponse = zod.object({
 });
 
 /**
+ * Authenticate with Authorization Bearer host token or X-User-Token. Returns API, binding, heartbeat, library and session flags for the dashboard «Проверить готовность» button.
+
+ * @summary Server-side host path readiness probe (U-14)
+ */
+export const getHostReadinessResponseEnabledGamesCountMin = 0;
+
+export const GetHostReadinessResponse = zod.object({
+  apiOk: zod.boolean(),
+  agentKeyBound: zod.boolean(),
+  heartbeatFresh: zod.boolean(),
+  lastSeenAt: zod.coerce.date().nullish(),
+  enabledGamesCount: zod
+    .number()
+    .min(getHostReadinessResponseEnabledGamesCountMin),
+  hasActiveSession: zod.boolean(),
+});
+
+/**
  * Authenticate with Authorization Bearer / X-User-Token, or hostToken in body.
 
  * @summary Bulk add/enable games in the host library

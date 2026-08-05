@@ -25,6 +25,7 @@ const {
   ONBOARDING_TOTAL_STEPS,
   readHostAgentDownloaded,
   markHostAgentDownloaded,
+  evaluateHostReadiness,
 } = await import("../src/pages/host/dashboard-helpers.ts");
 
 const offlineAgent = { status: "offline" };
@@ -308,4 +309,62 @@ test("resolveGuidedNextAction returns one phase at a time until first stream (U-
   });
   assert.equal(done.phase, "complete");
   assert.equal(done.cta, "none");
+});
+
+test("evaluateHostReadiness returns Можно тестировать when all checks pass (U-14)", () => {
+  const result = evaluateHostReadiness({
+    apiOk: true,
+    agentKeyBound: true,
+    heartbeat: freshHeartbeat,
+    agent: onlineAgent,
+    enabledGamesCount: 1,
+    hasActiveSession: false,
+    goOnlineAck: true,
+    localAgentReachable: true,
+    localInputOk: true,
+  });
+  assert.equal(result.ready, true);
+  assert.equal(result.headline, "Можно тестировать");
+  assert.equal(result.nextFix, null);
+  assert.equal(result.checks.every((c) => c.ok), true);
+});
+
+test("evaluateHostReadiness returns one Russian next fix for first failure (U-14)", () => {
+  const apiFail = evaluateHostReadiness({
+    apiOk: false,
+    agentKeyBound: true,
+    heartbeat: freshHeartbeat,
+    agent: onlineAgent,
+    enabledGamesCount: 1,
+    hasActiveSession: true,
+    localAgentReachable: true,
+    localInputOk: true,
+  });
+  assert.equal(apiFail.ready, false);
+  assert.match(apiFail.nextFix, /сервером/);
+
+  const noGame = evaluateHostReadiness({
+    apiOk: true,
+    agentKeyBound: true,
+    heartbeat: freshHeartbeat,
+    agent: onlineAgent,
+    enabledGamesCount: 0,
+    hasActiveSession: false,
+    goOnlineAck: true,
+    localAgentReachable: true,
+    localInputOk: true,
+  });
+  assert.match(noGame.nextFix, /игру/);
+
+  const noInput = evaluateHostReadiness({
+    apiOk: true,
+    agentKeyBound: true,
+    heartbeat: freshHeartbeat,
+    agent: onlineAgent,
+    enabledGamesCount: 2,
+    hasActiveSession: true,
+    localAgentReachable: true,
+    localInputOk: false,
+  });
+  assert.match(noInput.nextFix, /ввод/);
 });

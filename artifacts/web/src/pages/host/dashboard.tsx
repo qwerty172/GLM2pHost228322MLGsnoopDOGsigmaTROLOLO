@@ -24,6 +24,7 @@ import {
   getListGamesQueryKey,
   issueAgentBindCode,
   createTestSession,
+  getHostReadiness,
   type HostLibraryEntry,
 } from "@workspace/api-client-react";
 import BindingForm from "./binding-form";
@@ -75,12 +76,13 @@ import {
   VolumeX,
   KeyRound,
   RefreshCw,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Link } from "wouter";
-import { discoverAgentPort } from "@/lib/agent-local";
+import { discoverAgentPort, probeAgentReadiness } from "@/lib/agent-local";
 import { localizeAgentEventMessage } from "@/lib/agent-event-labels";
 import { formatApiError } from "@/lib/api-errors";
 import {
@@ -105,6 +107,8 @@ import {
   readHostGoOnlineAck,
   markHostGoOnlineAck,
   HOST_AGENT_EXE_DOWNLOAD_URL,
+  evaluateHostReadiness,
+  type HostReadinessResult,
 } from "./dashboard-helpers";
 
 const cardStyle = {
@@ -1355,6 +1359,160 @@ function AgentBindCodeCard({ hostToken, guided = false }: { hostToken: string; g
   );
 }
 
+// ── Host readiness (U-14) ─────────────────────────────────────────────────
+
+function HostReadinessCheck({
+  hostToken,
+  agent,
+  heartbeat,
+  agentKeyBound,
+  hasActiveSession,
+}: {
+  hostToken: string;
+  agent: AgentState;
+  heartbeat: HeartbeatState;
+  agentKeyBound: boolean;
+  hasActiveSession: boolean;
+}) {
+  const [checking, setChecking] = useState(false);
+  const [result, setResult] = useState<HostReadinessResult | null>(null);
+
+  const runCheck = async () => {
+    setChecking(true);
+    setResult(null);
+    try {
+      let apiOk = false;
+      let enabledGamesCount = 0;
+      let serverHasActiveSession = hasActiveSession;
+      let serverAgentKeyBound = agentKeyBound;
+      let serverHeartbeatFresh = heartbeat.status === "fresh";
+
+      try {
+        const server = await getHostReadiness({
+          headers: {
+            Authorization: `Bearer ${hostToken}`,
+            "X-User-Token": hostToken,
+            "X-Host-Token": hostToken,
+          },
+        });
+        apiOk = server.apiOk;
+        enabledGamesCount = server.enabledGamesCount;
+        serverHasActiveSession = server.hasActiveSession;
+        serverAgentKeyBound = server.agentKeyBound;
+        serverHeartbeatFresh = server.heartbeatFresh;
+      } catch {
+        apiOk = false;
+      }
+
+      const localProbe = await probeAgentReadiness({ force: true });
+      const localAgentReachable = localProbe != null;
+      const localInputOk = localProbe?.inputOk === true;
+      const goOnlineAck = readHostGoOnlineAck();
+
+      const heartbeatForEval: HeartbeatState = serverHeartbeatFresh
+        ? heartbeat.status === "fresh"
+          ? heartbeat
+          : { status: "fresh", lastSeenAt: new Date().toISOString() }
+        : heartbeat;
+
+      const evaluated = evaluateHostReadiness({
+        apiOk,
+        agentKeyBound: serverAgentKeyBound,
+        heartbeat: heartbeatForEval,
+        agent: localAgentReachable
+          ? {
+              status: "online",
+              version: localProbe?.version ?? "?",
+              audioMode: (localProbe?.audioMode ?? "off") as AudioMode,
+              port: localProbe?.port ?? 18080,
+            }
+          : agent.status === "checking"
+            ? { status: "offline" }
+            : agent,
+        enabledGamesCount,
+        hasActiveSession: serverHasActiveSession,
+        goOnlineAck,
+        localAgentReachable,
+        localInputOk,
+      });
+
+      setResult(evaluated);
+      if (evaluated.ready) {
+        toast.success(evaluated.headline);
+      } else {
+        toast.error(evaluated.nextFix ?? evaluated.headline);
+      }
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  return (
+    <Card style={cardStyle} data-testid="host-readiness-check">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-white text-base">
+          <ShieldCheck className="h-4 w-4 text-sky-400" />
+          Проверка готовности
+        </CardTitle>
+        <CardDescription className="text-slate-500 text-xs">
+          Одна кнопка проверяет API, агент, привязку, игру, сессию и локальный ввод.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Button
+          size="sm"
+          className="gap-2 font-semibold"
+          style={{ background: "#0ea5e9", color: "#fff" }}
+          onClick={() => void runCheck()}
+          disabled={checking}
+          data-testid="button-check-host-readiness"
+        >
+          {checking ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <ShieldCheck className="h-3.5 w-3.5" />
+          )}
+          {checking ? "Проверяем…" : "Проверить готовность"}
+        </Button>
+
+        {result && (
+          <div
+            className="rounded-lg p-3 space-y-2 text-sm"
+            style={{
+              background: result.ready
+                ? "rgba(16,185,129,0.08)"
+                : "rgba(245,158,11,0.06)",
+              border: result.ready
+                ? "1px solid rgba(16,185,129,0.25)"
+                : "1px solid rgba(245,158,11,0.25)",
+            }}
+            data-testid="host-readiness-result"
+          >
+            <p
+              className={`font-semibold ${result.ready ? "text-emerald-300" : "text-amber-200"}`}
+            >
+              {result.headline}
+            </p>
+            {result.nextFix && (
+              <p className="text-slate-300 text-xs">{result.nextFix}</p>
+            )}
+            <ul className="space-y-1 text-xs text-slate-400">
+              {result.checks.map((c) => (
+                <li key={c.id} className="flex items-center gap-2">
+                  <span aria-hidden>{c.ok ? "✓" : "✗"}</span>
+                  <span className={c.ok ? "text-emerald-400/90" : "text-amber-300/90"}>
+                    {c.label}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── Dashboard ─────────────────────────────────────────────────────────────
 
 interface PcSpecs {
@@ -1624,6 +1782,16 @@ export default function Dashboard() {
             : "Расширенно — тест-сессия, привязка игры, квоты"}
         </summary>
         <div className="px-4 pb-4 space-y-4 border-t border-white/5 pt-4">
+          {hostToken && (
+            <HostReadinessCheck
+              hostToken={hostToken}
+              agent={agent}
+              heartbeat={heartbeat}
+              agentKeyBound={agentKeyBound}
+              hasActiveSession={hasActiveSession}
+            />
+          )}
+
           {!onboarding && (
             <div className="flex flex-col gap-2">
               <div className="flex gap-2 flex-wrap">

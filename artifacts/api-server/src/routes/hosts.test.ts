@@ -247,6 +247,8 @@ vi.mock("../lib/redis", () => ({
 }));
 
 const { default: hostsRouter } = await import("./hosts");
+const { listLibrary } = await import("../lib/hostLibrary");
+const listLibraryMock = vi.mocked(listLibrary);
 
 let baseUrl = "";
 let server: Server;
@@ -440,6 +442,62 @@ describe("PATCH /hosts/me/config", () => {
     expect(res.json).toMatchObject({
       id: HOST_ID,
       description: "Updated description",
+    });
+  });
+});
+
+describe("GET /hosts/me/readiness", () => {
+  it("returns 401 without host authentication", async () => {
+    const res = await request("GET", "/hosts/me/readiness");
+    expect(res.status).toBe(401);
+    expect(res.json).toMatchObject({ error: expect.stringContaining("hostToken") });
+  });
+
+  it("returns readiness flags for authenticated host", async () => {
+    const freshHost = {
+      ...HOST_ROW,
+      agentPubkey: "pubkey-abc",
+      lastSeenAt: new Date(),
+    };
+    listLibraryMock.mockResolvedValueOnce([
+      {
+        id: "lib-1",
+        hostId: HOST_ID,
+        gameId: "game-1",
+        pricePerMinuteLzt: 10,
+        appPath: "C:\\game.exe",
+        boundUrl: "",
+        launchArgs: "",
+        enabled: true,
+        sortOrder: 0,
+        localAvailable: true,
+        lastError: "",
+        addedAt: new Date(),
+        hasActiveSession: false,
+        game: {
+          id: "game-1",
+          slug: "test-game",
+          title: "Test Game",
+          coverImageUrl: "",
+          genre: "action",
+          browserHostUrl: "",
+          hasMods: false,
+          isMultiplayer: false,
+          steamAppId: null,
+        },
+      },
+    ]);
+    queueResults([freshHost], [{ id: "sess-active" }]);
+    const res = await request("GET", "/hosts/me/readiness", {
+      headers: { Authorization: `Bearer ${HOST_TOKEN}` },
+    });
+    expect(res.status).toBe(200);
+    expect(res.json).toMatchObject({
+      apiOk: true,
+      agentKeyBound: true,
+      heartbeatFresh: true,
+      enabledGamesCount: 1,
+      hasActiveSession: true,
     });
   });
 });

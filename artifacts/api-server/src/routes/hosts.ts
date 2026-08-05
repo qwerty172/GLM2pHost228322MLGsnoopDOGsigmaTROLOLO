@@ -1267,6 +1267,57 @@ router.get("/hosts/:hostToken/stream-relay", async (req, res): Promise<void> => 
   await serveStreamRelay(res, host);
 });
 
+const HEARTBEAT_ONLINE_MS = 2 * 60 * 1000;
+
+router.get("/hosts/me/readiness", hostReadLimiter, async (req, res): Promise<void> => {
+  const hostToken = headerUserToken(req) ?? hostTokenFromRequest(req);
+  if (!hostToken) {
+    res.status(401).json({ error: "hostToken required" });
+    return;
+  }
+
+  const [host] = await db
+    .select({
+      id: hostsTable.id,
+      agentPubkey: hostsTable.agentPubkey,
+      lastSeenAt: hostsTable.lastSeenAt,
+    })
+    .from(hostsTable)
+    .where(eq(hostsTable.hostToken, hostToken));
+
+  if (!host) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+
+  const library = await listLibrary(host.id);
+  const enabledGamesCount = library.filter((e) => e.enabled).length;
+
+  const activeSessions = await db
+    .select({ id: sessionsTable.id })
+    .from(sessionsTable)
+    .where(
+      and(
+        eq(sessionsTable.hostId, host.id),
+        inArray(sessionsTable.status, ["active", "pending"]),
+      ),
+    )
+    .limit(1);
+
+  const heartbeatFresh =
+    host.lastSeenAt != null &&
+    Date.now() - new Date(host.lastSeenAt).getTime() < HEARTBEAT_ONLINE_MS;
+
+  res.json({
+    apiOk: true,
+    agentKeyBound: (host.agentPubkey ?? "").length > 0,
+    heartbeatFresh,
+    lastSeenAt: host.lastSeenAt?.toISOString() ?? null,
+    enabledGamesCount,
+    hasActiveSession: activeSessions.length > 0,
+  });
+});
+
 router.post("/hosts/heartbeat", async (req, res): Promise<void> => {
   const hostToken =
     (req.headers["x-host-token"] as string | undefined) ||

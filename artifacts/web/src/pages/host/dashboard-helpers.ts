@@ -401,6 +401,123 @@ export function computeQuickStartSteps(opts: {
   return { steps, doneCount, allDone: doneCount === steps.length };
 }
 
+export type HostReadinessCheck = {
+  id: string;
+  ok: boolean;
+  label: string;
+};
+
+export type HostReadinessResult = {
+  ready: boolean;
+  headline: string;
+  /** One concrete next fix in Russian when not ready (U-14). */
+  nextFix: string | null;
+  checks: HostReadinessCheck[];
+};
+
+const HOST_READINESS_READY_HEADLINE = "Можно тестировать";
+const HOST_READINESS_NOT_READY_HEADLINE = "Не готово";
+
+/**
+ * Evaluates the full host path from aggregated server + local probe data.
+ * Returns exactly one next fix when not ready (U-14).
+ */
+export function evaluateHostReadiness(opts: {
+  apiOk: boolean;
+  agentKeyBound: boolean;
+  heartbeat: HeartbeatState;
+  agent: AgentState;
+  enabledGamesCount: number;
+  hasActiveSession: boolean;
+  goOnlineAck?: boolean;
+  localAgentReachable: boolean;
+  localInputOk: boolean;
+}): HostReadinessResult {
+  const checks: HostReadinessCheck[] = [
+    { id: "api", ok: opts.apiOk, label: "Связь с API" },
+    {
+      id: "heartbeat",
+      ok: opts.heartbeat.status === "fresh",
+      label: "Heartbeat агента на сервере",
+    },
+    {
+      id: "local-agent",
+      ok: opts.localAgentReachable,
+      label: "Локальный агент на этом ПК",
+    },
+    { id: "bind", ok: opts.agentKeyBound, label: "Привязка ключа агента" },
+    {
+      id: "games",
+      ok: opts.enabledGamesCount > 0,
+      label: "Доступная игра в библиотеке",
+    },
+    {
+      id: "session",
+      ok: opts.hasActiveSession || Boolean(opts.goOnlineAck),
+      label: "Готовность к сессии",
+    },
+    { id: "input", ok: opts.localInputOk, label: "Локальный ввод" },
+  ];
+
+  const notReady = (
+    nextFix: string,
+  ): HostReadinessResult => ({
+    ready: false,
+    headline: HOST_READINESS_NOT_READY_HEADLINE,
+    nextFix,
+    checks,
+  });
+
+  if (!opts.apiOk) {
+    return notReady(
+      "Не удалось связаться с сервером — проверь интернет и обнови страницу",
+    );
+  }
+
+  if (opts.heartbeat.status !== "fresh") {
+    return notReady(
+      "Запусти start.bat на Windows-ПК — агент не на связи с сервером",
+    );
+  }
+
+  if (!opts.localAgentReachable) {
+    return notReady(
+      "Открой дашборд на том же ПК, где запущен агент, или установи агент здесь",
+    );
+  }
+
+  if (!opts.agentKeyBound) {
+    return notReady(
+      "Привяжи агент — получи код привязки в разделе «Расширенно»",
+    );
+  }
+
+  if (opts.enabledGamesCount === 0) {
+    return notReady(
+      "Добавь хотя бы одну включённую игру в библиотеку с путём к .exe",
+    );
+  }
+
+  if (!opts.hasActiveSession && !opts.goOnlineAck) {
+    return notReady(
+      "В агенте нажми «Выйти в онлайн» — без этого игроки не увидят тебя",
+    );
+  }
+
+  if (!opts.localInputOk) {
+    return notReady(
+      "Локальный ввод не отвечает — перезапусти агент от имени администратора",
+    );
+  }
+
+  return {
+    ready: true,
+    headline: HOST_READINESS_READY_HEADLINE,
+    nextFix: null,
+    checks,
+  };
+}
+
 /** Download a personalized host-agent ZIP (Bearer token via customFetch). */
 export async function downloadHostAgentBundle(): Promise<void> {
   const blob = await downloadHostAgentZip();

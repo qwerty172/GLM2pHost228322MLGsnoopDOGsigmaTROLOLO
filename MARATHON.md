@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 14:22 UTC|
-| Task ID | M-149|
-| Результат | U-13 guided-flow: resolveGuidedNextAction, одно CTA до первого стрима, host-dashboard 19 PASS|
+| Дата | 2026-08-05 14:29 UTC|
+| Task ID | M-150|
+| Результат | U-14: evaluateHostReadiness + GET /hosts/me/readiness + GET /readiness + кнопка «Проверить готовность»; typecheck + 331 web / 16 hosts / 16 ping-server PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -480,7 +480,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-147 | R | UX U-31 (P0): Кнопка «Скачать агент» отдаёт готовый `.exe`, а не ZIP с Nod | `routes/downloads.ts` | r:U-31 | done | agent |
 | M-148 | R | UX U-32 (P0): Тест реально проверяет, что hostToken лежит внутри ZIP, а не | `routes/downloads.test.ts` | r:U-32 | done | agent |
 | M-149 | R | UX U-13 (P0): Дашборд всегда показывает одно следующее действие до первого | `pages/host/dashboard.tsx` | r:U-13 | done | agent |
-| M-150 | R | UX U-14 (P0): «Проверить готовность» проверяет весь путь хоста одной кнопк | `pages/host/dashboard.tsx` | r:U-14 | pending | agent |
+| M-150 | R | UX U-14 (P0): «Проверить готовность» проверяет весь путь хоста одной кнопк | `pages/host/dashboard.tsx` | r:U-14 | done | agent |
 | M-136 | Q | auth-verifier: unit-тест (otp.ts) | `auth-verifier/otp.ts` | q:lib/auth-verifier/src/otp.ts | pending | agent |
 | M-137 | Q | auth-verifier: unit-тест (providers/discord.ts) | `auth-verifier/providers/discord.ts` | q:lib/auth-verifier/src/providers/discord.ts | pending | agent |
 | M-138 | Q | auth-verifier: unit-тест (providers/telegram.ts) | `auth-verifier/providers/telegram.ts` | q:lib/auth-verifier/src/providers/telegram.ts | pending | agent |

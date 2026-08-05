@@ -14,6 +14,10 @@ export type AgentPingInfo = {
   audioMode: string;
 };
 
+export type AgentReadinessInfo = AgentPingInfo & {
+  inputOk: boolean;
+};
+
 export type AgentSteamGame = {
   appId: string;
   name: string;
@@ -112,6 +116,46 @@ export async function requestAgentPickExe(): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/** Full local readiness probe (U-14): presence + input injection self-test. */
+export async function probeAgentReadiness(opts?: {
+  force?: boolean;
+  timeoutMs?: number;
+}): Promise<AgentReadinessInfo | null> {
+  const timeoutMs = opts?.timeoutMs ?? 900;
+  const ports = opts?.force
+    ? [...AGENT_PING_PORTS]
+    : cachedPort != null
+      ? [cachedPort, ...AGENT_PING_PORTS.filter((p) => p !== cachedPort)]
+      : [...AGENT_PING_PORTS];
+
+  for (const port of ports) {
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/readiness`, {
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (!res.ok) continue;
+      const data = (await res.json()) as {
+        version?: string;
+        audioMode?: string;
+        port?: number;
+        inputOk?: boolean;
+      };
+      const info: AgentReadinessInfo = {
+        port: typeof data.port === "number" ? data.port : port,
+        version: data.version ?? "?",
+        audioMode: data.audioMode ?? "off",
+        inputOk: data.inputOk !== false,
+      };
+      cachedPort = info.port;
+      return info;
+    } catch {
+      // try next port
+    }
+  }
+  if (opts?.force) cachedPort = null;
+  return null;
 }
 
 /** Lists Steam games discovered by the local agent (Windows only). */

@@ -109,6 +109,7 @@ export * from "./hostHostTier";
 export * from "./hostLibraryEntry";
 export * from "./hostLibraryGame";
 export * from "./hostPcSpecs";
+export * from "./hostReadinessResponse";
 export * from "./hostScheduleMode";
 export * from "./hostSpeedtestDownloadParams";
 export * from "./hostSpeedtestUpload200";

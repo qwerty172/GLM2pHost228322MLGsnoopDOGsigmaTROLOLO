@@ -3039,6 +3039,37 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /hosts/me/readiness:
+    get:
+      operationId: getHostReadiness
+      tags: [hosts]
+      summary: Server-side host path readiness probe (U-14)
+      description: >
+        Authenticate with Authorization Bearer host token or X-User-Token.
+        Returns API, binding, heartbeat, library and session flags for the
+        dashboard «Проверить готовность» button.
+      security:
+        - HostToken: []
+      responses:
+        "200":
+          description: Readiness flags
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HostReadinessResponse"
+        "401":
+          description: Missing hostToken
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /hosts/me/library/bulk-publish:
     post:
       operationId: bulkPublishHostLibrary
@@ -5156,6 +5187,30 @@ components:
                 type: string
             required: [appId, name, reason]
       required: [eligible, skipped]
+
+    HostReadinessResponse:
+      type: object
+      properties:
+        apiOk:
+          type: boolean
+        agentKeyBound:
+          type: boolean
+        heartbeatFresh:
+          type: boolean
+        lastSeenAt:
+          type: ["string", "null"]
+          format: date-time
+        enabledGamesCount:
+          type: integer
+          minimum: 0
+        hasActiveSession:
+          type: boolean
+      required:
+        - apiOk
+        - agentKeyBound
+        - heartbeatFresh
+        - enabledGamesCount
+        - hasActiveSession
 
     BulkPublishLibraryBody:
       type: object

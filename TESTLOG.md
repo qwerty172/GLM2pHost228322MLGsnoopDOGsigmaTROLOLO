@@ -15,6 +15,22 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-150 (2026-08-05 14:29 UTC) {#marathon-m-150}
+
+| Проверка | Результат |
+|---|---|
+| dashboard-helpers.ts | evaluateHostReadiness — 7 проверок, один nextFix по-русски (U-14) |
+| GET /hosts/me/readiness | API: binding, heartbeat, enabled games, active session |
+| ping-server GET /readiness | inputOk probe через injectInput |
+| agent-local.ts | probeAgentReadiness |
+| dashboard.tsx | кнопка «Проверить готовность» + результат |
+| host-dashboard.test.mjs | +2 теста evaluateHostReadiness |
+| hosts.test.ts | +1 GET /hosts/me/readiness |
+| ping-server.test.mjs | +1 GET /readiness |
+| pnpm typecheck | PASS |
+
+**Следующий pick:** M-136 (auth-verifier unit-тест otp.ts).
+
 ## Marathon M-149 (2026-08-05 14:18 UTC) {#marathon-m-149}
 
 | Проверка | Результат |
