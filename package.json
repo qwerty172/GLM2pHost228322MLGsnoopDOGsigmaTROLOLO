@@ -4,6 +4,12 @@
   "license": "MIT",
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "dev": "node scripts/dev.mjs",
+    "dev:db": "docker compose -f infra/docker-compose.dev.yml up -d postgres",
+    "dev:db:down": "docker compose -f infra/docker-compose.dev.yml stop postgres",
+    "dev:infra": "docker compose -f infra/docker-compose.dev.yml up -d",
+    "setup": "node scripts/setup.mjs",
+    "setup:full": "node scripts/setup.mjs && pnpm run typecheck",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
