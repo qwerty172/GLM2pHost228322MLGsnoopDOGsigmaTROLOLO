@@ -45,6 +45,18 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-103 (2026-08-05 10:42 UTC) {#marathon-m-103}
+
+| Проверка | Результат |
+|---|---|
+| profile-helpers.ts | formatLzt, formatMinutes, formatTs, kindLabel, getProfileValidTabs, resolveProfileDefaultTab, vdsStatusMeta, computeAvgSessionMinutes, computeHostEarningsLzt, enrichTransactionsWithBalances, isAgentFresh, resolveAgentPresence, computeCreditAvailable, isCreditEnabled |
+| profile.test.mjs | 14 тестов — LZT format, minutes, timestamps, kind labels, tabs, VDS status, session avg, earnings, tx balances, agent presence, credit |
+| profile.tsx | рефакторинг: хелперы в profile-helpers.ts |
+| web test (profile) | PASS (14 tests) |
+| typecheck | PASS (profile-helpers via unit tests) |
+
+**Следующий pick:** M-104 (quota-detail.tsx).
+
 ## Marathon M-102 (2026-08-05 10:38 UTC) {#marathon-m-102}
 
 | Проверка | Результат |

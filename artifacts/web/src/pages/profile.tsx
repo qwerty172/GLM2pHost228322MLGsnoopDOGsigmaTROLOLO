@@ -44,47 +44,27 @@ import {
   AlertCircle,
   RefreshCw,
 } from "lucide-react";
+import {
+  PROFILE_HISTORY_PAGE_SIZE,
+  computeAvgSessionMinutes,
+  computeCreditAvailable,
+  computeHostEarningsLzt,
+  enrichTransactionsWithBalances,
+  formatLzt,
+  formatMinutes,
+  formatTs,
+  isAgentFresh,
+  isCreditEnabled,
+  kindLabel,
+  resolveAgentPresence,
+  resolveProfileDefaultTab,
+  vdsStatusMeta,
+} from "./profile-helpers";
 
 const cardStyle = {
   background: "#0a1018",
   border: "1px solid rgba(255,255,255,0.06)",
 };
-
-const LZT_PER_USDT = 200;
-
-const formatLzt = (lzt: number) =>
-  new Intl.NumberFormat("ru-RU").format(Math.trunc(lzt));
-
-function formatMinutes(mins: number): string {
-  if (mins < 60) return `${mins} мин`;
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return m > 0 ? `${h} ч ${m} мин` : `${h} ч`;
-}
-
-function formatTs(ts: string): string {
-  return new Date(ts).toLocaleString("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function kindLabel(kind: string): { label: string; color: string } {
-  if (kind.startsWith("deposit")) return { label: "Пополнение", color: "#22c55e" };
-  if (kind === "withdrawal") return { label: "Вывод", color: "#f59e0b" };
-  if (kind.includes("session") || kind === "session_billing")
-    return { label: "Сессия", color: "#38bdf8" };
-  if (kind.startsWith("loan_disburse")) return { label: "Кредит", color: "#a78bfa" };
-  if (kind.startsWith("loan_repay")) return { label: "Погашение", color: "#fb7185" };
-  if (kind === "interest_payout") return { label: "Проценты", color: "#34d399" };
-  if (kind === "premium_purchase") return { label: "Премиум", color: "#f472b6" };
-  return { label: kind, color: "#94a3b8" };
-}
-
-const PAGE_SIZE = 20;
 
 function StatCard({
   icon,
@@ -158,13 +138,15 @@ function StatsTab({ hostToken }: { hostToken: string }) {
     );
   }
 
-  const avgMin =
-    stats.totalSessions > 0
-      ? Math.round(stats.totalMinutesStreamed / stats.totalSessions)
-      : 0;
+  const avgMin = computeAvgSessionMinutes(
+    stats.totalMinutesStreamed,
+    stats.totalSessions,
+  );
 
-  const lifetimeLzt = Math.round(stats.lifetimeEarnings * LZT_PER_USDT);
-  const earnings7dLzt = Math.round(stats.earnings7d * LZT_PER_USDT);
+  const { lifetimeLzt, earnings7dLzt } = computeHostEarningsLzt(
+    stats.lifetimeEarnings,
+    stats.earnings7d,
+  );
 
   return (
     <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -255,25 +237,17 @@ function HistoryTab({ walletToken }: { walletToken: string | null }) {
     );
   }
 
-  // Compute running balance before/after each transaction.
-  // Transactions arrive sorted newest-first. We work backwards using the
-  // current total balance (internal + withdrawable) as the anchor.
   const currentBalance =
     (wallet?.internalBalanceLzt ?? 0) +
     (wallet?.withdrawableBalanceLzt ?? 0);
 
-  const enriched = txs.map((tx, idx) => {
-    // Sum of all deltas more recent than this row (indices 0..idx-1)
-    const laterSum = txs
-      .slice(0, idx)
-      .reduce((acc, t) => acc + (t.amountLzt ?? 0), 0);
-    const balanceAfter = currentBalance - laterSum;
-    const balanceBefore = balanceAfter - (tx.amountLzt ?? 0);
-    return { ...tx, balanceBefore, balanceAfter };
-  });
+  const enriched = enrichTransactionsWithBalances(txs, currentBalance);
 
-  const totalPages = Math.ceil(enriched.length / PAGE_SIZE);
-  const slice = enriched.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const totalPages = Math.ceil(enriched.length / PROFILE_HISTORY_PAGE_SIZE);
+  const slice = enriched.slice(
+    page * PROFILE_HISTORY_PAGE_SIZE,
+    (page + 1) * PROFILE_HISTORY_PAGE_SIZE,
+  );
 
   return (
     <div className="mt-4">
@@ -407,14 +381,7 @@ function HistoryTab({ walletToken }: { walletToken: string | null }) {
 }
 
 function VdsStatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; color: string; bg: string }> = {
-    online: { label: "Онлайн", color: "#22c55e", bg: "rgba(34,197,94,0.1)" },
-    offline: { label: "Офлайн", color: "#f87171", bg: "rgba(248,113,113,0.1)" },
-    pending: { label: "Ожидание", color: "#fbbf24", bg: "rgba(251,191,36,0.1)" },
-    provisioning: { label: "Настройка…", color: "#38bdf8", bg: "rgba(56,189,248,0.1)" },
-    error: { label: "Ошибка", color: "#f43f5e", bg: "rgba(244,63,94,0.1)" },
-  };
-  const s = map[status] ?? { label: status, color: "#94a3b8", bg: "rgba(148,163,184,0.1)" };
+  const s = vdsStatusMeta(status);
   return (
     <span
       className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full"
@@ -612,7 +579,7 @@ function PlayerCreditCard() {
 
   const creditLimit = wallet?.creditLimitLzt ?? 0;
   const creditDebt = wallet?.creditDebtLzt ?? 0;
-  const creditEnabled = creditLimit > 0;
+  const creditEnabled = isCreditEnabled(creditLimit);
 
   const toggleCredit = async (enabled: boolean) => {
     await updateCreditSettings({ data: { creditEnabled: enabled } });
@@ -650,7 +617,7 @@ function PlayerCreditCard() {
           <div className="rounded-lg p-2" style={{ background: "rgba(255,255,255,0.02)" }}>
             <p className="text-slate-500">Доступно</p>
             <p className="text-emerald-400 font-semibold">
-              {formatLzt(Math.max(0, creditLimit - creditDebt))} LZT
+              {formatLzt(computeCreditAvailable(creditLimit, creditDebt))} LZT
             </p>
           </div>
         </div>
@@ -763,12 +730,10 @@ function AccountTab({ hostToken }: { hostToken: string | null }) {
           {(() => {
             const lastSeenAt = host?.lastSeenAt ?? null;
             const pcSpecs = (host as { pcSpecs?: { cpu?: string; gpu?: string; ramGb?: number } | null } | undefined)?.pcSpecs;
-            const fresh =
-              lastSeenAt != null &&
-              Date.now() - new Date(lastSeenAt).getTime() < 2 * 60_000;
-            const seenOnce = Boolean(lastSeenAt);
+            const presence = resolveAgentPresence(hostToken, lastSeenAt);
+            const fresh = isAgentFresh(lastSeenAt);
 
-            if (!hostToken) {
+            if (presence === "no_host") {
               return (
                 <div className="flex items-center gap-3 py-2">
                   <div
@@ -827,7 +792,7 @@ function AccountTab({ hostToken }: { hostToken: string | null }) {
               );
             }
 
-            if (seenOnce) {
+            if (presence === "offline") {
               return (
                 <div className="flex items-center gap-3 py-2">
                   <div
@@ -895,13 +860,7 @@ export default function ProfilePage() {
   const walletToken = playerWalletToken ?? hostToken ?? null;
   const isHost = !!hostToken;
   const search = useSearch();
-  const params = new URLSearchParams(search);
-  const tabParam = params.get("tab");
-
-  const validTabs = isHost
-    ? ["stats", "history", "account", "vds"]
-    : ["history", "account"];
-  const defaultTab = tabParam && validTabs.includes(tabParam) ? tabParam : "history";
+  const defaultTab = resolveProfileDefaultTab(search, isHost);
 
   return (
     <div
