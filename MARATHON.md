@@ -12,9 +12,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 13:05 UTC|
-| Task ID | M-140|
-| Результат | U-01: config.json в ZIP с apiBaseUrl; bundled config в агенте; UI предзаполнение. downloads.test 6 PASS, bundled-config 2 PASS.|
+| Дата | 2026-08-05 13:12 UTC|
+| Task ID | M-141|
+| Результат | U-02: hostToken в config.json ZIP при Bearer; downloadHostAgentBundle на дашборде; bundled hostToken в loadConfig|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -448,7 +448,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-134 | Q | auth-verifier: unit-тест (challenge.ts) | `auth-verifier/challenge.ts` | q:lib/auth-verifier/src/challenge.ts | done | agent |
 | M-135 | Q | auth-verifier: unit-тест (link.ts) | `auth-verifier/link.ts` | q:lib/auth-verifier/src/link.ts | done | agent |
 | M-140 | R | UX U-01 (P0): Platform URL в агенте заполняется сам — не вводить руками | `routes/downloads.ts` | r:U-01 | done | agent |
-| M-141 | R | UX U-02 (P0): Токен хоста вшит в скачиваемый агент — ноль копипаста | `routes/downloads.ts` | r:U-02 | pending | agent |
+| M-141 | R | UX U-02 (P0): Токен хоста вшит в скачиваемый агент — ноль копипаста | `routes/downloads.ts` | r:U-02 | done | agent |
 | M-142 | R | UX U-03 (P0): «Выйти в онлайн» на главном экране агента, не в свёрнутых на | `renderer/*.ts` | r:U-03 | pending | agent |
 | M-143 | R | UX U-04 (P0): Выбор `.exe` через файловый диалог вместо ручного пути | `pages/host/library.tsx` | r:U-04 | pending | agent |
 | M-144 | R | UX U-05 (P0): Квик-старт показывает реальное состояние, а не «шаг 1 всегда | `pages/host/dashboard-helpers.ts` | r:U-05 | pending | agent |

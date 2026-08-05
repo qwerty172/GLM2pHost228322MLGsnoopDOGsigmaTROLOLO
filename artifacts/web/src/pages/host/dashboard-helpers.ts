@@ -1,3 +1,5 @@
+import { downloadHostAgentZip } from "@workspace/api-client-react";
+
 export const HEARTBEAT_FRESH_MS = 45_000;
 
 export const HOST_TOKEN_STORAGE_PREFIX = "streamline.browserHostToken:";
@@ -212,4 +214,21 @@ export function computeQuickStartSteps(opts: {
   ];
   const doneCount = steps.filter((s) => s.done).length;
   return { steps, doneCount, allDone: doneCount === steps.length };
+}
+
+/** Download a personalized host-agent ZIP (Bearer token via customFetch). */
+export async function downloadHostAgentBundle(): Promise<void> {
+  const blob = await downloadHostAgentZip();
+  const url = URL.createObjectURL(blob);
+  try {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "cloud-gaming-host-agent.zip";
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }

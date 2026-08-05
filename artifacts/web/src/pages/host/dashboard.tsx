@@ -97,6 +97,7 @@ import {
   buildTestSessionFullUrl,
   buildBrowserHostStorageKeys,
   computeQuickStartSteps,
+  downloadHostAgentBundle,
 } from "./dashboard-helpers";
 
 const cardStyle = {
@@ -309,6 +310,12 @@ function AgentEventsCard({ hostToken }: { hostToken: string }) {
 }
 
 function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: HeartbeatState }) {
+  const handleDownloadAgent = () => {
+    void downloadHostAgentBundle().catch(() => {
+      toast.error("Не удалось скачать агент");
+    });
+  };
+
   // A fresh server-side heartbeat means the agent is running (possibly on
   // another PC) even if the local ping to localhost:18080 fails.
   if (agent.status === "offline" && heartbeat.status === "fresh") {
@@ -453,20 +460,16 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
               <span className="font-mono text-sky-400">start.bat</span> на своём Windows-ПК.
             </CardDescription>
           </div>
-          <a
-            href="/api/downloads/host-agent.zip"
-            download="cloud-gaming-host-agent.zip"
+          <Button
+            size="sm"
+            className="gap-2 h-8 text-xs font-semibold shrink-0"
+            style={{ background: "#0ea5e9", color: "#fff" }}
             data-testid="link-download-host-agent"
+            onClick={handleDownloadAgent}
           >
-            <Button
-              size="sm"
-              className="gap-2 h-8 text-xs font-semibold shrink-0"
-              style={{ background: "#0ea5e9", color: "#fff" }}
-            >
-              <Download className="h-3.5 w-3.5" />
-              Скачать агент
-            </Button>
-          </a>
+            <Download className="h-3.5 w-3.5" />
+            Скачать агент
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
@@ -474,7 +477,7 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
           {[
             { n: "1", text: "Скачай ZIP и распакуй в любую папку (например C:\\CloudAgent)" },
             { n: "2", text: "Дважды кликни start.bat — при первом запуске установит Node.js зависимости (~2 мин)" },
-            { n: "3", text: "В окне агента вставь токен хоста (скопируй ниже) и нажми Сохранить" },
+            { n: "3", text: "Открой агент — вход уже выполнен (токен вшит в архив при скачивании с дашборда)" },
             { n: "4", text: "Выбери игру и нажми Выйти в онлайн — эта страница покажет «Агент онлайн ✓»" },
           ].map((s) => (
             <li key={s.n} className="flex items-start gap-2">
@@ -948,6 +951,12 @@ function HostQuickStartCard({
     );
   };
 
+  const handleDownloadAgent = () => {
+    void downloadHostAgentBundle().catch(() => {
+      toast.error("Не удалось скачать агент");
+    });
+  };
+
   return (
     <Card
       style={{
@@ -984,16 +993,15 @@ function HostQuickStartCard({
               <Copy className="h-3 w-3" />
               Скопировать токен
             </Button>
-            <a href="/api/downloads/host-agent.zip" download="cloud-gaming-host-agent.zip">
-              <Button
-                size="sm"
-                className="h-8 gap-1.5 text-xs font-semibold"
-                style={{ background: "#0ea5e9", color: "#fff" }}
-              >
-                <Download className="h-3.5 w-3.5" />
-                Скачать агент
-              </Button>
-            </a>
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 text-xs font-semibold"
+              style={{ background: "#0ea5e9", color: "#fff" }}
+              onClick={handleDownloadAgent}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Скачать агент
+            </Button>
           </div>
         </div>
       </CardHeader>

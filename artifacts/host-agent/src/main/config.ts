@@ -47,6 +47,9 @@ async function loadBundledDefaults(): Promise<Partial<HostConfig>> {
     if (typeof parsed.apiBaseUrl === "string" && parsed.apiBaseUrl.trim()) {
       out.apiBaseUrl = parsed.apiBaseUrl.trim();
     }
+    if (typeof parsed.hostToken === "string" && parsed.hostToken.trim()) {
+      out.hostToken = parsed.hostToken.trim();
+    }
     return out;
   } catch {
     return {};
@@ -105,10 +108,14 @@ export async function loadConfig(): Promise<HostConfig> {
   try {
     const buf = await fs.readFile(configPath(), "utf-8");
     const parsed = JSON.parse(buf) as StoredConfigFile;
-    const hostToken = resolveHostToken(parsed);
+    const hostToken =
+      resolveHostToken(parsed) || bundled.hostToken?.trim() || "";
     cached = { ...DEFAULTS, ...bundled, ...parsed, hostToken };
     if (!cached.apiBaseUrl?.trim() && bundled.apiBaseUrl) {
       cached.apiBaseUrl = bundled.apiBaseUrl;
+    }
+    if (!cached.hostToken?.trim() && bundled.hostToken) {
+      cached.hostToken = bundled.hostToken;
     }
     // Drop disk-only fields from runtime object.
     delete (cached as StoredConfigFile).hostTokenEnc;

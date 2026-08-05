@@ -31,7 +31,8 @@ const AGENT_DIR = path.resolve(
 const DIST_DIR = path.join(AGENT_DIR, "dist");
 const hadDistBefore = existsSync(DIST_DIR);
 
-const { default: downloadsRouter, resolveApiBaseUrl } = await import("./downloads");
+const { default: downloadsRouter, resolveApiBaseUrl, buildBundledAgentConfig } =
+  await import("./downloads");
 
 let baseUrl = "";
 let server: Server;
@@ -121,6 +122,32 @@ describe("resolveApiBaseUrl", () => {
       },
     };
     expect(resolveApiBaseUrl(req as never)).toBe("https://gaming.example.com");
+  });
+});
+
+describe("buildBundledAgentConfig", () => {
+  it("includes apiBaseUrl only when host token is absent", () => {
+    expect(buildBundledAgentConfig("https://gaming.example.com")).toEqual({
+      apiBaseUrl: "https://gaming.example.com",
+    });
+  });
+
+  it("embeds hostToken when provided", () => {
+    expect(
+      buildBundledAgentConfig("https://gaming.example.com", "host-tok-abc"),
+    ).toEqual({
+      apiBaseUrl: "https://gaming.example.com",
+      hostToken: "host-tok-abc",
+    });
+  });
+
+  it("trims hostToken whitespace", () => {
+    expect(
+      buildBundledAgentConfig("https://gaming.example.com", "  tok  "),
+    ).toEqual({
+      apiBaseUrl: "https://gaming.example.com",
+      hostToken: "tok",
+    });
   });
 });
 

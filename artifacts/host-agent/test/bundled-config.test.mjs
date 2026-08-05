@@ -62,3 +62,22 @@ test("loadConfig keeps user apiBaseUrl over bundled defaults", async () => {
   assert.equal(cfg.apiBaseUrl, "https://custom.example.com");
   assert.equal(cfg.hostToken, "tok");
 });
+
+test("loadConfig picks up hostToken from bundled config.json on first run", async () => {
+  userDataDir = mkdtempSync(path.join(tmpdir(), "bundled-config-user-"));
+  appDir = mkdtempSync(path.join(tmpdir(), "bundled-config-app-"));
+  writeFileSync(
+    path.join(appDir, "config.json"),
+    JSON.stringify(
+      { apiBaseUrl: "https://platform.example.com", hostToken: "bundled-tok" },
+      null,
+      2,
+    ),
+  );
+
+  const { loadConfig, resetConfigCache } = await importConfig();
+  resetConfigCache();
+  const cfg = await loadConfig();
+  assert.equal(cfg.apiBaseUrl, "https://platform.example.com");
+  assert.equal(cfg.hostToken, "bundled-tok");
+});

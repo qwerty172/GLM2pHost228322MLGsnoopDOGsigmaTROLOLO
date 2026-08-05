@@ -2,7 +2,10 @@ import path from "node:path";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { Router, type IRouter, type Request } from "express";
 import archiver from "archiver";
+import { eq } from "drizzle-orm";
+import { db, hostsTable } from "@workspace/db";
 import { logger } from "../lib/logger";
+import { hostTokenFromRequest } from "../lib/hostAuth";
 
 /** Public platform origin for bundled host-agent config (U-01). */
 export function resolveApiBaseUrl(req: Request): string {
@@ -11,6 +14,35 @@ export function resolveApiBaseUrl(req: Request): string {
   const forwardedHost = req.get("x-forwarded-host")?.split(",")[0]?.trim();
   const host = forwardedHost || req.get("host") || "localhost";
   return `${proto}://${host}`.replace(/\/$/, "");
+}
+
+/** Bundled config.json payload for the portable host-agent ZIP (U-01/U-02). */
+export function buildBundledAgentConfig(
+  apiBaseUrl: string,
+  hostToken?: string | null,
+): { apiBaseUrl: string; hostToken?: string } {
+  const config: { apiBaseUrl: string; hostToken?: string } = { apiBaseUrl };
+  if (hostToken?.trim()) {
+    config.hostToken = hostToken.trim();
+  }
+  return config;
+}
+
+/** Resolve a verified host token from the download request (optional). */
+export async function resolveBundledHostToken(req: Request): Promise<string | null> {
+  const token = hostTokenFromRequest(req);
+  if (!token) return null;
+  try {
+    const [host] = await db
+      .select({ hostToken: hostsTable.hostToken })
+      .from(hostsTable)
+      .where(eq(hostsTable.hostToken, token))
+      .limit(1);
+    return host ? token : null;
+  } catch (err) {
+    logger.warn({ err }, "host token lookup failed for agent download");
+    return null;
+  }
 }
 
 const router: IRouter = Router();
@@ -198,8 +230,11 @@ How to run
    d. Launches Electron directly from the local node_modules — no npx
       confirmation prompts, no internet required after the first install.
 
-3. The agent window opens. Sign in with the host token from your
-   Host Dashboard, choose a game window to capture, and you are live.
+3. The agent window opens. If you downloaded the ZIP from your Host
+   Dashboard while signed in, your host token and platform URL are
+   already configured — no copy-paste needed. Otherwise sign in with
+   the host token from the dashboard, choose a game window to capture,
+   and you are live.
 
 Optional: build a real installer (.exe)
 ---------------------------------------
@@ -232,8 +267,9 @@ The installer ends up in the "release" folder.
    Разреши их в настройках файрвола/антивируса, если появляется
    запрос.
 
-5. Токен хоста вставлен? В окне агента должно быть "Вход выполнен".
-   Токен берётся из Host Dashboard на сайте.
+5. Вход выполнен? В окне агента должно быть «Вход выполнен».
+   При скачивании с дашборда токен уже вшит в архив; иначе вставь
+   токен из Host Dashboard вручную.
 
 6. Лог ошибок агента: logs\\agent.log  (в той же папке, куда распакован ZIP)
 
@@ -244,7 +280,7 @@ that shows whether the agent has connected (карточка "Агент" со
 статусом и временем последнего сигнала).
 `;
 
-router.get("/downloads/host-agent.zip", (req, res): void => {
+router.get("/downloads/host-agent.zip", async (req, res): Promise<void> => {
   const agentDir = RESOLVED_AGENT_DIR;
 
   if (!agentDir) {
@@ -261,6 +297,10 @@ router.get("/downloads/host-agent.zip", (req, res): void => {
     });
     return;
   }
+
+  const apiBaseUrl = resolveApiBaseUrl(req);
+  const hostToken = await resolveBundledHostToken(req);
+  const bundledConfig = buildBundledAgentConfig(apiBaseUrl, hostToken);
 
   res.setHeader("Content-Type", "application/zip");
   res.setHeader(
@@ -323,8 +363,7 @@ router.get("/downloads/host-agent.zip", (req, res): void => {
   archive.append(START_BAT, { name: "start.bat" });
   archive.append(INSTALL_TXT, { name: "INSTALL.txt" });
 
-  const apiBaseUrl = resolveApiBaseUrl(req);
-  archive.append(JSON.stringify({ apiBaseUrl }, null, 2) + "\n", {
+  archive.append(JSON.stringify(bundledConfig, null, 2) + "\n", {
     name: "config.json",
   });
 

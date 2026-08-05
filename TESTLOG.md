@@ -41,7 +41,17 @@ Platform URL / токена / пути к `.exe`, «Выйти в онлайн»
 | flip всех P0 → done | всплывают P1/P2 (16 задач) |
 | --sync-marathon | M-140…M-151, next pick = M-140 (U-01) |
 
-**Следующий pick:** M-141 — Токен хоста вшит в скачиваемый агент.
+**Следующий pick:** M-142 — «Выйти в онлайн» на главном экране агента.
+
+## M-141 — Токен хоста в скачиваемом агенте (2026-08-05 13:12 UTC) {#marathon-m141}
+
+| Проверка | Результат |
+|---|---|
+| downloads.test.ts | 9 тестов — buildBundledAgentConfig, ZIP bundle |
+| bundled-config.test.mjs | 3 теста — bundled hostToken + apiBaseUrl |
+| typecheck (api-server, host-agent, web dashboard) | PASS |
+
+**Изменения:** ZIP `/api/downloads/host-agent.zip` с Bearer-токеном включает `hostToken` в `config.json`; дашборд скачивает через `downloadHostAgentZip()` (без копипаста в URL); агент подхватывает bundled hostToken при первом запуске.
 
 ## M-140 — Platform URL автозаполнение (2026-08-05 13:05 UTC) {#marathon-m140}
 
