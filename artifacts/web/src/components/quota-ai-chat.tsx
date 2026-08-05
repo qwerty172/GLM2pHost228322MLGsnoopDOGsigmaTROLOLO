@@ -83,11 +83,19 @@ type Props = {
   onFormPatch: (patch: QuotaFormPatch) => void;
 };
 
-const STARTERS = [
+export const QUOTA_AI_CHAT_STARTERS = [
   "Спонсирую плейтест Cyberpunk — бюджет 50000 LZT, хосту 100 LZT/мин",
   "Беру 10% royalty из доли хоста для своих модов",
   "Бесплатные 30 минут новичкам — спонсорская квота, игроку 5 LZT/мин",
-];
+] as const;
+
+export function canSendQuotaAiMessage(text: string, loading: boolean): boolean {
+  return text.trim().length > 0 && !loading;
+}
+
+export function shouldSubmitQuotaAiOnEnter(e: { key: string; shiftKey: boolean }): boolean {
+  return e.key === "Enter" && !e.shiftKey;
+}
 
 const panelStyle = {
   background: "#0a1018",
@@ -121,7 +129,7 @@ export function QuotaAiChat({ ownerToken, currentFormState, availableGames, onFo
 
   const sendMessage = async (text: string) => {
     const trimmed = text.trim();
-    if (!trimmed || loading) return;
+    if (!canSendQuotaAiMessage(trimmed, loading)) return;
 
     const userMsg: Message = { role: "user", content: trimmed };
     const nextMessages = [...messages, userMsg];
@@ -153,7 +161,7 @@ export function QuotaAiChat({ ownerToken, currentFormState, availableGames, onFo
   };
 
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (shouldSubmitQuotaAiOnEnter(e)) {
       e.preventDefault();
       sendMessage(input);
     }
@@ -176,7 +184,7 @@ export function QuotaAiChat({ ownerToken, currentFormState, availableGames, onFo
             <p className="text-xs text-slate-500 text-center py-2">
               Напиши, что хочешь создать, или выбери пример:
             </p>
-            {STARTERS.map((s, i) => (
+            {QUOTA_AI_CHAT_STARTERS.map((s, i) => (
               <button
                 key={i}
                 onClick={() => sendMessage(s)}
@@ -242,7 +250,7 @@ export function QuotaAiChat({ ownerToken, currentFormState, availableGames, onFo
           type="button"
           size="sm"
           onClick={() => sendMessage(input)}
-          disabled={loading || !input.trim()}
+          disabled={loading || !canSendQuotaAiMessage(input, false)}
           style={{ background: "#0ea5e9", color: "#fff", alignSelf: "flex-end" }}
         >
           {loading ? (
