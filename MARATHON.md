@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 05:54 UTC |
 | Task ID | M-82 |
 | Результат | TouchOverlay.tsx: экспорт TOUCH_LAYOUT_STORAGE_KEY, loadTouchLayout, saveTouchLayout; TouchOverlay.test.mjs — 6 тестов |
-| Commit | 17ab9d6 |
+| Commit | 62de26e |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
