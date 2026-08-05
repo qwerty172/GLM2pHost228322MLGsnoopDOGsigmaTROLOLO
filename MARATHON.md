@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 06:22 UTC |
 | Task ID | M-84 |
 | Результат | HostLayout: экспорт HOST_LAYOUT_NAV_ITEMS, resolveHostSiteNavActivePath + layout.test.mjs (5 тестов) |
-| Commit | aa4bd72 |
+| Commit | 1d044cc |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
