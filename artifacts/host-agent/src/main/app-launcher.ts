@@ -15,6 +15,8 @@ let lastSpawnedPid: number | null = null;
 // tab, but we use this flag to skip the kill attempt cleanly.
 let lastWasUrl = false;
 let lastBrowserHost = "";
+let browserWatchCaptureTitle = "";
+let browserWatchCaptureHwnd: number | null = null;
 
 // Polls for browser window disappearance so billing can stop when the host
 // closes the tab/window opened for a browser-game session.
@@ -105,6 +107,16 @@ function stopBrowserWatch(): void {
     clearInterval(browserWatchTimer);
     browserWatchTimer = null;
   }
+  browserWatchCaptureTitle = "";
+  browserWatchCaptureHwnd = null;
+}
+
+export function setBrowserWatchCaptureTarget(
+  title: string,
+  hwnd: number | null = null,
+): void {
+  browserWatchCaptureTitle = title.trim();
+  browserWatchCaptureHwnd = hwnd != null && hwnd > 0 ? hwnd : null;
 }
 
 async function isBrowserWindowStillOpen(hostHint: string): Promise<boolean> {
@@ -113,7 +125,10 @@ async function isBrowserWindowStillOpen(hostHint: string): Promise<boolean> {
       types: ["window"],
       thumbnailSize: { width: 0, height: 0 },
     });
-    return browserWindowStillOpen(sources, hostHint);
+    return browserWindowStillOpen(sources, hostHint, {
+      captureTitle: browserWatchCaptureTitle || null,
+      captureHwnd: browserWatchCaptureHwnd,
+    });
   } catch {
     // If we can't enumerate windows, keep the session alive.
     return true;
@@ -122,6 +137,8 @@ async function isBrowserWindowStillOpen(hostHint: string): Promise<boolean> {
 
 function startBrowserWatch(url: string): void {
   stopBrowserWatch();
+  browserWatchCaptureTitle = "";
+  browserWatchCaptureHwnd = null;
   lastBrowserHost = hostFromBoundUrl(url);
   const startedAt = Date.now();
   let goneStreak = 0;

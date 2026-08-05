@@ -24,7 +24,14 @@ import {
   fetchStreamRelayConfig,
 } from "./rtmp-relay";
 import { createPingServer, PING_PORT, PING_PORT_FALLBACKS, LOCAL_INPUT_SECRET } from "./ping-server";
-import { launchApp, launchEntry, killApp, setExitCallback, getLastSpawnedPid } from "./app-launcher";
+import {
+  launchApp,
+  launchEntry,
+  killApp,
+  setExitCallback,
+  getLastSpawnedPid,
+  setBrowserWatchCaptureTarget,
+} from "./app-launcher";
 import { getHwndsForSpawnedPid } from "./spawn-hwnd";
 import {
   clearAllowedTarget,
@@ -278,9 +285,12 @@ async function startAgent(): Promise<void> {
 
   ipcMain.handle("agent:get-gamepad-status", () => getGamepadInjectorStatus());
 
-  ipcMain.on("capture:set-source", (_e, title: unknown) => {
+  ipcMain.on("capture:set-source", (_e, title: unknown, hwnd?: unknown) => {
     currentCaptureTitle = typeof title === "string" ? title : "";
+    const hwndNum =
+      typeof hwnd === "number" && Number.isFinite(hwnd) && hwnd > 0 ? hwnd : null;
     syncRtmpWindowTitle(currentCaptureTitle);
+    setBrowserWatchCaptureTarget(currentCaptureTitle, hwndNum);
   });
 
   ipcMain.on("status:set", (_e, status: unknown, message?: unknown) => {

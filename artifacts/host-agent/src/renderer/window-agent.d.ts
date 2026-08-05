@@ -58,7 +58,7 @@ declare global {
       onGameExited: (cb: () => void) => void;
       getCaptureSources: () => Promise<{ id: string; name: string }[]>;
       getSpawnHwnds: () => Promise<{ pid: number | null; hwnds: number[] }>;
-      setCaptureSource: (title: string) => void;
+      setCaptureSource: (title: string, hwnd?: number) => void;
       killApp: () => void;
       openFileDialog: () => Promise<string | null>;
       fetchLibrary: (

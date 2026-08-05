@@ -73,8 +73,8 @@ const api = {
   getSpawnHwnds: (): Promise<{ pid: number | null; hwnds: number[] }> =>
     ipcRenderer.invoke("app:get-spawn-hwnds"),
   /** Tell main which window title WebRTC is capturing (for RTMP sync). */
-  setCaptureSource: (title: string): void => {
-    ipcRenderer.send("capture:set-source", title);
+  setCaptureSource: (title: string, hwnd?: number): void => {
+    ipcRenderer.send("capture:set-source", title, hwnd);
   },
   killApp: (): void => {
     ipcRenderer.send("app:kill");
