@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-213 (2026-08-05 22:14 UTC) {#marathon-m-213}
+
+| Проверка | Результат |
+|---|---|
+| vitest src/routes/embed.test.ts | PASS (9 tests) |
+
+**Изменения:** `artifacts/api-server/src/routes/embed.test.ts` — тесты 409 для quota_requirements_unmet и hosts_busy.
+
+**Следующий pick:** M-214 (route error-paths 403/409/500/503: hosts.ts).
+
 ## Marathon M-212 (2026-08-05 22:10 UTC) {#marathon-m-212}
 
 | Проверка | Результат |

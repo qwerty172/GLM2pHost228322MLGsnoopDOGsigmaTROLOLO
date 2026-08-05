@@ -295,6 +295,58 @@ describe("POST /embed/sessions", () => {
     });
   });
 
+  it("returns 409 when linked quota requirements are not met by any host", async () => {
+    const linkedQuota = {
+      id: "quota-1",
+      devKeyId: DEV_KEY.id,
+      status: "active",
+      gameId: "other-game-id",
+      startAt: null,
+      endAt: null,
+      kind: "standard",
+      escrowRemainingLzt: null,
+    };
+    queueResults(
+      [DEV_KEY],
+      [GAME],
+      [{ entry: HOST_GAME_ENTRY, host: HOST }],
+      [linkedQuota],
+    );
+    const res = await request("POST", "/embed/sessions", {
+      body: { apiKey: API_KEY, gameSlug: GAME_SLUG },
+    });
+    expect(res.status).toBe(409);
+    expect(res.json).toMatchObject({ error: "quota_requirements_unmet" });
+  });
+
+  it("returns 409 when all eligible hosts are busy", async () => {
+    queueResults(
+      [DEV_KEY],
+      [GAME],
+      [{ entry: HOST_GAME_ENTRY, host: HOST }],
+      [],
+    );
+    mockDb.transaction.mockImplementationOnce(async (fn: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        execute: vi.fn(async () => undefined),
+        select: vi.fn(() => ({
+          from: vi.fn(() => ({
+            where: vi.fn(() => ({
+              limit: vi.fn(async () => [{ id: "busy-session" }]),
+            })),
+          })),
+        })),
+        insert: vi.fn(),
+      };
+      return fn(tx);
+    });
+    const res = await request("POST", "/embed/sessions", {
+      body: { apiKey: API_KEY, gameSlug: GAME_SLUG },
+    });
+    expect(res.status).toBe(409);
+    expect(res.json).toMatchObject({ error: "hosts_busy" });
+  });
+
   it("creates an embed session on the cheapest eligible host", async () => {
     queueResults(
       [DEV_KEY],
