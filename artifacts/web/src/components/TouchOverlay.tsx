@@ -16,11 +16,11 @@ const TOTAL_AXES = 4;
 
 // ─── Per-control layout ───────────────────────────────────────────────────────
 // Each control has an absolute position in % of viewport (vw/vh).
-const STORAGE_KEY = "touchLayout";
+export const TOUCH_LAYOUT_STORAGE_KEY = "touchLayout";
 
 interface Pos { x: number; y: number }
 
-interface LayoutState {
+export interface TouchLayoutState {
   stickLeft: Pos;
   stickRight: Pos;
   btnA: Pos;
@@ -35,7 +35,7 @@ interface LayoutState {
   btnSelect: Pos;
 }
 
-const DEFAULT_LAYOUT: LayoutState = {
+export const DEFAULT_TOUCH_LAYOUT: TouchLayoutState = {
   stickLeft: { x: 5, y: 58 },
   stickRight: { x: 75, y: 58 },
   btnA:      { x: 82, y: 75 },
@@ -50,16 +50,16 @@ const DEFAULT_LAYOUT: LayoutState = {
   btnStart:  { x: 52, y: 88 },
 };
 
-function loadLayout(): LayoutState {
+export function loadTouchLayout(): TouchLayoutState {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return { ...DEFAULT_LAYOUT, ...(JSON.parse(raw) as Partial<LayoutState>) };
+    const raw = localStorage.getItem(TOUCH_LAYOUT_STORAGE_KEY);
+    if (raw) return { ...DEFAULT_TOUCH_LAYOUT, ...(JSON.parse(raw) as Partial<TouchLayoutState>) };
   } catch { /* ignore */ }
-  return { ...DEFAULT_LAYOUT };
+  return { ...DEFAULT_TOUCH_LAYOUT };
 }
 
-function saveLayout(layout: LayoutState): void {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(layout)); } catch { /* ignore */ }
+export function saveTouchLayout(layout: TouchLayoutState): void {
+  try { localStorage.setItem(TOUCH_LAYOUT_STORAGE_KEY, JSON.stringify(layout)); } catch { /* ignore */ }
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -83,9 +83,9 @@ function DraggableControl({
   children,
   style,
 }: {
-  posKey: keyof LayoutState;
-  layout: LayoutState;
-  setLayout: (l: LayoutState) => void;
+  posKey: keyof TouchLayoutState;
+  layout: TouchLayoutState;
+  setLayout: (l: TouchLayoutState) => void;
   editMode: boolean;
   children: React.ReactNode;
   style?: React.CSSProperties;
@@ -111,7 +111,7 @@ function DraggableControl({
     const newY = Math.max(0, Math.min(92, dragRef.current.oy + dy));
     const next = { ...layout, [posKey]: { x: newX, y: newY } };
     setLayout(next);
-    saveLayout(next);
+    saveTouchLayout(next);
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
@@ -362,7 +362,7 @@ function ShoulderButton({ label, onPressChange }: {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export function TouchOverlay({ onGamepadInput, editMode = false }: Props) {
-  const [layout, setLayout] = useState<LayoutState>(loadLayout);
+  const [layout, setLayout] = useState<TouchLayoutState>(loadTouchLayout);
 
   // Mutable gamepad state — updated without triggering re-renders
   const gs = useRef<GamepadState>({
