@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 02:58 UTC |
 | Task ID | M-73 |
 | Результат | unit-тест quota-compatibility.ts — specs/tier/compat/form validation |
-| Commit | (this run) |
+| Commit | add4d6a |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
