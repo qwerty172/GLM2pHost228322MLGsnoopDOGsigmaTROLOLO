@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-137 done; discord.test.ts)
+> **Последнее обновление:** 2026-08-05 (M-137 done; providers-discord.test.ts)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 19:51 UTC|
+| Дата | 2026-08-05 19:55 UTC|
 | Task ID | M-137|
-| Результат | discord.test.ts: 10 тестов sendOtp/parseMessage; auth-verifier 42 PASS|
+| Результат | providers-discord.test.ts: 10 тестов sendOtp/parseMessage; auth-verifier 42 PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
