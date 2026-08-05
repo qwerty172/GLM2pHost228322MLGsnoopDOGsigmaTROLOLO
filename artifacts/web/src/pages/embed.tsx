@@ -21,16 +21,65 @@ import {
 //   resolution, bitrateKbps (optional)
 // ---------------------------------------------------------------------------
 
-const isDev = import.meta.env.DEV;
+const isDev = typeof import.meta !== "undefined" && Boolean(import.meta.env?.DEV);
 
-export default function Embed() {
-  const search$ = useSearch();
-  const params = new URLSearchParams(search$);
+export const EMBED_MISSING_PARAMS_ERROR = {
+  error: "missing_params",
+  message: "Нужны query-параметры apiKey и game",
+} as const;
+
+export type EmbedQueryParams = {
+  apiKey: string;
+  gameSlug: string;
+  resolution: string | undefined;
+  bitrateKbps: number | undefined;
+};
+
+export function parseEmbedQueryParams(searchString: string): EmbedQueryParams {
+  const params = new URLSearchParams(searchString);
   const apiKey = params.get("apiKey") || "";
   const gameSlug = params.get("game") || "";
   const resolution = params.get("resolution") || undefined;
   const bitrateKbpsParam = Number(params.get("bitrateKbps"));
-  const bitrateKbps = Number.isFinite(bitrateKbpsParam) && bitrateKbpsParam > 0 ? bitrateKbpsParam : undefined;
+  const bitrateKbps =
+    Number.isFinite(bitrateKbpsParam) && bitrateKbpsParam > 0 ? bitrateKbpsParam : undefined;
+  return { apiKey, gameSlug, resolution, bitrateKbps };
+}
+
+export function isEmbedQueryComplete(params: Pick<EmbedQueryParams, "apiKey" | "gameSlug">): boolean {
+  return Boolean(params.apiKey && params.gameSlug);
+}
+
+export function getEmbedEndedCopy(reason: string): { title: string; detail: string } {
+  if (reason === "key_balance_exhausted") {
+    return {
+      title: "Баланс API-ключа исчерпан",
+      detail: "У ключа разработчика закончился баланс. Пополните кошелёк ключа, чтобы продолжить.",
+    };
+  }
+  return {
+    title: "Сессия завершена",
+    detail: `Причина: ${reason}`,
+  };
+}
+
+export function buildEmbedSignalWsUrl(
+  protocol: string,
+  host: string,
+  baseUrl: string,
+  playerToken: string,
+): string {
+  const wsProtocol = protocol === "https:" ? "wss:" : "ws:";
+  return `${wsProtocol}//${host}${baseUrl}api/signal?role=player&playerToken=${encodeURIComponent(playerToken)}`;
+}
+
+export function computeNextWsReconnectDelayMs(currentDelayMs: number): number {
+  return Math.min(currentDelayMs * 2, 8000);
+}
+
+export default function Embed() {
+  const search$ = useSearch();
+  const { apiKey, gameSlug, resolution, bitrateKbps } = parseEmbedQueryParams(search$);
 
   const [session, setSession] = useState<CreateEmbedSessionResponse | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -46,11 +95,8 @@ export default function Embed() {
 
   // 1. Create the session (host selection + balance check happen server-side).
   useEffect(() => {
-    if (!apiKey || !gameSlug) {
-      setError({
-        error: "missing_params",
-        message: "Нужны query-параметры apiKey и game",
-      });
+    if (!isEmbedQueryComplete({ apiKey, gameSlug })) {
+      setError(EMBED_MISSING_PARAMS_ERROR);
       return;
     }
     let cancelled = false;
@@ -145,7 +191,7 @@ export default function Embed() {
     ws.onclose = () => {
       if (!startedRef.current) return;
       const delay = wsReconnectDelayRef.current;
-      wsReconnectDelayRef.current = Math.min(delay * 2, 8000);
+      wsReconnectDelayRef.current = computeNextWsReconnectDelayMs(delay);
       wsReconnectTimerRef.current = setTimeout(() => connectWs(url, pc), delay);
     };
   }, []);
@@ -156,8 +202,12 @@ export default function Embed() {
     startedRef.current = true;
 
     void (async () => {
-      const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${wsProtocol}//${window.location.host}${import.meta.env.BASE_URL}api/signal?role=player&playerToken=${encodeURIComponent(session.playerToken)}`;
+      const wsUrl = buildEmbedSignalWsUrl(
+        window.location.protocol,
+        window.location.host,
+        import.meta.env.BASE_URL,
+        session.playerToken,
+      );
 
       let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
       try {
@@ -212,19 +262,12 @@ export default function Embed() {
   }
 
   if (ended) {
+    const endedCopy = getEmbedEndedCopy(ended.reason);
     return (
       <EmbedMessage
         icon={<WifiOff className="h-8 w-8 text-amber-400" />}
-        title={
-          ended.reason === "key_balance_exhausted"
-            ? "Баланс API-ключа исчерпан"
-            : "Сессия завершена"
-        }
-        detail={
-          ended.reason === "key_balance_exhausted"
-            ? "У ключа разработчика закончился баланс. Пополните кошелёк ключа, чтобы продолжить."
-            : `Причина: ${ended.reason}`
-        }
+        title={endedCopy.title}
+        detail={endedCopy.detail}
       />
     );
   }
