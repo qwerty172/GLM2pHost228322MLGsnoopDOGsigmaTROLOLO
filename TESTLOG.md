@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-239 (2026-08-05 23:43 UTC) {#marathon-m-239}
+
+| Проверка | Результат |
+|---|---|
+| signaling.test.ts | PASS (5 tests) |
+
+**Изменения:** `artifacts/api-server/src/lib/signaling.test.ts` — unit-тесты для `attachSignaling`, `closeSignaling`, `sendSignalingMessage` (мок db/redis + WS upgrade на локальном HTTP-сервере).
+
+**Следующий pick:** M-240 (тест не покрывает экспорты: storageRouteHelpers).
+
 ## Marathon M-238 (2026-08-05 23:38 UTC) {#marathon-m-238}
 
 | Проверка | Результат |
