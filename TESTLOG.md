@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-164 (2026-08-05 18:15 UTC) {#marathon-m-164}
+
+| Проверка | Результат |
+|---|---|
+| landing.test.mjs (U-22) | PASS — filterPlayableHosts, PLAY_NOW_FALLBACK_HREF |
+| node --import tsx --test test/landing.test.mjs | PASS (14 tests) |
+
+**Изменения (U-22):** секция «Играй прямо сейчас» всегда видна; при отсутствии онлайн-хостов — empty-state «Сейчас никто не хостит», ссылка в каталог и кнопка «Уведомить меня» (`data-testid=live-hosts-shelf`, `live-hosts-empty`).
+
+**Следующий pick:** M-165 (U-23 выбор игры у хоста).
+
 ## Marathon M-163 (2026-08-05 18:08 UTC) {#marathon-m-163}
 
 | Проверка | Результат |

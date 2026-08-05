@@ -14,8 +14,10 @@ import {
   ChevronRight,
   Play,
   Server,
+  Bell,
 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   useGetPublicStats,
   getGetPublicStatsQueryKey,
@@ -253,18 +255,28 @@ export default function Landing() {
         </div>
       </section>
 
-      {playableHosts.length > 0 && (
-        <section className="max-w-6xl mx-auto px-6 pb-10">
-          <div className="flex items-center gap-2 mb-3">
+      <section
+        className="max-w-6xl mx-auto px-6 pb-10"
+        data-testid="live-hosts-shelf"
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <span
+            className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider"
+            style={{ color: "#2dd4bf" }}
+          >
             <span
-              className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider"
-              style={{ color: "#2dd4bf" }}
-            >
-              <span className="w-2 h-2 rounded-full bg-teal-400 inline-block" style={{ boxShadow: "0 0 6px rgba(45,212,191,0.7)" }} />
-              Играй прямо сейчас
+              className="w-2 h-2 rounded-full bg-teal-400 inline-block"
+              style={{ boxShadow: "0 0 6px rgba(45,212,191,0.7)" }}
+            />
+            Играй прямо сейчас
+          </span>
+          {playableHosts.length > 0 && (
+            <span className="text-xs text-slate-600">
+              · {playableHosts.length} хост{playableHosts.length === 1 ? "" : "а"} онлайн
             </span>
-            <span className="text-xs text-slate-600">· {playableHosts.length} хост{playableHosts.length === 1 ? "" : "а"} онлайн</span>
-          </div>
+          )}
+        </div>
+        {playableHosts.length > 0 ? (
           <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
             {playableHosts.map((host) => {
               const firstGame = host.games?.[0];
@@ -327,8 +339,46 @@ export default function Landing() {
               );
             })}
           </div>
-        </section>
-      )}
+        ) : (
+          <div
+            className="surface-card p-8 text-center"
+            data-testid="live-hosts-empty"
+          >
+            <Server className="w-8 h-8 text-slate-700 mx-auto mb-3" />
+            <p className="text-sm text-slate-400 font-medium">
+              Сейчас никто не хостит
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              Хосты появятся в онлайне —{" "}
+              <Link href="/games">
+                <span className="text-sky-400 hover:underline cursor-pointer">
+                  загляни в каталог
+                </span>
+              </Link>
+              .
+            </p>
+            <button
+              type="button"
+              className="mt-4 inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md transition-colors"
+              style={{
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                color: "#94a3b8",
+              }}
+              onClick={() =>
+                toast.success(
+                  "Готово! Мы покажем живые хосты здесь, как только кто-то выйдет в онлайн.",
+                  { duration: 4000 },
+                )
+              }
+              data-testid="button-notify-live-hosts"
+            >
+              <Bell className="h-3 w-3" />
+              Уведомить меня
+            </button>
+          </div>
+        )}
+      </section>
 
       <section className="max-w-6xl mx-auto px-6 pb-12">
         <div className="flex items-center justify-between mb-4">
