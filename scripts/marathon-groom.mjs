@@ -139,8 +139,10 @@ if (SHOULD_RUN) {
   let efficiency = null;
   try {
     const eff = spawnSync("node", ["scripts/marathon-efficiency.mjs", "--analyze"], { encoding: "utf8", timeout: 45000 });
-    const line = (eff.stdout || "").split("\n").find((l) => l.startsWith("{"));
-    if (line) efficiency = JSON.parse(line);
+    const out = eff.stdout || "";
+    const start = out.indexOf("{");
+    const end = out.lastIndexOf("}");
+    if (start >= 0 && end > start) efficiency = JSON.parse(out.slice(start, end + 1));
   } catch {
     /* optional */
   }

@@ -21,22 +21,21 @@
 
 ### Efficiency (auto)
 
-> Обновлено: 2026-08-05 09:25 UTC
+> Обновлено: 2026-08-05 09:28 UTC
 
 | Метрика | 7d |
 |---|---|
-| feat(marathon) | 232 |
-| commit-hash waste | 249 (52%) |
+| feat(marathon) | 234 |
+| commit-hash waste | 250 (52%) |
 | task hit rate | 29% |
 | idle draft PRs | 41 |
 | pending M-NN | 16 |
-| branch lag (ahead main) | 2 |
+| branch lag (ahead main) | 0 |
 
 **Рекомендации:**
-- `no_hash_commits`: 249 отдельных commit-hash за 7д — используй scripts/marathon-efficiency.mjs --update-last-run в том же коммите
+- `no_hash_commits`: 250 отдельных commit-hash за 7д — используй scripts/marathon-efficiency.mjs --update-last-run в том же коммите
 - `close_idle_drafts`: 41 draft PR «Marathon idle» — закрыть: node scripts/marathon-efficiency.mjs --apply
-- `merge_to_main`: Ветка cursor/marathon-5e33 опережает main на 2 коммитов — merge/push в main, иначе cron видит stale state
-- `low_hit_rate`: Hit rate 29% (232 feat / 811 marathon commits) — см. idle-политику и push main
+- `low_hit_rate`: Hit rate 29% (234 feat / 814 marathon commits) — см. idle-политику и push main
 
 ---
 
