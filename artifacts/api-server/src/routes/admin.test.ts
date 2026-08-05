@@ -279,6 +279,55 @@ describe("GET /admin/games/submissions", () => {
   });
 });
 
+describe("POST /admin/games/submissions/:id/approve", () => {
+  it("returns 404 when submission is missing", async () => {
+    queueResults([{ id: "admin-1", isAdmin: true }], []);
+    const res = await request(
+      "POST",
+      "/admin/games/submissions/missing/approve",
+      { headers: ADMIN_HEADERS, body: {} },
+    );
+    expect(res.status).toBe(404);
+    expect(res.json).toEqual({ error: "Submission not found" });
+  });
+
+  it("approves a pending submission and creates a catalog game", async () => {
+    const sub = {
+      id: "sub-1",
+      status: "pending",
+      title: "Cool Game",
+      slug: "cool-game",
+      category: "action",
+      genres: ["fps"],
+      description: "desc",
+      coverImageUrl: null,
+      steamAppId: null,
+      kind: "native",
+      defaultBrowserUrl: "",
+      hostId: "host-2",
+      pendingHostConfig: null,
+    };
+    const game = { id: "game-1", title: "Cool Game", slug: "cool-game" };
+    queueResults(
+      [{ id: "admin-1", isAdmin: true }],
+      [sub],
+      [],
+      [game],
+    );
+    const res = await request(
+      "POST",
+      "/admin/games/submissions/sub-1/approve",
+      { headers: ADMIN_HEADERS, body: {} },
+    );
+    expect(res.status).toBe(200);
+    expect(res.json).toEqual({
+      approved: true,
+      game,
+      libraryAutoCreated: false,
+    });
+  });
+});
+
 describe("POST /admin/games/submissions/:id/reject", () => {
   it("requires a rejection reason", async () => {
     queueResults([{ id: "admin-1", isAdmin: true }]);
@@ -300,9 +349,48 @@ describe("POST /admin/games/submissions/:id/reject", () => {
     expect(res.status).toBe(404);
     expect(res.json).toEqual({ error: "Submission not found" });
   });
+
+  it("rejects a pending submission", async () => {
+    const sub = {
+      id: "sub-1",
+      status: "pending",
+      title: "Bad Game",
+      hostId: "host-2",
+    };
+    queueResults([{ id: "admin-1", isAdmin: true }], [sub]);
+    const res = await request(
+      "POST",
+      "/admin/games/submissions/sub-1/reject",
+      { headers: ADMIN_HEADERS, body: { reason: "Low quality" } },
+    );
+    expect(res.status).toBe(200);
+    expect(res.json).toEqual({ rejected: true });
+  });
 });
 
 describe("DELETE /admin/games/:id", () => {
+  it("returns 404 when game is missing", async () => {
+    queueResults([{ id: "admin-1", isAdmin: true }], []);
+    const res = await request("DELETE", "/admin/games/missing", {
+      headers: ADMIN_HEADERS,
+    });
+    expect(res.status).toBe(404);
+    expect(res.json).toEqual({ error: "Game not found" });
+  });
+
+  it("deletes a game when no sessions reference it", async () => {
+    queueResults(
+      [{ id: "admin-1", isAdmin: true }],
+      [{ id: "game-1", title: "Old Game" }],
+      [{ count: 0 }],
+    );
+    const res = await request("DELETE", "/admin/games/game-1", {
+      headers: ADMIN_HEADERS,
+    });
+    expect(res.status).toBe(200);
+    expect(res.json).toEqual({ deleted: true, id: "game-1" });
+  });
+
   it("blocks deletion when sessions exist", async () => {
     queueResults(
       [{ id: "admin-1", isAdmin: true }],

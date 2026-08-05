@@ -45,6 +45,16 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-134 (2026-08-05 11:06 UTC) {#marathon-m-134}
+
+| Проверка | Результат |
+|---|---|
+| admin.test.ts | 18 тестов — auth, GET games/submissions, POST approve/reject, DELETE/PATCH games |
+| api-server test (admin) | PASS (18 tests) |
+| typecheck | PASS |
+
+**Следующий pick:** M-108 (agentAuth.ts).
+
 ## Marathon M-107 (2026-08-05 11:02 UTC) {#marathon-m-107}
 
 | Проверка | Результат |
