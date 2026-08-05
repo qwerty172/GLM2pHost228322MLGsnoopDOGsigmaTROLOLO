@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-82 (2026-08-05 05:54 UTC) {#marathon-m-82}
+
+| Проверка | Результат |
+|---|---|
+| TouchOverlay.tsx | экспорт TOUCH_LAYOUT_STORAGE_KEY, DEFAULT_TOUCH_LAYOUT, loadTouchLayout, saveTouchLayout |
+| TouchOverlay.test.mjs | 6 тестов — storage key, default layout, load/save/fallback |
+| web test | PASS (88 tests) |
+| typecheck | PASS |
+
+**Следующий pick:** M-83 (host-auth-guard.tsx).
+
 ## Marathon M-81 (2026-08-05 05:44 UTC) {#marathon-m-81-fix}
 
 | Проверка | Результат |
