@@ -92,7 +92,16 @@
 
 **Следующий pick:** M-122 (premium.ts).
 
-**Следующий pick:** M-123 (public.ts).
+**Следующий pick:** M-124 (quotaAiChat.ts).
+
+## Marathon M-123 (2026-08-05 12:01 UTC) {#marathon-m-123}
+
+| Проверка | Результат |
+|---|---|
+| public.test.ts | 18 тестов — GET /public/ping, /public/ice-config, /stats, /public/games, /hosts, /public/games/:slug/hosts, POST /public/sessions, POST /public/preview-session |
+| api-server test (public) | PASS (18 tests) |
+
+**Следующий pick:** M-124 (quotaAiChat.ts).
 
 ## Marathon M-122 (2026-08-05 11:58 UTC) {#marathon-m-122}
 
