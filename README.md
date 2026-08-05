@@ -40,9 +40,19 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
+**3 команды — и в браузере:** [`QUICKSTART.md`](./QUICKSTART.md)
+
+```bash
+pnpm dev:db    # PostgreSQL в Docker (если нет своего Postgres)
+pnpm setup     # .env, секреты, install, схема БД
+pnpm dev       # API + Web
+```
+
+Открой http://localhost:5000
+
 Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
 
-**Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
+**Пошаговая инструкция (Windows, свой Postgres):** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
 
 **Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN (обход страниц в браузере).
 
@@ -50,52 +60,43 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 - Node.js 20+
 - pnpm 9+
-- PostgreSQL 16
+- Docker (для `pnpm dev:db`) **или** PostgreSQL 16
 - Git Bash / WSL (для Windows) или Linux/macOS
 
 ### Клонирование
 
 ```bash
-git clone https://github.com/qwerty172/glm2phost228322mlgsnoopdogsigmatrololo.git decentral-hub
-cd decentral-hub
+git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
+cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
 ```
 
 ### Первичная настройка
 
-**Windows (cmd или двойной клик):**
-
-```bat
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-copy .env.example .env
-notepad .env
-scripts\setup-local.bat
-scripts\dev-local.bat
-```
-
-**Git Bash / Linux / macOS:**
+**Linux / macOS / Git Bash:**
 
 ```bash
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-cp .env.example .env
-# отредактируй DATABASE_URL
-
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
+pnpm dev:db   # опционально, если нет Postgres
+pnpm setup
+pnpm dev
 ```
 
-Подробнее — [LOCAL_SETUP.md](./LOCAL_SETUP.md).
+**Windows (cmd):**
+
+```bat
+pnpm dev:db
+pnpm setup
+pnpm dev
+```
+
+Подробнее — [QUICKSTART.md](./QUICKSTART.md) и [LOCAL_SETUP.md](./LOCAL_SETUP.md).
 
 ### Переменные окружения (`.env`)
 
 | Переменная | Назначение |
 |---|---|
-| `DATABASE_URL` | PostgreSQL, база `decentral_hub` |
+| `DATABASE_URL` | PostgreSQL (по умолчанию — Docker из `pnpm dev:db`) |
 | `PORT` | API-сервер (8080) |
+| `WEB_PORT` | Web/Vite dev-сервер (5000), отдельно от API |
 | `WALLET_ENCRYPTION_KEY` | 32-байт hex, обязателен для кошелька |
 | `ADMIN_SECRET` | Секрет admin-роутов (`X-Admin-Secret`) |
 | `API_PROXY_TARGET` | Куда Vite проксирует `/api` (http://localhost:8080) |

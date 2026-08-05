@@ -78,6 +78,7 @@ function useDebounce<T>(value: T, delay: number): T {
 export default function GamesPage() {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
+  const { playerWalletToken, registerGuest } = usePlayerWallet();
   const [liveOnly, setLiveOnly] = useState(false);
   const [category, setCategory] = useState("");
   const [sort, setSort] = useState<SortKey>("mostOnline");
@@ -134,6 +135,10 @@ export default function GamesPage() {
 
   const toggleBool = (key: FilterKey) =>
     setBoolFilters((s) => ({ ...s, [key]: !s[key] }));
+
+  useEffect(() => {
+    if (!playerWalletToken) void registerGuest();
+  }, [playerWalletToken, registerGuest]);
 
   return (
     <div className="min-h-screen text-slate-300" style={{ background: "#06090e" }}>
@@ -466,17 +471,21 @@ export default function GamesPage() {
 
 function GameCard({ game, vdsBadge }: { game: GameEnriched; vdsBadge?: boolean }) {
   const [, navigate] = useLocation();
-  const { playerWalletToken, isRegistering } = usePlayerWallet();
+  const { playerWalletToken, isRegistering, registerGuest } = usePlayerWallet();
   const createBrowserHost = useCreateBrowserHostSession();
 
   const handleHost = async () => {
-    if (!playerWalletToken) {
-      toast.error("Создаём кошелёк, попробуй ещё раз через секунду");
+    let token = playerWalletToken;
+    if (!token) {
+      token = await registerGuest();
+    }
+    if (!token) {
+      toast.error("Не удалось создать кошелёк — попробуй ещё раз");
       return;
     }
     try {
       const res = await createBrowserHost.mutateAsync({
-        data: { playerWalletToken, gameSlug: game.slug },
+        data: { playerWalletToken: token, gameSlug: game.slug },
       });
       try {
         localStorage.setItem(HOST_TOKEN_STORAGE_PREFIX + res.session.id, res.hostToken);
@@ -580,7 +589,7 @@ function GameCard({ game, vdsBadge }: { game: GameEnriched; vdsBadge?: boolean }
               size="sm"
               type="button"
               onClick={handleHost}
-              disabled={createBrowserHost.isPending || isRegistering || !playerWalletToken}
+              disabled={createBrowserHost.isPending || isRegistering}
               className="w-full h-7 text-[11px] font-semibold rounded-md"
               style={{
                 background: "rgba(16,185,129,0.14)",

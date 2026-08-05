@@ -5,6 +5,8 @@
 
 Полный план тестирования: [TESTPLAN.md](./TESTPLAN.md). Журнал багов: [TESTLOG.md](./TESTLOG.md).
 
+**Самый короткий путь:** [QUICKSTART.md](./QUICKSTART.md) — `pnpm dev:db` → `pnpm setup` → `pnpm dev`.
+
 ---
 
 ## Ты здесь
@@ -38,13 +40,17 @@
 
 - [Node.js 20+](https://nodejs.org/)
 - [pnpm](https://pnpm.io/installation): `npm install -g pnpm`
-- [PostgreSQL 16](https://www.postgresql.org/download/windows/)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) **или** [PostgreSQL 16](https://www.postgresql.org/download/windows/)
 
-База данных:
+С Docker Postgres в `.env` уже подходит строка из `.env.example` — достаточно `pnpm dev:db`.
+
+Со своим PostgreSQL создайте базу:
 
 ```sql
 CREATE DATABASE decentral_hub;
 ```
+
+и укажите `DATABASE_URL` в `.env`.
 
 ---
 
@@ -53,27 +59,17 @@ CREATE DATABASE decentral_hub;
 ```bat
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
 
-copy .env.example .env
-notepad .env
-```
-
-В `.env` измените `DATABASE_URL`:
-
-```
-DATABASE_URL=postgresql://postgres:ВАШ_ПАРОЛЬ@localhost:5432/decentral_hub
-```
-
-```bat
-scripts\setup-local.bat
-scripts\dev-local.bat
+pnpm dev:db
+pnpm setup
+pnpm dev
 scripts\smoke-api.bat
 ```
 
 | Сервис | URL |
 |---|---|
 | Web | http://localhost:5000 |
+| Демо без Windows | http://localhost:5000/games/rogue-fable-3 |
 | API health | http://localhost:8080/api/healthz |
 
 ---
@@ -83,14 +79,10 @@ scripts\smoke-api.bat
 ```bash
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
 
-cp .env.example .env
-# отредактируй DATABASE_URL
-
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
+pnpm dev:db
+pnpm setup
+pnpm dev
 ./scripts/smoke-api.sh
 ```
 
