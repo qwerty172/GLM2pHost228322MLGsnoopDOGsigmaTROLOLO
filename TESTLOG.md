@@ -45,6 +45,15 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-110 (2026-08-05 11:19 UTC) {#marathon-m-110}
+
+| Проверка | Результат |
+|---|---|
+| auth.test.ts | 21 тест — POST /auth/login (validation, JWT config, host/player legacy), /auth/refresh (rotation), /auth/logout, /auth/ws-ticket (host/player) |
+| api-server test (auth) | PASS (21 tests) |
+
+**Следующий pick:** M-111 (devKeys.ts).
+
 ## Marathon M-109 (2026-08-05 11:16 UTC) {#marathon-m-109}
 
 | Проверка | Результат |
