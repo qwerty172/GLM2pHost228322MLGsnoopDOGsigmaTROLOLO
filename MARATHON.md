@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 01:40 UTC |
 | Task ID | M-70 |
 | Результат | unit-тест `artifacts/web/test/api-errors.test.mjs` — extractApiErrorPayload, formatApiError, formatApiErrorPanel |
-| Commit | (pending) |
+| Commit | 96e9f1a |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
