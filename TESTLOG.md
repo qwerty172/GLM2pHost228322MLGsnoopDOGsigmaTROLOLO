@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-171 (2026-08-05 19:30 UTC) {#marathon-m-171}
+
+| Проверка | Результат |
+|---|---|
+| games.test.mjs U-29 countActiveCatalogFilters | PASS — категории, жанры, bool-фильтры, цена |
+| pnpm --filter @workspace/web test | PASS (345 tests) |
+
+**Изменения (U-29):** на мобиле кнопка «Фильтры» открывает bottom Sheet с категориями, жанрами, возможностями и слайдером цены; активные фильтры — чипами над сеткой.
+
+**Следующий pick:** M-172 (U-30 первая минута: цена и LZT).
+
 ## Marathon M-170 (2026-08-05 19:25 UTC) {#marathon-m-170}
 
 | Проверка | Результат |

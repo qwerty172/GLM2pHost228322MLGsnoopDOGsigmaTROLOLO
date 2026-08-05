@@ -21,6 +21,7 @@ const {
   buildSimilarGamesHref,
   getOfflineNotifyMessage,
   parseGamesGenreFromSearch,
+  countActiveCatalogFilters,
 } = await import("../src/pages/games-helpers.ts");
 
 const emptyBoolFilters = {
@@ -150,4 +151,29 @@ test("U-28 offline catalog helpers expose honest label and next steps", () => {
   assert.match(getOfflineNotifyMessage("CS2"), /CS2/);
   assert.equal(parseGamesGenreFromSearch("?genre=Action"), "Action");
   assert.equal(parseGamesGenreFromSearch(""), null);
+});
+
+test("U-29 countActiveCatalogFilters counts category, genres, bools and price cap", () => {
+  assert.equal(
+    countActiveCatalogFilters({
+      liveOnly: false,
+      category: "",
+      selectedGenres: [],
+      boolFilters: emptyBoolFilters,
+      maxLzt: 20,
+      globalMaxLzt: 20,
+    }),
+    0,
+  );
+  assert.equal(
+    countActiveCatalogFilters({
+      liveOnly: true,
+      category: "FPS",
+      selectedGenres: ["Action"],
+      boolFilters: { ...emptyBoolFilters, hasMods: true },
+      maxLzt: 10,
+      globalMaxLzt: 20,
+    }),
+    5,
+  );
 });

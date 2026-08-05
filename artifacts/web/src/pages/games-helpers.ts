@@ -156,3 +156,23 @@ export function parseGamesGenreFromSearch(search: string): string | null {
   const genre = new URLSearchParams(search).get("genre")?.trim();
   return genre || null;
 }
+
+/** U-29: счётчик активных фильтров каталога (для бейджа на мобильной кнопке). */
+export function countActiveCatalogFilters(opts: {
+  liveOnly: boolean;
+  category: string;
+  selectedGenres: string[];
+  boolFilters: Record<BoolFilterKey, boolean>;
+  maxLzt: number;
+  globalMaxLzt: number;
+}): number {
+  let count = 0;
+  if (opts.liveOnly) count++;
+  if (opts.category) count++;
+  count += opts.selectedGenres.length;
+  for (const key of BOOL_FILTER_KEYS) {
+    if (opts.boolFilters[key]) count++;
+  }
+  if (opts.globalMaxLzt > 0 && opts.maxLzt < opts.globalMaxLzt) count++;
+  return count;
+}

@@ -25,10 +25,18 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SiteNav } from "@/components/site-nav";
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import {
   BROWSER_HOST_URL_STORAGE_PREFIX,
   HOST_TOKEN_STORAGE_PREFIX,
   buildGamesApiParams,
   computeGlobalMaxLzt,
+  countActiveCatalogFilters,
   extractAllGenres,
   extractCategories,
   filterAndSortGames,
@@ -81,6 +89,199 @@ function useDebounce<T>(value: T, delay: number): T {
   return debounced;
 }
 
+type CatalogFiltersPanelProps = {
+  liveOnly: boolean;
+  setLiveOnly: (v: boolean | ((prev: boolean) => boolean)) => void;
+  category: string;
+  setCategory: (v: string) => void;
+  categories: string[];
+  boolFilters: Record<FilterKey, boolean>;
+  toggleBool: (key: FilterKey) => void;
+  allGenres: string[];
+  selectedGenres: string[];
+  toggleGenre: (genre: string) => void;
+  globalMaxLzt: number;
+  maxLzt: number;
+  setMaxLzt: (v: number) => void;
+  testIdPrefix?: string;
+};
+
+function CatalogFiltersPanel({
+  liveOnly,
+  setLiveOnly,
+  category,
+  setCategory,
+  categories,
+  boolFilters,
+  toggleBool,
+  allGenres,
+  selectedGenres,
+  toggleGenre,
+  globalMaxLzt,
+  maxLzt,
+  setMaxLzt,
+  testIdPrefix = "",
+}: CatalogFiltersPanelProps) {
+  const tid = (name: string) => (testIdPrefix ? `${name}-${testIdPrefix}` : name);
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono flex items-center gap-1">
+          <SlidersHorizontal className="h-3 w-3" /> Только онлайн
+        </div>
+        <button
+          type="button"
+          onClick={() => setLiveOnly((v) => !v)}
+          className="w-full h-8 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 px-3"
+          style={{
+            background: liveOnly ? "rgba(45,212,191,0.15)" : "rgba(255,255,255,0.04)",
+            border: liveOnly ? "1px solid rgba(45,212,191,0.4)" : "1px solid rgba(255,255,255,0.07)",
+            color: liveOnly ? "#2dd4bf" : "#64748b",
+          }}
+          data-testid={tid("filter-liveOnly")}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${liveOnly ? "bg-teal-400" : "bg-slate-600"}`} />
+          {liveOnly ? "Только онлайн" : "Все игры"}
+        </button>
+      </div>
+
+      {categories.length > 0 && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">Категория</div>
+          <div className="flex flex-col gap-1">
+            <button
+              type="button"
+              onClick={() => setCategory("")}
+              className="text-left text-xs px-2 py-1 rounded transition-colors"
+              style={{
+                background: !category ? "rgba(14,165,233,0.12)" : "transparent",
+                color: !category ? "#38bdf8" : "#64748b",
+              }}
+            >
+              Все категории
+            </button>
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setCategory(cat === category ? "" : cat)}
+                className="text-left text-xs px-2 py-1 rounded transition-colors truncate"
+                style={{
+                  background: category === cat ? "rgba(14,165,233,0.12)" : "transparent",
+                  color: category === cat ? "#38bdf8" : "#64748b",
+                }}
+                data-testid={tid(`filter-category-${cat}`)}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">Возможности</div>
+        <div className="flex flex-col gap-1">
+          {BOOL_FILTERS.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => toggleBool(f.key)}
+              className="text-left text-xs px-2 py-1 rounded transition-colors flex items-center gap-1.5"
+              style={{
+                background: boolFilters[f.key] ? "rgba(14,165,233,0.12)" : "transparent",
+                color: boolFilters[f.key] ? "#38bdf8" : "#64748b",
+              }}
+              data-testid={tid(`filter-${f.key}`)}
+            >
+              <span
+                className="w-3 h-3 rounded border flex items-center justify-center flex-shrink-0"
+                style={{
+                  borderColor: boolFilters[f.key] ? "#0ea5e9" : "rgba(255,255,255,0.12)",
+                  background: boolFilters[f.key] ? "#0ea5e9" : "transparent",
+                }}
+              >
+                {boolFilters[f.key] && <span className="w-1.5 h-1.5 rounded-sm bg-white" />}
+              </span>
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {allGenres.length > 0 && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">Жанры</div>
+          <div className="flex flex-col gap-1">
+            {allGenres.map((genre) => (
+              <button
+                key={genre}
+                type="button"
+                onClick={() => toggleGenre(genre)}
+                className="text-left text-xs px-2 py-1 rounded transition-colors flex items-center gap-1.5"
+                style={{
+                  background: selectedGenres.includes(genre)
+                    ? "rgba(14,165,233,0.12)"
+                    : "transparent",
+                  color: selectedGenres.includes(genre) ? "#38bdf8" : "#64748b",
+                }}
+                data-testid={tid(`filter-genre-${genre}`)}
+              >
+                <span
+                  className="w-3 h-3 rounded border flex items-center justify-center flex-shrink-0"
+                  style={{
+                    borderColor: selectedGenres.includes(genre)
+                      ? "#0ea5e9"
+                      : "rgba(255,255,255,0.12)",
+                    background: selectedGenres.includes(genre)
+                      ? "#0ea5e9"
+                      : "transparent",
+                  }}
+                >
+                  {selectedGenres.includes(genre) && (
+                    <span className="w-1.5 h-1.5 rounded-sm bg-white" />
+                  )}
+                </span>
+                {genre}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">Соединение</div>
+        <p className="text-[11px] text-slate-600 leading-relaxed">
+          Пинг до хоста смотри на странице «Хосты» — там живые карточки с задержкой.
+        </p>
+      </div>
+
+      {globalMaxLzt > 0 && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">
+            Макс. цена: {maxLzt} LZT/мин
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={globalMaxLzt}
+            value={maxLzt}
+            onChange={(e) => setMaxLzt(Number(e.target.value))}
+            className="w-full accent-sky-400"
+            style={{ accentColor: "#0ea5e9" }}
+            data-testid={tid("slider-max-price")}
+          />
+          <div className="flex justify-between text-[10px] text-slate-600 font-mono mt-0.5">
+            <span>0</span>
+            <span>{globalMaxLzt}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function GamesPage() {
   const urlSearch = useSearch();
   const [search, setSearch] = useState("");
@@ -97,6 +298,7 @@ export default function GamesPage() {
   });
   const [maxLzt, setMaxLzt] = useState<number>(9999);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const sliderInitRef = useRef(false);
   const genreFromUrlAppliedRef = useRef(false);
 
@@ -152,6 +354,35 @@ export default function GamesPage() {
   const toggleBool = (key: FilterKey) =>
     setBoolFilters((s) => ({ ...s, [key]: !s[key] }));
 
+  const activeFilterCount = useMemo(
+    () =>
+      countActiveCatalogFilters({
+        liveOnly,
+        category,
+        selectedGenres,
+        boolFilters,
+        maxLzt,
+        globalMaxLzt,
+      }),
+    [liveOnly, category, selectedGenres, boolFilters, maxLzt, globalMaxLzt],
+  );
+
+  const filterPanelProps = {
+    liveOnly,
+    setLiveOnly,
+    category,
+    setCategory,
+    categories,
+    boolFilters,
+    toggleBool,
+    allGenres,
+    selectedGenres,
+    toggleGenre,
+    globalMaxLzt,
+    maxLzt,
+    setMaxLzt,
+  };
+
   return (
     <div className="min-h-screen text-slate-300" style={{ background: "#06090e" }}>
       <SiteNav activePath="/games" />
@@ -183,193 +414,117 @@ export default function GamesPage() {
         <div className="flex gap-6">
           {/* ── Sidebar ── */}
           <aside className="hidden lg:flex flex-col gap-5 w-52 shrink-0 pt-1">
-            <div>
-              <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono flex items-center gap-1">
-                <SlidersHorizontal className="h-3 w-3" /> Только онлайн
-              </div>
-              <button
-                type="button"
-                onClick={() => setLiveOnly((v) => !v)}
-                className="w-full h-8 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 px-3"
-                style={{
-                  background: liveOnly ? "rgba(45,212,191,0.15)" : "rgba(255,255,255,0.04)",
-                  border: liveOnly ? "1px solid rgba(45,212,191,0.4)" : "1px solid rgba(255,255,255,0.07)",
-                  color: liveOnly ? "#2dd4bf" : "#64748b",
-                }}
-                data-testid="filter-liveOnly"
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${liveOnly ? "bg-teal-400" : "bg-slate-600"}`} />
-                {liveOnly ? "Только онлайн" : "Все игры"}
-              </button>
-            </div>
-
-            {categories.length > 0 && (
-              <div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">Категория</div>
-                <div className="flex flex-col gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setCategory("")}
-                    className="text-left text-xs px-2 py-1 rounded transition-colors"
-                    style={{
-                      background: !category ? "rgba(14,165,233,0.12)" : "transparent",
-                      color: !category ? "#38bdf8" : "#64748b",
-                    }}
-                  >
-                    Все категории
-                  </button>
-                  {categories.map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setCategory(cat === category ? "" : cat)}
-                      className="text-left text-xs px-2 py-1 rounded transition-colors truncate"
-                      style={{
-                        background: category === cat ? "rgba(14,165,233,0.12)" : "transparent",
-                        color: category === cat ? "#38bdf8" : "#64748b",
-                      }}
-                      data-testid={`filter-category-${cat}`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div>
-              <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">Возможности</div>
-              <div className="flex flex-col gap-1">
-                {BOOL_FILTERS.map((f) => (
-                  <button
-                    key={f.key}
-                    type="button"
-                    onClick={() => toggleBool(f.key)}
-                    className="text-left text-xs px-2 py-1 rounded transition-colors flex items-center gap-1.5"
-                    style={{
-                      background: boolFilters[f.key] ? "rgba(14,165,233,0.12)" : "transparent",
-                      color: boolFilters[f.key] ? "#38bdf8" : "#64748b",
-                    }}
-                    data-testid={`filter-${f.key}`}
-                  >
-                    <span
-                      className="w-3 h-3 rounded border flex items-center justify-center flex-shrink-0"
-                      style={{
-                        borderColor: boolFilters[f.key] ? "#0ea5e9" : "rgba(255,255,255,0.12)",
-                        background: boolFilters[f.key] ? "#0ea5e9" : "transparent",
-                      }}
-                    >
-                      {boolFilters[f.key] && <span className="w-1.5 h-1.5 rounded-sm bg-white" />}
-                    </span>
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {allGenres.length > 0 && (
-              <div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">Жанры</div>
-                <div className="flex flex-col gap-1">
-                  {allGenres.map((genre) => (
-                    <button
-                      key={genre}
-                      type="button"
-                      onClick={() => toggleGenre(genre)}
-                      className="text-left text-xs px-2 py-1 rounded transition-colors flex items-center gap-1.5"
-                      style={{
-                        background: selectedGenres.includes(genre)
-                          ? "rgba(14,165,233,0.12)"
-                          : "transparent",
-                        color: selectedGenres.includes(genre) ? "#38bdf8" : "#64748b",
-                      }}
-                      data-testid={`filter-genre-${genre}`}
-                    >
-                      <span
-                        className="w-3 h-3 rounded border flex items-center justify-center flex-shrink-0"
-                        style={{
-                          borderColor: selectedGenres.includes(genre)
-                            ? "#0ea5e9"
-                            : "rgba(255,255,255,0.12)",
-                          background: selectedGenres.includes(genre)
-                            ? "#0ea5e9"
-                            : "transparent",
-                        }}
-                      >
-                        {selectedGenres.includes(genre) && (
-                          <span className="w-1.5 h-1.5 rounded-sm bg-white" />
-                        )}
-                      </span>
-                      {genre}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div>
-              <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">Соединение</div>
-              <p className="text-[11px] text-slate-600 leading-relaxed">
-                Пинг до хоста смотри на странице «Хосты» — там живые карточки с задержкой.
-              </p>
-            </div>
-
-            {globalMaxLzt > 0 && (
-              <div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">
-                  Макс. цена: {maxLzt} LZT/мин
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={globalMaxLzt}
-                  value={maxLzt}
-                  onChange={(e) => setMaxLzt(Number(e.target.value))}
-                  className="w-full accent-sky-400"
-                  style={{ accentColor: "#0ea5e9" }}
-                  data-testid="slider-max-price"
-                />
-                <div className="flex justify-between text-[10px] text-slate-600 font-mono mt-0.5">
-                  <span>0</span>
-                  <span>{globalMaxLzt}</span>
-                </div>
-              </div>
-            )}
+            <CatalogFiltersPanel {...filterPanelProps} />
           </aside>
 
           {/* ── Main content ── */}
           <div className="flex-1 min-w-0">
             {/* Mobile filters */}
-            <div className="lg:hidden flex items-center gap-2 mb-3 overflow-x-auto pb-1 scrollbar-none">
-              <button
-                type="button"
-                onClick={() => setLiveOnly((v) => !v)}
-                className="h-8 px-3 rounded-full text-xs font-medium flex items-center gap-1.5 flex-shrink-0 transition-colors"
-                style={{
-                  background: liveOnly ? "rgba(45,212,191,0.15)" : "rgba(255,255,255,0.04)",
-                  border: liveOnly ? "1px solid rgba(45,212,191,0.4)" : "1px solid rgba(255,255,255,0.07)",
-                  color: liveOnly ? "#2dd4bf" : "#64748b",
-                }}
-                data-testid="filter-liveOnly-mobile"
-              >
-                <Activity className="h-3.5 w-3.5" />
-                {liveOnly ? "Онлайн" : "Все игры"}
-              </button>
-              {BOOL_FILTERS.map((f) => (
+            <div className="lg:hidden mb-3 space-y-2">
+              <div className="flex items-center gap-2">
                 <button
-                  key={f.key}
                   type="button"
-                  onClick={() => toggleBool(f.key)}
-                  className="h-8 px-3 rounded-full text-xs font-medium flex items-center gap-1 flex-shrink-0 transition-colors"
+                  onClick={() => setLiveOnly((v) => !v)}
+                  className="h-8 px-3 rounded-full text-xs font-medium flex items-center gap-1.5 flex-shrink-0 transition-colors"
                   style={{
-                    background: boolFilters[f.key] ? "#0ea5e9" : "rgba(14,165,233,0.06)",
-                    color: boolFilters[f.key] ? "#fff" : "#94a3b8",
-                    border: boolFilters[f.key] ? "1px solid #0ea5e9" : "1px solid rgba(255,255,255,0.08)",
+                    background: liveOnly ? "rgba(45,212,191,0.15)" : "rgba(255,255,255,0.04)",
+                    border: liveOnly ? "1px solid rgba(45,212,191,0.4)" : "1px solid rgba(255,255,255,0.07)",
+                    color: liveOnly ? "#2dd4bf" : "#64748b",
                   }}
+                  data-testid="filter-liveOnly-mobile"
                 >
-                  {f.label}
+                  <Activity className="h-3.5 w-3.5" />
+                  {liveOnly ? "Онлайн" : "Все игры"}
                 </button>
-              ))}
+                <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+                  <SheetTrigger asChild>
+                    <button
+                      type="button"
+                      className="h-8 px-3 rounded-full text-xs font-medium flex items-center gap-1.5 flex-shrink-0 transition-colors"
+                      style={{
+                        background: activeFilterCount > 0 ? "rgba(14,165,233,0.15)" : "rgba(255,255,255,0.04)",
+                        border: activeFilterCount > 0 ? "1px solid rgba(14,165,233,0.4)" : "1px solid rgba(255,255,255,0.07)",
+                        color: activeFilterCount > 0 ? "#38bdf8" : "#64748b",
+                      }}
+                      data-testid="button-mobile-filters"
+                    >
+                      <SlidersHorizontal className="h-3.5 w-3.5" />
+                      Фильтры
+                      {activeFilterCount > 0 && (
+                        <span
+                          className="ml-0.5 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full text-[10px] font-bold flex items-center justify-center"
+                          style={{ background: "#0ea5e9", color: "#fff" }}
+                        >
+                          {activeFilterCount}
+                        </span>
+                      )}
+                    </button>
+                  </SheetTrigger>
+                  <SheetContent
+                    side="bottom"
+                    className="rounded-t-2xl border-t border-white/10 text-slate-300 max-h-[85vh] overflow-y-auto"
+                    style={{ background: "#0a1018" }}
+                  >
+                    <SheetHeader className="mb-4">
+                      <SheetTitle className="text-white text-left">Фильтры каталога</SheetTitle>
+                    </SheetHeader>
+                    <CatalogFiltersPanel {...filterPanelProps} testIdPrefix="mobile" />
+                  </SheetContent>
+                </Sheet>
+              </div>
+              {activeFilterCount > 0 && (
+                <div
+                  className="flex flex-wrap gap-1.5"
+                  data-testid="mobile-filter-chips"
+                >
+                  {category && (
+                    <button
+                      type="button"
+                      onClick={() => setCategory("")}
+                      className="h-7 px-2.5 rounded-full text-[11px] font-medium flex items-center gap-1"
+                      style={{ background: "rgba(14,165,233,0.12)", color: "#38bdf8", border: "1px solid rgba(14,165,233,0.25)" }}
+                    >
+                      {category}
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                  {selectedGenres.map((genre) => (
+                    <button
+                      key={genre}
+                      type="button"
+                      onClick={() => toggleGenre(genre)}
+                      className="h-7 px-2.5 rounded-full text-[11px] font-medium flex items-center gap-1"
+                      style={{ background: "rgba(14,165,233,0.12)", color: "#38bdf8", border: "1px solid rgba(14,165,233,0.25)" }}
+                    >
+                      {genre}
+                      <X className="h-3 w-3" />
+                    </button>
+                  ))}
+                  {BOOL_FILTERS.filter((f) => boolFilters[f.key]).map((f) => (
+                    <button
+                      key={f.key}
+                      type="button"
+                      onClick={() => toggleBool(f.key)}
+                      className="h-7 px-2.5 rounded-full text-[11px] font-medium flex items-center gap-1"
+                      style={{ background: "rgba(14,165,233,0.12)", color: "#38bdf8", border: "1px solid rgba(14,165,233,0.25)" }}
+                    >
+                      {f.label}
+                      <X className="h-3 w-3" />
+                    </button>
+                  ))}
+                  {globalMaxLzt > 0 && maxLzt < globalMaxLzt && (
+                    <button
+                      type="button"
+                      onClick={() => setMaxLzt(globalMaxLzt)}
+                      className="h-7 px-2.5 rounded-full text-[11px] font-medium flex items-center gap-1"
+                      style={{ background: "rgba(14,165,233,0.12)", color: "#38bdf8", border: "1px solid rgba(14,165,233,0.25)" }}
+                    >
+                      ≤ {maxLzt} LZT/мин
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Sort + stats bar */}
