@@ -15,6 +15,18 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-166 (2026-08-05 18:22 UTC) {#marathon-m-166}
+
+| Проверка | Результат |
+|---|---|
+| pnpm --filter @workspace/web test | PASS (340 tests) |
+| PreSessionScreen на `/play` | PASS — баланс/пинг/блок в одном экране |
+| game-detail без PreSessionModal | PASS — «Настроить» ведёт на `/play/i/...` |
+
+**Изменения (U-24):** `PreSessionScreen` — единый экран подготовки на `/play`; модалка `PreSessionModal` удалена из `game-detail.tsx`; claim только после подтверждения на экране подготовки.
+
+**Следующий pick:** M-167 (U-25 экранная клавиатура по умолчанию на тач).
+
 ## Marathon M-165 (2026-08-05 18:16 UTC) {#marathon-m-165}
 
 | Проверка | Результат |
@@ -24,7 +36,7 @@
 
 **Изменения (U-23):** `GamePickerDialog` удалён; при нескольких играх у хоста — инлайн `<select>` в строке карточки + кнопка «Играть»; на мобиле не перекрывает экран.
 
-**Следующий pick:** M-166 (U-24 один экран подготовки сессии).
+**Следующий pick:** M-167 (U-25 экранная клавиатура по умолчанию на тач).
 
 ## Marathon M-164 (2026-08-05 18:15 UTC) {#marathon-m-164}
 

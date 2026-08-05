@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 18:18 UTC|
-| Task ID | M-165|
-| Результат | U-23: GamePickerDialog удалён; инлайн game-select в строке хоста; hosts.test.mjs PASS (10)|
+| Дата | 2026-08-05 18:23 UTC|
+| Task ID | M-166|
+| Результат | U-24: PreSessionScreen на /play; PreSessionModal удалён; pnpm test 340 PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -497,7 +497,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-163 | R | UX U-19 (P1): Диагностический отчёт копируется одной кнопкой без секретов | `pages/host/dashboard.tsx` | r:U-19 | done | agent |
 | M-164 | R | UX U-22 (P1): Лендинг не прячет блок, когда онлайн-хостов нет | `pages/landing.tsx` | r:U-22 | done | agent |
 | M-165 | R | UX U-23 (P1): Выбор игры у хоста — раскрывающийся список вместо модалки | `pages/hosts.tsx` | r:U-23 | done | agent |
-| M-166 | R | UX U-24 (P1): Один экран подготовки сессии вместо модалки и дубля на `/pla | `pages/game-detail.tsx` | r:U-24 | pending | agent |
+| M-166 | R | UX U-24 (P1): Один экран подготовки сессии вместо модалки и дубля на `/pla | `pages/game-detail.tsx` | r:U-24 | done | agent |
 | M-167 | R | UX U-25 (P1): Экранная клавиатура включена по умолчанию на тач-устройствах | `pages/play.tsx` | r:U-25 | pending | agent |
 | M-168 | R | UX U-26 (P1): Никаких технических терминов в сообщениях игроку | `pages/play-helpers.ts` | r:U-26 | pending | agent |
 | M-169 | R | UX U-27 (P2): Баланс LZT виден на мобиле | `artifacts/web/src/components/site-nav.tsx` | r:U-27 | pending | agent |

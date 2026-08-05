@@ -6,14 +6,11 @@ import { useBrowserPingMs } from "@/hooks/use-browser-ping";
 import {
   useGetGameBySlug,
   getGetGameBySlugQueryKey,
-  useGetWallet,
-  getGetWalletQueryKey,
   useSteamLookup,
   useListPublicGameHosts,
   getListPublicGameHostsQueryKey,
   createPreviewSession,
   getPublicIceConfig,
-  publicPing,
   type PublicGameHostItem,
 } from "@workspace/api-client-react";
 import {
@@ -22,7 +19,6 @@ import {
   ArrowRight,
   Bell,
   Calendar,
-  Clock,
   Eye,
   Gamepad2,
   Loader2,
@@ -41,20 +37,13 @@ import { SiteNav } from "@/components/site-nav";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
 import {
   chip,
-  computeMinsAvailable,
   computeTotalLatency,
-  canAffordBlock,
   filterHostsByTag,
-  formatDuration,
   getLatencyColor,
   getLatencyLabel,
-  getPingColor,
-  getPingLabel,
   resolveCoverImageUrl,
   sortHostsByLatency,
 } from "@/pages/game-detail-helpers";
-
-const DEFAULT_CREDIT_LZT = 3000;
 
 type GameEnriched = {
   steamAppId?: string | null;
@@ -94,9 +83,7 @@ export default function GameDetailPage() {
   const search$ = useSearch();
   const [, navigate] = useLocation();
   const [tag, setTag] = useState<string>("");
-  const [preSessionHost, setPreSessionHost] = useState<PublicGameHostItem | null>(null);
   const [previewHost, setPreviewHost] = useState<PublicGameHostItem | null>(null);
-  const [selectedBlockMinutes, setSelectedBlockMinutes] = useState<10 | 15 | 25 | null>(null);
 
   useEffect(() => {
     const sp = new URLSearchParams(search$);
@@ -133,7 +120,7 @@ export default function GameDetailPage() {
   function handlePlayConfigure(host: PublicGameHostItem) {
     if (!host.inviteCode) return;
     if (!playerWalletToken) void registerGuest();
-    setPreSessionHost(host);
+    navigate(`/play/i/${host.inviteCode}`);
   }
 
   function clearTag() {
@@ -163,23 +150,6 @@ export default function GameDetailPage() {
   return (
     <div className="min-h-screen text-slate-300" style={{ background: "#06090e" }}>
       <SiteNav activePath="/games" />
-
-      {preSessionHost && (
-        <PreSessionModal
-          host={preSessionHost}
-          onClose={() => {
-            setPreSessionHost(null);
-            setSelectedBlockMinutes(null);
-          }}
-          onConfirm={(blockMins) => {
-            if (preSessionHost.inviteCode) {
-              setSelectedBlockMinutes(blockMins ?? null);
-              const qs = blockMins ? `?block=${blockMins}` : "";
-              navigate(`/play/i/${preSessionHost.inviteCode}${qs}`);
-            }
-          }}
-        />
-      )}
 
       {previewHost && (
         <PreviewModal
@@ -850,270 +820,6 @@ function PreviewModal({
               {phase === "connecting" ? "Ждём поток от хоста…" : "Просмотр без звука и управления. Биллинг не идёт."}
             </p>
           )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PreSessionModal({
-  host,
-  onClose,
-  onConfirm,
-}: {
-  host: PublicGameHostItem;
-  onClose: () => void;
-  onConfirm: (blockMinutes?: 10 | 15 | 25) => void;
-}) {
-  const { playerWalletToken } = usePlayerWallet();
-  const { data: wallet } = useGetWallet(playerWalletToken || "", {
-    query: {
-      enabled: !!playerWalletToken,
-      queryKey: getGetWalletQueryKey(playerWalletToken || ""),
-    },
-  });
-
-  const [pingMs, setPingMs] = useState<number | null>(null);
-  const [pinging, setPinging] = useState(true);
-  const didPing = useRef(false);
-  const [blockChoice, setBlockChoice] = useState<"unlimited" | "10" | "15" | "25">("unlimited");
-
-  useEffect(() => {
-    if (didPing.current) return;
-    didPing.current = true;
-    const t0 = performance.now();
-    publicPing()
-      .then(() => {
-        setPingMs(Math.round(performance.now() - t0));
-      })
-      .catch(() => {
-        setPingMs(null);
-      })
-      .finally(() => setPinging(false));
-  }, []);
-
-  const balanceLzt = (wallet?.internalBalanceLzt ?? 0) + (wallet?.withdrawableBalanceLzt ?? 0);
-  // Claim не принимает кредитный лимит — показываем только реальные бакеты.
-  const totalAvailableLzt = balanceLzt;
-  const creditLimit = (wallet as { creditLimitLzt?: number } | undefined)?.creditLimitLzt ?? DEFAULT_CREDIT_LZT;
-  const creditUsed = wallet?.creditDebtLzt ?? 0;
-  const creditAvailable = Math.max(0, creditLimit - creditUsed);
-  const minsAvailable = computeMinsAvailable(totalAvailableLzt, host.pricePerMinuteLzt);
-
-  const blockOptions: Array<{ mins: 10 | 15 | 25; label: string }> = [
-    { mins: 10, label: "10 мин" },
-    { mins: 15, label: "15 мин" },
-    { mins: 25, label: "25 мин" },
-  ];
-  const selectedBlockMins = blockChoice === "unlimited" ? null : (Number(blockChoice) as 10 | 15 | 25);
-  const blockCost = selectedBlockMins ? selectedBlockMins * host.pricePerMinuteLzt : null;
-  const blockAffordable = canAffordBlock(totalAvailableLzt, blockCost);
-  const canStart = minsAvailable >= 1 && blockAffordable;
-
-  const pingColor = getPingColor(pingMs);
-  const pingLabel = getPingLabel(pingMs);
-
-  return (
-    <div
-      className="fixed inset-0 z-[200] flex items-end md:items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md mx-4 mb-4 md:mb-0 rounded-2xl overflow-hidden"
-        style={{ background: "#0a1018", border: "1px solid rgba(14,165,233,0.18)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="px-5 pt-5 pb-4 border-b border-white/5 flex items-center justify-between">
-          <div>
-            <p className="text-[11px] text-slate-500 uppercase tracking-widest mb-0.5">Хост</p>
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-teal-400" style={{ boxShadow: "0 0 6px rgba(45,212,191,0.6)" }} />
-              <span className="font-bold text-white text-base">{host.displayName}</span>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-slate-500 hover:text-white transition-colors p-1 rounded"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="px-5 py-4 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div
-              className="rounded-xl p-3"
-              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
-            >
-              <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-                <Wifi className="h-3 w-3" /> Пинг
-              </p>
-              {pinging ? (
-                <Loader2 className="h-4 w-4 text-slate-500 animate-spin" />
-              ) : (
-                <>
-                  <p className="text-lg font-bold font-mono" style={{ color: pingColor }}>
-                    {pingMs !== null ? `${pingMs} мс` : "—"}
-                  </p>
-                  <p className="text-[10px] mt-0.5" style={{ color: pingColor, opacity: 0.75 }}>
-                    {pingLabel}
-                  </p>
-                </>
-              )}
-            </div>
-
-            <div
-              className="rounded-xl p-3"
-              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
-            >
-              <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-                <Clock className="h-3 w-3" /> Стоимость
-              </p>
-              <p className="text-lg font-bold font-mono text-white">
-                {host.pricePerMinuteLzt} LZT
-              </p>
-              <p className="text-[10px] text-slate-500 mt-0.5">
-                в минуту · {host.pricePerMinuteLzt * 60} LZT/час
-              </p>
-            </div>
-          </div>
-
-          <div
-            className="rounded-xl p-3"
-            style={{ background: "rgba(14,165,233,0.05)", border: "1px solid rgba(14,165,233,0.12)" }}
-          >
-            <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Доступно для игры</p>
-            <div className="space-y-1.5 text-xs">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-sky-400 inline-block" />
-                  Игровой баланс
-                </span>
-                <span className="font-mono text-white">{(wallet?.internalBalanceLzt ?? 0).toLocaleString("ru-RU")} LZT</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
-                  К выводу
-                </span>
-                <span className="font-mono text-white">{(wallet?.withdrawableBalanceLzt ?? 0).toLocaleString("ru-RU")} LZT</span>
-              </div>
-              {creditAvailable > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400">Кредит (не для claim)</span>
-                  <span className="font-mono text-slate-500">+{creditAvailable.toLocaleString("ru-RU")} LZT</span>
-                </div>
-              )}
-              <div
-                className="flex justify-between items-center pt-1.5 border-t"
-                style={{ borderColor: "rgba(14,165,233,0.15)" }}
-              >
-                <span className="text-slate-300 font-medium">Для старта сессии</span>
-                <span className="font-mono font-bold text-sky-300">{totalAvailableLzt.toLocaleString("ru-RU")} LZT</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Block selector (only shown for paid sessions) */}
-          {host.pricePerMinuteLzt > 0 && (
-            <div
-              className="rounded-xl p-3"
-              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
-            >
-              <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1">
-                <Clock className="h-3 w-3" /> Блок времени
-              </p>
-              <div className="grid grid-cols-4 gap-1.5">
-                <button
-                  className="rounded-lg py-2 text-xs font-medium transition-all"
-                  style={blockChoice === "unlimited"
-                    ? { background: "#0ea5e9", color: "#fff", border: "1px solid #0ea5e9" }
-                    : { background: "transparent", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }}
-                  onClick={() => setBlockChoice("unlimited")}
-                >
-                  ∞
-                </button>
-                {blockOptions.map((opt) => {
-                  const cost = opt.mins * host.pricePerMinuteLzt;
-                  const affordable = totalAvailableLzt >= cost;
-                  return (
-                    <button
-                      key={opt.mins}
-                      className="rounded-lg py-1.5 text-xs font-medium transition-all"
-                      style={blockChoice === String(opt.mins)
-                        ? { background: "#0ea5e9", color: "#fff", border: "1px solid #0ea5e9" }
-                        : !affordable
-                          ? { background: "transparent", color: "#475569", border: "1px solid rgba(255,255,255,0.04)", cursor: "not-allowed" }
-                          : { background: "transparent", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }}
-                      onClick={() => affordable && setBlockChoice(String(opt.mins) as "10" | "15" | "25")}
-                      disabled={!affordable}
-                    >
-                      <div>{opt.label}</div>
-                      <div className="text-[9px] opacity-70">{cost.toLocaleString("ru-RU")} LZT</div>
-                    </button>
-                  );
-                })}
-              </div>
-              {blockCost !== null && (
-                <p className="text-[10px] text-slate-500 mt-2">
-                  Стоимость блока: <span className="text-sky-400 font-mono">{blockCost.toLocaleString("ru-RU")} LZT</span> — резервируется заранее, остаток возвращается.
-                </p>
-              )}
-            </div>
-          )}
-
-          <div
-            className="rounded-xl px-4 py-3 flex items-center justify-between"
-            style={{
-              background: minsAvailable >= 30
-                ? "rgba(45,212,191,0.07)"
-                : minsAvailable >= 5
-                ? "rgba(234,179,8,0.07)"
-                : "rgba(239,68,68,0.07)",
-              border: `1px solid ${minsAvailable >= 30 ? "rgba(45,212,191,0.2)" : minsAvailable >= 5 ? "rgba(234,179,8,0.2)" : "rgba(239,68,68,0.2)"}`,
-            }}
-          >
-            <div>
-              <p className="text-[10px] text-slate-500 uppercase tracking-wider">Сможешь играть</p>
-              <p
-                className="text-2xl font-extrabold font-mono mt-0.5"
-                style={{
-                  color: minsAvailable >= 30 ? "#2dd4bf" : minsAvailable >= 5 ? "#eab308" : "#ef4444",
-                }}
-              >
-                {minsAvailable >= 9999 ? "∞" : formatDuration(minsAvailable)}
-              </p>
-            </div>
-            {minsAvailable < 5 && (
-              <Link href="/wallet">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs border-white/10 text-slate-300"
-                  onClick={onClose}
-                >
-                  Пополнить
-                </Button>
-              </Link>
-            )}
-          </div>
-        </div>
-
-        <div className="px-5 pb-5">
-          <Button
-            className="w-full h-11 font-bold text-sm rounded-xl"
-            style={{ background: canStart ? "#0ea5e9" : "#1e293b", color: canStart ? "#fff" : "#64748b" }}
-            onClick={() => onConfirm(selectedBlockMins ?? undefined)}
-            disabled={!canStart}
-          >
-            {!canStart
-              ? (!blockAffordable ? "Недостаточно для блока" : "Недостаточно баланса")
-              : blockCost !== null
-                ? `Зарезервировать ${blockCost.toLocaleString("ru-RU")} LZT и начать`
-                : "Начать игру"}
-            {canStart && <ArrowRight className="ml-2 h-4 w-4" />}
-          </Button>
         </div>
       </div>
     </div>

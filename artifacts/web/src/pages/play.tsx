@@ -20,10 +20,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Gamepad2, AlertCircle, Loader2, Wifi, WifiOff, VolumeX, Clock, TrendingDown, Activity, RefreshCw, Clapperboard, Settings2, X, Layers, ExternalLink, FlaskConical } from "lucide-react";
 import { WebGLVideoShader, SHADER_PRESETS, type PresetKey } from "@/components/webgl-video-shader";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 import { TouchOverlay } from "@/components/TouchOverlay";
 import { KeyboardOverlay } from "@/components/KeyboardOverlay";
+import { PreSessionScreen } from "@/components/pre-session-screen";
 import { toast } from "sonner";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
 import {
@@ -37,12 +36,8 @@ import {
   type PaymentSource,
   parseBlockMinutesParam,
   resolveGameBrowserHostUrl,
-  resolveCoverImageUrl,
   isTestBrowserSession as checkTestBrowserSession,
   computeRatePerMinLzt,
-  computeSourceBalance,
-  computeMinutesAffordable,
-  needsSessionTopUp,
   buildClipFilename,
   getControlRejectMessage,
   buildPlayerSignalWsUrl,
@@ -877,48 +872,38 @@ export default function Play() {
   }, [session?.id, playerToken, playerWalletToken, cleanupConnection, connectWs, triggerIceRestart, initClipRecorder]);
 
   useEffect(() => {
-    if (
-      !sessionId ||
-      sessionStatus === "ended" ||
-      !playerWalletToken ||
-      hasClaimed ||
-      claimSession.isPending ||
-      isTestBrowserSession
-    ) {
-      return;
-    }
     if (sessionClaimedBy) {
       setHasClaimed(true);
-      return;
     }
-    claimSession.mutate(
-      {
-        playerToken,
-        data: { playerWalletToken, paymentSource, ...(blockMinutesParam ? { blockMinutes: blockMinutesParam } : {}) },
-      },
-      {
-        onSuccess: () => {
-          setHasClaimed(true);
-          setClaimError(null);
+  }, [sessionClaimedBy]);
+
+  const handlePrepConfirm = useCallback(
+    (blockMins?: 10 | 15 | 25) => {
+      if (!playerToken || !playerWalletToken || claimSession.isPending) return;
+      setClaimError(null);
+      claimSession.mutate(
+        {
+          playerToken,
+          data: {
+            playerWalletToken,
+            paymentSource,
+            ...(blockMins ? { blockMinutes: blockMins } : {}),
+          },
         },
-        onError: (err: unknown) => {
-          setClaimError(formatApiError(err, "Не удалось занять сессию. Попробуй ещё раз."));
-          setShowPaymentOptions(true);
+        {
+          onSuccess: () => {
+            setHasClaimed(true);
+            setClaimError(null);
+          },
+          onError: (err: unknown) => {
+            setClaimError(formatApiError(err, "Не удалось занять сессию. Попробуй ещё раз."));
+            setShowPaymentOptions(true);
+          },
         },
-      },
-    );
-  }, [
-    sessionId,
-    sessionStatus,
-    sessionClaimedBy,
-    playerWalletToken,
-    hasClaimed,
-    claimSession,
-    playerToken,
-    paymentSource,
-    blockMinutesParam,
-    isTestBrowserSession,
-  ]);
+      );
+    },
+    [playerToken, playerWalletToken, claimSession, paymentSource],
+  );
 
   useEffect(() => {
     if (
@@ -1306,219 +1291,48 @@ export default function Play() {
   }
 
   if (!isPlaying) {
-    const greenLzt = wallet?.withdrawableBalanceLzt ?? 0;
-    const blueLzt = wallet?.internalBalanceLzt ?? 0;
-    // Claim принимает только green/blue — не суммируем с кредитным лимитом.
-    const totalLzt = greenLzt + blueLzt;
-    const ratePerMinLzt = computeRatePerMinLzt(session.ratePerMinute);
-    const sourceBalance = computeSourceBalance(paymentSource, greenLzt, blueLzt);
-    const minutesAffordable = computeMinutesAffordable(sourceBalance, ratePerMinLzt);
-    const needsTopUp = needsSessionTopUp(sourceBalance, ratePerMinLzt, hasClaimed);
-    const connecting =
-      !needsTopUp &&
-      !claimError &&
-      (!playerWalletToken || claimSession.isPending || hasClaimed || session.status !== "ended");
-
     const s = session as typeof session & {
       gameCoverImageUrl?: string | null;
       gameTitle?: string | null;
+      hostDisplayName?: string;
+      pricePerMinuteLzt?: number;
+      isTest?: boolean;
     };
-    const cover = resolveCoverImageUrl(s.gameCoverImageUrl, import.meta.env.BASE_URL);
 
-    // Happy path: fullscreen «Подключаемся…» without payment radios.
-    if (connecting && !showPaymentOptions) {
+    if (hasClaimed) {
       return (
         <div
           className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 relative overflow-hidden"
           style={{ background: "#06090e" }}
         >
           <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_center,rgba(14,165,233,0.12),transparent_55%)]" />
-          {cover && (
-            <div
-              className="relative z-10 w-24 h-32 rounded-xl overflow-hidden mb-2"
-              style={{ border: "1px solid rgba(255,255,255,0.08)" }}
-            >
-              <img
-                src={cover}
-                alt={s.gameTitle || session.appName}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          )}
-          <h1 className="relative z-10 text-xl font-bold text-white text-center">
-            {s.gameTitle || session.appName}
-          </h1>
-          <div className="relative z-10 flex items-center gap-2 text-sky-400">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-sm font-medium">
-              {!playerWalletToken
-                ? "Создаём кошелёк…"
-                : claimSession.isPending || !hasClaimed
-                  ? "Занимаем сессию…"
-                  : "Подключаемся…"}
-            </span>
-          </div>
-          {ratePerMinLzt > 0 && (
-            <p className="relative z-10 text-xs text-slate-500">
-              {ratePerMinLzt} LZT/мин · {session.resolution} · {session.bitrateKbps} кбит/с
-            </p>
-          )}
+          <Loader2 className="relative z-10 h-8 w-8 animate-spin text-sky-400" />
+          <p className="relative z-10 text-sm text-slate-400">Подключаемся…</p>
         </div>
       );
     }
 
     return (
-      <div
-        className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
-        style={{ background: "#06090e" }}
-      >
-        <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_center,rgba(14,165,233,0.1),transparent_50%)]" />
-        <Card
-          className="w-full max-w-md relative z-10"
-          style={{
-            background: "#0a1018",
-            border: "1px solid rgba(14,165,233,0.2)",
-          }}
-        >
-          <CardHeader className="text-center pb-4">
-            {cover ? (
-              <div
-                className="w-28 h-36 mx-auto mb-4 rounded-xl overflow-hidden"
-                style={{ border: "1px solid rgba(255,255,255,0.08)" }}
-              >
-                <img src={cover} alt={s.appName} className="w-full h-full object-cover" />
-              </div>
-            ) : (
-              <Gamepad2 className="h-16 w-16 text-sky-400 mx-auto mb-6" />
-            )}
-            <CardTitle className="text-2xl font-bold tracking-tight mb-2 text-white">
-              {s.gameTitle || session.appName}
-            </CardTitle>
-            <div className="flex items-center justify-center gap-2 text-xs text-slate-500 font-mono flex-wrap">
-              <Badge variant="outline" className="border-white/10 text-slate-400">
-                {session.resolution}
-              </Badge>
-              <Badge variant="outline" className="border-white/10 text-slate-400">
-                {session.bitrateKbps} кбит/с
-              </Badge>
-              {(session as any).isTest ? (
-                <Badge
-                  variant="outline"
-                  className="border-violet-400/40 text-violet-300"
-                  data-testid="badge-test-session"
-                >
-                  Тест-сессия · бесплатно
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="border-sky-400/30 text-sky-300">
-                  {ratePerMinLzt} LZT/мин
-                </Badge>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="rounded-lg p-3 text-center" style={{ background: "rgba(255,255,255,0.03)" }}>
-              <p className="text-xs text-slate-500 mb-1">Доступно (игровой + к выводу)</p>
-              <p className="text-lg font-mono font-bold text-white">
-                {totalLzt.toLocaleString("ru-RU")} LZT
-              </p>
-              {ratePerMinLzt > 0 && (
-                <p className="text-[11px] text-slate-500 mt-1">~{minutesAffordable} мин игры</p>
-              )}
-            </div>
-
-            {(claimError || showPaymentOptions) && (
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  className="text-xs text-sky-400 hover:text-sky-300"
-                  onClick={() => setShowPaymentOptions((v) => !v)}
-                >
-                  {showPaymentOptions ? "Скрыть способ оплаты" : "Выбрать способ оплаты"}
-                </button>
-                {showPaymentOptions && (
-                  <RadioGroup
-                    value={paymentSource}
-                    onValueChange={(v) => setPaymentSource(v as PaymentSource)}
-                    className="grid grid-cols-3 gap-2"
-                    disabled={hasClaimed}
-                  >
-                    {(["auto", "green", "blue"] as PaymentSource[]).map((src) => (
-                      <div key={src}>
-                        <RadioGroupItem value={src} id={`src-${src}`} className="peer sr-only" />
-                        <Label
-                          htmlFor={`src-${src}`}
-                          className="flex flex-col items-center justify-center rounded-md p-2 cursor-pointer text-xs text-slate-300"
-                          style={{
-                            background:
-                              paymentSource === src
-                                ? "rgba(14,165,233,0.12)"
-                                : "rgba(255,255,255,0.02)",
-                            border:
-                              paymentSource === src
-                                ? "2px solid #0ea5e9"
-                                : "2px solid rgba(255,255,255,0.06)",
-                          }}
-                        >
-                          <span className="font-bold">
-                            {src === "auto" ? "Авто" : src === "green" ? "К выводу" : "Игровой"}
-                          </span>
-                        </Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
-                )}
-              </div>
-            )}
-
-            {claimError && (
-              <div
-                className="p-3 rounded-md text-sm"
-                style={{
-                  background: "rgba(239,68,68,0.1)",
-                  border: "1px solid rgba(239,68,68,0.3)",
-                  color: "#fca5a5",
-                }}
-              >
-                {claimError}
-              </div>
-            )}
-
-            {needsTopUp ? (
-              <Link href="/wallet" className="block">
-                <Button
-                  className="w-full h-12 text-base font-bold"
-                  style={{ background: "#0ea5e9", color: "#fff" }}
-                >
-                  Пополнить кошелёк
-                </Button>
-              </Link>
-            ) : (
-              <Button
-                className="w-full h-12 text-base font-bold"
-                style={{ background: "#0ea5e9", color: "#fff" }}
-                onClick={() => {
-                  setClaimError(null);
-                  setShowPaymentOptions(false);
-                  void startConnection();
-                }}
-                disabled={session.status === "ended" || claimSession.isPending}
-              >
-                {claimSession.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Подключаемся…
-                  </>
-                ) : session.status === "ended" ? (
-                  "Сессия завершена"
-                ) : (
-                  "Подключиться и играть"
-                )}
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <PreSessionScreen
+        hostDisplayName={s.hostDisplayName ?? "Хост"}
+        gameTitle={s.gameTitle || session.appName}
+        coverImageUrl={s.gameCoverImageUrl}
+        pricePerMinuteLzt={s.pricePerMinuteLzt ?? computeRatePerMinLzt(session.ratePerMinute)}
+        resolution={session.resolution}
+        bitrateKbps={session.bitrateKbps}
+        wallet={wallet}
+        initialBlockMinutes={blockMinutesParam}
+        isTest={s.isTest}
+        claimError={claimError}
+        isClaiming={claimSession.isPending}
+        sessionEnded={session.status === "ended"}
+        paymentSource={paymentSource}
+        onPaymentSourceChange={setPaymentSource}
+        showPaymentOptions={showPaymentOptions}
+        onTogglePaymentOptions={() => setShowPaymentOptions((v) => !v)}
+        onConfirm={handlePrepConfirm}
+        onBackHref="/games"
+      />
     );
   }
 
