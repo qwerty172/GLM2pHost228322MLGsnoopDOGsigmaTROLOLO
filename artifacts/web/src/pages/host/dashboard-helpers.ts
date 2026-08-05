@@ -622,6 +622,82 @@ export function evaluateHostReadiness(opts: {
   };
 }
 
+export type HostDiagnosticActionKind =
+  | "refresh-page"
+  | "download-agent"
+  | "update-agent"
+  | "open-agent"
+  | "scroll-bind"
+  | "add-game"
+  | "none";
+
+export type HostDiagnosticAction = {
+  checkId: string;
+  actionLabel: string;
+  kind: HostDiagnosticActionKind;
+};
+
+/** One concrete UI action per failed diagnostic check (U-18). */
+export function resolveHostDiagnosticAction(checkId: string): HostDiagnosticAction {
+  switch (checkId) {
+    case "api":
+      return { checkId, actionLabel: "Обновить страницу", kind: "refresh-page" };
+    case "heartbeat":
+      return { checkId, actionLabel: "Скачать агент", kind: "download-agent" };
+    case "local-agent":
+      return { checkId, actionLabel: "Скачать агент", kind: "download-agent" };
+    case "agent-version":
+      return { checkId, actionLabel: "Обновить агент", kind: "update-agent" };
+    case "bind":
+      return { checkId, actionLabel: "Получить код привязки", kind: "scroll-bind" };
+    case "games":
+      return { checkId, actionLabel: "Добавить игру", kind: "add-game" };
+    case "session":
+      return { checkId, actionLabel: "Открыть агент", kind: "open-agent" };
+    case "input":
+      return { checkId, actionLabel: "Перезапустить агент", kind: "none" };
+    default:
+      return { checkId, actionLabel: "Обновить проверку", kind: "none" };
+  }
+}
+
+export function findFirstFailedDiagnosticAction(
+  checks: HostReadinessCheck[],
+): HostDiagnosticAction | null {
+  const failed = checks.find((c) => !c.ok);
+  return failed ? resolveHostDiagnosticAction(failed.id) : null;
+}
+
+/**
+ * Live snapshot from dashboard props before async probe (U-18).
+ * Input check is optimistic when local agent responds.
+ */
+export function buildLiveHostDiagnostics(opts: {
+  apiOk: boolean;
+  agentKeyBound: boolean;
+  heartbeat: HeartbeatState;
+  agent: AgentState;
+  enabledGamesCount: number;
+  hasActiveSession: boolean;
+  goOnlineAck?: boolean;
+  minSupportedAgentVersion?: string;
+}): HostReadinessResult {
+  const localAgentReachable = opts.agent.status === "online";
+  const localInputOk = localAgentReachable;
+  return evaluateHostReadiness({
+    apiOk: opts.apiOk,
+    agentKeyBound: opts.agentKeyBound,
+    heartbeat: opts.heartbeat,
+    agent: opts.agent,
+    enabledGamesCount: opts.enabledGamesCount,
+    hasActiveSession: opts.hasActiveSession,
+    goOnlineAck: opts.goOnlineAck,
+    localAgentReachable,
+    localInputOk,
+    minSupportedAgentVersion: opts.minSupportedAgentVersion,
+  });
+}
+
 /** Download a personalized host-agent ZIP (Bearer token via customFetch). */
 export async function downloadHostAgentBundle(): Promise<void> {
   const blob = await downloadHostAgentZip();

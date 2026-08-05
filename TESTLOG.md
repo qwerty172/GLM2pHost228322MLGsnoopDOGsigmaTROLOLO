@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-162 (2026-08-05 17:55 UTC) {#marathon-m-162}
+
+| Проверка | Результат |
+|---|---|
+| host-dashboard.test.mjs (U-18) | PASS — resolveHostDiagnosticAction, buildLiveHostDiagnostics |
+| node --test test/host-dashboard.test.mjs | PASS (29 tests) |
+
+**Изменения (U-18):** `HostDiagnosticsCard` объединяет API, heartbeat, агент, привязку, игру и сессию; у каждой ошибки одно действие; удалены разрозненные symptom/troubleshoot и отдельные статус-карточки; события агента встроены в карточку.
+
+**Следующий pick:** M-163 (U-19 копирование диагностики без секретов).
+
 ## Marathon M-161 (2026-08-05 17:52 UTC) {#marathon-m-161}
 
 | Проверка | Результат |

@@ -26,6 +26,9 @@ const {
   readHostAgentDownloaded,
   markHostAgentDownloaded,
   evaluateHostReadiness,
+  resolveHostDiagnosticAction,
+  findFirstFailedDiagnosticAction,
+  buildLiveHostDiagnostics,
   compareAgentVersions,
   evaluateAgentVersionCompatibility,
   isAgentVersionBlockingStream,
@@ -427,4 +430,41 @@ test("evaluateHostReadiness blocks outdated agent version (U-17)", () => {
 test("compareAgentVersions orders semver parts (U-17)", () => {
   assert.equal(compareAgentVersions("0.2.0", "0.1.9"), 1);
   assert.equal(compareAgentVersions("0.0.9", "0.1.0"), -1);
+});
+
+test("resolveHostDiagnosticAction maps each failed check to one action (U-18)", () => {
+  const api = resolveHostDiagnosticAction("api");
+  assert.equal(api.kind, "refresh-page");
+  assert.match(api.actionLabel, /Обновить/);
+
+  const bind = resolveHostDiagnosticAction("bind");
+  assert.equal(bind.kind, "scroll-bind");
+
+  const games = resolveHostDiagnosticAction("games");
+  assert.equal(games.kind, "add-game");
+});
+
+test("findFirstFailedDiagnosticAction returns action for first failing check (U-18)", () => {
+  const action = findFirstFailedDiagnosticAction([
+    { id: "api", ok: true, label: "API" },
+    { id: "heartbeat", ok: false, label: "Heartbeat" },
+    { id: "bind", ok: false, label: "Bind" },
+  ]);
+  assert.equal(action?.checkId, "heartbeat");
+  assert.equal(action?.kind, "download-agent");
+});
+
+test("buildLiveHostDiagnostics aggregates props into readiness snapshot (U-18)", () => {
+  const live = buildLiveHostDiagnostics({
+    apiOk: true,
+    agentKeyBound: true,
+    heartbeat: freshHeartbeat,
+    agent: onlineAgent,
+    enabledGamesCount: 1,
+    hasActiveSession: false,
+    goOnlineAck: true,
+    minSupportedAgentVersion: "0.1.0",
+  });
+  assert.equal(live.ready, true);
+  assert.ok(live.checks.length >= 7);
 });

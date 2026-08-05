@@ -57,7 +57,6 @@ import {
   Wallet,
   Banknote,
   Wifi,
-  WifiOff,
   ExternalLink,
   FlaskConical,
   Plus,
@@ -70,8 +69,6 @@ import {
   MemoryStick,
   Tag,
   Unlink,
-  Volume2,
-  VolumeX,
   KeyRound,
   RefreshCw,
   ShieldCheck,
@@ -88,9 +85,11 @@ import {
   type HeartbeatState,
   type AudioMode,
   AUDIO_MODE_LABELS,
-  getAgentDiagnosis,
   resolveHeartbeatState,
   agentNeedsAdvancedPanel,
+  buildLiveHostDiagnostics,
+  findFirstFailedDiagnosticAction,
+  resolveHostDiagnosticAction,
   getAgentEventLevelStyle,
   buildPlayerPlayLink,
   resolveTestSessionOpenTarget,
@@ -130,109 +129,17 @@ async function pingAgent(): Promise<AgentState> {
   };
 }
 
-function AgentSymptomTable({
-  agent,
-  heartbeat,
-}: {
-  agent: AgentState;
-  heartbeat: HeartbeatState;
-}) {
-  const rows = getAgentDiagnosis(agent, heartbeat);
-  if (rows.length === 0) return null;
-
-  return (
-    <div
-      className="mt-3 overflow-x-auto rounded-lg border border-white/5"
-      data-testid="agent-symptom-table"
-    >
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="border-b border-white/5 text-slate-500">
-            <th className="px-3 py-2 text-left font-medium">Симптом</th>
-            <th className="px-3 py-2 text-left font-medium">Вероятная причина</th>
-            <th className="px-3 py-2 text-left font-medium">Что сделать</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.symptom} className="border-b border-white/5 last:border-0">
-              <td className="px-3 py-2 text-slate-300 align-top">{row.symptom}</td>
-              <td className="px-3 py-2 text-slate-400 align-top">{row.likelyCause}</td>
-              <td className="px-3 py-2 text-sky-300 align-top">{row.action}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function AgentTroubleshootChecklist({
-  agent,
-  heartbeat,
-}: {
-  agent?: AgentState;
-  heartbeat?: HeartbeatState;
-}) {
-  const showPortHint =
-    !agent ||
-    agent.status === "offline" ||
-    heartbeat?.status === "stale" ||
-    heartbeat?.status === "never";
-  const showAdminHint =
-    !agent || agent.status !== "online" || heartbeat?.status !== "fresh";
-  const defaultOpen =
-    agent?.status === "offline" || heartbeat?.status === "stale";
-
-  return (
-    <details
-      className="w-full mt-2"
-      data-testid="agent-troubleshoot"
-      open={defaultOpen}
-    >
-      <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-300 select-none">
-        Если не работает — чеклист
-      </summary>
-      <ul className="mt-2 space-y-1 text-xs text-slate-400 list-disc pl-5">
-        <li>
-          Установлен <span className="text-slate-300">Node.js 20+</span> — проверь командой{" "}
-          <span className="font-mono text-sky-400">node --version</span>
-        </li>
-        <li>
-          Агент запущен через <span className="font-mono text-sky-400">start.bat</span> и не закрыт
-          (иконка в трее)
-        </li>
-        {showAdminHint && (
-          <li>
-            Для игр с античитом запускай <span className="font-mono text-sky-400">start.bat</span>{" "}
-            <span className="text-slate-300">от имени администратора</span>
-          </li>
-        )}
-        {showPortHint && (
-          <li>
-            Файрвол/антивирус не блокирует порты{" "}
-            <span className="font-mono text-sky-400">18080–18083</span> и исходящие соединения агента
-          </li>
-        )}
-        <li>
-          В агенте должна быть надпись «Вход выполнен» (токен из ZIP подставляется сам)
-        </li>
-        {heartbeat?.status === "stale" && (
-          <li>
-            Если агент завис — закрой через трей и перезапусти{" "}
-            <span className="font-mono text-sky-400">start.bat</span>
-          </li>
-        )}
-      </ul>
-    </details>
-  );
-}
-
 // ── Agent telemetry events ────────────────────────────────────────────────
 // The agent pushes startup/error events to the server; this card makes them
 // visible on the dashboard so a silently-dying agent still leaves a trace.
 
-function AgentEventsCard({ hostToken }: { hostToken: string }) {
+function AgentEventsCard({
+  hostToken,
+  embedded = false,
+}: {
+  hostToken: string;
+  embedded?: boolean;
+}) {
   const { data: events, isLoading, refetch, isRefetching } = useGetHostAgentEvents(
     hostToken,
     {
@@ -247,6 +154,78 @@ function AgentEventsCard({ hostToken }: { hostToken: string }) {
   const hasErrors = (events ?? []).some(
     (e) => e.level === "error" || e.level === "fatal",
   );
+
+  const header = (
+    <div className="flex items-center justify-between gap-2 mb-2">
+      <div>
+        <p className="text-sm text-white flex items-center gap-2 font-medium">
+          <Activity className="h-4 w-4 text-sky-400" />
+          События агента
+          {hasErrors && (
+            <Badge className="bg-red-500/15 text-red-300 border border-red-500/30 text-[10px]">
+              есть ошибки
+            </Badge>
+          )}
+        </p>
+        <p className="text-xs text-slate-500 mt-0.5">
+          Агент сам отправляет сюда свои ошибки — даже если окно закрылось без сообщений.
+        </p>
+      </div>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-7 gap-1.5 text-xs text-slate-400 hover:text-white shrink-0"
+        onClick={() => refetch()}
+        disabled={isRefetching}
+        data-testid="button-refresh-agent-events"
+      >
+        <RefreshCw className={`h-3 w-3 ${isRefetching ? "animate-spin" : ""}`} />
+        Обновить
+      </Button>
+    </div>
+  );
+
+  const body = isLoading ? (
+    <Skeleton className="h-16 w-full" />
+  ) : !events || events.length === 0 ? (
+    <p className="text-xs text-slate-500 py-2" data-testid="text-no-agent-events">
+      Пока нет событий. Запусти start.bat на своём ПК — здесь появится статус запуска
+      (или причина падения).
+    </p>
+  ) : (
+    <ul className="space-y-1.5 max-h-56 overflow-y-auto pr-1" data-testid="list-agent-events">
+      {events.map((e) => {
+        const style = getAgentEventLevelStyle(e.level);
+        return (
+          <li key={e.id} className="flex items-start gap-2 text-xs">
+            <span
+              className={`shrink-0 mt-0.5 px-1.5 py-0.5 rounded border font-mono text-[10px] font-bold ${style.badge}`}
+            >
+              {style.label}
+            </span>
+            <span className="text-slate-300 break-all whitespace-pre-wrap flex-1">
+              {localizeAgentEventMessage(e.message)}
+              {e.agentVersion && (
+                <span className="text-slate-600 ml-1">v{e.agentVersion}</span>
+              )}
+            </span>
+            <span className="shrink-0 text-slate-600 font-mono text-[10px] mt-0.5">
+              {formatDistanceToNow(new Date(e.createdAt), { addSuffix: true, locale: ru })}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+
+  if (embedded) {
+    return (
+      <div data-testid="agent-events-embedded">
+        {header}
+        {body}
+      </div>
+    );
+  }
 
   return (
     <Card
@@ -283,312 +262,7 @@ function AgentEventsCard({ hostToken }: { hostToken: string }) {
           Агент сам отправляет сюда свои ошибки — даже если окно закрылось без сообщений.
         </CardDescription>
       </CardHeader>
-      <CardContent className="pt-0">
-        {isLoading ? (
-          <Skeleton className="h-16 w-full" />
-        ) : !events || events.length === 0 ? (
-          <p className="text-xs text-slate-500 py-2" data-testid="text-no-agent-events">
-            Пока нет событий. Запусти start.bat на своём ПК — здесь появится статус запуска
-            (или причина падения).
-          </p>
-        ) : (
-          <ul className="space-y-1.5 max-h-56 overflow-y-auto pr-1" data-testid="list-agent-events">
-            {events.map((e) => {
-              const style = getAgentEventLevelStyle(e.level);
-              return (
-                <li key={e.id} className="flex items-start gap-2 text-xs">
-                  <span
-                    className={`shrink-0 mt-0.5 px-1.5 py-0.5 rounded border font-mono text-[10px] font-bold ${style.badge}`}
-                  >
-                    {style.label}
-                  </span>
-                  <span className="text-slate-300 break-all whitespace-pre-wrap flex-1">
-                    {localizeAgentEventMessage(e.message)}
-                    {e.agentVersion && (
-                      <span className="text-slate-600 ml-1">v{e.agentVersion}</span>
-                    )}
-                  </span>
-                  <span className="shrink-0 text-slate-600 font-mono text-[10px] mt-0.5">
-                    {formatDistanceToNow(new Date(e.createdAt), { addSuffix: true, locale: ru })}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function AgentStatusCard({
-  agent,
-  heartbeat,
-  minSupportedAgentVersion,
-}: {
-  agent: AgentState;
-  heartbeat: HeartbeatState;
-  minSupportedAgentVersion?: string;
-}) {
-  const handleDownloadAgent = () => {
-    void downloadHostAgentBundle().catch(() => {
-      toast.error("Не удалось скачать агент");
-    });
-  };
-
-  // A fresh server-side heartbeat means the agent is running (possibly on
-  // another PC) even if the local ping to localhost:18080 fails.
-  if (agent.status === "offline" && heartbeat.status === "fresh") {
-    return (
-      <Card
-        style={{
-          background: "rgba(16,185,129,0.06)",
-          border: "1px solid rgba(16,185,129,0.25)",
-        }}
-      >
-        <CardContent className="py-4 flex flex-wrap items-center gap-3" data-testid="agent-status-heartbeat">
-          <span className="flex items-center gap-1.5">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
-            </span>
-            <span className="text-sm font-semibold text-emerald-300">Агент онлайн</span>
-            <span className="text-xs text-slate-500">
-              (на другом ПК · был на связи{" "}
-              {formatDistanceToNow(new Date(heartbeat.lastSeenAt), { addSuffix: true, locale: ru })})
-            </span>
-          </span>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (agent.status === "checking") {
-    return (
-      <Card style={cardStyle}>
-        <CardContent className="py-4 flex items-center gap-3">
-          <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
-          <span className="text-sm text-slate-500">Проверяем агент…</span>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (heartbeat.status === "stale" && agent.status !== "online") {
-    return (
-      <Card
-        style={{
-          background: "rgba(245,158,11,0.06)",
-          border: "1px solid rgba(245,158,11,0.3)",
-        }}
-      >
-        <CardHeader className="pb-3" data-testid="agent-status-stale">
-          <CardTitle className="flex items-center gap-2 text-base text-amber-200 mb-1">
-            <WifiOff className="h-4 w-4 text-amber-400" />
-            Агент не отвечает
-          </CardTitle>
-          <CardDescription className="text-slate-400 text-xs">
-            Последний сигнал{" "}
-            {formatDistanceToNow(new Date(heartbeat.lastSeenAt), { addSuffix: true, locale: ru })}
-            . Возможно, агент завис или потерял сеть.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <AgentSymptomTable agent={agent} heartbeat={heartbeat} />
-          <AgentTroubleshootChecklist agent={agent} heartbeat={heartbeat} />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (agent.status === "online") {
-    const versionCheck =
-      minSupportedAgentVersion &&
-      evaluateAgentVersionCompatibility(agent.version, minSupportedAgentVersion);
-    const versionBlocked = versionCheck && !versionCheck.compatible;
-
-    if (versionBlocked) {
-      return (
-        <Card
-          style={{
-            background: "rgba(245,158,11,0.06)",
-            border: "1px solid rgba(245,158,11,0.35)",
-          }}
-          data-testid="agent-status-outdated"
-        >
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base text-amber-200 mb-1">
-              <Download className="h-4 w-4 text-amber-400" />
-              Версия агента устарела
-            </CardTitle>
-            <CardDescription className="text-slate-400 text-xs">
-              {versionCheck.message}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0 flex flex-wrap items-center gap-3">
-            <span className="text-xs text-slate-500 font-mono">
-              Сейчас v{agent.version} · нужна v{versionCheck.minSupportedVersion}+
-            </span>
-            <a
-              href={HOST_AGENT_EXE_DOWNLOAD_URL}
-              className="ml-auto"
-              data-testid="button-update-agent"
-            >
-              <Button
-                size="sm"
-                className="gap-1.5 h-8 text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white"
-              >
-                <Download className="h-3 w-3" />
-                Обновить агент
-              </Button>
-            </a>
-          </CardContent>
-        </Card>
-      );
-    }
-
-    return (
-      <Card
-        style={{
-          background: "rgba(16,185,129,0.06)",
-          border: "1px solid rgba(16,185,129,0.25)",
-        }}
-      >
-        <CardContent className="py-4 flex flex-wrap items-center gap-3" data-testid="agent-status-online">
-          <span className="flex items-center gap-1.5">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
-            </span>
-            <span className="text-sm font-semibold text-emerald-300">
-              Агент онлайн
-            </span>
-            <span className="text-xs text-slate-500 font-mono">
-              v{agent.version}
-            </span>
-            <span className="flex items-center gap-1 text-xs font-mono text-slate-400 ml-1">
-              {agent.audioMode === "off" ? (
-                <VolumeX className="h-3 w-3 text-slate-600" />
-              ) : (
-                <Volume2 className="h-3 w-3 text-sky-400" />
-              )}
-              {AUDIO_MODE_LABELS[agent.audioMode]}
-            </span>
-          </span>
-          <div className="flex gap-2 ml-auto">
-            <a href="decenthub://open" target="_blank" rel="noreferrer">
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5 h-8 text-xs border-emerald-500/30 text-emerald-300 hover:text-white hover:border-emerald-400"
-              >
-                <ExternalLink className="h-3 w-3" />
-                Открыть агент
-              </Button>
-            </a>
-            <a
-              href={`http://127.0.0.1:${agent.port}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Button
-                size="sm"
-                variant="ghost"
-                className="gap-1.5 h-8 text-xs text-slate-400 hover:text-white"
-              >
-                <Wifi className="h-3 w-3" />
-                localhost:{agent.port}
-              </Button>
-            </a>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card
-      style={{
-        background: "rgba(14,165,233,0.05)",
-        border: "1px solid rgba(14,165,233,0.2)",
-      }}
-    >
-      <CardHeader className="pb-3" data-testid="agent-status-offline">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-base text-white mb-1">
-              <WifiOff className="h-4 w-4 text-sky-400" />
-              Агент не запущен
-            </CardTitle>
-            <CardDescription className="text-slate-400 text-xs">
-              Скачай архив, распакуй и запусти{" "}
-              <span className="font-mono text-sky-400">start.bat</span> на своём Windows-ПК.
-            </CardDescription>
-          </div>
-          <div className="flex flex-col items-end gap-1 shrink-0">
-            <Button
-              size="sm"
-              className="gap-2 h-8 text-xs font-semibold"
-              style={{ background: "#0ea5e9", color: "#fff" }}
-              data-testid="link-download-host-agent"
-              onClick={handleDownloadAgent}
-            >
-              <Download className="h-3.5 w-3.5" />
-              Скачать агент
-            </Button>
-            <a
-              href={HOST_AGENT_EXE_DOWNLOAD_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[11px] text-slate-500 hover:text-sky-400 underline-offset-2 hover:underline"
-              data-testid="link-download-host-agent-exe"
-            >
-              Или .exe без Node.js (нужен код привязки в «Если не работает»)
-            </a>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <ol className="space-y-1.5 text-xs text-slate-400">
-          {[
-            {
-              n: "1",
-              text: "Нажми «Скачать агент» выше и распакуй ZIP (например C:\\CloudAgent) — токен и адрес платформы уже внутри",
-            },
-            {
-              n: "2",
-              text: "Дважды кликни start.bat — при первом запуске установит зависимости (~2 мин)",
-            },
-            {
-              n: "3",
-              text: "Дождись «Агент онлайн» на этой странице — в агенте будет «Вход выполнен»",
-            },
-            {
-              n: "4",
-              text: "Добавь игру в библиотеку (путь к .exe) и в агенте нажми «Выйти в онлайн»",
-            },
-            {
-              n: "5",
-              text: "Создай тест-сессию и проверь, что картинка и управление работают",
-            },
-          ].map((s) => (
-            <li key={s.n} className="flex items-start gap-2">
-              <span
-                className="shrink-0 w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center mt-0.5"
-                style={{ background: "rgba(14,165,233,0.15)", color: "#38bdf8" }}
-              >
-                {s.n}
-              </span>
-              <span>{s.text}</span>
-            </li>
-          ))}
-        </ol>
-        <p className="mt-3 text-[11px] text-slate-600">
-          Нужен Node.js 20+ · Windows 10/11 · Запусти от имени администратора, если игра не захватывается
-        </p>
-        <AgentSymptomTable agent={agent} heartbeat={heartbeat} />
-        <AgentTroubleshootChecklist agent={agent} heartbeat={heartbeat} />
-      </CardContent>
+      <CardContent className="pt-0">{body}</CardContent>
     </Card>
   );
 }
@@ -1076,6 +750,7 @@ function HostQuickStartCard({
           border: "1px solid rgba(16,185,129,0.3)",
         }}
         data-testid="host-quick-start"
+      id="host-quick-start"
       >
         <CardContent className="py-4 flex items-center gap-3">
           <Wifi className="h-5 w-5 text-emerald-400 shrink-0" />
@@ -1099,6 +774,7 @@ function HostQuickStartCard({
         border: "1px solid rgba(14,165,233,0.25)",
       }}
       data-testid="host-quick-start"
+      id="host-quick-start"
       data-guided-phase={guided.phase}
     >
       <CardHeader className="pb-3">
@@ -1168,9 +844,8 @@ function HostQuickStartCard({
             </div>
             <p className="text-xs text-slate-400">
               Запусти <span className="font-mono text-sky-400">start.bat</span> на Windows-ПК.
-              Окно уйдёт в трей — настройки открой по иконке в трее.
+              Окно уйдёт в трей — подробности в блоке «Диагностика» ниже.
             </p>
-            <AgentTroubleshootChecklist agent={agent} heartbeat={heartbeat} />
           </div>
         )}
 
@@ -1323,7 +998,7 @@ function AgentBindCodeCard({ hostToken, guided = false }: { hostToken: string; g
   if (guided) return body;
 
   return (
-    <Card style={cardStyle}>
+    <Card style={cardStyle} id="host-bind-code">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-white text-base">
           <KeyRound className="h-4 w-4 text-sky-400" />
@@ -1338,14 +1013,42 @@ function AgentBindCodeCard({ hostToken, guided = false }: { hostToken: string; g
   );
 }
 
-// ── Host readiness (U-14) ─────────────────────────────────────────────────
+// ── Unified host diagnostics (U-18) ───────────────────────────────────────
 
-function HostReadinessCheck({
+function formatDiagnosticCheckLabel(
+  check: { id: string; label: string },
+  agent: AgentState,
+  heartbeat: HeartbeatState,
+): string {
+  if (check.id === "heartbeat" && heartbeat.status === "fresh") {
+    return `${check.label} · ${formatDistanceToNow(new Date(heartbeat.lastSeenAt), {
+      addSuffix: true,
+      locale: ru,
+    })}`;
+  }
+  if (check.id === "heartbeat" && heartbeat.status === "stale") {
+    return `${check.label} · последний сигнал ${formatDistanceToNow(
+      new Date(heartbeat.lastSeenAt),
+      { addSuffix: true, locale: ru },
+    )}`;
+  }
+  if (check.id === "local-agent" && agent.status === "online") {
+    const audio =
+      agent.audioMode === "off"
+        ? AUDIO_MODE_LABELS.off
+        : AUDIO_MODE_LABELS[agent.audioMode];
+    return `${check.label} · v${agent.version}, ${audio}`;
+  }
+  return check.label;
+}
+
+function HostDiagnosticsCard({
   hostToken,
   agent,
   heartbeat,
   agentKeyBound,
   hasActiveSession,
+  libraryCount,
   minSupportedAgentVersion,
 }: {
   hostToken: string;
@@ -1353,17 +1056,36 @@ function HostReadinessCheck({
   heartbeat: HeartbeatState;
   agentKeyBound: boolean;
   hasActiveSession: boolean;
+  libraryCount: number;
   minSupportedAgentVersion?: string;
 }) {
   const [checking, setChecking] = useState(false);
+  const [probed, setProbed] = useState(false);
   const [result, setResult] = useState<HostReadinessResult | null>(null);
 
-  const runCheck = async () => {
+  const agentForLive =
+    agent.status === "checking" ? ({ status: "offline" } as AgentState) : agent;
+  const goOnlineAck = readHostGoOnlineAck();
+
+  const liveResult = buildLiveHostDiagnostics({
+    apiOk: true,
+    agentKeyBound,
+    heartbeat,
+    agent: agentForLive,
+    enabledGamesCount: libraryCount,
+    hasActiveSession,
+    goOnlineAck,
+    minSupportedAgentVersion,
+  });
+
+  const display = result ?? liveResult;
+  const failedAction = findFirstFailedDiagnosticAction(display.checks);
+
+  const runCheck = async (notify: boolean) => {
     setChecking(true);
-    setResult(null);
     try {
       let apiOk = false;
-      let enabledGamesCount = 0;
+      let enabledGamesCount = libraryCount;
       let serverHasActiveSession = hasActiveSession;
       let serverAgentKeyBound = agentKeyBound;
       let serverHeartbeatFresh = heartbeat.status === "fresh";
@@ -1390,7 +1112,7 @@ function HostReadinessCheck({
       const localProbe = await probeAgentReadiness({ force: true });
       const localAgentReachable = localProbe != null;
       const localInputOk = localProbe?.inputOk === true;
-      const goOnlineAck = readHostGoOnlineAck();
+      const ack = readHostGoOnlineAck();
 
       const heartbeatForEval: HeartbeatState = serverHeartbeatFresh
         ? heartbeat.status === "fresh"
@@ -1409,89 +1131,195 @@ function HostReadinessCheck({
               audioMode: (localProbe?.audioMode ?? "off") as AudioMode,
               port: localProbe?.port ?? 18080,
             }
-          : agent.status === "checking"
-            ? { status: "offline" }
-            : agent,
+          : agentForLive,
         enabledGamesCount,
         hasActiveSession: serverHasActiveSession,
-        goOnlineAck,
+        goOnlineAck: ack,
         localAgentReachable,
         localInputOk,
         minSupportedAgentVersion: serverMinVersion,
       });
 
       setResult(evaluated);
-      if (evaluated.ready) {
-        toast.success(evaluated.headline);
-      } else {
-        toast.error(evaluated.nextFix ?? evaluated.headline);
+      setProbed(true);
+      if (notify) {
+        if (evaluated.ready) {
+          toast.success(evaluated.headline);
+        } else {
+          toast.error(evaluated.nextFix ?? evaluated.headline);
+        }
       }
     } finally {
       setChecking(false);
     }
   };
 
-  return (
-    <Card style={cardStyle} data-testid="host-readiness-check">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-white text-base">
-          <ShieldCheck className="h-4 w-4 text-sky-400" />
-          Проверка готовности
-        </CardTitle>
-        <CardDescription className="text-slate-500 text-xs">
-          Одна кнопка проверяет API, агент, привязку, игру, сессию и локальный ввод.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <Button
-          size="sm"
-          className="gap-2 font-semibold"
-          style={{ background: "#0ea5e9", color: "#fff" }}
-          onClick={() => void runCheck()}
-          disabled={checking}
-          data-testid="button-check-host-readiness"
-        >
-          {checking ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <ShieldCheck className="h-3.5 w-3.5" />
-          )}
-          {checking ? "Проверяем…" : "Проверить готовность"}
-        </Button>
+  useEffect(() => {
+    void runCheck(false);
+  }, [hostToken]);
 
-        {result && (
-          <div
-            className="rounded-lg p-3 space-y-2 text-sm"
-            style={{
-              background: result.ready
-                ? "rgba(16,185,129,0.08)"
-                : "rgba(245,158,11,0.06)",
-              border: result.ready
-                ? "1px solid rgba(16,185,129,0.25)"
-                : "1px solid rgba(245,158,11,0.25)",
-            }}
-            data-testid="host-readiness-result"
+  const handleDiagnosticAction = () => {
+    if (!failedAction) return;
+    switch (failedAction.kind) {
+      case "refresh-page":
+        window.location.reload();
+        break;
+      case "download-agent":
+        markHostAgentDownloaded();
+        void downloadHostAgentBundle().catch(() => {
+          toast.error("Не удалось скачать агент");
+        });
+        break;
+      case "update-agent":
+        markHostAgentDownloaded();
+        window.open(HOST_AGENT_EXE_DOWNLOAD_URL, "_blank", "noopener,noreferrer");
+        break;
+      case "open-agent":
+        markHostGoOnlineAck();
+        window.open("decenthub://open", "_blank", "noopener,noreferrer");
+        break;
+      case "scroll-bind":
+        document.getElementById("host-bind-code")?.scrollIntoView({ behavior: "smooth" });
+        break;
+      case "add-game":
+        document.getElementById("host-quick-start")?.scrollIntoView({ behavior: "smooth" });
+        break;
+      default:
+        break;
+    }
+  };
+
+  const cardBorder = display.ready
+    ? { background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.25)" }
+    : {
+        background: "rgba(245,158,11,0.05)",
+        border: "1px solid rgba(245,158,11,0.28)",
+      };
+
+  return (
+    <Card style={cardBorder} data-testid="host-diagnostics-card">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-white text-base">
+              <ShieldCheck className="h-4 w-4 text-sky-400" />
+              Диагностика
+            </CardTitle>
+            <CardDescription className="text-slate-500 text-xs mt-1">
+              API, агент, привязка, игра и сессия — одна проверка и одно действие при проблеме.
+            </CardDescription>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 gap-1.5 text-xs text-slate-400 hover:text-white shrink-0"
+            onClick={() => void runCheck(true)}
+            disabled={checking}
+            data-testid="button-refresh-host-diagnostics"
           >
-            <p
-              className={`font-semibold ${result.ready ? "text-emerald-300" : "text-amber-200"}`}
+            <RefreshCw className={`h-3 w-3 ${checking ? "animate-spin" : ""}`} />
+            Обновить
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4 pt-0">
+        <div
+          className="rounded-lg p-3 space-y-2"
+          style={{
+            background: display.ready
+              ? "rgba(16,185,129,0.08)"
+              : "rgba(245,158,11,0.06)",
+            border: display.ready
+              ? "1px solid rgba(16,185,129,0.2)"
+              : "1px solid rgba(245,158,11,0.22)",
+          }}
+          data-testid="host-diagnostics-summary"
+        >
+          <p
+            className={`text-sm font-semibold ${display.ready ? "text-emerald-300" : "text-amber-200"}`}
+          >
+            {display.headline}
+          </p>
+          {display.nextFix && (
+            <p className="text-xs text-slate-300">{display.nextFix}</p>
+          )}
+          {failedAction && failedAction.kind !== "none" && (
+            <Button
+              size="sm"
+              className="gap-1.5 h-8 text-xs font-semibold mt-1"
+              style={{ background: "#0ea5e9", color: "#fff" }}
+              onClick={handleDiagnosticAction}
+              data-testid="button-host-diagnostic-action"
             >
-              {result.headline}
-            </p>
-            {result.nextFix && (
-              <p className="text-slate-300 text-xs">{result.nextFix}</p>
-            )}
-            <ul className="space-y-1 text-xs text-slate-400">
-              {result.checks.map((c) => (
-                <li key={c.id} className="flex items-center gap-2">
-                  <span aria-hidden>{c.ok ? "✓" : "✗"}</span>
-                  <span className={c.ok ? "text-emerald-400/90" : "text-amber-300/90"}>
-                    {c.label}
-                  </span>
-                </li>
-              ))}
-            </ul>
+              {failedAction.actionLabel}
+            </Button>
+          )}
+        </div>
+
+        <ul className="space-y-1.5 text-xs" data-testid="host-diagnostics-checks">
+          {display.checks.map((c) => (
+            <li
+              key={c.id}
+              className={`flex items-start gap-2 rounded px-2 py-1 ${
+                !c.ok ? "bg-amber-500/5" : ""
+              }`}
+              data-check-id={c.id}
+              data-check-ok={c.ok ? "true" : "false"}
+            >
+              <span aria-hidden className="shrink-0 mt-0.5">
+                {c.ok ? "✓" : "✗"}
+              </span>
+              <span className={c.ok ? "text-emerald-400/90" : "text-amber-300/90"}>
+                {formatDiagnosticCheckLabel(c, agentForLive, heartbeat)}
+              </span>
+              {!c.ok && (
+                <span className="text-sky-300/80 ml-auto shrink-0">
+                  {resolveHostDiagnosticAction(c.id).actionLabel}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+
+        {!probed && checking && (
+          <p className="text-xs text-slate-500 flex items-center gap-2">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Проверяем локальный агент…
+          </p>
+        )}
+
+        {agent.status === "online" && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            <a href="decenthub://open" target="_blank" rel="noreferrer">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 h-8 text-xs border-emerald-500/30 text-emerald-300"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Открыть агент
+              </Button>
+            </a>
+            <a
+              href={`http://127.0.0.1:${agent.port}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Button
+                size="sm"
+                variant="ghost"
+                className="gap-1.5 h-8 text-xs text-slate-400 hover:text-white"
+              >
+                <Wifi className="h-3 w-3" />
+                localhost:{agent.port}
+              </Button>
+            </a>
           </div>
         )}
+
+        <div className="border-t border-white/5 pt-4">
+          <AgentEventsCard hostToken={hostToken} embedded />
+        </div>
       </CardContent>
     </Card>
   );
@@ -1784,12 +1612,13 @@ export default function Dashboard() {
         </summary>
         <div className="px-4 pb-4 space-y-4 border-t border-white/5 pt-4">
           {hostToken && (
-            <HostReadinessCheck
+            <HostDiagnosticsCard
               hostToken={hostToken}
               agent={agent}
               heartbeat={heartbeat}
               agentKeyBound={agentKeyBound}
               hasActiveSession={hasActiveSession}
+              libraryCount={libraryCount}
               minSupportedAgentVersion={minSupportedAgentVersion}
             />
           )}
@@ -1835,21 +1664,6 @@ export default function Dashboard() {
           {hostToken && !agentKeyBound && (
             <AgentBindCodeCard hostToken={hostToken} />
           )}
-
-          {(!onboarding || isAgentVersionBlockingStream(agent, minSupportedAgentVersion)) &&
-            agent.status !== "checking" && (
-            <AgentStatusCard
-              agent={agent}
-              heartbeat={heartbeat}
-              minSupportedAgentVersion={minSupportedAgentVersion}
-            />
-          )}
-
-          {onboarding && agent.status !== "checking" && (
-            <AgentTroubleshootChecklist agent={agent} heartbeat={heartbeat} />
-          )}
-
-          {hostToken && <AgentEventsCard hostToken={hostToken} />}
         </div>
       </details>
 
