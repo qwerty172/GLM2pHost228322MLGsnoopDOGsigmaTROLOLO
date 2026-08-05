@@ -7,9 +7,11 @@
     "dev": "dotenv -e ../../.env -- cross-env BASE_PATH=/ vite --config vite.config.ts --host 0.0.0.0",
     "build": "dotenv -e ../../.env -- cross-env BASE_PATH=/ vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --import tsx --test test/*.test.ts"
   },
   "devDependencies": {
+    "tsx": "^4.19.4",
     "cross-env": "^7.0.3",
     "dotenv-cli": "^8.0.0",
     "@hookform/resolvers": "^3.10.0",

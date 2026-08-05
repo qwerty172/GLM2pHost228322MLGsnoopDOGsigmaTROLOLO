@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-69 (2026-08-05 00:36 UTC) {#marathon-m-69}
+
+| Проверка | Результат |
+|---|---|
+| agent-event-labels.test.ts | 11 тестов — localizeAgentEventMessage (input/token/network/capture/startup/shutdown/fallback) |
+| web test | PASS (11 tests) |
+| scanner | +кат. L (web lib без тестов) — 7 задач M-69…M-75 |
+
+**Следующий pick:** M-70 `api-errors.ts`.
+
 ## Marathon M-68 (2026-08-05 00:25 UTC) {#marathon-m-68}
 
 | Проверка | Результат |
