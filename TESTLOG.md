@@ -15,6 +15,33 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon: доставка потерянных задач + новые MVP-блокеры (2026-08-05 13:45 UTC) {#marathon-mvp-blockers}
+
+**Найден баг координации:** предыдущая волна (guided-flow U-13/U-14 + апдейты/диагностика U-15…U-19)
+была закоммичена только на ветку `cursor/marathon-5e33` и осталась в уже смерженном PR #538 — cron
+работает строго с `main` и эти задачи не видел. Исправлено: сброс на актуальный `origin/main` (`dc055e1`)
+и прямой push в `main`, без PR — как делает сам automation.
+
+**Аудит подороже (Opus) нашёл реальный оставшийся блокер MVP:** кнопка «Скачать агент» до сих пор ведёт
+на ZIP, который требует Node.js + `npm install` (~2–5 мин) на машине тестера. При этом
+`.github/workflows/agent-build.yml` уже собирает настоящий `.exe`-инсталлятор и публикует его в GitHub
+Release при теге `host-agent-v*` — `/downloads/host-agent.exe` просто не умеет его находить сам
+(503, если не выставлена `HOST_AGENT_EXE_URL` вручную).
+
+| Добавлено | Задача | Приоритет |
+|---|---|---|
+| U-31 | `.exe` вместо ZIP+npm как основная кнопка (авто-резолв GitHub Release) | P0 |
+| U-32 | Честный unzip-тест на `hostToken` внутри архива (не байтовый поиск имени файла) | P0 |
+| U-33 | Согласовать порты файрвола в INSTALL.txt / embedded INSTALL_TXT / UI / ping-server | P1 |
+| U-13, U-14 | Перенесены заново из потерянной волны (guided next-action, «Проверить готовность») | P0 |
+| U-15…U-19 | Перенесены заново (версия из сборки, апдейтер, compatibility gate, диагностика) | P1 |
+
+**Заморозка:** категория Q (`M-136…M-139`, auth-verifier unit-тесты) не трогается automation, пока в
+`UX_BACKLOG.md` остаётся хоть один `todo` — достигается порядком `CAT_ORDER.R = -1` в `marathon-scan.mjs`,
+без мутации статусов (чтобы не плодить дубли при `--sync-marathon`).
+
+**Проверка:** `marathon-scan --sync-marathon` → 9 новых pending, next pick = **M-147 (U-31)**; `marathon-groom` — 0 issues.
+
 ## Marathon: смена направления на UX (2026-08-05 12:55 UTC) {#marathon-ux-direction}
 
 Техдолг (cat A–Q) почти исчерпан. Новое направление генерации задач — **удобство для раннего
