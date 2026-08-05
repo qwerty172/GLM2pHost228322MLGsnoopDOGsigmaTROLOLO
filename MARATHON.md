@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 05:42 UTC |
 | Task ID | M-81 |
 | Результат | переименование keyboard-overlay.test.mjs → KeyboardOverlay.test.mjs (сканер cat N) |
-| Commit | *(этот run)* |
+| Commit | d1f4a2e |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
