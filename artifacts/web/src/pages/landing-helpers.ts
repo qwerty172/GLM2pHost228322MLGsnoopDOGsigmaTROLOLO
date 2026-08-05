@@ -119,6 +119,9 @@ export function resolvePlayNowInvitePath(
 /** Путь для главного CTA, когда онлайн-хостов нет. */
 export const PLAY_NOW_FALLBACK_HREF = "/games" as const;
 
+/** Браузерная демо-игра без Windows-агента. */
+export const DEMO_BROWSER_HREF = "/games/rogue-fable-3" as const;
+
 export function computeLztPerMin(
   firstGame: { pricePerMinuteLzt?: number } | undefined,
   minutePriceUsd: number,
