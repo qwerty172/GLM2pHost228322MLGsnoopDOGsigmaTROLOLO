@@ -92,6 +92,17 @@
 
 **Следующий pick:** M-122 (premium.ts).
 
+**Следующий pick:** M-123 (public.ts).
+
+## Marathon M-122 (2026-08-05 11:58 UTC) {#marathon-m-122}
+
+| Проверка | Результат |
+|---|---|
+| premium.test.ts | 7 тестов — POST /premium/purchase (validation days/userToken, 404, insufficient balance, 201 player purchase, 201 host extend premiumUntil) |
+| api-server test (premium) | PASS (7 tests) |
+
+**Следующий pick:** M-123 (public.ts).
+
 ## Marathon M-121 (2026-08-05 11:54 UTC) {#marathon-m-121}
 
 | Проверка | Результат |
