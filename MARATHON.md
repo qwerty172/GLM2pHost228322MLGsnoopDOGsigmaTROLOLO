@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 00:50 UTC |
 | Task ID | M-69 |
 | Результат | Кат. L сканер (web lib); unit-тесты localizeAgentEventMessage (6 cases); `pnpm --filter @workspace/web test` PASS |
-| Commit | (pending) |
+| Commit | 3d21c7d |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
