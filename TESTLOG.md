@@ -112,6 +112,15 @@
 
 **Следующий pick:** M-133 (wallet.ts).
 
+## Marathon M-135 (2026-08-05 12:51 UTC) {#marathon-m-135}
+
+| Проверка | Результат |
+|---|---|
+| link.test.ts | 5 тестов — startLinkFlow (2), confirmLinkToken (3) |
+| auth-verifier test (link) | PASS (5 tests) |
+
+**Следующий pick:** M-136 (otp.ts).
+
 ## Marathon M-134 (2026-08-05 12:44 UTC) {#marathon-m-134}
 
 | Проверка | Результат |
