@@ -1063,11 +1063,11 @@ paths:
             type: string
       responses:
         "200":
-          description: Session
+          description: Session with optional catalog game fields for the player UI
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Session"
+                $ref: "#/components/schemas/SessionByInviteResponse"
         "404":
           description: Not found
           content:

@@ -6,6 +6,7 @@ import {
   useListPublicHosts,
   getListPublicHostsQueryKey,
   createPublicSession,
+  type PublicHostListItemGamesItem,
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import { useBrowserPingMs } from "@/hooks/use-browser-ping";
@@ -16,10 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-type LibraryGame = {
-  gameId: string;
-  slug: string;
-  title: string;
+type LibraryGame = PublicHostListItemGamesItem & {
   coverImageUrl: string;
   genre: string;
   pricePerMinuteLzt: number;
@@ -349,17 +347,17 @@ export default function HostsPage() {
     const tierRank = (t: unknown) => (t === "above_rec" ? 0 : 1);
     let list = [...hosts];
     if (onlineOnly) {
-      list = list.filter((h) => !!(h as any).isOnline);
+      list = list.filter((h) => !!h.isOnline);
     }
     return list.sort((a, b) => {
       // Online hosts first, then recommended-and-above, then by latency.
-      const onlineA = (a as any).isOnline ? 0 : 1;
-      const onlineB = (b as any).isOnline ? 0 : 1;
+      const onlineA = a.isOnline ? 0 : 1;
+      const onlineB = b.isOnline ? 0 : 1;
       if (onlineA !== onlineB) return onlineA - onlineB;
-      const tierDiff = tierRank((a as any).hostTier) - tierRank((b as any).hostTier);
+      const tierDiff = tierRank(a.hostTier) - tierRank(b.hostTier);
       if (tierDiff !== 0) return tierDiff;
-      const pa = (a as any).pingMs as number | null | undefined;
-      const pb = (b as any).pingMs as number | null | undefined;
+      const pa = a.pingMs;
+      const pb = b.pingMs;
       const scoreA = pa != null ? (browserRtt ?? 0) + pa : Infinity;
       const scoreB = pb != null ? (browserRtt ?? 0) + pb : Infinity;
       return scoreA - scoreB;
@@ -495,12 +493,12 @@ export default function HostsPage() {
         ) : (
           <div className="space-y-3" data-testid="list-public-hosts">
             {sortedHosts.map((h) => {
-              const games = ((h as any).games ?? []) as LibraryGame[];
-              const isOnline = !!(h as any).isOnline;
-              const hostPingMs = (h as any).pingMs as number | null | undefined;
+              const games = (h.games ?? []) as LibraryGame[];
+              const isOnline = !!h.isOnline;
+              const hostPingMs = h.pingMs;
               const totalLatency = hostPingMs != null ? Math.round((browserRtt ?? 0) + hostPingMs) : null;
-              const isTop = (h as any).hostTier === "above_rec";
-              const pcSpecs = (h as any).pcSpecs as { cpu?: string; gpu?: string; ramGb?: number } | null | undefined;
+              const isTop = h.hostTier === "above_rec";
+              const pcSpecs = h.pcSpecs as { cpu?: string; gpu?: string; ramGb?: number } | null | undefined;
 
               return (
                 <div

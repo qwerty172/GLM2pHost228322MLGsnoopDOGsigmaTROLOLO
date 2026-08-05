@@ -3013,11 +3013,14 @@ export const getGetSessionByPlayerTokenUrl = (playerToken: string) => {
 export const getSessionByPlayerToken = async (
   playerToken: string,
   options?: RequestInit,
-): Promise<Session> => {
-  return customFetch<Session>(getGetSessionByPlayerTokenUrl(playerToken), {
-    ...options,
-    method: "GET",
-  });
+): Promise<SessionByInviteResponse> => {
+  return customFetch<SessionByInviteResponse>(
+    getGetSessionByPlayerTokenUrl(playerToken),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
 };
 
 export const getGetSessionByPlayerTokenQueryKey = (playerToken: string) => {

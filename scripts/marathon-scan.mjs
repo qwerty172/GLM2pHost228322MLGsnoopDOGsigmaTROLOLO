@@ -20,6 +20,7 @@
 //   I. eslint-disable / @ts-ignore leftovers (grouped by file)
 //   J. host-agent main/*.ts without co-located test (by file)
 //   K. host-agent shared/*.ts without co-located test (by file)
+//   L. `(as any)` casts in web pages (should use codegen types)
 //
 // Source of truth: working tree (== main after git pull).
 
@@ -322,6 +323,27 @@ if (existsSync(sharedDir)) {
   }
 }
 
+// --- L. `(as any)` casts in web pages ------------------------------------
+const anyHits = rg("\\bas any\\b", ["artifacts/web/src/pages"], ["-n", "--glob", "!**/*.test.*"]);
+const anyByFile = new Map();
+for (const line of (anyHits || "").split("\n")) {
+  const m = line.match(/^([^:]+):(\d+):(.*)$/);
+  if (!m) continue;
+  if (!anyByFile.has(m[1])) anyByFile.set(m[1], 0);
+  anyByFile.set(m[1], anyByFile.get(m[1]) + 1);
+}
+for (const [f, count] of anyByFile) {
+  const short = f.replace(/^artifacts\/web\/src\//, "");
+  raw.push({
+    cat: "L",
+    groupKey: `l:${f}`,
+    title: `web: убрать as any (${count} cast${count > 1 ? "s" : ""})`,
+    file: f,
+    detail: short,
+    items: [short],
+  });
+}
+
 // --- group raw hits (merge same groupKey) --------------------------------
 const grouped = new Map();
 for (const c of raw) {
@@ -368,7 +390,7 @@ for (const line of marathonMd.split("\n")) {
   if (status === "done" || status === "in_progress") doneOrActiveKeys.add(groupKey);
 }
 
-const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, J: 7, K: 8, D: 9, I: 10 };
+const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, J: 7, K: 8, L: 9, D: 10, I: 11 };
 const filtered = candidates
   .filter((c) => !doneOrActiveKeys.has(c.groupKey))
   .sort((a, b) => (CAT_ORDER[a.cat] ?? 9) - (CAT_ORDER[b.cat] ?? 9));
@@ -518,7 +540,7 @@ if (NEXT || PICK) {
     console.log(`| ${c.id} | ${c.cat} | ${c.title} | \`${c.file}\` | ${(c.detail || "").replace(/\|/g, "\\|")} |`);
   }
   console.log(
-    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, J=main-тесты, K=shared-тесты, I=eslint suppressions.`,
+    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, J=main-тесты, K=shared-тесты, L=as any, I=eslint suppressions.`,
   );
   console.log(`Синхронизация: node scripts/marathon-scan.mjs --sync-marathon`);
 }

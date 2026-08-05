@@ -363,9 +363,9 @@ export default function Landing() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {catalogGames && catalogGames.length > 0 ? (
             catalogGames.slice(0, 3).map((g) => {
-                const src = coverSrc((g as any).coverImageUrl);
-                const isLive = ((g as any).liveHostsCount ?? 0) > 0;
-                const genre = (g as any).genre ?? (g as any).genres?.[0] ?? "";
+                const src = coverSrc(g.coverImageUrl);
+                const isLive = (g.liveHostsCount ?? 0) > 0;
+                const genre = g.genre ?? g.genres?.[0] ?? "";
                 return (
                   <Link key={g.id} href={`/games/${g.slug}`}>
                     <div className="game-card cursor-pointer">
