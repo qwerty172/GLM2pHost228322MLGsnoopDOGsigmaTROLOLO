@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-76 (2026-08-05 03:38 UTC) {#marathon-m-76}
+
+| Проверка | Результат |
+|---|---|
+| marathon-scan regex | FIX — `export const NAME: Type` теперь детектится (категории K/L) |
+| connection-labels.test.mjs | 5 тестов — kinds, RU copy без TURN/STUN, tones, hex palette |
+| web test (connection-labels) | PASS (5 tests) |
+
+**Следующий pick:** idle — Wave Maintenance L-queue пуста.
+
 ## Marathon M-75 (2026-08-05 03:12 UTC) {#marathon-m-75}
 
 | Проверка | Результат |
