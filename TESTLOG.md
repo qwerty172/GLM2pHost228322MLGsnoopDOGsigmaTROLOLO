@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-233 (2026-08-05 23:23 UTC) {#marathon-m-233}
+
+| Проверка | Результат |
+|---|---|
+| objectAcl.test.ts | PASS (11 tests) |
+
+**Изменения:** `artifacts/api-server/src/lib/objectAcl.test.ts` — unit-тесты для `getObjectAclPolicy` (чтение metadata, null при отсутствии) и `setObjectAclPolicy` (запись metadata, ошибка если объект не существует).
+
+**Следующий pick:** M-234 (тест не покрывает экспорты: objectStorage).
+
 ## Marathon M-232 (2026-08-05 23:19 UTC) {#marathon-m-232}
 
 | Проверка | Результат |

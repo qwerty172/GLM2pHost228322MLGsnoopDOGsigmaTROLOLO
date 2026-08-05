@@ -3,6 +3,8 @@ import type { File } from "@google-cloud/storage";
 import {
   ObjectPermission,
   canAccessObject,
+  getObjectAclPolicy,
+  setObjectAclPolicy,
   type ObjectAclPolicy,
 } from "./objectAcl";
 
@@ -12,7 +14,10 @@ function mockFile(aclPolicy: ObjectAclPolicy | null): File {
       ? {}
       : { "custom:aclPolicy": JSON.stringify(aclPolicy) };
   return {
+    name: "objects/test.bin",
+    exists: vi.fn().mockResolvedValue([true]),
     getMetadata: vi.fn().mockResolvedValue([{ metadata }]),
+    setMetadata: vi.fn().mockResolvedValue([{}]),
   } as unknown as File;
 }
 
@@ -88,5 +93,41 @@ describe("canAccessObject", () => {
         requestedPermission: ObjectPermission.WRITE,
       }),
     ).resolves.toBe(true);
+  });
+});
+
+describe("getObjectAclPolicy", () => {
+  it("returns parsed ACL policy from object metadata", async () => {
+    const policy: ObjectAclPolicy = { owner: "host:1", visibility: "private" };
+    const file = mockFile(policy);
+    await expect(getObjectAclPolicy(file)).resolves.toEqual(policy);
+  });
+
+  it("returns null when ACL metadata is absent", async () => {
+    const file = mockFile(null);
+    await expect(getObjectAclPolicy(file)).resolves.toBeNull();
+  });
+});
+
+describe("setObjectAclPolicy", () => {
+  it("writes ACL policy to object custom metadata", async () => {
+    const policy: ObjectAclPolicy = { owner: "player:5", visibility: "public" };
+    const file = mockFile(null);
+    await setObjectAclPolicy(file, policy);
+    expect(file.setMetadata).toHaveBeenCalledWith({
+      metadata: { "custom:aclPolicy": JSON.stringify(policy) },
+    });
+  });
+
+  it("throws when object does not exist", async () => {
+    const file = {
+      name: "missing.bin",
+      exists: vi.fn().mockResolvedValue([false]),
+      setMetadata: vi.fn(),
+    } as unknown as File;
+    await expect(
+      setObjectAclPolicy(file, { owner: "host:1", visibility: "private" }),
+    ).rejects.toThrow("Object not found: missing.bin");
+    expect(file.setMetadata).not.toHaveBeenCalled();
   });
 });
