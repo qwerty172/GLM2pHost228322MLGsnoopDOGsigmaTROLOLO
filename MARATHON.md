@@ -7,7 +7,7 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-179 done; public.ts as any)
+> **Последнее обновление:** 2026-08-05 (M-180 done; admin.ts as any)
 
 ## Last run (automation)
 
@@ -514,7 +514,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-177 | T | `as any` escape (3) | `pages/landing.tsx` | t:artifacts/web/src/pages/landing.tsx | done | agent |
 | M-178 | T | `as any` escape (5) | `pages/hosts.tsx` | t:artifacts/web/src/pages/hosts.tsx | done | agent |
 | M-179 | T | `as any` escape (5) | `routes/public.ts` | t:artifacts/api-server/src/routes/public.ts | done | agent |
-| M-180 | T | `as any` escape (3) | `routes/admin.ts` | t:artifacts/api-server/src/routes/admin.ts | pending | agent |
+| M-180 | T | `as any` escape (3) | `routes/admin.ts` | t:artifacts/api-server/src/routes/admin.ts | done | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).

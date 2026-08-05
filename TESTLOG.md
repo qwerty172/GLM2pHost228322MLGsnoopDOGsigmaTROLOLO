@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-180 (2026-08-05 20:32 UTC) {#marathon-m-180}
+
+| Проверка | Результат |
+|---|---|
+| pnpm --filter @workspace/api-server typecheck | PASS |
+
+**Изменения:** `admin.ts` — убраны 3× `as any` (тип `AdminRequest` для `adminHostId`, как `AuthenticatedRequest` в authMiddleware).
+
+**Следующий pick:** — (scanner empty после sync).
+
 ## Marathon M-179 (2026-08-05 20:30 UTC) {#marathon-m-179}
 
 | Проверка | Результат |

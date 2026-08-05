@@ -1,4 +1,4 @@
-import { Router, type IRouter, type RequestHandler } from "express";
+import { Router, type IRouter, type Request, type RequestHandler } from "express";
 import { eq, desc } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { z } from "zod/v4";
@@ -16,6 +16,10 @@ import { timingSafeEqualString } from "../lib/timingSafe";
 import { tryApplyObjectAcl } from "../lib/storageRouteHelpers";
 
 const router: IRouter = Router();
+
+type AdminRequest = Request & {
+  adminHostId?: string;
+};
 
 // ---------------------------------------------------------------------------
 // Auth helpers
@@ -80,7 +84,7 @@ const requireAdmin: RequestHandler = async (req, res, next) => {
     res.status(403).json({ error: "Admin access required" });
     return;
   }
-  (req as any).adminHostId = host.id;
+  (req as AdminRequest).adminHostId = host.id;
   next();
 };
 
@@ -167,7 +171,7 @@ router.post(
   requireAdmin,
   async (req, res): Promise<void> => {
     const id = req.params["id"] as string;
-    const adminHostId = (req as any).adminHostId as string;
+    const adminHostId = (req as AdminRequest).adminHostId!;
 
     const parsed = ApproveBody.safeParse(req.body);
     if (!parsed.success) {
@@ -291,7 +295,7 @@ router.post(
   requireAdmin,
   async (req, res): Promise<void> => {
     const id = req.params["id"] as string;
-    const adminHostId = (req as any).adminHostId as string;
+    const adminHostId = (req as AdminRequest).adminHostId!;
 
     const parsed = RejectBody.safeParse(req.body);
     if (!parsed.success) {
