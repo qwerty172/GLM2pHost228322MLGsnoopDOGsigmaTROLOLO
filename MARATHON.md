@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-76 done; web hooks unit-тесты + категория M в сканере)
+> **Последнее обновление:** 2026-08-05 (M-77 done; connection-labels unit-тест + regex fix в сканере)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 03:42 UTC |
-| Task ID | M-76 |
-| Результат | web hooks: parsePlatformEventMessage + buildPlatformEventsStreamUrl; use-browser-ping probeBrowserPingMs; категория M в marathon-scan |
-| Commit | b6bb9ec |
+| Дата | 2026-08-05 03:48 UTC |
+| Task ID | M-77 |
+| Результат | scanner idle analysis → connection-labels.ts gap; unit-тест ICE labels/tones; regex `export const X:` в категориях J–M |
+| Commit | 1950cf5 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** idle — web lib (M-69…M-75) и web hooks (M-76) done; сканер категория M.
+**Wave Maintenance:** idle — web lib (M-69…M-77) и web hooks (M-76) done; сканер пуст.
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -296,6 +296,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-74 | L | web lib: unit-тест (sentry.ts) | `artifacts/web/src/lib/sentry.ts` | l:artifacts/web/src/lib/sentry.ts | done | agent |
 | M-75 | L | web lib: unit-тест (utils.ts) | `artifacts/web/src/lib/utils.ts` | l:artifacts/web/src/lib/utils.ts | done | agent |
 | M-76 | M | web hooks: unit-тест (use-platform-events.ts) | `artifacts/web/src/hooks/use-platform-events.ts` | m:artifacts/web/src/hooks/use-platform-events.ts | done | agent |
+| M-77 | L | web lib: unit-тест (connection-labels.ts) | `artifacts/web/src/lib/connection-labels.ts` | l:artifacts/web/src/lib/connection-labels.ts | done | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).
