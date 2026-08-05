@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-204 (2026-08-05 21:30 UTC) {#marathon-m-204}
+
+| Проверка | Результат |
+|---|---|
+| pnpm --filter @workspace/db test | PASS (78 tests) |
+
+**Изменения:** `lib/db/test/sessionMetrics.test.ts` — колонки и notNull для sessionMetrics.
+
+**Следующий pick:** M-205 (db schema: sessionRatings.ts).
+
 ## Marathon M-203 (2026-08-05 21:28 UTC) {#marathon-m-203}
 
 | Проверка | Результат |
