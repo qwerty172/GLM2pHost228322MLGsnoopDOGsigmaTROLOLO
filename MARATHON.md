@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-219 done; quotas 500 tests)
+> **Последнее обновление:** 2026-08-05 (M-225 done; use-platform-events export coverage)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 22:53 UTC|
-| Task ID | M-224|
-| Результат | use-browser-ping.test.mjs PASS (5 tests); useBrowserPingMs export + interval probe contract|
+| Дата | 2026-08-05 22:56 UTC|
+| Task ID | M-225|
+| Результат | use-platform-events.test.mjs PASS (6 tests); usePlatformEvents export + EventSource forward contract|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -577,7 +577,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-222 | W | route error-paths без теста (500) : vds.ts | `routes/vds.ts` | w:artifacts/api-server/src/routes/vds.ts | done | agent |
 | M-223 | V | тест не покрывает экспорты (1): agent-local | `artifacts/web/src/lib/agent-local.ts` | v:artifacts/web/src/lib/agent-local.ts | done | agent |
 | M-224 | V | тест не покрывает экспорты (1): use-browser-ping | `artifacts/web/src/hooks/use-browser-ping.ts` | v:artifacts/web/src/hooks/use-browser-ping.ts | done | agent |
-| M-225 | V | тест не покрывает экспорты (1): use-platform-events | `artifacts/web/src/hooks/use-platform-events.ts` | v:artifacts/web/src/hooks/use-platform-events.ts | pending | agent |
+| M-225 | V | тест не покрывает экспорты (1): use-platform-events | `artifacts/web/src/hooks/use-platform-events.ts` | v:artifacts/web/src/hooks/use-platform-events.ts | done | agent |
 | M-226 | V | тест не покрывает экспорты (2): authMiddleware | `artifacts/api-server/src/lib/authMiddleware.ts` | v:artifacts/api-server/src/lib/authMiddleware.ts | pending | agent |
 | M-227 | V | тест не покрывает экспорты (11): economy | `artifacts/api-server/src/lib/economy.ts` | v:artifacts/api-server/src/lib/economy.ts | pending | agent |
 | M-228 | V | тест не покрывает экспорты (1): hostAuth | `artifacts/api-server/src/lib/hostAuth.ts` | v:artifacts/api-server/src/lib/hostAuth.ts | pending | agent |

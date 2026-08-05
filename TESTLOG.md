@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-225 (2026-08-05 22:56 UTC) {#marathon-m-225}
+
+| Проверка | Результат |
+|---|---|
+| use-platform-events.test.mjs | PASS (6 tests) |
+
+**Изменения:** `artifacts/web/test/use-platform-events.test.mjs` — 2 теста для `usePlatformEvents`: export hook + EventSource forward contract (connected filter, session event).
+
+**Следующий pick:** M-226 (тест не покрывает экспорты: authMiddleware).
+
 ## Marathon M-224 (2026-08-05 22:52 UTC) {#marathon-m-224}
 
 | Проверка | Результат |
