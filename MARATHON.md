@@ -351,6 +351,33 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-104 | O | web pages: unit-тест (quota-detail) | `pages/quota-detail.tsx` | o:artifacts/web/src/pages/quota-detail.tsx | done | agent |
 | M-105 | O | web pages: unit-тест (quotas) | `pages/quotas.tsx` | o:artifacts/web/src/pages/quotas.tsx | done | agent |
 | M-106 | O | web pages: unit-тест (wallet) | `pages/wallet.tsx` | o:artifacts/web/src/pages/wallet.tsx | done | agent |
+| M-107 | P | api-server routes: unit-тест (admin.ts) | `routes/admin.ts` | p:artifacts/api-server/src/routes/admin.ts | pending | agent |
+| M-108 | P | api-server routes: unit-тест (agentAuth.ts) | `routes/agentAuth.ts` | p:artifacts/api-server/src/routes/agentAuth.ts | pending | agent |
+| M-109 | P | api-server routes: unit-тест (agentTelemetry.ts) | `routes/agentTelemetry.ts` | p:artifacts/api-server/src/routes/agentTelemetry.ts | pending | agent |
+| M-110 | P | api-server routes: unit-тест (auth.ts) | `routes/auth.ts` | p:artifacts/api-server/src/routes/auth.ts | pending | agent |
+| M-111 | P | api-server routes: unit-тест (devKeys.ts) | `routes/devKeys.ts` | p:artifacts/api-server/src/routes/devKeys.ts | pending | agent |
+| M-112 | P | api-server routes: unit-тест (downloads.ts) | `routes/downloads.ts` | p:artifacts/api-server/src/routes/downloads.ts | pending | agent |
+| M-113 | P | api-server routes: unit-тест (embed.ts) | `routes/embed.ts` | p:artifacts/api-server/src/routes/embed.ts | pending | agent |
+| M-114 | P | api-server routes: unit-тест (enrich.ts) | `routes/enrich.ts` | p:artifacts/api-server/src/routes/enrich.ts | pending | agent |
+| M-115 | P | api-server routes: unit-тест (events.ts) | `routes/events.ts` | p:artifacts/api-server/src/routes/events.ts | pending | agent |
+| M-116 | P | api-server routes: unit-тест (games.ts) | `routes/games.ts` | p:artifacts/api-server/src/routes/games.ts | pending | agent |
+| M-117 | P | api-server routes: unit-тест (health.ts) | `routes/health.ts` | p:artifacts/api-server/src/routes/health.ts | pending | agent |
+| M-118 | P | api-server routes: unit-тест (hosts.ts) | `routes/hosts.ts` | p:artifacts/api-server/src/routes/hosts.ts | pending | agent |
+| M-119 | P | api-server routes: unit-тест (joinCodes.ts) | `routes/joinCodes.ts` | p:artifacts/api-server/src/routes/joinCodes.ts | pending | agent |
+| M-120 | P | api-server routes: unit-тест (loans.ts) | `routes/loans.ts` | p:artifacts/api-server/src/routes/loans.ts | pending | agent |
+| M-121 | P | api-server routes: unit-тест (players.ts) | `routes/players.ts` | p:artifacts/api-server/src/routes/players.ts | pending | agent |
+| M-122 | P | api-server routes: unit-тест (premium.ts) | `routes/premium.ts` | p:artifacts/api-server/src/routes/premium.ts | pending | agent |
+| M-123 | P | api-server routes: unit-тест (public.ts) | `routes/public.ts` | p:artifacts/api-server/src/routes/public.ts | pending | agent |
+| M-124 | P | api-server routes: unit-тест (quotaAiChat.ts) | `routes/quotaAiChat.ts` | p:artifacts/api-server/src/routes/quotaAiChat.ts | pending | agent |
+| M-125 | P | api-server routes: unit-тест (quotas.ts) | `routes/quotas.ts` | p:artifacts/api-server/src/routes/quotas.ts | pending | agent |
+| M-126 | P | api-server routes: unit-тест (saves.ts) | `routes/saves.ts` | p:artifacts/api-server/src/routes/saves.ts | pending | agent |
+| M-127 | P | api-server routes: unit-тест (sessions.ts) | `routes/sessions.ts` | p:artifacts/api-server/src/routes/sessions.ts | pending | agent |
+| M-128 | P | api-server routes: unit-тест (storage.ts) | `routes/storage.ts` | p:artifacts/api-server/src/routes/storage.ts | pending | agent |
+| M-129 | P | api-server routes: unit-тест (submissions.ts) | `routes/submissions.ts` | p:artifacts/api-server/src/routes/submissions.ts | pending | agent |
+| M-130 | P | api-server routes: unit-тест (vds.ts) | `routes/vds.ts` | p:artifacts/api-server/src/routes/vds.ts | pending | agent |
+| M-131 | P | api-server routes: unit-тест (verifier.ts) | `routes/verifier.ts` | p:artifacts/api-server/src/routes/verifier.ts | pending | agent |
+| M-132 | P | api-server routes: unit-тест (vt.ts) | `routes/vt.ts` | p:artifacts/api-server/src/routes/vt.ts | pending | agent |
+| M-133 | P | api-server routes: unit-тест (wallet.ts) | `routes/wallet.ts` | p:artifacts/api-server/src/routes/wallet.ts | pending | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).

@@ -24,6 +24,7 @@
 //   M. web hooks/*.{ts,tsx} without co-located test (by file)
 //   N. web components/*.{ts,tsx} without co-located test (by file, excludes ui/)
 //   O. web pages/**/*.tsx without co-located test (by file, module-level helpers)
+//   P. api-server routes/*.ts without route test (by file, excludes index.ts)
 //
 // Source of truth: working tree (== main after git pull).
 
@@ -437,6 +438,34 @@ if (existsSync(webPagesDir)) {
   }
 }
 
+// --- P. api-server routes/*.ts without route test (by file) ---------------
+const routesDir = "artifacts/api-server/src/routes";
+if (existsSync(routesDir)) {
+  const routeModules = readdirSync(routesDir).filter(
+    (f) => f.endsWith(".ts") && f !== "index.ts" && !f.endsWith(".d.ts"),
+  );
+  for (const mod of routeModules) {
+    const base = mod.replace(/\.ts$/, "");
+    const testCandidates = [
+      `artifacts/api-server/src/routes/${base}.test.ts`,
+      `artifacts/api-server/src/__tests__/${base}.test.ts`,
+      `artifacts/api-server/src/__tests__/routes/${base}.test.ts`,
+      `artifacts/api-server/test/${base}.test.ts`,
+      `artifacts/api-server/test/${base}.test.mjs`,
+    ];
+    if (testCandidates.some((t) => existsSync(t))) continue;
+    const f = `${routesDir}/${mod}`;
+    raw.push({
+      cat: "P",
+      groupKey: `p:${f}`,
+      title: `api-server routes: unit-тест (${mod})`,
+      file: f,
+      detail: mod,
+      items: [mod],
+    });
+  }
+}
+
 // --- group raw hits (merge same groupKey) --------------------------------
 const grouped = new Map();
 for (const c of raw) {
@@ -483,7 +512,7 @@ for (const line of marathonMd.split("\n")) {
   if (status === "done" || status === "in_progress") doneOrActiveKeys.add(groupKey);
 }
 
-const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, J: 7, K: 8, L: 9, M: 10, N: 11, O: 12, D: 13, I: 14 };
+const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, J: 7, K: 8, L: 9, M: 10, N: 11, O: 12, P: 13, D: 14, I: 15 };
 const filtered = candidates
   .filter((c) => !doneOrActiveKeys.has(c.groupKey))
   .sort((a, b) => (CAT_ORDER[a.cat] ?? 9) - (CAT_ORDER[b.cat] ?? 9));
@@ -635,7 +664,7 @@ if (NEXT || PICK) {
     console.log(`| ${c.id} | ${c.cat} | ${c.title} | \`${c.file}\` | ${(c.detail || "").replace(/\|/g, "\\|")} |`);
   }
   console.log(
-    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, J=main-тесты, K=shared-тесты, L=web-lib тесты, M=web-hooks тесты, N=web-components тесты, O=web-pages тесты, I=eslint suppressions.`,
+    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, J=main-тесты, K=shared-тесты, L=web-lib тесты, M=web-hooks тесты, N=web-components тесты, O=web-pages тесты, P=api-routes тесты, I=eslint suppressions.`,
   );
   console.log(`Синхронизация: node scripts/marathon-scan.mjs --sync-marathon`);
 }
