@@ -6,7 +6,7 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-83 done; host-auth-guard features/validation unit-тест)
+> **Последнее обновление:** 2026-08-05 (M-84 done; layout nav/site-nav unit-тест)
 
 ## Last run (automation)
 
@@ -303,7 +303,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-81 | N | web components: unit-тест (KeyboardOverlay.tsx) | `artifacts/web/src/components/KeyboardOverlay.tsx` | n:artifacts/web/src/components/KeyboardOverlay.tsx | done | agent |
 | M-82 | N | web components: unit-тест (TouchOverlay.tsx) | `artifacts/web/src/components/TouchOverlay.tsx` | n:artifacts/web/src/components/TouchOverlay.tsx | done | agent |
 | M-83 | N | web components: unit-тест (host-auth-guard.tsx) | `artifacts/web/src/components/host-auth-guard.tsx` | n:artifacts/web/src/components/host-auth-guard.tsx | done | agent |
-| M-84 | N | web components: unit-тест (layout.tsx) | `artifacts/web/src/components/layout.tsx` | n:artifacts/web/src/components/layout.tsx | pending | agent |
+| M-84 | N | web components: unit-тест (layout.tsx) | `artifacts/web/src/components/layout.tsx` | n:artifacts/web/src/components/layout.tsx | done | agent |
 | M-85 | N | web components: unit-тест (quota-ai-chat.tsx) | `artifacts/web/src/components/quota-ai-chat.tsx` | n:artifacts/web/src/components/quota-ai-chat.tsx | pending | agent |
 | M-86 | N | web components: unit-тест (site-nav.tsx) | `artifacts/web/src/components/site-nav.tsx` | n:artifacts/web/src/components/site-nav.tsx | pending | agent |
 | M-87 | N | web components: unit-тест (vt-scanner.tsx) | `artifacts/web/src/components/vt-scanner.tsx` | n:artifacts/web/src/components/vt-scanner.tsx | pending | agent |
