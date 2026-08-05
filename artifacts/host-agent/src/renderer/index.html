@@ -21,6 +21,15 @@
         </div>
       </header>
 
+      <section class="card" id="session-actions-card">
+        <h2>Сессия</h2>
+        <p class="muted">Основное действие — выйти в онлайн и дождаться игрока.</p>
+        <div class="actions">
+          <button type="button" id="connect">Выйти в онлайн</button>
+          <button type="button" id="disconnect" disabled>Отключиться</button>
+        </div>
+      </section>
+
       <!-- Session pipeline — step-by-step status of the native stream flow -->
       <section class="card" id="pipeline-card" hidden>
         <h2>Статус сессии</h2>
@@ -370,8 +379,6 @@
             <button type="button" id="pull-from-server" title="Подтянуть офер с веб-дашборда">
               Подтянуть с сервера
             </button>
-            <button type="button" id="connect">Выйти в онлайн</button>
-            <button type="button" id="disconnect" disabled>Отключиться</button>
           </div>
         </form>
         </details>
