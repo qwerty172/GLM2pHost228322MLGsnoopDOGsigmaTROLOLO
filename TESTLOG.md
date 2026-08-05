@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-165 (2026-08-05 18:16 UTC) {#marathon-m-165}
+
+| Проверка | Результат |
+|---|---|
+| hosts.test.mjs (U-23) | PASS — inline `game-select`, нет `GamePickerDialog` |
+| node --import tsx --test artifacts/web/test/hosts.test.mjs | PASS (10 tests) |
+
+**Изменения (U-23):** `GamePickerDialog` удалён; при нескольких играх у хоста — инлайн `<select>` в строке карточки + кнопка «Играть»; на мобиле не перекрывает экран.
+
+**Следующий pick:** M-166 (U-24 один экран подготовки сессии).
+
 ## Marathon M-164 (2026-08-05 18:15 UTC) {#marathon-m-164}
 
 | Проверка | Результат |

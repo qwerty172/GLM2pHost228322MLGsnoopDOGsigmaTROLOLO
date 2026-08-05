@@ -10,12 +10,6 @@ import {
 import { SiteNav } from "@/components/site-nav";
 import { useBrowserPingMs } from "@/hooks/use-browser-ping";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   computeTotalLatency,
   formatPrice,
   getLatencyColor,
@@ -157,100 +151,6 @@ async function requestSession(
   }
 }
 
-function GamePickerDialog({
-  open,
-  games,
-  onClose,
-  onPick,
-}: {
-  open: boolean;
-  games: LibraryGame[];
-  onClose: () => void;
-  onPick: (game: LibraryGame) => void;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent
-        className="sm:max-w-md"
-        style={{ background: "#0d1420", border: "1px solid rgba(14,165,233,0.2)" }}
-      >
-        <DialogHeader>
-          <DialogTitle className="text-white text-lg font-bold">Выбери игру</DialogTitle>
-          <p className="text-xs text-slate-500 mt-1">
-            Выбери, в какую игру хочешь играть у этого хоста.
-          </p>
-        </DialogHeader>
-        <div className="flex flex-col gap-2 mt-2 max-h-80 overflow-y-auto pr-1">
-          {games.map((g) => {
-            const src = resolveCoverImageUrl(g.coverImageUrl, import.meta.env.BASE_URL);
-            return (
-              <button
-                key={g.gameId}
-                type="button"
-                onClick={() => onPick(g)}
-                className="flex items-center gap-3 p-3 rounded-lg text-left transition-colors"
-                style={{
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.07)",
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.borderColor =
-                    "rgba(14,165,233,0.35)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.borderColor =
-                    "rgba(255,255,255,0.07)";
-                }}
-                data-testid={`picker-game-${g.slug}`}
-              >
-                {src ? (
-                  <img
-                    src={src}
-                    alt=""
-                    className="w-10 h-14 rounded object-cover flex-shrink-0"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).style.display = "none";
-                    }}
-                  />
-                ) : (
-                  <div
-                    className="w-10 h-14 rounded flex items-center justify-center flex-shrink-0"
-                    style={{ background: "rgba(14,165,233,0.08)" }}
-                  >
-                    <Gamepad2 className="h-5 w-5 text-slate-600" />
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-white text-sm truncate">
-                    {g.title}
-                  </div>
-                  {g.genre && (
-                    <div className="text-[11px] text-sky-400 font-mono">{g.genre}</div>
-                  )}
-                  <div className="text-[11px] text-blue-400 mt-1 font-mono">
-                    {g.pricePerMinuteLzt} LZT/мин
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-3 w-full h-8 rounded-md text-xs text-slate-500 transition-colors"
-          style={{
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(255,255,255,0.07)",
-          }}
-        >
-          Отмена
-        </button>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 function PlayButton({
   hostId,
   games,
@@ -260,9 +160,19 @@ function PlayButton({
   games: LibraryGame[];
   fallbackInviteCode: string | null;
 }) {
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [selectedGameId, setSelectedGameId] = useState(games[0]?.gameId ?? "");
   const [loading, setLoading] = useState(false);
   const [, navigate] = useLocation();
+
+  useEffect(() => {
+    if (games.length === 0) return;
+    if (!games.some((g) => g.gameId === selectedGameId)) {
+      setSelectedGameId(games[0].gameId);
+    }
+  }, [games, selectedGameId]);
+
+  const selectedGame =
+    games.find((g) => g.gameId === selectedGameId) ?? games[0] ?? null;
 
   // Connect to the host for a specific game via POST /api/public/sessions.
   // - On success → navigate to /play/i/:inviteCode.
@@ -300,37 +210,54 @@ function PlayButton({
       }
     } else if (games.length === 1) {
       await connectToGame(games[0]);
-    } else {
-      setPickerOpen(true);
+    } else if (selectedGame) {
+      await connectToGame(selectedGame);
     }
   };
 
-  const handlePick = async (game: LibraryGame) => {
-    setPickerOpen(false);
-    await connectToGame(game);
-  };
-
   return (
-    <>
+    <div className="flex flex-col gap-2 items-stretch min-w-[9rem]">
+      {games.length > 1 && (
+        <>
+          <label htmlFor={`game-select-${hostId}`} className="sr-only">
+            Выбери игру
+          </label>
+          <select
+            id={`game-select-${hostId}`}
+            value={selectedGameId}
+            onChange={(e) => setSelectedGameId(e.target.value)}
+            disabled={loading}
+            className="h-8 px-2 rounded-md text-xs w-full max-w-[14rem]"
+            style={{
+              background: "rgba(14,165,233,0.06)",
+              color: "#7dd3fc",
+              border: "1px solid rgba(14,165,233,0.2)",
+            }}
+            data-testid={`game-select-${hostId}`}
+          >
+            {games.map((g) => (
+              <option
+                key={g.gameId}
+                value={g.gameId}
+                data-testid={`picker-game-${g.slug}`}
+              >
+                {g.title} · {g.pricePerMinuteLzt} LZT/мин
+              </option>
+            ))}
+          </select>
+        </>
+      )}
       <button
         type="button"
         onClick={() => void handlePlay()}
-        disabled={loading}
+        disabled={loading || (games.length > 1 && !selectedGame)}
         className="h-9 px-4 text-xs font-semibold rounded-md transition-colors disabled:opacity-60"
         style={{ background: "#0ea5e9", color: "#fff" }}
         data-testid={`button-join-${hostId}`}
       >
         {loading ? "…" : games.length === 0 ? "Подключиться" : "Играть"}
       </button>
-      {games.length > 1 && (
-        <GamePickerDialog
-          open={pickerOpen}
-          games={games}
-          onClose={() => setPickerOpen(false)}
-          onPick={(g) => void handlePick(g)}
-        />
-      )}
-    </>
+    </div>
   );
 }
 

@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 const {
   formatPrice,
@@ -98,4 +99,11 @@ test("sortPublicHosts treats missing pingMs as Infinity", () => {
   const sorted = sortPublicHosts(hosts, 0, false);
   assert.equal(sorted[0].id, "has-ping");
   assert.equal(sorted[1].id, "no-ping");
+});
+
+test("hosts.tsx uses inline game select instead of GamePickerDialog (U-23)", () => {
+  const src = readFileSync(new URL("../src/pages/hosts.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(src, /GamePickerDialog/);
+  assert.match(src, /data-testid=\{`game-select-\$\{hostId\}`\}/);
+  assert.doesNotMatch(src, /@\/components\/ui\/dialog/);
 });
