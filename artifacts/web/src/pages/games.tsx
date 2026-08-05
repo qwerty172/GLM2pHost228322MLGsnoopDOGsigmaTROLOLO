@@ -8,6 +8,7 @@ import {
 } from "@workspace/api-client-react";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
 import { formatApiError } from "@/lib/api-errors";
+import { formatGenreLabel } from "@/lib/genre-names";
 import { toast } from "sonner";
 import {
   Activity,
@@ -22,14 +23,24 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { SiteNav } from "@/components/site-nav";
+import { PlayerOnboardingOverlay } from "@/components/player-onboarding";
+import {
+  GamesFiltersPanel,
+  GAMES_BOOL_FILTERS,
+  type GamesFilterKey,
+} from "@/components/games-filters-panel";
 
 const LZT_PER_USDT = 200;
 const DEFAULT_PRICE_PER_MIN_USD = 0.04;
 
 type SortKey = "mostOnline" | "cheapest" | "newest";
-
-type FilterKey = "hasMods" | "isMultiplayer" | "hostSpectatesPlayer" | "hasQuests" | "liveOnly";
 
 type GameEnriched = GameListItem & {
   category?: string;
@@ -41,13 +52,6 @@ type GameEnriched = GameListItem & {
   minPricePerMinuteLzt?: number | null;
   browserHostUrl?: string | null;
 };
-
-const BOOL_FILTERS: { key: FilterKey; label: string }[] = [
-  { key: "isMultiplayer", label: "Мультиплеер" },
-  { key: "hasMods", label: "С модами" },
-  { key: "hostSpectatesPlayer", label: "Хост наблюдает" },
-  { key: "hasQuests", label: "С квестами" },
-];
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: "mostOnline", label: "Больше онлайн-хостов" },
@@ -70,20 +74,21 @@ export default function GamesPage() {
   const [liveOnly, setLiveOnly] = useState(false);
   const [category, setCategory] = useState("");
   const [sort, setSort] = useState<SortKey>("mostOnline");
-  const [boolFilters, setBoolFilters] = useState<Record<FilterKey, boolean>>({
+  const [boolFilters, setBoolFilters] = useState<Record<GamesFilterKey, boolean>>({
     hasMods: false,
     isMultiplayer: false,
     hostSpectatesPlayer: false,
     hasQuests: false,
     liveOnly: false,
   });
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [maxLzt, setMaxLzt] = useState<number>(9999);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const sliderInitRef = useRef(false);
 
   const apiParams = useMemo(() => {
     const p: Record<string, boolean | string> = {};
-    for (const f of BOOL_FILTERS) if (boolFilters[f.key]) p[f.key] = true;
+    for (const f of GAMES_BOOL_FILTERS) if (boolFilters[f.key]) p[f.key] = true;
     if (liveOnly) p.liveOnly = true;
     if (debouncedSearch.trim()) p.search = debouncedSearch.trim();
     if (category) p.category = category;
@@ -101,6 +106,9 @@ export default function GamesPage() {
   const vdsGames = (vdsGamesRaw ?? []) as GameEnriched[];
 
   const games = (rawGames ?? []) as GameEnriched[];
+
+  /** Мало игр — фильтры в шите, не сайдбар (progressive disclosure). */
+  const compactFilters = games.length < 20;
 
   const categories = useMemo(() => {
     const seen = new Set<string>();
@@ -140,6 +148,13 @@ export default function GamesPage() {
     }
   }, [globalMaxLzt]);
 
+  const activeFilterCount =
+    (liveOnly ? 1 : 0) +
+    (category ? 1 : 0) +
+    GAMES_BOOL_FILTERS.filter((f) => boolFilters[f.key]).length +
+    selectedGenres.length +
+    (maxLzt < globalMaxLzt ? 1 : 0);
+
   const toggleGenre = (genre: string) =>
     setSelectedGenres((prev) =>
       prev.includes(genre) ? prev.filter((g) => g !== genre) : [...prev, genre],
@@ -175,11 +190,28 @@ export default function GamesPage() {
     return list;
   }, [games, sort, maxLzt, selectedGenres]);
 
-  const toggleBool = (key: FilterKey) =>
+  const toggleBool = (key: GamesFilterKey) =>
     setBoolFilters((s) => ({ ...s, [key]: !s[key] }));
+
+  const filtersPanelProps = {
+    liveOnly,
+    onLiveOnlyChange: setLiveOnly,
+    category,
+    onCategoryChange: setCategory,
+    categories,
+    boolFilters,
+    onToggleBool: toggleBool,
+    allGenres,
+    selectedGenres,
+    onToggleGenre: toggleGenre,
+    maxLzt,
+    globalMaxLzt,
+    onMaxLztChange: setMaxLzt,
+  };
 
   return (
     <div className="min-h-screen text-slate-300" style={{ background: "#06090e" }}>
+      <PlayerOnboardingOverlay />
       <SiteNav activePath="/games" />
 
       <main className="max-w-7xl mx-auto px-4 md:px-6 pt-8 pb-16">
@@ -207,165 +239,84 @@ export default function GamesPage() {
         </div>
 
         <div className="flex gap-6">
-          {/* ── Sidebar ── */}
-          <aside className="hidden lg:flex flex-col gap-5 w-52 shrink-0 pt-1">
-            <div>
-              <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono flex items-center gap-1">
-                <SlidersHorizontal className="h-3 w-3" /> Только онлайн
-              </div>
-              <button
-                type="button"
-                onClick={() => setLiveOnly((v) => !v)}
-                className="w-full h-8 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 px-3"
-                style={{
-                  background: liveOnly ? "rgba(45,212,191,0.15)" : "rgba(255,255,255,0.04)",
-                  border: liveOnly ? "1px solid rgba(45,212,191,0.4)" : "1px solid rgba(255,255,255,0.07)",
-                  color: liveOnly ? "#2dd4bf" : "#64748b",
-                }}
-                data-testid="filter-liveOnly"
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${liveOnly ? "bg-teal-400" : "bg-slate-600"}`} />
-                {liveOnly ? "Только онлайн" : "Все игры"}
-              </button>
-            </div>
-
-            {categories.length > 0 && (
-              <div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">Категория</div>
-                <div className="flex flex-col gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setCategory("")}
-                    className="text-left text-xs px-2 py-1 rounded transition-colors"
-                    style={{
-                      background: !category ? "rgba(14,165,233,0.12)" : "transparent",
-                      color: !category ? "#38bdf8" : "#64748b",
-                    }}
-                  >
-                    Все категории
-                  </button>
-                  {categories.map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setCategory(cat === category ? "" : cat)}
-                      className="text-left text-xs px-2 py-1 rounded transition-colors truncate"
-                      style={{
-                        background: category === cat ? "rgba(14,165,233,0.12)" : "transparent",
-                        color: category === cat ? "#38bdf8" : "#64748b",
-                      }}
-                      data-testid={`filter-category-${cat}`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div>
-              <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">Возможности</div>
-              <div className="flex flex-col gap-1">
-                {BOOL_FILTERS.map((f) => (
-                  <button
-                    key={f.key}
-                    type="button"
-                    onClick={() => toggleBool(f.key)}
-                    className="text-left text-xs px-2 py-1 rounded transition-colors flex items-center gap-1.5"
-                    style={{
-                      background: boolFilters[f.key] ? "rgba(14,165,233,0.12)" : "transparent",
-                      color: boolFilters[f.key] ? "#38bdf8" : "#64748b",
-                    }}
-                    data-testid={`filter-${f.key}`}
-                  >
-                    <span
-                      className="w-3 h-3 rounded border flex items-center justify-center flex-shrink-0"
-                      style={{
-                        borderColor: boolFilters[f.key] ? "#0ea5e9" : "rgba(255,255,255,0.12)",
-                        background: boolFilters[f.key] ? "#0ea5e9" : "transparent",
-                      }}
-                    >
-                      {boolFilters[f.key] && <span className="w-1.5 h-1.5 rounded-sm bg-white" />}
-                    </span>
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {allGenres.length > 0 && (
-              <div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">Жанры</div>
-                <div className="flex flex-col gap-1">
-                  {allGenres.map((genre) => (
-                    <button
-                      key={genre}
-                      type="button"
-                      onClick={() => toggleGenre(genre)}
-                      className="text-left text-xs px-2 py-1 rounded transition-colors flex items-center gap-1.5"
-                      style={{
-                        background: selectedGenres.includes(genre)
-                          ? "rgba(14,165,233,0.12)"
-                          : "transparent",
-                        color: selectedGenres.includes(genre) ? "#38bdf8" : "#64748b",
-                      }}
-                      data-testid={`filter-genre-${genre}`}
-                    >
-                      <span
-                        className="w-3 h-3 rounded border flex items-center justify-center flex-shrink-0"
-                        style={{
-                          borderColor: selectedGenres.includes(genre)
-                            ? "#0ea5e9"
-                            : "rgba(255,255,255,0.12)",
-                          background: selectedGenres.includes(genre)
-                            ? "#0ea5e9"
-                            : "transparent",
-                        }}
-                      >
-                        {selectedGenres.includes(genre) && (
-                          <span className="w-1.5 h-1.5 rounded-sm bg-white" />
-                        )}
-                      </span>
-                      {genre}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div>
-              <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">Соединение</div>
-              <p className="text-[11px] text-slate-600 leading-relaxed">
-                Пинг до хоста смотри на странице «Хосты» — там живые карточки с задержкой.
-              </p>
-            </div>
-
-            {globalMaxLzt > 0 && (
-              <div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-2 font-mono">
-                  Макс. цена: {maxLzt} LZT/мин
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={globalMaxLzt}
-                  value={maxLzt}
-                  onChange={(e) => setMaxLzt(Number(e.target.value))}
-                  className="w-full accent-sky-400"
-                  style={{ accentColor: "#0ea5e9" }}
-                  data-testid="slider-max-price"
-                />
-                <div className="flex justify-between text-[10px] text-slate-600 font-mono mt-0.5">
-                  <span>0</span>
-                  <span>{globalMaxLzt}</span>
-                </div>
-              </div>
-            )}
-          </aside>
+          {!compactFilters && <GamesFiltersPanel {...filtersPanelProps} variant="sidebar" />}
 
           {/* ── Main content ── */}
           <div className="flex-1 min-w-0">
-            {/* Mobile filters */}
+            {/* Компактный режим: поиск + онлайн + фильтры в шите */}
+            {compactFilters && (
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={() => setLiveOnly((v) => !v)}
+                  className="h-8 px-3 rounded-full text-xs font-medium flex items-center gap-1.5 transition-colors"
+                  style={{
+                    background: liveOnly ? "rgba(45,212,191,0.15)" : "rgba(255,255,255,0.04)",
+                    border: liveOnly
+                      ? "1px solid rgba(45,212,191,0.4)"
+                      : "1px solid rgba(255,255,255,0.07)",
+                    color: liveOnly ? "#2dd4bf" : "#64748b",
+                  }}
+                  data-testid="filter-liveOnly-compact"
+                >
+                  <Activity className="h-3.5 w-3.5" />
+                  {liveOnly ? "Онлайн" : "Все игры"}
+                </button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 text-xs border-white/10 text-slate-300"
+                  onClick={() => setFiltersOpen(true)}
+                  data-testid="button-open-filters"
+                >
+                  <SlidersHorizontal className="h-3.5 w-3.5" />
+                  Фильтры
+                  {activeFilterCount > 0 && (
+                    <span
+                      className="ml-0.5 min-w-[1.25rem] h-5 px-1 rounded-full text-[10px] font-bold flex items-center justify-center"
+                      style={{ background: "#0ea5e9", color: "#fff" }}
+                    >
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </Button>
+                {selectedGenres.map((genre) => (
+                  <button
+                    key={genre}
+                    type="button"
+                    onClick={() => toggleGenre(genre)}
+                    className="h-7 px-2 rounded-full text-[11px] flex items-center gap-1"
+                    style={{
+                      background: "rgba(14,165,233,0.12)",
+                      color: "#38bdf8",
+                      border: "1px solid rgba(14,165,233,0.25)",
+                    }}
+                  >
+                    {formatGenreLabel(genre)}
+                    <X className="h-3 w-3" />
+                  </button>
+                ))}
+                {category && (
+                  <button
+                    type="button"
+                    onClick={() => setCategory("")}
+                    className="h-7 px-2 rounded-full text-[11px] flex items-center gap-1"
+                    style={{
+                      background: "rgba(14,165,233,0.12)",
+                      color: "#38bdf8",
+                      border: "1px solid rgba(14,165,233,0.25)",
+                    }}
+                  >
+                    {category}
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Полный режим: мобильные чипы (десктоп — сайдбар) */}
+            {!compactFilters && (
             <div className="lg:hidden flex items-center gap-2 mb-3 overflow-x-auto pb-1 scrollbar-none">
               <button
                 type="button"
@@ -381,7 +332,7 @@ export default function GamesPage() {
                 <Activity className="h-3.5 w-3.5" />
                 {liveOnly ? "Онлайн" : "Все игры"}
               </button>
-              {BOOL_FILTERS.map((f) => (
+              {GAMES_BOOL_FILTERS.map((f) => (
                 <button
                   key={f.key}
                   type="button"
@@ -397,6 +348,7 @@ export default function GamesPage() {
                 </button>
               ))}
             </div>
+            )}
 
             {/* Sort + stats bar */}
             <div className="flex items-center justify-between gap-3 mb-4">
@@ -503,6 +455,21 @@ export default function GamesPage() {
           </div>
         </div>
       </main>
+
+      <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-sm border-white/10 text-slate-300"
+          style={{ background: "#0a1018" }}
+        >
+          <SheetHeader>
+            <SheetTitle className="text-white">Фильтры каталога</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6">
+            <GamesFiltersPanel {...filtersPanelProps} variant="sheet" />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -597,7 +564,9 @@ function GameCard({ game, vdsBadge }: { game: GameEnriched; vdsBadge?: boolean }
       <div className="absolute inset-0 bg-gradient-to-t from-[#06090e]/96 via-[#06090e]/30 to-transparent p-3 flex flex-col justify-end">
         <h3 className="text-sm font-bold text-white leading-snug line-clamp-2">{game.title}</h3>
         {game.genre && (
-          <p className="text-[10px] text-sky-400 font-mono mt-0.5 truncate">{game.genre}</p>
+          <p className="text-[10px] text-sky-400 font-mono mt-0.5 truncate">
+            {formatGenreLabel(game.genre)}
+          </p>
         )}
         <p
           className="text-[10px] font-mono mt-1"
