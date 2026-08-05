@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-244 (2026-08-05 23:58 UTC) {#marathon-m-244}
+
+| Проверка | Результат |
+|---|---|
+| gamepad-injection.test.mjs | PASS (2 new tests) |
+
+**Изменения:** `artifacts/host-agent/test/gamepad-injection.test.mjs` — unit-тесты для `disconnectGamepad` (win32 mocked release + non-win32 noop).
+
+**Следующий pick:** M-245 (тест не покрывает экспорты: ping-server).
+
 ## Marathon M-243 (2026-08-05 23:56 UTC) {#marathon-m-243}
 
 | Проверка | Результат |

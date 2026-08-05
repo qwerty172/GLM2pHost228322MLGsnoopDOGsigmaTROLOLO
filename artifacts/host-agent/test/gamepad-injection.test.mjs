@@ -108,6 +108,37 @@ test("non-win32: injectGamepad does not throw", async () => {
   });
 });
 
+test("non-win32: disconnectGamepad does not throw", async () => {
+  if (process.platform === "win32") return;
+  const { initGamepadInjector, disconnectGamepad } = await importGamepadModule();
+  initGamepadInjector();
+  disconnectGamepad();
+});
+
+test("win32 mocked: disconnectGamepad releases virtual pad", async () => {
+  const origPlatform = process.platform;
+  Object.defineProperty(process, "platform", { value: "win32" });
+  resetVigemMock();
+
+  const {
+    initGamepadInjector,
+    connectGamepad,
+    disconnectGamepad,
+    getGamepadInjectorStatus,
+  } = await importGamepadModule();
+
+  initGamepadInjector();
+  assert.equal(connectGamepad(), true);
+  assert.equal(getGamepadInjectorStatus().connected, true);
+
+  disconnectGamepad();
+
+  assert.equal(getGamepadInjectorStatus().connected, false);
+  assert.ok(vigemMock.disconnectCalls > 0);
+
+  Object.defineProperty(process, "platform", { value: origPlatform });
+});
+
 test("win32 mocked: connect succeeds and inject maps XUSB report", async () => {
   const origPlatform = process.platform;
   Object.defineProperty(process, "platform", { value: "win32" });
