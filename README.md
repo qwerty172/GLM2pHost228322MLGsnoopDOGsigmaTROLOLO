@@ -40,55 +40,36 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
-Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
-
-**Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
-
-**Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN (обход страниц в браузере).
-
-### Требования
-
-- Node.js 20+
-- pnpm 9+
-- PostgreSQL 16
-- Git Bash / WSL (для Windows) или Linux/macOS
-
-### Клонирование
-
-```bash
-git clone https://github.com/qwerty172/glm2phost228322mlgsnoopdogsigmatrololo.git decentral-hub
-cd decentral-hub
-```
-
-### Первичная настройка
-
-**Windows (cmd или двойной клик):**
-
-```bat
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-copy .env.example .env
-notepad .env
-scripts\setup-local.bat
-scripts\dev-local.bat
-```
-
-**Git Bash / Linux / macOS:**
+**Взял и юзаешь** — одна команда после клона:
 
 ```bash
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-cp .env.example .env
-# отредактируй DATABASE_URL
-
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
+pnpm dev
 ```
 
-Подробнее — [LOCAL_SETUP.md](./LOCAL_SETUP.md).
+Скрипт сам: создаст `.env`, сгенерирует секреты, поднимет PostgreSQL+Redis в Docker, применит схему БД и запустит API + Web.
+
+| Сервис | URL |
+|---|---|
+| Web | http://localhost:5000 |
+| API | http://localhost:8080/api/healthz |
+
+**Требования:** Node.js 20+, pnpm 9+, [Docker](https://docs.docker.com/get-docker/) (для БД). Без Docker — свой PostgreSQL 16 и `DATABASE_URL` в `.env`.
+
+**Уже работает?** → фазы 0–1 пройдены, начинайте **фазу 2** в [`TESTPLAN.md`](./TESTPLAN.md).
+
+### Полезные команды
+
+| Команда | Что делает |
+|---|---|
+| `pnpm dev` | Всё в одном: Docker → схема → API + Web |
+| `pnpm setup` | Только настройка (.env, зависимости, схема) |
+| `pnpm db:up` | Поднять PostgreSQL + Redis в Docker |
+| `pnpm db:down` | Остановить Docker-контейнеры |
+| `./scripts/dev-local.sh` | Только API + Web (БД уже должна работать) |
+
+Подробнее — [LOCAL_SETUP.md](./LOCAL_SETUP.md). План тестирования — [TESTPLAN.md](./TESTPLAN.md).
 
 ### Переменные окружения (`.env`)
 
@@ -105,13 +86,19 @@ chmod +x scripts/*.sh
 
 ### Запуск (два терминала или один скрипт)
 
-**Вариант A — скрипт (Git Bash / Linux / macOS):**
+**Рекомендуется — одна команда:**
+
+```bash
+pnpm dev
+```
+
+**Или только API + Web (БД уже работает):**
 
 ```bash
 ./scripts/dev-local.sh
 ```
 
-**Вариант B — вручную:**
+**Вручную (два терминала):**
 
 ```bash
 # Терминал 1: API (порт 8080)
