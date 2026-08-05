@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-68 (2026-08-05 00:25 UTC) {#marathon-m-68}
+
+| Проверка | Результат |
+|---|---|
+| input.test.mjs | 11 тестов — parseInputEvent (mousemove/mode/buttons/wheel/keys), parseGamepadState clamp/limits, parseHostConfigPatch, constants |
+| host-agent test | PASS (197 tests) |
+| typecheck | PASS (host-agent) |
+
+**Следующий pick:** сканер — idle (кат. K завершена).
+
 ## Marathon M-67 (2026-08-05 00:12 UTC) {#marathon-m-67}
 
 | Проверка | Результат |
