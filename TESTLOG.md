@@ -101,7 +101,16 @@
 | submissions.test.ts | 20 тестов — POST /games/submit; PATCH /games/submissions/:id/pending-config; GET /games/submissions/my |
 | api-server test (submissions) | PASS (20 tests) |
 
-**Следующий pick:** M-131 (verifier.ts).
+**Следующий pick:** M-132 (vt.ts).
+
+## Marathon M-131 (2026-08-05 12:33 UTC) {#marathon-m-131}
+
+| Проверка | Результат |
+|---|---|
+| verifier.test.ts | 10 тестов — GET /verifier/status; POST /link/start, /challenge, /challenge/:id/verify; POST /webhooks/telegram |
+| api-server test (verifier) | PASS (10 tests) |
+
+**Следующий pick:** M-132 (vt.ts).
 
 ## Marathon M-130 (2026-08-05 12:30 UTC) {#marathon-m-130}
 
