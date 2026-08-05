@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-80 (2026-08-05 04:54 UTC) {#marathon-m-80}
+
+| Проверка | Результат |
+|---|---|
+| use-player-wallet.tsx | экспорт storage keys, readGuestFlagFromStorage, registerGuestPlayerWallet, upgradeGuestPlayerWallet, persist* helpers |
+| use-player-wallet.test.mjs | 11 тестов — guest flag, register existing/success/failure, upgrade success/no-op/failure, persist helpers |
+| web test | PASS (74 tests) |
+| typecheck | PASS |
+
+**Следующий pick:** idle (сканер M пуст).
+
 ## Marathon M-79 (2026-08-05 04:22 UTC) {#marathon-m-79}
 
 | Проверка | Результат |
