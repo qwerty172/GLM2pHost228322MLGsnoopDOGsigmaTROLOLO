@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-81 (2026-08-05 05:44 UTC) {#marathon-m-81-fix}
+
+| Проверка | Результат |
+|---|---|
+| groom | M-81 reopen: done_but_active — тест был keyboard-overlay.test.mjs, сканер ждёт KeyboardOverlay.test.mjs |
+| fix | rename → KeyboardOverlay.test.mjs |
+| KeyboardOverlay.test.mjs | 7 тестов PASS |
+| marathon-scan --json-state | KeyboardOverlay больше не в candidates |
+
+**Следующий pick:** M-82 (TouchOverlay.tsx).
+
 ## Marathon M-81 (2026-08-05 05:38 UTC) {#marathon-m-81}
 
 | Проверка | Результат |
