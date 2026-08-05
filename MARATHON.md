@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-225 done; use-platform-events export coverage)
+> **Последнее обновление:** 2026-08-05 (M-228 done; hostAuth requireHost export coverage)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 23:05 UTC|
-| Task ID | M-227|
-| Результат | economy.test.ts PASS (23 tests): SYSTEM_INTEREST_RESERVE, creditPayoutToUser, payInternal, repayBorrowerDebt, applyDepositCents, creditDevKeyDeposit, recordWithdrawalDebit, systemAccountBalance, drawFromSystemAccount, hasBlockReserveLedger, debitBlockReserve|
+| Дата | 2026-08-05 23:08 UTC|
+| Task ID | M-228|
+| Результат | hostAuth.test.ts PASS (4 tests): requireHost 401/404/ok paths with mocked db|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -580,7 +580,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-225 | V | тест не покрывает экспорты (1): use-platform-events | `artifacts/web/src/hooks/use-platform-events.ts` | v:artifacts/web/src/hooks/use-platform-events.ts | done | agent |
 | M-226 | V | тест не покрывает экспорты (2): authMiddleware | `artifacts/api-server/src/lib/authMiddleware.ts` | v:artifacts/api-server/src/lib/authMiddleware.ts | done | agent |
 | M-227 | V | тест не покрывает экспорты (11): economy | `artifacts/api-server/src/lib/economy.ts` | v:artifacts/api-server/src/lib/economy.ts | done | agent |
-| M-228 | V | тест не покрывает экспорты (1): hostAuth | `artifacts/api-server/src/lib/hostAuth.ts` | v:artifacts/api-server/src/lib/hostAuth.ts | pending | agent |
+| M-228 | V | тест не покрывает экспорты (1): hostAuth | `artifacts/api-server/src/lib/hostAuth.ts` | v:artifacts/api-server/src/lib/hostAuth.ts | done | agent |
 | M-229 | V | тест не покрывает экспорты (1): hostTier | `artifacts/api-server/src/lib/hostTier.ts` | v:artifacts/api-server/src/lib/hostTier.ts | pending | agent |
 | M-230 | V | тест не покрывает экспорты (1): invites | `artifacts/api-server/src/lib/invites.ts` | v:artifacts/api-server/src/lib/invites.ts | pending | agent |
 | M-231 | V | тест не покрывает экспорты (3): joinCodes | `artifacts/api-server/src/lib/joinCodes.ts` | v:artifacts/api-server/src/lib/joinCodes.ts | pending | agent |

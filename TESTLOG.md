@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-228 (2026-08-05 23:08 UTC) {#marathon-m-228}
+
+| Проверка | Результат |
+|---|---|
+| hostAuth.test.ts | PASS (4 tests) |
+
+**Изменения:** `artifacts/api-server/src/lib/hostAuth.test.ts` — unit-тесты для `requireHost`: 401 без токена, 404 при неизвестном хосте, успех при валидном Bearer-токене.
+
+**Следующий pick:** M-229 (тест не покрывает экспорты: hostTier).
+
 ## Marathon M-227 (2026-08-05 23:04 UTC) {#marathon-m-227}
 
 | Проверка | Результат |
