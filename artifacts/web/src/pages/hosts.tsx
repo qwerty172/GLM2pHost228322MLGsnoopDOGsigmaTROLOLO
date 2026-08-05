@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { ChevronDown, ChevronUp, Cpu, Gamepad2, MemoryStick, Monitor, Star, Wifi } from "lucide-react";
+import { ChevronDown, ChevronUp, Cpu, Gamepad2, MemoryStick, Monitor, Play, Star, Wifi } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -24,6 +24,12 @@ import {
   resolveCoverImageUrl,
   sortPublicHosts,
 } from "@/pages/hosts-helpers";
+import {
+  pickBestPlayableHost,
+  resolvePlayNowInvitePath,
+  PLAY_NOW_FALLBACK_HREF,
+} from "@/pages/landing-helpers";
+import { usePlayerWallet } from "@/hooks/use-player-wallet";
 
 type LibraryGame = {
   gameId: string;
@@ -329,6 +335,8 @@ function PlayButton({
 }
 
 export default function HostsPage() {
+  const [, navigate] = useLocation();
+  const { playerWalletToken, registerGuest } = usePlayerWallet();
   const { data: hosts, isLoading, isError, refetch, isFetching } = useListPublicHosts({
     query: {
       queryKey: getListPublicHostsQueryKey(),
@@ -344,6 +352,18 @@ export default function HostsPage() {
     if (!hosts) return hosts;
     return sortPublicHosts(hosts, browserRtt, onlineOnly);
   }, [hosts, browserRtt, onlineOnly]);
+
+  const bestPlayableHost = pickBestPlayableHost(sortedHosts);
+  const playNowPath = resolvePlayNowInvitePath(bestPlayableHost);
+
+  const handlePlayNow = () => {
+    if (!playNowPath) {
+      navigate(PLAY_NOW_FALLBACK_HREF);
+      return;
+    }
+    if (!playerWalletToken) void registerGuest();
+    navigate(playNowPath);
+  };
 
   return (
     <div
@@ -406,6 +426,16 @@ export default function HostsPage() {
             </p>
           </div>
           <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={handlePlayNow}
+              className="h-9 px-4 text-xs font-semibold rounded-md flex items-center gap-1.5 transition-opacity hover:opacity-90"
+              style={{ background: "#0ea5e9", color: "#fff" }}
+              data-testid="button-play-now-hero"
+            >
+              <Play className="w-3.5 h-3.5" />
+              {playNowPath ? "Играть сейчас" : "Смотреть каталог"}
+            </button>
             <label className="flex items-center gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"

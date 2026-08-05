@@ -33,6 +33,9 @@ import {
   resolveJoinRedirectUrl,
   filterPlayableHosts,
   computeLztPerMin,
+  pickBestPlayableHost,
+  resolvePlayNowInvitePath,
+  PLAY_NOW_FALLBACK_HREF,
 } from "@/pages/landing-helpers";
 
 type LiveHost = {
@@ -98,6 +101,17 @@ export default function Landing() {
   };
 
   const playableHosts = filterPlayableHosts(liveHosts);
+  const bestPlayableHost = pickBestPlayableHost(liveHosts);
+  const playNowPath = resolvePlayNowInvitePath(bestPlayableHost);
+
+  const handleHeroPlayNow = () => {
+    if (!playNowPath) {
+      navigate(PLAY_NOW_FALLBACK_HREF);
+      return;
+    }
+    if (!playerWalletToken) void registerGuest();
+    navigate(playNowPath);
+  };
 
   const statItems: { num: string; label: string; icon: React.ReactNode; testid: string }[] = [
     {
@@ -167,14 +181,15 @@ export default function Landing() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-start gap-3">
-            <Link href="/hosts">
-              <Button
-                className="h-9 px-5 text-sm font-semibold rounded-md"
-                style={{ background: "#0ea5e9", color: "#fff" }}
-              >
-                <Play className="w-3.5 h-3.5 mr-1.5" /> Играть
-              </Button>
-            </Link>
+            <Button
+              className="h-9 px-5 text-sm font-semibold rounded-md"
+              style={{ background: "#0ea5e9", color: "#fff" }}
+              onClick={handleHeroPlayNow}
+              data-testid="button-play-now-hero"
+            >
+              <Play className="w-3.5 h-3.5 mr-1.5" />
+              {playNowPath ? "Играть сейчас" : "Смотреть каталог"}
+            </Button>
             <Link href="/host">
               <Button
                 variant="ghost"

@@ -10,6 +10,10 @@ const {
   resolveJoinRedirectUrl,
   filterPlayableHosts,
   computeLztPerMin,
+  isPlayableHost,
+  pickBestPlayableHost,
+  resolvePlayNowInvitePath,
+  PLAY_NOW_FALLBACK_HREF,
 } = await import("../src/pages/landing-helpers.ts");
 
 test("LZT_PER_USD is stable", () => {
@@ -88,4 +92,39 @@ test("filterPlayableHosts keeps online hosts with invite codes up to limit", () 
 test("computeLztPerMin prefers game price over host minute USD", () => {
   assert.equal(computeLztPerMin({ pricePerMinuteLzt: 15 }, 0.04), 15);
   assert.equal(computeLztPerMin(undefined, 0.04), 8);
+});
+
+test("isPlayableHost accepts status or isOnline with invite code", () => {
+  assert.equal(isPlayableHost({ status: "online", inviteCode: "x" }), true);
+  assert.equal(isPlayableHost({ isOnline: true, inviteCode: "x" }), true);
+  assert.equal(isPlayableHost({ status: "offline", inviteCode: "x" }), false);
+  assert.equal(isPlayableHost({ status: "online", inviteCode: null }), false);
+});
+
+test("pickBestPlayableHost ranks tier, ping, then price", () => {
+  const hosts = [
+    { id: "a", status: "online", inviteCode: "a", hostTier: "meets_min", pingMs: 40, minutePriceUsd: 0.05 },
+    { id: "b", status: "online", inviteCode: "b", hostTier: "above_rec", pingMs: 80, minutePriceUsd: 0.06 },
+    { id: "c", status: "online", inviteCode: "c", hostTier: "above_rec", pingMs: 20, minutePriceUsd: 0.08 },
+    { id: "d", status: "offline", inviteCode: "d", hostTier: "above_rec", pingMs: 5, minutePriceUsd: 0.01 },
+  ];
+  assert.equal(pickBestPlayableHost(hosts)?.id, "c");
+});
+
+test("pickBestPlayableHost returns null when no playable hosts", () => {
+  assert.equal(pickBestPlayableHost([]), null);
+  assert.equal(
+    pickBestPlayableHost([{ status: "offline", inviteCode: "x" }]),
+    null,
+  );
+});
+
+test("resolvePlayNowInvitePath builds /play/i path", () => {
+  assert.equal(resolvePlayNowInvitePath({ inviteCode: "INV42" }), "/play/i/INV42");
+  assert.equal(resolvePlayNowInvitePath({ inviteCode: null }), null);
+  assert.equal(resolvePlayNowInvitePath(null), null);
+});
+
+test("PLAY_NOW_FALLBACK_HREF points to games catalog", () => {
+  assert.equal(PLAY_NOW_FALLBACK_HREF, "/games");
 });

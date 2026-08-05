@@ -41,7 +41,16 @@ Platform URL / токена / пути к `.exe`, «Выйти в онлайн»
 | flip всех P0 → done | всплывают P1/P2 (16 задач) |
 | --sync-marathon | M-140…M-151, next pick = M-140 (U-01) |
 
-**Следующий pick:** M-146 — «Играть сейчас» подбирает хост сама.
+**Следующий pick:** M-136 — auth-verifier unit-тест (otp.ts).
+
+## M-146 — «Играть сейчас» подбирает хост сама (2026-08-05 13:40 UTC) {#marathon-m146}
+
+| Проверка | Результат |
+|---|---|
+| landing.test.mjs | 5 новых тестов — pickBestPlayableHost, resolvePlayNowInvitePath, PASS |
+| web test suite | 327 тестов — PASS |
+
+**Изменения:** главный CTA на лендинге и кнопка на `/hosts` ведут на `/play/i/{inviteCode}` лучшего онлайн-хоста (tier → ping → цена); без хостов — переход в каталог `/games`.
 
 ## M-145 — «Играть» ведёт в `/hosts` на десктопе и мобиле (2026-08-05 13:28 UTC) {#marathon-m145}
 
