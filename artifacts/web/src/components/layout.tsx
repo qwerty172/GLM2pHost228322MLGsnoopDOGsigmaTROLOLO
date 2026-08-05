@@ -1,24 +1,32 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { LayoutDashboard, Wallet, LogOut, Library } from "lucide-react";
+import { LayoutDashboard, Wallet, LogOut, Library, type LucideIcon } from "lucide-react";
 import { SiteNav } from "@/components/site-nav";
+import {
+  HOST_LAYOUT_NAV_ITEMS,
+  isHostNavItemActive,
+  resolveHostSiteNavActivePath,
+  type HostLayoutNavHref,
+} from "@/components/layout-nav";
+
+const HOST_LAYOUT_NAV_ICONS: Record<HostLayoutNavHref, LucideIcon> = {
+  "/host": LayoutDashboard,
+  "/host/library": Library,
+  "/host/wallet": Wallet,
+};
+
+export { HOST_LAYOUT_NAV_ITEMS as HOST_LAYOUT_NAV, resolveHostSiteNavActivePath, isHostNavItemActive } from "@/components/layout-nav";
 
 export function HostLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { logout } = useAuth();
-
-  const navItems = [
-    { href: "/host", label: "Дашборд", icon: LayoutDashboard },
-    { href: "/host/library", label: "Моя библиотека", icon: Library },
-    { href: "/host/wallet", label: "Кошелёк", icon: Wallet },
-  ];
 
   return (
     <div
       className="min-h-screen flex flex-col text-slate-300"
       style={{ background: "#06090e" }}
     >
-      <SiteNav activePath={location.startsWith("/host/wallet") ? "/host/wallet" : "/host"} />
+      <SiteNav activePath={resolveHostSiteNavActivePath(location)} />
       <div
         className="border-b"
         style={{
@@ -27,9 +35,9 @@ export function HostLayout({ children }: { children: React.ReactNode }) {
         }}
       >
         <div className="max-w-6xl mx-auto px-6 h-11 flex items-center gap-6">
-          {navItems.map((item) => {
-            const isActive = location === item.href;
-            const Icon = item.icon;
+          {HOST_LAYOUT_NAV_ITEMS.map((item) => {
+            const isActive = isHostNavItemActive(location, item.href);
+            const Icon = HOST_LAYOUT_NAV_ICONS[item.href];
             return (
               <Link
                 key={item.href}
