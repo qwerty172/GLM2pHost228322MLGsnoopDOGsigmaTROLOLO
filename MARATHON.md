@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 05:10 UTC |
 | Task ID | M-81 |
 | Результат | web components: KeyboardOverlay — resolveKeyTap, clampOverlayPos, layout persistence (9 тестов, 84 total) |
-| Commit | *(after push)* |
+| Commit | 033b321 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
