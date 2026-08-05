@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 03:10 UTC |
 | Task ID | M-75 |
 | Результат | unit-тест utils.ts — cn() merge, falsy, conditional, tailwind-merge |
-| Commit | (pending) |
+| Commit | cb37b4c |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
