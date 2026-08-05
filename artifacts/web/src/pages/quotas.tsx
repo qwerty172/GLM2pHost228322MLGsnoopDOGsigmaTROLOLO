@@ -16,26 +16,30 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, Sparkles, Coins, Lock, Globe, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { getQuotaCompatibility, type QuotaCompatibility } from "@/lib/quota-compatibility";
+import type { getQuotaCompatibility, QuotaCompatibility } from "@/lib/quota-compatibility";
+import {
+  quotaStatusMeta,
+  quotaKindFilterLabel,
+  buildPublicQuotaParams,
+  selectQuotaRows,
+  buildQuotaCompatibilityMap,
+  filterQuotasBySearch,
+  filterCompatibleQuotas,
+  getQuotasLoadingState,
+  getQuotasEmptyState,
+  formatQuotaMinSpecs,
+  formatRoyaltyRateLine,
+  formatSponsorPricingLines,
+  isQuotaIncompatible,
+} from "./quotas-helpers";
 
 const cardStyle = {
   background: "#0a1018",
   border: "1px solid rgba(255,255,255,0.06)",
 } as const;
 
-const fmtLzt = (n: number | null | undefined) =>
-  n == null ? "—" : new Intl.NumberFormat("ru-RU").format(n) + " LZT";
-
 function statusBadge(status: Quota["status"]) {
-  const map: Record<string, { bg: string; color: string; label: string }> = {
-    draft: { bg: "#1e293b", color: "#94a3b8", label: "Черновик" },
-    active: { bg: "rgba(16,185,129,0.18)", color: "#34d399", label: "Активна" },
-    paused: { bg: "rgba(234,179,8,0.18)", color: "#facc15", label: "Пауза" },
-    exhausted: { bg: "rgba(244,63,94,0.18)", color: "#f87171", label: "Исчерпана" },
-    expired: { bg: "rgba(148,163,184,0.18)", color: "#94a3b8", label: "Истекла" },
-    closed: { bg: "rgba(148,163,184,0.18)", color: "#94a3b8", label: "Закрыта" },
-  };
-  const v = map[status] ?? map.draft!;
+  const v = quotaStatusMeta(status);
   return (
     <span
       className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded"
@@ -54,7 +58,9 @@ function QuotaCard({
   compatibility?: QuotaCompatibility | null;
 }) {
   const isRoyalty = q.kind === "royalty";
-  const incompatible = compatibility != null && !compatibility.compatible;
+  const incompatible = isQuotaIncompatible(compatibility);
+  const minSpecs = formatQuotaMinSpecs(q);
+  const sponsorLines = !isRoyalty ? formatSponsorPricingLines(q) : null;
   return (
     <Link href={`/quotas/${q.id}`}>
       <div
@@ -125,42 +131,25 @@ function QuotaCard({
         )}
         <div className="text-xs font-mono text-slate-400 space-y-1 border-t border-white/5 pt-3">
           {isRoyalty ? (
-            <div>
-              {q.royaltyBasis === "percent"
-                ? `${q.royaltyValue ?? 0}% / мин`
-                : `${q.royaltyValue ?? 0} LZT/мин`}{" "}
-              <span className="text-slate-600">
-                ({q.royaltySource === "player" ? "с игрока" : "из доли хоста"})
-              </span>
-            </div>
+            <div>{formatRoyaltyRateLine(q)}</div>
           ) : (
-            <>
-              <div>
-                Хосту: {fmtLzt(q.sponsorHostPerMinuteLzt ?? 0)}/мин · Игроку:{" "}
-                {fmtLzt(q.sponsorPlayerPerMinuteLzt ?? 0)}/мин
-              </div>
-              <div className="text-emerald-300">
-                Остаток эскроу: {fmtLzt(q.escrowRemainingLzt)}
-              </div>
-            </>
+            sponsorLines && (
+              <>
+                <div>{sponsorLines.ratesLine}</div>
+                <div className="text-emerald-300">{sponsorLines.escrowLine}</div>
+              </>
+            )
           )}
           {q.gameTitle && (
             <div className="text-slate-600">Игра: {q.gameTitle}</div>
           )}
-          {(q.minGpuVram != null || q.minRamGb != null) && (
+          {minSpecs && (
             <div className="mt-2 pt-2 border-t border-white/5">
               <span
                 className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded"
                 style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}
               >
-                {[
-                  q.minGpuVram != null && `${q.minGpuVram}GB VRAM+`,
-                  q.minRamGb != null && `${q.minRamGb}GB RAM+`,
-                  q.minCpuCores != null && `${q.minCpuCores} ядер+`,
-                  q.minDownloadMbps != null && `${q.minDownloadMbps}Mbps+`,
-                ]
-                  .filter(Boolean)
-                  .join(" / ")}
+                {minSpecs}
               </span>
             </div>
           )}
@@ -189,9 +178,7 @@ export default function QuotasPage() {
     ?.pcSpecs;
 
   const { data: games } = useListGames({});
-  const publicParams: { kind?: "royalty" | "sponsor"; gameId?: string } = {};
-  if (kindFilter) publicParams.kind = kindFilter;
-  if (gameFilter) publicParams.gameId = gameFilter;
+  const publicParams = buildPublicQuotaParams(kindFilter, gameFilter);
   const publicQuery = useListPublicQuotas(publicParams);
   const myParams = { ownerToken: hostToken ?? "" };
   const myQuery = useListMyQuotas(myParams, {
@@ -207,37 +194,22 @@ export default function QuotasPage() {
     },
   });
 
-  const rows =
-    tab === "mine"
-      ? myQuery.data ?? []
-      : tab === "applied"
-        ? appliedQuery.data ?? []
-        : publicQuery.data ?? [];
-
-  const compatibilityMap = new Map<string, QuotaCompatibility>();
-  if (hostToken && tab === "public") {
-    for (const q of rows) {
-      compatibilityMap.set(q.id, getQuotaCompatibility(hostPcSpecs, q));
-    }
-  }
-
-  const filtered = (search
-    ? rows.filter(
-        (q) =>
-          q.title.toLowerCase().includes(search.toLowerCase()) ||
-          (q.description ?? "").toLowerCase().includes(search.toLowerCase()),
-      )
-    : rows
-  ).filter((q) => {
-    if (!onlyCompatible || tab !== "public" || !hostToken) return true;
-    return compatibilityMap.get(q.id)?.compatible !== false;
-  });
-  const loading =
-    tab === "mine"
-      ? myQuery.isLoading
-      : tab === "applied"
-        ? appliedQuery.isLoading
-        : publicQuery.isLoading;
+  const rows = selectQuotaRows(tab, myQuery.data, appliedQuery.data, publicQuery.data);
+  const compatibilityMap = buildQuotaCompatibilityMap(hostToken, tab, rows, hostPcSpecs);
+  const filtered = filterCompatibleQuotas(
+    filterQuotasBySearch(rows, search),
+    onlyCompatible,
+    tab,
+    hostToken,
+    compatibilityMap,
+  );
+  const loading = getQuotasLoadingState(
+    tab,
+    myQuery.isLoading,
+    appliedQuery.isLoading,
+    publicQuery.isLoading,
+  );
+  const emptyState = getQuotasEmptyState(tab);
 
   return (
     <div className="min-h-screen text-slate-300" style={{ background: "#06090e" }}>
@@ -353,7 +325,7 @@ export default function QuotasPage() {
               onClick={() => setKindFilter(k)}
               data-testid={`filter-kind-${k || "all"}`}
             >
-              {k === "" ? "Любой тип" : k === "royalty" ? "Роялти" : "Спонсор"}
+              {quotaKindFilterLabel(k)}
             </button>
           ))}
           {hostToken && tab === "public" && (
@@ -410,20 +382,8 @@ export default function QuotasPage() {
             data-testid="quotas-empty"
           >
             <Coins className="h-12 w-12 text-slate-700 mx-auto mb-4" />
-            <p className="text-lg font-medium text-slate-300">
-              {tab === "mine"
-                ? "У тебя пока нет квот"
-                : tab === "applied"
-                  ? "К твоим сессиям ещё не применялись чужие квоты"
-                  : "Ничего не найдено"}
-            </p>
-            <p className="text-sm text-slate-500 mt-1">
-              {tab === "mine"
-                ? "Создай первую — это бесплатно для черновика."
-                : tab === "applied"
-                  ? "Как только ты сыграешь под чьей-то квотой или хост прикрепит её к твоей игре — увидишь здесь."
-                  : "Попробуй сменить тип или поискать другое название."}
-            </p>
+            <p className="text-lg font-medium text-slate-300">{emptyState.title}</p>
+            <p className="text-sm text-slate-500 mt-1">{emptyState.subtitle}</p>
           </div>
         ) : (
           <div

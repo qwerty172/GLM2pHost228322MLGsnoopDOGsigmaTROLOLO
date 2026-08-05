@@ -45,6 +45,18 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-105 (2026-08-05 10:52 UTC) {#marathon-m-105}
+
+| Проверка | Результат |
+|---|---|
+| quotas-helpers.ts | fmtLzt, quotaStatusMeta, quotaKindFilterLabel, buildPublicQuotaParams, selectQuotaRows, filterQuotasBySearch, filterCompatibleQuotas, getQuotasLoadingState, getQuotasEmptyState, formatQuotaMinSpecs, formatRoyaltyRateLine, formatSponsorPricingLines, isQuotaIncompatible |
+| quotas.test.mjs | 14 тестов — LZT format, status meta, kind filter, public params, row selection, search, compatibility filter, loading state, empty state, min specs, royalty/sponsor pricing, incompatible check |
+| quotas.tsx | рефакторинг: хелперы в quotas-helpers.ts |
+| web test (quotas) | PASS (14 tests) |
+| typecheck | PASS (quotas-helpers via unit tests) |
+
+**Следующий pick:** M-106 (wallet.tsx).
+
 ## Marathon M-104 (2026-08-05 10:47 UTC) {#marathon-m-104}
 
 | Проверка | Результат |
