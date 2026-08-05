@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 16:59 UTC|
+| Дата | 2026-08-05 17:00 UTC|
 | Task ID | M-159|
-| Результат | U-15 done: agent-version.ts + getAgentVersion() в /ping и дашборде; UX_BACKLOG U-15→done; host-agent 207 tests PASS|
+| Результат | U-15 done: agent-version.ts + getAgentVersion() в /ping и дашборде; UX_BACKLOG U-15→done; agent-version.test PASS; host-agent typecheck PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
