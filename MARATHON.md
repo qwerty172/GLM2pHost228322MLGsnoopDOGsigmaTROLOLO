@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-202 done; rateLimitBuckets schema test)
+> **Последнее обновление:** 2026-08-05 (M-203 done; refreshTokens schema test)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 21:25 UTC|
-| Task ID | M-202|
-| Результат | rateLimitBuckets.test.ts: колонки и notNull; db test PASS (72)|
+| Дата | 2026-08-05 21:28 UTC|
+| Task ID | M-203|
+| Результат | refreshTokens.test.ts: колонки и notNull; db test PASS (75)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -537,7 +537,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-200 | U | db schema: unit-тест (quotaVds.ts) | `db/quotaVds.ts` | u:lib/db/src/schema/quotaVds.ts | done | agent |
 | M-201 | U | db schema: unit-тест (quotas.ts) | `db/quotas.ts` | u:lib/db/src/schema/quotas.ts | done | agent |
 | M-202 | U | db schema: unit-тест (rateLimitBuckets.ts) | `db/rateLimitBuckets.ts` | u:lib/db/src/schema/rateLimitBuckets.ts | done | agent |
-| M-203 | U | db schema: unit-тест (refreshTokens.ts) | `db/refreshTokens.ts` | u:lib/db/src/schema/refreshTokens.ts | pending | agent |
+| M-203 | U | db schema: unit-тест (refreshTokens.ts) | `db/refreshTokens.ts` | u:lib/db/src/schema/refreshTokens.ts | done | agent |
 | M-204 | U | db schema: unit-тест (sessionMetrics.ts) | `db/sessionMetrics.ts` | u:lib/db/src/schema/sessionMetrics.ts | pending | agent |
 | M-205 | U | db schema: unit-тест (sessionRatings.ts) | `db/sessionRatings.ts` | u:lib/db/src/schema/sessionRatings.ts | pending | agent |
 | M-206 | U | db schema: unit-тест (sessions.ts) | `db/sessions.ts` | u:lib/db/src/schema/sessions.ts | pending | agent |
