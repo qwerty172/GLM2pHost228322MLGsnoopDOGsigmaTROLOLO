@@ -1,5 +1,25 @@
 export const LZT_PER_USD = 200;
 
+/** Браузерная демо-игра для «Попробовать демо» без Windows-агента. */
+export const DEMO_BROWSER_GAME_SLUG = "rogue-fable-3";
+
+export type CatalogGameWithBrowserHost = {
+  slug: string;
+  title?: string;
+  browserHostUrl?: string | null;
+};
+
+export function findBrowserHostDemoGame(
+  games: CatalogGameWithBrowserHost[] | null | undefined,
+): CatalogGameWithBrowserHost | null {
+  if (!games?.length) return null;
+  const exact = games.find(
+    (g) => g.slug === DEMO_BROWSER_GAME_SLUG && g.browserHostUrl,
+  );
+  if (exact) return exact;
+  return games.find((g) => g.browserHostUrl) ?? null;
+}
+
 export function formatInt(n: number): string {
   return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }

@@ -19,13 +19,16 @@ echo "==> API-сервер (порт из .env, обычно 8080)"
 pnpm --filter @workspace/api-server run dev &
 API_PID=$!
 
-echo "==> Web (http://localhost:5000, прокси /api -> API)"
+WEB_PORT=$(grep -E '^WEB_PORT=' .env 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
+WEB_PORT=${WEB_PORT:-5000}
+
+echo "==> Web (http://localhost:${WEB_PORT}, прокси /api -> API)"
 pnpm --filter @workspace/web run dev &
 WEB_PID=$!
 
 echo ""
 echo "API:  http://localhost:8080/api/healthz"
-echo "Web:  http://localhost:5000"
+echo "Web:  http://localhost:${WEB_PORT}"
 echo "Ctrl+C — остановить оба процесса"
 echo ""
 
