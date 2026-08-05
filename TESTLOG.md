@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-173 (2026-08-05 20:05 UTC) {#marathon-m-173}
+
+| Проверка | Результат |
+|---|---|
+| pre-session-screen.test.mjs | PASS — wallet totals, block choice, canStart, price label, button label (12 tests) |
+| pnpm --filter @workspace/web test | PASS (358 tests) |
+
+**Изменения:** экспортированы pure helpers из `PreSessionScreen`; добавлен `pre-session-screen.test.mjs`.
+
+**Следующий pick:** scanner idle (cat N web components покрыты).
+
 ## Marathon M-139 (2026-08-05 20:00 UTC) {#marathon-m-139}
 
 | Проверка | Результат |

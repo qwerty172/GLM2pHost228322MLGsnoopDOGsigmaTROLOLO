@@ -15,14 +15,100 @@ import {
 } from "@/pages/game-detail-helpers";
 import type { PaymentSource } from "@/pages/play-helpers";
 
-const DEFAULT_CREDIT_LZT = 3000;
+export const PRE_SESSION_DEFAULT_CREDIT_LZT = 3000;
 
-type WalletLike = {
+export type PreSessionWalletLike = {
   internalBalanceLzt?: number;
   withdrawableBalanceLzt?: number;
   creditDebtLzt?: number;
   creditLimitLzt?: number;
 };
+
+export type PreSessionBlockChoice = "unlimited" | "10" | "15" | "25";
+
+export const PRE_SESSION_BLOCK_OPTIONS: Array<{ mins: 10 | 15 | 25; label: string }> = [
+  { mins: 10, label: "10 мин" },
+  { mins: 15, label: "15 мин" },
+  { mins: 25, label: "25 мин" },
+];
+
+export function resolveInitialBlockChoice(
+  initialBlockMinutes?: 10 | 15 | 25,
+): PreSessionBlockChoice {
+  const initialBlock =
+    initialBlockMinutes != null ? String(initialBlockMinutes) : "unlimited";
+  return initialBlock === "10" || initialBlock === "15" || initialBlock === "25"
+    ? (initialBlock as "10" | "15" | "25")
+    : "unlimited";
+}
+
+export function computePreSessionWalletTotals(wallet?: PreSessionWalletLike) {
+  const balanceLzt =
+    (wallet?.internalBalanceLzt ?? 0) + (wallet?.withdrawableBalanceLzt ?? 0);
+  const totalAvailableLzt = balanceLzt;
+  const creditLimit = wallet?.creditLimitLzt ?? PRE_SESSION_DEFAULT_CREDIT_LZT;
+  const creditUsed = wallet?.creditDebtLzt ?? 0;
+  const creditAvailable = Math.max(0, creditLimit - creditUsed);
+  return { balanceLzt, totalAvailableLzt, creditLimit, creditUsed, creditAvailable };
+}
+
+export function computeSelectedBlockMins(
+  blockChoice: PreSessionBlockChoice,
+): 10 | 15 | 25 | null {
+  return blockChoice === "unlimited" ? null : (Number(blockChoice) as 10 | 15 | 25);
+}
+
+export function computePreSessionCanStart(
+  sessionEnded: boolean | undefined,
+  minsAvailable: number,
+  blockAffordable: boolean,
+  isTest: boolean | undefined,
+): boolean {
+  return !sessionEnded && minsAvailable >= 1 && blockAffordable && !isTest;
+}
+
+export function getPreSessionMinsAvailableColor(minsAvailable: number): string {
+  if (minsAvailable >= 30) return "#2dd4bf";
+  if (minsAvailable >= 5) return "#eab308";
+  return "#ef4444";
+}
+
+export function formatPreSessionMinsDisplay(
+  minsAvailable: number,
+  formatDurationFn: (mins: number) => string = formatDuration,
+): string {
+  return minsAvailable >= 9999 ? "∞" : formatDurationFn(minsAvailable);
+}
+
+export function formatPreSessionPriceLabel(
+  isTest: boolean | undefined,
+  pricePerMinuteLzt: number,
+): { price: string; subtitle: string } {
+  if (isTest) {
+    return { price: "0", subtitle: "бесплатно" };
+  }
+  return {
+    price: String(pricePerMinuteLzt),
+    subtitle: `в минуту · ${pricePerMinuteLzt * 60} LZT/час`,
+  };
+}
+
+export function getPreSessionStartButtonLabel(
+  blockCost: number | null,
+): string {
+  if (blockCost !== null) {
+    return `Зарезервировать ${blockCost.toLocaleString("ru-RU")} LZT и начать`;
+  }
+  return "Начать игру";
+}
+
+export function isPreSessionBlockOptionAffordable(
+  totalAvailableLzt: number,
+  blockMins: 10 | 15 | 25,
+  pricePerMinuteLzt: number,
+): boolean {
+  return totalAvailableLzt >= blockMins * pricePerMinuteLzt;
+}
 
 export function PreSessionScreen({
   hostDisplayName,
@@ -50,7 +136,7 @@ export function PreSessionScreen({
   pricePerMinuteLzt: number;
   resolution?: string;
   bitrateKbps?: number;
-  wallet?: WalletLike;
+  wallet?: PreSessionWalletLike;
   initialBlockMinutes?: 10 | 15 | 25;
   isTest?: boolean;
   claimError?: string | null;
@@ -66,12 +152,8 @@ export function PreSessionScreen({
   const [pingMs, setPingMs] = useState<number | null>(null);
   const [pinging, setPinging] = useState(true);
   const didPing = useRef(false);
-  const initialBlock =
-    initialBlockMinutes != null ? String(initialBlockMinutes) : "unlimited";
-  const [blockChoice, setBlockChoice] = useState<"unlimited" | "10" | "15" | "25">(
-    initialBlock === "10" || initialBlock === "15" || initialBlock === "25"
-      ? (initialBlock as "10" | "15" | "25")
-      : "unlimited",
+  const [blockChoice, setBlockChoice] = useState<PreSessionBlockChoice>(
+    resolveInitialBlockChoice(initialBlockMinutes),
   );
 
   useEffect(() => {
@@ -84,23 +166,19 @@ export function PreSessionScreen({
       .finally(() => setPinging(false));
   }, []);
 
-  const balanceLzt = (wallet?.internalBalanceLzt ?? 0) + (wallet?.withdrawableBalanceLzt ?? 0);
-  const totalAvailableLzt = balanceLzt;
-  const creditLimit = wallet?.creditLimitLzt ?? DEFAULT_CREDIT_LZT;
-  const creditUsed = wallet?.creditDebtLzt ?? 0;
-  const creditAvailable = Math.max(0, creditLimit - creditUsed);
+  const { totalAvailableLzt, creditAvailable } = computePreSessionWalletTotals(wallet);
   const minsAvailable = computeMinsAvailable(totalAvailableLzt, pricePerMinuteLzt);
 
-  const blockOptions: Array<{ mins: 10 | 15 | 25; label: string }> = [
-    { mins: 10, label: "10 мин" },
-    { mins: 15, label: "15 мин" },
-    { mins: 25, label: "25 мин" },
-  ];
-  const selectedBlockMins =
-    blockChoice === "unlimited" ? null : (Number(blockChoice) as 10 | 15 | 25);
+  const selectedBlockMins = computeSelectedBlockMins(blockChoice);
   const blockCost = selectedBlockMins ? selectedBlockMins * pricePerMinuteLzt : null;
   const blockAffordable = canAffordBlock(totalAvailableLzt, blockCost);
-  const canStart = !sessionEnded && minsAvailable >= 1 && blockAffordable && !isTest;
+  const canStart = computePreSessionCanStart(
+    sessionEnded,
+    minsAvailable,
+    blockAffordable,
+    isTest,
+  );
+  const priceLabel = formatPreSessionPriceLabel(isTest, pricePerMinuteLzt);
   const cover = coverImageUrl
     ? resolveCoverImageUrl(coverImageUrl, import.meta.env.BASE_URL)
     : null;
@@ -194,13 +272,9 @@ export function PreSessionScreen({
                 <Clock className="h-3 w-3" /> Стоимость
               </p>
               <p className="text-lg font-bold font-mono text-white">
-                {isTest ? "0" : pricePerMinuteLzt} LZT
+                {priceLabel.price} LZT
               </p>
-              <p className="text-[10px] text-slate-500 mt-0.5">
-                {isTest
-                  ? "бесплатно"
-                  : `в минуту · ${pricePerMinuteLzt * 60} LZT/час`}
-              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{priceLabel.subtitle}</p>
             </div>
           </div>
 
@@ -277,9 +351,13 @@ export function PreSessionScreen({
                 >
                   ∞
                 </button>
-                {blockOptions.map((opt) => {
+                {PRE_SESSION_BLOCK_OPTIONS.map((opt) => {
                   const cost = opt.mins * pricePerMinuteLzt;
-                  const affordable = totalAvailableLzt >= cost;
+                  const affordable = isPreSessionBlockOptionAffordable(
+                    totalAvailableLzt,
+                    opt.mins,
+                    pricePerMinuteLzt,
+                  );
                   return (
                     <button
                       key={opt.mins}
@@ -347,16 +425,9 @@ export function PreSessionScreen({
                 <p className="text-[10px] text-slate-500 uppercase tracking-wider">Сможешь играть</p>
                 <p
                   className="text-2xl font-extrabold font-mono mt-0.5"
-                  style={{
-                    color:
-                      minsAvailable >= 30
-                        ? "#2dd4bf"
-                        : minsAvailable >= 5
-                          ? "#eab308"
-                          : "#ef4444",
-                  }}
+                  style={{ color: getPreSessionMinsAvailableColor(minsAvailable) }}
                 >
-                  {minsAvailable >= 9999 ? "∞" : formatDuration(minsAvailable)}
+                  {formatPreSessionMinsDisplay(minsAvailable)}
                 </p>
               </div>
               {minsAvailable < 5 && (
@@ -474,10 +545,8 @@ export function PreSessionScreen({
                 </>
               ) : sessionEnded ? (
                 "Сессия завершена"
-              ) : blockCost !== null ? (
-                `Зарезервировать ${blockCost.toLocaleString("ru-RU")} LZT и начать`
               ) : (
-                "Начать игру"
+                getPreSessionStartButtonLabel(blockCost)
               )}
               {canStart && !isClaiming && !sessionEnded && (
                 <ArrowRight className="ml-2 h-4 w-4" />
