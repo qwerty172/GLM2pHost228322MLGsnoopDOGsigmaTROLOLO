@@ -16,6 +16,8 @@ const {
   fetchLibrary,
   sendHeartbeat,
   patchLocalAvailability,
+  fetchAgentRequirements,
+  warnIfAgentVersionUnsupported,
   requestSaveDownloadUrl,
   requestSaveUploadUrl,
   confirmSaveUpload,
@@ -220,4 +222,62 @@ test("confirmSaveUpload posts hash and size", async () => {
   } finally {
     restore.mock.restore();
   }
+});
+
+test("fetchAgentRequirements returns requirements on success", async () => {
+  const restore = mock.method(globalThis, "fetch", async (url) => {
+    assert.equal(url, "https://api.example.com/api/public/agent-requirements");
+    return {
+      ok: true,
+      json: async () => ({ minSupportedAgentVersion: "2.0.0" }),
+    };
+  });
+  try {
+    assert.deepEqual(await fetchAgentRequirements(API), {
+      minSupportedAgentVersion: "2.0.0",
+    });
+  } finally {
+    restore.mock.restore();
+  }
+});
+
+test("fetchAgentRequirements returns null on HTTP error", async () => {
+  const restore = mock.method(globalThis, "fetch", async () => ({ ok: false, status: 503 }));
+  try {
+    assert.equal(await fetchAgentRequirements(API), null);
+  } finally {
+    restore.mock.restore();
+  }
+});
+
+test("fetchAgentRequirements returns null when minSupportedAgentVersion missing", async () => {
+  const restore = mock.method(globalThis, "fetch", async () => ({
+    ok: true,
+    json: async () => ({}),
+  }));
+  try {
+    assert.equal(await fetchAgentRequirements(API), null);
+  } finally {
+    restore.mock.restore();
+  }
+});
+
+test("fetchAgentRequirements returns null on network error", async () => {
+  const restore = mock.method(globalThis, "fetch", async () => {
+    throw new Error("offline");
+  });
+  try {
+    assert.equal(await fetchAgentRequirements(API), null);
+  } finally {
+    restore.mock.restore();
+  }
+});
+
+test("warnIfAgentVersionUnsupported returns true for supported version", () => {
+  assert.equal(warnIfAgentVersionUnsupported("2.5.0", "2.0.0"), true);
+  assert.equal(warnIfAgentVersionUnsupported("2.0.0", "2.0.0"), true);
+});
+
+test("warnIfAgentVersionUnsupported returns false for outdated version", () => {
+  assert.equal(warnIfAgentVersionUnsupported("1.0.0", "2.0.0"), false);
 });
