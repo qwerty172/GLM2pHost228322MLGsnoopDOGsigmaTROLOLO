@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 07:44 UTC |
 | Task ID | M-88 |
 | Результат | wallet-history: lib/wallet-history.ts (kindMeta, bucketMeta, filters) + wallet-history.test.mjs (10 тестов) |
-| Commit | (pending) |
+| Commit | ea45c74 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
