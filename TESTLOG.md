@@ -52,7 +52,16 @@
 | embed.test.ts | 7 тестов — POST /embed/sessions (400 invalid body, 403 invalid/disabled key, 404 game/host, 402 balance, 201 session) |
 | api-server test (embed) | PASS (7 tests) |
 
-**Следующий pick:** M-114 (enrich.ts).
+**Следующий pick:** M-115 (events.ts).
+
+## Marathon M-115 (2026-08-05 11:33 UTC) {#marathon-m-115}
+
+| Проверка | Результат |
+|---|---|
+| events.test.ts | 3 теста — GET /events/stream (SSE headers + connected event, platform event fan-out, unsubscribe on disconnect) |
+| api-server test (events) | PASS (3 tests) |
+
+**Следующий pick:** M-116 (games.ts).
 
 ## Marathon M-114 (2026-08-05 11:30 UTC) {#marathon-m-114}
 
