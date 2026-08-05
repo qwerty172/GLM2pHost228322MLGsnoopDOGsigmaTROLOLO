@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-224 (2026-08-05 22:52 UTC) {#marathon-m-224}
+
+| Проверка | Результат |
+|---|---|
+| use-browser-ping.test.mjs | PASS (5 tests) |
+
+**Изменения:** `artifacts/web/test/use-browser-ping.test.mjs` — 2 теста для `useBrowserPingMs`: export hook + interval probe contract (immediate + every 60s).
+
+**Следующий pick:** M-225 (тест не покрывает экспорты: use-platform-events).
+
 ## Marathon M-223 (2026-08-05 22:50 UTC) {#marathon-m-223}
 
 | Проверка | Результат |
