@@ -118,6 +118,35 @@ function rewriteTokenUrl(
   return { url, token: null };
 }
 
+/** Attach X-User-Token for /players/me and body guestToken when URL rewrite missed. */
+function inferUserTokenHeader(
+  url: string,
+  body: string | undefined,
+  tokens: Array<string | null | undefined>,
+): string | null {
+  const hostTok = tokens[0] ?? null;
+  const playerTok = tokens[1] ?? null;
+
+  if (/\/players\/me(?:\/|$|\?)/.test(url)) {
+    return playerTok ?? hostTok ?? null;
+  }
+
+  if (body) {
+    try {
+      const parsed = JSON.parse(body) as Record<string, unknown>;
+      const guestToken =
+        typeof parsed.guestToken === "string" ? parsed.guestToken.trim() : "";
+      if (guestToken && tokens.some((t) => t === guestToken)) {
+        return guestToken;
+      }
+    } catch {
+      /* non-JSON body */
+    }
+  }
+
+  return null;
+}
+
 function isRequest(input: RequestInfo | URL): input is Request {
   return typeof Request !== "undefined" && input instanceof Request;
 }
@@ -417,6 +446,17 @@ export async function customFetch<T = unknown>(
       } else if (isRequest(input)) {
         input = new Request(rewritten.url, input);
       }
+    }
+  }
+
+  if (!userTokenHeader && _userTokensGetter) {
+    const inferred = inferUserTokenHeader(
+      resolveUrl(input),
+      typeof init.body === "string" ? init.body : undefined,
+      _userTokensGetter(),
+    );
+    if (inferred) {
+      userTokenHeader = inferred;
     }
   }
 
