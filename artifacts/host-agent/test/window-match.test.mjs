@@ -114,3 +114,17 @@ test("findCaptureSourceByHwnds prefers first HWND in priority list", () => {
   assert.equal(picked?.id, "window:200:0");
   assert.equal(findCaptureSourceByHwnds(hwndSources, []), undefined);
 });
+
+test("findCaptureSourceByHwnds skips foreground splash when titleHint mismatches", () => {
+  const hwndSources = [
+    { id: "window:100:0", name: "Steam — Preparing to launch" },
+    { id: "window:200:0", name: "RogueFable3" },
+  ];
+  // Foreground splash first — without hint we'd lock onto the launcher.
+  assert.equal(
+    findCaptureSourceByHwnds(hwndSources, [100, 200], "roguefable3")?.id,
+    "window:200:0",
+  );
+  assert.equal(findCaptureSourceByHwnds(hwndSources, [100], "roguefable3"), undefined);
+  assert.equal(findCaptureSourceByHwnds(hwndSources, [100, 200])?.id, "window:100:0");
+});

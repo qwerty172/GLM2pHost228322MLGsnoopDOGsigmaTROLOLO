@@ -133,7 +133,7 @@ export async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
       }
       const { hwnds } = await window.agent.getSpawnHwnds();
       if (hwnds.length > 0) {
-        chosen = findCaptureSourceByHwnds(sources, hwnds);
+        chosen = findCaptureSourceByHwnds(sources, hwnds, targetName);
       }
       if (!chosen && hwnds.length > 0 && attempt < MAX_ATTEMPTS - 1) {
         setPipelineStep(

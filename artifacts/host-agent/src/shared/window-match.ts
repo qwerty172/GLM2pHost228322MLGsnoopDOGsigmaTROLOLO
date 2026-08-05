@@ -102,10 +102,13 @@ export function parseHwndFromSourceId(sourceId: string): number | null {
 /**
  * Match capture source by HWND list from spawned game process (HOSTING H-08).
  * `hwnds` should be ordered by priority (foreground first).
+ * When `titleHint` is set (native exe basename), skip HWNDs whose window title
+ * does not include the hint — avoids locking onto splash/launcher foreground.
  */
 export function findCaptureSourceByHwnds(
   sources: CaptureSource[],
   hwnds: readonly number[],
+  titleHint?: string,
 ): CaptureSource | undefined {
   if (hwnds.length === 0) return undefined;
   const byHwnd = new Map<number, CaptureSource>();
@@ -113,9 +116,11 @@ export function findCaptureSourceByHwnds(
     const hwnd = parseHwndFromSourceId(s.id);
     if (hwnd !== null) byHwnd.set(hwnd, s);
   }
+  const hint = titleHint?.trim().toLowerCase();
   for (const hwnd of hwnds) {
     const match = byHwnd.get(hwnd);
-    if (match) return match;
+    if (!match) continue;
+    if (!hint || match.name.toLowerCase().includes(hint)) return match;
   }
   return undefined;
 }
