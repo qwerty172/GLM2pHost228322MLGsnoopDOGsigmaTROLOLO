@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 04:06 UTC |
 | Task ID | M-78 |
 | Результат | scanner: категории L/M ловят `.tsx`; use-auth `consumeTokenFromUrl` unit-тест; bonus: use-mobile `isMobileViewportWidth` |
-| Commit | 4103a7f |
+| Commit | a4f5a1d |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
