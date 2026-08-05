@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 05:20 UTC |
 | Task ID | M-81 |
 | Результат | web components: unit-тест KeyboardOverlay (KEY_CATALOGUE, presets, layout storage) + scanner cat O |
-| Commit | pending |
+| Commit | 3c7a8dc |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
