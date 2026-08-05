@@ -22,6 +22,7 @@
 //   K. host-agent shared/*.ts without co-located test (by file)
 //   L. web lib/*.ts without co-located test (by file)
 //   M. web hooks/*.{ts,tsx} without co-located test (by file)
+//   O. web components/*.{ts,tsx} without co-located test (by file, skip ui/)
 //
 // Source of truth: working tree (== main after git pull).
 
@@ -351,6 +352,44 @@ if (existsSync(webHooksDir)) {
   }
 }
 
+// --- O. web components/*.{ts,tsx} without test (by file, skip ui/) -------
+function collectWebComponentFiles(dir, acc = []) {
+  for (const e of readdirSync(dir)) {
+    const p = `${dir}/${e}`;
+    const s = statSync(p);
+    if (s.isDirectory()) {
+      if (e === "ui") continue;
+      collectWebComponentFiles(p, acc);
+    } else if (/\.tsx?$/.test(e) && !e.endsWith(".d.ts")) {
+      acc.push(p);
+    }
+  }
+  return acc;
+}
+const webCompDir = "artifacts/web/src/components";
+if (existsSync(webCompDir)) {
+  const compFiles = collectWebComponentFiles(webCompDir);
+  for (const f of compFiles) {
+    const short = f.replace(/^artifacts\/web\/src\/components\//, "");
+    const testName = short.replace(/\.tsx?$/, "").split("/").pop() ?? short;
+    const testCandidates = [
+      `artifacts/web/test/${testName}.test.mjs`,
+      `artifacts/web/test/${testName}.test.ts`,
+    ];
+    if (testCandidates.some((t) => existsSync(t))) continue;
+    const txt = readFileSync(f, "utf8");
+    if (!/\bexport (async )?function\b|\bexport const \w+/.test(txt)) continue;
+    raw.push({
+      cat: "O",
+      groupKey: `o:${f}`,
+      title: `web components: unit-тест (${short})`,
+      file: f,
+      detail: short,
+      items: [short],
+    });
+  }
+}
+
 // --- L. web lib/*.ts without co-located test (by file) --------------------
 const webLibDir = "artifacts/web/src/lib";
 if (existsSync(webLibDir)) {
@@ -422,7 +461,7 @@ for (const line of marathonMd.split("\n")) {
   if (status === "done" || status === "in_progress") doneOrActiveKeys.add(groupKey);
 }
 
-const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, J: 7, K: 8, L: 9, M: 10, D: 11, I: 12 };
+const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, J: 7, K: 8, L: 9, M: 10, O: 11, D: 12, I: 13 };
 const filtered = candidates
   .filter((c) => !doneOrActiveKeys.has(c.groupKey))
   .sort((a, b) => (CAT_ORDER[a.cat] ?? 9) - (CAT_ORDER[b.cat] ?? 9));
@@ -572,7 +611,7 @@ if (NEXT || PICK) {
     console.log(`| ${c.id} | ${c.cat} | ${c.title} | \`${c.file}\` | ${(c.detail || "").replace(/\|/g, "\\|")} |`);
   }
   console.log(
-    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, J=main-тесты, K=shared-тесты, L=web-lib тесты, M=web-hooks тесты, I=eslint suppressions.`,
+    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, J=main-тесты, K=shared-тесты, L=web-lib тесты, M=web-hooks тесты, O=web-components тесты, I=eslint suppressions.`,
   );
   console.log(`Синхронизация: node scripts/marathon-scan.mjs --sync-marathon`);
 }
