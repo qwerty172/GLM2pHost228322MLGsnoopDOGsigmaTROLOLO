@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-89 (2026-08-05 08:58 UTC) {#marathon-m-89}
+
+| Проверка | Результат |
+|---|---|
+| webgl-video-shader.tsx | экспорт SHADER_PRESETS (none/sharpen/contrast/upscale/night), WebGLVideoShader forwardRef |
+| webgl-video-shader.test.mjs | 6 тестов — preset keys, RU labels, GLSL uniforms, forwardRef |
+| web test | PASS (130 tests) |
+| typecheck | PASS (web) |
+
+**Следующий pick:** scanner idle (cat N пуст).
+
 ## Marathon M-88 (2026-08-05 07:52 UTC) {#marathon-m-88}
 
 | Проверка | Результат |
