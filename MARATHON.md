@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 06:00 UTC |
 | Task ID | M-82 |
 | Результат | TouchOverlay: экспорт loadTouchLayout/saveTouchLayout + TouchOverlay.test.mjs (7 тестов PASS) |
-| Commit | (this run) |
+| Commit | 4a72c74 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
