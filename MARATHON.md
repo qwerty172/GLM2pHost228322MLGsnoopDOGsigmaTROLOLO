@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-67 done; wake-scheduler unit-тесты)
+> **Последнее обновление:** 2026-08-05 (M-68 done; input.ts unit-тесты)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 00:12 UTC |
-| Task ID | M-67 |
-| Результат | wake-scheduler.ts unit-тесты: non-win32 no-op, win32 clear/register, schtasks/powershell mock, error swallow |
-| Commit | 6edecac |
+| Дата | 2026-08-05 00:20 UTC |
+| Task ID | M-68 |
+| Результат | input.ts unit-тесты: parseInputEvent (mousemove/buttons/wheel/keys), parseGamepadState, parseHostConfigPatch, constants |
+| Commit | 03834af |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** 1 pending (M-68) — host-agent shared unit-тест (кат. K).
+**Wave Maintenance:** idle — сканер пуст, M-01…M-68 done.
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -287,7 +287,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-65 | J | host-agent main: unit-тест (steam-scanner.ts) | `artifacts/host-agent/src/main/steam-scanner.ts` | j:artifacts/host-agent/src/main/steam-scanner.ts | done | agent |
 | M-66 | J | host-agent main: unit-тест (tray.ts) | `artifacts/host-agent/src/main/tray.ts` | j:artifacts/host-agent/src/main/tray.ts | done | agent |
 | M-67 | J | host-agent main: unit-тест (wake-scheduler.ts) | `artifacts/host-agent/src/main/wake-scheduler.ts` | j:artifacts/host-agent/src/main/wake-scheduler.ts | done | agent |
-| M-68 | K | host-agent shared: unit-тест (input.ts) | `artifacts/host-agent/src/shared/input.ts` | k:artifacts/host-agent/src/shared/input.ts | pending | agent |
+| M-68 | K | host-agent shared: unit-тест (input.ts) | `artifacts/host-agent/src/shared/input.ts` | k:artifacts/host-agent/src/shared/input.ts | done | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).
