@@ -73,8 +73,13 @@ test("registerGuestWallet returns cached token without API call", async () => {
 test("registerGuestWallet persists token on success", async () => {
   const result = await registerGuestWallet(null, async () => ({
     playerToken: "guest-abc",
+    internalBalanceLzt: 400,
   }));
-  assert.deepEqual(result, { ok: true, token: "guest-abc" });
+  assert.deepEqual(result, {
+    ok: true,
+    token: "guest-abc",
+    welcomeBonusLzt: 400,
+  });
   assert.equal(storage.get(PLAYER_WALLET_STORAGE_KEY), "guest-abc");
   assert.equal(storage.get(PLAYER_GUEST_STORAGE_KEY), "true");
 });

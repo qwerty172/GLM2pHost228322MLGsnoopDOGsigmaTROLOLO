@@ -202,11 +202,24 @@ function parseBindCodeFromArgv(): string | null {
   return null;
 }
 
+async function loadSuggestedBindCodeFromBundle(): Promise<string | null> {
+  try {
+    const bundlePath = path.join(app.getAppPath(), "bundle-defaults.json");
+    const buf = await fs.readFile(bundlePath, "utf-8");
+    const parsed = JSON.parse(buf) as { suggestedBindCode?: string };
+    const code = parsed.suggestedBindCode?.trim();
+    return code || null;
+  } catch {
+    return null;
+  }
+}
+
 async function startAgent(): Promise<void> {
   initSentryMain();
   initInputInjector();
   initGamepadInjector();
-  pendingBindCode = parseBindCodeFromArgv();
+  pendingBindCode =
+    parseBindCodeFromArgv() ?? (await loadSuggestedBindCodeFromBundle());
   const config = await loadConfig();
   applyAutoLaunch(config);
   void syncScheduleFromServer();

@@ -253,6 +253,14 @@ router.get("/downloads/host-agent.zip", (req, res): void => {
     return;
   }
 
+  const proto = (req.get("x-forwarded-proto") ?? req.protocol).split(",")[0]?.trim() ?? "https";
+  const host = (req.get("x-forwarded-host") ?? req.get("host") ?? "").split(",")[0]?.trim();
+  const apiBaseUrl = host ? `${proto}://${host}` : "";
+  const bindCode =
+    typeof req.query.bind === "string" && req.query.bind.trim()
+      ? req.query.bind.trim()
+      : null;
+
   res.setHeader("Content-Type", "application/zip");
   res.setHeader(
     "Content-Disposition",
@@ -313,6 +321,14 @@ router.get("/downloads/host-agent.zip", (req, res): void => {
 
   archive.append(START_BAT, { name: "start.bat" });
   archive.append(INSTALL_TXT, { name: "INSTALL.txt" });
+
+  if (apiBaseUrl) {
+    const bundleDefaults: Record<string, string> = { apiBaseUrl };
+    if (bindCode) bundleDefaults.suggestedBindCode = bindCode;
+    archive.append(JSON.stringify(bundleDefaults, null, 2), {
+      name: "bundle-defaults.json",
+    });
+  }
 
   archive.finalize().catch((err) => {
     logger.error({ err }, "archiver finalize failed");

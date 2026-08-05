@@ -22,7 +22,7 @@ export function persistUpgradedWalletToken(token: string): void {
 }
 
 export type GuestRegisterResult =
-  | { ok: true; token: string; cached?: boolean }
+  | { ok: true; token: string; cached?: boolean; welcomeBonusLzt?: number }
   | { ok: false; error: string };
 
 export async function registerGuestWallet(
@@ -36,7 +36,11 @@ export async function registerGuestWallet(
     const data = await register({ guest: true });
     const token = data.playerToken;
     persistGuestWalletToken(token);
-    return { ok: true, token };
+    return {
+      ok: true,
+      token,
+      welcomeBonusLzt: data.internalBalanceLzt ?? 0,
+    };
   } catch {
     return { ok: false, error: GUEST_REGISTER_ERROR };
   }
@@ -96,6 +100,11 @@ export function usePlayerWallet(): PlayerWalletState {
       setToken(result.token);
       if (!result.cached) {
         setIsGuest(true);
+        if (result.welcomeBonusLzt && result.welcomeBonusLzt > 0) {
+          toast.success(
+            `Пробный баланс ${result.welcomeBonusLzt.toLocaleString("ru-RU")} LZT — хватит на первую игру`,
+          );
+        }
       }
       return result.token;
     } finally {
