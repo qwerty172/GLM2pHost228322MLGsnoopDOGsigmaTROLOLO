@@ -40,36 +40,40 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
-Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
+**Одна команда:**
 
-**Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
+```bash
+pnpm quickstart
+```
 
-**Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN (обход страниц в браузере).
+Поднимет Docker (PostgreSQL + Redis), настроит `.env`, применит схему БД и запустит API + Web.
+
+→ **http://localhost:5000**
+
+Подробнее: [`docs/QUICKSTART.md`](./docs/QUICKSTART.md). Полный план тестирования — [`TESTPLAN.md`](./TESTPLAN.md).
 
 ### Требования
 
 - Node.js 20+
 - pnpm 9+
-- PostgreSQL 16
-- Git Bash / WSL (для Windows) или Linux/macOS
+- Docker (рекомендуется) или свой PostgreSQL 16
 
-### Клонирование
+### Пошагово
 
 ```bash
-git clone https://github.com/qwerty172/glm2phost228322mlgsnoopdogsigmatrololo.git decentral-hub
-cd decentral-hub
+cp .env.example .env   # опционально — setup создаст сам
+pnpm infra:up          # Docker: postgres + redis
+pnpm setup             # install + db push + секреты
+pnpm dev               # API :8080 + Web :5000
 ```
 
-### Первичная настройка
+**Windows:** `scripts\quickstart.bat` или те же команды через Git Bash.
 
-**Windows (cmd или двойной клик):**
+### Первичная настройка (legacy)
+
+**Windows (cmd):**
 
 ```bat
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-copy .env.example .env
-notepad .env
 scripts\setup-local.bat
 scripts\dev-local.bat
 ```
@@ -77,18 +81,10 @@ scripts\dev-local.bat
 **Git Bash / Linux / macOS:**
 
 ```bash
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-cp .env.example .env
-# отредактируй DATABASE_URL
-
 chmod +x scripts/*.sh
 ./scripts/setup-local.sh
 ./scripts/dev-local.sh
 ```
-
-Подробнее — [LOCAL_SETUP.md](./LOCAL_SETUP.md).
 
 ### Переменные окружения (`.env`)
 
