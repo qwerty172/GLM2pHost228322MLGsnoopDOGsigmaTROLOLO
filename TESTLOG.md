@@ -15,6 +15,21 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## MVP_MANUAL_TEST.md — хендофф на реальный Windows (2026-08-05 14:05 UTC) {#mvp-manual-test-handoff}
+
+Добавлен `MVP_MANUAL_TEST.md` — самодостаточный промпт для обычного (не cloud) Cursor-чата
+на настоящем Windows-ПК. Покрывает только то, что cloud-агент в Linux-песочнице физически
+не может проверить: сборку `.exe` через `electron-builder`, первый релиз по тегу
+`host-agent-v*` (ещё не публиковался ни разу — версия в `package.json` до сих пор `0.1.0`
+без единого релизного тега), файрвол/loopback-порты 18080-18083, `requestedExecutionLevel:
+asInvoker` для SendInput без UAC, и сквозной ручной прогон «владелец сам себе игрок».
+
+Явно отмечено: loopback-трафик (`127.0.0.1`) обычно не блокируется файрволом Windows по
+умолчанию — INSTALL.txt мог переоценивать этот риск; промпт просит **проверить на деле**,
+а не предполагать, и обновить U-33 точным результатом, а не текущей формулировкой.
+
+Ссылка добавлена в `MARATHON.md` (шапка) и `UX_BACKLOG.md` (интро).
+
 ## Marathon M-147/M-148 — U-31/U-32: реальный .exe + честный unzip-тест (2026-08-05 13:58 UTC) {#marathon-m147-m148}
 
 | Проверка | Результат |
