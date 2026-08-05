@@ -7,7 +7,7 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-180 done; admin.ts as any)
+> **Последнее обновление:** 2026-08-05 (M-181 done; scanner cat U + agentEvents test)
 
 ## Last run (automation)
 
@@ -515,6 +515,35 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-178 | T | `as any` escape (5) | `pages/hosts.tsx` | t:artifacts/web/src/pages/hosts.tsx | done | agent |
 | M-179 | T | `as any` escape (5) | `routes/public.ts` | t:artifacts/api-server/src/routes/public.ts | done | agent |
 | M-180 | T | `as any` escape (3) | `routes/admin.ts` | t:artifacts/api-server/src/routes/admin.ts | done | agent |
+| M-181 | U | db schema: unit-тест (agentEvents.ts) | `db/agentEvents.ts` | u:lib/db/src/schema/agentEvents.ts | done | agent |
+| M-182 | U | db schema: unit-тест (agentPairingCodes.ts) | `db/agentPairingCodes.ts` | u:lib/db/src/schema/agentPairingCodes.ts | pending | agent |
+| M-183 | U | db schema: unit-тест (billingEvents.ts) | `db/billingEvents.ts` | u:lib/db/src/schema/billingEvents.ts | pending | agent |
+| M-184 | U | db schema: unit-тест (conversations.ts) | `db/conversations.ts` | u:lib/db/src/schema/conversations.ts | pending | agent |
+| M-185 | U | db schema: unit-тест (depositAddresses.ts) | `db/depositAddresses.ts` | u:lib/db/src/schema/depositAddresses.ts | pending | agent |
+| M-186 | U | db schema: unit-тест (deposits.ts) | `db/deposits.ts` | u:lib/db/src/schema/deposits.ts | pending | agent |
+| M-187 | U | db schema: unit-тест (devKeys.ts) | `db/devKeys.ts` | u:lib/db/src/schema/devKeys.ts | pending | agent |
+| M-188 | U | db schema: unit-тест (gameSubmissions.ts) | `db/gameSubmissions.ts` | u:lib/db/src/schema/gameSubmissions.ts | pending | agent |
+| M-189 | U | db schema: unit-тест (games.ts) | `db/games.ts` | u:lib/db/src/schema/games.ts | pending | agent |
+| M-190 | U | db schema: unit-тест (hostGames.ts) | `db/hostGames.ts` | u:lib/db/src/schema/hostGames.ts | pending | agent |
+| M-191 | U | db schema: unit-тест (hosts.ts) | `db/hosts.ts` | u:lib/db/src/schema/hosts.ts | pending | agent |
+| M-192 | U | db schema: unit-тест (joinCodes.ts) | `db/joinCodes.ts` | u:lib/db/src/schema/joinCodes.ts | pending | agent |
+| M-193 | U | db schema: unit-тест (ledger.ts) | `db/ledger.ts` | u:lib/db/src/schema/ledger.ts | pending | agent |
+| M-194 | U | db schema: unit-тест (loans.ts) | `db/loans.ts` | u:lib/db/src/schema/loans.ts | pending | agent |
+| M-195 | U | db schema: unit-тест (messages.ts) | `db/messages.ts` | u:lib/db/src/schema/messages.ts | pending | agent |
+| M-196 | U | db schema: unit-тест (outbox.ts) | `db/outbox.ts` | u:lib/db/src/schema/outbox.ts | pending | agent |
+| M-197 | U | db schema: unit-тест (playerGameSaves.ts) | `db/playerGameSaves.ts` | u:lib/db/src/schema/playerGameSaves.ts | pending | agent |
+| M-198 | U | db schema: unit-тест (players.ts) | `db/players.ts` | u:lib/db/src/schema/players.ts | pending | agent |
+| M-199 | U | db schema: unit-тест (quotaSessions.ts) | `db/quotaSessions.ts` | u:lib/db/src/schema/quotaSessions.ts | pending | agent |
+| M-200 | U | db schema: unit-тест (quotaVds.ts) | `db/quotaVds.ts` | u:lib/db/src/schema/quotaVds.ts | pending | agent |
+| M-201 | U | db schema: unit-тест (quotas.ts) | `db/quotas.ts` | u:lib/db/src/schema/quotas.ts | pending | agent |
+| M-202 | U | db schema: unit-тест (rateLimitBuckets.ts) | `db/rateLimitBuckets.ts` | u:lib/db/src/schema/rateLimitBuckets.ts | pending | agent |
+| M-203 | U | db schema: unit-тест (refreshTokens.ts) | `db/refreshTokens.ts` | u:lib/db/src/schema/refreshTokens.ts | pending | agent |
+| M-204 | U | db schema: unit-тест (sessionMetrics.ts) | `db/sessionMetrics.ts` | u:lib/db/src/schema/sessionMetrics.ts | pending | agent |
+| M-205 | U | db schema: unit-тест (sessionRatings.ts) | `db/sessionRatings.ts` | u:lib/db/src/schema/sessionRatings.ts | pending | agent |
+| M-206 | U | db schema: unit-тест (sessions.ts) | `db/sessions.ts` | u:lib/db/src/schema/sessions.ts | pending | agent |
+| M-207 | U | db schema: unit-тест (systemAccounts.ts) | `db/systemAccounts.ts` | u:lib/db/src/schema/systemAccounts.ts | pending | agent |
+| M-208 | U | db schema: unit-тест (verifierLinks.ts) | `db/verifierLinks.ts` | u:lib/db/src/schema/verifierLinks.ts | pending | agent |
+| M-209 | U | db schema: unit-тест (withdrawals.ts) | `db/withdrawals.ts` | u:lib/db/src/schema/withdrawals.ts | pending | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).

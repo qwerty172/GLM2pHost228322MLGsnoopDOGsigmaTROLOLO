@@ -29,6 +29,7 @@
 //   R. UX_BACKLOG.md items (U-NN with status todo) — ВСЕГДА первый приоритет
 //   S. lib/integrations-anthropic-ai/src/**/*.ts without co-located test (by file, excludes index.ts)
 //   T. `as any` type escapes in source (grouped by file, excludes tests/codegen)
+//   U. lib/db schema/*.ts without co-located test (by file, excludes index.ts)
 //
 // Source of truth: working tree (== main after git pull).
 
@@ -86,6 +87,10 @@ function shortVerifierFile(file) {
 
 function shortAnthropicFile(file) {
   return file.replace(/^lib\/integrations-anthropic-ai\/src\//, "");
+}
+
+function shortDbSchemaFile(file) {
+  return file.replace(/^lib\/db\/src\/schema\//, "");
 }
 
 const raw = [];
@@ -562,6 +567,34 @@ if (existsSync(anthropicDir)) {
   }
 }
 
+// --- U. lib/db schema/*.ts without co-located test (by file) ------------
+const dbSchemaDir = "lib/db/src/schema";
+if (existsSync(dbSchemaDir)) {
+  const schemaModules = readdirSync(dbSchemaDir).filter(
+    (f) => f.endsWith(".ts") && f !== "index.ts" && !f.endsWith(".d.ts"),
+  );
+  for (const mod of schemaModules) {
+    const base = mod.replace(/\.ts$/, "");
+    const testCandidates = [
+      `lib/db/test/${base}.test.mjs`,
+      `lib/db/test/${base}.test.ts`,
+    ];
+    if (testCandidates.some((t) => existsSync(t))) continue;
+    const f = `${dbSchemaDir}/${mod}`;
+    const txt = readFileSync(f, "utf8");
+    if (!/\bexport (async )?function\b|\bexport (const|class) \w+/.test(txt)) continue;
+    const rel = shortDbSchemaFile(f);
+    raw.push({
+      cat: "U",
+      groupKey: `u:${f}`,
+      title: `db schema: unit-тест (${rel})`,
+      file: f,
+      detail: rel,
+      items: [rel],
+    });
+  }
+}
+
 // --- T. `as any` type escapes in source (grouped by file) -----------------
 const anyHits = rg(" as any\\b", ["artifacts", "lib"], [
   "-n",
@@ -646,7 +679,7 @@ for (const line of marathonMd.split("\n")) {
 }
 
 // R (UX_BACKLOG) — всегда первым: удобство важнее покрытия тестами.
-const CAT_ORDER = { R: -1, B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, Q: 7, S: 8, T: 9, J: 10, K: 11, L: 12, M: 13, N: 14, O: 15, P: 16, D: 17, I: 18 };
+const CAT_ORDER = { R: -1, B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, Q: 7, S: 8, U: 9, T: 10, J: 11, K: 12, L: 13, M: 14, N: 15, O: 16, P: 17, D: 18, I: 19 };
 const filtered = candidates
   .filter((c) => !doneOrActiveKeys.has(c.groupKey))
   .sort((a, b) => (CAT_ORDER[a.cat] ?? 9) - (CAT_ORDER[b.cat] ?? 9));
@@ -674,7 +707,9 @@ function formatRow(c, status = "pending") {
       ? `\`auth-verifier/${shortVerifierFile(c.file)}\``
       : c.file.startsWith("lib/integrations-anthropic-ai/")
         ? `\`anthropic-ai/${shortAnthropicFile(c.file)}\``
-        : c.file.includes("artifacts/web/src/pages")
+        : c.file.startsWith("lib/db/src/schema/")
+          ? `\`db/${shortDbSchemaFile(c.file)}\``
+          : c.file.includes("artifacts/web/src/pages")
         ? `\`${shortPageFile(c.file)}\``
         : `\`${shortRouteFile(c.file)}\``;
   const detail = (c.detail || "").replace(/\|/g, "\\|");
@@ -802,7 +837,7 @@ if (NEXT || PICK) {
     console.log(`| ${c.id} | ${c.cat} | ${c.title} | \`${c.file}\` | ${(c.detail || "").replace(/\|/g, "\\|")} |`);
   }
   console.log(
-    `\nКатегории: R=UX_BACKLOG (приоритет), A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, Q=auth-verifier тесты, S=anthropic-ai тесты, T=as-any escapes, J=main-тесты, K=shared-тесты, L=web-lib тесты, M=web-hooks тесты, N=web-components тесты, O=web-pages тесты, P=api-routes тесты, I=eslint suppressions.`,
+    `\nКатегории: R=UX_BACKLOG (приоритет), A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, Q=auth-verifier тесты, S=anthropic-ai тесты, U=db-schema тесты, T=as-any escapes, J=main-тесты, K=shared-тесты, L=web-lib тесты, M=web-hooks тесты, N=web-components тесты, O=web-pages тесты, P=api-routes тесты, I=eslint suppressions.`,
   );
   console.log(`Синхронизация: node scripts/marathon-scan.mjs --sync-marathon`);
 }
