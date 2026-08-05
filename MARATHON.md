@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 03:34 UTC |
 | Task ID | M-76 |
 | Результат | unit-тест use-browser-ping — probeBrowserPingMs, PING_INTERVAL_MS; scanner cat M + L regex fix |
-| Commit | *(after push)* |
+| Commit | a715266 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
