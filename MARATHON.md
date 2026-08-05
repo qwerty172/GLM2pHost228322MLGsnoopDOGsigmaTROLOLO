@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 00:12 UTC |
 | Task ID | M-67 |
 | Результат | wake-scheduler.ts unit-тесты: non-win32 no-op, win32 clear/register, schtasks/powershell mock, error swallow |
-| Commit | (pending) |
+| Commit | 6edecac |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
