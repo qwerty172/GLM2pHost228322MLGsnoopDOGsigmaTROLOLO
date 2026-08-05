@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 08:16 UTC |
 | Task ID | M-89 |
 | Результат | WebGLVideoShader: webgl-video-shader.test.mjs — SHADER_PRESETS (7 тестов: keys, labels, GLSL skeleton) |
-| Commit | pending |
+| Commit | 66f3dc8 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
