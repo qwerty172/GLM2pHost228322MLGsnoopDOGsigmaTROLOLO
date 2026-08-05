@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 08:08 UTC |
 | Task ID | M-89 |
 | Результат | WebGLVideoShader: экспорт SHADER_PRESET_STORAGE_KEY, SHADER_CUSTOM_CODE_STORAGE_KEY, SHADER_BUILTIN_PRESET_KEYS, isShaderPresetActive, resolveShaderFragCode + webgl-video-shader.test.mjs (7 тестов) |
-| Commit | (pending push) |
+| Commit | 68ef058 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
