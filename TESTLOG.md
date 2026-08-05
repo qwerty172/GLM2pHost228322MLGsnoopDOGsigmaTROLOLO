@@ -15,6 +15,24 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon efficiency v3 — разбор 1000+ runs (2026-08-05 09:35 UTC) {#marathon-efficiency-v3}
+
+**Аудит:** 541 PR (529 unmerged), 519 marathon-веток, 479 marathon-коммитов в main только за 03.08.
+
+| Петля | Масштаб | Причина | Фикс |
+|---|---|---|---|
+| idle-коммиты | ~300 (03.08) | политика «commit Last run при idle» | exit 3 без агента; запрет в prompt |
+| hash-коммиты | ~250 | поле Commit ссылается на собственный коммит — «чинится» вечно | поле Commit удалено из Last run |
+| работа мимо main | 529/541 PR | run пушил ветку+PR, никто не мержил | обязательный merge→main в конце run; дедуп done_on_main |
+| timestamp-диффы | риск v2 | «Обновлено: …» в § Efficiency менялось каждый run | секция пишется только при изменении метрик |
+
+| Проверка | Результат |
+|---|---|
+| groom --should-run | dedupFlipped[], efficiency в payload, exit 0/2/3 |
+| update-last-run | Commit-строка удаляется, hash не пишется |
+| efficiency --apply ×2 | идемпотентен (2-й запуск без diff) |
+| groom --apply | новый чек done_on_main (флип pending→done) |
+
 ## Marathon efficiency v2 (2026-08-05 09:25 UTC) {#marathon-efficiency-v2}
 
 | Изменение | Результат |

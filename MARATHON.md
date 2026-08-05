@@ -15,9 +15,8 @@
 | Дата | 2026-08-05 09:10 UTC |
 | Task ID | M-90 |
 | Результат | admin/games: ADMIN_SECRET_STORAGE_KEY, adminRequestInit, getApiErrorMessage + admin-games.test.mjs (4 теста); scanner cat O (web pages) |
-| Commit | 4fc122a |
 
-**Commit hash** в Last run — только в **том же коммите**, что feat (`marathon-last-run.mjs`). Отдельный hash-commit запрещён.
+**Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
 ### Efficiency (auto)
 
@@ -93,11 +92,16 @@
 | pr_in_flight | STOP или закрыть мёртвый PR >1ч |
 | полный idle | `marathon-efficiency.mjs --apply` (метрики + закрыть draft idle PR) → exit 0 |
 
-**Запрещено:** «Marathon idle» + commit Last run; отдельный commit «fix hash»; push не в main.
+**Запрещено (все три петли из 1000+ пустых runs):**
+1. **Idle-коммит** — «Marathon idle» + commit Last run (~300 мусорных коммитов 03.08)
+2. **Hash-коммит** — «fix Last run commit hash» (~250 коммитов; поле Commit удалено)
+3. **Работа не в main** — 529 из 541 PR остались unmerged; в конце run — merge своей ветки в main + push
 
-**Efficiency:** каждый run → `node scripts/marathon-efficiency.mjs --apply` (метрики в § Efficiency ниже).
+**Efficiency:** каждый run → `node scripts/marathon-efficiency.mjs --apply` (пишет § Efficiency **только при изменении метрик** — без timestamp-диффов).
 
 **Last run:** `node scripts/marathon-last-run.mjs --task M-NN --result "..."` — **в том же коммите**, что feat.
+
+**Дедуп:** groom сам флипает pending → done, если `feat(marathon): M-NN` уже в `origin/main` (`done_on_main`).
 
 **Статусы:** `161e0d7` | `in_progress` | `done` | `blocked` | `skipped`  
 **Owner:** `agent` | `human`
