@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-209 done; withdrawals schema test)
+> **Последнее обновление:** 2026-08-05 (M-211 done; agentAuth 409 test)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 22:01 UTC|
-| Task ID | M-210|
-| Результат | admin.test.ts: 500 при пустом insert в approve submission (19 tests PASS)|
+| Дата | 2026-08-05 22:05 UTC|
+| Task ID | M-211|
+| Результат | agentAuth.test.ts: 409 при уже привязанном другом ключе (20 tests PASS)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -563,7 +563,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-208 | U | db schema: unit-тест (verifierLinks.ts) | `db/verifierLinks.ts` | u:lib/db/src/schema/verifierLinks.ts | done | agent |
 | M-209 | U | db schema: unit-тест (withdrawals.ts) | `db/withdrawals.ts` | u:lib/db/src/schema/withdrawals.ts | done | agent |
 | M-210 | W | route error-paths без теста (500) : admin.ts | `routes/admin.ts` | w:artifacts/api-server/src/routes/admin.ts | done | agent |
-| M-211 | W | route error-paths без теста (409) : agentAuth.ts | `routes/agentAuth.ts` | w:artifacts/api-server/src/routes/agentAuth.ts | pending | agent |
+| M-211 | W | route error-paths без теста (409) : agentAuth.ts | `routes/agentAuth.ts` | w:artifacts/api-server/src/routes/agentAuth.ts | done | agent |
 | M-212 | W | route error-paths без теста (500) : downloads.ts | `routes/downloads.ts` | w:artifacts/api-server/src/routes/downloads.ts | pending | agent |
 | M-213 | W | route error-paths без теста (409) : embed.ts | `routes/embed.ts` | w:artifacts/api-server/src/routes/embed.ts | pending | agent |
 | M-214 | W | route error-paths без теста (403/409/500/503) : hosts.ts | `routes/hosts.ts` | w:artifacts/api-server/src/routes/hosts.ts | pending | agent |

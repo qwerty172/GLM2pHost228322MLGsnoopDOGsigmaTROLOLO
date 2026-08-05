@@ -293,6 +293,23 @@ describe("POST /auth/bind-agent-key", () => {
     expect(res.status).toBe(404);
     expect(res.json).toMatchObject({ error: "Host not found" });
   });
+
+  it("returns 409 when a different key is already bound", async () => {
+    const challenge = await fetchChallenge();
+    queueResults([{ id: "host-1" }], []);
+    const res = await request("POST", "/auth/bind-agent-key", {
+      body: {
+        hostToken: HOST_TOKEN,
+        pubkey: PUBKEY_HEX,
+        challenge,
+        signature: signChallenge(challenge),
+      },
+    });
+    expect(res.status).toBe(409);
+    expect(res.json).toMatchObject({
+      error: "A different key is already bound to this account",
+    });
+  });
 });
 
 describe("POST /auth/agent-login", () => {
