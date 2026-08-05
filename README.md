@@ -40,11 +40,18 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
+**3 команды — и можно тестировать в браузере:** [`QUICKSTART.md`](./QUICKSTART.md)
+
+```bash
+pnpm dev:db    # PostgreSQL в Docker (или свой Postgres — пропустите)
+pnpm setup     # .env, секреты, зависимости, схема БД
+pnpm dev       # API + Web, Web ждёт healthz
+```
+
+Демо без Windows-агента: http://localhost:5000/games/rogue-fable-3
+
 Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
-
-**Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
-
-**Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN (обход страниц в браузере).
+Пошаговая инструкция для Windows: [`LOCAL_SETUP.md`](./LOCAL_SETUP.md).
 
 ### Требования
 
