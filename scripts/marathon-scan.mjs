@@ -21,6 +21,7 @@
 //   J. host-agent main/*.ts without co-located test (by file)
 //   K. host-agent shared/*.ts without co-located test (by file)
 //   L. web lib/*.ts without co-located test (by file)
+//   M. web hooks/*.ts(x) without co-located test (by file)
 //
 // Source of truth: working tree (== main after git pull).
 
@@ -310,7 +311,7 @@ if (existsSync(sharedDir)) {
     ];
     if (testCandidates.some((t) => existsSync(t))) continue;
     const txt = readFileSync(`${sharedDir}/${mod}`, "utf8");
-    if (!/\bexport (async )?function\b|\bexport const \w+ =/.test(txt)) continue;
+    if (!/\bexport (async )?function\b|\bexport const \w+[=:]/.test(txt)) continue;
     const f = `${sharedDir}/${mod}`;
     raw.push({
       cat: "K",
@@ -335,12 +336,39 @@ if (existsSync(webLibDir)) {
     ];
     if (testCandidates.some((t) => existsSync(t))) continue;
     const txt = readFileSync(`${webLibDir}/${mod}`, "utf8");
-    if (!/\bexport (async )?function\b|\bexport const \w+ =/.test(txt)) continue;
+    if (!/\bexport (async )?function\b|\bexport const \w+[=:]/.test(txt)) continue;
     const f = `${webLibDir}/${mod}`;
     raw.push({
       cat: "L",
       groupKey: `l:${f}`,
       title: `web lib: unit-тест (${mod})`,
+      file: f,
+      detail: mod,
+      items: [mod],
+    });
+  }
+}
+
+// --- M. web hooks/*.ts(x) without co-located test (by file) ----------------
+const webHooksDir = "artifacts/web/src/hooks";
+if (existsSync(webHooksDir)) {
+  const hookModules = readdirSync(webHooksDir).filter(
+    (f) => (f.endsWith(".ts") || f.endsWith(".tsx")) && !f.endsWith(".d.ts"),
+  );
+  for (const mod of hookModules) {
+    const base = mod.replace(/\.tsx?$/, "");
+    const testCandidates = [
+      `artifacts/web/test/${base}.test.mjs`,
+      `artifacts/web/test/${base}.test.ts`,
+    ];
+    if (testCandidates.some((t) => existsSync(t))) continue;
+    const txt = readFileSync(`${webHooksDir}/${mod}`, "utf8");
+    if (!/\bexport (async )?function\b/.test(txt)) continue;
+    const f = `${webHooksDir}/${mod}`;
+    raw.push({
+      cat: "M",
+      groupKey: `m:${f}`,
+      title: `web hooks: unit-тест (${mod})`,
       file: f,
       detail: mod,
       items: [mod],
@@ -394,7 +422,7 @@ for (const line of marathonMd.split("\n")) {
   if (status === "done" || status === "in_progress") doneOrActiveKeys.add(groupKey);
 }
 
-const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, J: 7, K: 8, L: 9, D: 10, I: 11 };
+const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, J: 7, K: 8, L: 9, M: 10, D: 11, I: 12 };
 const filtered = candidates
   .filter((c) => !doneOrActiveKeys.has(c.groupKey))
   .sort((a, b) => (CAT_ORDER[a.cat] ?? 9) - (CAT_ORDER[b.cat] ?? 9));
@@ -544,7 +572,7 @@ if (NEXT || PICK) {
     console.log(`| ${c.id} | ${c.cat} | ${c.title} | \`${c.file}\` | ${(c.detail || "").replace(/\|/g, "\\|")} |`);
   }
   console.log(
-    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, J=main-тесты, K=shared-тесты, L=web-lib тесты, I=eslint suppressions.`,
+    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, J=main-тесты, K=shared-тесты, L=web-lib тесты, M=web-hooks тесты, I=eslint suppressions.`,
   );
   console.log(`Синхронизация: node scripts/marathon-scan.mjs --sync-marathon`);
 }
