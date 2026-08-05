@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 14:32 UTC|
-| Task ID | M-136|
-| Результат | otp.test.ts: 8 тестов generateOtp/verifyOtp; auth-verifier suite 32/32 PASS|
+| Дата | 2026-08-05 14:40 UTC|
+| Task ID | M-151|
+| Результат | U-06: ZIP auto-bind + troubleshoot fallbacks; host-dashboard 21 tests, host-agent 205 tests, typecheck PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
