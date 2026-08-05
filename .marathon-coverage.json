@@ -1,0 +1,290 @@
+{
+  "generatedAt": "2026-08-05T21:55:58.292Z",
+  "tier": 50,
+  "tiers": [
+    50,
+    65,
+    80,
+    90
+  ],
+  "measuredFiles": 55,
+  "belowTier": 1,
+  "files": {
+    "lib/db/src/schema/agentEvents.ts": {
+      "lines": 38,
+      "covered": 38,
+      "pct": 100
+    },
+    "lib/db/src/schema/agentPairingCodes.ts": {
+      "lines": 18,
+      "covered": 18,
+      "pct": 100
+    },
+    "lib/db/src/schema/billingEvents.ts": {
+      "lines": 66,
+      "covered": 61,
+      "pct": 92
+    },
+    "lib/db/src/schema/conversations.ts": {
+      "lines": 23,
+      "covered": 23,
+      "pct": 100
+    },
+    "lib/db/src/schema/depositAddresses.ts": {
+      "lines": 37,
+      "covered": 30,
+      "pct": 81
+    },
+    "lib/db/src/schema/deposits.ts": {
+      "lines": 42,
+      "covered": 39,
+      "pct": 93
+    },
+    "lib/db/src/schema/devKeys.ts": {
+      "lines": 61,
+      "covered": 61,
+      "pct": 100
+    },
+    "lib/db/src/schema/games.ts": {
+      "lines": 55,
+      "covered": 55,
+      "pct": 100
+    },
+    "lib/db/src/schema/gameSubmissions.ts": {
+      "lines": 67,
+      "covered": 66,
+      "pct": 99
+    },
+    "lib/db/src/schema/hostGames.ts": {
+      "lines": 70,
+      "covered": 66,
+      "pct": 94
+    },
+    "lib/db/src/schema/hosts.ts": {
+      "lines": 179,
+      "covered": 178,
+      "pct": 99
+    },
+    "lib/db/src/schema/joinCodes.ts": {
+      "lines": 28,
+      "covered": 26,
+      "pct": 93
+    },
+    "lib/db/src/schema/ledger.ts": {
+      "lines": 41,
+      "covered": 37,
+      "pct": 90
+    },
+    "lib/db/src/schema/loans.ts": {
+      "lines": 78,
+      "covered": 73,
+      "pct": 94
+    },
+    "lib/db/src/schema/messages.ts": {
+      "lines": 25,
+      "covered": 24,
+      "pct": 96
+    },
+    "lib/db/src/schema/outbox.ts": {
+      "lines": 33,
+      "covered": 31,
+      "pct": 94
+    },
+    "lib/db/src/schema/playerGameSaves.ts": {
+      "lines": 49,
+      "covered": 49,
+      "pct": 100
+    },
+    "lib/db/src/schema/players.ts": {
+      "lines": 74,
+      "covered": 74,
+      "pct": 100
+    },
+    "lib/db/src/schema/quotas.ts": {
+      "lines": 138,
+      "covered": 132,
+      "pct": 96
+    },
+    "lib/db/src/schema/quotaSessions.ts": {
+      "lines": 46,
+      "covered": 43,
+      "pct": 93
+    },
+    "lib/db/src/schema/quotaVds.ts": {
+      "lines": 43,
+      "covered": 41,
+      "pct": 95
+    },
+    "lib/db/src/schema/sessions.ts": {
+      "lines": 108,
+      "covered": 103,
+      "pct": 95
+    },
+    "lib/auth-verifier/src/challenge.ts": {
+      "lines": 134,
+      "covered": 133,
+      "pct": 99
+    },
+    "lib/auth-verifier/src/link.ts": {
+      "lines": 75,
+      "covered": 75,
+      "pct": 100
+    },
+    "lib/auth-verifier/src/otp.ts": {
+      "lines": 18,
+      "covered": 18,
+      "pct": 100
+    },
+    "lib/auth-verifier/src/providers/discord.ts": {
+      "lines": 70,
+      "covered": 70,
+      "pct": 100
+    },
+    "lib/auth-verifier/src/providers/telegram.ts": {
+      "lines": 67,
+      "covered": 67,
+      "pct": 100
+    },
+    "lib/auth-verifier/src/router.ts": {
+      "lines": 177,
+      "covered": 157,
+      "pct": 89
+    },
+    "lib/integrations-anthropic-ai/src/batch/utils.ts": {
+      "lines": 140,
+      "covered": 139,
+      "pct": 99
+    },
+    "lib/integrations-anthropic-ai/src/client.ts": {
+      "lines": 28,
+      "covered": 28,
+      "pct": 100
+    },
+    "artifacts/web/src/components/KeyboardOverlay.tsx": {
+      "lines": 593,
+      "covered": 297,
+      "pct": 50
+    },
+    "artifacts/web/src/components/TouchOverlay.tsx": {
+      "lines": 467,
+      "covered": 192,
+      "pct": 41
+    },
+    "artifacts/web/src/components/webgl-video-shader.tsx": {
+      "lines": 303,
+      "covered": 206,
+      "pct": 68
+    },
+    "artifacts/web/src/hooks/use-mobile.tsx": {
+      "lines": 28,
+      "covered": 19,
+      "pct": 68
+    },
+    "artifacts/web/src/hooks/use-platform-events.ts": {
+      "lines": 34,
+      "covered": 23,
+      "pct": 68
+    },
+    "artifacts/web/src/lib/agent-event-labels.ts": {
+      "lines": 23,
+      "covered": 23,
+      "pct": 100
+    },
+    "artifacts/web/src/lib/agent-local.ts": {
+      "lines": 175,
+      "covered": 154,
+      "pct": 88
+    },
+    "artifacts/web/src/lib/api-errors.ts": {
+      "lines": 293,
+      "covered": 293,
+      "pct": 100
+    },
+    "artifacts/web/src/lib/connection-labels.ts": {
+      "lines": 33,
+      "covered": 33,
+      "pct": 100
+    },
+    "artifacts/web/src/lib/put-external-blob.ts": {
+      "lines": 20,
+      "covered": 20,
+      "pct": 100
+    },
+    "artifacts/web/src/lib/quota-compatibility.ts": {
+      "lines": 276,
+      "covered": 254,
+      "pct": 92
+    },
+    "artifacts/web/src/pages/embed-helpers.ts": {
+      "lines": 37,
+      "covered": 37,
+      "pct": 100
+    },
+    "artifacts/web/src/pages/exchange-helpers.ts": {
+      "lines": 48,
+      "covered": 48,
+      "pct": 100
+    },
+    "artifacts/web/src/pages/game-detail-helpers.ts": {
+      "lines": 139,
+      "covered": 139,
+      "pct": 100
+    },
+    "artifacts/web/src/pages/games-helpers.ts": {
+      "lines": 178,
+      "covered": 178,
+      "pct": 100
+    },
+    "artifacts/web/src/pages/host/browser-play-helpers.ts": {
+      "lines": 100,
+      "covered": 99,
+      "pct": 99
+    },
+    "artifacts/web/src/pages/host/library-helpers.ts": {
+      "lines": 98,
+      "covered": 98,
+      "pct": 100
+    },
+    "artifacts/web/src/pages/host/setup-helpers.ts": {
+      "lines": 96,
+      "covered": 96,
+      "pct": 100
+    },
+    "artifacts/web/src/pages/hosts-helpers.ts": {
+      "lines": 79,
+      "covered": 70,
+      "pct": 89
+    },
+    "artifacts/web/src/pages/landing-helpers.ts": {
+      "lines": 128,
+      "covered": 119,
+      "pct": 93
+    },
+    "artifacts/web/src/pages/play-helpers.ts": {
+      "lines": 170,
+      "covered": 170,
+      "pct": 100
+    },
+    "artifacts/web/src/pages/profile-helpers.ts": {
+      "lines": 123,
+      "covered": 123,
+      "pct": 100
+    },
+    "artifacts/web/src/pages/quota-detail-helpers.ts": {
+      "lines": 45,
+      "covered": 45,
+      "pct": 100
+    },
+    "artifacts/web/src/pages/quotas-helpers.ts": {
+      "lines": 156,
+      "covered": 149,
+      "pct": 96
+    },
+    "artifacts/web/src/pages/wallet-helpers.ts": {
+      "lines": 106,
+      "covered": 106,
+      "pct": 100
+    }
+  },
+  "errors": {}
+}

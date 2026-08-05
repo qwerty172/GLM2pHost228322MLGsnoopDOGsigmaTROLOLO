@@ -554,12 +554,12 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-199 | U | db schema: unit-тест (quotaSessions.ts) | `db/quotaSessions.ts` | u:lib/db/src/schema/quotaSessions.ts | done | agent |
 | M-200 | U | db schema: unit-тест (quotaVds.ts) | `db/quotaVds.ts` | u:lib/db/src/schema/quotaVds.ts | done | agent |
 | M-201 | U | db schema: unit-тест (quotas.ts) | `db/quotas.ts` | u:lib/db/src/schema/quotas.ts | done | agent |
-| M-202 | U | db schema: unit-тест (rateLimitBuckets.ts) | `db/rateLimitBuckets.ts` | u:lib/db/src/schema/rateLimitBuckets.ts | done | agent |
-| M-203 | U | db schema: unit-тест (refreshTokens.ts) | `db/refreshTokens.ts` | u:lib/db/src/schema/refreshTokens.ts | done | agent |
-| M-204 | U | db schema: unit-тест (sessionMetrics.ts) | `db/sessionMetrics.ts` | u:lib/db/src/schema/sessionMetrics.ts | done | agent |
-| M-205 | U | db schema: unit-тест (sessionRatings.ts) | `db/sessionRatings.ts` | u:lib/db/src/schema/sessionRatings.ts | done | agent |
-| M-206 | U | db schema: unit-тест (sessions.ts) | `db/sessions.ts` | u:lib/db/src/schema/sessions.ts | done | agent |
-| M-207 | U | db schema: unit-тест (systemAccounts.ts) | `db/systemAccounts.ts` | u:lib/db/src/schema/systemAccounts.ts | done | agent |
+| M-202 | U | db schema: unit-тест (rateLimitBuckets.ts) (groom: reopen) | `db/rateLimitBuckets.ts` | u:lib/db/src/schema/rateLimitBuckets.ts | pending | agent |
+| M-203 | U | db schema: unit-тест (refreshTokens.ts) (groom: reopen) | `db/refreshTokens.ts` | u:lib/db/src/schema/refreshTokens.ts | pending | agent |
+| M-204 | U | db schema: unit-тест (sessionMetrics.ts) (groom: reopen) | `db/sessionMetrics.ts` | u:lib/db/src/schema/sessionMetrics.ts | pending | agent |
+| M-205 | U | db schema: unit-тест (sessionRatings.ts) (groom: reopen) | `db/sessionRatings.ts` | u:lib/db/src/schema/sessionRatings.ts | pending | agent |
+| M-206 | U | db schema: unit-тест (sessions.ts) (groom: reopen) | `db/sessions.ts` | u:lib/db/src/schema/sessions.ts | pending | agent |
+| M-207 | U | db schema: unit-тест (systemAccounts.ts) (groom: reopen) | `db/systemAccounts.ts` | u:lib/db/src/schema/systemAccounts.ts | pending | agent |
 | M-210 | W | route error-paths без теста (500) : admin.ts | `routes/admin.ts` | w:artifacts/api-server/src/routes/admin.ts | pending | agent |
 | M-211 | W | route error-paths без теста (409) : agentAuth.ts | `routes/agentAuth.ts` | w:artifacts/api-server/src/routes/agentAuth.ts | pending | agent |
 | M-212 | W | route error-paths без теста (500) : downloads.ts | `routes/downloads.ts` | w:artifacts/api-server/src/routes/downloads.ts | pending | agent |
@@ -608,6 +608,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-253 | V | тест не покрывает экспорты (2): steam | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/steam.ts | pending | agent |
 | M-254 | V | тест не покрывает экспорты (1): ui | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/ui.ts | pending | agent |
 | M-255 | V | тест не покрывает экспорты (2): window-match | `artifacts/host-agent/src/shared/window-match.ts` | v:artifacts/host-agent/src/shared/window-match.ts | pending | agent |
+| M-256 | X | покрытие 41% → 50%: TouchOverlay.tsx | `artifacts/web/src/components/TouchOverlay.tsx` | x:artifacts/web/src/components/TouchOverlay.tsx | pending | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).

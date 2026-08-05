@@ -34,6 +34,8 @@
 //      (deepens coverage instead of only checking "test file exists")
 //   W. route error responses (4xx/5xx) present in source but never asserted
 //      in the route's EXISTING test file
+//   X. files below the current coverage tier (.marathon-coverage.json) —
+//      self-replenishing ladder 50 → 65 → 80 → 90
 //
 // Source of truth: working tree (== main after git pull).
 
@@ -729,6 +731,27 @@ if (existsSync(routesDir)) {
   }
 }
 
+// --- X. coverage ladder (из .marathon-coverage.json) ----------------------
+// Категория не иссякает: когда все файлы дотянуты до текущей ступени,
+// marathon-coverage.mjs поднимает порог (50 → 65 → 80 → 90) и появляется
+// следующий слой работы.
+try {
+  const cov = JSON.parse(readFileSync(".marathon-coverage.json", "utf8"));
+  const tier = cov.tier ?? 50;
+  for (const [file, stat] of Object.entries(cov.files ?? {})) {
+    if (stat.pct >= tier) continue;
+    if (!existsSync(file)) continue;
+    raw.push({
+      cat: "X",
+      groupKey: `x:${file}`,
+      title: `покрытие ${stat.pct}% → ${tier}%: ${file.split("/").pop()}`,
+      file,
+      detail: `покрыто ${stat.covered}/${stat.lines} строк, ступень ${tier}%`,
+      items: [`${stat.pct}%→${tier}%`],
+    });
+  }
+} catch {}
+
 // --- group raw hits (merge same groupKey) --------------------------------
 const grouped = new Map();
 for (const c of raw) {
@@ -776,7 +799,7 @@ for (const line of marathonMd.split("\n")) {
 }
 
 // R (UX_BACKLOG) — всегда первым: удобство важнее покрытия тестами.
-const CAT_ORDER = { R: -1, B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, W: 5.5, H: 6, Q: 7, S: 8, U: 9, V: 9.5, T: 10, J: 11, K: 12, L: 13, M: 14, N: 15, O: 16, P: 17, D: 18, I: 19 };
+const CAT_ORDER = { R: -1, B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, W: 5.5, H: 6, Q: 7, S: 8, U: 9, V: 9.5, T: 10, J: 11, K: 12, L: 13, M: 14, N: 15, O: 16, P: 17, D: 18, I: 19, X: 20 };
 const filtered = candidates
   .filter((c) => !doneOrActiveKeys.has(c.groupKey))
   .sort((a, b) => (CAT_ORDER[a.cat] ?? 9) - (CAT_ORDER[b.cat] ?? 9));

@@ -7,7 +7,7 @@
 //   node scripts/marathon-groom.mjs --apply   # fix MARATHON.md + optional scan sync hint
 //   node scripts/marathon-groom.mjs --should-run [--mark-skipped]  # cron gate; --mark-skipped updates Result only (Date preserved)
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { execSync } from "node:child_process";
 
@@ -133,6 +133,31 @@ function replaceRowTitle(line, suffix) {
   return parts.join("|");
 }
 
+/**
+ * Пополнение очереди без участия агента: когда работы почти не осталось,
+ * пересчитываем покрытие. Категория X в сканере получает новый слой файлов
+ * (или следующую ступень 50 → 65 → 80 → 90), и очередь не пересыхает.
+ */
+function refreshCoverageIfQueueLow(pendingCount) {
+  if (pendingCount > 2) return null;
+  const REPORT = ".marathon-coverage.json";
+  const SIX_HOURS = 6 * 3600 * 1000;
+  try {
+    if (existsSync(REPORT)) {
+      const prev = JSON.parse(readFileSync(REPORT, "utf8"));
+      const age = Date.now() - Date.parse(prev.generatedAt ?? 0);
+      if (age < SIX_HOURS) return null;
+    }
+  } catch {
+    /* битый отчёт — просто пересчитаем */
+  }
+  const r = spawnSync("node", ["scripts/marathon-coverage.mjs"], {
+    encoding: "utf8",
+    timeout: 600000,
+  });
+  return r.status === 0 ? "coverage_refreshed" : "coverage_refresh_failed";
+}
+
 const state = loadState();
 const scannerKeys = new Set(state.scannerKeys);
 const issues = [];
@@ -141,7 +166,7 @@ const fixes = [];
 if (SHOULD_RUN) {
   const lastRun = parseLastRun();
   const hasInProgress = state.existingRows.some((r) => r.status === "in_progress");
-  const pendingMnn = state.existingRows.filter((r) => r.status === "pending").length;
+  let pendingMnn = state.existingRows.filter((r) => r.status === "pending").length;
   let nextId = nextPendingId(state.existingRows);
   // Дедуп: pending, но работа уже в main → сразу флипаем в done, берём следующую.
   const dedupFlipped = [];
@@ -158,6 +183,22 @@ if (SHOULD_RUN) {
     dedupFlipped.push(nextId);
     nextId = nextPendingId(state.existingRows);
   }
+  // Очередь на исходе — пересчитать покрытие и перечитать состояние,
+  // чтобы новые задачи попали уже в этот же прогон.
+  let coverageRefresh = null;
+  if (!nextId || pendingMnn <= 2) {
+    coverageRefresh = refreshCoverageIfQueueLow(pendingMnn);
+    if (coverageRefresh === "coverage_refreshed") {
+      spawnSync("node", ["scripts/marathon-scan.mjs", "--sync-marathon"], { timeout: 120000 });
+      const fresh = loadState();
+      state.existingRows = fresh.existingRows;
+      state.grouped = fresh.grouped;
+      state.rawHits = fresh.rawHits;
+      nextId = nextPendingId(state.existingRows);
+      pendingMnn = state.existingRows.filter((r) => r.status === "pending").length;
+    }
+  }
+
   const prInFlight = hasOpenPrForTask(nextId);
   const ageMs = lastRun.ms ? Date.now() - lastRun.ms : null;
   // Cron каждую минуту: НЕ блокировать по интервалу — каждый run берёт следующую M-NN.
@@ -203,6 +244,7 @@ if (SHOULD_RUN) {
     hasInProgress,
     idleStreak,
     scannerEmpty,
+    coverageRefresh,
     dedupFlipped,
     ignoreDraftPrs: true,
     prBlockPolicy: "only non-draft PR on next M-NN blocks (isDraft=false)",
