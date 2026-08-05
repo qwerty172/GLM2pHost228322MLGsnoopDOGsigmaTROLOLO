@@ -15,6 +15,86 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-209 (2026-08-05 21:43 UTC) {#marathon-m-209}
+
+| Проверка | Результат |
+|---|---|
+| pnpm --filter @workspace/db test | PASS (99 tests) |
+
+**Изменения:** `lib/db/test/withdrawals.test.ts` — колонки и notNull для withdrawals.
+
+**Следующий pick:** idle (pending M-NN = 0).
+
+## Marathon M-208 (2026-08-05 21:40 UTC) {#marathon-m-208}
+
+| Проверка | Результат |
+|---|---|
+| pnpm --filter @workspace/db test | PASS (96 tests) |
+
+**Изменения:** `lib/db/test/verifierLinks.test.ts` — колонки и notNull для verifierLinks, verifierLinkTokens, verifierChallenges.
+
+**Следующий pick:** M-209 (db schema: withdrawals.ts).
+
+## Marathon M-207 (2026-08-05 21:37 UTC) {#marathon-m-207}
+
+| Проверка | Результат |
+|---|---|
+| pnpm --filter @workspace/db test | PASS (87 tests) |
+
+**Изменения:** `lib/db/test/systemAccounts.test.ts` — колонки и notNull для systemAccounts.
+
+**Следующий pick:** M-208 (db schema: verifierLinks.ts).
+
+## Marathon M-206 (2026-08-05 21:34 UTC) {#marathon-m-206}
+
+| Проверка | Результат |
+|---|---|
+| pnpm --filter @workspace/db test | PASS (84 tests) |
+
+**Изменения:** `lib/db/test/sessions.test.ts` — колонки и notNull для sessions.
+
+**Следующий pick:** M-207 (db schema: systemAccounts.ts).
+
+## Marathon M-205 (2026-08-05 21:32 UTC) {#marathon-m-205}
+
+| Проверка | Результат |
+|---|---|
+| pnpm --filter @workspace/db test | PASS (81 tests) |
+
+**Изменения:** `lib/db/test/sessionRatings.test.ts` — колонки и notNull для sessionRatings.
+
+**Следующий pick:** M-206 (db schema: sessions.ts).
+
+## Marathon M-204 (2026-08-05 21:30 UTC) {#marathon-m-204}
+
+| Проверка | Результат |
+|---|---|
+| pnpm --filter @workspace/db test | PASS (78 tests) |
+
+**Изменения:** `lib/db/test/sessionMetrics.test.ts` — колонки и notNull для sessionMetrics.
+
+**Следующий pick:** M-205 (db schema: sessionRatings.ts).
+
+## Marathon M-203 (2026-08-05 21:28 UTC) {#marathon-m-203}
+
+| Проверка | Результат |
+|---|---|
+| pnpm --filter @workspace/db test | PASS (75 tests) |
+
+**Изменения:** `lib/db/test/refreshTokens.test.ts` — колонки и notNull для refreshTokens.
+
+**Следующий pick:** M-204 (db schema: sessionMetrics.ts).
+
+## Marathon M-202 (2026-08-05 21:26 UTC) {#marathon-m-202}
+
+| Проверка | Результат |
+|---|---|
+| pnpm --filter @workspace/db test | PASS (72 tests) |
+
+**Изменения:** `lib/db/test/rateLimitBuckets.test.ts` — колонки и notNull для rateLimitBuckets и rateLimitFailures.
+
+**Следующий pick:** M-203 (db schema: refreshTokens.ts).
+
 ## Marathon M-201 (2026-08-05 21:22 UTC) {#marathon-m-201}
 
 | Проверка | Результат |

@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-201 done; quotas schema test)
+> **Последнее обновление:** 2026-08-05 (M-209 done; withdrawals schema test)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 21:22 UTC|
-| Task ID | M-201|
-| Результат | quotas.test.ts: колонки и notNull; db test PASS (66)|
+| Дата | 2026-08-05 21:42 UTC|
+| Task ID | M-209|
+| Результат | withdrawals.test.ts: колонки и notNull; db test PASS (99)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -554,12 +554,14 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-199 | U | db schema: unit-тест (quotaSessions.ts) | `db/quotaSessions.ts` | u:lib/db/src/schema/quotaSessions.ts | done | agent |
 | M-200 | U | db schema: unit-тест (quotaVds.ts) | `db/quotaVds.ts` | u:lib/db/src/schema/quotaVds.ts | done | agent |
 | M-201 | U | db schema: unit-тест (quotas.ts) | `db/quotas.ts` | u:lib/db/src/schema/quotas.ts | done | agent |
-| M-202 | U | db schema: unit-тест (rateLimitBuckets.ts) (groom: reopen) | `db/rateLimitBuckets.ts` | u:lib/db/src/schema/rateLimitBuckets.ts | pending | agent |
-| M-203 | U | db schema: unit-тест (refreshTokens.ts) (groom: reopen) | `db/refreshTokens.ts` | u:lib/db/src/schema/refreshTokens.ts | pending | agent |
-| M-204 | U | db schema: unit-тест (sessionMetrics.ts) (groom: reopen) | `db/sessionMetrics.ts` | u:lib/db/src/schema/sessionMetrics.ts | pending | agent |
-| M-205 | U | db schema: unit-тест (sessionRatings.ts) (groom: reopen) | `db/sessionRatings.ts` | u:lib/db/src/schema/sessionRatings.ts | pending | agent |
-| M-206 | U | db schema: unit-тест (sessions.ts) (groom: reopen) | `db/sessions.ts` | u:lib/db/src/schema/sessions.ts | pending | agent |
-| M-207 | U | db schema: unit-тест (systemAccounts.ts) (groom: reopen) | `db/systemAccounts.ts` | u:lib/db/src/schema/systemAccounts.ts | pending | agent |
+| M-202 | U | db schema: unit-тест (rateLimitBuckets.ts) | `db/rateLimitBuckets.ts` | u:lib/db/src/schema/rateLimitBuckets.ts | done | agent |
+| M-203 | U | db schema: unit-тест (refreshTokens.ts) | `db/refreshTokens.ts` | u:lib/db/src/schema/refreshTokens.ts | done | agent |
+| M-204 | U | db schema: unit-тест (sessionMetrics.ts) | `db/sessionMetrics.ts` | u:lib/db/src/schema/sessionMetrics.ts | done | agent |
+| M-205 | U | db schema: unit-тест (sessionRatings.ts) | `db/sessionRatings.ts` | u:lib/db/src/schema/sessionRatings.ts | done | agent |
+| M-206 | U | db schema: unit-тест (sessions.ts) | `db/sessions.ts` | u:lib/db/src/schema/sessions.ts | done | agent |
+| M-207 | U | db schema: unit-тест (systemAccounts.ts) | `db/systemAccounts.ts` | u:lib/db/src/schema/systemAccounts.ts | done | agent |
+| M-208 | U | db schema: unit-тест (verifierLinks.ts) | `db/verifierLinks.ts` | u:lib/db/src/schema/verifierLinks.ts | done | agent |
+| M-209 | U | db schema: unit-тест (withdrawals.ts) | `db/withdrawals.ts` | u:lib/db/src/schema/withdrawals.ts | done | agent |
 | M-210 | W | route error-paths без теста (500) : admin.ts | `routes/admin.ts` | w:artifacts/api-server/src/routes/admin.ts | pending | agent |
 | M-211 | W | route error-paths без теста (409) : agentAuth.ts | `routes/agentAuth.ts` | w:artifacts/api-server/src/routes/agentAuth.ts | pending | agent |
 | M-212 | W | route error-paths без теста (500) : downloads.ts | `routes/downloads.ts` | w:artifacts/api-server/src/routes/downloads.ts | pending | agent |
@@ -573,8 +575,6 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-220 | W | route error-paths без теста (500) : sessions.ts | `routes/sessions.ts` | w:artifacts/api-server/src/routes/sessions.ts | pending | agent |
 | M-221 | W | route error-paths без теста (502) : storage.ts | `routes/storage.ts` | w:artifacts/api-server/src/routes/storage.ts | pending | agent |
 | M-222 | W | route error-paths без теста (500) : vds.ts | `routes/vds.ts` | w:artifacts/api-server/src/routes/vds.ts | pending | agent |
-| M-208 | U | db schema: unit-тест (verifierLinks.ts) | `db/verifierLinks.ts` | u:lib/db/src/schema/verifierLinks.ts | pending | agent |
-| M-209 | U | db schema: unit-тест (withdrawals.ts) | `db/withdrawals.ts` | u:lib/db/src/schema/withdrawals.ts | pending | agent |
 | M-223 | V | тест не покрывает экспорты (1): agent-local | `artifacts/web/src/lib/agent-local.ts` | v:artifacts/web/src/lib/agent-local.ts | pending | agent |
 | M-224 | V | тест не покрывает экспорты (1): use-browser-ping | `artifacts/web/src/hooks/use-browser-ping.ts` | v:artifacts/web/src/hooks/use-browser-ping.ts | pending | agent |
 | M-225 | V | тест не покрывает экспорты (1): use-platform-events | `artifacts/web/src/hooks/use-platform-events.ts` | v:artifacts/web/src/hooks/use-platform-events.ts | pending | agent |
