@@ -449,4 +449,37 @@ describe("POST /storage/clip-upload", () => {
 
     uploadFetch.mockRestore();
   });
+
+  it("returns 502 when object storage PUT fails", async () => {
+    queueResults([{ id: PLAYER_ID }]);
+    mockGetObjectEntityUploadURL.mockResolvedValueOnce(
+      "https://storage.example/clip-upload?signed=1",
+    );
+    mockNormalizeObjectEntityPath.mockReturnValueOnce("/objects/clips/clip.webm");
+
+    const originalFetch = globalThis.fetch;
+    const uploadFetch = vi.spyOn(globalThis, "fetch").mockImplementation(
+      async (url, init) => {
+        if (typeof url === "string" && url.startsWith("https://storage.example/")) {
+          return { ok: false, status: 503 } as Response;
+        }
+        return originalFetch(url, init);
+      },
+    );
+
+    const form = new FormData();
+    const clipBytes = new Uint8Array([1, 2, 3, 4]);
+    form.append("file", new Blob([clipBytes], { type: "video/webm" }), "clip.webm");
+
+    const res = await request("POST", "/storage/clip-upload", {
+      headers: { "X-Player-Wallet-Token": PLAYER_TOKEN },
+      formData: form,
+    });
+
+    expect(res.status).toBe(502);
+    expect(res.json).toEqual({ error: "Failed to store clip" });
+    expect(mockTrySetObjectEntityAclPolicy).not.toHaveBeenCalled();
+
+    uploadFetch.mockRestore();
+  });
 });

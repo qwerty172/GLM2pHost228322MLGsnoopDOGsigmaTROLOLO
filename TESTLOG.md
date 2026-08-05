@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-221 (2026-08-05 22:43 UTC) {#marathon-m-221}
+
+| Проверка | Результат |
+|---|---|
+| vitest src/routes/storage.test.ts | PASS (17 tests) |
+
+**Изменения:** `artifacts/api-server/src/routes/storage.test.ts` — тест 502 для POST /storage/clip-upload когда object storage PUT возвращает !ok.
+
+**Следующий pick:** M-222 (route error-paths 500: vds.ts).
+
 ## Marathon M-220 (2026-08-05 22:40 UTC) {#marathon-m-220}
 
 | Проверка | Результат |
