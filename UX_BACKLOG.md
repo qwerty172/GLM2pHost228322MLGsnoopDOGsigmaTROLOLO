@@ -72,6 +72,58 @@
 
 ---
 
+## Волна U-2 — после закрытия U-01…U-33 (статус `planned`)
+
+> **`planned` ≠ `todo`.** Сканер (категория R) берёт в очередь только `todo`.
+> Эти строки описаны и готовы к работе, но не выполняются автоматически: почти все
+> меняют пользовательский UI, а ночной прогон не может проверить результат глазами.
+> Перед запуском волны: перевести нужные строки `planned` → `todo` и прогнать
+> `node scripts/marathon-scan.mjs --sync-marathon`.
+>
+> Часть строк требует Windows (`.exe`, SmartScreen, файрвол) — см. [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md).
+
+### Путь хоста
+
+| ID | Приор | Задача | Файлы | Критерий готовности | Status |
+|----|-------|--------|-------|---------------------|--------|
+| U-34 | P0 | Привязка `.exe` одним кликом с дашборда, без ввода 6 цифр | `artifacts/web/src/pages/host/dashboard.tsx`, `artifacts/host-agent/src/main/index.ts`, `artifacts/host-agent/src/renderer/pairing.ts` | Кнопка «Открыть в агенте» передаёт код привязки в уже установленный агент; ручной ввод остаётся резервным путём; `manualInputCount` −2 | planned |
+| U-35 | P0 | Честная разница между ZIP и `.exe` на дашборде | `artifacts/web/src/pages/host/dashboard.tsx`, `artifacts/web/src/pages/host/dashboard-helpers.ts` | У каждой кнопки подпись «токен уже внутри» / «понадобится код привязки»; после `.exe` шаг привязки показывается сам; `deadEndCount` −1 | planned |
+| U-36 | P0 | Нет опубликованного релиза — понятный экран, а не пустая кнопка | `artifacts/api-server/src/routes/downloads.ts`, `artifacts/web/src/pages/host/dashboard.tsx` | Пока тега `host-agent-v*` нет, кнопка `.exe` объясняет это по-русски и предлагает ZIP; тест на ответ без релиза | planned |
+| U-37 | P0 | Предупреждение о проверке Windows до скачивания `.exe` | `artifacts/web/src/pages/host/dashboard.tsx`, `artifacts/host-agent/INSTALL.txt` | Перед скачиванием один короткий блок про подтверждение запуска; после установки хост не считает это поломкой; `deadEndCount` −1 | planned |
+| U-38 | P1 | Права администратора — только для игр с анти-читом | `artifacts/host-agent/INSTALL.txt`, `artifacts/api-server/src/routes/downloads.ts`, `artifacts/web/src/pages/host/dashboard.tsx` | Текст про «запуск от администратора» показывается только там, где он нужен; для обычных игр шага нет; `stepsToStream` −1 | planned |
+| U-39 | P1 | Файрвол упоминается только при реальной проблеме связи | `artifacts/host-agent/INSTALL.txt`, `artifacts/web/src/pages/host/dashboard-helpers.ts`, `artifacts/host-agent/src/main/ping-server.ts` | Пока агент отвечает, чеклист файрвола скрыт; появляется только при неудачном ping с конкретным портом; `stepsToStream` −1 | planned |
+| U-40 | P1 | «Проверить самому» сразу открывает вкладку игрока | `artifacts/web/src/pages/host/dashboard.tsx`, `artifacts/api-server/src/routes/sessions.ts` | После создания тест-сессии открывается плеер и ссылка уже в буфере; `stepsToStream` −2 | planned |
+| U-41 | P1 | Один способ пригласить игрока вместо двух форм | `artifacts/web/src/pages/host/setup.tsx`, `artifacts/web/src/pages/host/dashboard.tsx` | Создание сессии и выдача ссылки — один экран; вторая форма удалена или ведёт на него; `surfaceCount` −1 | planned |
+| U-42 | P1 | Стрим вкладки браузера виден в основном потоке хоста | `artifacts/web/src/pages/host/dashboard.tsx`, `artifacts/web/src/pages/host/browser-play.tsx` | Вариант «без установки агента» предлагается на шаге выбора способа; не спрятан в отдельном URL | planned |
+| U-43 | P1 | Выбор окна для захвата — превью вместо списка заголовков | `artifacts/host-agent/src/renderer/capture.ts`, `artifacts/host-agent/src/renderer/index.html` | В окне выбора показываются миниатюры источников; ошибочный выбор окна виден до старта; `deadEndCount` −1 | planned |
+| U-59 | P1 | Путь к игре подставляется из агента, руками — только как запасной | `artifacts/web/src/pages/host/library.tsx`, `artifacts/host-agent/src/renderer/library.ts` | В библиотеке кнопка «Выбрать на этом ПК» отдаёт путь из агента; поле ручного ввода свёрнуто; `manualInputCount` −1 | planned |
+| U-60 | P1 | Привязка по коду не требует открывать расширенные настройки | `artifacts/host-agent/src/renderer/pairing.ts`, `artifacts/host-agent/src/main/config.ts`, `artifacts/api-server/src/routes/downloads.ts` | Адрес платформы уже в конфиге, форма кода просит только код; сообщение «сначала укажи URL» недостижимо в обычном потоке | planned |
+| U-63 | P1 | Квик-старт различает установку через ZIP и через `.exe` | `artifacts/web/src/pages/host/dashboard-helpers.ts`, `artifacts/web/src/pages/host/dashboard.tsx` | Шаг привязки показывается только тем, кто ставил `.exe`; юнит-тест на step-логику обоих путей | planned |
+| U-44 | P2 | Игры из Steam добавляются прямо из веб-библиотеки | `artifacts/web/src/pages/host/library.tsx`, `artifacts/host-agent/src/renderer/steam.ts` | Найденные агентом игры Steam видны в вебе и добавляются одной кнопкой; `manualInputCount` −1 | planned |
+| U-45 | P2 | После выхода в онлайн видно, что именно опубликовано | `artifacts/web/src/pages/host/dashboard.tsx`, `artifacts/host-agent/src/renderer/connect-events.ts` | Подтверждение содержит игру и цену за минуту, а не только «в сети» | planned |
+
+### Путь игрока
+
+| ID | Приор | Задача | Файлы | Критерий готовности | Status |
+|----|-------|--------|-------|---------------------|--------|
+| U-46 | P0 | Не хватает LZT — сумма и пополнение прямо перед запуском | `artifacts/web/src/components/pre-session-screen.tsx`, `artifacts/web/src/pages/play.tsx`, `artifacts/web/src/pages/wallet.tsx` | Показано, сколько нужно на 30 минут, и кнопка пополнения без ухода в пустой кошелёк; `deadEndCount` −1 | planned |
+| U-47 | P1 | Ссылка-приглашение открывается по QR с телефона | `artifacts/web/src/pages/host/setup.tsx`, `artifacts/web/src/pages/host/dashboard.tsx` | Рядом со ссылкой есть QR; игрок заходит без пересылки текста; `manualInputCount` −1 | planned |
+| U-48 | P1 | Обрыв связи — кнопка «Переподключиться», без технических кодов | `artifacts/web/src/pages/play.tsx`, `artifacts/web/src/pages/play-helpers.ts` | При разрыве одна понятная кнопка и текст без состояний соединения; юнит-тест на текст по каждому состоянию | planned |
+| U-49 | P1 | Пополнение криптой — адрес с QR, а не длинная строка | `artifacts/web/src/pages/wallet.tsx`, `artifacts/api-server/src/routes/wallet.ts` | Для депозита показан QR и кнопка копирования; ручной перенос адреса не нужен; `manualInputCount` −1 | planned |
+| U-50 | P1 | Раздел обмена объяснён обычными словами | `artifacts/web/src/pages/exchange.tsx` | Заявка и выдача описаны без терминов займа; понятно, что произойдёт с балансом | planned |
+| U-53 | P1 | Встроенный виджет сообщает об ошибках по-русски | `artifacts/web/src/pages/embed.tsx`, `artifacts/web/src/pages/embed-helpers.ts` | В iframe нет английских fallback-сообщений; каждое состояние объясняет, что делать | planned |
+| U-54 | P1 | Конец сессии объясняет причину и предлагает шаг дальше | `artifacts/web/src/pages/play.tsx`, `artifacts/web/src/pages/play-helpers.ts` | «Хост отключился» / «закончился баланс» + переход в каталог или повтор; `deadEndCount` −1 | planned |
+| U-55 | P1 | Нехватка баланса видна до старта, а не в момент списания | `artifacts/web/src/components/pre-session-screen.tsx`, `artifacts/web/src/pages/game-detail.tsx` | При балансе меньше нескольких минут запуск блокируется заранее с понятным действием | planned |
+| U-56 | P1 | Каталог доступен без пополнения кошелька | `artifacts/web/src/hooks/use-auth.tsx`, `artifacts/web/src/pages/landing.tsx`, `artifacts/web/src/pages/profile.tsx` | Новый игрок доходит до каталога и карточки игры без депозита; оплата запрашивается только перед сессией; `stepsToStream` −1 | planned |
+| U-61 | P1 | На лендинге видно реальное число хостов и игр онлайн | `artifacts/web/src/pages/landing.tsx`, `artifacts/api-server/src/routes/public.ts` | Показаны живые счётчики; при нуле — честный текст и переход в каталог | planned |
+| U-51 | P2 | История кошелька листается на мобиле | `artifacts/web/src/components/wallet-history.tsx`, `artifacts/web/src/pages/profile.tsx` | Есть «загрузить ещё»; на малых экранах видно больше одной страницы | planned |
+| U-52 | P2 | Переключатель кредита объясняет последствия | `artifacts/web/src/pages/profile.tsx` | Рядом с настройкой сказано, что изменится при оплате сессии | planned |
+| U-57 | P2 | В создании квоты виден прогресс по шагам | `artifacts/web/src/pages/quota-new.tsx` | Показано «шаг N из M»; понятно, сколько осталось | planned |
+| U-58 | P2 | У офлайн-игры можно попросить уведомление | `artifacts/web/src/pages/games.tsx`, `artifacts/web/src/pages/game-detail.tsx` | Вместо тупика — действие «сообщить, когда появится хост» | planned |
+| U-62 | P2 | Первое знакомство с LZT без чтения документации | `artifacts/web/src/components/site-nav.tsx`, `artifacts/web/src/pages/landing.tsx` | Однократная подсказка объясняет валюту рядом с балансом | planned |
+
+---
+
 ## Правила для automation
 
 1. **Одна U-NN за run.** Как и M-NN: код → `pnpm typecheck` → тесты → merge в `main`.
