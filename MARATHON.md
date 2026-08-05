@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 03:14 UTC |
 | Task ID | M-76 |
 | Результат | unit-тест connection-labels.ts + scanner regex для typed export const |
-| Commit | d8dbf25 |
+| Commit | 4e8def8 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
