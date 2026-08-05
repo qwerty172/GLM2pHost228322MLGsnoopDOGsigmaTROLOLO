@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-223 (2026-08-05 22:50 UTC) {#marathon-m-223}
+
+| Проверка | Результат |
+|---|---|
+| agent-local.test.mjs | PASS (13 tests) |
+
+**Изменения:** `artifacts/web/test/agent-local.test.mjs` — 3 теста для `probeAgentReadiness`: /readiness ответ, inputOk по умолчанию true, null при offline.
+
+**Следующий pick:** M-224 (тест не покрывает экспорты: use-browser-ping).
+
 ## Marathon M-222 (2026-08-05 22:46 UTC) {#marathon-m-222}
 
 | Проверка | Результат |

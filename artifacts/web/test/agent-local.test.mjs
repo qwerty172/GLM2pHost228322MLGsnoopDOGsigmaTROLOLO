@@ -8,6 +8,7 @@ const {
   getCachedAgentPort,
   postAgentInput,
   requestAgentPickExe,
+  probeAgentReadiness,
   fetchAgentSteamGames,
 } = await import("../src/lib/agent-local.ts");
 
@@ -153,4 +154,50 @@ test("fetchAgentSteamGames returns empty array when agent offline", async () => 
 
   const games = await fetchAgentSteamGames();
   assert.deepEqual(games, []);
+});
+
+test("probeAgentReadiness returns readiness info from /readiness", async () => {
+  mock.method(globalThis, "fetch", async (url) => {
+    const port = Number(String(url).match(/:(\d+)\/readiness$/)?.[1]);
+    if (port === 18082) {
+      return jsonResponse({
+        version: "3.1.0",
+        audioMode: "loopback",
+        port: 18082,
+        inputOk: true,
+      });
+    }
+    return jsonResponse({}, 404);
+  });
+
+  const info = await probeAgentReadiness({ force: true, timeoutMs: 50 });
+  assert.deepEqual(info, {
+    port: 18082,
+    version: "3.1.0",
+    audioMode: "loopback",
+    inputOk: true,
+  });
+  assert.equal(getCachedAgentPort(), 18082);
+});
+
+test("probeAgentReadiness treats missing inputOk as true", async () => {
+  mock.method(globalThis, "fetch", async (url) => {
+    if (String(url).endsWith("/readiness")) {
+      return jsonResponse({ version: "1.0.0", audioMode: "off", port: 18080 });
+    }
+    return jsonResponse({}, 404);
+  });
+
+  const info = await probeAgentReadiness({ force: true, timeoutMs: 50 });
+  assert.equal(info?.inputOk, true);
+});
+
+test("probeAgentReadiness returns null when all ports fail", async () => {
+  mock.method(globalThis, "fetch", async () => {
+    throw new Error("ECONNREFUSED");
+  });
+
+  const info = await probeAgentReadiness({ force: true, timeoutMs: 50 });
+  assert.equal(info, null);
+  assert.equal(getCachedAgentPort(), null);
 });

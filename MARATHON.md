@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 22:46 UTC|
-| Task ID | M-222|
-| Результат | vitest vds.test.ts PASS (26 tests); 500 test-connection SSH setup throw|
+| Дата | 2026-08-05 22:49 UTC|
+| Task ID | M-223|
+| Результат | agent-local.test.mjs PASS (13 tests); probeAgentReadiness /readiness, inputOk default, offline null|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -575,7 +575,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-220 | W | route error-paths без теста (500) : sessions.ts | `routes/sessions.ts` | w:artifacts/api-server/src/routes/sessions.ts | done | agent |
 | M-221 | W | route error-paths без теста (502) : storage.ts | `routes/storage.ts` | w:artifacts/api-server/src/routes/storage.ts | done | agent |
 | M-222 | W | route error-paths без теста (500) : vds.ts | `routes/vds.ts` | w:artifacts/api-server/src/routes/vds.ts | done | agent |
-| M-223 | V | тест не покрывает экспорты (1): agent-local | `artifacts/web/src/lib/agent-local.ts` | v:artifacts/web/src/lib/agent-local.ts | pending | agent |
+| M-223 | V | тест не покрывает экспорты (1): agent-local | `artifacts/web/src/lib/agent-local.ts` | v:artifacts/web/src/lib/agent-local.ts | done | agent |
 | M-224 | V | тест не покрывает экспорты (1): use-browser-ping | `artifacts/web/src/hooks/use-browser-ping.ts` | v:artifacts/web/src/hooks/use-browser-ping.ts | pending | agent |
 | M-225 | V | тест не покрывает экспорты (1): use-platform-events | `artifacts/web/src/hooks/use-platform-events.ts` | v:artifacts/web/src/hooks/use-platform-events.ts | pending | agent |
 | M-226 | V | тест не покрывает экспорты (2): authMiddleware | `artifacts/api-server/src/lib/authMiddleware.ts` | v:artifacts/api-server/src/lib/authMiddleware.ts | pending | agent |
