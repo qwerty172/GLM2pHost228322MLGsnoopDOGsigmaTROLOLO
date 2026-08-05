@@ -70,7 +70,16 @@
 | games.test.ts | 7 тестов — GET /games (catalog+aggregates, 400 invalid bool, hasMods=false), GET /games/:slug (404 unknown/hidden, detail+live sessions, tag filter) |
 | api-server test (games) | PASS (7 tests) |
 
-**Следующий pick:** M-118 (hosts.ts).
+**Следующий pick:** M-117 (health.ts).
+
+## Marathon M-118 (2026-08-05 11:43 UTC) {#marathon-m-118}
+
+| Проверка | Результат |
+|---|---|
+| hosts.test.ts | 14 тестов — POST /hosts/register (400, 201), GET /hosts/:hostToken (404, 200), POST /hosts/heartbeat (401, 404, 200), PATCH /hosts/me/config (401, 400 price, 200), GET /hosts/:hostToken/stats (404, 200), GET /hosts/:hostToken/sessions (404, 200) |
+| api-server test (hosts) | PASS (14 tests) |
+
+**Следующий pick:** M-119 (joinCodes.ts).
 
 ## Marathon M-117 (2026-08-05 11:38 UTC) {#marathon-m-117}
 
