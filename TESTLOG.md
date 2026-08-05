@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-136 (2026-08-05 14:33 UTC) {#marathon-m-136}
+
+| Проверка | Результат |
+|---|---|
+| lib/auth-verifier/test/otp.test.ts | 8 тестов: generateOtp (формат, padding, random) + verifyOtp (match, mismatch, length) |
+| auth-verifier test suite | PASS (32 tests) |
+| pnpm typecheck | PASS |
+
+**Следующий pick:** M-137 (auth-verifier unit-тест providers/discord.ts).
+
 ## Marathon M-150 (2026-08-05 14:29 UTC) {#marathon-m-150}
 
 | Проверка | Результат |

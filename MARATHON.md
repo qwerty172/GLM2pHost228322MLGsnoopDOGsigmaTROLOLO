@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 14:29 UTC|
-| Task ID | M-150|
-| Результат | U-14: evaluateHostReadiness + GET /hosts/me/readiness + GET /readiness + кнопка «Проверить готовность»; typecheck + 331 web / 16 hosts / 16 ping-server PASS|
+| Дата | 2026-08-05 14:32 UTC|
+| Task ID | M-136|
+| Результат | otp.test.ts: 8 тестов generateOtp/verifyOtp; auth-verifier suite 32/32 PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -481,7 +481,29 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-148 | R | UX U-32 (P0): Тест реально проверяет, что hostToken лежит внутри ZIP, а не | `routes/downloads.test.ts` | r:U-32 | done | agent |
 | M-149 | R | UX U-13 (P0): Дашборд всегда показывает одно следующее действие до первого | `pages/host/dashboard.tsx` | r:U-13 | done | agent |
 | M-150 | R | UX U-14 (P0): «Проверить готовность» проверяет весь путь хоста одной кнопк | `pages/host/dashboard.tsx` | r:U-14 | done | agent |
-| M-136 | Q | auth-verifier: unit-тест (otp.ts) | `auth-verifier/otp.ts` | q:lib/auth-verifier/src/otp.ts | pending | agent |
+| M-151 | R | UX U-06 (P1): Один способ привязки агента вместо трёх | `pages/host/dashboard.tsx` | r:U-06 | pending | agent |
+| M-152 | R | UX U-07 (P1): Убрать дублирующий legacy BindingForm с ценами в USD | `pages/host/binding-form.tsx` | r:U-07 | pending | agent |
+| M-153 | R | UX U-08 (P1): Кнопка «Войти на сайте» в агенте открывает существующий марш | `artifacts/host-agent/src/main/index.ts` | r:U-08 | pending | agent |
+| M-154 | R | UX U-09 (P1): Возврат хоста по сохранённому токену — поле «у меня уже есть | `artifacts/web/src/components/host-auth-guard.tsx` | r:U-09 | pending | agent |
+| M-155 | R | UX U-10 (P1): Библиотека и «быстрое добавление игры» — один компонент | `pages/host/library.tsx` | r:U-10 | pending | agent |
+| M-156 | R | UX U-11 (P2): Русский язык во всём UI агента | `renderer/*.ts` | r:U-11 | pending | agent |
+| M-157 | R | UX U-12 (P2): INSTALL.txt и подсказки дашборда описывают один и тот же пот | `artifacts/host-agent/INSTALL.txt` | r:U-12 | pending | agent |
+| M-158 | R | UX U-33 (P1): Порты файрвола согласованы между документацией и кодом | `artifacts/host-agent/INSTALL.txt` | r:U-33 | pending | agent |
+| M-159 | R | UX U-15 (P1): Версия агента берётся из сборки, а не из захардкоженной стро | `artifacts/host-agent/src/main/index.ts` | r:U-15 | pending | agent |
+| M-160 | R | UX U-16 (P1): Обновление агента видно и устанавливается одной кнопкой | `artifacts/host-agent/src/main/index.ts` | r:U-16 | pending | agent |
+| M-161 | R | UX U-17 (P1): Несовместимая версия агента объясняется до запуска стрима | `routes/hosts.ts` | r:U-17 | pending | agent |
+| M-162 | R | UX U-18 (P1): Единая карточка диагностики вместо разрозненных heartbeat и  | `pages/host/dashboard.tsx` | r:U-18 | pending | agent |
+| M-163 | R | UX U-19 (P1): Диагностический отчёт копируется одной кнопкой без секретов | `pages/host/dashboard.tsx` | r:U-19 | pending | agent |
+| M-164 | R | UX U-22 (P1): Лендинг не прячет блок, когда онлайн-хостов нет | `pages/landing.tsx` | r:U-22 | pending | agent |
+| M-165 | R | UX U-23 (P1): Выбор игры у хоста — раскрывающийся список вместо модалки | `pages/hosts.tsx` | r:U-23 | pending | agent |
+| M-166 | R | UX U-24 (P1): Один экран подготовки сессии вместо модалки и дубля на `/pla | `pages/game-detail.tsx` | r:U-24 | pending | agent |
+| M-167 | R | UX U-25 (P1): Экранная клавиатура включена по умолчанию на тач-устройствах | `pages/play.tsx` | r:U-25 | pending | agent |
+| M-168 | R | UX U-26 (P1): Никаких технических терминов в сообщениях игроку | `pages/play-helpers.ts` | r:U-26 | pending | agent |
+| M-169 | R | UX U-27 (P2): Баланс LZT виден на мобиле | `artifacts/web/src/components/site-nav.tsx` | r:U-27 | pending | agent |
+| M-170 | R | UX U-28 (P2): В каталоге у офлайн-игр честная подпись и путь дальше | `pages/games.tsx` | r:U-28 | pending | agent |
+| M-171 | R | UX U-29 (P2): Фильтры каталога доступны на мобиле | `pages/games.tsx` | r:U-29 | pending | agent |
+| M-172 | R | UX U-30 (P2): Понятная первая минута: сколько стоит и что такое LZT | `pages/game-detail.tsx` | r:U-30 | pending | agent |
+| M-136 | Q | auth-verifier: unit-тест (otp.ts) | `auth-verifier/otp.ts` | q:lib/auth-verifier/src/otp.ts | done | agent |
 | M-137 | Q | auth-verifier: unit-тест (providers/discord.ts) | `auth-verifier/providers/discord.ts` | q:lib/auth-verifier/src/providers/discord.ts | pending | agent |
 | M-138 | Q | auth-verifier: unit-тест (providers/telegram.ts) | `auth-verifier/providers/telegram.ts` | q:lib/auth-verifier/src/providers/telegram.ts | pending | agent |
 | M-139 | Q | auth-verifier: unit-тест (router.ts) | `auth-verifier/router.ts` | q:lib/auth-verifier/src/router.ts | pending | agent |
