@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-89 done; webgl-video-shader unit-тест)
+> **Последнее обновление:** 2026-08-05 (M-90 done; scanner cat O — web pages)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 08:58 UTC |
-| Task ID | M-89 |
-| Результат | WebGLVideoShader: SHADER_PRESETS (none/sharpen/contrast/upscale/night) + webgl-video-shader.test.mjs (6 тестов) |
-| Commit | d8c4755 |
+| Дата | 2026-08-05 09:10 UTC |
+| Task ID | M-90 |
+| Результат | admin/games: ADMIN_SECRET_STORAGE_KEY, adminRequestInit, getApiErrorMessage + admin-games.test.mjs (4 теста); scanner cat O (web pages) |
+| Commit | pending |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** M-89 done; scanner cat N idle (все web components покрыты).
+**Wave Maintenance:** M-90 done; scanner cat O — 16 pending (web pages helpers).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -309,6 +309,23 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-87 | N | web components: unit-тест (vt-scanner.tsx) | `artifacts/web/src/components/vt-scanner.tsx` | n:artifacts/web/src/components/vt-scanner.tsx | done | agent |
 | M-88 | N | web components: unit-тест (wallet-history.tsx) | `artifacts/web/src/components/wallet-history.tsx` | n:artifacts/web/src/components/wallet-history.tsx | done | agent |
 | M-89 | N | web components: unit-тест (webgl-video-shader.tsx) | `artifacts/web/src/components/webgl-video-shader.tsx` | n:artifacts/web/src/components/webgl-video-shader.tsx | done | agent |
+| M-90 | O | web pages: unit-тест (admin/games) | `pages/admin/games.tsx` | o:artifacts/web/src/pages/admin/games.tsx | done | agent |
+| M-91 | O | web pages: unit-тест (embed) | `pages/embed.tsx` | o:artifacts/web/src/pages/embed.tsx | pending | agent |
+| M-92 | O | web pages: unit-тест (exchange) | `pages/exchange.tsx` | o:artifacts/web/src/pages/exchange.tsx | pending | agent |
+| M-93 | O | web pages: unit-тест (game-detail) | `pages/game-detail.tsx` | o:artifacts/web/src/pages/game-detail.tsx | pending | agent |
+| M-94 | O | web pages: unit-тест (games) | `pages/games.tsx` | o:artifacts/web/src/pages/games.tsx | pending | agent |
+| M-95 | O | web pages: unit-тест (host/binding-form) | `pages/host/binding-form.tsx` | o:artifacts/web/src/pages/host/binding-form.tsx | pending | agent |
+| M-96 | O | web pages: unit-тест (host/browser-play) | `pages/host/browser-play.tsx` | o:artifacts/web/src/pages/host/browser-play.tsx | pending | agent |
+| M-97 | O | web pages: unit-тест (host/dashboard) | `pages/host/dashboard.tsx` | o:artifacts/web/src/pages/host/dashboard.tsx | pending | agent |
+| M-98 | O | web pages: unit-тест (host/library) | `pages/host/library.tsx` | o:artifacts/web/src/pages/host/library.tsx | pending | agent |
+| M-99 | O | web pages: unit-тест (host/setup) | `pages/host/setup.tsx` | o:artifacts/web/src/pages/host/setup.tsx | pending | agent |
+| M-100 | O | web pages: unit-тест (hosts) | `pages/hosts.tsx` | o:artifacts/web/src/pages/hosts.tsx | pending | agent |
+| M-101 | O | web pages: unit-тест (landing) | `pages/landing.tsx` | o:artifacts/web/src/pages/landing.tsx | pending | agent |
+| M-102 | O | web pages: unit-тест (play) | `pages/play.tsx` | o:artifacts/web/src/pages/play.tsx | pending | agent |
+| M-103 | O | web pages: unit-тест (profile) | `pages/profile.tsx` | o:artifacts/web/src/pages/profile.tsx | pending | agent |
+| M-104 | O | web pages: unit-тест (quota-detail) | `pages/quota-detail.tsx` | o:artifacts/web/src/pages/quota-detail.tsx | pending | agent |
+| M-105 | O | web pages: unit-тест (quotas) | `pages/quotas.tsx` | o:artifacts/web/src/pages/quotas.tsx | pending | agent |
+| M-106 | O | web pages: unit-тест (wallet) | `pages/wallet.tsx` | o:artifacts/web/src/pages/wallet.tsx | pending | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).

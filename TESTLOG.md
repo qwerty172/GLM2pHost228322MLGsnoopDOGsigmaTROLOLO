@@ -15,6 +15,29 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-90 (2026-08-05 09:10 UTC) {#marathon-m-90}
+
+| Проверка | Результат |
+|---|---|
+| admin/games.tsx | экспорт ADMIN_SECRET_STORAGE_KEY, readAdminSecret, writeAdminSecret, adminRequestInit, getApiErrorMessage |
+| admin-games.test.mjs | 4 теста — storage key, request headers, API error parsing, sessionStorage round-trip |
+| marathon-scan.mjs | cat O: web pages без unit-тестов (17 задач M-90…M-106) |
+| web test | PASS (134 tests) |
+| typecheck | PASS (web) |
+
+**Следующий pick:** M-91 (embed.tsx).
+
+## Marathon idle analysis (2026-08-05 09:04 UTC) {#marathon-idle-2026-08-05}
+
+| Проверка | Результат |
+|---|---|
+| scanner grouped | 0 (cat A–N исчерпаны) |
+| rg TODO/console | только rf3/main.js (игра) и dev-only play.tsx |
+| pnpm outdated | missing deps в cloud env (не блокер) |
+| pnpm audit | 65 vulns (transitive electron-builder/ip-address) |
+| git log | M-82…M-89 — web component tests |
+| action | EXPAND scanner cat O (web pages) → M-90…M-106 |
+
 ## Marathon M-89 (2026-08-05 08:58 UTC) {#marathon-m-89}
 
 | Проверка | Результат |

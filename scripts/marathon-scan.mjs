@@ -23,6 +23,7 @@
 //   L. web lib/*.ts without co-located test (by file)
 //   M. web hooks/*.{ts,tsx} without co-located test (by file)
 //   N. web components/*.{ts,tsx} without co-located test (by file, excludes ui/)
+//   O. web pages/**/*.tsx without co-located test (by file, module-level helpers)
 //
 // Source of truth: working tree (== main after git pull).
 
@@ -68,6 +69,10 @@ function normalizeApiPath(p) {
 
 function shortRouteFile(file) {
   return file.replace(/^artifacts\/api-server\/src\/routes\//, "routes/");
+}
+
+function shortPageFile(file) {
+  return file.replace(/^artifacts\/web\/src\//, "");
 }
 
 const raw = [];
@@ -404,6 +409,34 @@ if (existsSync(webComponentsDir)) {
   }
 }
 
+// --- O. web pages/**/*.tsx without co-located test (by file) --------------
+const webPagesDir = "artifacts/web/src/pages";
+if (existsSync(webPagesDir)) {
+  const pageFiles = walk(webPagesDir).filter((f) => f.endsWith(".tsx"));
+  for (const f of pageFiles) {
+    const rel = f.replace(/^artifacts\/web\/src\/pages\//, "").replace(/\.tsx$/, "");
+    const mod = f.split("/").pop().replace(/\.tsx$/, "");
+    const testBase = rel.replace(/\//g, "-");
+    const testCandidates = [
+      `artifacts/web/test/${testBase}.test.mjs`,
+      `artifacts/web/test/${testBase}.test.ts`,
+      `artifacts/web/test/${mod}.test.mjs`,
+      `artifacts/web/test/${mod}.test.ts`,
+    ];
+    if (testCandidates.some((t) => existsSync(t))) continue;
+    const txt = readFileSync(f, "utf8");
+    if (!/^function [a-zA-Z]/m.test(txt) && !/^const [a-zA-Z]+ = \(/m.test(txt)) continue;
+    raw.push({
+      cat: "O",
+      groupKey: `o:${f}`,
+      title: `web pages: unit-тест (${rel})`,
+      file: f,
+      detail: rel,
+      items: [mod],
+    });
+  }
+}
+
 // --- group raw hits (merge same groupKey) --------------------------------
 const grouped = new Map();
 for (const c of raw) {
@@ -450,7 +483,7 @@ for (const line of marathonMd.split("\n")) {
   if (status === "done" || status === "in_progress") doneOrActiveKeys.add(groupKey);
 }
 
-const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, J: 7, K: 8, L: 9, M: 10, N: 11, D: 12, I: 13 };
+const CAT_ORDER = { B: 0, C: 1, A: 2, G: 3, F: 4, E: 5, H: 6, J: 7, K: 8, L: 9, M: 10, N: 11, O: 12, D: 13, I: 14 };
 const filtered = candidates
   .filter((c) => !doneOrActiveKeys.has(c.groupKey))
   .sort((a, b) => (CAT_ORDER[a.cat] ?? 9) - (CAT_ORDER[b.cat] ?? 9));
@@ -474,7 +507,9 @@ for (const c of filtered) {
 function formatRow(c, status = "pending") {
   const fileCell = c.file.includes("renderer")
     ? "`renderer/*.ts`"
-    : `\`${shortRouteFile(c.file)}\``;
+    : c.file.includes("artifacts/web/src/pages")
+      ? `\`${shortPageFile(c.file)}\``
+      : `\`${shortRouteFile(c.file)}\``;
   const detail = (c.detail || "").replace(/\|/g, "\\|");
   return `| ${c.id} | ${c.cat} | ${c.title} | ${fileCell} | ${c.groupKey} | ${status} | agent |`;
 }
@@ -600,7 +635,7 @@ if (NEXT || PICK) {
     console.log(`| ${c.id} | ${c.cat} | ${c.title} | \`${c.file}\` | ${(c.detail || "").replace(/\|/g, "\\|")} |`);
   }
   console.log(
-    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, J=main-тесты, K=shared-тесты, L=web-lib тесты, M=web-hooks тесты, N=web-components тесты, I=eslint suppressions.`,
+    `\nКатегории: A=RU-строки, B=TODO/FIXME, C=OpenAPI gap, D=debug, E=renderer-тесты, F=raw fetch, G=HOSTING backlog, H=api-lib тесты, J=main-тесты, K=shared-тесты, L=web-lib тесты, M=web-hooks тесты, N=web-components тесты, O=web-pages тесты, I=eslint suppressions.`,
   );
   console.log(`Синхронизация: node scripts/marathon-scan.mjs --sync-marathon`);
 }

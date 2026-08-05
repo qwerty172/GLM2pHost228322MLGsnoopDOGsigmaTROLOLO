@@ -27,31 +27,31 @@ import {
   type GameSubmissionItem,
 } from "@workspace/api-client-react";
 
-const ADMIN_SECRET_KEY = "streamline.adminSecret";
+export const ADMIN_SECRET_STORAGE_KEY = "streamline.adminSecret";
 
-function readAdminSecret(): string {
+export function readAdminSecret(): string {
   try {
-    return sessionStorage.getItem(ADMIN_SECRET_KEY) ?? "";
+    return sessionStorage.getItem(ADMIN_SECRET_STORAGE_KEY) ?? "";
   } catch {
     return "";
   }
 }
 
-function writeAdminSecret(value: string): void {
+export function writeAdminSecret(value: string): void {
   try {
-    if (value) sessionStorage.setItem(ADMIN_SECRET_KEY, value);
-    else sessionStorage.removeItem(ADMIN_SECRET_KEY);
+    if (value) sessionStorage.setItem(ADMIN_SECRET_STORAGE_KEY, value);
+    else sessionStorage.removeItem(ADMIN_SECRET_STORAGE_KEY);
   } catch {
     /* sessionStorage unavailable */
   }
   try {
-    localStorage.removeItem(ADMIN_SECRET_KEY);
+    localStorage.removeItem(ADMIN_SECRET_STORAGE_KEY);
   } catch {
     /* ignore */
   }
 }
 
-function adminRequestInit(hostToken: string, adminSecret: string): RequestInit {
+export function adminRequestInit(hostToken: string, adminSecret: string): RequestInit {
   return {
     headers: {
       "X-Host-Token": hostToken,
@@ -60,7 +60,7 @@ function adminRequestInit(hostToken: string, adminSecret: string): RequestInit {
   };
 }
 
-function getApiErrorMessage(err: unknown): string {
+export function getApiErrorMessage(err: unknown): string {
   if (err && typeof err === "object" && "data" in err) {
     const data = (err as { data: unknown }).data;
     if (data && typeof data === "object" && "error" in data) {
