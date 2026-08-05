@@ -15,6 +15,25 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon idle (2026-08-05 00:48 UTC) {#marathon-idle-2026-08-05}
+
+| Проверка | Результат |
+|---|---|
+| marathon-scan | 0 raw / 0 grouped — все категории A–K чисты |
+| A EN UI | 0 hits |
+| B TODO/FIXME | только `public/games/rf3/` (исключено сканером) |
+| C OpenAPI gaps | 0 — все routes в spec |
+| D console/debugger | только isDev-guard и scripts (исключено) |
+| E–K tests | host-agent renderer/main/shared покрыты (M-13…M-68 done) |
+| F raw fetch | 0 hits |
+| G HOSTING backlog | 0 backlog/improvement строк |
+| I eslint suppressions | 0 hits |
+| pnpm audit | 65 vulns (3 low, 28 mod, 33 high, 1 crit) — в основном transitive `electron-builder→tar`; кандидат для EXPAND SCANNER на idle 3/3 |
+| pnpm outdated | root devDeps не установлены (prettier/typescript wanted) — не блокер |
+| git log | M-68 (input.ts) последний; кат. K завершена |
+
+**idle streak:** 0/3 — следующий expand scanner после 3 подряд idle runs.
+
 ## Marathon M-68 (2026-08-05 00:25 UTC) {#marathon-m-68}
 
 | Проверка | Результат |
