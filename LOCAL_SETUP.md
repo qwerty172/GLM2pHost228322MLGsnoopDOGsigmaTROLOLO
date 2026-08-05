@@ -53,21 +53,8 @@ CREATE DATABASE decentral_hub;
 ```bat
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-
-copy .env.example .env
-notepad .env
-```
-
-В `.env` измените `DATABASE_URL`:
-
-```
-DATABASE_URL=postgresql://postgres:ВАШ_ПАРОЛЬ@localhost:5432/decentral_hub
-```
-
-```bat
-scripts\setup-local.bat
-scripts\dev-local.bat
+pnpm setup
+pnpm dev
 scripts\smoke-api.bat
 ```
 
@@ -76,6 +63,8 @@ scripts\smoke-api.bat
 | Web | http://localhost:5000 |
 | API health | http://localhost:8080/api/healthz |
 
+**Без Docker:** установи PostgreSQL 16, создай базу `decentral_hub`, поправь `DATABASE_URL` в `.env`, затем `pnpm setup`.
+
 ---
 
 ## Быстрый старт (Git Bash / Linux / macOS)
@@ -83,14 +72,8 @@ scripts\smoke-api.bat
 ```bash
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-
-cp .env.example .env
-# отредактируй DATABASE_URL
-
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
+pnpm setup
+pnpm dev
 ./scripts/smoke-api.sh
 ```
 
