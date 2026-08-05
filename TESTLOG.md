@@ -101,7 +101,16 @@
 | submissions.test.ts | 20 тестов — POST /games/submit; PATCH /games/submissions/:id/pending-config; GET /games/submissions/my |
 | api-server test (submissions) | PASS (20 tests) |
 
-**Следующий pick:** M-130 (vds.ts).
+**Следующий pick:** M-131 (verifier.ts).
+
+## Marathon M-130 (2026-08-05 12:30 UTC) {#marathon-m-130}
+
+| Проверка | Результат |
+|---|---|
+| vds.test.ts | 25 тестов — POST /quotas/vds/test-connection; POST/GET/DELETE /quotas/:quotaId/vds; GET /vds/mine |
+| api-server test (vds) | PASS (25 tests) |
+
+**Следующий pick:** M-131 (verifier.ts).
 
 ## Marathon M-128 (2026-08-05 12:22 UTC) {#marathon-m-128}
 
