@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 02:00 UTC |
 | Task ID | M-70 |
 | Результат | unit-тест api-errors.ts (6 тестов: extractApiErrorPayload, formatApiError, formatApiErrorPanel); web 14 tests PASS; typecheck PASS |
-| Commit | (pending) |
+| Commit | 47f7301 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
