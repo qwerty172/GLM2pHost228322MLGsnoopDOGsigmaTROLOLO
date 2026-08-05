@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 03:06 UTC |
 | Task ID | M-74 |
 | Результат | unit-тест sentry.ts — initSentry no-op stub (resolve, undefined, idempotent) |
-| Commit | (pending push) |
+| Commit | 4f229d1 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
