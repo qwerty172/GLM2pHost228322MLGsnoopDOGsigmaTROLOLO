@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-88 (2026-08-05 07:24 UTC) {#marathon-m-88}
+
+| Проверка | Результат |
+|---|---|
+| wallet-history.tsx | экспорт formatLzt, formatTs, kindMeta, bucketMeta, isDebtTx, WALLET_HISTORY_FILTERS, WALLET_HISTORY_PAGE_SIZE |
+| wallet-history.test.mjs | 8 тестов — LZT format, timestamps, kind/bucket labels, debt filter, page size |
+| web test | PASS (123 tests) |
+| typecheck | PASS |
+
+**Следующий pick:** M-89 (webgl-video-shader.tsx).
+
 ## Marathon M-87 (2026-08-05 07:14 UTC) {#marathon-m-87}
 
 | Проверка | Результат |
