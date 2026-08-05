@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-74 (2026-08-05 03:06 UTC) {#marathon-m-74}
+
+| Проверка | Результат |
+|---|---|
+| sentry.test.mjs | 3 теста — initSentry resolve, undefined return, idempotent calls |
+| web test | PASS (38 tests) |
+| web typecheck | PASS |
+
+**Следующий pick:** M-75 `utils.ts`.
+
 ## Marathon M-73 (2026-08-05 03:02 UTC) {#marathon-m-73}
 
 | Проверка | Результат |
