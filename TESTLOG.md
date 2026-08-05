@@ -15,6 +15,18 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-81 (2026-08-05 05:20 UTC) {#marathon-m-81}
+
+| Проверка | Результат |
+|---|---|
+| marathon-scan.mjs | категория N: web components без unit-тестов (9 задач M-81…M-89) |
+| KeyboardOverlay.tsx | экспорт KEYBOARD_OVERLAY_STORAGE_KEY, loadKeyboardOverlayLayout, saveKeyboardOverlayLayout |
+| KeyboardOverlay.test.mjs | 5 тестов — storage key, KEY_CATALOGUE, KEYBOARD_PRESETS, load/save layout |
+| web test | PASS (80 tests) |
+| typecheck | PASS |
+
+**Следующий pick:** M-82 (TouchOverlay.tsx).
+
 ## Marathon M-80 (2026-08-05 04:58 UTC) {#marathon-m-80}
 
 | Проверка | Результат |
