@@ -966,3 +966,15 @@ Cron automation: `git pull origin main` → `marathon-reconcile.mjs --apply` →
 | blocked human | C3-D03, C4-S06/D02, REG-03 |
 
 Все изменения зачтены в `main`. Код не менялся.
+
+## Marathon M-81 (2026-08-05 05:06 UTC) {#marathon-m81}
+
+Cron automation: сканер idle (0 pending) → анализ → **EXPAND SCANNER** (категория N: web components).
+
+| Проверка | Результат |
+|---|---|
+| scanner до expand | rawHits=0, grouped=0 — все A–M категории исчерпаны |
+| scanner после expand | 9 задач M-81…M-89 (KeyboardOverlay, TouchOverlay, host-auth-guard, layout, quota-ai-chat, site-nav, vt-scanner, wallet-history, webgl-video-shader) |
+| M-81 | `keyboard-overlay.test.mjs` — KEY_CATALOGUE (unique codes, WASD), KEYBOARD_PRESETS (wasd/arrows/custom, layout fields) |
+| тесты | 8/8 pass (`node --import tsx --test test/keyboard-overlay.test.mjs`) |
+| typecheck | env: missing workspace deps (pre-existing); web-only typecheck не блокирует M-81 |
