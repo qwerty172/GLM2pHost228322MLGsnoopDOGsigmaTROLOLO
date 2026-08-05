@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-235 (2026-08-05 23:28 UTC) {#marathon-m-235}
+
+| Проверка | Результат |
+|---|---|
+| pgNotify.test.ts | PASS (8 tests) |
+
+**Изменения:** `artifacts/api-server/src/lib/pgNotify.test.ts` — unit-тесты для `startPgNotifyListener` (LISTEN, NOTIFY fan-out, idempotent), `emitPlatformEvent` (pg_notify + local fan-out, fallback при ошибке БД), `stopPgNotifyListener` (UNLISTEN/release).
+
+**Следующий pick:** M-236 (тест не покрывает экспорты: quotaEngine).
+
 ## Marathon M-234 (2026-08-05 23:25 UTC) {#marathon-m-234}
 
 | Проверка | Результат |
