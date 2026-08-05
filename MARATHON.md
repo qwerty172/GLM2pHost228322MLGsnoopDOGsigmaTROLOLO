@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-199 done; quotaSessions schema test)
+> **Последнее обновление:** 2026-08-05 (M-200 done; quotaVds schema test)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 21:18 UTC|
-| Task ID | M-199|
-| Результат | quotaSessions.test.ts: колонки и notNull; db test PASS (60)|
+| Дата | 2026-08-05 21:20 UTC|
+| Task ID | M-200|
+| Результат | quotaVds.test.ts: колонки и notNull; db test PASS (63)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -534,7 +534,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-197 | U | db schema: unit-тест (playerGameSaves.ts) | `db/playerGameSaves.ts` | u:lib/db/src/schema/playerGameSaves.ts | done | agent |
 | M-198 | U | db schema: unit-тест (players.ts) | `db/players.ts` | u:lib/db/src/schema/players.ts | done | agent |
 | M-199 | U | db schema: unit-тест (quotaSessions.ts) | `db/quotaSessions.ts` | u:lib/db/src/schema/quotaSessions.ts | done | agent |
-| M-200 | U | db schema: unit-тест (quotaVds.ts) | `db/quotaVds.ts` | u:lib/db/src/schema/quotaVds.ts | pending | agent |
+| M-200 | U | db schema: unit-тест (quotaVds.ts) | `db/quotaVds.ts` | u:lib/db/src/schema/quotaVds.ts | done | agent |
 | M-201 | U | db schema: unit-тест (quotas.ts) | `db/quotas.ts` | u:lib/db/src/schema/quotas.ts | pending | agent |
 | M-202 | U | db schema: unit-тест (rateLimitBuckets.ts) | `db/rateLimitBuckets.ts` | u:lib/db/src/schema/rateLimitBuckets.ts | pending | agent |
 | M-203 | U | db schema: unit-тест (refreshTokens.ts) | `db/refreshTokens.ts` | u:lib/db/src/schema/refreshTokens.ts | pending | agent |
