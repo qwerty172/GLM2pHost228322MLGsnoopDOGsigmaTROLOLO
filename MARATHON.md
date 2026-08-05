@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-183 done; billingEvents schema test)
+> **Последнее обновление:** 2026-08-05 (M-184 done; conversations schema test)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 20:40 UTC|
-| Task ID | M-183|
-| Результат | billingEvents.test.ts: колонки и notNull для billing_events; db test PASS (9)|
+| Дата | 2026-08-05 20:42 UTC|
+| Task ID | M-184|
+| Результат | conversations.test.ts: колонки и notNull для conversations; db test PASS (12)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -518,7 +518,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-181 | U | db schema: unit-тест (agentEvents.ts) | `db/agentEvents.ts` | u:lib/db/src/schema/agentEvents.ts | done | agent |
 | M-182 | U | db schema: unit-тест (agentPairingCodes.ts) | `db/agentPairingCodes.ts` | u:lib/db/src/schema/agentPairingCodes.ts | done | agent |
 | M-183 | U | db schema: unit-тест (billingEvents.ts) | `db/billingEvents.ts` | u:lib/db/src/schema/billingEvents.ts | done | agent |
-| M-184 | U | db schema: unit-тест (conversations.ts) | `db/conversations.ts` | u:lib/db/src/schema/conversations.ts | pending | agent |
+| M-184 | U | db schema: unit-тест (conversations.ts) | `db/conversations.ts` | u:lib/db/src/schema/conversations.ts | done | agent |
 | M-185 | U | db schema: unit-тест (depositAddresses.ts) | `db/depositAddresses.ts` | u:lib/db/src/schema/depositAddresses.ts | pending | agent |
 | M-186 | U | db schema: unit-тест (deposits.ts) | `db/deposits.ts` | u:lib/db/src/schema/deposits.ts | pending | agent |
 | M-187 | U | db schema: unit-тест (devKeys.ts) | `db/devKeys.ts` | u:lib/db/src/schema/devKeys.ts | pending | agent |
