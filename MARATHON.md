@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 04:30 UTC |
 | Task ID | M-80 |
 | Результат | web hooks: unit-тест use-player-wallet.tsx (registerGuestWallet, upgradeGuestWallet) |
-| Commit | eed794d |
+| Commit | a815ffa |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
