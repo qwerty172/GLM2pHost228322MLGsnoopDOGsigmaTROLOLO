@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 15:03 UTC|
-| Task ID | M-156|
-| Результат | U-11: русский UI агента — index.html + renderer/*.ts, host-agent tests PASS|
+| Дата | 2026-08-05 15:10 UTC|
+| Task ID | M-157|
+| Результат | U-12: INSTALL.txt синхронизирован с дашбордом (автовход из ZIP, без ручного токена); install-u12.test.mjs + typecheck PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -488,7 +488,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-154 | R | UX U-09 (P1): Возврат хоста по сохранённому токену — поле «у меня уже есть | `artifacts/web/src/components/host-auth-guard.tsx` | r:U-09 | done | agent |
 | M-155 | R | UX U-10 (P1): Библиотека и «быстрое добавление игры» — один компонент | `pages/host/add-game-modal.tsx` | r:U-10 | done | agent |
 | M-156 | R | UX U-11 (P2): Русский язык во всём UI агента | `renderer/*.ts` | r:U-11 | done | agent |
-| M-157 | R | UX U-12 (P2): INSTALL.txt и подсказки дашборда описывают один и тот же пот | `artifacts/host-agent/INSTALL.txt` | r:U-12 | pending | agent |
+| M-157 | R | UX U-12 (P2): INSTALL.txt и подсказки дашборда описывают один и тот же пот | `artifacts/host-agent/INSTALL.txt` | r:U-12 | done | agent |
 | M-158 | R | UX U-33 (P1): Порты файрвола согласованы между документацией и кодом | `artifacts/host-agent/INSTALL.txt` | r:U-33 | pending | agent |
 | M-159 | R | UX U-15 (P1): Версия агента берётся из сборки, а не из захардкоженной стро | `artifacts/host-agent/src/main/index.ts` | r:U-15 | pending | agent |
 | M-160 | R | UX U-16 (P1): Обновление агента видно и устанавливается одной кнопкой | `artifacts/host-agent/src/main/index.ts` | r:U-16 | pending | agent |
