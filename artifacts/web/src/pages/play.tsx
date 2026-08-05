@@ -47,6 +47,8 @@ import {
   getConnectionBadgeLabel,
   computeWalletBalanceForSession,
   isTouchCapableDevice,
+  shouldShowConnectingOverlay,
+  shouldAutoClaimFromSession,
 } from "./play-helpers";
 
 const isDev = import.meta.env.DEV;
@@ -877,11 +879,19 @@ export default function Play() {
     connectWs(wsUrl, pc);
   }, [session?.id, playerToken, playerWalletToken, cleanupConnection, connectWs, triggerIceRestart, initClipRecorder]);
 
+  // Reset claim/connect state when navigating to a different session in the SPA.
   useEffect(() => {
-    if (sessionClaimedBy) {
+    setHasClaimed(false);
+    setClaimError(null);
+    setShowPaymentOptions(false);
+    cleanupConnection();
+  }, [playerToken, cleanupConnection]);
+
+  useEffect(() => {
+    if (shouldAutoClaimFromSession(sessionClaimedBy, wallet?.ownerId)) {
       setHasClaimed(true);
     }
-  }, [sessionClaimedBy]);
+  }, [sessionClaimedBy, wallet?.ownerId]);
 
   const handlePrepConfirm = useCallback(
     (blockMins?: 10 | 15 | 25) => {
@@ -1308,7 +1318,7 @@ export default function Play() {
       isTest?: boolean;
     };
 
-    if (hasClaimed) {
+    if (shouldShowConnectingOverlay(hasClaimed, session.status)) {
       return (
         <div
           className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 relative overflow-hidden"

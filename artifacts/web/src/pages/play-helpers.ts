@@ -168,3 +168,20 @@ export function computeWalletBalanceForSession(
 export function isTouchCapableDevice(maxTouchPoints: number): boolean {
   return maxTouchPoints > 0;
 }
+
+/** True when the prep screen should be replaced by the connect spinner. */
+export function shouldShowConnectingOverlay(
+  hasClaimed: boolean,
+  sessionStatus: string | undefined,
+): boolean {
+  return hasClaimed && sessionStatus !== "ended";
+}
+
+/** Auto-skip prep only when the current wallet already owns the session claim. */
+export function shouldAutoClaimFromSession(
+  claimedByPlayerId: string | null | undefined,
+  walletOwnerId: string | null | undefined,
+): boolean {
+  if (!claimedByPlayerId || !walletOwnerId) return false;
+  return claimedByPlayerId === walletOwnerId;
+}
