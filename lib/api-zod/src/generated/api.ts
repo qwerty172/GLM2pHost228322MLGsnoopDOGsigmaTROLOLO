@@ -4697,7 +4697,9 @@ export const IssueWsTicketResponse = zod.object({
  * @summary Bind an Ed25519 public key to a host account
  */
 export const BindAgentKeyBody = zod.object({
-  hostToken: zod.string(),
+  bindCode: zod
+    .string()
+    .describe("One-time code from POST \/auth\/agent-bind-code (dashboard)"),
   pubkey: zod.string().describe("Hex-encoded Ed25519 SubjectPublicKeyInfo"),
   challenge: zod.string(),
   signature: zod.string(),

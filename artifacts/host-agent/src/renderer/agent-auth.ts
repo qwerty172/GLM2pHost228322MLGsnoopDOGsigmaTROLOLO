@@ -60,12 +60,12 @@ bindKeyBtn.addEventListener("click", async () => {
   const cfg = session.currentConfig ?? (await window.agent.getConfig());
   const bindCodeInput = document.getElementById("agentBindCode") as HTMLInputElement | null;
   const bindCode = bindCodeInput?.value.trim() ?? "";
-  if (!cfg.apiBaseUrl) {
-    log("Bind key: сначала сохрани Platform URL.");
+  if (!bindCode) {
+    log("Bind key: нужен код привязки из дашборда (кнопка «Получить код»).");
     return;
   }
-  if (!bindCode && !cfg.hostToken) {
-    log("Bind key: нужен код привязки из дашборда или Host Token.");
+  if (!cfg.apiBaseUrl) {
+    log("Bind key: сначала сохрани Platform URL.");
     return;
   }
   bindKeyBtn.disabled = true;
@@ -73,7 +73,7 @@ bindKeyBtn.addEventListener("click", async () => {
   const result = await window.agent.bindAgentKey(
     cfg.hostToken,
     cfg.apiBaseUrl,
-    bindCode || undefined,
+    bindCode,
   );
   bindKeyBtn.disabled = false;
   if (result.ok) {

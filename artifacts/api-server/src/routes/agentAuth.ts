@@ -126,6 +126,7 @@ const bindCodeIssueLimiter = rateLimit({
 });
 
 const BIND_CODE_TTL_MS = 10 * 60 * 1000;
+const BIND_CODE_TTL_SEC = Math.ceil(BIND_CODE_TTL_MS / 1000);
 
 interface BindCodeEntry {
   hostId: string;
@@ -133,7 +134,42 @@ interface BindCodeEntry {
 }
 const bindCodes = new Map<string, BindCodeEntry>();
 
-function issueBindCode(hostId: string): { bindCode: string; expiresAt: number } {
+async function storeBindCode(
+  bindCode: string,
+  hostId: string,
+  expiresAt: number,
+): Promise<void> {
+  const redis = getRedis();
+  if (redis) {
+    const prev = await redis.get(`agent:bind:host:${hostId}`);
+    if (prev) await redis.del(`agent:bind:${prev}`);
+    await redis.setex(`agent:bind:${bindCode}`, BIND_CODE_TTL_SEC, hostId);
+    await redis.setex(`agent:bind:host:${hostId}`, BIND_CODE_TTL_SEC, bindCode);
+    return;
+  }
+  bindCodes.set(bindCode, { hostId, expiresAt });
+}
+
+async function consumeBindCode(bindCode: string): Promise<string | null> {
+  const redis = getRedis();
+  if (redis) {
+    const key = `agent:bind:${bindCode}`;
+    const hostId = await redis.get(key);
+    if (!hostId) return null;
+    await redis.del(key);
+    await redis.del(`agent:bind:host:${hostId}`);
+    return hostId;
+  }
+  const entry = bindCodes.get(bindCode);
+  if (!entry) return null;
+  bindCodes.delete(bindCode);
+  if (entry.expiresAt < Date.now()) return null;
+  return entry.hostId;
+}
+
+async function issueBindCode(
+  hostId: string,
+): Promise<{ bindCode: string; expiresAt: number }> {
   const now = Date.now();
   for (const [k, v] of bindCodes) {
     if (v.expiresAt < now) bindCodes.delete(k);
@@ -143,16 +179,8 @@ function issueBindCode(hostId: string): { bindCode: string; expiresAt: number } 
   }
   const bindCode = `bind_${generateToken(18)}`;
   const expiresAt = now + BIND_CODE_TTL_MS;
-  bindCodes.set(bindCode, { hostId, expiresAt });
+  await storeBindCode(bindCode, hostId, expiresAt);
   return { bindCode, expiresAt };
-}
-
-function consumeBindCode(bindCode: string): string | null {
-  const entry = bindCodes.get(bindCode);
-  if (!entry) return null;
-  bindCodes.delete(bindCode);
-  if (entry.expiresAt < Date.now()) return null;
-  return entry.hostId;
 }
 
 router.get("/auth/agent-challenge", (_req, res): void => {
@@ -166,22 +194,17 @@ router.post("/auth/agent-bind-code", bindCodeIssueLimiter, async (req, res): Pro
     res.status(auth.status).json({ error: auth.error });
     return;
   }
-  const { bindCode, expiresAt } = issueBindCode(auth.host.id);
+  const { bindCode, expiresAt } = await issueBindCode(auth.host.id);
   req.log.info({ hostId: auth.host.id }, "Agent bind code issued");
   res.json({ bindCode, expiresAt });
 });
 
-const BindAgentKeyBody = z
-  .object({
-    bindCode: z.string().min(1).optional(),
-    hostToken: z.string().min(1).optional(),
-    pubkey: z.string().regex(/^[0-9a-f]+$/i, "pubkey must be hex"),
-    challenge: z.string().min(1),
-    signature: z.string().regex(/^[0-9a-f]+$/i, "signature must be hex"),
-  })
-  .refine((b) => Boolean(b.bindCode || b.hostToken), {
-    message: "bindCode or hostToken required",
-  });
+const BindAgentKeyBody = z.object({
+  bindCode: z.string().min(1),
+  pubkey: z.string().regex(/^[0-9a-f]+$/i, "pubkey must be hex"),
+  challenge: z.string().min(1),
+  signature: z.string().regex(/^[0-9a-f]+$/i, "signature must be hex"),
+});
 
 router.post("/auth/bind-agent-key", bindLimiter, async (req, res): Promise<void> => {
   const parsed = BindAgentKeyBody.safeParse(req.body);
@@ -189,7 +212,7 @@ router.post("/auth/bind-agent-key", bindLimiter, async (req, res): Promise<void>
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { bindCode, hostToken, pubkey, challenge, signature } = parsed.data;
+  const { bindCode, pubkey, challenge, signature } = parsed.data;
 
   if (!(await consumeChallenge(challenge))) {
     res.status(400).json({ error: "Challenge expired or already used" });
@@ -201,27 +224,9 @@ router.post("/auth/bind-agent-key", bindLimiter, async (req, res): Promise<void>
     return;
   }
 
-  let hostId: string | null = null;
-  if (bindCode) {
-    hostId = consumeBindCode(bindCode);
-    if (!hostId) {
-      res.status(400).json({ error: "Bind code expired or already used" });
-      return;
-    }
-  } else if (hostToken) {
-    const [host] = await db
-      .select({ id: hostsTable.id })
-      .from(hostsTable)
-      .where(eq(hostsTable.hostToken, hostToken));
-    if (!host) {
-      res.status(404).json({ error: "Host not found" });
-      return;
-    }
-    hostId = host.id;
-  }
-
+  const hostId = await consumeBindCode(bindCode);
   if (!hostId) {
-    res.status(400).json({ error: "bindCode or hostToken required" });
+    res.status(400).json({ error: "Bind code expired or already used" });
     return;
   }
 
