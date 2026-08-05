@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 06:56 UTC |
 | Task ID | M-86 |
 | Результат | SiteNav: экспорт isSiteNavHostActive, shouldHideSiteNavGuestBanner, isSiteNavPathActive, isGuestUpgradeNameValid, formatWalletBalanceLzt + site-nav.test.mjs (5 тестов) |
-| Commit | (pending) |
+| Commit | da2839c |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
