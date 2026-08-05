@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 22:56 UTC|
-| Task ID | M-225|
-| Результат | use-platform-events.test.mjs PASS (6 tests); usePlatformEvents export + EventSource forward contract|
+| Дата | 2026-08-05 23:05 UTC|
+| Task ID | M-227|
+| Результат | economy.test.ts PASS (23 tests): SYSTEM_INTEREST_RESERVE, creditPayoutToUser, payInternal, repayBorrowerDebt, applyDepositCents, creditDevKeyDeposit, recordWithdrawalDebit, systemAccountBalance, drawFromSystemAccount, hasBlockReserveLedger, debitBlockReserve|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -579,7 +579,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-224 | V | тест не покрывает экспорты (1): use-browser-ping | `artifacts/web/src/hooks/use-browser-ping.ts` | v:artifacts/web/src/hooks/use-browser-ping.ts | done | agent |
 | M-225 | V | тест не покрывает экспорты (1): use-platform-events | `artifacts/web/src/hooks/use-platform-events.ts` | v:artifacts/web/src/hooks/use-platform-events.ts | done | agent |
 | M-226 | V | тест не покрывает экспорты (2): authMiddleware | `artifacts/api-server/src/lib/authMiddleware.ts` | v:artifacts/api-server/src/lib/authMiddleware.ts | done | agent |
-| M-227 | V | тест не покрывает экспорты (11): economy | `artifacts/api-server/src/lib/economy.ts` | v:artifacts/api-server/src/lib/economy.ts | pending | agent |
+| M-227 | V | тест не покрывает экспорты (11): economy | `artifacts/api-server/src/lib/economy.ts` | v:artifacts/api-server/src/lib/economy.ts | done | agent |
 | M-228 | V | тест не покрывает экспорты (1): hostAuth | `artifacts/api-server/src/lib/hostAuth.ts` | v:artifacts/api-server/src/lib/hostAuth.ts | pending | agent |
 | M-229 | V | тест не покрывает экспорты (1): hostTier | `artifacts/api-server/src/lib/hostTier.ts` | v:artifacts/api-server/src/lib/hostTier.ts | pending | agent |
 | M-230 | V | тест не покрывает экспорты (1): invites | `artifacts/api-server/src/lib/invites.ts` | v:artifacts/api-server/src/lib/invites.ts | pending | agent |

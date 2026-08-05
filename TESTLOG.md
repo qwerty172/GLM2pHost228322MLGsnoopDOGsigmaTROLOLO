@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-227 (2026-08-05 23:04 UTC) {#marathon-m-227}
+
+| Проверка | Результат |
+|---|---|
+| economy.test.ts | PASS (23 tests) |
+
+**Изменения:** `artifacts/api-server/src/lib/economy.test.ts` — unit-тесты для 11 экспортов economy: SYSTEM_INTEREST_RESERVE, creditPayoutToUser, payInternal, repayBorrowerDebt, applyDepositCents, creditDevKeyDeposit, recordWithdrawalDebit, systemAccountBalance, drawFromSystemAccount, hasBlockReserveLedger, debitBlockReserve.
+
+**Следующий pick:** M-228 (тест не покрывает экспорты: hostAuth).
+
 ## Marathon M-226 (2026-08-05 22:59 UTC) {#marathon-m-226}
 
 | Проверка | Результат |
