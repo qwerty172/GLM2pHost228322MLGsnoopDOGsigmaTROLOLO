@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-71 (2026-08-05 02:10 UTC) {#marathon-m-71}
+
+| Проверка | Результат |
+|---|---|
+| ice-prewarm.test.mjs | 7 тестов — prewarmIce cache/dedup/fallback, discardPrewarm, TTL eviction |
+| web test | PASS (21 tests) |
+| web typecheck | PASS |
+
+**Следующий pick:** M-72 `put-external-blob.ts`.
+
 ## Marathon M-70 (2026-08-05 02:04 UTC) {#marathon-m-70}
 
 | Проверка | Результат |
