@@ -90,6 +90,15 @@
 
 **Следующий pick:** M-120 (loans.ts).
 
+## Marathon M-120 (2026-08-05 11:51 UTC) {#marathon-m-120}
+
+| Проверка | Результат |
+|---|---|
+| loans.test.ts | 21 тестов — POST /loans/requests (validation, Pledger limit, 201), GET /loans/requests, POST fund (validation, 201), GET /loans/mine, POST repay |
+| api-server test (loans) | PASS (21 tests) |
+
+**Следующий pick:** M-121 (players.ts).
+
 ## Marathon M-117 (2026-08-05 11:38 UTC) {#marathon-m-117}
 
 | Проверка | Результат |

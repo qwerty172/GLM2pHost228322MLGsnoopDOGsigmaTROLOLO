@@ -6,15 +6,15 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-119 done; joinCodes.test.ts)
+> **Последнее обновление:** 2026-08-05 (M-120 done; loans.test.ts)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 11:46 UTC|
-| Task ID | M-119|
-| Результат | joinCodes.test.ts: 3 unit tests (exchange 404/200, Deprecation header); vitest PASS|
+| Дата | 2026-08-05 11:50 UTC|
+| Task ID | M-120|
+| Результат | loans.test.ts: 21 unit tests (requests create/list, fund, mine, repay); vitest PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -364,7 +364,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-117 | P | api-server routes: unit-тест (health.ts) | `routes/health.ts` | p:artifacts/api-server/src/routes/health.ts | done | agent |
 | M-118 | P | api-server routes: unit-тест (hosts.ts) | `routes/hosts.ts` | p:artifacts/api-server/src/routes/hosts.ts | done | agent |
 | M-119 | P | api-server routes: unit-тест (joinCodes.ts) | `routes/joinCodes.ts` | p:artifacts/api-server/src/routes/joinCodes.ts | done | agent |
-| M-120 | P | api-server routes: unit-тест (loans.ts) | `routes/loans.ts` | p:artifacts/api-server/src/routes/loans.ts | pending | agent |
+| M-120 | P | api-server routes: unit-тест (loans.ts) | `routes/loans.ts` | p:artifacts/api-server/src/routes/loans.ts | done | agent |
 | M-121 | P | api-server routes: unit-тест (players.ts) | `routes/players.ts` | p:artifacts/api-server/src/routes/players.ts | pending | agent |
 | M-122 | P | api-server routes: unit-тест (premium.ts) | `routes/premium.ts` | p:artifacts/api-server/src/routes/premium.ts | pending | agent |
 | M-123 | P | api-server routes: unit-тест (public.ts) | `routes/public.ts` | p:artifacts/api-server/src/routes/public.ts | pending | agent |
