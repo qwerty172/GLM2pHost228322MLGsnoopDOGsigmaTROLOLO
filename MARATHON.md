@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 04:08 UTC |
 | Task ID | M-78 |
 | Результат | категория N сканера (web components export const); unit-тест KeyboardOverlay (KEY_CATALOGUE, KEYBOARD_PRESETS) |
-| Commit | 5c29573 |
+| Commit | 9fc37d4 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
