@@ -11,9 +11,11 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const ACCESS_STORAGE = "streamline.accessJwt";
+export const AUTH_ACCESS_STORAGE_KEY = ACCESS_STORAGE;
 const AUTH_FETCH_OPTS: RequestInit = { credentials: "include" };
 
-function consumeTokenFromUrl(setHostToken: (token: string | null) => void): void {
+/** Strip ?token= from URL and persist via setHostToken when present. */
+export function consumeTokenFromUrl(setHostToken: (token: string | null) => void): void {
   const params = new URLSearchParams(window.location.search);
   const token = params.get("token");
   if (token) {
@@ -25,18 +27,23 @@ function consumeTokenFromUrl(setHostToken: (token: string | null) => void): void
   }
 }
 
-async function exchangeLegacyForJwt(legacyToken: string): Promise<string | null> {
+export async function exchangeLegacyForJwt(
+  legacyToken: string,
+  login: typeof authLogin = authLogin,
+): Promise<string | null> {
   try {
-    const data = await authLogin({ legacyToken }, AUTH_FETCH_OPTS);
+    const data = await login({ legacyToken }, AUTH_FETCH_OPTS);
     return data.accessToken ?? null;
   } catch {
     return null;
   }
 }
 
-async function refreshAccessJwt(): Promise<string | null> {
+export async function refreshAccessJwt(
+  refresh: typeof authRefresh = authRefresh,
+): Promise<string | null> {
   try {
-    const data = await authRefresh({}, AUTH_FETCH_OPTS);
+    const data = await refresh({}, AUTH_FETCH_OPTS);
     return data.accessToken ?? null;
   } catch {
     return null;

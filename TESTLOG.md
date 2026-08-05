@@ -15,6 +15,19 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-78 (2026-08-05 04:10 UTC) {#marathon-m-78}
+
+| Проверка | Результат |
+|---|---|
+| idle-анализ | сканер M не ловил `.tsx` hooks — 3 файла без тестов (use-auth, use-mobile, use-player-wallet) |
+| marathon-scan.mjs | категория M расширена на `*.{ts,tsx}` |
+| use-auth.tsx | экспорт consumeTokenFromUrl, exchangeLegacyForJwt, refreshAccessJwt, AUTH_ACCESS_STORAGE_KEY |
+| use-auth.test.mjs | 7 тестов — URL token strip, JWT exchange/refresh success+failure |
+| web test | PASS (59 tests) |
+| typecheck | PASS |
+
+**Следующий pick:** M-79 (use-mobile.tsx).
+
 ## Marathon M-77 (2026-08-05 04:00 UTC) {#marathon-m-77}
 
 | Проверка | Результат |
