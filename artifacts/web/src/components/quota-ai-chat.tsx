@@ -3,68 +3,20 @@ import {
   useQuotaAiChat,
   type QuotaFormState as ApiQuotaFormState,
 } from "@workspace/api-client-react";
-import { formatApiError } from "@/lib/api-errors";
+import {
+  QUOTA_AI_CHAT_STARTERS,
+  canSendQuotaChatMessage,
+  shouldSubmitQuotaChatOnEnter,
+  hasQuotaFormPatch,
+  formatQuotaAiChatError,
+  type QuotaFormState,
+  type QuotaFormPatch,
+} from "@/lib/quota-ai-chat";
 import { Send, Bot, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
-export type QuotaFormState = {
-  kind: string;
-  title: string;
-  description: string;
-  visibility: string;
-  royaltyBasis: string;
-  royaltyValue: number;
-  royaltySource: string;
-  budgetLzt: number;
-  sponsorHostPerMinute: number;
-  sponsorPlayerPerMinute: number;
-  gameId: string;
-  minSessionMinutes: string;
-  maxSessionMinutes: string;
-  startAt: string;
-  endAt: string;
-  minGpuVram?: string;
-  minCpuCores?: string;
-  minRamGb?: string;
-  minDownloadMbps?: string;
-  minUploadMbps?: string;
-  recGpuVram?: string;
-  recCpuCores?: string;
-  recRamGb?: string;
-  recDownloadMbps?: string;
-  recUploadMbps?: string;
-  requiredTier?: "min" | "recommended";
-};
-
-export type QuotaFormPatch = {
-  kind?: string;
-  title?: string;
-  description?: string;
-  visibility?: string;
-  royaltyBasis?: string;
-  royaltyValue?: number;
-  royaltySource?: string;
-  budgetLzt?: number;
-  sponsorHostPerMinute?: number;
-  sponsorPlayerPerMinute?: number;
-  gameId?: string;
-  minSessionMinutes?: string;
-  maxSessionMinutes?: string;
-  startAt?: string;
-  endAt?: string;
-  minGpuVram?: number | null;
-  minCpuCores?: number | null;
-  minRamGb?: number | null;
-  minDownloadMbps?: number | null;
-  minUploadMbps?: number | null;
-  recGpuVram?: number | null;
-  recCpuCores?: number | null;
-  recRamGb?: number | null;
-  recDownloadMbps?: number | null;
-  recUploadMbps?: number | null;
-  requiredTier?: "min" | "recommended";
-};
+export type { QuotaFormState, QuotaFormPatch };
 
 type Message = {
   role: "user" | "assistant";
@@ -82,12 +34,6 @@ type Props = {
   availableGames: AvailableGame[];
   onFormPatch: (patch: QuotaFormPatch) => void;
 };
-
-const STARTERS = [
-  "Спонсирую плейтест Cyberpunk — бюджет 50000 LZT, хосту 100 LZT/мин",
-  "Беру 10% royalty из доли хоста для своих модов",
-  "Бесплатные 30 минут новичкам — спонсорская квота, игроку 5 LZT/мин",
-];
 
 const panelStyle = {
   background: "#0a1018",
@@ -121,7 +67,7 @@ export function QuotaAiChat({ ownerToken, currentFormState, availableGames, onFo
 
   const sendMessage = async (text: string) => {
     const trimmed = text.trim();
-    if (!trimmed || loading) return;
+    if (!canSendQuotaChatMessage(text, loading)) return;
 
     const userMsg: Message = { role: "user", content: trimmed };
     const nextMessages = [...messages, userMsg];
@@ -138,7 +84,7 @@ export function QuotaAiChat({ ownerToken, currentFormState, availableGames, onFo
         },
       });
       setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
-      if (data.formPatch && Object.keys(data.formPatch).length > 0) {
+      if (hasQuotaFormPatch(data.formPatch as QuotaFormPatch)) {
         onFormPatch(data.formPatch as QuotaFormPatch);
       }
     } catch (err) {
@@ -146,14 +92,14 @@ export function QuotaAiChat({ ownerToken, currentFormState, availableGames, onFo
         ...prev,
         {
           role: "assistant",
-          content: `Ошибка: ${formatApiError(err, "Не удалось связаться с ИИ. Попробуй ещё раз.")}`,
+          content: `Ошибка: ${formatQuotaAiChatError(err)}`,
         },
       ]);
     }
   };
 
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (shouldSubmitQuotaChatOnEnter(e.key, e.shiftKey)) {
       e.preventDefault();
       sendMessage(input);
     }
@@ -176,7 +122,7 @@ export function QuotaAiChat({ ownerToken, currentFormState, availableGames, onFo
             <p className="text-xs text-slate-500 text-center py-2">
               Напиши, что хочешь создать, или выбери пример:
             </p>
-            {STARTERS.map((s, i) => (
+            {QUOTA_AI_CHAT_STARTERS.map((s, i) => (
               <button
                 key={i}
                 onClick={() => sendMessage(s)}
@@ -242,7 +188,7 @@ export function QuotaAiChat({ ownerToken, currentFormState, availableGames, onFo
           type="button"
           size="sm"
           onClick={() => sendMessage(input)}
-          disabled={loading || !input.trim()}
+          disabled={loading || !canSendQuotaChatMessage(input, false)}
           style={{ background: "#0ea5e9", color: "#fff", alignSelf: "flex-end" }}
         >
           {loading ? (

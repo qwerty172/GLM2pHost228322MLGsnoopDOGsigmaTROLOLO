@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-85 (2026-08-05 06:42 UTC) {#marathon-m-85}
+
+| Проверка | Результат |
+|---|---|
+| quota-ai-chat.tsx | lib/quota-ai-chat.ts: QUOTA_AI_CHAT_STARTERS, canSendQuotaChatMessage, shouldSubmitQuotaChatOnEnter, hasQuotaFormPatch, formatQuotaAiChatError |
+| quota-ai-chat.test.mjs | 7 тестов — starters, send guard, Enter submit, form patch, error fallback |
+| web test | PASS (quota-ai-chat) |
+| typecheck | PASS (quota-ai-chat module) |
+
+**Следующий pick:** M-86 (site-nav.tsx).
+
 ## Marathon M-84 (2026-08-05 06:38 UTC) {#marathon-m-84}
 
 | Проверка | Результат |
