@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-181 done; scanner cat U + agentEvents test)
+> **Последнее обновление:** 2026-08-05 (M-182 done; agentPairingCodes schema test)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 20:29 UTC|
-| Task ID | M-179|
-| Результат | public.ts: убраны 5× as any (conds/conditions без явной типизации, как в games.ts); api-server typecheck PASS|
+| Дата | 2026-08-05 20:38 UTC|
+| Task ID | M-182|
+| Результат | agentPairingCodes.test.ts: колонки и notNull для agent_pairing_codes; db test PASS (6)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -516,7 +516,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-179 | T | `as any` escape (5) | `routes/public.ts` | t:artifacts/api-server/src/routes/public.ts | done | agent |
 | M-180 | T | `as any` escape (3) | `routes/admin.ts` | t:artifacts/api-server/src/routes/admin.ts | done | agent |
 | M-181 | U | db schema: unit-тест (agentEvents.ts) | `db/agentEvents.ts` | u:lib/db/src/schema/agentEvents.ts | done | agent |
-| M-182 | U | db schema: unit-тест (agentPairingCodes.ts) | `db/agentPairingCodes.ts` | u:lib/db/src/schema/agentPairingCodes.ts | pending | agent |
+| M-182 | U | db schema: unit-тест (agentPairingCodes.ts) | `db/agentPairingCodes.ts` | u:lib/db/src/schema/agentPairingCodes.ts | done | agent |
 | M-183 | U | db schema: unit-тест (billingEvents.ts) | `db/billingEvents.ts` | u:lib/db/src/schema/billingEvents.ts | pending | agent |
 | M-184 | U | db schema: unit-тест (conversations.ts) | `db/conversations.ts` | u:lib/db/src/schema/conversations.ts | pending | agent |
 | M-185 | U | db schema: unit-тест (depositAddresses.ts) | `db/depositAddresses.ts` | u:lib/db/src/schema/depositAddresses.ts | pending | agent |

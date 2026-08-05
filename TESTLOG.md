@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-182 (2026-08-05 20:38 UTC) {#marathon-m-182}
+
+| Проверка | Результат |
+|---|---|
+| pnpm --filter @workspace/db test | PASS (6 tests) |
+| lib/db tsc --noEmit | PASS |
+
+**Изменения:** `lib/db/test/agentPairingCodes.test.ts` — колонки и notNull для agent_pairing_codes.
+
+**Следующий pick:** M-183 (db schema: billingEvents.ts).
+
 ## Marathon M-181 (2026-08-05 20:35 UTC) {#marathon-m-181}
 
 | Проверка | Результат |
