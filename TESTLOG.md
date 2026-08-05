@@ -45,6 +45,15 @@
 
 **Метрики на старте:** taskHitPct ~29%, hashWastePct ~52%, 41 idle draft PR.
 
+## Marathon M-111 (2026-08-05 11:21 UTC) {#marathon-m-111}
+
+| Проверка | Результат |
+|---|---|
+| devKeys.test.ts | 12 тестов — POST /dev-keys (auth: secret/admin/open-create, validation), PATCH /dev-keys/:apiKey/rules |
+| api-server test (devKeys) | PASS (12 tests) |
+
+**Следующий pick:** M-112 (downloads.ts).
+
 ## Marathon M-110 (2026-08-05 11:19 UTC) {#marathon-m-110}
 
 | Проверка | Результат |

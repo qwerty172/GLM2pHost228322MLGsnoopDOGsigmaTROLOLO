@@ -6,15 +6,15 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-110 done; auth.test.ts)
+> **Последнее обновление:** 2026-08-05 (M-111 done; devKeys.test.ts)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 11:19 UTC|
-| Task ID | M-110|
-| Результат | auth.test.ts 21 тест PASS (login, refresh, logout, ws-ticket)|
+| Дата | 2026-08-05 11:21 UTC|
+| Task ID | M-111|
+| Результат | devKeys.test.ts 12 тестов PASS (POST /dev-keys auth/validation, PATCH rules)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -355,7 +355,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-108 | P | api-server routes: unit-тест (agentAuth.ts) | `routes/agentAuth.ts` | p:artifacts/api-server/src/routes/agentAuth.ts | done | agent |
 | M-109 | P | api-server routes: unit-тест (agentTelemetry.ts) | `routes/agentTelemetry.ts` | p:artifacts/api-server/src/routes/agentTelemetry.ts | done | agent |
 | M-110 | P | api-server routes: unit-тест (auth.ts) | `routes/auth.ts` | p:artifacts/api-server/src/routes/auth.ts | done | agent |
-| M-111 | P | api-server routes: unit-тест (devKeys.ts) | `routes/devKeys.ts` | p:artifacts/api-server/src/routes/devKeys.ts | pending | agent |
+| M-111 | P | api-server routes: unit-тест (devKeys.ts) | `routes/devKeys.ts` | p:artifacts/api-server/src/routes/devKeys.ts | done | agent |
 | M-112 | P | api-server routes: unit-тест (downloads.ts) | `routes/downloads.ts` | p:artifacts/api-server/src/routes/downloads.ts | pending | agent |
 | M-113 | P | api-server routes: unit-тест (embed.ts) | `routes/embed.ts` | p:artifacts/api-server/src/routes/embed.ts | pending | agent |
 | M-114 | P | api-server routes: unit-тест (enrich.ts) | `routes/enrich.ts` | p:artifacts/api-server/src/routes/enrich.ts | pending | agent |
