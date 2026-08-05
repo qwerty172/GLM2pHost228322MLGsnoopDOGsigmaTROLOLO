@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 06:50 UTC |
 | Task ID | M-85 |
 | Результат | QuotaAiChat: экспорт QUOTA_AI_CHAT_STARTERS, canSendQuotaAiMessage, shouldSubmitQuotaAiOnEnter + quota-ai-chat.test.mjs (6 тестов) |
-| Commit | (pending) |
+| Commit | a954900 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
