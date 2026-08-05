@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 09:20 UTC |
 | Task ID | M-90 |
 | Результат | scanner cat O (web pages); admin/games.tsx helpers + admin-games.test.mjs (6 тестов) |
-| Commit | (this run) |
+| Commit | a45c1b2 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
