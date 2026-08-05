@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-235 done; pgNotify export coverage)
+> **Последнее обновление:** 2026-08-05 (M-240 done; storageRouteHelpers export coverage)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 23:43 UTC|
-| Task ID | M-239|
-| Результат | signaling.test.ts: attachSignaling, closeSignaling, sendSignalingMessage (5 tests PASS)|
+| Дата | 2026-08-05 23:47 UTC|
+| Task ID | M-240|
+| Результат | storageRouteHelpers.test.ts: respondStorageUnavailable, handleStorageError, resolveHostIdFromRequest, resolvePlayerIdFromRequest, resolveCallerUserId, tryApplyObjectAcl (18 tests PASS)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -592,7 +592,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-237 | V | тест не покрывает экспорты (5): redis | `artifacts/api-server/src/lib/redis.ts` | v:artifacts/api-server/src/lib/redis.ts | done | agent |
 | M-238 | V | тест не покрывает экспорты (2): sessionSerialize | `artifacts/api-server/src/lib/sessionSerialize.ts` | v:artifacts/api-server/src/lib/sessionSerialize.ts | done | agent |
 | M-239 | V | тест не покрывает экспорты (3): signaling | `artifacts/api-server/src/lib/signaling.ts` | v:artifacts/api-server/src/lib/signaling.ts | done | agent |
-| M-240 | V | тест не покрывает экспорты (6): storageRouteHelpers | `artifacts/api-server/src/lib/storageRouteHelpers.ts` | v:artifacts/api-server/src/lib/storageRouteHelpers.ts | pending | agent |
+| M-240 | V | тест не покрывает экспорты (6): storageRouteHelpers | `artifacts/api-server/src/lib/storageRouteHelpers.ts` | v:artifacts/api-server/src/lib/storageRouteHelpers.ts | done | agent |
 | M-241 | V | тест не покрывает экспорты (3): walletAddresses | `artifacts/api-server/src/lib/walletAddresses.ts` | v:artifacts/api-server/src/lib/walletAddresses.ts | pending | agent |
 | M-242 | V | тест не покрывает экспорты (2): api-client | `artifacts/host-agent/src/main/api-client.ts` | v:artifacts/host-agent/src/main/api-client.ts | pending | agent |
 | M-243 | V | тест не покрывает экспорты (4): config | `artifacts/host-agent/src/main/config.ts` | v:artifacts/host-agent/src/main/config.ts | pending | agent |

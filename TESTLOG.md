@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-240 (2026-08-05 23:47 UTC) {#marathon-m-240}
+
+| Проверка | Результат |
+|---|---|
+| storageRouteHelpers.test.ts | PASS (18 tests) |
+
+**Изменения:** `artifacts/api-server/src/lib/storageRouteHelpers.test.ts` — unit-тесты для `respondStorageUnavailable`, `handleStorageError`, `resolveHostIdFromRequest`, `resolvePlayerIdFromRequest`, `resolveCallerUserId`, `tryApplyObjectAcl` (мок db/objectStorage + mock req/res).
+
+**Следующий pick:** M-241 (тест не покрывает экспорты: walletAddresses).
+
 ## Marathon M-239 (2026-08-05 23:43 UTC) {#marathon-m-239}
 
 | Проверка | Результат |
