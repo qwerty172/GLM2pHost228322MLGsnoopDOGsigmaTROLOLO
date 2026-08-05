@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-04 (M-66 done; tray unit-тесты)
+> **Последнее обновление:** 2026-08-04 (M-67 done; wake-scheduler unit-тесты)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-04 23:40 UTC |
-| Task ID | M-66 |
-| Результат | tray.ts unit-тесты: createTray tooltip/menu/click, setStatus labels, error notification, app.quit |
-| Commit | f18fa71 |
+| Дата | 2026-08-05 00:00 UTC |
+| Task ID | M-67 |
+| Результат | wake-scheduler.ts unit-тесты: non-win32 no-op, schtasks cleanup, WakeToRun registration, error swallow |
+| Commit | 3c577cd |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** 2 pending (M-67…M-68) — host-agent main/shared unit-тесты (кат. J/K).
+**Wave Maintenance:** 1 pending (M-68) — host-agent shared unit-тест (кат. K).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -286,7 +286,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-64 | J | host-agent main: unit-тест (spawn-hwnd.ts) | `artifacts/host-agent/src/main/spawn-hwnd.ts` | j:artifacts/host-agent/src/main/spawn-hwnd.ts | done | agent |
 | M-65 | J | host-agent main: unit-тест (steam-scanner.ts) | `artifacts/host-agent/src/main/steam-scanner.ts` | j:artifacts/host-agent/src/main/steam-scanner.ts | done | agent |
 | M-66 | J | host-agent main: unit-тест (tray.ts) | `artifacts/host-agent/src/main/tray.ts` | j:artifacts/host-agent/src/main/tray.ts | done | agent |
-| M-67 | J | host-agent main: unit-тест (wake-scheduler.ts) | `artifacts/host-agent/src/main/wake-scheduler.ts` | j:artifacts/host-agent/src/main/wake-scheduler.ts | pending | agent |
+| M-67 | J | host-agent main: unit-тест (wake-scheduler.ts) | `artifacts/host-agent/src/main/wake-scheduler.ts` | j:artifacts/host-agent/src/main/wake-scheduler.ts | done | agent |
 | M-68 | K | host-agent shared: unit-тест (input.ts) | `artifacts/host-agent/src/shared/input.ts` | k:artifacts/host-agent/src/shared/input.ts | pending | agent |
 
 
