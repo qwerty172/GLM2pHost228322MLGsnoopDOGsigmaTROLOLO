@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 06:42 UTC |
 | Task ID | M-85 |
 | Результат | quota-ai-chat: lib/quota-ai-chat.ts (QUOTA_AI_CHAT_STARTERS, canSendQuotaChatMessage, shouldSubmitQuotaChatOnEnter, hasQuotaFormPatch, formatQuotaAiChatError) + quota-ai-chat.test.mjs (7 тестов) |
-| Commit | pending |
+| Commit | f4820fa |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
