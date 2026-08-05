@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-86 (2026-08-05 06:54 UTC) {#marathon-m-86}
+
+| Проверка | Результат |
+|---|---|
+| site-nav.tsx | экспорт SITE_NAV_GUEST_TOAST, isSiteNavPathActive, isSiteNavHostActive, shouldHideSiteNavGuestBanner, formatLztBalanceChip, isGuestAccountNameValid |
+| site-nav.test.mjs | 6 тестов — toast, path active, host active, guest banner, balance format, guest name |
+| web test | PASS (109 tests) |
+| typecheck | PASS |
+
+**Следующий pick:** M-87 (vt-scanner.tsx).
+
 ## Marathon M-85 (2026-08-05 06:50 UTC) {#marathon-m-85}
 
 | Проверка | Результат |
