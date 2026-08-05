@@ -92,7 +92,16 @@
 
 **Следующий pick:** M-122 (premium.ts).
 
-**Следующий pick:** M-127 (sessions.ts).
+**Следующий pick:** M-128 (storage.ts).
+
+## Marathon M-127 (2026-08-05 12:17 UTC) {#marathon-m-127}
+
+| Проверка | Результат |
+|---|---|
+| sessions.test.ts | 37 тестов — POST /sessions, /browser-host, /test; GET by-player-token, /:id, by-invite; claim, end, metrics, rate |
+| api-server test (sessions) | PASS (37 tests) |
+
+**Следующий pick:** M-128 (storage.ts).
 
 ## Marathon M-126 (2026-08-05 12:12 UTC) {#marathon-m-126}
 
@@ -100,8 +109,6 @@
 |---|---|
 | saves.test.ts | 22 теста — GET/POST /saves/download-url, /upload-url, /confirm; GET/POST /players/me/saves/:gameId (upload-url, commit) |
 | api-server test (saves) | PASS (22 tests) |
-
-**Следующий pick:** M-127 (sessions.ts).
 
 ## Marathon M-125 (2026-08-05 12:07 UTC) {#marathon-m-125}
 
