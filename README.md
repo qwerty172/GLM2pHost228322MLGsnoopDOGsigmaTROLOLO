@@ -40,6 +40,30 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
+**Одна команда** (Docker + настройка + запуск):
+
+```bash
+pnpm quickstart
+```
+
+**Уже настроен?** Только API + Web:
+
+```bash
+pnpm go
+```
+
+| Команда | Что делает |
+|---|---|
+| `pnpm quickstart` | Docker (PostgreSQL + Redis) → setup → dev |
+| `pnpm go` | API (:8080) + Web (:5000) |
+| `pnpm setup` | `.env`, install, db push (без typecheck) |
+| `pnpm setup:full` | setup + typecheck |
+| `pnpm infra:up` | только PostgreSQL + Redis в Docker |
+| `pnpm infra:down` | остановить контейнеры |
+| `pnpm smoke` | smoke-тест API |
+
+Windows: `scripts\quickstart.bat` или `scripts\dev-local.bat`
+
 Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
 
 **Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)

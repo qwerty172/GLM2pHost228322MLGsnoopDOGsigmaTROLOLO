@@ -50,25 +50,39 @@ CREATE DATABASE decentral_hub;
 
 ## Быстрый старт (Windows)
 
+**Одна команда** (Docker Desktop + Node + pnpm):
+
+```bat
+scripts\quickstart.bat
+```
+
+Или по шагам:
+
+```bat
+pnpm infra:up
+pnpm setup
+pnpm go
+```
+
 ```bat
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
 
 copy .env.example .env
 notepad .env
 ```
 
-В `.env` измените `DATABASE_URL`:
+В `.env` при Docker-дефолтах ничего менять не нужно — `pnpm setup` подставит секреты.
+Без Docker — измените `DATABASE_URL`:
 
 ```
 DATABASE_URL=postgresql://postgres:ВАШ_ПАРОЛЬ@localhost:5432/decentral_hub
 ```
 
 ```bat
-scripts\setup-local.bat
-scripts\dev-local.bat
-scripts\smoke-api.bat
+pnpm setup
+pnpm go
+pnpm smoke
 ```
 
 | Сервис | URL |
