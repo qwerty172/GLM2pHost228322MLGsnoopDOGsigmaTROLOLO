@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-84 (2026-08-05 06:18 UTC) {#marathon-m-84}
+
+| Проверка | Результат |
+|---|---|
+| host-layout-nav.ts | экспорт HOST_LAYOUT_NAV_ITEMS, getHostSiteNavActivePath, isHostNavItemActive |
+| layout.test.mjs | 4 теста — nav items, wallet active path, exact match |
+| web test | PASS (layout) |
+| typecheck | PASS (web) |
+
+**Следующий pick:** M-85 (quota-ai-chat.tsx).
+
 ## Marathon M-83 (2026-08-05 06:10 UTC) {#marathon-m-83}
 
 | Проверка | Результат |
