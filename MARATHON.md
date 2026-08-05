@@ -6,15 +6,15 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-106 done; wallet helpers + unit-тест)
+> **Последнее обновление:** 2026-08-05 (M-107 done; admin routes unit-тест)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 10:56 UTC|
-| Task ID | M-106|
-| Результат | wallet-helpers.ts + wallet.test.mjs (15 тестов): formatLzt, lztToUsdt, Transak URL, withdraw validation, address preview, deposit lookup|
+| Дата | 2026-08-05 11:02 UTC|
+| Task ID | M-107|
+| Результат | admin.test.ts (13 тестов): auth (ADMIN_SECRET, X-Admin-Secret, X-Host-Token), GET games/submissions, POST reject, DELETE/PATCH games|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -40,7 +40,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** M-106 done; scanner cat O — 0 pending (web pages helpers complete).
+**Wave Maintenance:** M-107 done; scanner cat P — 26 pending (api-server routes).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -351,7 +351,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-104 | O | web pages: unit-тест (quota-detail) | `pages/quota-detail.tsx` | o:artifacts/web/src/pages/quota-detail.tsx | done | agent |
 | M-105 | O | web pages: unit-тест (quotas) | `pages/quotas.tsx` | o:artifacts/web/src/pages/quotas.tsx | done | agent |
 | M-106 | O | web pages: unit-тест (wallet) | `pages/wallet.tsx` | o:artifacts/web/src/pages/wallet.tsx | done | agent |
-| M-107 | P | api-server routes: unit-тест (admin.ts) | `routes/admin.ts` | p:artifacts/api-server/src/routes/admin.ts | pending | agent |
+| M-107 | P | api-server routes: unit-тест (admin.ts) | `routes/admin.ts` | p:artifacts/api-server/src/routes/admin.ts | done | agent |
 | M-108 | P | api-server routes: unit-тест (agentAuth.ts) | `routes/agentAuth.ts` | p:artifacts/api-server/src/routes/agentAuth.ts | pending | agent |
 | M-109 | P | api-server routes: unit-тест (agentTelemetry.ts) | `routes/agentTelemetry.ts` | p:artifacts/api-server/src/routes/agentTelemetry.ts | pending | agent |
 | M-110 | P | api-server routes: unit-тест (auth.ts) | `routes/auth.ts` | p:artifacts/api-server/src/routes/auth.ts | pending | agent |
