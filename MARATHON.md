@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 04:10 UTC |
 | Task ID | M-78 |
 | Результат | web hooks: unit-тест use-auth.tsx (consumeTokenFromUrl, exchangeLegacyForJwt, refreshAccessJwt); сканер M расширен на .tsx hooks |
-| Commit | *(этот run)* |
+| Commit | b060173 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
