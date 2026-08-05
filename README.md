@@ -44,6 +44,14 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 **Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
 
+**Одна команда после клона:**
+
+```bash
+cp .env.example .env   # отредактируй DATABASE_URL
+pnpm setup             # install + схема БД + typecheck
+pnpm dev               # API :8080 + Web :5000
+```
+
 **Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN (обход страниц в браузере).
 
 ### Требования
