@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 05:34 UTC |
 | Task ID | M-81 |
 | Результат | idle-анализ → категория N (web components); unit-тест KeyboardOverlay.tsx (KEY_CATALOGUE, KEYBOARD_PRESETS) |
-| Commit | *(после push)* |
+| Commit | d214b1f |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
