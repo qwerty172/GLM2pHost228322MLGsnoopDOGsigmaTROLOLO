@@ -7,33 +7,24 @@ cd "$ROOT"
 
 echo "==> DecentralHub — локальная настройка"
 
-if [[ ! -f .env ]]; then
-  cp .env.example .env
-  echo "Создан .env из .env.example — отредактируй DATABASE_URL и WALLET_ENCRYPTION_KEY"
+if command -v docker >/dev/null 2>&1; then
+  node scripts/setup-env.mjs --docker
+  echo "==> Docker Postgres"
+  pnpm db:up
+  node scripts/wait-for-postgres.mjs
 else
-  echo ".env уже существует — пропускаем копирование"
-fi
-
-if [[ -z "${WALLET_ENCRYPTION_KEY:-}" ]] && grep -q '^WALLET_ENCRYPTION_KEY=$' .env 2>/dev/null; then
-  KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
-  if [[ "$(uname -s)" == "Darwin" ]]; then
-    sed -i '' "s/^WALLET_ENCRYPTION_KEY=$/WALLET_ENCRYPTION_KEY=$KEY/" .env
-  else
-    sed -i "s/^WALLET_ENCRYPTION_KEY=$/WALLET_ENCRYPTION_KEY=$KEY/" .env
-  fi
-  echo "Сгенерирован WALLET_ENCRYPTION_KEY"
+  node scripts/setup-env.mjs
+  echo "Docker не найден — убедитесь что PostgreSQL запущен и DATABASE_URL в .env верный"
 fi
 
 echo "==> pnpm install"
 pnpm install
 
-echo "==> Применение схемы БД (нужен запущенный PostgreSQL и DATABASE_URL в .env)"
+echo "==> Применение схемы БД"
 pnpm --filter @workspace/db run push
-
-echo "==> Проверка типов"
-pnpm run typecheck
 
 echo ""
 echo "Готово. Запуск:"
-echo "  ./scripts/dev-local.sh          — API + Web"
-echo "  или см. README.md"
+echo "  pnpm dev                 — API :8080 + Web :5000"
+echo "  ./scripts/dev-local.sh   — то же (bash)"
+echo "  pnpm verify              — typecheck + тесты (опционально)"

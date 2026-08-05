@@ -40,95 +40,67 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
-Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
+**Три команды** — если установлены Node 22+, pnpm и Docker:
 
-**Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
+```bash
+git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git decentral-hub
+cd decentral-hub
+pnpm setup    # .env + Postgres в Docker + миграции
+pnpm dev      # API :8080 + Web :5000
+```
 
-**Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN (обход страниц в браузере).
+Открой http://localhost:5000 · API health: http://localhost:8080/api/healthz
+
+| Команда | Что делает |
+|---|---|
+| `pnpm setup` | Создаёт `.env` с секретами, поднимает Postgres, `db push` |
+| `pnpm dev` | API + Web одновременно |
+| `pnpm dev:api` / `pnpm dev:web` | Только один сервис |
+| `pnpm db:up` / `pnpm db:down` | Postgres в Docker |
+| `pnpm verify` | typecheck + тесты (перед коммитом) |
+
+**Без Docker?** Установи PostgreSQL 16, поправь `DATABASE_URL` в `.env`, затем `pnpm setup:env && pnpm install && pnpm --filter @workspace/db run push`.
+
+Полный план тестирования — [`TESTPLAN.md`](./TESTPLAN.md). Пошаговая инструкция — [`LOCAL_SETUP.md`](./LOCAL_SETUP.md).
 
 ### Требования
 
-- Node.js 20+
-- pnpm 9+
-- PostgreSQL 16
-- Git Bash / WSL (для Windows) или Linux/macOS
+- Node.js 22+ (см. `.nvmrc`)
+- pnpm 10+ (`corepack enable`)
+- Docker — для `pnpm db:up` (или свой PostgreSQL 16)
 
-### Клонирование
+### Переменные окружения (`.env`)
+
+Создаётся автоматически через `pnpm setup`. Ключевые поля:
+
+| Переменная | Назначение |
+|---|---|
+| `DATABASE_URL` | PostgreSQL (по умолчанию — Docker: `decentral_hub:decentral_hub@localhost:5432`) |
+| `PORT` | API-сервер (8080) |
+| `WEB_PORT` | Vite dev-сервер (5000) |
+| `WALLET_ENCRYPTION_KEY` | Генерируется при setup |
+| `JWT_SECRET` | Генерируется при setup (нужен для auth) |
+| `REDIS_URL` | Опционально — rate limit / кэш (закомментирован в `.env.example`) |
+| `TURN_*` | Опционально — WebRTC через coturn (см. `infra/docker-compose.dev.yml`) |
+
+### Альтернатива: скрипты в `scripts/`
 
 ```bash
-git clone https://github.com/qwerty172/glm2phost228322mlgsnoopdogsigmatrololo.git decentral-hub
-cd decentral-hub
+./scripts/setup-local.sh   # то же что pnpm setup (с Docker если есть)
+./scripts/dev-local.sh     # то же что pnpm dev
+./scripts/smoke-api.sh     # smoke-тест API
 ```
 
-### Первичная настройка
-
-**Windows (cmd или двойной клик):**
+### Windows (cmd)
 
 ```bat
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-copy .env.example .env
-notepad .env
-scripts\setup-local.bat
-scripts\dev-local.bat
-```
-
-**Git Bash / Linux / macOS:**
-
-```bash
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-cp .env.example .env
-# отредактируй DATABASE_URL
-
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
+pnpm setup
+pnpm dev
 ```
 
 Подробнее — [LOCAL_SETUP.md](./LOCAL_SETUP.md).
-
-### Переменные окружения (`.env`)
-
-| Переменная | Назначение |
-|---|---|
-| `DATABASE_URL` | PostgreSQL, база `decentral_hub` |
-| `PORT` | API-сервер (8080) |
-| `WALLET_ENCRYPTION_KEY` | 32-байт hex, обязателен для кошелька |
-| `ADMIN_SECRET` | Секрет admin-роутов (`X-Admin-Secret`) |
-| `API_PROXY_TARGET` | Куда Vite проксирует `/api` (http://localhost:8080) |
-| `BASE_PATH` | Базовый путь web (`/`) |
-
-`.env` подхватывается автоматически через `dotenv-cli` в dev-скриптах. На Replit переменные задаёт платформа.
-
-### Запуск (два терминала или один скрипт)
-
-**Вариант A — скрипт (Git Bash / Linux / macOS):**
-
-```bash
-./scripts/dev-local.sh
-```
-
-**Вариант B — вручную:**
-
-```bash
-# Терминал 1: API (порт 8080)
-pnpm --filter @workspace/api-server run dev
-
-# Терминал 2: Web (порт 5000, прокси /api -> :8080)
-pnpm --filter @workspace/web run dev
-```
-
-Открой http://localhost:5000
-
-### Smoke-тест API (фаза 1)
-
-```bash
-./scripts/smoke-api.sh
-# или: ./scripts/smoke-api.sh http://localhost:8080
-```
 
 ### Сборка production
 

@@ -4,18 +4,12 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
-const rawPort = process.env.PORT;
-
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
-  );
-}
-
+// WEB_PORT — порт Vite; PORT в .env общий с API (8080), поэтому web читает WEB_PORT первым.
+const rawPort = process.env.WEB_PORT ?? process.env.PORT ?? "5000";
 const port = Number(rawPort);
 
 if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
+  throw new Error(`Invalid web port value: "${rawPort}"`);
 }
 
 const basePath = process.env.BASE_PATH;
