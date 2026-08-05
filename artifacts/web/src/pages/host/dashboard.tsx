@@ -1127,7 +1127,31 @@ function HostQuickStartCard({
         )}
 
         {agentOnline && !agentKeyBound && (
-          <AgentBindCodeCard hostToken={hostToken} />
+          <AgentBindCodeCard hostToken={hostToken} autoIssue />
+        )}
+
+        {!agentOnline && (
+          <div
+            className="rounded-lg p-3 flex flex-col sm:flex-row sm:items-center gap-3"
+            style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)" }}
+          >
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-emerald-300">Хостить без Windows?</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Rogue Fable III можно запустить прямо в браузере — без агента и установки.
+              </p>
+            </div>
+            <Link href="/games/rogue-fable-3">
+              <Button
+                size="sm"
+                className="h-8 gap-1.5 text-xs font-semibold shrink-0"
+                style={{ background: "#10b981", color: "#fff" }}
+              >
+                <Globe className="h-3.5 w-3.5" />
+                Хостить в браузере
+              </Button>
+            </Link>
+          </div>
         )}
 
         {agentKeyBound && libraryCount === 0 && (
@@ -1254,7 +1278,13 @@ function QuickAddFirstGame({ hostToken }: { hostToken: string }) {
   );
 }
 
-function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
+function AgentBindCodeCard({
+  hostToken,
+  autoIssue = false,
+}: {
+  hostToken: string;
+  autoIssue?: boolean;
+}) {
   const [bindCode, setBindCode] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1274,7 +1304,9 @@ function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
       }
       setBindCode(json.bindCode);
       setExpiresAt(json.expiresAt ?? null);
-      toast.success("Код привязки создан — вставь в агент или запусти с --bind-code=…");
+      if (!autoIssue) {
+        toast.success("Код привязки создан — вставь в агент или запусти с --bind-code=…");
+      }
     } catch (err) {
       const msg = (err as { data?: { error?: string } }).data?.error;
       toast.error(msg ?? "Нет соединения");
@@ -1282,6 +1314,13 @@ function AgentBindCodeCard({ hostToken }: { hostToken: string }) {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (autoIssue && !bindCode && !loading) {
+      void issueCode();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- auto-issue once on mount
+  }, [autoIssue, hostToken]);
 
   const copyCode = () => {
     if (!bindCode) return;
@@ -1443,6 +1482,15 @@ export default function Dashboard() {
     (s) => s.status === "active" || s.status === "pending",
   );
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+
+  const agentOnline =
+    agent.status === "online" || heartbeat.status === "fresh";
+  const quickStartComplete =
+    agentOnline &&
+    agentKeyBound &&
+    libraryCount > 0 &&
+    (hasActiveSession || (agentOnline && libraryCount > 0 && agentKeyBound));
 
   const agentNeedsAttention =
     agent.status === "offline" ||
@@ -1674,7 +1722,8 @@ export default function Dashboard() {
         </div>
       </details>
 
-      {/* Stats */}
+      {/* Stats — скрыты до завершения быстрого старта */}
+      {showStats || quickStartComplete ? (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {[
           {
@@ -1762,6 +1811,16 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setShowStats(true)}
+          className="w-full text-left px-4 py-3 rounded-xl text-sm text-slate-500 hover:text-slate-300 transition-colors"
+          style={{ border: "1px solid rgba(255,255,255,0.06)", background: "#0a1018" }}
+        >
+          Показать статистику и баланс →
+        </button>
+      )}
 
       {/* Current quota status */}
       {hostToken && <CurrentQuotaCard hostToken={hostToken} />}

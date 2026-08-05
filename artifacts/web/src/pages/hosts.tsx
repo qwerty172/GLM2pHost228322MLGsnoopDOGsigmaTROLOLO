@@ -8,6 +8,8 @@ import {
   createPublicSession,
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
+import { GuestCreditHint } from "@/components/guest-credit-hint";
+import { prewarmIce } from "@/lib/ice-prewarm";
 import { useBrowserPingMs } from "@/hooks/use-browser-ping";
 import {
   Dialog,
@@ -313,6 +315,7 @@ function PlayButton({
       <button
         type="button"
         onClick={() => void handlePlay()}
+        onMouseEnter={() => void prewarmIce(hostId)}
         disabled={loading}
         className="h-9 px-4 text-xs font-semibold rounded-md transition-colors disabled:opacity-60"
         style={{ background: "#0ea5e9", color: "#fff" }}
@@ -425,6 +428,9 @@ export default function HostsPage() {
             <p className="text-sm text-slate-500 mt-1">
               Живой список ПК, готовых к подключению прямо сейчас.
             </p>
+            <div className="mt-3 max-w-md">
+              <GuestCreditHint />
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 cursor-pointer select-none">
