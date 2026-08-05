@@ -7,6 +7,8 @@ const {
   discoverAgentPort,
   getCachedAgentPort,
   postAgentInput,
+  requestAgentPickExe,
+  fetchAgentSteamGames,
 } = await import("../src/lib/agent-local.ts");
 
 function jsonResponse(body, status = 200) {
@@ -98,4 +100,57 @@ test("postAgentInput posts JSON to discovered /input with secret header", async 
   assert.equal(inputReq.init.headers["X-Agent-Input-Secret"], AGENT_INPUT_SECRET);
   assert.equal(inputReq.init.body, JSON.stringify(event));
   assert.match(inputReq.url, /127\.0\.0\.1:18082\/input$/);
+});
+
+test("requestAgentPickExe returns path from agent /pick-exe", async () => {
+  mock.method(globalThis, "fetch", async (url, init) => {
+    if (String(url).endsWith("/ping")) {
+      return jsonResponse({ version: "1.0.0", audioMode: "off", port: 18080 });
+    }
+    if (String(url).endsWith("/pick-exe")) {
+      assert.equal(init.method, "POST");
+      assert.equal(init.headers["X-Agent-Input-Secret"], AGENT_INPUT_SECRET);
+      return jsonResponse({ path: "D:\\Games\\foo.exe" });
+    }
+    return jsonResponse({}, 404);
+  });
+
+  const path = await requestAgentPickExe();
+  assert.equal(path, "D:\\Games\\foo.exe");
+});
+
+test("requestAgentPickExe returns null when agent offline", async () => {
+  mock.method(globalThis, "fetch", async () => {
+    throw new Error("offline");
+  });
+
+  const path = await requestAgentPickExe();
+  assert.equal(path, null);
+});
+
+test("fetchAgentSteamGames returns games from /steam-games", async () => {
+  mock.method(globalThis, "fetch", async (url) => {
+    if (String(url).endsWith("/ping")) {
+      return jsonResponse({ version: "1.0.0", audioMode: "off", port: 18080 });
+    }
+    if (String(url).endsWith("/steam-games")) {
+      return jsonResponse({
+        games: [{ appId: "570", name: "Dota 2", bestExePath: "C:\\dota2.exe" }],
+      });
+    }
+    return jsonResponse({}, 404);
+  });
+
+  const games = await fetchAgentSteamGames();
+  assert.equal(games.length, 1);
+  assert.equal(games[0].name, "Dota 2");
+});
+
+test("fetchAgentSteamGames returns empty array when agent offline", async () => {
+  mock.method(globalThis, "fetch", async () => {
+    throw new Error("offline");
+  });
+
+  const games = await fetchAgentSteamGames();
+  assert.deepEqual(games, []);
 });

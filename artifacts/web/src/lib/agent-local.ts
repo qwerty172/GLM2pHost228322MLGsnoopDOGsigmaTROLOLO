@@ -14,6 +14,12 @@ export type AgentPingInfo = {
   audioMode: string;
 };
 
+export type AgentSteamGame = {
+  appId: string;
+  name: string;
+  bestExePath: string | null;
+};
+
 let cachedPort: number | null = null;
 
 async function pingPort(
@@ -86,4 +92,40 @@ export async function postAgentInput(
     },
     body: JSON.stringify(event),
   });
+}
+
+/** Opens native .exe file picker via local agent. Returns null if canceled/offline. */
+export async function requestAgentPickExe(): Promise<string | null> {
+  const info = await discoverAgentPort();
+  if (!info) return null;
+  try {
+    const res = await fetch(`http://127.0.0.1:${info.port}/pick-exe`, {
+      method: "POST",
+      headers: {
+        "X-Agent-Input-Secret": AGENT_INPUT_SECRET,
+      },
+      signal: AbortSignal.timeout(120_000),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { path?: string | null };
+    return typeof data.path === "string" && data.path.trim() ? data.path : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Lists Steam games discovered by the local agent (Windows only). */
+export async function fetchAgentSteamGames(): Promise<AgentSteamGame[]> {
+  const info = await discoverAgentPort();
+  if (!info) return [];
+  try {
+    const res = await fetch(`http://127.0.0.1:${info.port}/steam-games`, {
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { games?: AgentSteamGame[] };
+    return Array.isArray(data.games) ? data.games : [];
+  } catch {
+    return [];
+  }
 }

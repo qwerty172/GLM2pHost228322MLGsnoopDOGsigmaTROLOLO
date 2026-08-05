@@ -12,9 +12,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 13:14 UTC|
-| Task ID | M-142|
-| Результат | U-03: кнопки «Выйти в онлайн»/«Отключиться» в карточке «Сессия» на главном экране; dom.test проверяет отсутствие в advanced-settings; 201 host-agent tests PASS|
+| Дата | 2026-08-05 13:21 UTC|
+| Task ID | M-143|
+| Результат | ExePathPicker: POST /pick-exe + GET /steam-games в ping-server; web library config/edit; ping-server 15 + agent-local 10 тестов PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -450,7 +450,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-140 | R | UX U-01 (P0): Platform URL в агенте заполняется сам — не вводить руками | `routes/downloads.ts` | r:U-01 | done | agent |
 | M-141 | R | UX U-02 (P0): Токен хоста вшит в скачиваемый агент — ноль копипаста | `routes/downloads.ts` | r:U-02 | done | agent |
 | M-142 | R | UX U-03 (P0): «Выйти в онлайн» на главном экране агента, не в свёрнутых на | `renderer/*.ts` | r:U-03 | done | agent |
-| M-143 | R | UX U-04 (P0): Выбор `.exe` через файловый диалог вместо ручного пути | `pages/host/library.tsx` | r:U-04 | pending | agent |
+| M-143 | R | UX U-04 (P0): Выбор `.exe` через файловый диалог вместо ручного пути | `pages/host/library.tsx` | r:U-04 | done | agent |
 | M-144 | R | UX U-05 (P0): Квик-старт показывает реальное состояние, а не «шаг 1 всегда | `pages/host/dashboard-helpers.ts` | r:U-05 | pending | agent |
 | M-145 | R | UX U-20 (P0): «Играть» ведёт в одно и то же место на десктопе и мобиле | `artifacts/web/src/components/site-nav.tsx` | r:U-20 | pending | agent |
 | M-146 | R | UX U-21 (P0): Кнопка «Играть сейчас» подбирает хост сама — без выбора из с | `pages/landing.tsx` | r:U-21 | pending | agent |

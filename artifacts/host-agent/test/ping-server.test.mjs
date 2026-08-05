@@ -147,3 +147,77 @@ test("POST /input with unknown kind returns 400 and injects nothing", async () =
   assert.equal(res.status, 400);
   assert.equal(injected.length, count);
 });
+
+test("POST /pick-exe returns picked path when authorized", async () => {
+  const pickServer = createPingServer({
+    getInfo: async () => ({ version: "test-1", audioMode: "off" }),
+    injectInput: () => {},
+    log: () => {},
+    getInputSecret: () => LOCAL_INPUT_SECRET,
+    getAllowedOrigins: () => ["http://localhost:5173"],
+    pickExe: async () => "C:\\Games\\game.exe",
+  });
+  await new Promise((resolve) => pickServer.listen(0, "127.0.0.1", resolve));
+  const pickUrl = `http://127.0.0.1:${pickServer.address().port}`;
+  try {
+    const res = await fetch(`${pickUrl}/pick-exe`, {
+      method: "POST",
+      headers: {
+        Origin: "http://localhost:5173",
+        [INPUT_SECRET_HEADER]: LOCAL_INPUT_SECRET,
+      },
+    });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.path, "C:\\Games\\game.exe");
+  } finally {
+    pickServer.close();
+  }
+});
+
+test("POST /pick-exe without secret returns 401", async () => {
+  const pickServer = createPingServer({
+    getInfo: async () => ({ version: "test-1", audioMode: "off" }),
+    injectInput: () => {},
+    log: () => {},
+    getInputSecret: () => LOCAL_INPUT_SECRET,
+    getAllowedOrigins: () => ["http://localhost:5173"],
+    pickExe: async () => "C:\\Games\\game.exe",
+  });
+  await new Promise((resolve) => pickServer.listen(0, "127.0.0.1", resolve));
+  const pickUrl = `http://127.0.0.1:${pickServer.address().port}`;
+  try {
+    const res = await fetch(`${pickUrl}/pick-exe`, {
+      method: "POST",
+      headers: { Origin: "http://localhost:5173" },
+    });
+    assert.equal(res.status, 401);
+  } finally {
+    pickServer.close();
+  }
+});
+
+test("GET /steam-games returns game list", async () => {
+  const steamServer = createPingServer({
+    getInfo: async () => ({ version: "test-1", audioMode: "off" }),
+    injectInput: () => {},
+    log: () => {},
+    getAllowedOrigins: () => ["http://localhost:5173"],
+    getSteamGames: async () => [
+      { appId: "730", name: "CS2", bestExePath: "C:\\Steam\\cs2.exe" },
+    ],
+  });
+  await new Promise((resolve) => steamServer.listen(0, "127.0.0.1", resolve));
+  const steamUrl = `http://127.0.0.1:${steamServer.address().port}`;
+  try {
+    const res = await fetch(`${steamUrl}/steam-games`, {
+      headers: { Origin: "http://localhost:5173" },
+    });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.games.length, 1);
+    assert.equal(body.games[0].appId, "730");
+  } finally {
+    steamServer.close();
+  }
+});

@@ -55,7 +55,6 @@ import {
   Loader2,
   ArrowLeft,
   CheckCircle2,
-  AlertCircle,
   Image as ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -86,6 +85,7 @@ import {
   isBrowserCatalogGame,
   resolveDeleteConflictStatus,
 } from "./library-helpers";
+import { ExePathPicker } from "./exe-path-picker";
 
 const cardStyle = {
   background: "#0a1018",
@@ -494,24 +494,12 @@ function LibraryConfigForm({
         </div>
       ) : (
         <>
-          <div className="space-y-1.5">
-            <Label className="text-slate-300 text-sm">Путь к .exe (Windows)</Label>
-            <Input
-              placeholder="C:\Games\MyGame\game.exe"
-              value={appPath}
-              onChange={(e) => { setAppPath(e.target.value); setPathErr(""); }}
-              style={inputStyle}
-              className="font-mono"
-            />
-            {pathErr && (
-              <p className="text-xs text-red-400 flex items-center gap-1">
-                <AlertCircle className="h-3.5 w-3.5" /> {pathErr}
-              </p>
-            )}
-            <p className="text-[11px] text-slate-500">
-              Реальная проверка существования файла — на стороне агента хоста.
-            </p>
-          </div>
+          <ExePathPicker
+            value={appPath}
+            onChange={setAppPath}
+            pathErr={pathErr || undefined}
+            onClearError={() => setPathErr("")}
+          />
           <div className="space-y-1.5">
             <Label className="text-slate-300 text-sm">Аргументы запуска <span className="text-slate-500 font-normal">(опционально)</span></Label>
             <Input
@@ -874,11 +862,12 @@ function EditModal({
             </div>
           ) : (
             <>
-              <div className="space-y-1.5">
-                <Label className="text-slate-300 text-sm">Путь к .exe</Label>
-                <Input value={appPath} onChange={(e) => { setAppPath(e.target.value); setPathErr(""); }} style={inputStyle} className="font-mono" />
-                {pathErr && <p className="text-xs text-red-400">{pathErr}</p>}
-              </div>
+              <ExePathPicker
+                value={appPath}
+                onChange={setAppPath}
+                pathErr={pathErr || undefined}
+                onClearError={() => setPathErr("")}
+              />
               <div className="space-y-1.5">
                 <Label className="text-slate-300 text-sm">Аргументы <span className="text-slate-500 font-normal">(опционально)</span></Label>
                 <Input value={launchArgs} onChange={(e) => setLaunchArgs(e.target.value)} style={inputStyle} className="font-mono" />

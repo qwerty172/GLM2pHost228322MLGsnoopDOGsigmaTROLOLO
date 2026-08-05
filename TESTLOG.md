@@ -41,7 +41,18 @@ Platform URL / токена / пути к `.exe`, «Выйти в онлайн»
 | flip всех P0 → done | всплывают P1/P2 (16 задач) |
 | --sync-marathon | M-140…M-151, next pick = M-140 (U-01) |
 
-**Следующий pick:** M-143 — выбор `.exe` через файловый диалог.
+**Следующий pick:** M-144 — квик-старт показывает реальное состояние.
+
+## M-143 — Выбор `.exe` через файловый диалог (2026-08-05 13:20 UTC) {#marathon-m143}
+
+| Проверка | Результат |
+|---|---|
+| ping-server.test.mjs | 15 тестов — GET /steam-games, POST /pick-exe |
+| agent-local.test.mjs | 10 тестов — requestAgentPickExe, fetchAgentSteamGames |
+| host-agent typecheck | PASS |
+| web test suite | 319 тестов — PASS |
+
+**Изменения:** веб-библиотека (`ExePathPicker`) — кнопка «Обзор…» через локальный агент (`POST /pick-exe`), список Steam-игр (`GET /steam-games`), ручной ввод как fallback. Агент: новые эндпоинты ping-server, общий `openExeFileDialog`.
 
 ## M-142 — «Выйти в онлайн» на главном экране агента (2026-08-05 13:13 UTC) {#marathon-m142}
 

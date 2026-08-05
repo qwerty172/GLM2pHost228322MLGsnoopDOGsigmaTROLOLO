@@ -378,18 +378,20 @@ async function startAgent(): Promise<void> {
     return { pid, hwnds };
   });
 
-  ipcMain.handle("dialog:open-file", async () => {
+  async function openExeFileDialog(): Promise<string | null> {
     const result = await dialog.showOpenDialog(mainWindow!, {
-      title: "Select executable",
+      title: "Выбери исполняемый файл (.exe)",
       filters: [
-        { name: "Executables", extensions: ["exe"] },
-        { name: "All files", extensions: ["*"] },
+        { name: "Исполняемые файлы", extensions: ["exe"] },
+        { name: "Все файлы", extensions: ["*"] },
       ],
       properties: ["openFile"],
     });
     if (result.canceled || result.filePaths.length === 0) return null;
     return result.filePaths[0];
-  });
+  }
+
+  ipcMain.handle("dialog:open-file", async () => openExeFileDialog());
 
   // Library fetch: fetches from server, runs local path validation, reports
   // back to server, and returns the entries to the renderer for display.
@@ -604,6 +606,15 @@ async function startAgent(): Promise<void> {
     log,
     getInputSecret: () => LOCAL_INPUT_SECRET,
     getAllowedOrigins: () => allowedCorsOriginsFromConfig(getCachedConfig()),
+    pickExe: openExeFileDialog,
+    getSteamGames: async () => {
+      const { games } = await scanSteam();
+      return games.map((g) => ({
+        appId: g.appId,
+        name: g.name,
+        bestExePath: g.bestExePath,
+      }));
+    },
   });
 
   async function bindPingServer(): Promise<void> {
