@@ -34,64 +34,47 @@
 2. **Git Bash**, **cmd** или **Windows Terminal** (Win+R → `cmd`)
 3. Или **Cursor → Terminal → New Terminal** в папке проекта
 
-## Требования
+## Быстрый старт
 
-- [Node.js 20+](https://nodejs.org/)
-- [pnpm](https://pnpm.io/installation): `npm install -g pnpm`
-- [PostgreSQL 16](https://www.postgresql.org/download/windows/)
+### Вариант A — одна команда (рекомендуется)
 
-База данных:
-
-```sql
-CREATE DATABASE decentral_hub;
-```
-
----
-
-## Быстрый старт (Windows)
-
-```bat
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-
-copy .env.example .env
-notepad .env
-```
-
-В `.env` измените `DATABASE_URL`:
-
-```
-DATABASE_URL=postgresql://postgres:ВАШ_ПАРОЛЬ@localhost:5432/decentral_hub
-```
-
-```bat
-scripts\setup-local.bat
-scripts\dev-local.bat
-scripts\smoke-api.bat
-```
-
-| Сервис | URL |
-|---|---|
-| Web | http://localhost:5000 |
-| API health | http://localhost:8080/api/healthz |
-
----
-
-## Быстрый старт (Git Bash / Linux / macOS)
+Нужны: Node 20+, pnpm, [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 
 ```bash
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
+pnpm quickstart
+```
 
+Windows: `scripts\quickstart.bat`
+
+Скрипт сам: поднимет Postgres + Redis в Docker, создаст `.env` с секретами, применит схему БД, запустит API и Web.
+
+| Сервис | URL |
+|---|---|
+| Web | http://localhost:5000 |
+| API | http://localhost:8080/api/healthz |
+| Хост | http://localhost:5000/host |
+
+**Уже настроено?** `pnpm dev`
+
+---
+
+### Вариант B — свой PostgreSQL (без Docker)
+
+```bat
+copy .env.example .env
+:: отредактируй DATABASE_URL если не стандартный Docker
+scripts\setup-local.bat
+scripts\dev-local.bat
+```
+
+Linux/macOS/Git Bash:
+
+```bash
 cp .env.example .env
-# отредактируй DATABASE_URL
-
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
-./scripts/smoke-api.sh
+pnpm setup
+pnpm dev
 ```
 
 ---
