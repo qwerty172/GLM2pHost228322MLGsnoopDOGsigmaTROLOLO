@@ -24,10 +24,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-const formatLzt = (lzt: number) =>
+export const formatLzt = (lzt: number) =>
   new Intl.NumberFormat("ru-RU").format(Math.trunc(Math.abs(lzt)));
 
-function formatTs(ts: string): string {
+export function formatTs(ts: string): string {
   return new Date(ts).toLocaleString("ru-RU", {
     day: "2-digit",
     month: "2-digit",
@@ -39,7 +39,7 @@ function formatTs(ts: string): string {
 
 type KindMeta = { label: string; icon: LucideIcon; color: string };
 
-function kindMeta(kind: string, amountLzt: number): KindMeta {
+export function kindMeta(kind: string, amountLzt: number): KindMeta {
   if (kind.startsWith("deposit_fee"))
     return { label: "Комиссия за пополнение", icon: Percent, color: "#f59e0b" };
   if (kind.startsWith("deposit"))
@@ -87,7 +87,7 @@ function kindMeta(kind: string, amountLzt: number): KindMeta {
   return { label: kind, icon: Coins, color: "#94a3b8" };
 }
 
-function bucketMeta(bucket: string | null | undefined): {
+export function bucketMeta(bucket: string | null | undefined): {
   label: string;
   color: string;
 } | null {
@@ -107,24 +107,24 @@ function bucketMeta(bucket: string | null | undefined): {
 
 type FilterId = "all" | "in" | "out" | "debt";
 
-const FILTERS: { id: FilterId; label: string }[] = [
+export const WALLET_HISTORY_FILTERS: { id: FilterId; label: string }[] = [
   { id: "all", label: "Все" },
   { id: "in", label: "Пополнения" },
   { id: "out", label: "Списания" },
   { id: "debt", label: "Долг" },
 ];
 
-function isDebtTx(kind: string, bucket: string | null | undefined): boolean {
+export function isDebtTx(kind: string, bucket: string | null | undefined): boolean {
   return (
     bucket === "debt" || kind.startsWith("loan_") || kind === "interest_payout"
   );
 }
 
-const PAGE_SIZE = 15;
+export const WALLET_HISTORY_PAGE_SIZE = 15;
 
 export function WalletHistory({ userToken }: { userToken: string | null }) {
   const [filter, setFilter] = useState<FilterId>("all");
-  const [visible, setVisible] = useState(PAGE_SIZE);
+  const [visible, setVisible] = useState(WALLET_HISTORY_PAGE_SIZE);
 
   const { data: txs, isLoading } = useListWalletTransactions(userToken ?? "", {
     query: {
@@ -166,13 +166,13 @@ export function WalletHistory({ userToken }: { userToken: string | null }) {
             История операций
           </CardTitle>
           <div className="flex gap-1.5">
-            {FILTERS.map((f) => (
+            {WALLET_HISTORY_FILTERS.map((f) => (
               <button
                 key={f.id}
                 type="button"
                 onClick={() => {
                   setFilter(f.id);
-                  setVisible(PAGE_SIZE);
+                  setVisible(WALLET_HISTORY_PAGE_SIZE);
                 }}
                 className="text-xs px-3 py-1.5 rounded-full transition-colors"
                 style={{
@@ -296,7 +296,7 @@ export function WalletHistory({ userToken }: { userToken: string | null }) {
                   size="sm"
                   className="text-xs border-white/10 text-slate-300 hover:text-white"
                   style={{ background: "transparent" }}
-                  onClick={() => setVisible((v) => v + PAGE_SIZE)}
+                  onClick={() => setVisible((v) => v + WALLET_HISTORY_PAGE_SIZE)}
                   data-testid="button-history-more"
                 >
                   <ChevronDown className="h-3.5 w-3.5 mr-1.5" />
