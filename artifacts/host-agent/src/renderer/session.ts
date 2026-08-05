@@ -1,4 +1,5 @@
 import type { HostConfig, InputEvent } from "../shared/messages";
+import { shouldEndSessionOnGameExit } from "../shared/game-exit-session.js";
 import { captureScreen } from "./capture.js";
 import { injectPlayerInput } from "./input-mapping.js";
 import { startGuardPolling, stopGuardPolling } from "./input-guard.js";
@@ -7,6 +8,18 @@ import { shareCard, playerLinkInput, connectBtn, disconnectBtn } from "./dom.js"
 import { log, resetPipeline, setPipelineStep, setStatus } from "./ui.js";
 import { connectPreviewWs, teardownPreview } from "./preview.js";
 import { session } from "./state.js";
+
+let gameExitedUnsub: (() => void) | null = null;
+
+function clearGameExitedListener(): void {
+  gameExitedUnsub?.();
+  gameExitedUnsub = null;
+}
+
+function disarmGameExitWatch(): void {
+  clearGameExitedListener();
+  window.agent.disarmGameExitWatch();
+}
 
 export async function createSession(
   cfg: HostConfig,
@@ -372,7 +385,16 @@ export async function onPlayerJoined(cfg: HostConfig): Promise<void> {
 
   // Register exit callback BEFORE launching. When the game process exits,
   // main sends "app:game-exited" → we auto-end the session.
-  window.agent.onGameExited(() => {
+  clearGameExitedListener();
+  const sessionIdAtLaunch = session.currentSessionId;
+  gameExitedUnsub = window.agent.onGameExited(() => {
+    if (!shouldEndSessionOnGameExit(sessionIdAtLaunch, session.currentSessionId)) {
+      log(
+        `Ignoring stale game-exit for session ${sessionIdAtLaunch ?? "?"} ` +
+          `(active ${session.currentSessionId ?? "none"})`,
+      );
+      return;
+    }
     log("Game process exited — ending session automatically.");
     void teardown("Game exited");
   });
@@ -833,6 +855,7 @@ export function teardown(reason: string): Promise<void> {
 
 export async function teardownAsync(reason: string): Promise<void> {
   cancelDeferredTeardown();
+  disarmGameExitWatch();
   if (session.wsReconnectTimer) {
     clearTimeout(session.wsReconnectTimer);
     session.wsReconnectTimer = null;

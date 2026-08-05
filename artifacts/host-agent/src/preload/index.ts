@@ -62,11 +62,16 @@ const api = {
     entry: GameEntryLaunch,
   ): Promise<{ ok: boolean; pid?: number; error?: string }> =>
     ipcRenderer.invoke("app:launch-entry", entry),
-  // Register a one-time listener for the "game process exited" push event from main.
-  // When the native child process exits, main sends this so the renderer can
-  // auto-end the billing session without polling.
-  onGameExited: (cb: () => void): void => {
-    ipcRenderer.once("app:game-exited", () => cb());
+  // Register a listener for the "game process exited" push event from main.
+  // Returns a cleanup function — call on session teardown to drop stale handlers.
+  onGameExited: (cb: () => void): (() => void) => {
+    const handler = () => cb();
+    ipcRenderer.on("app:game-exited", handler);
+    return () => ipcRenderer.removeListener("app:game-exited", handler);
+  },
+  // Stop watching the prior game's exit when a session ends without killing the app.
+  disarmGameExitWatch: (): void => {
+    ipcRenderer.send("app:disarm-exit-watch");
   },
   getCaptureSources: (): Promise<{ id: string; name: string }[]> =>
     ipcRenderer.invoke("capture:get-sources"),
