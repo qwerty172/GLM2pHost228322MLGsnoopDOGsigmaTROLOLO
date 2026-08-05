@@ -78,7 +78,8 @@ export function findBrowserCaptureSource(
     const anyWithHost = windows.find((s) => s.name.toLowerCase().includes(host));
     if (anyWithHost) return anyWithHost;
   }
-  return windows.find((s) => looksLikeBrowserWindow(s.name));
+  // No hostname match — do not fall back to an arbitrary browser window (privacy).
+  return undefined;
 }
 
 export function findNativeCaptureSource(
