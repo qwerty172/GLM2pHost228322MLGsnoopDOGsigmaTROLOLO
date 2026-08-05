@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 05:52 UTC |
 | Task ID | M-82 |
 | Результат | TouchOverlay.tsx: экспорт layout/constants; TouchOverlay.test.mjs — 7 тестов PASS |
-| Commit | c1333d2 |
+| Commit | ccc7fe6 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
