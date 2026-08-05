@@ -24,6 +24,8 @@ pnpm --filter @workspace/web run dev &
 WEB_PID=$!
 
 echo ""
+echo "Совет: вместо этого скрипта можно просто: pnpm dev"
+echo ""
 echo "API:  http://localhost:8080/api/healthz"
 echo "Web:  http://localhost:5000"
 echo "Ctrl+C — остановить оба процесса"

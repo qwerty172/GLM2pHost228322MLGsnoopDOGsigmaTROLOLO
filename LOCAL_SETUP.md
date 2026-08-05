@@ -24,51 +24,27 @@
 2. Откройте http://localhost:5000/games — видна **Rogue Fable III**?
 3. Пройдите таблицу URL из TESTPLAN §2.2; баги — в TESTLOG
 
-Если healthz **не** ok — сначала [Быстрый старт](#быстрый-старт-windows) ниже.
+Если healthz **не** ok — сначала [Быстрый старт](#быстрый-старт) ниже.
 
 ---
 
-## Куда вводить команды (Windows)
+## Быстрый старт
 
-1. [Git for Windows](https://git-scm.com/download/win) — если нет `git`
-2. **Git Bash**, **cmd** или **Windows Terminal** (Win+R → `cmd`)
-3. Или **Cursor → Terminal → New Terminal** в папке проекта
-
-## Требования
+### Требования
 
 - [Node.js 20+](https://nodejs.org/)
 - [pnpm](https://pnpm.io/installation): `npm install -g pnpm`
-- [PostgreSQL 16](https://www.postgresql.org/download/windows/)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (рекомендуется) **или** [PostgreSQL 16](https://www.postgresql.org/download/) вручную
 
-База данных:
+### Три команды
 
-```sql
-CREATE DATABASE decentral_hub;
-```
-
----
-
-## Быстрый старт (Windows)
-
-```bat
+```bash
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
 
-copy .env.example .env
-notepad .env
-```
-
-В `.env` измените `DATABASE_URL`:
-
-```
-DATABASE_URL=postgresql://postgres:ВАШ_ПАРОЛЬ@localhost:5432/decentral_hub
-```
-
-```bat
-scripts\setup-local.bat
-scripts\dev-local.bat
-scripts\smoke-api.bat
+pnpm setup   # один раз: docker, .env, install, миграции
+pnpm dev     # API + Web
+pnpm smoke   # проверка API (когда dev запущен)
 ```
 
 | Сервис | URL |
@@ -76,23 +52,37 @@ scripts\smoke-api.bat
 | Web | http://localhost:5000 |
 | API health | http://localhost:8080/api/healthz |
 
----
+### Windows (cmd)
 
-## Быстрый старт (Git Bash / Linux / macOS)
-
-```bash
+```bat
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
 
-cp .env.example .env
-# отредактируй DATABASE_URL
-
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
-./scripts/smoke-api.sh
+pnpm run setup:win
+pnpm dev
 ```
+
+### Без Docker
+
+1. Создай базу `decentral_hub` в PostgreSQL
+2. Скопируй `.env.example` → `.env`, пропиши `DATABASE_URL`
+3. `pnpm setup` (или вручную: `pnpm install` + `pnpm --filter @workspace/db run push`)
+
+---
+
+## Полезные команды
+
+| Команда | Когда |
+|---|---|
+| `pnpm dev` | Ежедневная разработка |
+| `pnpm smoke` | Проверить API после изменений |
+| `pnpm docker:up` | Только postgres + redis |
+| `pnpm docker:down` | Остановить контейнеры |
+| `pnpm typecheck` | Проверка типов (перед коммитом) |
+| `./scripts/dev-local.sh` | Альтернатива `pnpm dev` (bash) |
+
+Секреты (`WALLET_ENCRYPTION_KEY`, `JWT_SECRET`, `ADMIN_SECRET`) генерируются автоматически при `pnpm setup`.  
+TURN/WebRTC, Redis в проде, Sentry — опционально, см. `.env.example`.
 
 ---
 
@@ -103,4 +93,4 @@ chmod +x scripts/*.sh
 | **Вы** | Браузер, 2 окна WebRTC, Electron-агент, скрины/console при багах |
 | **Agent** | Фиксы в коде, TESTPLAN/TESTLOG, smoke при необходимости |
 
-Не нужно заново clone/setup, если healthz ok и `dev-local.bat` уже запущен.
+Не нужно заново clone/setup, если healthz ok и `pnpm dev` уже запущен.
