@@ -175,6 +175,15 @@ export default function Landing() {
                 <Play className="w-3.5 h-3.5 mr-1.5" /> Играть
               </Button>
             </Link>
+            <Link href="/games/rogue-fable-3">
+              <Button
+                variant="outline"
+                className="h-9 px-5 text-sm font-semibold rounded-md border-emerald-500/30 text-emerald-400 hover:text-emerald-300 hover:border-emerald-400/50"
+                data-testid="button-demo-without-windows"
+              >
+                <Gamepad2 className="w-3.5 h-3.5 mr-1.5" /> Демо без Windows
+              </Button>
+            </Link>
             <Link href="/host">
               <Button
                 variant="ghost"
