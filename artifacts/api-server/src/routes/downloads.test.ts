@@ -4,6 +4,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { EventEmitter } from "node:events";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
@@ -38,6 +39,30 @@ vi.mock("@workspace/db", () => ({
   },
   hostsTable: { id: "id", hostToken: "hostToken" },
 }));
+
+let archiverShouldFail = false;
+
+vi.mock("archiver", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("archiver")>();
+  return {
+    default: vi.fn((format: string, options?: unknown) => {
+      if (!archiverShouldFail) {
+        return actual.default(format, options);
+      }
+      const archive = Object.assign(new EventEmitter(), {
+        pipe: vi.fn().mockReturnThis(),
+        directory: vi.fn().mockReturnThis(),
+        file: vi.fn().mockReturnThis(),
+        append: vi.fn().mockReturnThis(),
+        abort: vi.fn(),
+        finalize: vi.fn(async () => {
+          archive.emit("error", new Error("archiver failed"));
+        }),
+      });
+      return archive;
+    }),
+  };
+});
 
 const AGENT_DIR = path.resolve(
   import.meta.dirname,
@@ -153,6 +178,7 @@ beforeEach(() => {
   githubReleaseResponse = null;
   resetHostAgentExeUrlCacheForTests();
   dbHostTokenRows = [];
+  archiverShouldFail = false;
 });
 
 describe("resolveApiBaseUrl", () => {
@@ -366,6 +392,12 @@ describe("pickInstallerUrlFromReleases", () => {
 });
 
 describe("GET /downloads/host-agent.zip", () => {
+  it("returns 500 when archiver fails before response headers are sent", async () => {
+    archiverShouldFail = true;
+    const res = await request("GET", "/downloads/host-agent.zip");
+    expect(res.status).toBe(500);
+  });
+
   it("returns 503 when host-agent dist is missing", async () => {
     const distExisted = existsSync(DIST_DIR);
     if (distExisted) {
