@@ -1,13 +1,13 @@
 # Вставить в Cursor Automation trigger (заменить старый текст ЦЕЛИКОМ)
 # ПРИОРИТЕТ: agentInstruction из groom --should-run. Скрипты — единственный источник решений.
-# Правило №1: run НЕ может завершиться пустым. Либо задача закрыта, либо сканер расширен.
+# Правило №1: пустая очередь = агент не нужен. Придумывать себе работу ЗАПРЕЩЕНО.
 
 git fetch origin main && git merge origin/main --no-edit || git pull origin main
 
 node scripts/marathon-groom.mjs --should-run --mark-skipped
 GROOM_EXIT=$?
-# exit 2 = STOP (pr_in_flight / in_progress) → exit 0
-# exit 3 = pure idle, агент не нужен → exit 0 (это и есть экономия токенов)
+# exit 2 = STOP (pr_in_flight / in_progress) → exit 0 БЕЗ коммитов
+# exit 3 = очередь пуста → exit 0 БЕЗ коммитов (это норма, а не повод искать задачу)
 if [ "$GROOM_EXIT" -ne 0 ]; then exit 0; fi
 
 node scripts/marathon-reconcile.mjs --apply
@@ -17,37 +17,39 @@ node scripts/marathon-scan.mjs --sync-marathon
 PICK=$(node scripts/marathon-scan.mjs --next)
 echo "$PICK"
 
-# РЕШЕНИЕ — ровно два сценария, выбор делает groom, а не ты:
+# ЕДИНСТВЕННЫЙ сценарий (pick.id есть). Никакого self-improvement, анализа и meta.
+#   1. Сделать задачу по pick: код + тесты.
 #
-# СЦЕНАРИЙ А (reason=ok, pick.id есть) → ТОЛЬКО ЗАДАЧА. Self-improvement ЗАПРЕЩЁН.
-#   1. Сделать задачу (код/тесты). pnpm typecheck / tests — gate.
-#   2. node scripts/marathon-last-run.mjs --task M-NN --result "..."
-#   3. Статус M-NN → done в MARATHON.md + запись в TESTLOG.md.
-#      Если cat=R (UX-задача) — ДОПОЛНИТЕЛЬНО U-NN: todo → done в UX_BACKLOG.md,
-#      иначе groom вернёт задачу в очередь (done_but_active). В TESTLOG указать
-#      «было N шагов → стало M» или что именно перестало требовать ручных действий.
-#   4. ОДИН коммит: git add -A && git commit -m "feat(marathon): M-NN ..."
-#   5. git checkout main && git pull origin main && git merge <run-branch> --no-edit && git push origin main
+#      cat=W (route error-paths): дописать в существующий routes/<файл>.test.ts
+#        проверки перечисленных статусов (403/409/500/…). Каждый статус — отдельный
+#        кейс с реальной причиной ошибки, а не заглушка ради кода ответа.
+#      cat=V (непокрытые экспорты): дописать в существующий тест-файл проверки
+#        ВСЕХ перечисленных экспортов. Тест должен падать при поломке логики,
+#        а не просто вызывать функцию.
+#      cat=U/J/K/L/M/N/O/P/Q/S: новый co-located тест по образцу соседних.
+#      cat=R (UX): дополнительно U-NN: todo → done в UX_BACKLOG.md,
+#        иначе groom вернёт задачу (done_but_active).
 #
-# СЦЕНАРИЙ Б (reason=scanner_empty_expand) → ТОЛЬКО ПОПОЛНИТЬ ОЧЕРЕДЬ. Не «подумать», а сделать.
-#   Приоритет Б1 — UX (техдолг исчерпан, качаем удобство для ручного теста):
-#     1. Открыть MARATHON.md § Генератор UX-задач → выполнить промпт оттуда
-#     2. Вставить новые строки U-NN в UX_BACKLOG.md (status todo)
-#     3. node scripts/marathon-scan.mjs --sync-marathon
-#     4. ОДИН коммит: "feat(marathon): пополнить UX_BACKLOG (N задач)" → merge main → push
-#   Приоритет Б2 — только если UX_BACKLOG тоже пуст: новая техническая категория
-#     в scripts/marathon-scan.mjs (см. список категорий в шапке файла) → sync → коммит → main.
+#   2. ГЕЙТ (обязательно, до коммита):
+#        node scripts/marathon-verify.mjs --task M-NN
+#      exit 0 → продолжать. exit 1 → чинить, НЕ коммитить, НЕ ставить done.
+#      Гейт сам ловит: пустой diff, docs-only коммит, красные тесты.
 #
-# ЗАПРЕЩЕНО (источники 1000+ пустых runs):
-#   - «проанализируй ситуацию» при pendingMnn>0 — это burn
-#   - «проанализируй ситуацию» при scanner_empty — сразу expand (Сценарий Б)
+#   3. node scripts/marathon-last-run.mjs --task M-NN --result "..."
+#   4. Статус M-NN → done в MARATHON.md + запись в TESTLOG.md
+#      (что именно теперь проверяется: статусы/функции, число тестов).
+#   5. ОДИН коммит: git add -A && git commit -m "feat(marathon): M-NN ..."
+#   6. ОБЯЗАТЕЛЬНО ДОСТАВИТЬ В MAIN:
+#      git checkout main && git pull origin main && git merge <run-branch> --no-edit && git push origin main
+#      (529 из 541 PR никогда не смержили — работа без merge в main = работа в мусор)
+#
+# ЗАПРЕЩЕНО НАВСЕГДА (источники 1000+ пустых runs):
+#   - придумывать задачи, когда очередь пуста (groom вернёт exit 3 — просто выйти)
+#   - расширять сканер без MARATHON_ALLOW_EXPAND=1
+#   - переводить UX_BACKLOG planned → todo самому (это решение человека)
 #   - коммит с «Marathon idle» в message (любой)
-#   - коммит «fix/sync commit hash» (поле Commit удалено)
-#   - git diff --quiet → commit (проверяй: if ! git diff --quiet)
-#   - list-cloud-agents / automation_memory / чтение MARATHON.md
-#   - открывать PR вместо merge в main
-#   - закрывать/мержить старые draft PR (200+ legacy — ИГНОР, не блокируют)
-#   - exit без feat-коммита, если GROOM_EXIT=0 и pick.id есть
-
-# Приоритет громко: задачи > self-improvement. Efficiency — только фоновая
-# статистика (§ Efficiency в MARATHON.md), никогда не отдельный run.
+#   - коммит «fix/sync commit hash» (поле Commit удалено из Last run)
+#   - анализ/исследование вместо задачи при pendingMnn>0
+#   - list-cloud-agents / automation_memory / чтение MARATHON.md целиком
+#   - открывать PR как замену merge в main
+#   - commit при пустом git diff или при красном marathon-verify
