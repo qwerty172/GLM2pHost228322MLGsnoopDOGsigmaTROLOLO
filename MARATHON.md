@@ -6,15 +6,15 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-113 done; embed.test.ts)
+> **Последнее обновление:** 2026-08-05 (M-114 done; enrich.test.ts)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 11:27 UTC|
-| Task ID | M-113|
-| Результат | embed.test.ts 7 тестов PASS (POST /embed/sessions: 400/403/404/402/201)|
+| Дата | 2026-08-05 11:30 UTC|
+| Task ID | M-114|
+| Результат | enrich.test.ts 7 тестов PASS (GET /games/rawg-search: 400/Steam/RAWG/502; GET /games/steam-lookup: 400/metadata/502)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -358,7 +358,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-111 | P | api-server routes: unit-тест (devKeys.ts) | `routes/devKeys.ts` | p:artifacts/api-server/src/routes/devKeys.ts | done | agent |
 | M-112 | P | api-server routes: unit-тест (downloads.ts) | `routes/downloads.ts` | p:artifacts/api-server/src/routes/downloads.ts | done | agent |
 | M-113 | P | api-server routes: unit-тест (embed.ts) | `routes/embed.ts` | p:artifacts/api-server/src/routes/embed.ts | done | agent |
-| M-114 | P | api-server routes: unit-тест (enrich.ts) | `routes/enrich.ts` | p:artifacts/api-server/src/routes/enrich.ts | pending | agent |
+| M-114 | P | api-server routes: unit-тест (enrich.ts) | `routes/enrich.ts` | p:artifacts/api-server/src/routes/enrich.ts | done | agent |
 | M-115 | P | api-server routes: unit-тест (events.ts) | `routes/events.ts` | p:artifacts/api-server/src/routes/events.ts | pending | agent |
 | M-116 | P | api-server routes: unit-тест (games.ts) | `routes/games.ts` | p:artifacts/api-server/src/routes/games.ts | pending | agent |
 | M-117 | P | api-server routes: unit-тест (health.ts) | `routes/health.ts` | p:artifacts/api-server/src/routes/health.ts | pending | agent |

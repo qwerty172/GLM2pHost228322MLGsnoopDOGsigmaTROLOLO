@@ -54,6 +54,15 @@
 
 **Следующий pick:** M-114 (enrich.ts).
 
+## Marathon M-114 (2026-08-05 11:30 UTC) {#marathon-m-114}
+
+| Проверка | Результат |
+|---|---|
+| enrich.test.ts | 7 тестов — GET /games/rawg-search (400, Steam/RAWG search, 502), GET /games/steam-lookup (400, metadata+catalog update, 502) |
+| api-server test (enrich) | PASS (7 tests) |
+
+**Следующий pick:** M-115 (events.ts).
+
 ## Marathon M-112 (2026-08-05 11:24 UTC) {#marathon-m-112}
 
 | Проверка | Результат |
@@ -70,7 +79,7 @@
 | devKeys.test.ts | 12 тестов — POST /dev-keys (auth: secret/admin/open-create, validation), PATCH /dev-keys/:apiKey/rules |
 | api-server test (devKeys) | PASS (12 tests) |
 
-**Следующий pick:** M-113 (embed.ts).
+**Следующий pick:** M-112 (downloads.ts).
 
 ## Marathon M-110 (2026-08-05 11:19 UTC) {#marathon-m-110}
 
