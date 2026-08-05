@@ -15,6 +15,18 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-174 (2026-08-05 20:10 UTC) {#marathon-m-174}
+
+| Проверка | Результат |
+|---|---|
+| lib/integrations-anthropic-ai/test/batch-utils.test.ts | PASS — isRateLimitError, batchProcess, batchProcessWithSSE (13 tests) |
+| pnpm --filter @workspace/integrations-anthropic-ai test | PASS (13 tests) |
+| pnpm typecheck | PASS |
+
+**Изменения:** добавлен `batch-utils.test.ts` и test-скрипт в package.json.
+
+**Следующий pick:** M-175 (integrations-anthropic-ai unit-тест client.ts).
+
 ## Marathon M-173 (2026-08-05 20:05 UTC) {#marathon-m-173}
 
 | Проверка | Результат |

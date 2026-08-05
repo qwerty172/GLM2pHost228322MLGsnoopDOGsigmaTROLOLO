@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-173 done; pre-session-screen unit-тест)
+> **Последнее обновление:** 2026-08-05 (M-174 done; batch/utils unit-тест)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 20:05 UTC|
-| Task ID | M-173|
-| Результат | PreSessionScreen: pure helpers (wallet/block/price/canStart) + pre-session-screen.test.mjs (12 тестов); web 358 PASS|
+| Дата | 2026-08-05 20:13 UTC|
+| Task ID | M-174|
+| Результат | batch/utils: isRateLimitError + batchProcess + batchProcessWithSSE unit-тесты (13); integrations-anthropic-ai test PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -508,7 +508,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-138 | Q | auth-verifier: unit-тест (providers/telegram.ts) | `auth-verifier/providers/telegram.ts` | q:lib/auth-verifier/src/providers/telegram.ts | done | agent |
 | M-139 | Q | auth-verifier: unit-тест (router.ts) | `auth-verifier/router.ts` | q:lib/auth-verifier/src/router.ts | done | agent |
 | M-173 | N | web components: unit-тест (pre-session-screen.tsx) | `artifacts/web/src/components/pre-session-screen.tsx` | n:artifacts/web/src/components/pre-session-screen.tsx | done | agent |
-| M-174 | S | integrations-anthropic-ai: unit-тест (batch/utils.ts) | `anthropic-ai/batch/utils.ts` | s:lib/integrations-anthropic-ai/src/batch/utils.ts | pending | agent |
+| M-174 | S | integrations-anthropic-ai: unit-тест (batch/utils.ts) | `anthropic-ai/batch/utils.ts` | s:lib/integrations-anthropic-ai/src/batch/utils.ts | done | agent |
 | M-175 | S | integrations-anthropic-ai: unit-тест (client.ts) | `anthropic-ai/client.ts` | s:lib/integrations-anthropic-ai/src/client.ts | pending | agent |
 
 
