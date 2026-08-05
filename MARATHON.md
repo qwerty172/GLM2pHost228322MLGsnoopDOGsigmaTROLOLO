@@ -15,7 +15,7 @@
 | Дата | 2026-08-05 03:50 UTC |
 | Task ID | M-77 |
 | Результат | scanner: export const с типом + hooks .tsx; unit-тест connection-labels (ICE labels/styles) |
-| Commit | ce41097 |
+| Commit | e56e324 |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
