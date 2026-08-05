@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-83 (2026-08-05 06:08 UTC) {#marathon-m-83}
+
+| Проверка | Результат |
+|---|---|
+| host-auth-guard.ts | экспорт HOST_AUTH_ACTIVE_PATH, HOST_REGISTER_FEATURES, canSubmitHostRegistration, buildHostRegisterRequest, persistHostTokenClipboard |
+| host-auth-guard.test.mjs | 7 тестов — path, features, submit guard, register payload, clipboard |
+| web test | PASS (host-auth-guard) |
+| typecheck | PASS |
+
+**Следующий pick:** M-84 (layout.tsx).
+
 ## Marathon M-82 (2026-08-05 06:04 UTC) {#marathon-m-82}
 
 | Проверка | Результат |

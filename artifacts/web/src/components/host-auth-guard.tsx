@@ -1,5 +1,5 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useRegisterHost } from "@workspace/api-client-react";
+import { useRegisterHost, type Host } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,6 +7,19 @@ import { useState } from "react";
 import { Loader2, Cpu, Zap, CircleDollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { SiteNav } from "@/components/site-nav";
+import {
+  HOST_AUTH_ACTIVE_PATH,
+  HOST_REGISTER_FEATURES,
+  buildHostRegisterRequest,
+  canSubmitHostRegistration,
+  persistHostTokenClipboard,
+} from "@/lib/host-auth-guard";
+
+const FEATURE_ICONS = [
+  <Zap className="w-4 h-4 text-sky-400" key="zap" />,
+  <CircleDollarSign className="w-4 h-4 text-teal-400" key="coin" />,
+  <Cpu className="w-4 h-4 text-sky-400" key="cpu" />,
+];
 
 export function HostAuthGuard({ children }: { children: React.ReactNode }) {
   const { hostToken, setHostToken } = useAuth();
@@ -16,17 +29,19 @@ export function HostAuthGuard({ children }: { children: React.ReactNode }) {
 
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!displayName.trim()) return;
+    const payload = buildHostRegisterRequest(displayName);
+    if (!payload) return;
 
-    registerHost.mutate(
-      { data: { displayName } },
-      {
-        onSuccess: (data) => {
+    registerHost.mutate(payload, {
+        onSuccess: (data: Host) => {
           setHostToken(data.hostToken);
-          void navigator.clipboard.writeText(data.hostToken).then(
-            () => toast.success("Узел создан — токен скопирован"),
-            () => toast.success("Узел зарегистрирован!"),
-          );
+          void persistHostTokenClipboard(data.hostToken, (text) =>
+            navigator.clipboard.writeText(text),
+          ).then((result) => {
+            toast.success(
+              result === "copied" ? "Узел создан — токен скопирован" : "Узел зарегистрирован!",
+            );
+          });
         },
         onError: () => {
           toast.error("Не удалось зарегистрировать хост");
@@ -41,7 +56,7 @@ export function HostAuthGuard({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "#06090e" }}>
-      <SiteNav activePath="/host" />
+      <SiteNav activePath={HOST_AUTH_ACTIVE_PATH} />
 
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-lg">
@@ -61,17 +76,13 @@ export function HostAuthGuard({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="grid grid-cols-3 gap-3 mb-8">
-            {[
-              { icon: <Zap className="w-4 h-4 text-sky-400" />, title: "P2P стриминг", text: "WebRTC напрямую" },
-              { icon: <CircleDollarSign className="w-4 h-4 text-teal-400" />, title: "Крипто-выплаты", text: "95% дохода тебе" },
-              { icon: <Cpu className="w-4 h-4 text-sky-400" />, title: "Агент хоста", text: "Простая установка" },
-            ].map((f) => (
+            {HOST_REGISTER_FEATURES.map((f, i) => (
               <div
                 key={f.title}
                 className="p-3 rounded-xl text-center"
                 style={{ background: "#0a1018", border: "1px solid rgba(255,255,255,0.06)" }}
               >
-                <div className="flex justify-center mb-1.5">{f.icon}</div>
+                <div className="flex justify-center mb-1.5">{FEATURE_ICONS[i]}</div>
                 <div className="text-[11px] font-semibold text-white mb-0.5">{f.title}</div>
                 <div className="text-[10px] text-slate-500">{f.text}</div>
               </div>
@@ -111,7 +122,7 @@ export function HostAuthGuard({ children }: { children: React.ReactNode }) {
                 type="submit"
                 className="w-full h-10 font-bold text-sm"
                 style={{ background: "#0ea5e9", color: "#fff" }}
-                disabled={registerHost.isPending || !displayName.trim()}
+                disabled={!canSubmitHostRegistration(displayName, registerHost.isPending)}
               >
                 {registerHost.isPending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
