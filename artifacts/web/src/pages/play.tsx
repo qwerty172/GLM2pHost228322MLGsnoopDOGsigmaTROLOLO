@@ -199,9 +199,7 @@ export default function Play() {
 
   // Detect test sessions with a browser-hosted game early so all effects can
   // skip WebRTC / billing logic before the early-return iframe branch fires.
-  const isTestBrowserSession = !!(
-    (session as any)?.isTest && (session as any)?.gameBrowserHostUrl
-  );
+  const isTestBrowserSession = !!(session?.isTest && session?.gameBrowserHostUrl);
   const sessionId = session?.id;
   const sessionStatus = session?.status;
   const sessionClaimedBy = session?.claimedByPlayerId;
@@ -1281,16 +1279,15 @@ export default function Play() {
 
   // Test session with a browser-hosted game: render it directly in an iframe.
   // No WebRTC, no billing, no agent needed.
-  const sAny = session as any;
-  const gameBrowserHostUrl: string | null = sAny.gameBrowserHostUrl ?? null;
-  if ((sAny.isTest || sAny.is_test) && gameBrowserHostUrl) {
+  const gameBrowserHostUrl: string | null = session.gameBrowserHostUrl ?? null;
+  if (session.isTest && gameBrowserHostUrl) {
     const iframeUrl = gameBrowserHostUrl.startsWith("http")
       ? gameBrowserHostUrl
       : `${import.meta.env.BASE_URL}${gameBrowserHostUrl.replace(/^\//, "")}`;
     return (
       <IframeTestSession
         iframeUrl={iframeUrl}
-        gameTitle={(session as any).gameTitle || session.appName}
+        gameTitle={session.gameTitle || session.appName}
       />
     );
   }
@@ -1317,14 +1314,10 @@ export default function Play() {
       !claimError &&
       (!playerWalletToken || claimSession.isPending || hasClaimed || session.status !== "ended");
 
-    const s = session as typeof session & {
-      gameCoverImageUrl?: string | null;
-      gameTitle?: string | null;
-    };
-    const cover = s.gameCoverImageUrl
-      ? s.gameCoverImageUrl.startsWith("http")
-        ? s.gameCoverImageUrl
-        : `${import.meta.env.BASE_URL}${s.gameCoverImageUrl.replace(/^\//, "")}`
+    const cover = session.gameCoverImageUrl
+      ? session.gameCoverImageUrl.startsWith("http")
+        ? session.gameCoverImageUrl
+        : `${import.meta.env.BASE_URL}${session.gameCoverImageUrl.replace(/^\//, "")}`
       : null;
 
     // Happy path: fullscreen «Подключаемся…» without payment radios.
@@ -1342,13 +1335,13 @@ export default function Play() {
             >
               <img
                 src={cover}
-                alt={s.gameTitle || session.appName}
+                alt={session.gameTitle || session.appName}
                 className="w-full h-full object-cover"
               />
             </div>
           )}
           <h1 className="relative z-10 text-xl font-bold text-white text-center">
-            {s.gameTitle || session.appName}
+            {session.gameTitle || session.appName}
           </h1>
           <div className="relative z-10 flex items-center gap-2 text-sky-400">
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -1388,13 +1381,13 @@ export default function Play() {
                 className="w-28 h-36 mx-auto mb-4 rounded-xl overflow-hidden"
                 style={{ border: "1px solid rgba(255,255,255,0.08)" }}
               >
-                <img src={cover} alt={s.appName} className="w-full h-full object-cover" />
+                <img src={cover} alt={session.appName} className="w-full h-full object-cover" />
               </div>
             ) : (
               <Gamepad2 className="h-16 w-16 text-sky-400 mx-auto mb-6" />
             )}
             <CardTitle className="text-2xl font-bold tracking-tight mb-2 text-white">
-              {s.gameTitle || session.appName}
+              {session.gameTitle || session.appName}
             </CardTitle>
             <div className="flex items-center justify-center gap-2 text-xs text-slate-500 font-mono flex-wrap">
               <Badge variant="outline" className="border-white/10 text-slate-400">
@@ -1403,7 +1396,7 @@ export default function Play() {
               <Badge variant="outline" className="border-white/10 text-slate-400">
                 {session.bitrateKbps} кбит/с
               </Badge>
-              {(session as any).isTest ? (
+              {session.isTest ? (
                 <Badge
                   variant="outline"
                   className="border-violet-400/40 text-violet-300"

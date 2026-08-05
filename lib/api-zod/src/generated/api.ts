@@ -1509,56 +1509,65 @@ export const GetSessionByPlayerTokenParams = zod.object({
   playerToken: zod.coerce.string(),
 });
 
-export const GetSessionByPlayerTokenResponse = zod.object({
-  id: zod.string(),
-  hostId: zod.string(),
-  gameId: zod.string().describe("Catalog game this session is bound to"),
-  playerToken: zod.string(),
-  inviteCode: zod
-    .string()
-    .nullish()
-    .describe("Short invite code for share links"),
-  inviteExpiresAt: zod.coerce.date().nullish(),
-  claimedByPlayerId: zod.string().nullish(),
-  appName: zod.string(),
-  status: zod.string().describe("One of pending, active, ended"),
-  resolution: zod.string(),
-  bitrateKbps: zod.number(),
-  ratePerMinute: zod
-    .number()
-    .describe(
-      "Player credits charged per minute (host receives net of commission)",
-    ),
-  paymentSource: zod.enum(["blue", "green", "auto"]).optional(),
-  quotaId: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  startedAt: zod.coerce.date().nullish(),
-  endedAt: zod.coerce.date().nullish(),
-  endReason: zod
-    .string()
-    .nullish()
-    .describe(
-      "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline, block_expired.",
-    ),
-  blockMinutes: zod
-    .number()
-    .nullish()
-    .describe(
-      "Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.",
-    ),
-  blockReservedLzt: zod
-    .number()
-    .nullish()
-    .describe(
-      "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
-    ),
-  isTest: zod
-    .boolean()
-    .optional()
-    .describe(
-      "Host self-test session вЂ” completely free, skipped by billing.",
-    ),
-});
+export const GetSessionByPlayerTokenResponse = zod
+  .object({
+    id: zod.string(),
+    hostId: zod.string(),
+    gameId: zod.string().describe("Catalog game this session is bound to"),
+    playerToken: zod.string(),
+    inviteCode: zod
+      .string()
+      .nullish()
+      .describe("Short invite code for share links"),
+    inviteExpiresAt: zod.coerce.date().nullish(),
+    claimedByPlayerId: zod.string().nullish(),
+    appName: zod.string(),
+    status: zod.string().describe("One of pending, active, ended"),
+    resolution: zod.string(),
+    bitrateKbps: zod.number(),
+    ratePerMinute: zod
+      .number()
+      .describe(
+        "Player credits charged per minute (host receives net of commission)",
+      ),
+    paymentSource: zod.enum(["blue", "green", "auto"]).optional(),
+    quotaId: zod.string().nullish(),
+    createdAt: zod.coerce.date(),
+    startedAt: zod.coerce.date().nullish(),
+    endedAt: zod.coerce.date().nullish(),
+    endReason: zod
+      .string()
+      .nullish()
+      .describe(
+        "Why the session ended. One of player_ended, host_ended, balance_exhausted, host_offline, block_expired.",
+      ),
+    blockMinutes: zod
+      .number()
+      .nullish()
+      .describe(
+        "Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.",
+      ),
+    blockReservedLzt: zod
+      .number()
+      .nullish()
+      .describe(
+        "Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.",
+      ),
+    isTest: zod
+      .boolean()
+      .optional()
+      .describe(
+        "Host self-test session вЂ” completely free, skipped by billing.",
+      ),
+  })
+  .and(
+    zod.object({
+      gameSlug: zod.string().nullish(),
+      gameCoverImageUrl: zod.string().nullish(),
+      gameTitle: zod.string().nullish(),
+      gameBrowserHostUrl: zod.string().nullish(),
+    }),
+  );
 
 /**
  * @summary Submit a post-session rating for the host

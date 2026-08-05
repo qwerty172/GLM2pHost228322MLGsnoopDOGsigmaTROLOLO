@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-69 (2026-08-05 00:54 UTC) {#marathon-m-69}
+
+| Проверка | Результат |
+|---|---|
+| OpenAPI | `getSessionByPlayerToken` → `SessionByInviteResponse` (gameTitle, gameBrowserHostUrl) |
+| codegen | PASS |
+| web `as any` | 0 осталось (hosts.tsx, landing.tsx, play.tsx — типы из api-client-react) |
+| typecheck | PASS (libs + artifacts) |
+
+**Следующий pick:** сканер idle (кат. L чистая).
+
 ## Marathon M-68 (2026-08-05 00:25 UTC) {#marathon-m-68}
 
 | Проверка | Результат |
