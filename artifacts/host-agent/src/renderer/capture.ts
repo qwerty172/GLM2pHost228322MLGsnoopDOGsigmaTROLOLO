@@ -81,7 +81,16 @@ function pickWindowManually(): Promise<{ id: string; name: string }> {
   });
 }
 
-export async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
+export type CaptureScreenOptions = {
+  /** When false, never fall back to full-screen capture (preview / privacy-sensitive paths). */
+  allowScreenFallback?: boolean;
+};
+
+export async function captureScreen(
+  cfg: HostConfig,
+  options: CaptureScreenOptions = {},
+): Promise<MediaStream> {
+  const allowScreenFallback = options.allowScreenFallback !== false;
   let sources = await window.agent.getCaptureSources();
   if (sources.length === 0) {
     throw new Error("Нет доступных источников захвата экрана/окна");
@@ -168,7 +177,7 @@ export async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
     const enabledCount = session.libraryEntries.filter(
       (e) => e.enabled && (e.boundUrl || e.localAvailable),
     ).length;
-    if (enabledCount <= 1) {
+    if (allowScreenFallback && enabledCount <= 1) {
       chosen = sources.find((s) => s.id.startsWith("screen:"));
       if (chosen) {
         log(
@@ -177,13 +186,19 @@ export async function captureScreen(cfg: HostConfig): Promise<MediaStream> {
       }
     }
     if (!chosen) {
+      if (!allowScreenFallback) {
+        const names = sources.map((s) => s.name).join(", ");
+        throw new Error(
+          `Окно «${targetName}» не найдено. Доступные окна: ${names || "(пусто)"}`,
+        );
+      }
       log(`Окно «${targetName}» не найдено автоматически — открываю ручной выбор.`);
       setPipelineStep("window", "active", "выбери окно вручную");
       chosen = await pickWindowManually();
     }
   }
 
-  if (!chosen && !browserGame) {
+  if (!chosen && !browserGame && allowScreenFallback) {
     chosen = sources.find((s) => s.id.startsWith("screen:"));
   }
   if (!chosen) {

@@ -82,3 +82,24 @@ test("captureScreen prefers HWND match from spawned PID over title heuristics", 
   });
   assert.equal(session.currentCaptureSourceName, "Unrelated Title");
 });
+
+test("captureScreen with allowScreenFallback:false rejects screen fallback for single-game library", async () => {
+  session.libraryEntries = [
+    { gameId: "game-1", appPath: "C:\\Games\\rf3\\RogueFable3.exe", enabled: true, localAvailable: true },
+  ];
+  window.agent.getCaptureSources = async () => [
+    { id: "screen:0", name: "Primary Screen" },
+    { id: "window:2", name: "Discord" },
+  ];
+  await assert.rejects(
+    () =>
+      captureScreen(
+        {
+          ...defaultHostConfig,
+          appPath: "C:\\Games\\rf3\\RogueFable3.exe",
+        },
+        { allowScreenFallback: false },
+      ),
+    /Окно «roguefable3» не найдено/i,
+  );
+});

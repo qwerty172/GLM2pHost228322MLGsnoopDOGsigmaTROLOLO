@@ -26,15 +26,23 @@ async function onPreviewPlayerJoined(cfg: HostConfig): Promise<void> {
   if (previewIndicator) previewIndicator.hidden = false;
 
   // Reuse the existing capture stream if the host is actively streaming.
-  // Otherwise capture a fresh stream (shows whatever is on screen right now).
+  // Otherwise match a game/browser window only — never fall back to full desktop
+  // (preview is public and unauthenticated; screen capture would leak the host desktop).
   let stream = session.captureStream;
   if (!stream) {
     try {
-      stream = await captureScreen(cfg);
+      stream = await captureScreen(cfg, { allowScreenFallback: false });
       session.previewOwnStream = stream; // we own this — clean up on teardown
     } catch (err) {
-      log(`[preview] Could not capture screen: ${String(err)}`);
+      log(`[preview] Could not capture game window: ${String(err)}`);
       if (previewIndicator) previewIndicator.hidden = true;
+      try {
+        session.previewWs?.send(
+          JSON.stringify({ type: "preview-error", reason: "no_game_window" }),
+        );
+      } catch {
+        /* ignore */
+      }
       return;
     }
   }
