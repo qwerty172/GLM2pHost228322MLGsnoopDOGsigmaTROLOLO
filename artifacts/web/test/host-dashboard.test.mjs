@@ -26,6 +26,9 @@ const {
   readHostAgentDownloaded,
   markHostAgentDownloaded,
   evaluateHostReadiness,
+  compareAgentVersions,
+  evaluateAgentVersionCompatibility,
+  isAgentVersionBlockingStream,
 } = await import("../src/pages/host/dashboard-helpers.ts");
 
 const offlineAgent = { status: "offline" };
@@ -360,4 +363,68 @@ test("evaluateHostReadiness returns one Russian next fix for first failure (U-14
     localInputOk: false,
   });
   assert.match(noInput.nextFix, /ввод/);
+});
+
+test("evaluateAgentVersionCompatibility flags outdated agent (U-17)", () => {
+  const ok = evaluateAgentVersionCompatibility("0.2.0", "0.1.0");
+  assert.equal(ok.compatible, true);
+  assert.equal(ok.message, null);
+
+  const bad = evaluateAgentVersionCompatibility("0.0.9", "0.1.0");
+  assert.equal(bad.compatible, false);
+  assert.match(bad.message, /устарела/);
+  assert.match(bad.message, /0\.1\.0/);
+});
+
+test("isAgentVersionBlockingStream blocks outdated online agent (U-17)", () => {
+  assert.equal(
+    isAgentVersionBlockingStream({ ...onlineAgent, version: "0.0.1" }, "0.1.0"),
+    true,
+  );
+  assert.equal(
+    isAgentVersionBlockingStream({ ...onlineAgent, version: "0.1.0" }, "0.1.0"),
+    false,
+  );
+  assert.equal(isAgentVersionBlockingStream(offlineAgent, "0.1.0"), false);
+});
+
+test("resolveGuidedNextAction shows update-agent before test-stream (U-17)", () => {
+  const base = {
+    agent: { ...onlineAgent, version: "0.0.1" },
+    heartbeat: freshHeartbeat,
+    agentKeyBound: true,
+    libraryCount: 1,
+    hasActiveSession: false,
+    agentDownloaded: true,
+    goOnlineAck: true,
+    hasFirstStream: false,
+    minSupportedAgentVersion: "0.1.0",
+  };
+  const guided = resolveGuidedNextAction(base);
+  assert.equal(guided.phase, "update-agent");
+  assert.equal(guided.cta, "update-agent");
+  assert.match(guided.hint, /устарела/);
+});
+
+test("evaluateHostReadiness blocks outdated agent version (U-17)", () => {
+  const result = evaluateHostReadiness({
+    apiOk: true,
+    agentKeyBound: true,
+    heartbeat: freshHeartbeat,
+    agent: { ...onlineAgent, version: "0.0.1" },
+    enabledGamesCount: 1,
+    hasActiveSession: false,
+    goOnlineAck: true,
+    localAgentReachable: true,
+    localInputOk: true,
+    minSupportedAgentVersion: "0.1.0",
+  });
+  assert.equal(result.ready, false);
+  assert.match(result.nextFix, /Обновить агент|устарела/);
+  assert.equal(result.checks.some((c) => c.id === "agent-version" && !c.ok), true);
+});
+
+test("compareAgentVersions orders semver parts (U-17)", () => {
+  assert.equal(compareAgentVersions("0.2.0", "0.1.9"), 1);
+  assert.equal(compareAgentVersions("0.0.9", "0.1.0"), -1);
 });

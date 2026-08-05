@@ -4367,6 +4367,9 @@ export const GetHostReadinessResponse = zod.object({
     .number()
     .min(getHostReadinessResponseEnabledGamesCountMin),
   hasActiveSession: zod.boolean(),
+  minSupportedAgentVersion: zod
+    .string()
+    .describe("Minimum host-agent semver required to stream (U-17)"),
 });
 
 /**
@@ -4554,6 +4557,17 @@ export const CreatePreviewSessionResponse = zod.object({
  */
 export const PublicPingResponse = zod.object({
   ok: zod.boolean(),
+});
+
+/**
+ * Public semver floor used by the dashboard and host-agent to block streaming on outdated builds before a session starts.
+
+ * @summary Minimum supported host-agent version (U-17)
+ */
+export const GetPublicAgentRequirementsResponse = zod.object({
+  minSupportedAgentVersion: zod
+    .string()
+    .describe("Minimum host-agent semver required to stream (U-17)"),
 });
 
 /**

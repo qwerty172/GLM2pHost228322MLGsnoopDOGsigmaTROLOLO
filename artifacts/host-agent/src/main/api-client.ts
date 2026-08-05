@@ -4,6 +4,7 @@
 
 import type { LibraryEntry, ScheduleSlot } from "../shared/messages";
 import { log } from "./logger";
+import { isAgentVersionSupported } from "./agent-version-policy";
 
 function base(apiBaseUrl: string): string {
   return apiBaseUrl.replace(/\/$/, "");
@@ -108,6 +109,49 @@ export async function patchLocalAvailability(
   } catch (err) {
     log("warn", `patchLocalAvailability error: ${String(err)}`);
   }
+}
+
+export type AgentRequirements = {
+  minSupportedAgentVersion: string;
+};
+
+/** Fetch platform minimum agent version (U-17). */
+export async function fetchAgentRequirements(
+  apiBaseUrl: string,
+): Promise<AgentRequirements | null> {
+  try {
+    const url = `${base(apiBaseUrl)}/api/public/agent-requirements`;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      log("warn", `fetchAgentRequirements HTTP ${resp.status}`);
+      return null;
+    }
+    const data = (await resp.json()) as AgentRequirements;
+    if (!data.minSupportedAgentVersion) return null;
+    return data;
+  } catch (err) {
+    log("warn", `fetchAgentRequirements error: ${String(err)}`);
+    return null;
+  }
+}
+
+/**
+ * Logs a Russian warning when the running build is below the platform minimum (U-17).
+ * Returns false when streaming should be blocked client-side.
+ */
+export function warnIfAgentVersionUnsupported(
+  currentVersion: string,
+  minSupportedVersion: string,
+): boolean {
+  if (isAgentVersionSupported(currentVersion, minSupportedVersion)) {
+    return true;
+  }
+  log(
+    "warn",
+    `Версия агента ${currentVersion} устарела — нужна ${minSupportedVersion} или новее. ` +
+      "Скачай обновление с дашборда («Обновить агент») до запуска стрима.",
+  );
+  return false;
 }
 
 export type SaveUrlResult = {

@@ -6,15 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HostReadinessResponse {
-  apiOk: boolean;
-  agentKeyBound: boolean;
-  heartbeatFresh: boolean;
-  /** @nullable */
-  lastSeenAt?: Date | null;
-  /** @minimum 0 */
-  enabledGamesCount: number;
-  hasActiveSession: boolean;
+export interface PublicAgentRequirementsResponse {
   /** Minimum host-agent semver required to stream (U-17) */
   minSupportedAgentVersion: string;
 }

@@ -15,6 +15,21 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-161 (2026-08-05 17:52 UTC) {#marathon-m-161}
+
+| Проверка | Результат |
+|---|---|
+| agentVersionPolicy.test.ts | PASS — semver compare + MIN_SUPPORTED_AGENT_VERSION |
+| public.test.ts (U-17) | PASS — GET /public/agent-requirements |
+| hosts.test.ts readiness | PASS — minSupportedAgentVersion в ответе |
+| host-dashboard.test.mjs (U-17) | PASS — блокировка стрима + update-agent CTA |
+| agent-version-policy.test.mjs | PASS — compare + isAgentVersionSupported |
+| pnpm typecheck (api-server, web, host-agent) | PASS |
+
+**Изменения (U-17):** API отдаёт `minSupportedAgentVersion` в `/hosts/me/readiness` и `/public/agent-requirements`; дашборд блокирует тест-стрим и показывает «Обновить агент» до запуска; агент при старте логирует предупреждение при устаревшей версии.
+
+**Следующий pick:** M-162 (U-18 единая карточка диагностики).
+
 ## Marathon M-160 (2026-08-05 16:10 UTC) {#marathon-m-160}
 
 | Проверка | Результат |

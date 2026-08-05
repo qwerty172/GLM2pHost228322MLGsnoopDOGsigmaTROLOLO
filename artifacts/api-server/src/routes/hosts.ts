@@ -40,6 +40,7 @@ import { generalHostTier, computeHostTier, specsFromPcSpecs, BASELINE_REC, BASEL
 import { isQuotaActiveNow } from "../lib/quotaEngine";
 import { rateLimit, ipKey, failedAttemptGuard, guardAndTrackFailures } from "../lib/rateLimit";
 import type { Request, Response } from "express";
+import { getMinSupportedAgentVersion } from "../lib/agentVersionPolicy";
 
 const router: IRouter = Router();
 
@@ -1315,6 +1316,7 @@ router.get("/hosts/me/readiness", hostReadLimiter, async (req, res): Promise<voi
     lastSeenAt: host.lastSeenAt?.toISOString() ?? null,
     enabledGamesCount,
     hasActiveSession: activeSessions.length > 0,
+    minSupportedAgentVersion: getMinSupportedAgentVersion(),
   });
 });
 

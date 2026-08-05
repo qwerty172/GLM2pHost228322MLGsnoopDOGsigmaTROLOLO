@@ -225,6 +225,7 @@ export type OnboardingPhase =
   | "wait-agent"
   | "add-game"
   | "go-online"
+  | "update-agent"
   | "test-stream"
   | "complete";
 
@@ -240,6 +241,7 @@ export type GuidedNextAction = {
     | "wait"
     | "add-game"
     | "open-agent"
+    | "update-agent"
     | "test-stream"
     | "none";
 };
@@ -252,6 +254,76 @@ export function hasCompletedFirstStream(
   return (sessions?.length ?? 0) > 0;
 }
 
+/** Compare semver-like strings: -1 if a<b, 0 if equal, 1 if a>b (U-17). */
+export function compareAgentVersions(a: string, b: string): number {
+  const parse = (v: string) =>
+    v
+      .replace(/^v/i, "")
+      .split(/[.+_-]/)
+      .map((part) => {
+        const n = parseInt(part, 10);
+        return Number.isFinite(n) ? n : 0;
+      });
+  const av = parse(a);
+  const bv = parse(b);
+  const len = Math.max(av.length, bv.length, 3);
+  for (let i = 0; i < len; i++) {
+    const diff = (av[i] ?? 0) - (bv[i] ?? 0);
+    if (diff !== 0) return diff < 0 ? -1 : 1;
+  }
+  return 0;
+}
+
+export type AgentVersionCheck = {
+  compatible: boolean;
+  currentVersion: string | null;
+  minSupportedVersion: string;
+  /** Russian explanation when incompatible. */
+  message: string | null;
+};
+
+/** Returns compatible=true when version unknown or meets minimum (U-17). */
+export function evaluateAgentVersionCompatibility(
+  agentVersion: string | null | undefined,
+  minSupportedVersion: string,
+): AgentVersionCheck {
+  const min = minSupportedVersion.trim();
+  if (!min) {
+    return {
+      compatible: true,
+      currentVersion: agentVersion ?? null,
+      minSupportedVersion: min,
+      message: null,
+    };
+  }
+  const current = agentVersion?.trim();
+  if (!current || current === "?") {
+    return {
+      compatible: true,
+      currentVersion: current ?? null,
+      minSupportedVersion: min,
+      message: null,
+    };
+  }
+  const compatible = compareAgentVersions(current, min) >= 0;
+  return {
+    compatible,
+    currentVersion: current,
+    minSupportedVersion: min,
+    message: compatible
+      ? null
+      : `Версия агента ${current} устарела — нужна ${min} или новее. Обнови сборку до запуска стрима.`,
+  };
+}
+
+export function isAgentVersionBlockingStream(
+  agent: AgentState,
+  minSupportedVersion: string | undefined,
+): boolean {
+  if (agent.status !== "online" || !minSupportedVersion) return false;
+  return !evaluateAgentVersionCompatibility(agent.version, minSupportedVersion).compatible;
+}
+
 export function resolveGuidedNextAction(opts: {
   agent: AgentState;
   heartbeat: HeartbeatState;
@@ -261,6 +333,7 @@ export function resolveGuidedNextAction(opts: {
   agentDownloaded?: boolean;
   goOnlineAck?: boolean;
   hasFirstStream?: boolean;
+  minSupportedAgentVersion?: string;
 }): GuidedNextAction {
   if (opts.hasFirstStream) {
     return {
@@ -320,6 +393,27 @@ export function resolveGuidedNextAction(opts: {
       title: "Выйди в онлайн",
       hint: "В агенте нажми «Выйти в онлайн» — игроки увидят тебя в каталоге",
       cta: "open-agent",
+    };
+  }
+
+  if (
+    opts.agent.status === "online" &&
+    opts.minSupportedAgentVersion &&
+    isAgentVersionBlockingStream(opts.agent, opts.minSupportedAgentVersion)
+  ) {
+    const versionCheck = evaluateAgentVersionCompatibility(
+      opts.agent.version,
+      opts.minSupportedAgentVersion,
+    );
+    return {
+      phase: "update-agent",
+      stepNumber: ONBOARDING_TOTAL_STEPS,
+      totalSteps: ONBOARDING_TOTAL_STEPS,
+      title: "Обнови агент",
+      hint:
+        versionCheck.message ??
+        "Текущая версия агента не поддерживается — скачай новую сборку",
+      cta: "update-agent",
     };
   }
 
@@ -414,6 +508,7 @@ export function evaluateHostReadiness(opts: {
   goOnlineAck?: boolean;
   localAgentReachable: boolean;
   localInputOk: boolean;
+  minSupportedAgentVersion?: string;
 }): HostReadinessResult {
   const checks: HostReadinessCheck[] = [
     { id: "api", ok: opts.apiOk, label: "Связь с API" },
@@ -441,6 +536,18 @@ export function evaluateHostReadiness(opts: {
     { id: "input", ok: opts.localInputOk, label: "Локальный ввод" },
   ];
 
+  if (opts.minSupportedAgentVersion && opts.agent.status === "online") {
+    const versionOk = evaluateAgentVersionCompatibility(
+      opts.agent.version,
+      opts.minSupportedAgentVersion,
+    ).compatible;
+    checks.push({
+      id: "agent-version",
+      ok: versionOk,
+      label: "Версия агента",
+    });
+  }
+
   const notReady = (
     nextFix: string,
   ): HostReadinessResult => ({
@@ -465,6 +572,21 @@ export function evaluateHostReadiness(opts: {
   if (!opts.localAgentReachable) {
     return notReady(
       "Открой дашборд на том же ПК, где запущен агент, или установи агент здесь",
+    );
+  }
+
+  if (
+    opts.minSupportedAgentVersion &&
+    opts.agent.status === "online" &&
+    isAgentVersionBlockingStream(opts.agent, opts.minSupportedAgentVersion)
+  ) {
+    const versionCheck = evaluateAgentVersionCompatibility(
+      opts.agent.version,
+      opts.minSupportedAgentVersion,
+    );
+    return notReady(
+      versionCheck.message ??
+        "Версия агента устарела — нажми «Обновить агент» и установи новую сборку",
     );
   }
 

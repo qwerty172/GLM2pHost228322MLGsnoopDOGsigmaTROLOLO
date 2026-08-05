@@ -13,6 +13,8 @@ import {
   useListHostLibrary,
   useRemoveHostLibraryEntry,
   useDetachQuotaFromSession,
+  useGetPublicAgentRequirements,
+  getGetPublicAgentRequirementsQueryKey,
   getGetHostQueryKey,
   getGetHostStatsQueryKey,
   getGetHostActivityQueryKey,
@@ -104,6 +106,8 @@ import {
   markHostGoOnlineAck,
   HOST_AGENT_EXE_DOWNLOAD_URL,
   evaluateHostReadiness,
+  evaluateAgentVersionCompatibility,
+  isAgentVersionBlockingStream,
   type HostReadinessResult,
 } from "./dashboard-helpers";
 import { QuickAddFirstGame } from "./add-game-modal";
@@ -317,7 +321,15 @@ function AgentEventsCard({ hostToken }: { hostToken: string }) {
   );
 }
 
-function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: HeartbeatState }) {
+function AgentStatusCard({
+  agent,
+  heartbeat,
+  minSupportedAgentVersion,
+}: {
+  agent: AgentState;
+  heartbeat: HeartbeatState;
+  minSupportedAgentVersion?: string;
+}) {
   const handleDownloadAgent = () => {
     void downloadHostAgentBundle().catch(() => {
       toast.error("Не удалось скачать агент");
@@ -390,6 +402,51 @@ function AgentStatusCard({ agent, heartbeat }: { agent: AgentState; heartbeat: H
   }
 
   if (agent.status === "online") {
+    const versionCheck =
+      minSupportedAgentVersion &&
+      evaluateAgentVersionCompatibility(agent.version, minSupportedAgentVersion);
+    const versionBlocked = versionCheck && !versionCheck.compatible;
+
+    if (versionBlocked) {
+      return (
+        <Card
+          style={{
+            background: "rgba(245,158,11,0.06)",
+            border: "1px solid rgba(245,158,11,0.35)",
+          }}
+          data-testid="agent-status-outdated"
+        >
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base text-amber-200 mb-1">
+              <Download className="h-4 w-4 text-amber-400" />
+              Версия агента устарела
+            </CardTitle>
+            <CardDescription className="text-slate-400 text-xs">
+              {versionCheck.message}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0 flex flex-wrap items-center gap-3">
+            <span className="text-xs text-slate-500 font-mono">
+              Сейчас v{agent.version} · нужна v{versionCheck.minSupportedVersion}+
+            </span>
+            <a
+              href={HOST_AGENT_EXE_DOWNLOAD_URL}
+              className="ml-auto"
+              data-testid="button-update-agent"
+            >
+              <Button
+                size="sm"
+                className="gap-1.5 h-8 text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white"
+              >
+                <Download className="h-3 w-3" />
+                Обновить агент
+              </Button>
+            </a>
+          </CardContent>
+        </Card>
+      );
+    }
+
     return (
       <Card
         style={{
@@ -965,6 +1022,7 @@ function HostQuickStartCard({
   hasFirstStream,
   onTestStream,
   testLoading,
+  minSupportedAgentVersion,
 }: {
   hostToken: string;
   agent: AgentState;
@@ -975,6 +1033,7 @@ function HostQuickStartCard({
   hasFirstStream: boolean;
   onTestStream: () => void;
   testLoading: boolean;
+  minSupportedAgentVersion?: string;
 }) {
   const [agentDownloaded, setAgentDownloaded] = useState(() => readHostAgentDownloaded());
   const [goOnlineAck, setGoOnlineAck] = useState(() => readHostGoOnlineAck());
@@ -996,6 +1055,7 @@ function HostQuickStartCard({
     agentDownloaded,
     goOnlineAck,
     hasFirstStream,
+    minSupportedAgentVersion,
   });
   const onboarding = !hasFirstStream && guided.phase !== "complete";
   const completedSteps = steps.filter((s) => s.done);
@@ -1141,12 +1201,28 @@ function HostQuickStartCard({
             size="lg"
             className="w-full sm:w-auto gap-2 font-semibold bg-violet-600 hover:bg-violet-500 text-white"
             onClick={onTestStream}
-            disabled={testLoading}
+            disabled={testLoading || isAgentVersionBlockingStream(agent, minSupportedAgentVersion)}
             data-testid="button-test-session"
           >
             <FlaskConical className="h-4 w-4" />
             {testLoading ? "Создаём…" : "Проверить стрим"}
           </Button>
+        )}
+
+        {guided.cta === "update-agent" && (
+          <a href={HOST_AGENT_EXE_DOWNLOAD_URL} data-testid="guided-update-agent">
+            <Button
+              size="lg"
+              className="w-full sm:w-auto gap-2 font-semibold bg-amber-600 hover:bg-amber-500 text-white"
+              onClick={() => {
+                markHostAgentDownloaded();
+                setAgentDownloaded(true);
+              }}
+            >
+              <Download className="h-4 w-4" />
+              Обновить агент
+            </Button>
+          </a>
         )}
       </CardContent>
     </Card>
@@ -1270,12 +1346,14 @@ function HostReadinessCheck({
   heartbeat,
   agentKeyBound,
   hasActiveSession,
+  minSupportedAgentVersion,
 }: {
   hostToken: string;
   agent: AgentState;
   heartbeat: HeartbeatState;
   agentKeyBound: boolean;
   hasActiveSession: boolean;
+  minSupportedAgentVersion?: string;
 }) {
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<HostReadinessResult | null>(null);
@@ -1289,6 +1367,7 @@ function HostReadinessCheck({
       let serverHasActiveSession = hasActiveSession;
       let serverAgentKeyBound = agentKeyBound;
       let serverHeartbeatFresh = heartbeat.status === "fresh";
+      let serverMinVersion = minSupportedAgentVersion;
 
       try {
         const server = await getHostReadiness({
@@ -1303,6 +1382,7 @@ function HostReadinessCheck({
         serverHasActiveSession = server.hasActiveSession;
         serverAgentKeyBound = server.agentKeyBound;
         serverHeartbeatFresh = server.heartbeatFresh;
+        serverMinVersion = server.minSupportedAgentVersion;
       } catch {
         apiOk = false;
       }
@@ -1337,6 +1417,7 @@ function HostReadinessCheck({
         goOnlineAck,
         localAgentReachable,
         localInputOk,
+        minSupportedAgentVersion: serverMinVersion,
       });
 
       setResult(evaluated);
@@ -1491,6 +1572,14 @@ export default function Dashboard() {
     },
   });
 
+  const { data: agentRequirements } = useGetPublicAgentRequirements({
+    query: {
+      queryKey: getGetPublicAgentRequirementsQueryKey(),
+      staleTime: 5 * 60_000,
+    },
+  });
+  const minSupportedAgentVersion = agentRequirements?.minSupportedAgentVersion;
+
   const agentKeyBound = !!(hostMe as { agentKeyBound?: boolean } | undefined)?.agentKeyBound;
   const libraryCount = libraryEntries?.length ?? 0;
   const hasActiveSession = (sessions ?? []).some(
@@ -1531,6 +1620,14 @@ export default function Dashboard() {
   const [testUrl, setTestUrl] = useState("");
   const handleTestSession = async () => {
     if (!hostToken) return;
+    if (isAgentVersionBlockingStream(agent, minSupportedAgentVersion)) {
+      const check = evaluateAgentVersionCompatibility(
+        agent.status === "online" ? agent.version : null,
+        minSupportedAgentVersion ?? "",
+      );
+      toast.error(check.message ?? "Сначала обнови агент");
+      return;
+    }
     setTestLoading(true);
     try {
       const trimmedUrl = testUrl.trim();
@@ -1618,6 +1715,7 @@ export default function Dashboard() {
           hasFirstStream={hasFirstStream}
           onTestStream={() => void handleTestSession()}
           testLoading={testLoading}
+          minSupportedAgentVersion={minSupportedAgentVersion}
         />
       )}
 
@@ -1692,6 +1790,7 @@ export default function Dashboard() {
               heartbeat={heartbeat}
               agentKeyBound={agentKeyBound}
               hasActiveSession={hasActiveSession}
+              minSupportedAgentVersion={minSupportedAgentVersion}
             />
           )}
 
@@ -1715,7 +1814,11 @@ export default function Dashboard() {
                 />
                 <Button
                   onClick={() => void handleTestSession()}
-                  disabled={testLoading || !hostToken}
+                  disabled={
+                    testLoading ||
+                    !hostToken ||
+                    isAgentVersionBlockingStream(agent, minSupportedAgentVersion)
+                  }
                   className="bg-violet-600 hover:bg-violet-500 text-white shrink-0"
                   data-testid="button-test-session-advanced"
                 >
@@ -1733,8 +1836,13 @@ export default function Dashboard() {
             <AgentBindCodeCard hostToken={hostToken} />
           )}
 
-          {!onboarding && agent.status !== "checking" && (
-            <AgentStatusCard agent={agent} heartbeat={heartbeat} />
+          {(!onboarding || isAgentVersionBlockingStream(agent, minSupportedAgentVersion)) &&
+            agent.status !== "checking" && (
+            <AgentStatusCard
+              agent={agent}
+              heartbeat={heartbeat}
+              minSupportedAgentVersion={minSupportedAgentVersion}
+            />
           )}
 
           {onboarding && agent.status !== "checking" && (

@@ -18,6 +18,7 @@ import { generalHostTier } from "../lib/hostTier";
 import { mintPreviewToken } from "../lib/signaling";
 import { generateInviteCode, defaultInviteExpiresAt } from "../lib/invites";
 import { rateLimit, ipKey } from "../lib/rateLimit";
+import { getMinSupportedAgentVersion } from "../lib/agentVersionPolicy";
 
 const router: IRouter = Router();
 
@@ -531,6 +532,11 @@ router.get("/public/ice-config", (_req, res): void => {
 // ---------------------------------------------------------------------------
 router.get("/public/ping", (_req, res): void => {
   res.json({ ok: true });
+});
+
+// GET /public/agent-requirements — semver floor for host-agent (U-17).
+router.get("/public/agent-requirements", (_req, res): void => {
+  res.json({ minSupportedAgentVersion: getMinSupportedAgentVersion() });
 });
 
 // Platform stats for the public landing hero strip. Cheap aggregate queries —

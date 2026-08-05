@@ -498,6 +498,7 @@ describe("GET /hosts/me/readiness", () => {
       heartbeatFresh: true,
       enabledGamesCount: 1,
       hasActiveSession: true,
+      minSupportedAgentVersion: expect.any(String),
     });
   });
 });

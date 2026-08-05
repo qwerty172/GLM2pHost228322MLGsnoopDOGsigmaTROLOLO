@@ -558,6 +558,13 @@ export interface HostReadinessResponse {
   /** @minimum 0 */
   enabledGamesCount: number;
   hasActiveSession: boolean;
+  /** Minimum host-agent semver required to stream (U-17) */
+  minSupportedAgentVersion: string;
+}
+
+export interface PublicAgentRequirementsResponse {
+  /** Minimum host-agent semver required to stream (U-17) */
+  minSupportedAgentVersion: string;
 }
 
 export type BulkPublishLibraryBodyItemsItem = {

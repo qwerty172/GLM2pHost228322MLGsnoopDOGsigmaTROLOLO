@@ -32,7 +32,7 @@ import {
   setAllowedTarget,
   setInputBlocked,
 } from "./focus-guard";
-import { fetchLibrary, fetchHostSchedule, patchLocalAvailability, sendHeartbeat } from "./api-client";
+import { fetchLibrary, fetchHostSchedule, patchLocalAvailability, sendHeartbeat, fetchAgentRequirements, warnIfAgentVersionUnsupported } from "./api-client";
 import { syncWakeTasks } from "./wake-scheduler";
 import { pullSave, pushSave, restoreSave, backupSave, type SaveManifestEntry } from "./save-sync";
 import { scanSteam, loadScanState, saveScanState } from "./steam-scanner";
@@ -186,6 +186,13 @@ async function syncScheduleFromServer(): Promise<void> {
   await syncWakeTasks(schedule.scheduleMode, schedule.scheduleJson);
 }
 
+async function checkAgentVersionPolicy(cfg: HostConfig): Promise<void> {
+  if (!cfg.hostToken?.trim() || !cfg.apiBaseUrl?.trim()) return;
+  const requirements = await fetchAgentRequirements(cfg.apiBaseUrl);
+  if (!requirements) return;
+  warnIfAgentVersionUnsupported(getAgentVersion(), requirements.minSupportedAgentVersion);
+}
+
 void app.whenReady().then(() =>
   startAgent().catch((err) => {
     showFatalError(
@@ -215,6 +222,7 @@ async function startAgent(): Promise<void> {
   const config = await loadConfig();
   applyAutoLaunch(config);
   void syncScheduleFromServer();
+  void checkAgentVersionPolicy(config);
 
   createTray(() => {
     createWindow();

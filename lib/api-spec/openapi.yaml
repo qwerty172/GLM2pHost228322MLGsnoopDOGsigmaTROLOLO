@@ -3407,6 +3407,22 @@ paths:
                     type: boolean
                 required: [ok]
 
+  /public/agent-requirements:
+    get:
+      operationId: getPublicAgentRequirements
+      tags: [public]
+      summary: Minimum supported host-agent version (U-17)
+      description: >
+        Public semver floor used by the dashboard and host-agent to block
+        streaming on outdated builds before a session starts.
+      responses:
+        "200":
+          description: Agent version policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicAgentRequirementsResponse"
+
   /public/ice-config:
     get:
       operationId: getPublicIceConfig
@@ -5205,12 +5221,25 @@ components:
           minimum: 0
         hasActiveSession:
           type: boolean
+        minSupportedAgentVersion:
+          type: string
+          description: Minimum host-agent semver required to stream (U-17)
       required:
         - apiOk
         - agentKeyBound
         - heartbeatFresh
         - enabledGamesCount
         - hasActiveSession
+        - minSupportedAgentVersion
+
+    PublicAgentRequirementsResponse:
+      type: object
+      properties:
+        minSupportedAgentVersion:
+          type: string
+          description: Minimum host-agent semver required to stream (U-17)
+      required:
+        - minSupportedAgentVersion
 
     BulkPublishLibraryBody:
       type: object

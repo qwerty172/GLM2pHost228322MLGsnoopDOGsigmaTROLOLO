@@ -150,6 +150,7 @@ export * from "./postSessionMetricsParams";
 export * from "./postSessionMetricsResponse";
 export * from "./premiumPurchaseBody";
 export * from "./premiumPurchaseResponse";
+export * from "./publicAgentRequirementsResponse";
 export * from "./publicGameCatalogItem";
 export * from "./publicGameHostItem";
 export * from "./publicGameHostItemHostTier";

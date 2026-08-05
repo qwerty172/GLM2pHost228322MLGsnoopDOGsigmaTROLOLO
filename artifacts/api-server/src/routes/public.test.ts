@@ -305,6 +305,16 @@ describe("GET /public/ping", () => {
   });
 });
 
+describe("GET /public/agent-requirements", () => {
+  it("returns min supported agent version without auth (U-17)", async () => {
+    const res = await request("GET", "/public/agent-requirements");
+    expect(res.status).toBe(200);
+    expect(res.json).toMatchObject({
+      minSupportedAgentVersion: expect.stringMatching(/^\d+\.\d+\.\d+/),
+    });
+  });
+});
+
 describe("GET /public/ice-config", () => {
   it("returns default STUN when TURN env is unset", async () => {
     const res = await request("GET", "/public/ice-config");

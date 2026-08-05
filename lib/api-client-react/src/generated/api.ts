@@ -131,6 +131,7 @@ import type {
   PostSessionMetricsResponse,
   PremiumPurchaseBody,
   PremiumPurchaseResponse,
+  PublicAgentRequirementsResponse,
   PublicGameCatalogItem,
   PublicGameHostItem,
   PublicHostListItem,
@@ -8896,6 +8897,87 @@ export function usePublicPing<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getPublicPingQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Public semver floor used by the dashboard and host-agent to block streaming on outdated builds before a session starts.
+
+ * @summary Minimum supported host-agent version (U-17)
+ */
+export const getGetPublicAgentRequirementsUrl = () => {
+  return `/api/public/agent-requirements`;
+};
+
+export const getPublicAgentRequirements = async (
+  options?: RequestInit,
+): Promise<PublicAgentRequirementsResponse> => {
+  return customFetch<PublicAgentRequirementsResponse>(
+    getGetPublicAgentRequirementsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetPublicAgentRequirementsQueryKey = () => {
+  return [`/api/public/agent-requirements`] as const;
+};
+
+export const getGetPublicAgentRequirementsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPublicAgentRequirements>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicAgentRequirements>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPublicAgentRequirementsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPublicAgentRequirements>>
+  > = ({ signal }) => getPublicAgentRequirements({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicAgentRequirements>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPublicAgentRequirementsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPublicAgentRequirements>>
+>;
+export type GetPublicAgentRequirementsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Minimum supported host-agent version (U-17)
+ */
+
+export function useGetPublicAgentRequirements<
+  TData = Awaited<ReturnType<typeof getPublicAgentRequirements>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicAgentRequirements>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPublicAgentRequirementsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
