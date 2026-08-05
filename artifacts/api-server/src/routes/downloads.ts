@@ -7,12 +7,22 @@ import { db, hostsTable } from "@workspace/db";
 import { logger } from "../lib/logger";
 import { hostTokenFromRequest } from "../lib/hostAuth";
 
-/** Public platform origin for bundled host-agent config (U-01). */
+/**
+ * Public platform origin for bundled host-agent config (U-01).
+ *
+ * Prefer PLATFORM_PUBLIC_URL (or API_BASE_URL) so the value cannot be poisoned
+ * by client-spoofed X-Forwarded-* headers on direct API access — a poisoned
+ * apiBaseUrl in host-agent.zip would exfiltrate the embedded hostToken.
+ */
 export function resolveApiBaseUrl(req: Request): string {
-  const forwardedProto = req.get("x-forwarded-proto")?.split(",")[0]?.trim();
-  const proto = forwardedProto || req.protocol || "https";
-  const forwardedHost = req.get("x-forwarded-host")?.split(",")[0]?.trim();
-  const host = forwardedHost || req.get("host") || "localhost";
+  const configured =
+    process.env.PLATFORM_PUBLIC_URL?.trim() ||
+    process.env.API_BASE_URL?.trim();
+  if (configured) {
+    return configured.replace(/\/$/, "");
+  }
+  const proto = req.protocol || "https";
+  const host = req.get("host") || "localhost";
   return `${proto}://${host}`.replace(/\/$/, "");
 }
 
