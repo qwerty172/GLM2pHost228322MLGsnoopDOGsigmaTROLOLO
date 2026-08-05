@@ -327,9 +327,11 @@ if (existsSync(sharedDir)) {
 // --- M. web hooks/*.ts without co-located test (by file) ------------------
 const webHooksDir = "artifacts/web/src/hooks";
 if (existsSync(webHooksDir)) {
-  const hookModules = readdirSync(webHooksDir).filter((f) => f.endsWith(".ts") && !f.endsWith(".d.ts"));
+  const hookModules = readdirSync(webHooksDir).filter(
+    (f) => (f.endsWith(".ts") || f.endsWith(".tsx")) && !f.endsWith(".d.ts"),
+  );
   for (const mod of hookModules) {
-    const base = mod.replace(/\.ts$/, "");
+    const base = mod.replace(/\.tsx?$/, "");
     const testCandidates = [
       `artifacts/web/test/${base}.test.mjs`,
       `artifacts/web/test/${base}.test.ts`,
@@ -352,9 +354,11 @@ if (existsSync(webHooksDir)) {
 // --- L. web lib/*.ts without co-located test (by file) --------------------
 const webLibDir = "artifacts/web/src/lib";
 if (existsSync(webLibDir)) {
-  const webLibModules = readdirSync(webLibDir).filter((f) => f.endsWith(".ts") && !f.endsWith(".d.ts"));
+  const webLibModules = readdirSync(webLibDir).filter(
+    (f) => (f.endsWith(".ts") || f.endsWith(".tsx")) && !f.endsWith(".d.ts"),
+  );
   for (const mod of webLibModules) {
-    const base = mod.replace(/\.ts$/, "");
+    const base = mod.replace(/\.tsx?$/, "");
     const testCandidates = [
       `artifacts/web/test/${base}.test.mjs`,
       `artifacts/web/test/${base}.test.ts`,

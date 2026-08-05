@@ -13,7 +13,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const ACCESS_STORAGE = "streamline.accessJwt";
 const AUTH_FETCH_OPTS: RequestInit = { credentials: "include" };
 
-function consumeTokenFromUrl(setHostToken: (token: string | null) => void): void {
+export function consumeTokenFromUrl(setHostToken: (token: string | null) => void): void {
   const params = new URLSearchParams(window.location.search);
   const token = params.get("token");
   if (token) {

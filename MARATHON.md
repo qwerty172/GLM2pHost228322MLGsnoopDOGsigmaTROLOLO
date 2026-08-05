@@ -6,16 +6,16 @@
 > **Cron (рекомендуемый):** пн/чт 09:00 UTC — `0 9 * * 1,4`  
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
-> **Последнее обновление:** 2026-08-05 (M-77 done; connection-labels unit-тест + фикс regex сканера)
+> **Последнее обновление:** 2026-08-05 (M-78 done; scanner .tsx hooks + use-auth/use-mobile unit-тесты)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 04:00 UTC |
-| Task ID | M-77 |
-| Результат | web lib: unit-тест connection-labels.ts (ICE_CONNECTION_LABELS, ICE_TONE_STYLES); фикс regex сканера для `export const X:` |
-| Commit | 191f763 |
+| Дата | 2026-08-05 04:06 UTC |
+| Task ID | M-78 |
+| Результат | scanner: категории L/M ловят `.tsx`; use-auth `consumeTokenFromUrl` unit-тест; bonus: use-mobile `isMobileViewportWidth` |
+| Commit | 4103a7f |
 
 **Commit hash** в Last run — только при реальном изменении. Не делать отдельный commit «fix hash».
 
@@ -25,7 +25,7 @@
 
 **Основные циклы (1–4 + Wave UX/Regression):** agent-задач нет — idle.
 
-**Wave Maintenance:** idle — web lib полностью покрыт (M-69…M-77); сканер regex фикс для typed `export const`.
+**Wave Maintenance:** M-79 pending — `use-player-wallet.tsx` unit-тест (сканер расширен на `.tsx` hooks).
 
 **Workflow:**
 - `node scripts/marathon-groom.mjs --should-run [--mark-skipped]` — skip только при `pr_in_flight` или активном `in_progress`; **без** интервального recent_run
@@ -297,6 +297,8 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-75 | L | web lib: unit-тест (utils.ts) | `artifacts/web/src/lib/utils.ts` | l:artifacts/web/src/lib/utils.ts | done | agent |
 | M-76 | M | web hooks: unit-тест (use-platform-events.ts) | `artifacts/web/src/hooks/use-platform-events.ts` | m:artifacts/web/src/hooks/use-platform-events.ts | done | agent |
 | M-77 | L | web lib: unit-тест (connection-labels.ts) | `artifacts/web/src/lib/connection-labels.ts` | l:artifacts/web/src/lib/connection-labels.ts | done | agent |
+| M-78 | M | web hooks: unit-тест (use-auth.tsx) | `artifacts/web/src/hooks/use-auth.tsx` | m:artifacts/web/src/hooks/use-auth.tsx | done | agent |
+| M-79 | M | web hooks: unit-тест (use-player-wallet.tsx) | `artifacts/web/src/hooks/use-player-wallet.tsx` | m:artifacts/web/src/hooks/use-player-wallet.tsx | pending | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).
