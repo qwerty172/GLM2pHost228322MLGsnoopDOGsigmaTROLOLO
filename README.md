@@ -40,6 +40,13 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
+**3 команды — игра в браузере:** [`QUICKSTART.md`](./QUICKSTART.md)
+
+```bash
+pnpm dev:db && pnpm bootstrap && pnpm dev
+# или одной строкой: pnpm quickstart
+```
+
 Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
 
 **Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
