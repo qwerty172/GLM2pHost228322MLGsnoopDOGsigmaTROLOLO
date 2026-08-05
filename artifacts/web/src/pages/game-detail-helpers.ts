@@ -106,3 +106,34 @@ export function canAffordBlock(
 ): boolean {
   return blockCost === null || totalAvailableLzt >= blockCost;
 }
+
+/** U-30: фиксированный курс LZT ↔ USD (как в wallet/landing). */
+export const LZT_PER_USD = 200;
+
+/** U-30: краткое объяснение валюты для первой минуты на странице игры. */
+export const LZT_EXPLAINER =
+  "LZT (Lozet Token) — внутренняя валюта платформы. Курс фиксированный: 1 USDT = 200 LZT.";
+
+/** U-30: почему кредит не участвует в claim — до экрана подготовки сессии. */
+export const CLAIM_BALANCE_NOTE =
+  "Для старта сессии используется только игровой баланс и средства к выводу; кредит платформы на первый claim не тратится.";
+
+export function computeMinPriceLzt(
+  hosts: Array<{ pricePerMinuteLzt: number }>,
+): number | null {
+  if (!hosts.length) return null;
+  return Math.min(...hosts.map((h) => h.pricePerMinuteLzt));
+}
+
+export function formatUsdPerMinute(lzt: number): string {
+  const usd = lzt / LZT_PER_USD;
+  const digits = usd >= 0.1 ? 2 : usd >= 0.01 ? 3 : 4;
+  return parseFloat(usd.toFixed(digits)).toString();
+}
+
+/** U-30: цена за минуту в LZT и USD + ориентир за час. */
+export function formatMinutePriceDetail(pricePerMinuteLzt: number): string {
+  const usd = formatUsdPerMinute(pricePerMinuteLzt);
+  const perHour = pricePerMinuteLzt * 60;
+  return `${pricePerMinuteLzt} LZT/мин ≈ $${usd}/мин · ${perHour} LZT/час`;
+}

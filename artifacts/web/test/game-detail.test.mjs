@@ -17,6 +17,12 @@ const {
   getPingLabel,
   computeMinsAvailable,
   canAffordBlock,
+  LZT_PER_USD,
+  LZT_EXPLAINER,
+  CLAIM_BALANCE_NOTE,
+  computeMinPriceLzt,
+  formatUsdPerMinute,
+  formatMinutePriceDetail,
 } = await import("../src/pages/game-detail-helpers.ts");
 
 function host(overrides = {}) {
@@ -133,4 +139,16 @@ test("computeMinsAvailable and canAffordBlock", () => {
   assert.equal(canAffordBlock(100, 50), true);
   assert.equal(canAffordBlock(100, null), true);
   assert.equal(canAffordBlock(50, 100), false);
+});
+
+test("U-30 first-minute pricing helpers expose LZT rate, price detail and claim note", () => {
+  assert.equal(LZT_PER_USD, 200);
+  assert.match(LZT_EXPLAINER, /LZT/);
+  assert.match(LZT_EXPLAINER, /200 LZT/);
+  assert.match(CLAIM_BALANCE_NOTE, /кредит/i);
+  assert.match(CLAIM_BALANCE_NOTE, /claim/i);
+  assert.equal(computeMinPriceLzt([]), null);
+  assert.equal(computeMinPriceLzt([host({ pricePerMinuteLzt: 12 }), host({ pricePerMinuteLzt: 8 })]), 8);
+  assert.equal(formatUsdPerMinute(8), "0.04");
+  assert.equal(formatMinutePriceDetail(10), "10 LZT/мин ≈ $0.05/мин · 600 LZT/час");
 });

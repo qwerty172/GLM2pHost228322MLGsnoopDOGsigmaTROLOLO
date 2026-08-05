@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-172 (2026-08-05 19:46 UTC) {#marathon-m-172}
+
+| Проверка | Результат |
+|---|---|
+| game-detail.test.mjs U-30 pricing helpers | PASS — LZT/USD, explainer, claim note |
+| pnpm --filter @workspace/web test | PASS (346 tests) |
+
+**Изменения (U-30):** на странице игры блок «Сколько стоит игра» с ценой LZT/USD/час, объяснением LZT и примечанием про кредит на claim; бейдж «от X LZT/мин» с USD.
+
+**Следующий pick:** M-137 (auth-verifier discord unit test).
+
 ## Marathon M-171 (2026-08-05 19:30 UTC) {#marathon-m-171}
 
 | Проверка | Результат |
@@ -24,7 +35,7 @@
 
 **Изменения (U-29):** на мобиле кнопка «Фильтры» открывает bottom Sheet с категориями, жанрами, возможностями и слайдером цены; активные фильтры — чипами над сеткой.
 
-**Следующий pick:** M-172 (U-30 первая минута: цена и LZT).
+**Следующий pick:** M-137 (auth-verifier discord unit test).
 
 ## Marathon M-170 (2026-08-05 19:25 UTC) {#marathon-m-170}
 

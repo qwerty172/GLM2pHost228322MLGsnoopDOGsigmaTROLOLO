@@ -19,6 +19,7 @@ import {
   ArrowRight,
   Bell,
   Calendar,
+  CircleDollarSign,
   Eye,
   Gamepad2,
   Loader2,
@@ -37,10 +38,15 @@ import { SiteNav } from "@/components/site-nav";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
 import {
   chip,
+  CLAIM_BALANCE_NOTE,
+  computeMinPriceLzt,
   computeTotalLatency,
   filterHostsByTag,
+  formatMinutePriceDetail,
+  formatUsdPerMinute,
   getLatencyColor,
   getLatencyLabel,
+  LZT_EXPLAINER,
   resolveCoverImageUrl,
   sortHostsByLatency,
 } from "@/pages/game-detail-helpers";
@@ -147,6 +153,11 @@ export default function GameDetailPage() {
 
   const totalHostCount = (libraryHosts ?? []).length;
 
+  const minPriceLzt = useMemo(
+    () => computeMinPriceLzt(libraryHosts ?? []),
+    [libraryHosts],
+  );
+
   return (
     <div className="min-h-screen text-slate-300" style={{ background: "#06090e" }}>
       <SiteNav activePath="/games" />
@@ -246,17 +257,19 @@ export default function GameDetailPage() {
                   )}
                 </div>
 
-                {(libraryHosts ?? []).length > 0 && (
+                {(libraryHosts ?? []).length > 0 && minPriceLzt != null && (
                   <div className="mt-6 flex flex-wrap items-center gap-3">
                     <div
                       className="px-3 py-2 rounded-lg text-sm font-semibold"
                       style={{ background: "rgba(14,165,233,0.08)", border: "1px solid rgba(14,165,233,0.15)" }}
+                      data-testid="badge-hero-minute-price"
                     >
                       <span className="text-slate-500 font-normal text-xs mr-1.5">от</span>
-                      <span className="text-sky-300">
-                        {Math.min(...(libraryHosts ?? []).map((h) => h.pricePerMinuteLzt))} LZT
-                      </span>
+                      <span className="text-sky-300">{minPriceLzt} LZT</span>
                       <span className="text-slate-500 font-normal text-xs ml-1">/мин</span>
+                      <span className="text-slate-600 font-mono text-xs ml-1.5">
+                        ≈ ${formatUsdPerMinute(minPriceLzt)}
+                      </span>
                     </div>
                     <div className="text-xs text-slate-500">
                       {onlineHosts.length > 0 ? (
@@ -295,6 +308,36 @@ export default function GameDetailPage() {
                 )}
               </div>
             </div>
+
+            {minPriceLzt != null && (
+              <section
+                className="mb-8 rounded-xl p-4"
+                style={{
+                  background: "rgba(14,165,233,0.05)",
+                  border: "1px solid rgba(14,165,233,0.12)",
+                }}
+                data-testid="first-minute-pricing"
+              >
+                <h2 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
+                  <CircleDollarSign className="h-4 w-4 text-sky-400" />
+                  Сколько стоит игра
+                </h2>
+                <p
+                  className="text-sm font-mono text-sky-300"
+                  data-testid="text-minute-price-detail"
+                >
+                  {formatMinutePriceDetail(minPriceLzt)}
+                </p>
+                <p className="text-xs text-slate-400 mt-2 leading-relaxed">{LZT_EXPLAINER}</p>
+                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">{CLAIM_BALANCE_NOTE}</p>
+                <Link href="/wallet">
+                  <span className="inline-flex items-center gap-1 mt-3 text-xs text-sky-400 hover:underline cursor-pointer">
+                    Пополнить баланс
+                    <ArrowRight className="h-3 w-3" />
+                  </span>
+                </Link>
+              </section>
+            )}
 
             <section>
               <h2 className="text-lg font-bold tracking-tight mb-4 flex items-center gap-2 flex-wrap text-white">
