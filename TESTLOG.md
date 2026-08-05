@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-232 (2026-08-05 23:19 UTC) {#marathon-m-232}
+
+| Проверка | Результат |
+|---|---|
+| jwt.test.ts | PASS (6 tests) |
+
+**Изменения:** `artifacts/api-server/src/lib/jwt.test.ts` — unit-тесты для `generateRefreshToken`, `signWsTicket`, `verifyWsTicket` (round-trip, invalid ticket).
+
+**Следующий pick:** M-233 (тест не покрывает экспорты: objectAcl).
+
 ## Marathon M-231 (2026-08-05 23:17 UTC) {#marathon-m-231}
 
 | Проверка | Результат |

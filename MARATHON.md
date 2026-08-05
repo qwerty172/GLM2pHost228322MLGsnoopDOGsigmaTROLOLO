@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 23:16 UTC|
-| Task ID | M-231|
-| Результат | joinCodes.test.ts PASS (11 tests): ensureJoinCodeForSession, exchangeJoinCode, ensureJoinCodeForPlayerToken|
+| Дата | 2026-08-05 23:19 UTC|
+| Task ID | M-232|
+| Результат | jwt.test.ts: generateRefreshToken, signWsTicket, verifyWsTicket (6 tests PASS)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -584,7 +584,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-229 | V | тест не покрывает экспорты (1): hostTier | `artifacts/api-server/src/lib/hostTier.ts` | v:artifacts/api-server/src/lib/hostTier.ts | done | agent |
 | M-230 | V | тест не покрывает экспорты (1): invites | `artifacts/api-server/src/lib/invites.ts` | v:artifacts/api-server/src/lib/invites.ts | done | agent |
 | M-231 | V | тест не покрывает экспорты (3): joinCodes | `artifacts/api-server/src/lib/joinCodes.ts` | v:artifacts/api-server/src/lib/joinCodes.ts | done | agent |
-| M-232 | V | тест не покрывает экспорты (3): jwt | `artifacts/api-server/src/lib/jwt.ts` | v:artifacts/api-server/src/lib/jwt.ts | pending | agent |
+| M-232 | V | тест не покрывает экспорты (3): jwt | `artifacts/api-server/src/lib/jwt.ts` | v:artifacts/api-server/src/lib/jwt.ts | done | agent |
 | M-233 | V | тест не покрывает экспорты (2): objectAcl | `artifacts/api-server/src/lib/objectAcl.ts` | v:artifacts/api-server/src/lib/objectAcl.ts | pending | agent |
 | M-234 | V | тест не покрывает экспорты (1): objectStorage | `artifacts/api-server/src/lib/objectStorage.ts` | v:artifacts/api-server/src/lib/objectStorage.ts | pending | agent |
 | M-235 | V | тест не покрывает экспорты (3): pgNotify | `artifacts/api-server/src/lib/pgNotify.ts` | v:artifacts/api-server/src/lib/pgNotify.ts | pending | agent |
