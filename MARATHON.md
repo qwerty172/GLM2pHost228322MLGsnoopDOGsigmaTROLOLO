@@ -90,7 +90,7 @@
 | scanner_empty | **СРАЗУ EXPAND SCANNER** — новая категория в `marathon-scan.mjs` → `--sync-marathon` → один feat-коммит |
 | pendingMnn>0 | **EXECUTE** первую M-NN — без анализа, без meta |
 | pr_in_flight | STOP или закрыть мёртвый PR >1ч |
-| полный idle | `marathon-efficiency.mjs --apply` (метрики + закрыть draft idle PR) → exit 0 |
+| полный idle | `marathon-efficiency.mjs --apply` (метрики, без закрытия PR) → exit 0 |
 
 **Запрещено (все три петли из 1000+ пустых runs):**
 1. **Idle-коммит** — «Marathon idle» + commit Last run (~300 мусорных коммитов 03.08)
@@ -127,7 +127,7 @@
 - **Сканер (`scripts/marathon-scan.mjs --next`)** — пропускает M-NN done/in_progress по файлу.
 - **Legacy C*/UX*/REG* с `done` — automation НИКОГДА не берёт в работу** (нет 161e0d7 в основных циклах).
 - **Открытые PR не делают задачу in_progress.** Automation выбирает по MARATHON, не по PR-списку.
-- **~100 DRAFT-PR (2026-08-03) — superseded by merge-backlog `adc6fd3`.** Не закрывать вручную, не плодить новые.
+- **~240+ open DRAFT PR (legacy)** — **ИГНОР навсегда.** Не закрывать, не мержить, не тратить run. Блокирует только **non-draft** PR на текущую M-NN (`pr_in_flight`).
 
 ### Самоулучшение (meta) — automation чинит сам процесс
 

@@ -33,4 +33,5 @@ echo "$PICK"
 #   - анализ/исследование вместо задачи при pendingMnn>0
 #   - list-cloud-agents / automation_memory / чтение MARATHON.md (скрипты уже дали pick)
 #   - открывать PR как замену merge в main
+#   - закрывать/мержить старые draft PR (200+ legacy — ИГНОР, не блокируют)
 #   - commit при пустом git diff

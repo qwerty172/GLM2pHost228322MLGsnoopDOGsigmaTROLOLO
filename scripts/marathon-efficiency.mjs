@@ -130,9 +130,18 @@ function buildAnalysis() {
   }
   if (idlePrs.length > 0) {
     recommendations.push({
-      id: "close_idle_drafts",
-      severity: "medium",
-      msg: `${idlePrs.length} draft PR «Marathon idle» — закрыть: node scripts/marathon-efficiency.mjs --apply`,
+      id: "ignore_draft_prs",
+      severity: "info",
+      ignore: true,
+      msg: `${idlePrs.length} draft PR «Marathon idle» — ИГНОР (не блокируют; закрывать не обязательно)`,
+    });
+  }
+  if (prStats.draft > 50) {
+    recommendations.push({
+      id: "ignore_marathon_drafts",
+      severity: "info",
+      ignore: true,
+      msg: `${prStats.draft} draft marathon PR — ИГНОР (legacy мусор; pr_in_flight только non-draft)`,
     });
   }
   if (lag.ahead > 0 && lag.branch !== "main") {
@@ -202,25 +211,10 @@ function updateLastRun(taskId, result) {
   console.log(JSON.stringify({ updated: true, taskId }));
 }
 
-function applyFixes(analysis) {
-  const closed = [];
-  for (const pr of analysis.idleDraftPrs) {
-    try {
-      execSync(`gh pr close ${pr.number}`, { encoding: "utf8", timeout: 20000 });
-      closed.push(pr.number);
-    } catch {
-      try {
-        execSync(`gh api -X PATCH repos/{owner}/{repo}/pulls/${pr.number} -f state=closed`, {
-          encoding: "utf8",
-          timeout: 20000,
-        });
-        closed.push(pr.number);
-      } catch {
-        /* skip */
-      }
-    }
-  }
-  return closed;
+function applyFixes(_analysis) {
+  // Draft PR не закрываем: token часто без прав, 40+ gh-вызовов = waste run.
+  // Блокирует только non-draft PR (см. marathon-groom hasOpenPrForTask).
+  return [];
 }
 
 function updateMarathonEfficiencySection(analysis) {

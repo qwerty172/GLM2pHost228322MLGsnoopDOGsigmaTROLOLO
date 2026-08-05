@@ -201,6 +201,8 @@ if (SHOULD_RUN) {
     idleStreak,
     scannerEmpty,
     dedupFlipped,
+    ignoreDraftPrs: true,
+    prBlockPolicy: "only non-draft PR on next M-NN blocks (isDraft=false)",
     efficiency: efficiency
       ? {
           taskHitPct: efficiency.metrics?.taskHitPct,
@@ -213,7 +215,7 @@ if (SHOULD_RUN) {
     agentInstruction: skip
       ? `STOP: ${prInFlight ? "pr_in_flight" : "in_progress_active"} — commit MARATHON if needed, exit`
       : nextId
-        ? `EXECUTE ${nextId} only: code/tests per marathon-scan --next. Last run: node scripts/marathon-last-run.mjs --task ${nextId} --result "..." в ТОМ ЖЕ коммите. В КОНЦЕ: merge своей ветки в main + git push origin main (без merge работа теряется). NO hash commit, NO idle commit, NO list-cloud-agents/automation_memory`
+        ? `EXECUTE ${nextId} only: code/tests per marathon-scan --next. Last run: marathon-last-run.mjs в том же коммите. Merge→main + push. IGNORE все open DRAFT PR (legacy, не закрывать). NO hash/idle commits. NO list-cloud-agents/automation_memory`
         : expandNow
           ? `EXPAND SCANNER NOW: grouped=0. Add category to marathon-scan.mjs → --sync-marathon → one feat commit. NO analysis-only exit.`
           : needsExpand
