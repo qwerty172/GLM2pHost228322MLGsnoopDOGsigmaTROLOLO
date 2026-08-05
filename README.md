@@ -4,6 +4,8 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 **Стек:** pnpm monorepo · TypeScript · React + Vite · Express 5 · PostgreSQL + Drizzle ORM · WebRTC · Electron (Windows agent)
 
+> **Быстрый старт (3 команды):** [`QUICKSTART.md`](./QUICKSTART.md) — `pnpm quickstart` → демо-игра в браузере без Windows-агента.
+
 ---
 
 ## Архитектура
