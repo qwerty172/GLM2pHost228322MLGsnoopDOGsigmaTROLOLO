@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-05 (M-138 done; providers-telegram.test.ts)
+> **Последнее обновление:** 2026-08-05 (M-139 done; router.test.ts)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 19:58 UTC|
-| Task ID | M-138|
-| Результат | providers-telegram.test.ts: 10 тестов sendOtp/setWebhook/parseUpdate; auth-verifier 52 PASS|
+| Дата | 2026-08-05 20:01 UTC|
+| Task ID | M-139|
+| Результат | router.test.ts: 15 тестов auth/status/link/challenge/webhooks; auth-verifier 67 PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -506,7 +506,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-172 | R | UX U-30 (P2): Понятная первая минута: сколько стоит и что такое LZT | `pages/game-detail.tsx` | r:U-30 | done | agent |
 | M-137 | Q | auth-verifier: unit-тест (providers/discord.ts) | `auth-verifier/providers/discord.ts` | q:lib/auth-verifier/src/providers/discord.ts | done | agent |
 | M-138 | Q | auth-verifier: unit-тест (providers/telegram.ts) | `auth-verifier/providers/telegram.ts` | q:lib/auth-verifier/src/providers/telegram.ts | done | agent |
-| M-139 | Q | auth-verifier: unit-тест (router.ts) | `auth-verifier/router.ts` | q:lib/auth-verifier/src/router.ts | pending | agent |
+| M-139 | Q | auth-verifier: unit-тест (router.ts) | `auth-verifier/router.ts` | q:lib/auth-verifier/src/router.ts | done | agent |
 | M-173 | N | web components: unit-тест (pre-session-screen.tsx) | `artifacts/web/src/components/pre-session-screen.tsx` | n:artifacts/web/src/components/pre-session-screen.tsx | pending | agent |
 
 

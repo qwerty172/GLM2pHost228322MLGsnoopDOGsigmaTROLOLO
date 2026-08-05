@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-139 (2026-08-05 20:00 UTC) {#marathon-m-139}
+
+| Проверка | Результат |
+|---|---|
+| lib/auth-verifier/test/router.test.ts | 15 тестов: auth 401, GET /status, POST /link/start, POST /challenge, verify, webhooks telegram/discord |
+| auth-verifier test suite | PASS (67 tests) |
+
+**Изменения:** добавлен `router.test.ts` — HTTP-тесты createVerifierRouter через локальный Express-сервер.
+
+**Следующий pick:** M-173 (web components unit-тест pre-session-screen.tsx).
+
 ## Marathon M-138 (2026-08-05 20:00 UTC) {#marathon-m-138}
 
 | Проверка | Результат |
