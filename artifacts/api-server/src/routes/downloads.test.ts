@@ -404,6 +404,18 @@ describe("GET /downloads/host-agent.zip", () => {
     expect(res.buffer.includes(Buffer.from("package.json"))).toBe(true);
   });
 
+  it("bundles INSTALL.txt aligned with dashboard flow — token embedded, no manual paste (U-12)", async () => {
+    const rawRes = await fetch(`${baseUrl}/downloads/host-agent.zip`);
+    const zip = new AdmZip(Buffer.from(await rawRes.arrayBuffer()));
+    const install = zip.readAsText(zip.getEntry("INSTALL.txt")!);
+    expect(install).toContain("токен");
+    expect(install).toContain("вшит");
+    expect(install).toContain("Скачать агент");
+    expect(install).toContain("Выйти в онлайн");
+    expect(install).not.toMatch(/вставь.*токен/i);
+    expect(install).not.toMatch(/скопир.*токен/i);
+  });
+
   // U-32: the byte-search assertions above only prove the *filename* is
   // present in the archive — they would still pass if config.json existed
   // but was missing hostToken (exactly the regression U-02 must prevent).

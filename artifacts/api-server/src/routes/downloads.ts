@@ -200,86 +200,6 @@ pause
 endlocal
 `;
 
-const INSTALL_TXT = `Cloud Gaming Host Agent — portable bundle
-==========================================
-
-What this is
-------------
-This ZIP contains the source and built JavaScript for the Cloud Gaming
-host agent (an Electron desktop app). Use it to host games on Windows
-when you don't have access to a signed installer (.exe) build.
-
-Requirements
-------------
-- Windows 10/11 (x64)
-- Node.js 20 or newer — install from https://nodejs.org
-
-How to run
-----------
-1. Extract this ZIP anywhere (for example: C:\\CloudGamingHost).
-2. Double-click "start.bat".
-
-   What start.bat does automatically:
-   a. Checks that Node.js 20+ is installed — exits with a clear message
-      if not.
-   b. On first run, runs "npm install" to fetch Electron and all helper
-      packages (2-3 minutes, happens once per machine).
-   c. If you later upgrade Node.js, it detects the version change and
-      re-installs automatically so native addons (e.g. koffi) stay
-      compatible.
-   d. Launches Electron directly from the local node_modules — no npx
-      confirmation prompts, no internet required after the first install.
-
-3. The agent window opens. If you downloaded the ZIP from your Host
-   Dashboard while signed in, your host token and platform URL are
-   already configured — no copy-paste needed. Otherwise sign in with
-   the host token from the dashboard, choose a game window to capture,
-   and you are live.
-
-Optional: build a real installer (.exe)
----------------------------------------
-On a Windows machine with Node.js installed, you can produce a signed
-NSIS installer:
-
-    npm install
-    npm run package:win
-
-The installer ends up in the "release" folder.
-
-Если не работает — чеклист
---------------------------
-1. Node.js 20+ установлен? Проверь в командной строке:
-       node --version
-   Если версия ниже 20 (или команда не найдена) — установи с
-   https://nodejs.org и перезапусти start.bat.
-
-2. Агент запущен и не закрыт? После start.bat должно открыться окно
-   агента (и иконка в трее). Если окно сразу закрывается — запусти
-   start.bat повторно и прочитай сообщение об ошибке.
-
-3. Игры с античитом (EAC, BattlEye и т.п.)? Запускай start.bat
-   ОТ ИМЕНИ АДМИНИСТРАТОРА (правый клик → "Запуск от имени
-   администратора"), иначе управление мышью/клавиатурой может
-   не работать.
-
-4. Файрвол или антивирус? Агент использует локальный порт 18080
-   (для связи с браузером) и исходящие соединения к платформе.
-   Разреши их в настройках файрвола/антивируса, если появляется
-   запрос.
-
-5. Вход выполнен? В окне агента должно быть «Вход выполнен».
-   При скачивании с дашборда токен уже вшит в архив; иначе вставь
-   токен из Host Dashboard вручную.
-
-6. Лог ошибок агента: logs\\agent.log  (в той же папке, куда распакован ZIP)
-
-Need help?
-----------
-Open the Host Dashboard on the web platform — there is a status panel
-that shows whether the agent has connected (карточка "Агент" со
-статусом и временем последнего сигнала).
-`;
-
 router.get("/downloads/host-agent.zip", async (req, res): Promise<void> => {
   const agentDir = RESOLVED_AGENT_DIR;
 
@@ -361,7 +281,7 @@ router.get("/downloads/host-agent.zip", async (req, res): Promise<void> => {
   includeIfPresent("README.md");
 
   archive.append(START_BAT, { name: "start.bat" });
-  archive.append(INSTALL_TXT, { name: "INSTALL.txt" });
+  includeIfPresent("INSTALL.txt");
 
   archive.append(JSON.stringify(bundledConfig, null, 2) + "\n", {
     name: "config.json",
