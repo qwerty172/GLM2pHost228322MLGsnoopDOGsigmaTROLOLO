@@ -70,7 +70,16 @@
 | games.test.ts | 7 тестов — GET /games (catalog+aggregates, 400 invalid bool, hasMods=false), GET /games/:slug (404 unknown/hidden, detail+live sessions, tag filter) |
 | api-server test (games) | PASS (7 tests) |
 
-**Следующий pick:** M-117 (health.ts).
+**Следующий pick:** M-118 (hosts.ts).
+
+## Marathon M-117 (2026-08-05 11:38 UTC) {#marathon-m-117}
+
+| Проверка | Результат |
+|---|---|
+| health.test.ts | 1 тест — GET /healthz → 200 {status: ok} |
+| api-server test (health) | PASS (1 test) |
+
+**Следующий pick:** M-118 (hosts.ts).
 
 ## Marathon M-114 (2026-08-05 11:30 UTC) {#marathon-m-114}
 

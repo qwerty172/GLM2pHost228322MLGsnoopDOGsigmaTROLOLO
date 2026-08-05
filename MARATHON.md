@@ -12,9 +12,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 11:36 UTC|
-| Task ID | M-116|
-| Результат | games.test.ts 7 тестов PASS (GET /games: catalog+aggregates, 400 invalid bool, hasMods=false; GET /games/:slug: 404 unknown/hidden, detail+live sessions, tag filter)|
+| Дата | 2026-08-05 11:38 UTC|
+| Task ID | M-117|
+| Результат | health.test.ts: GET /healthz → 200 {status:ok}; vitest PASS (1 test)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -361,7 +361,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-114 | P | api-server routes: unit-тест (enrich.ts) | `routes/enrich.ts` | p:artifacts/api-server/src/routes/enrich.ts | done | agent |
 | M-115 | P | api-server routes: unit-тест (events.ts) | `routes/events.ts` | p:artifacts/api-server/src/routes/events.ts | done | agent |
 | M-116 | P | api-server routes: unit-тест (games.ts) | `routes/games.ts` | p:artifacts/api-server/src/routes/games.ts | done | agent |
-| M-117 | P | api-server routes: unit-тест (health.ts) | `routes/health.ts` | p:artifacts/api-server/src/routes/health.ts | pending | agent |
+| M-117 | P | api-server routes: unit-тест (health.ts) | `routes/health.ts` | p:artifacts/api-server/src/routes/health.ts | done | agent |
 | M-118 | P | api-server routes: unit-тест (hosts.ts) | `routes/hosts.ts` | p:artifacts/api-server/src/routes/hosts.ts | pending | agent |
 | M-119 | P | api-server routes: unit-тест (joinCodes.ts) | `routes/joinCodes.ts` | p:artifacts/api-server/src/routes/joinCodes.ts | pending | agent |
 | M-120 | P | api-server routes: unit-тест (loans.ts) | `routes/loans.ts` | p:artifacts/api-server/src/routes/loans.ts | pending | agent |
