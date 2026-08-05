@@ -848,3 +848,15 @@ Cron automation: `git pull origin main` → `marathon-reconcile.mjs --apply` →
 | blocked human | C3-D03, C4-S06/D02, REG-03 |
 
 Все изменения зачтены в `main`. Код не менялся.
+
+## Marathon M-70 (2026-08-05 01:40 UTC) {#marathon-m-70}
+
+**Задача:** unit-тест `artifacts/web/src/lib/api-errors.ts` (кат. L).
+
+| Проверка | Результат |
+|---|---|
+| `artifacts/web/test/api-errors.test.mjs` | 11 тестов — extractApiErrorPayload, formatApiError, formatApiErrorPanel |
+| `pnpm --filter @workspace/web run test` | 19/19 pass |
+| `pnpm typecheck` | pass |
+
+**Следующий pick:** M-71 `ice-prewarm.ts`.
