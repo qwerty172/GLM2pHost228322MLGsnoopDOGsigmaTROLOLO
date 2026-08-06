@@ -18,7 +18,15 @@ import { putBlobToUrl } from "@/lib/put-external-blob";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Gamepad2, AlertCircle, Loader2, Wifi, WifiOff, VolumeX, Clock, TrendingDown, Activity, RefreshCw, Clapperboard, Settings2, X, Layers, ExternalLink, FlaskConical } from "lucide-react";
+import { Gamepad2, AlertCircle, Loader2, Wifi, WifiOff, VolumeX, Clock, TrendingDown, Activity, RefreshCw, Clapperboard, Settings2, X, Layers, ExternalLink, FlaskConical, MoreHorizontal } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { WebGLVideoShader, SHADER_PRESETS, type PresetKey } from "@/components/webgl-video-shader";
 import { TouchOverlay } from "@/components/TouchOverlay";
 import { KeyboardOverlay } from "@/components/KeyboardOverlay";
@@ -1600,126 +1608,83 @@ export default function Play() {
           );
         })()}
 
-        <div className="flex items-center gap-2">
-          {/* Clip button — only when DC is open */}
-          <div className="flex items-center gap-1 pointer-events-auto">
-            <Button
-              size="sm"
-              onClick={() => void saveClip()}
-              disabled={!dataChannelOpen || isSavingClip}
-              title={dataChannelOpen ? "Сохранить последние ~30 сек" : "Доступно после подключения"}
-              className="shadow-md gap-1.5"
-              style={{
-                background: dataChannelOpen ? "rgba(139,92,246,0.85)" : "rgba(100,100,100,0.4)",
-                color: "#fff",
-                opacity: dataChannelOpen ? 1 : 0.5,
-              }}
+        <div className="flex items-center gap-2 pointer-events-auto">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                className="shadow-md gap-1.5 bg-black/40 border-white/15 text-slate-200 hover:bg-white/10"
+                data-testid="play-more-menu"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+                Ещё
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-56 bg-[#0a1018] border-white/10 text-slate-200"
             >
-              {isSavingClip ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Clapperboard className="h-3.5 w-3.5" />
+              <DropdownMenuItem
+                disabled={!dataChannelOpen || isSavingClip}
+                onClick={() => void saveClip()}
+                className="gap-2 cursor-pointer"
+              >
+                {isSavingClip ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Clapperboard className="h-4 w-4" />
+                )}
+                Сохранить клип (~30 с)
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setShowClipSettings((v) => !v)}
+                className="gap-2 cursor-pointer"
+              >
+                <Settings2 className="h-4 w-4" />
+                Настройки клипов
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-white/10" />
+              <DropdownMenuCheckboxItem
+                checked={gamepadOverlay}
+                onCheckedChange={(checked) => {
+                  setGamepadOverlay(checked);
+                  if (!checked) setGamepadEditMode(false);
+                }}
+                className="gap-2 cursor-pointer"
+              >
+                <Gamepad2 className="h-4 w-4" />
+                Виртуальный геймпад
+              </DropdownMenuCheckboxItem>
+              {gamepadOverlay && (
+                <DropdownMenuCheckboxItem
+                  checked={gamepadEditMode}
+                  onCheckedChange={setGamepadEditMode}
+                  className="gap-2 cursor-pointer pl-8"
+                >
+                  Редактировать раскладку
+                </DropdownMenuCheckboxItem>
               )}
-              Клип
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setShowClipSettings((v) => !v)}
-              title="Настройки облачного сохранения"
-              className="shadow-md px-2"
-              style={{
-                background: showClipSettings ? "rgba(139,92,246,0.6)" : "rgba(255,255,255,0.07)",
-                color: "#fff",
-                border: "1px solid rgba(255,255,255,0.12)",
-              }}
-            >
-              <Settings2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-
-          {/* Gamepad overlay toggle */}
-          <button
-            onClick={() => {
-              setGamepadOverlay((v) => {
-                if (v) setGamepadEditMode(false);
-                return !v;
-              });
-            }}
-            className="pointer-events-auto"
-            title="Виртуальный геймпад"
-            style={{
-              background: gamepadOverlay ? "rgba(14,165,233,0.25)" : "rgba(255,255,255,0.08)",
-              border: gamepadOverlay ? "1px solid rgba(14,165,233,0.6)" : "1px solid rgba(255,255,255,0.15)",
-              borderRadius: 8,
-              padding: "5px 8px",
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-              color: gamepadOverlay ? "#38bdf8" : "#94a3b8",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            <Gamepad2 style={{ width: 15, height: 15 }} />
-            Геймпад
-          </button>
-
-          {/* Layout edit toggle — only shown when overlay is active */}
-          {gamepadOverlay && (
-            <button
-              onClick={() => setGamepadEditMode((v) => !v)}
-              className="pointer-events-auto"
-              title="Редактировать раскладку"
-              style={{
-                background: gamepadEditMode ? "rgba(234,179,8,0.25)" : "rgba(255,255,255,0.06)",
-                border: gamepadEditMode ? "1px solid rgba(234,179,8,0.7)" : "1px solid rgba(255,255,255,0.12)",
-                borderRadius: 8,
-                padding: "5px 8px",
-                color: gamepadEditMode ? "#fde047" : "#64748b",
-                fontSize: 11,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              {gamepadEditMode ? "✓ Готово" : "✎"}
-            </button>
-          )}
-
-
-          {/* Shader toggle button */}
-          <button
-            onClick={() => setShowShaderPanel((v) => !v)}
-            className="pointer-events-auto"
-            title="Шейдеры и пост-обработка"
-            style={{
-              background: shaderActive
-                ? "rgba(16,185,129,0.25)"
-                : showShaderPanel
-                  ? "rgba(255,255,255,0.12)"
-                  : "rgba(255,255,255,0.06)",
-              border: shaderActive
-                ? "1px solid rgba(16,185,129,0.6)"
-                : "1px solid rgba(255,255,255,0.12)",
-              borderRadius: 8,
-              padding: "5px 8px",
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-              color: shaderActive ? "#34d399" : "#64748b",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            <Layers style={{ width: 15, height: 15 }} />
-            {shaderActive ? SHADER_PRESETS[activePreset as Exclude<PresetKey, "custom">]?.label ?? "Кастом" : "Шейдер"}
-          </button>
+              <DropdownMenuCheckboxItem
+                checked={showShaderPanel || shaderActive}
+                onCheckedChange={(checked) => setShowShaderPanel(checked)}
+                className="gap-2 cursor-pointer"
+              >
+                <Layers className="h-4 w-4" />
+                Качество и шейдеры
+                {shaderActive && (
+                  <span className="ml-auto text-[10px] text-emerald-400">
+                    {SHADER_PRESETS[activePreset as Exclude<PresetKey, "custom">]?.label ?? "GLSL"}
+                  </span>
+                )}
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <Button
             size="sm"
             onClick={cleanupConnection}
-            className="pointer-events-auto shadow-md"
+            className="shadow-md"
             style={{
               background: "rgba(239,68,68,0.85)",
               color: "#fff",
