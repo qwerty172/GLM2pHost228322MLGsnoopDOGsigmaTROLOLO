@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-06 (M-257 done; KeyboardOverlay coverage)
+> **Последнее обновление:** 2026-08-06 (M-258 done; usePlayNowHref export test)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-06 06:46 UTC|
-| Task ID | M-257|
-| Результат | KeyboardOverlay.test.mjs +11 component tests (happy-dom); coverage 50%→99%|
+| Дата | 2026-08-06 12:47 UTC|
+| Task ID | M-258|
+| Результат | use-play-now-href.test.mjs +2 tests (usePlayNowHref export + href resolution)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -610,6 +610,10 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-255 | V | тест не покрывает экспорты (2): window-match | `artifacts/host-agent/src/shared/window-match.ts` | v:artifacts/host-agent/src/shared/window-match.ts | done | agent |
 | M-256 | X | покрытие 41% → 50%: TouchOverlay.tsx | `artifacts/web/src/components/TouchOverlay.tsx` | x:artifacts/web/src/components/TouchOverlay.tsx | done | agent |
 | M-257 | X | покрытие 50% → 65%: KeyboardOverlay.tsx | `artifacts/web/src/components/KeyboardOverlay.tsx` | x:artifacts/web/src/components/KeyboardOverlay.tsx | done | agent |
+| M-258 | V | тест не покрывает экспорты (1): use-play-now-href | `artifacts/web/src/hooks/use-play-now-href.ts` | v:artifacts/web/src/hooks/use-play-now-href.ts | done | agent |
+| M-259 | X | покрытие 68% → 80%: webgl-video-shader.tsx | `artifacts/web/src/components/webgl-video-shader.tsx` | x:artifacts/web/src/components/webgl-video-shader.tsx | pending | agent |
+| M-260 | X | покрытие 68% → 80%: use-mobile.tsx | `artifacts/web/src/hooks/use-mobile.tsx` | x:artifacts/web/src/hooks/use-mobile.tsx | pending | agent |
+| M-261 | X | покрытие 68% → 80%: use-platform-events.ts | `artifacts/web/src/hooks/use-platform-events.ts` | x:artifacts/web/src/hooks/use-platform-events.ts | pending | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).

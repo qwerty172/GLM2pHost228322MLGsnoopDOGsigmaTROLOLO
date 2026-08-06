@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-06T06:44:55.440Z",
+  "generatedAt": "2026-08-06T12:45:32.533Z",
   "tier": 80,
   "tiers": [
     50,
@@ -286,8 +286,8 @@
       "pct": 89
     },
     "artifacts/web/src/pages/landing-helpers.ts": {
-      "lines": 128,
-      "covered": 119,
+      "lines": 131,
+      "covered": 122,
       "pct": 93
     },
     "artifacts/web/src/pages/play-helpers.ts": {

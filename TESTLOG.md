@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-258 (2026-08-06 12:46 UTC) {#marathon-m-258}
+
+| Проверка | Результат |
+|---|---|
+| use-play-now-href.test.mjs | PASS (+2 tests: usePlayNowHref export + href resolution) |
+
+**Изменения:** `artifacts/web/test/use-play-now-href.test.mjs` — покрыт экспорт `usePlayNowHref` и логика invite/fallback через landing-helpers.
+
+**Следующий pick:** marathon-scan --next (M-259 webgl-video-shader coverage).
+
 ## Marathon M-257 (2026-08-06 06:41 UTC) {#marathon-m-257}
 
 | Проверка | Результат |
