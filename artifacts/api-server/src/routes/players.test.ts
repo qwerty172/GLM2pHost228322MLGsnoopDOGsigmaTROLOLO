@@ -3,6 +3,7 @@ import type { AddressInfo } from "node:net";
 import express from "express";
 import {
   afterAll,
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
@@ -155,7 +156,7 @@ vi.mock("../lib/redis", () => ({
   isRedisAvailable: vi.fn(() => false),
 }));
 
-const { default: playersRouter } = await import("./players");
+const { default: playersRouter, devGuestStarterLzt } = await import("./players");
 
 let baseUrl = "";
 let server: Server;
@@ -226,6 +227,36 @@ beforeEach(() => {
       where: vi.fn(() => makeWhere()),
     })),
   }));
+});
+
+describe("devGuestStarterLzt", () => {
+  const origNodeEnv = process.env.NODE_ENV;
+  const origStarter = process.env.DEV_GUEST_STARTER_LZT;
+
+  afterEach(() => {
+    if (origNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = origNodeEnv;
+    if (origStarter === undefined) delete process.env.DEV_GUEST_STARTER_LZT;
+    else process.env.DEV_GUEST_STARTER_LZT = origStarter;
+  });
+
+  it("returns 0 outside development", () => {
+    process.env.NODE_ENV = "production";
+    process.env.DEV_GUEST_STARTER_LZT = "2000";
+    expect(devGuestStarterLzt()).toBe(0);
+  });
+
+  it("returns 0 in development when DEV_GUEST_STARTER_LZT is unset", () => {
+    process.env.NODE_ENV = "development";
+    delete process.env.DEV_GUEST_STARTER_LZT;
+    expect(devGuestStarterLzt()).toBe(0);
+  });
+
+  it("returns configured starter LZT only when explicitly set in development", () => {
+    process.env.NODE_ENV = "development";
+    process.env.DEV_GUEST_STARTER_LZT = "1500";
+    expect(devGuestStarterLzt()).toBe(1500);
+  });
 });
 
 describe("POST /players/register", () => {

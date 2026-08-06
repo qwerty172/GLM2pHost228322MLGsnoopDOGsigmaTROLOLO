@@ -42,10 +42,11 @@ const claimGuestLimiter = rateLimit({
 const GUEST_CREDIT_LIMIT_LZT = 500;
 const DEFAULT_CREDIT_LIMIT_LZT = 3000;
 
-/** В development гости получают стартовый баланс — можно играть без депозита. */
-function devGuestStarterLzt(): number {
+/** В development гости получают стартовый баланс — только при явном DEV_GUEST_STARTER_LZT. */
+export function devGuestStarterLzt(): number {
   if (process.env.NODE_ENV !== "development") return 0;
-  const raw = process.env.DEV_GUEST_STARTER_LZT ?? "2000";
+  const raw = process.env.DEV_GUEST_STARTER_LZT?.trim();
+  if (!raw) return 0;
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
 }
