@@ -48,6 +48,7 @@ import {
   computeWalletBalanceForSession,
   isTouchCapableDevice,
 } from "./play-helpers";
+import { takePrewarmedConnection, prewarmIce } from "@/lib/ice-prewarm";
 
 const isDev = import.meta.env.DEV;
 const devLog = (...args: unknown[]) => {
@@ -214,6 +215,14 @@ export default function Play() {
   const sessionId = session?.id;
   const sessionStatus = session?.status;
   const sessionClaimedBy = session?.claimedByPlayerId;
+  const sessionHostId = session?.hostId;
+
+  // Предсобираем ICE-кандидаты пока игрок на экране подготовки.
+  useEffect(() => {
+    if (sessionHostId && playerToken && !isTestBrowserSession) {
+      void prewarmIce(sessionHostId);
+    }
+  }, [sessionHostId, playerToken, isTestBrowserSession]);
 
   const { playerWalletToken, registerGuest } = usePlayerWallet();
 
@@ -775,16 +784,21 @@ export default function Play() {
 
     // Fetch ICE server config (STUN + optional TURN) from the API.
     let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
-    try {
-      const cfgJson = await getPublicIceConfig();
-      if (Array.isArray(cfgJson.iceServers) && cfgJson.iceServers.length > 0) {
-        iceServers = cfgJson.iceServers;
+    const prewarmed = sessionHostId ? takePrewarmedConnection(sessionHostId) : null;
+    if (prewarmed) {
+      iceServers = prewarmed.iceServers;
+    } else {
+      try {
+        const cfgJson = await getPublicIceConfig();
+        if (Array.isArray(cfgJson.iceServers) && cfgJson.iceServers.length > 0) {
+          iceServers = cfgJson.iceServers;
+        }
+      } catch {
+        devWarn("[ice] Failed to fetch ICE config, using default STUN only");
       }
-    } catch {
-      devWarn("[ice] Failed to fetch ICE config, using default STUN only");
     }
 
-    const pc = new RTCPeerConnection({ iceServers });
+    const pc = prewarmed?.pc ?? new RTCPeerConnection({ iceServers });
     pcRef.current = pc;
 
     pc.onconnectionstatechange = () => {
@@ -875,7 +889,7 @@ export default function Play() {
     };
 
     connectWs(wsUrl, pc);
-  }, [session?.id, playerToken, playerWalletToken, cleanupConnection, connectWs, triggerIceRestart, initClipRecorder]);
+  }, [session?.id, sessionHostId, playerToken, playerWalletToken, cleanupConnection, connectWs, triggerIceRestart, initClipRecorder]);
 
   useEffect(() => {
     if (sessionClaimedBy) {

@@ -36,10 +36,12 @@ test("isSiteNavPathActive matches exact path", () => {
 });
 
 test("getSiteNavPlayHref and isSiteNavPlayActive unify desktop and mobile «Играть»", () => {
-  assert.equal(getSiteNavPlayHref(), "/hosts");
-  assert.equal(SITE_NAV_PLAY_HREF, "/hosts");
+  assert.equal(getSiteNavPlayHref(), "/games");
+  assert.equal(SITE_NAV_PLAY_HREF, "/games");
   assert.equal(isSiteNavPlayActive("/hosts"), true);
-  assert.equal(isSiteNavPlayActive("/games"), false);
+  assert.equal(isSiteNavPlayActive("/play/i/ABC"), true);
+  assert.equal(isSiteNavPlayActive("/games"), true);
+  assert.equal(isSiteNavPlayActive("/profile"), false);
   assert.equal(isSiteNavPlayActive(undefined), false);
 });
 
