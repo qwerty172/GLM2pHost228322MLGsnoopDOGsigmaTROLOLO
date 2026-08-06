@@ -69,18 +69,18 @@ test("resolveJoinRedirectUrl prefers invite code over player token in path", () 
   );
 });
 
-test("filterPlayableHosts keeps online hosts with invite codes up to limit", () => {
+test("filterPlayableHosts keeps heartbeat-online hosts with invite codes up to limit", () => {
   const hosts = [
-    { id: "a", status: "online", inviteCode: "x" },
-    { id: "b", status: "offline", inviteCode: "y" },
-    { id: "c", status: "online", inviteCode: null },
-    { id: "d", status: "online", inviteCode: "z" },
-    { id: "e", status: "online", inviteCode: "w" },
-    { id: "f", status: "online", inviteCode: "v" },
-    { id: "g", status: "online", inviteCode: "u" },
-    { id: "h", status: "online", inviteCode: "t" },
-    { id: "i", status: "online", inviteCode: "s" },
-    { id: "j", status: "online", inviteCode: "r" },
+    { id: "a", isOnline: true, inviteCode: "x" },
+    { id: "b", isOnline: false, inviteCode: "y" },
+    { id: "c", isOnline: true, inviteCode: null },
+    { id: "d", isOnline: true, inviteCode: "z" },
+    { id: "e", isOnline: true, inviteCode: "w" },
+    { id: "f", isOnline: true, inviteCode: "v" },
+    { id: "g", isOnline: true, inviteCode: "u" },
+    { id: "h", isOnline: true, inviteCode: "t" },
+    { id: "i", isOnline: true, inviteCode: "s" },
+    { id: "j", isOnline: true, inviteCode: "r" },
   ];
   const filtered = filterPlayableHosts(hosts, 6);
   assert.equal(filtered.length, 6);
@@ -95,19 +95,22 @@ test("computeLztPerMin prefers game price over host minute USD", () => {
   assert.equal(computeLztPerMin(undefined, 0.04), 8);
 });
 
-test("isPlayableHost accepts status or isOnline with invite code", () => {
-  assert.equal(isPlayableHost({ status: "online", inviteCode: "x" }), true);
+test("isPlayableHost requires agent heartbeat and invite code", () => {
   assert.equal(isPlayableHost({ isOnline: true, inviteCode: "x" }), true);
-  assert.equal(isPlayableHost({ status: "offline", inviteCode: "x" }), false);
-  assert.equal(isPlayableHost({ status: "online", inviteCode: null }), false);
+  assert.equal(
+    isPlayableHost({ status: "online", inviteCode: "x", isOnline: false }),
+    false,
+  );
+  assert.equal(isPlayableHost({ isOnline: false, inviteCode: "x" }), false);
+  assert.equal(isPlayableHost({ isOnline: true, inviteCode: null }), false);
 });
 
 test("pickBestPlayableHost ranks tier, ping, then price", () => {
   const hosts = [
-    { id: "a", status: "online", inviteCode: "a", hostTier: "meets_min", pingMs: 40, minutePriceUsd: 0.05 },
-    { id: "b", status: "online", inviteCode: "b", hostTier: "above_rec", pingMs: 80, minutePriceUsd: 0.06 },
-    { id: "c", status: "online", inviteCode: "c", hostTier: "above_rec", pingMs: 20, minutePriceUsd: 0.08 },
-    { id: "d", status: "offline", inviteCode: "d", hostTier: "above_rec", pingMs: 5, minutePriceUsd: 0.01 },
+    { id: "a", isOnline: true, inviteCode: "a", hostTier: "meets_min", pingMs: 40, minutePriceUsd: 0.05 },
+    { id: "b", isOnline: true, inviteCode: "b", hostTier: "above_rec", pingMs: 80, minutePriceUsd: 0.06 },
+    { id: "c", isOnline: true, inviteCode: "c", hostTier: "above_rec", pingMs: 20, minutePriceUsd: 0.08 },
+    { id: "d", isOnline: false, inviteCode: "d", hostTier: "above_rec", pingMs: 5, minutePriceUsd: 0.01 },
   ];
   assert.equal(pickBestPlayableHost(hosts)?.id, "c");
 });
@@ -115,7 +118,7 @@ test("pickBestPlayableHost ranks tier, ping, then price", () => {
 test("pickBestPlayableHost returns null when no playable hosts", () => {
   assert.equal(pickBestPlayableHost([]), null);
   assert.equal(
-    pickBestPlayableHost([{ status: "offline", inviteCode: "x" }]),
+    pickBestPlayableHost([{ isOnline: false, inviteCode: "x" }]),
     null,
   );
 });

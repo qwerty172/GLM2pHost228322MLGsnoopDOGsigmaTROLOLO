@@ -15,7 +15,7 @@ test("usePlayNowHref is exported React hook", () => {
 
 test("usePlayNowHref resolves invite path or falls back to /games", () => {
   const hosts = [
-    { status: "online", inviteCode: "INV42", hostTier: "above_rec", pingMs: 10 },
+    { isOnline: true, inviteCode: "INV42", hostTier: "above_rec", pingMs: 10 },
   ];
   const best = pickBestPlayableHost(hosts);
   const href = resolvePlayNowInvitePath(best) ?? PLAY_NOW_FALLBACK_HREF;
