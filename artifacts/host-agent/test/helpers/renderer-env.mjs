@@ -83,6 +83,7 @@ export function setupRendererEnv() {
     consumePendingBindCode: async () => null,
     bindAgentKey: async () => ({ ok: true }),
     markSteamGamesAdded: async () => {},
+    scanSteam: async () => ({ steamRoot: null, games: [] }),
     scanSteamLibrary: async () => ({ games: [] }),
     matchSteamCatalog: async () => ({ games: [] }),
     onUpdateReady: () => () => {},

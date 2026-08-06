@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-06 (M-252 done; session export coverage)
+> **Последнее обновление:** 2026-08-06 (M-253 done; steam export coverage)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-06 00:25 UTC|
-| Task ID | M-252|
-| Результат | session.test.mjs PASS: 14 tests for createSession/connect/teardown exports|
+| Дата | 2026-08-06 00:29 UTC|
+| Task ID | M-253|
+| Результат | steam.test.mjs PASS: renderGamePickerSteam + runSteamScan export coverage|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -605,7 +605,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-250 | V | тест не покрывает экспорты (4): library | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/library.ts | done | agent |
 | M-251 | V | тест не покрывает экспорты (1): preview | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/preview.ts | done | agent |
 | M-252 | V | тест не покрывает экспорты (12): session | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/session.ts | done | agent |
-| M-253 | V | тест не покрывает экспорты (2): steam | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/steam.ts | pending | agent |
+| M-253 | V | тест не покрывает экспорты (2): steam | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/steam.ts | done | agent |
 | M-254 | V | тест не покрывает экспорты (1): ui | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/ui.ts | pending | agent |
 | M-255 | V | тест не покрывает экспорты (2): window-match | `artifacts/host-agent/src/shared/window-match.ts` | v:artifacts/host-agent/src/shared/window-match.ts | pending | agent |
 | M-256 | X | покрытие 41% → 50%: TouchOverlay.tsx | `artifacts/web/src/components/TouchOverlay.tsx` | x:artifacts/web/src/components/TouchOverlay.tsx | pending | agent |

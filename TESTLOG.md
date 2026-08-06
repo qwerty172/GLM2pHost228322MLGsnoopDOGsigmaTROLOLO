@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-253 (2026-08-06 00:30 UTC) {#marathon-m-253}
+
+| Проверка | Результат |
+|---|---|
+| steam.test.mjs | PASS (4 new tests) |
+
+**Изменения:** `artifacts/host-agent/test/steam.test.mjs` — unit-тесты для экспортов `renderGamePickerSteam` и `runSteamScan`; `renderer-env.mjs` — stub `scanSteam` для агента.
+
+**Следующий pick:** M-254 (тест не покрывает экспорты: ui).
+
 ## Marathon M-252 (2026-08-06 00:26 UTC) {#marathon-m-252}
 
 | Проверка | Результат |
