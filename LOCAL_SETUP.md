@@ -51,6 +51,13 @@ CREATE DATABASE decentral_hub;
 ## Быстрый старт (Windows)
 
 ```bat
+pnpm setup
+pnpm dev
+```
+
+Или через bat-скрипты (без Docker):
+
+```bat
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
 git checkout cursor/local-test-prep-9755
@@ -79,6 +86,13 @@ scripts\smoke-api.bat
 ---
 
 ## Быстрый старт (Git Bash / Linux / macOS)
+
+```bash
+pnpm setup
+pnpm dev
+```
+
+Или вручную:
 
 ```bash
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
