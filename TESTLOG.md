@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-252 (2026-08-06 00:26 UTC) {#marathon-m-252}
+
+| Проверка | Результат |
+|---|---|
+| session.test.mjs | PASS (14 new tests) |
+
+**Изменения:** `artifacts/host-agent/test/session.test.mjs` — unit-тесты для 12 экспортов session.ts: createSession, connect, attachWsHandlers, sendControlReject, fetchSessionContext, onPlayerJoined, uploadHostStats, teardownPeer, cancelDeferredTeardown, teardownDeferred, teardown, teardownAsync.
+
+**Следующий pick:** M-253 (тест не покрывает экспорты: steam).
+
 ## Marathon M-251 (2026-08-06 00:22 UTC) {#marathon-m-251}
 
 | Проверка | Результат |
