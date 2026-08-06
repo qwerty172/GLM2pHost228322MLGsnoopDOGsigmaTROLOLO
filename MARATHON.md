@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-06 (M-249 done; input-mapping export coverage)
+> **Последнее обновление:** 2026-08-06 (M-250 done; library export coverage)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-06 00:16 UTC|
-| Task ID | M-249|
-| Результат | input-mapping.test.mjs PASS: injectPlayerInput (fallback, key/mouse/wheel, pre-move mousedown)|
+| Дата | 2026-08-06 00:19 UTC|
+| Task ID | M-250|
+| Результат | library.test.mjs PASS: renderLibrary, loadLibrary, showHostGamePicker, startLibraryPolling|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -602,7 +602,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-247 | V | тест не покрывает экспорты (3): config | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/config.ts | done | agent |
 | M-248 | V | тест не покрывает экспорты (1): input-guard | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/input-guard.ts | done | agent |
 | M-249 | V | тест не покрывает экспорты (1): input-mapping | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/input-mapping.ts | done | agent |
-| M-250 | V | тест не покрывает экспорты (4): library | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/library.ts | pending | agent |
+| M-250 | V | тест не покрывает экспорты (4): library | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/library.ts | done | agent |
 | M-251 | V | тест не покрывает экспорты (1): preview | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/preview.ts | pending | agent |
 | M-252 | V | тест не покрывает экспорты (12): session | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/session.ts | pending | agent |
 | M-253 | V | тест не покрывает экспорты (2): steam | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/steam.ts | pending | agent |

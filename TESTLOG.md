@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-250 (2026-08-06 00:18 UTC) {#marathon-m-250}
+
+| Проверка | Результат |
+|---|---|
+| library.test.mjs | PASS (6 new tests) |
+
+**Изменения:** `artifacts/host-agent/test/library.test.mjs` — unit-тесты для экспортов `renderLibrary`, `loadLibrary`, `showHostGamePicker`, `startLibraryPolling`.
+
+**Следующий pick:** M-251 (тест не покрывает экспорты: preview).
+
 ## Marathon M-249 (2026-08-06 00:15 UTC) {#marathon-m-249}
 
 | Проверка | Результат |
