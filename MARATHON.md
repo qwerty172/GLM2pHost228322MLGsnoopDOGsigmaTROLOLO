@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-05 23:58 UTC|
-| Task ID | M-244|
-| Результат | gamepad-injection.test.mjs: disconnectGamepad (win32 release + non-win32 noop, 2 tests PASS)|
+| Дата | 2026-08-06 00:01 UTC|
+| Task ID | M-245|
+| Результат | ping-server.test.mjs: PING_PORT + PING_PORT_FALLBACKS stable constants test|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -597,7 +597,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-242 | V | тест не покрывает экспорты (2): api-client | `artifacts/host-agent/src/main/api-client.ts` | v:artifacts/host-agent/src/main/api-client.ts | done | agent |
 | M-243 | V | тест не покрывает экспорты (4): config | `artifacts/host-agent/src/main/config.ts` | v:artifacts/host-agent/src/main/config.ts | done | agent |
 | M-244 | V | тест не покрывает экспорты (1): gamepad-injection | `artifacts/host-agent/src/main/gamepad-injection.ts` | v:artifacts/host-agent/src/main/gamepad-injection.ts | done | agent |
-| M-245 | V | тест не покрывает экспорты (2): ping-server | `artifacts/host-agent/src/main/ping-server.ts` | v:artifacts/host-agent/src/main/ping-server.ts | pending | agent |
+| M-245 | V | тест не покрывает экспорты (2): ping-server | `artifacts/host-agent/src/main/ping-server.ts` | v:artifacts/host-agent/src/main/ping-server.ts | done | agent |
 | M-246 | V | тест не покрывает экспорты (3): agent-auth | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/agent-auth.ts | pending | agent |
 | M-247 | V | тест не покрывает экспорты (3): config | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/config.ts | pending | agent |
 | M-248 | V | тест не покрывает экспорты (1): input-guard | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/input-guard.ts | pending | agent |

@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-245 (2026-08-06 00:02 UTC) {#marathon-m-245}
+
+| Проверка | Результат |
+|---|---|
+| ping-server.test.mjs | PASS (1 new test) |
+
+**Изменения:** `artifacts/host-agent/test/ping-server.test.mjs` — unit-тест для экспортов `PING_PORT` и `PING_PORT_FALLBACKS`.
+
+**Следующий pick:** M-246 (тест не покрывает экспорты: agent-auth).
+
 ## Marathon M-244 (2026-08-05 23:58 UTC) {#marathon-m-244}
 
 | Проверка | Результат |

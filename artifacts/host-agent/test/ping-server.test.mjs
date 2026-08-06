@@ -9,7 +9,16 @@ const {
   parseInputEvent,
   LOCAL_INPUT_SECRET,
   INPUT_SECRET_HEADER,
+  PING_PORT,
+  PING_PORT_FALLBACKS,
 } = await import("../dist/main/main/ping-server.js");
+
+// ─── constants ───────────────────────────────────────────────────────────────
+
+test("PING_PORT and PING_PORT_FALLBACKS are stable", () => {
+  assert.equal(PING_PORT, 18080);
+  assert.deepEqual(PING_PORT_FALLBACKS, [18081, 18082, 18083]);
+});
 
 // ─── parseInputEvent validation ──────────────────────────────────────────────
 
