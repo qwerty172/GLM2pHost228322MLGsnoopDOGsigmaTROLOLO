@@ -98,6 +98,29 @@ export function setupRendererEnv() {
     href: "http://localhost/",
   };
 
+  // linkedom: HTMLSelectElement.value setter is broken — polyfill for form tests.
+  for (const sel of document.querySelectorAll("select")) {
+    Object.defineProperty(sel, "value", {
+      configurable: true,
+      enumerable: true,
+      get() {
+        const selected = Array.from(sel.options).find((o) => o.selected);
+        return selected ? selected.value : "";
+      },
+      set(v) {
+        for (const o of sel.options) {
+          if (o.value === v) {
+            o.selected = true;
+            return;
+          }
+        }
+        for (const o of sel.options) {
+          o.selected = false;
+        }
+      },
+    });
+  }
+
   g.fetch = async (url) => {
     if (typeof url === "string" && url.includes("/api/hosts/")) {
       return {

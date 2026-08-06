@@ -4,12 +4,17 @@ import Module from "node:module";
 import { mkdtempSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { setupRendererEnv } from "./helpers/renderer-env.mjs";
+import { setupRendererEnv, defaultHostConfig } from "./helpers/renderer-env.mjs";
 
 setupRendererEnv();
-const { pathBasename, deriveSignalingUrl, readForm } = await import(
-  "../dist/renderer/renderer/config.js"
-);
+const {
+  pathBasename,
+  deriveSignalingUrl,
+  readForm,
+  setAppPath,
+  refreshCaptureSources,
+  loadFormFromConfig,
+} = await import("../dist/renderer/renderer/config.js");
 
 test("pathBasename returns last path segment", () => {
   assert.equal(pathBasename("C:\\Games\\Foo\\bar.exe"), "bar.exe");
@@ -51,6 +56,84 @@ test("readForm reads values from the settings form", () => {
   assert.equal(cfg.ratePerMinute, 0.1);
   assert.equal(cfg.commissionSplit, 1);
   assert.deepEqual(cfg.resolution, { width: 1280, height: 720 });
+});
+
+test("setAppPath stores full path and shows basename in the input", () => {
+  setAppPath("C:\\Games\\Foo\\bar.exe");
+  assert.equal(document.getElementById("appPath").value, "bar.exe");
+  assert.equal(readForm().appPath, "C:\\Games\\Foo\\bar.exe");
+
+  setAppPath("");
+  assert.equal(document.getElementById("appPath").value, "");
+  assert.equal(readForm().appPath, "");
+});
+
+test("refreshCaptureSources populates select and preserves selection", async () => {
+  window.agent.getCaptureSources = async () => [
+    { id: "screen:0", name: "Primary Screen" },
+    { id: "window:1", name: "game" },
+  ];
+  await refreshCaptureSources("game");
+  const sel = document.getElementById("captureSourceName");
+  const options = Array.from(sel.options).map((o) => o.value);
+  assert.deepEqual(options, ["", "Primary Screen", "game"]);
+  assert.equal(sel.value, "game");
+});
+
+test("refreshCaptureSources keeps auto option when getCaptureSources fails", async () => {
+  window.agent.getCaptureSources = async () => {
+    throw new Error("capture fail");
+  };
+  await refreshCaptureSources("");
+  const sel = document.getElementById("captureSourceName");
+  assert.equal(sel.options.length, 1);
+  assert.equal(sel.options[0].value, "");
+});
+
+test("loadFormFromConfig fills form from agent config", async () => {
+  window.agent.getConfig = async () => ({
+    ...defaultHostConfig,
+    hostToken: "my-token",
+    apiBaseUrl: "https://api.test",
+    signalingUrl: "wss://signal.test",
+    appPath: "D:\\Steam\\game.exe",
+    boundUrl: "https://bound.test",
+    appArgs: "-fullscreen",
+    appName: "My Game",
+    captureSourceName: "Primary Screen",
+    ratePerMinute: 0.1,
+    commissionSplit: 0.8,
+    resolution: { width: 1280, height: 720 },
+    bitrateKbps: 8000,
+    audioMode: "voice",
+    killAppOnDisconnect: true,
+    autoLaunchAtStartup: true,
+    allowPreview: false,
+  });
+  window.agent.getCaptureSources = async () => [
+    { id: "screen:0", name: "Primary Screen" },
+    { id: "window:1", name: "game" },
+  ];
+
+  const cfg = await loadFormFromConfig();
+  assert.equal(cfg.hostToken, "my-token");
+  assert.equal(document.getElementById("hostToken").value, "my-token");
+  assert.equal(document.getElementById("apiBaseUrl").value, "https://api.test");
+  assert.equal(document.getElementById("signalingUrl").value, "wss://signal.test");
+  assert.equal(document.getElementById("appPath").value, "game.exe");
+  assert.equal(document.getElementById("boundUrl").value, "https://bound.test");
+  assert.equal(document.getElementById("appArgs").value, "-fullscreen");
+  assert.equal(document.getElementById("appName").value, "My Game");
+  assert.equal(document.getElementById("captureSourceName").value, "Primary Screen");
+  assert.equal(document.getElementById("ratePerMinute").value, "0.1");
+  assert.equal(document.getElementById("commissionSplit").value, "0.8");
+  assert.equal(document.getElementById("width").value, "1280");
+  assert.equal(document.getElementById("height").value, "720");
+  assert.equal(document.getElementById("bitrateKbps").value, "8000");
+  assert.equal(document.getElementById("audioMode").value, "voice");
+  assert.equal(document.getElementById("killAppOnDisconnect").checked, true);
+  assert.equal(document.getElementById("autoLaunchAtStartup").checked, true);
+  assert.equal(document.getElementById("allowPreview").checked, false);
 });
 
 // --- main process config.ts (loadConfig, saveConfig, getCachedConfig, resetConfigCache) ---

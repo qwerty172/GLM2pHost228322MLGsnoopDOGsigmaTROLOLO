@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-06 (M-246 done; agent-auth export coverage)
+> **Последнее обновление:** 2026-08-06 (M-247 done; config export coverage)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-06 00:05 UTC|
-| Task ID | M-246|
-| Результат | agent-auth.test.mjs: fetchAgentKeyBound, tryAutoBindAgentKey, setConnectionTroubleshootVisible export coverage|
+| Дата | 2026-08-06 00:09 UTC|
+| Task ID | M-247|
+| Результат | config.test.mjs: setAppPath, refreshCaptureSources, loadFormFromConfig export coverage|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -599,7 +599,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-244 | V | тест не покрывает экспорты (1): gamepad-injection | `artifacts/host-agent/src/main/gamepad-injection.ts` | v:artifacts/host-agent/src/main/gamepad-injection.ts | done | agent |
 | M-245 | V | тест не покрывает экспорты (2): ping-server | `artifacts/host-agent/src/main/ping-server.ts` | v:artifacts/host-agent/src/main/ping-server.ts | done | agent |
 | M-246 | V | тест не покрывает экспорты (3): agent-auth | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/agent-auth.ts | done | agent |
-| M-247 | V | тест не покрывает экспорты (3): config | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/config.ts | pending | agent |
+| M-247 | V | тест не покрывает экспорты (3): config | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/config.ts | done | agent |
 | M-248 | V | тест не покрывает экспорты (1): input-guard | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/input-guard.ts | pending | agent |
 | M-249 | V | тест не покрывает экспорты (1): input-mapping | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/input-mapping.ts | pending | agent |
 | M-250 | V | тест не покрывает экспорты (4): library | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/library.ts | pending | agent |

@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-247 (2026-08-06 00:06 UTC) {#marathon-m-247}
+
+| Проверка | Результат |
+|---|---|
+| config.test.mjs | PASS (4 new tests) |
+
+**Изменения:** `artifacts/host-agent/test/config.test.mjs` — unit-тесты для экспортов `setAppPath`, `refreshCaptureSources`, `loadFormFromConfig`. `renderer-env.mjs` — polyfill HTMLSelectElement.value для linkedom.
+
+**Следующий pick:** M-248 (тест не покрывает экспорты: input-guard).
+
 ## Marathon M-246 (2026-08-06 00:05 UTC) {#marathon-m-246}
 
 | Проверка | Результат |
@@ -23,7 +33,7 @@
 
 **Изменения:** `artifacts/host-agent/test/agent-auth.test.mjs` — unit-тесты для экспортов `fetchAgentKeyBound`, `tryAutoBindAgentKey`, `setConnectionTroubleshootVisible`.
 
-**Следующий pick:** M-247 (тест не покрывает экспорты: config).
+**Следующий pick:** M-248 (тест не покрывает экспорты: input-guard).
 
 ## Marathon M-245 (2026-08-06 00:02 UTC) {#marathon-m-245}
 
