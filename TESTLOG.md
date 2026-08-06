@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-249 (2026-08-06 00:15 UTC) {#marathon-m-249}
+
+| Проверка | Результат |
+|---|---|
+| input-mapping.test.mjs | PASS (3 new tests) |
+
+**Изменения:** `artifacts/host-agent/test/input-mapping.test.mjs` — unit-тесты для экспорта `injectPlayerInput` (event fallback, key/mouse/wheel mapping, pre-move перед mousedown).
+
+**Следующий pick:** M-250 (тест не покрывает экспорты: library).
+
 ## Marathon M-248 (2026-08-06 00:13 UTC) {#marathon-m-248}
 
 | Проверка | Результат |
