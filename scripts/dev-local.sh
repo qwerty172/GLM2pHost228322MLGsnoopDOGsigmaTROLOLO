@@ -20,7 +20,7 @@ pnpm --filter @workspace/api-server run dev &
 API_PID=$!
 
 echo "==> Web (http://localhost:5000, прокси /api -> API)"
-pnpm --filter @workspace/web run dev &
+WEB_PORT=5000 pnpm --filter @workspace/web run dev &
 WEB_PID=$!
 
 echo ""

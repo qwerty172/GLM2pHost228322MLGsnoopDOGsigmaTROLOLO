@@ -116,8 +116,8 @@ export function resolvePlayNowInvitePath(
   return `/play/i/${host.inviteCode}`;
 }
 
-/** Путь для главного CTA, когда онлайн-хостов нет. */
-export const PLAY_NOW_FALLBACK_HREF = "/games" as const;
+/** Путь для главного CTA, когда онлайн-хостов нет — сразу в быстрый стрим на дашборде хоста. */
+export const PLAY_NOW_FALLBACK_HREF = "/host" as const;
 
 export function computeLztPerMin(
   firstGame: { pricePerMinuteLzt?: number } | undefined,

@@ -23,8 +23,12 @@ const {
   resolveGuidedNextAction,
   hasCompletedFirstStream,
   ONBOARDING_TOTAL_STEPS,
+  ONBOARDING_INSTANT_TOTAL_STEPS,
   readHostAgentDownloaded,
   markHostAgentDownloaded,
+  readHostOnboardingMode,
+  writeHostOnboardingMode,
+  openTestSessionResult,
   evaluateHostReadiness,
   resolveHostDiagnosticAction,
   findFirstFailedDiagnosticAction,
@@ -243,6 +247,24 @@ test("hasCompletedFirstStream is true when any session exists", () => {
   assert.equal(hasCompletedFirstStream([{ status: "active" }]), true);
 });
 
+test("resolveGuidedNextAction defaults to instant browser stream (U-42)", () => {
+  const base = {
+    agent: offlineAgent,
+    heartbeat: { status: "never" },
+    agentKeyBound: false,
+    libraryCount: 0,
+    hasActiveSession: false,
+    hasFirstStream: false,
+  };
+
+  const instant = resolveGuidedNextAction(base);
+  assert.equal(instant.phase, "test-stream");
+  assert.equal(instant.cta, "test-stream");
+  assert.equal(instant.stepNumber, 1);
+  assert.equal(instant.totalSteps, ONBOARDING_INSTANT_TOTAL_STEPS);
+  assert.match(instant.title, /минуту/i);
+});
+
 test("resolveGuidedNextAction returns one phase at a time until first stream (U-13)", () => {
   const base = {
     agent: offlineAgent,
@@ -252,6 +274,7 @@ test("resolveGuidedNextAction returns one phase at a time until first stream (U-
     hasActiveSession: false,
     agentDownloaded: false,
     hasFirstStream: false,
+    onboardingMode: "agent",
   };
 
   const download = resolveGuidedNextAction(base);
@@ -405,6 +428,7 @@ test("resolveGuidedNextAction shows update-agent before test-stream (U-17)", () 
     goOnlineAck: true,
     hasFirstStream: false,
     minSupportedAgentVersion: "0.1.0",
+    onboardingMode: "agent",
   };
   const guided = resolveGuidedNextAction(base);
   assert.equal(guided.phase, "update-agent");
@@ -526,4 +550,57 @@ test("buildHostDiagnosticReport includes safe check codes without secrets (U-19)
   assert.doesNotMatch(report, /super-secret/);
   assert.doesNotMatch(report, /ABCDEF12/);
   assert.doesNotMatch(report, /hostToken/);
+});
+
+test("readHostOnboardingMode defaults to instant and persists agent choice", () => {
+  const storage = {
+    data: {},
+    getItem(k) { return this.data[k] ?? null; },
+    setItem(k, v) { this.data[k] = v; },
+  };
+  assert.equal(readHostOnboardingMode(storage), "instant");
+  writeHostOnboardingMode("agent", storage);
+  assert.equal(readHostOnboardingMode(storage), "agent");
+  writeHostOnboardingMode("instant", storage);
+  assert.equal(readHostOnboardingMode(storage), "instant");
+});
+
+test("openTestSessionResult opens player tab and copies link (U-40)", () => {
+  const opened = [];
+  let copied = null;
+  const result = openTestSessionResult({
+    origin: "https://app.test",
+    baseUrl: "/",
+    target: { kind: "player-play", path: "play/i/ABC123" },
+    hostToken: "host-tok",
+    openWindow: (url) => { opened.push(url); },
+    copyText: async (text) => { copied = text; },
+  });
+  assert.equal(result.playerUrl, "https://app.test/play/i/ABC123");
+  assert.equal(opened.length, 1);
+  assert.equal(opened[0], "https://app.test/play/i/ABC123");
+  assert.equal(copied, "https://app.test/play/i/ABC123");
+});
+
+test("openTestSessionResult stores host tokens for external browser-host tab", () => {
+  const storage = { data: {}, getItem(k) { return this.data[k] ?? null; }, setItem(k, v) { this.data[k] = v; } };
+  const original = globalThis.localStorage;
+  globalThis.localStorage = storage;
+  try {
+    const opened = [];
+    openTestSessionResult({
+      origin: "https://app.test",
+      baseUrl: "/",
+      target: { kind: "host-play", sessionId: "sess-42" },
+      hostToken: "host-tok",
+      hostBoundUrl: "https://example.com/game",
+      openWindow: (url) => { opened.push(url); },
+      copyText: async () => {},
+    });
+    assert.equal(opened[0], "https://app.test/host/play/sess-42");
+    assert.equal(storage.data["streamline.browserHostToken:sess-42"], "host-tok");
+    assert.equal(storage.data["streamline.browserHostUrl:sess-42"], "https://example.com/game");
+  } finally {
+    globalThis.localStorage = original;
+  }
 });

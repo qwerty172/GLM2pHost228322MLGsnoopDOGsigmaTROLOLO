@@ -6,6 +6,10 @@ export const HOST_TOKEN_STORAGE_PREFIX = "streamline.browserHostToken:";
 export const BROWSER_HOST_URL_STORAGE_PREFIX = "streamline.browserHostUrl:";
 export const HOST_AGENT_DOWNLOADED_STORAGE_KEY = "streamline.hostAgentDownloaded";
 export const HOST_GO_ONLINE_ACK_STORAGE_KEY = "streamline.hostGoOnlineAck";
+export const HOST_ONBOARDING_MODE_KEY = "streamline.hostOnboardingMode";
+
+/** instant — стрим из браузера сразу; agent — полный путь с Windows-агентом. */
+export type HostOnboardingMode = "instant" | "agent";
 
 /**
  * Installer download (U-31): no Node.js/npm install required, unlike the ZIP.
@@ -150,6 +154,24 @@ export function markHostGoOnlineAck(
   }
 }
 
+export function readHostOnboardingMode(
+  storage: Pick<Storage, "getItem"> = localStorage,
+): HostOnboardingMode {
+  const raw = storage.getItem(HOST_ONBOARDING_MODE_KEY);
+  return raw === "agent" ? "agent" : "instant";
+}
+
+export function writeHostOnboardingMode(
+  mode: HostOnboardingMode,
+  storage: Pick<Storage, "setItem"> = localStorage,
+): void {
+  try {
+    storage.setItem(HOST_ONBOARDING_MODE_KEY, mode);
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
 export function agentNeedsAdvancedPanel(
   agent: AgentState,
   heartbeat: HeartbeatState,
@@ -208,6 +230,49 @@ export function buildTestSessionFullUrl(
   return `${origin}${base}/${target.path}`;
 }
 
+/** Opens test session tabs and copies the player link when applicable (U-40). */
+export function openTestSessionResult(opts: {
+  origin: string;
+  baseUrl: string;
+  target: TestSessionOpenTarget;
+  hostToken: string;
+  hostBoundUrl?: string | null;
+  openWindow?: (url: string) => void;
+  copyText?: (text: string) => Promise<void>;
+}): { playerUrl: string | null; hostUrl: string | null } {
+  const open = opts.openWindow ?? ((url: string) => window.open(url, "_blank"));
+  const hostUrl =
+    opts.target.kind === "host-play"
+      ? buildTestSessionFullUrl(opts.origin, opts.baseUrl, opts.target)
+      : null;
+  const playerUrl =
+    opts.target.kind === "player-play"
+      ? buildTestSessionFullUrl(opts.origin, opts.baseUrl, opts.target)
+      : null;
+
+  if (hostUrl) {
+    try {
+      const keys = buildBrowserHostStorageKeys(opts.target.sessionId);
+      localStorage.setItem(keys.hostTokenKey, opts.hostToken);
+      localStorage.setItem(keys.browserHostUrlKey, opts.hostBoundUrl ?? "");
+    } catch {
+      // localStorage unavailable
+    }
+    open(hostUrl);
+  }
+
+  if (playerUrl) {
+    open(playerUrl);
+    void (opts.copyText ?? ((t: string) => navigator.clipboard.writeText(t)))(
+      playerUrl,
+    ).catch(() => {
+      // clipboard may be denied
+    });
+  }
+
+  return { playerUrl, hostUrl };
+}
+
 export function buildBrowserHostStorageKeys(sessionId: string): {
   hostTokenKey: string;
   browserHostUrlKey: string;
@@ -247,6 +312,7 @@ export type GuidedNextAction = {
 };
 
 export const ONBOARDING_TOTAL_STEPS = 5;
+export const ONBOARDING_INSTANT_TOTAL_STEPS = 1;
 
 export function hasCompletedFirstStream(
   sessions: Array<{ status: string }> | null | undefined,
@@ -334,6 +400,7 @@ export function resolveGuidedNextAction(opts: {
   goOnlineAck?: boolean;
   hasFirstStream?: boolean;
   minSupportedAgentVersion?: string;
+  onboardingMode?: HostOnboardingMode;
 }): GuidedNextAction {
   if (opts.hasFirstStream) {
     return {
@@ -343,6 +410,19 @@ export function resolveGuidedNextAction(opts: {
       title: "Первый стрим готов",
       hint: "Можно принимать игроков и пользоваться полным дашбордом",
       cta: "none",
+    };
+  }
+
+  const mode = opts.onboardingMode ?? "instant";
+
+  if (mode === "instant") {
+    return {
+      phase: "test-stream",
+      stepNumber: 1,
+      totalSteps: ONBOARDING_INSTANT_TOTAL_STEPS,
+      title: "Попробуй стрим за минуту",
+      hint: "Без установки агента — демо-игра откроется прямо в браузере",
+      cta: "test-stream",
     };
   }
 

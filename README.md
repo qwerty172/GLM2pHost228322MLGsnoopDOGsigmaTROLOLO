@@ -60,35 +60,25 @@ git clone https://github.com/qwerty172/glm2phost228322mlgsnoopdogsigmatrololo.gi
 cd decentral-hub
 ```
 
-### Первичная настройка
-
-**Windows (cmd или двойной клик):**
-
-```bat
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-copy .env.example .env
-notepad .env
-scripts\setup-local.bat
-scripts\dev-local.bat
-```
+### Первичная настройка (одна команда)
 
 **Git Bash / Linux / macOS:**
 
 ```bash
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-cp .env.example .env
-# отредактируй DATABASE_URL
-
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
+./scripts/setup-local.sh    # Docker Postgres (если есть) + .env + db push
+./scripts/dev-local.sh        # API :8080 + Web :5000
 ```
 
-Подробнее — [LOCAL_SETUP.md](./LOCAL_SETUP.md).
+**Windows (cmd):**
+
+```bat
+scripts\setup-local.bat
+scripts\dev-local.bat
+```
+
+Без Docker — установи PostgreSQL 16 и проверь `DATABASE_URL` в `.env`. Подробнее: [`LOCAL_SETUP.md`](./LOCAL_SETUP.md).
+
+**Первый стрим без Windows-агента:** открой http://localhost:5000/host → «Попробовать стрим».
 
 ### Переменные окружения (`.env`)
 
@@ -96,6 +86,7 @@ chmod +x scripts/*.sh
 |---|---|
 | `DATABASE_URL` | PostgreSQL, база `decentral_hub` |
 | `PORT` | API-сервер (8080) |
+| `WEB_PORT` | Vite dev-сервер (5000) |
 | `WALLET_ENCRYPTION_KEY` | 32-байт hex, обязателен для кошелька |
 | `ADMIN_SECRET` | Секрет admin-роутов (`X-Admin-Secret`) |
 | `API_PROXY_TARGET` | Куда Vite проксирует `/api` (http://localhost:8080) |
