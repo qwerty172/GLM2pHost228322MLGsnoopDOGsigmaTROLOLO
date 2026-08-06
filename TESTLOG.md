@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-254 (2026-08-06 00:30 UTC) {#marathon-m-254}
+
+| Проверка | Результат |
+|---|---|
+| ui.test.mjs | PASS (1 new test) |
+
+**Изменения:** `artifacts/host-agent/test/ui.test.mjs` — unit-тест для экспорта `log` (prepends stamped message to log element).
+
+**Следующий pick:** M-255 (тест не покрывает экспорты: window-match).
+
 ## Marathon M-253 (2026-08-06 00:30 UTC) {#marathon-m-253}
 
 | Проверка | Результат |

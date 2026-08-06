@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { setupRendererEnv } from "./helpers/renderer-env.mjs";
 
 setupRendererEnv();
-const { setStatus, setPipelineStep, resetPipeline } = await import("../dist/renderer/renderer/ui.js");
-const { statusDot, statusText } = await import("../dist/renderer/renderer/dom.js");
+const { setStatus, setPipelineStep, resetPipeline, log } = await import("../dist/renderer/renderer/ui.js");
+const { statusDot, statusText, logEl } = await import("../dist/renderer/renderer/dom.js");
 
 test("setStatus updates status text and dot dataset", () => {
   setStatus("streaming", "Custom message");
@@ -22,4 +22,10 @@ test("setPipelineStep marks a pipeline step", () => {
 test("resetPipeline hides card when show=false", () => {
   resetPipeline(false);
   assert.equal(document.getElementById("pipeline-card").hidden, true);
+});
+
+test("log prepends stamped message to log element", () => {
+  logEl.textContent = "";
+  log("test message");
+  assert.match(logEl.textContent, /test message/);
 });
