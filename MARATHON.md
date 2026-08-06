@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-06 (M-261 done; use-platform-events coverage 100%)
+> **Последнее обновление:** 2026-08-06 (M-262 done; depositAddresses coverage 100%)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-06 13:03 UTC|
-| Task ID | M-261|
-| Результат | use-platform-events.ts coverage 68%→100%; 9 tests PASS (happy-dom usePlatformEvents)|
+| Дата | 2026-08-06 19:08 UTC|
+| Task ID | M-262|
+| Результат | depositAddresses.ts coverage 81%→100%; 5 tests PASS (defaults + indexes)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -614,6 +614,10 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-259 | X | покрытие 68% → 80%: webgl-video-shader.tsx | `artifacts/web/src/components/webgl-video-shader.tsx` | x:artifacts/web/src/components/webgl-video-shader.tsx | done | agent |
 | M-260 | X | покрытие 68% → 80%: use-mobile.tsx | `artifacts/web/src/hooks/use-mobile.tsx` | x:artifacts/web/src/hooks/use-mobile.tsx | done | agent |
 | M-261 | X | покрытие 68% → 80%: use-platform-events.ts | `artifacts/web/src/hooks/use-platform-events.ts` | x:artifacts/web/src/hooks/use-platform-events.ts | done | agent |
+| M-262 | X | покрытие 81% → 90%: depositAddresses.ts | `db/depositAddresses.ts` | x:lib/db/src/schema/depositAddresses.ts | done | agent |
+| M-263 | X | покрытие 86% → 90%: refreshTokens.ts | `db/refreshTokens.ts` | x:lib/db/src/schema/refreshTokens.ts | pending | agent |
+| M-264 | X | покрытие 89% → 90%: router.ts | `auth-verifier/router.ts` | x:lib/auth-verifier/src/router.ts | pending | agent |
+| M-265 | X | покрытие 89% → 90%: hosts-helpers.ts | `pages/hosts-helpers.ts` | x:artifacts/web/src/pages/hosts-helpers.ts | pending | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).

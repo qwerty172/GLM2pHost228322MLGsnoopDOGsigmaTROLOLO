@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-262 (2026-08-06 19:03 UTC) {#marathon-m-262}
+
+| Проверка | Результат |
+|---|---|
+| depositAddresses.test.ts | PASS (5 tests, +2: defaults + indexes) |
+| marathon-coverage depositAddresses.ts | 100% (37/37 строк) |
+
+**Изменения:** `lib/db/test/depositAddresses.test.ts` — minDeposit default, ExtraConfigBuilder indexes (owner/currency unique + address).
+
+**Следующий pick:** marathon-scan --next (M-263 refreshTokens coverage).
+
 ## Marathon M-261 (2026-08-06 13:00 UTC) {#marathon-m-261}
 
 | Проверка | Результат |
