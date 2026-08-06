@@ -168,3 +168,33 @@ export function computeWalletBalanceForSession(
 export function isTouchCapableDevice(maxTouchPoints: number): boolean {
   return maxTouchPoints > 0;
 }
+
+/** True when the current wallet is the session claimant (not merely any claimant). */
+export function isSessionClaimedByWallet(
+  claimedByPlayerId: string | null | undefined,
+  walletOwnerId: string | null | undefined,
+): boolean {
+  if (!claimedByPlayerId || !walletOwnerId) return false;
+  return claimedByPlayerId === walletOwnerId;
+}
+
+/** Gate auto WebRTC start — blocks after explicit user disconnect. */
+export function shouldAutoStartPlayConnection(opts: {
+  sessionId?: string;
+  sessionStatus?: string;
+  hasClaimed: boolean;
+  playerWalletToken: string | null;
+  started: boolean;
+  userDisconnected: boolean;
+  isTestBrowserSession: boolean;
+}): boolean {
+  return !!(
+    opts.sessionId &&
+    opts.sessionStatus !== "ended" &&
+    opts.hasClaimed &&
+    opts.playerWalletToken &&
+    !opts.started &&
+    !opts.isTestBrowserSession &&
+    !opts.userDisconnected
+  );
+}

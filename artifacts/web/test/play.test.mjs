@@ -21,6 +21,8 @@ const {
   getConnectionBadgeLabel,
   computeWalletBalanceForSession,
   isTouchCapableDevice,
+  isSessionClaimedByWallet,
+  shouldAutoStartPlayConnection,
 } = await import("../src/pages/play-helpers.ts");
 
 test("LZT_PER_USDT is stable", () => {
@@ -162,4 +164,27 @@ test("isTouchCapableDevice (U-25) enables overlays when maxTouchPoints > 0", () 
   assert.equal(isTouchCapableDevice(0), false);
   assert.equal(isTouchCapableDevice(1), true);
   assert.equal(isTouchCapableDevice(5), true);
+});
+
+test("isSessionClaimedByWallet matches only the current wallet owner", () => {
+  assert.equal(isSessionClaimedByWallet("p1", "p1"), true);
+  assert.equal(isSessionClaimedByWallet("p1", "p2"), false);
+  assert.equal(isSessionClaimedByWallet(null, "p1"), false);
+  assert.equal(isSessionClaimedByWallet("p1", null), false);
+});
+
+test("shouldAutoStartPlayConnection blocks after explicit user disconnect", () => {
+  const base = {
+    sessionId: "sess-1",
+    sessionStatus: "active",
+    hasClaimed: true,
+    playerWalletToken: "wallet-tok",
+    started: false,
+    userDisconnected: false,
+    isTestBrowserSession: false,
+  };
+  assert.equal(shouldAutoStartPlayConnection(base), true);
+  assert.equal(shouldAutoStartPlayConnection({ ...base, userDisconnected: true }), false);
+  assert.equal(shouldAutoStartPlayConnection({ ...base, started: true }), false);
+  assert.equal(shouldAutoStartPlayConnection({ ...base, sessionStatus: "ended" }), false);
 });
