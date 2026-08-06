@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-264 (2026-08-06 19:15 UTC) {#marathon-m-264}
+
+| Проверка | Результат |
+|---|---|
+| router.test.ts | PASS (20 tests, +5: verify 200, paramString, telegram webhook branches) |
+| marathon-coverage router.ts | 94% (167/177 строк) |
+
+**Изменения:** `lib/auth-verifier/test/router.test.ts` — успешная верификация OTP, не-private /link, невалидный токен DM, settleWebhook для async webhook.
+
+**Следующий pick:** marathon-scan --next (M-265 hosts-helpers coverage).
+
 ## Marathon M-263 (2026-08-06 19:10 UTC) {#marathon-m-263}
 
 | Проверка | Результат |

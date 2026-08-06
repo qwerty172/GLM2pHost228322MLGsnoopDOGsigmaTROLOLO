@@ -20,6 +20,30 @@ const CHALLENGE_ID = "550e8400-e29b-41d4-a716-446655440000";
 
 const AUTH_USER: AuthUser = { userId: USER_ID, userType: USER_TYPE };
 
+function makeChallengeRow(
+  overrides: {
+    codes?: Record<ProviderName, string>;
+    verifiedProviders?: ProviderName[];
+    expiresAt?: Date;
+    completedAt?: Date | null;
+  } = {},
+) {
+  return {
+    userId: USER_ID,
+    userType: USER_TYPE,
+    purpose: "sensitive_action",
+    codes: overrides.codes ?? { telegram: "111111", discord: "222222" },
+    verifiedProviders: overrides.verifiedProviders ?? [],
+    expiresAt: overrides.expiresAt ?? new Date(Date.now() + 60_000),
+    completedAt: overrides.completedAt ?? null,
+  };
+}
+
+/** Webhook handlers respond 200 before async work — дождаться фоновой обработки. */
+async function settleWebhook() {
+  await new Promise<void>((resolve) => setTimeout(resolve, 25));
+}
+
 function makeLinks(providers: ProviderName[] = ["telegram", "discord"]) {
   return providers.map((provider, i) => ({
     provider,
@@ -241,6 +265,38 @@ describe("POST /challenge/:id/verify", () => {
     assert.equal(body.ok, false);
     assert.deepEqual(body.status, { state: "expired" });
   });
+
+  it("returns 200 when OTP is valid for a pending challenge", async () => {
+    cfg.db.getChallenge = mock.fn(async () => makeChallengeRow());
+    cfg.db.markProviderVerified = mock.fn(async () => ["telegram"]);
+    const res = await request("POST", `/challenge/${CHALLENGE_ID}/verify`, {
+      body: { provider: "telegram", code: "111111" },
+    });
+    assert.equal(res.status, 200);
+    const body = res.json as {
+      ok: boolean;
+      status: { state: string; verifiedProviders?: ProviderName[] };
+    };
+    assert.equal(body.ok, true);
+    assert.equal(body.status.state, "pending");
+    assert.deepEqual(body.status.verifiedProviders, ["telegram"]);
+  });
+
+  it("accepts challenge id passed as array route param", async () => {
+    cfg.db.getChallenge = mock.fn(async () => makeChallengeRow());
+    cfg.db.markProviderVerified = mock.fn(async () => ["telegram"]);
+    const res = await request(
+      "POST",
+      `/challenge/${CHALLENGE_ID}/verify?id=${CHALLENGE_ID}`,
+      { body: { provider: "telegram", code: "111111" } },
+    );
+    assert.equal(res.status, 200);
+    assert.equal(
+      (cfg.db.getChallenge as ReturnType<typeof mock.fn>).mock.calls[0]!
+        .arguments[0],
+      CHALLENGE_ID,
+    );
+  });
 });
 
 describe("GET /challenge/:id", () => {
@@ -258,6 +314,81 @@ describe("POST /webhooks/telegram", () => {
     });
     assert.equal(res.status, 200);
     assert.deepEqual(res.json, { ok: true });
+    await settleWebhook();
+  });
+
+  it("ignores non-private telegram updates after responding 200", async () => {
+    const res = await request("POST", "/webhooks/telegram", {
+      body: { message: { text: "/link TOKEN99", chat: { id: 1, type: "group" } } },
+    });
+    assert.equal(res.status, 200);
+    await settleWebhook();
+    assert.equal(
+      (cfg.db.consumeLinkToken as ReturnType<typeof mock.fn>).mock.calls.length,
+      0,
+    );
+  });
+
+  it("ignores telegram messages without /link token", async () => {
+    const res = await request("POST", "/webhooks/telegram", {
+      body: {
+        message: {
+          text: "привет",
+          chat: { id: 99, type: "private" },
+          from: { username: "tg_user" },
+        },
+      },
+    });
+    assert.equal(res.status, 200);
+    await settleWebhook();
+    assert.equal(
+      (cfg.db.consumeLinkToken as ReturnType<typeof mock.fn>).mock.calls.length,
+      0,
+    );
+  });
+
+  it("sends failure DM when link token is invalid", async () => {
+    cfg.providers = [
+      new TelegramProvider("tg-bot-token"),
+      { name: "discord", sendOtp: mock.fn(async () => undefined) },
+    ];
+    cfg.db.consumeLinkToken = mock.fn(async () => null);
+    const originalFetch = globalThis.fetch;
+    const fetchCalls: { url: string; body: string }[] = [];
+    const fetchRestore = mock.method(
+      globalThis,
+      "fetch",
+      async (url: string | URL | Request, init?: RequestInit) => {
+        const urlStr = String(url);
+        if (urlStr.includes("api.telegram.org")) {
+          fetchCalls.push({
+            url: urlStr,
+            body: String(init?.body ?? ""),
+          });
+          return ({ ok: true, text: async () => "" }) as Response;
+        }
+        return originalFetch(url, init);
+      },
+    );
+    try {
+      const res = await request("POST", "/webhooks/telegram", {
+        body: {
+          message: {
+            text: "/link BADTOKEN",
+            chat: { id: 77, type: "private" },
+            from: { username: "tg_user" },
+          },
+        },
+      });
+      assert.equal(res.status, 200);
+      await settleWebhook();
+      assert.ok(
+        fetchCalls.some((c) => c.body.includes("недействителен")),
+        "expected failure DM via Telegram API",
+      );
+    } finally {
+      fetchRestore.mock.restore();
+    }
   });
 
   it("confirms link token from /link command", async () => {

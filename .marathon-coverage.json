@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-06T19:11:08.332Z",
+  "generatedAt": "2026-08-06T19:16:47.842Z",
   "tier": 90,
   "tiers": [
     50,
@@ -8,7 +8,7 @@
     90
   ],
   "measuredFiles": 61,
-  "belowTier": 2,
+  "belowTier": 1,
   "files": {
     "lib/db/src/schema/agentEvents.ts": {
       "lines": 38,
@@ -177,8 +177,8 @@
     },
     "lib/auth-verifier/src/router.ts": {
       "lines": 177,
-      "covered": 157,
-      "pct": 89
+      "covered": 167,
+      "pct": 94
     },
     "lib/integrations-anthropic-ai/src/batch/utils.ts": {
       "lines": 140,
