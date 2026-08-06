@@ -6,6 +6,7 @@ export const HOST_TOKEN_STORAGE_PREFIX = "streamline.browserHostToken:";
 export const BROWSER_HOST_URL_STORAGE_PREFIX = "streamline.browserHostUrl:";
 export const HOST_AGENT_DOWNLOADED_STORAGE_KEY = "streamline.hostAgentDownloaded";
 export const HOST_GO_ONLINE_ACK_STORAGE_KEY = "streamline.hostGoOnlineAck";
+export const HOST_BROWSER_DEMO_STORAGE_KEY = "streamline.hostBrowserDemo";
 
 /**
  * Installer download (U-31): no Node.js/npm install required, unlike the ZIP.
@@ -145,6 +146,22 @@ export function markHostGoOnlineAck(
 ): void {
   try {
     storage.setItem(HOST_GO_ONLINE_ACK_STORAGE_KEY, "1");
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+export function readHostBrowserDemoChosen(
+  storage: Pick<Storage, "getItem"> = localStorage,
+): boolean {
+  return storage.getItem(HOST_BROWSER_DEMO_STORAGE_KEY) === "1";
+}
+
+export function markHostBrowserDemoChosen(
+  storage: Pick<Storage, "setItem"> = localStorage,
+): void {
+  try {
+    storage.setItem(HOST_BROWSER_DEMO_STORAGE_KEY, "1");
   } catch {
     // ignore quota / private mode
   }
@@ -334,6 +351,7 @@ export function resolveGuidedNextAction(opts: {
   goOnlineAck?: boolean;
   hasFirstStream?: boolean;
   minSupportedAgentVersion?: string;
+  browserDemoChosen?: boolean;
 }): GuidedNextAction {
   if (opts.hasFirstStream) {
     return {
@@ -343,6 +361,17 @@ export function resolveGuidedNextAction(opts: {
       title: "Первый стрим готов",
       hint: "Можно принимать игроков и пользоваться полным дашбордом",
       cta: "none",
+    };
+  }
+
+  if (opts.browserDemoChosen) {
+    return {
+      phase: "test-stream",
+      stepNumber: ONBOARDING_TOTAL_STEPS,
+      totalSteps: ONBOARDING_TOTAL_STEPS,
+      title: "Браузерная демо без Windows",
+      hint: "Rogue Fable III — агент не нужен, игрок откроет ссылку в браузере",
+      cta: "test-stream",
     };
   }
 

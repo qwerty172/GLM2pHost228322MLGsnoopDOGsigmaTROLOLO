@@ -184,6 +184,8 @@ export * from "./rateSessionResponse";
 export * from "./rawgSearchParams";
 export * from "./rawgSearchResultItem";
 export * from "./rawgSearchResultItemSource";
+export * from "./readinessCheck";
+export * from "./readinessStatus";
 export * from "./registerHostBody";
 export * from "./registerPlayerBody";
 export * from "./renewSessionBlockBody";

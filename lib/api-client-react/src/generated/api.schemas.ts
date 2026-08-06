@@ -296,6 +296,18 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface ReadinessCheck {
+  name: string;
+  ok: boolean;
+  /** Russian hint when ok is false */
+  hint?: string;
+}
+
+export interface ReadinessStatus {
+  ready: boolean;
+  checks: ReadinessCheck[];
+}
+
 export interface ErrorResponse {
   error: string;
 }

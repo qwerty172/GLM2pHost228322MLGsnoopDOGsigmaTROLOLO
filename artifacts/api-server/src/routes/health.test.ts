@@ -1,10 +1,28 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import express from "express";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 process.env.DATABASE_URL ??= "postgresql://test:test@127.0.0.1:5432/test";
 process.env.RATE_LIMIT_STORAGE = "memory";
+process.env.JWT_SECRET ??= "test-jwt-secret";
+process.env.WALLET_ENCRYPTION_KEY ??= "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+vi.mock("@workspace/db", () => ({
+  pool: {
+    query: vi.fn(async () => ({ rows: [{ "?column?": 1 }] })),
+  },
+  db: {
+    select: vi.fn(() => ({
+      from: vi.fn(() => Promise.resolve([{ n: 3 }])),
+    })),
+  },
+  gamesTable: {},
+}));
+
+vi.mock("../lib/redis", () => ({
+  getRedis: vi.fn(() => null),
+}));
 
 const { default: healthRouter } = await import("./health");
 
@@ -40,5 +58,24 @@ describe("GET /healthz", () => {
     const res = await request("/healthz");
     expect(res.status).toBe(200);
     expect(res.json).toEqual({ status: "ok" });
+  });
+});
+
+describe("GET /healthz/ready", () => {
+  it("returns 200 when required checks pass", async () => {
+    const res = await request("/healthz/ready");
+    expect(res.status).toBe(200);
+    expect(res.json.ready).toBe(true);
+    expect(Array.isArray(res.json.checks)).toBe(true);
+    expect(res.json.checks.some((c: { name: string }) => c.name === "database")).toBe(true);
+  });
+
+  it("returns 503 when JWT_SECRET is missing", async () => {
+    const prev = process.env.JWT_SECRET;
+    delete process.env.JWT_SECRET;
+    const res = await request("/healthz/ready");
+    process.env.JWT_SECRET = prev;
+    expect(res.status).toBe(503);
+    expect(res.json.ready).toBe(false);
   });
 });

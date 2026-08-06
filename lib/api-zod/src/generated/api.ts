@@ -15,6 +15,22 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
+ * Returns 200 when required dependencies are configured and reachable. Redis is reported but does not block readiness when optional.
+
+ * @summary Deep readiness check (DB, secrets, catalog)
+ */
+export const HealthReadyResponse = zod.object({
+  ready: zod.boolean(),
+  checks: zod.array(
+    zod.object({
+      name: zod.string(),
+      ok: zod.boolean(),
+      hint: zod.string().optional().describe("Russian hint when ok is false"),
+    }),
+  ),
+});
+
+/**
  * @summary Register a new host
  */
 export const RegisterHostBody = zod.object({

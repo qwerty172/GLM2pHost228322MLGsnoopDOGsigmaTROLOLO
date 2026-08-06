@@ -148,6 +148,7 @@ import type {
   RateSessionResponse,
   RawgSearchParams,
   RawgSearchResultItem,
+  ReadinessStatus,
   RegisterHostBody,
   RegisterPlayerBody,
   RenewSessionBlockBody,
@@ -267,6 +268,83 @@ export function useHealthCheck<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getHealthCheckQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns 200 when required dependencies are configured and reachable. Redis is reported but does not block readiness when optional.
+
+ * @summary Deep readiness check (DB, secrets, catalog)
+ */
+export const getHealthReadyUrl = () => {
+  return `/api/healthz/ready`;
+};
+
+export const healthReady = async (
+  options?: RequestInit,
+): Promise<ReadinessStatus> => {
+  return customFetch<ReadinessStatus>(getHealthReadyUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getHealthReadyQueryKey = () => {
+  return [`/api/healthz/ready`] as const;
+};
+
+export const getHealthReadyQueryOptions = <
+  TData = Awaited<ReturnType<typeof healthReady>>,
+  TError = ErrorType<ReadinessStatus>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof healthReady>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getHealthReadyQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof healthReady>>> = ({
+    signal,
+  }) => healthReady({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof healthReady>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type HealthReadyQueryResult = NonNullable<
+  Awaited<ReturnType<typeof healthReady>>
+>;
+export type HealthReadyQueryError = ErrorType<ReadinessStatus>;
+
+/**
+ * @summary Deep readiness check (DB, secrets, catalog)
+ */
+
+export function useHealthReady<
+  TData = Awaited<ReturnType<typeof healthReady>>,
+  TError = ErrorType<ReadinessStatus>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof healthReady>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getHealthReadyQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

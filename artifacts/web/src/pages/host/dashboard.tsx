@@ -104,6 +104,8 @@ import {
   readHostAgentDownloaded,
   readHostGoOnlineAck,
   markHostGoOnlineAck,
+  readHostBrowserDemoChosen,
+  markHostBrowserDemoChosen,
   HOST_AGENT_EXE_DOWNLOAD_URL,
   evaluateHostReadiness,
   evaluateAgentVersionCompatibility,
@@ -712,6 +714,7 @@ function HostQuickStartCard({
 }) {
   const [agentDownloaded, setAgentDownloaded] = useState(() => readHostAgentDownloaded());
   const [goOnlineAck, setGoOnlineAck] = useState(() => readHostGoOnlineAck());
+  const [browserDemoChosen, setBrowserDemoChosen] = useState(() => readHostBrowserDemoChosen());
   const { steps, allDone } = computeQuickStartSteps({
     agent,
     heartbeat,
@@ -731,6 +734,7 @@ function HostQuickStartCard({
     goOnlineAck,
     hasFirstStream,
     minSupportedAgentVersion,
+    browserDemoChosen,
   });
   const onboarding = !hasFirstStream && guided.phase !== "complete";
   const completedSteps = steps.filter((s) => s.done);
@@ -741,6 +745,12 @@ function HostQuickStartCard({
     void downloadHostAgentBundle().catch(() => {
       toast.error("Не удалось скачать агент");
     });
+  };
+
+  const handleChooseBrowserDemo = () => {
+    markHostBrowserDemoChosen();
+    setBrowserDemoChosen(true);
+    toast.info("Демо без Windows — нажми «Проверить стрим»");
   };
 
   if (!onboarding) {
@@ -830,6 +840,17 @@ function HostQuickStartCard({
               </a>{" "}
               — понадобится код привязки в «Если не работает»
             </p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-violet-300 hover:text-violet-200 hover:bg-violet-500/10"
+              data-testid="button-browser-demo-shortcut"
+              onClick={handleChooseBrowserDemo}
+            >
+              <Globe className="h-4 w-4 mr-1" />
+              Попробовать без Windows (браузер)
+            </Button>
           </div>
         )}
 
@@ -847,6 +868,17 @@ function HostQuickStartCard({
               Запусти <span className="font-mono text-sky-400">start.bat</span> на Windows-ПК.
               Окно уйдёт в трей — подробности в блоке «Диагностика» ниже.
             </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="border-violet-500/40 text-violet-300 hover:bg-violet-500/10"
+              data-testid="button-browser-demo-shortcut"
+              onClick={handleChooseBrowserDemo}
+            >
+              <Globe className="h-4 w-4 mr-1" />
+              Нет Windows? Браузерная демо
+            </Button>
           </div>
         )}
 

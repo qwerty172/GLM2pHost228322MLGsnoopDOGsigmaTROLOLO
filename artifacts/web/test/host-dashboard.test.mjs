@@ -313,6 +313,23 @@ test("resolveGuidedNextAction returns one phase at a time until first stream (U-
   assert.equal(done.cta, "none");
 });
 
+test("resolveGuidedNextAction skips agent path when browser demo chosen", () => {
+  const base = {
+    agent: offlineAgent,
+    heartbeat: { status: "never" },
+    agentKeyBound: false,
+    libraryCount: 0,
+    hasActiveSession: false,
+    agentDownloaded: false,
+    hasFirstStream: false,
+    browserDemoChosen: true,
+  };
+  const guided = resolveGuidedNextAction(base);
+  assert.equal(guided.phase, "test-stream");
+  assert.equal(guided.cta, "test-stream");
+  assert.match(guided.title, /браузер/i);
+});
+
 test("evaluateHostReadiness returns Можно тестировать when all checks pass (U-14)", () => {
   const result = evaluateHostReadiness({
     apiOk: true,
