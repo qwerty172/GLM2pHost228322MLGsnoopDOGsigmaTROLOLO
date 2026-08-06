@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-263 (2026-08-06 19:10 UTC) {#marathon-m-263}
+
+| Проверка | Результат |
+|---|---|
+| refreshTokens.test.ts | PASS (5 tests, +2: indexes + RefreshToken type) |
+| marathon-coverage refreshTokens.ts | 100% (28/28 строк) |
+
+**Изменения:** `lib/db/test/refreshTokens.test.ts` — tokenHash unique, createdAt default, ExtraConfigBuilder indexes (user + expires).
+
+**Следующий pick:** marathon-scan --next (M-264 router coverage).
+
 ## Marathon M-262 (2026-08-06 19:03 UTC) {#marathon-m-262}
 
 | Проверка | Результат |

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-06T19:03:34.862Z",
+  "generatedAt": "2026-08-06T19:11:08.332Z",
   "tier": 90,
   "tiers": [
     50,
@@ -8,7 +8,7 @@
     90
   ],
   "measuredFiles": 61,
-  "belowTier": 4,
+  "belowTier": 2,
   "files": {
     "lib/db/src/schema/agentEvents.ts": {
       "lines": 38,
@@ -32,8 +32,8 @@
     },
     "lib/db/src/schema/depositAddresses.ts": {
       "lines": 37,
-      "covered": 30,
-      "pct": 81
+      "covered": 37,
+      "pct": 100
     },
     "lib/db/src/schema/deposits.ts": {
       "lines": 42,
@@ -122,8 +122,8 @@
     },
     "lib/db/src/schema/refreshTokens.ts": {
       "lines": 28,
-      "covered": 24,
-      "pct": 86
+      "covered": 28,
+      "pct": 100
     },
     "lib/db/src/schema/sessionMetrics.ts": {
       "lines": 34,
