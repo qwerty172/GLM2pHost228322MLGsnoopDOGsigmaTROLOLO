@@ -55,6 +55,8 @@ import {
   getConnectionBadgeLabel,
   computeWalletBalanceForSession,
   isTouchCapableDevice,
+  isSessionClaimedByWallet,
+  shouldAutoStartPlayConnection,
 } from "./play-helpers";
 import { takePrewarmedConnection, prewarmIce } from "@/lib/ice-prewarm";
 
@@ -327,6 +329,7 @@ export default function Play() {
   const wsRef = useRef<WebSocket | null>(null);
   const dcRef = useRef<RTCDataChannel | null>(null);
   const startedRef = useRef(false);
+  const userDisconnectedRef = useRef(false);
 
   // Reconnect state
   const iceRestartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -437,6 +440,8 @@ export default function Play() {
     if (longDisconnectTimerRef.current) { clearTimeout(longDisconnectTimerRef.current); longDisconnectTimerRef.current = null; }
     if (pingIntervalRef.current) { clearInterval(pingIntervalRef.current); pingIntervalRef.current = null; }
     if (wsReconnectTimerRef.current) { clearTimeout(wsReconnectTimerRef.current); wsReconnectTimerRef.current = null; }
+    // Stop WS onclose from scheduling reconnect before sockets are closed.
+    startedRef.current = false;
     if (dcRef.current) {
       dcRef.current.close();
       dcRef.current = null;
@@ -457,7 +462,6 @@ export default function Play() {
     mediaRecorderRef.current = null;
     clipChunksRef.current = [];
     clipCanvasRef.current = null;
-    startedRef.current = false;
     rttSamplesRef.current = [];
     setIsPlaying(false);
     setConnectionState("closed");
@@ -466,6 +470,16 @@ export default function Play() {
     setE2eRtt(null);
     setDataChannelOpen(false);
   }, []);
+
+  const handleUserDisconnect = useCallback(() => {
+    userDisconnectedRef.current = true;
+    setHasClaimed(false);
+    cleanupConnection();
+  }, [cleanupConnection]);
+
+  useEffect(() => {
+    userDisconnectedRef.current = false;
+  }, [sessionId, playerToken]);
 
   // Set up the DataChannel with ping/pong E2E RTT measurement.
   const setupDataChannel = useCallback((dc: RTCDataChannel) => {
@@ -899,14 +913,17 @@ export default function Play() {
   }, [session?.id, sessionHostId, playerToken, playerWalletToken, cleanupConnection, connectWs, triggerIceRestart, initClipRecorder]);
 
   useEffect(() => {
-    if (sessionClaimedBy) {
+    if (isSessionClaimedByWallet(sessionClaimedBy, wallet?.ownerId)) {
       setHasClaimed(true);
+    } else if (sessionClaimedBy && wallet?.ownerId) {
+      setHasClaimed(false);
     }
-  }, [sessionClaimedBy]);
+  }, [sessionClaimedBy, wallet?.ownerId]);
 
   const handlePrepConfirm = useCallback(
     (blockMins?: 10 | 15 | 25) => {
       if (!playerToken || !playerWalletToken || claimSession.isPending) return;
+      userDisconnectedRef.current = false;
       setClaimError(null);
       claimSession.mutate(
         {
@@ -934,12 +951,15 @@ export default function Play() {
 
   useEffect(() => {
     if (
-      sessionId &&
-      sessionStatus !== "ended" &&
-      hasClaimed &&
-      playerWalletToken &&
-      !startedRef.current &&
-      !isTestBrowserSession
+      shouldAutoStartPlayConnection({
+        sessionId,
+        sessionStatus,
+        hasClaimed,
+        playerWalletToken,
+        started: startedRef.current,
+        userDisconnected: userDisconnectedRef.current,
+        isTestBrowserSession,
+      })
     ) {
       void startConnection();
     }
@@ -1466,7 +1486,7 @@ export default function Play() {
                   <RefreshCw className="h-3.5 w-3.5 mr-1 inline" />
                   Переподключить
                 </Button>
-                <Button size="sm" variant="ghost" className="text-slate-400" onClick={cleanupConnection}>
+                <Button size="sm" variant="ghost" className="text-slate-400" onClick={handleUserDisconnect}>
                   Выйти
                 </Button>
               </div>
@@ -1700,7 +1720,7 @@ export default function Play() {
 
           <Button
             size="sm"
-            onClick={cleanupConnection}
+            onClick={handleUserDisconnect}
             className="pointer-events-auto shadow-md"
             style={{
               background: "rgba(239,68,68,0.85)",
