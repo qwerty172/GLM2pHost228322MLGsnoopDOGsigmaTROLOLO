@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-256 (2026-08-06 00:40 UTC) {#marathon-m-256}
+
+| Проверка | Результат |
+|---|---|
+| TouchOverlay.test.mjs | PASS (8 new component tests) |
+| marathon-coverage TouchOverlay.tsx | 100% (467/467 строк) |
+
+**Изменения:** `artifacts/web/test/TouchOverlay.test.mjs` — happy-dom + тесты рендера TouchOverlay (кнопки, стики, editMode drag). devDeps: `happy-dom`, `@happy-dom/global-registrator`.
+
+**Следующий pick:** marathon-scan --next (покрытие KeyboardOverlay или следующий файл ниже tier).
+
 ## Marathon M-255 (2026-08-06 00:33 UTC) {#marathon-m-255}
 
 | Проверка | Результат |

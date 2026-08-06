@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-08-05T21:55:58.292Z",
-  "tier": 50,
+  "generatedAt": "2026-08-06T00:40:37.861Z",
+  "tier": 65,
   "tiers": [
     50,
     65,
     80,
     90
   ],
-  "measuredFiles": 55,
+  "measuredFiles": 61,
   "belowTier": 1,
   "files": {
     "lib/db/src/schema/agentEvents.ts": {
@@ -115,10 +115,40 @@
       "covered": 41,
       "pct": 95
     },
+    "lib/db/src/schema/rateLimitBuckets.ts": {
+      "lines": 16,
+      "covered": 16,
+      "pct": 100
+    },
+    "lib/db/src/schema/refreshTokens.ts": {
+      "lines": 28,
+      "covered": 24,
+      "pct": 86
+    },
+    "lib/db/src/schema/sessionMetrics.ts": {
+      "lines": 34,
+      "covered": 32,
+      "pct": 94
+    },
+    "lib/db/src/schema/sessionRatings.ts": {
+      "lines": 40,
+      "covered": 39,
+      "pct": 98
+    },
     "lib/db/src/schema/sessions.ts": {
       "lines": 108,
       "covered": 103,
       "pct": 95
+    },
+    "lib/db/src/schema/verifierLinks.ts": {
+      "lines": 65,
+      "covered": 65,
+      "pct": 100
+    },
+    "lib/db/src/schema/withdrawals.ts": {
+      "lines": 26,
+      "covered": 25,
+      "pct": 96
     },
     "lib/auth-verifier/src/challenge.ts": {
       "lines": 134,
@@ -167,8 +197,8 @@
     },
     "artifacts/web/src/components/TouchOverlay.tsx": {
       "lines": 467,
-      "covered": 192,
-      "pct": 41
+      "covered": 467,
+      "pct": 100
     },
     "artifacts/web/src/components/webgl-video-shader.tsx": {
       "lines": 303,
@@ -192,8 +222,8 @@
     },
     "artifacts/web/src/lib/agent-local.ts": {
       "lines": 175,
-      "covered": 154,
-      "pct": 88
+      "covered": 173,
+      "pct": 99
     },
     "artifacts/web/src/lib/api-errors.ts": {
       "lines": 293,
