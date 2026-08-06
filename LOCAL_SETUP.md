@@ -24,51 +24,19 @@
 2. Откройте http://localhost:5000/games — видна **Rogue Fable III**?
 3. Пройдите таблицу URL из TESTPLAN §2.2; баги — в TESTLOG
 
-Если healthz **не** ok — сначала [Быстрый старт](#быстрый-старт-windows) ниже.
+Если healthz **не** ok — сначала [Быстрый старт](#быстрый-старт) ниже.
 
 ---
 
-## Куда вводить команды (Windows)
+## Быстрый старт
 
-1. [Git for Windows](https://git-scm.com/download/win) — если нет `git`
-2. **Git Bash**, **cmd** или **Windows Terminal** (Win+R → `cmd`)
-3. Или **Cursor → Terminal → New Terminal** в папке проекта
+**Две команды:**
 
-## Требования
-
-- [Node.js 20+](https://nodejs.org/)
-- [pnpm](https://pnpm.io/installation): `npm install -g pnpm`
-- [PostgreSQL 16](https://www.postgresql.org/download/windows/)
-
-База данных:
-
-```sql
-CREATE DATABASE decentral_hub;
-```
-
----
-
-## Быстрый старт (Windows)
-
-```bat
+```bash
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-
-copy .env.example .env
-notepad .env
-```
-
-В `.env` измените `DATABASE_URL`:
-
-```
-DATABASE_URL=postgresql://postgres:ВАШ_ПАРОЛЬ@localhost:5432/decentral_hub
-```
-
-```bat
-scripts\setup-local.bat
-scripts\dev-local.bat
-scripts\smoke-api.bat
+pnpm setup
+pnpm dev
 ```
 
 | Сервис | URL |
@@ -76,22 +44,37 @@ scripts\smoke-api.bat
 | Web | http://localhost:5000 |
 | API health | http://localhost:8080/api/healthz |
 
----
+`pnpm setup` автоматически:
+- поднимает PostgreSQL + Redis через Docker (если установлен Docker Desktop);
+- создаёт `.env` из шаблона;
+- генерирует `WALLET_ENCRYPTION_KEY` и `JWT_SECRET`;
+- ставит зависимости и применяет схему БД.
 
-## Быстрый старт (Git Bash / Linux / macOS)
+**На потом:** `pnpm setup -- --full` (с typecheck), TURN/coturn, Windows-агент, внешние API-ключи.
+
+### Требования
+
+- [Node.js 20+](https://nodejs.org/)
+- [pnpm](https://pnpm.io/installation): `npm install -g pnpm`
+- **Docker Desktop** (рекомендуется) — Postgres поднимается сам  
+  *или* [PostgreSQL 16](https://www.postgresql.org/download/) вручную + правка `DATABASE_URL` в `.env`
+
+### Windows (cmd)
+
+Те же команды работают в cmd/PowerShell:
+
+```bat
+pnpm setup
+pnpm dev
+```
+
+Или напрямую: `scripts\setup-local.bat` → `scripts\dev-local.bat`
+
+### Smoke-тест
 
 ```bash
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-
-cp .env.example .env
-# отредактируй DATABASE_URL
-
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
 ./scripts/smoke-api.sh
+# Windows: scripts\smoke-api.bat
 ```
 
 ---
@@ -103,4 +86,4 @@ chmod +x scripts/*.sh
 | **Вы** | Браузер, 2 окна WebRTC, Electron-агент, скрины/console при багах |
 | **Agent** | Фиксы в коде, TESTPLAN/TESTLOG, smoke при необходимости |
 
-Не нужно заново clone/setup, если healthz ok и `dev-local.bat` уже запущен.
+Не нужно заново clone/setup, если healthz ok и `pnpm dev` уже запущен.
