@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-257 (2026-08-06 06:41 UTC) {#marathon-m-257}
+
+| Проверка | Результат |
+|---|---|
+| KeyboardOverlay.test.mjs | PASS (11 new component tests) |
+| marathon-coverage KeyboardOverlay.tsx | 99% (588/593 строк) |
+
+**Изменения:** `artifacts/web/test/KeyboardOverlay.test.mjs` — happy-dom + тесты рендера KeyboardOverlay (клавиши, double-tap alt, editMode drag/editor/presets).
+
+**Следующий pick:** marathon-scan --next (покрытие webgl-video-shader или следующий файл ниже tier 80%).
+
 ## Marathon M-256 (2026-08-06 00:40 UTC) {#marathon-m-256}
 
 | Проверка | Результат |

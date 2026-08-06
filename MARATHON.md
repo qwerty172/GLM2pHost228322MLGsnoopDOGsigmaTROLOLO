@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-06 (M-256 done; TouchOverlay coverage)
+> **Последнее обновление:** 2026-08-06 (M-257 done; KeyboardOverlay coverage)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-06 00:41 UTC|
-| Task ID | M-256|
-| Результат | TouchOverlay.test.mjs +8 component tests (happy-dom); coverage 41%→100%|
+| Дата | 2026-08-06 06:46 UTC|
+| Task ID | M-257|
+| Результат | KeyboardOverlay.test.mjs +11 component tests (happy-dom); coverage 50%→99%|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -609,6 +609,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-254 | V | тест не покрывает экспорты (1): ui | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/ui.ts | done | agent |
 | M-255 | V | тест не покрывает экспорты (2): window-match | `artifacts/host-agent/src/shared/window-match.ts` | v:artifacts/host-agent/src/shared/window-match.ts | done | agent |
 | M-256 | X | покрытие 41% → 50%: TouchOverlay.tsx | `artifacts/web/src/components/TouchOverlay.tsx` | x:artifacts/web/src/components/TouchOverlay.tsx | done | agent |
+| M-257 | X | покрытие 50% → 65%: KeyboardOverlay.tsx | `artifacts/web/src/components/KeyboardOverlay.tsx` | x:artifacts/web/src/components/KeyboardOverlay.tsx | done | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).

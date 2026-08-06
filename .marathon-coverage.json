@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-06T00:40:37.861Z",
-  "tier": 65,
+  "generatedAt": "2026-08-06T06:44:55.440Z",
+  "tier": 80,
   "tiers": [
     50,
     65,
@@ -8,7 +8,7 @@
     90
   ],
   "measuredFiles": 61,
-  "belowTier": 1,
+  "belowTier": 3,
   "files": {
     "lib/db/src/schema/agentEvents.ts": {
       "lines": 38,
@@ -192,8 +192,8 @@
     },
     "artifacts/web/src/components/KeyboardOverlay.tsx": {
       "lines": 593,
-      "covered": 297,
-      "pct": 50
+      "covered": 588,
+      "pct": 99
     },
     "artifacts/web/src/components/TouchOverlay.tsx": {
       "lines": 467,
