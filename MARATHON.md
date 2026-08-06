@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-06 19:17 UTC|
-| Task ID | M-264|
-| Результат | router.test.ts: verify 200, telegram webhook branches; coverage 94% (167/177)|
+| Дата | 2026-08-06 19:20 UTC|
+| Task ID | M-265|
+| Результат | hosts.test.mjs +2 readHostPcSpecs; coverage 100% (79/79)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -617,7 +617,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-262 | X | покрытие 81% → 90%: depositAddresses.ts | `db/depositAddresses.ts` | x:lib/db/src/schema/depositAddresses.ts | done | agent |
 | M-263 | X | покрытие 86% → 90%: refreshTokens.ts | `db/refreshTokens.ts` | x:lib/db/src/schema/refreshTokens.ts | done | agent |
 | M-264 | X | покрытие 89% → 90%: router.ts | `auth-verifier/router.ts` | x:lib/auth-verifier/src/router.ts | done | agent |
-| M-265 | X | покрытие 89% → 90%: hosts-helpers.ts | `pages/hosts-helpers.ts` | x:artifacts/web/src/pages/hosts-helpers.ts | pending | agent |
+| M-265 | X | покрытие 89% → 90%: hosts-helpers.ts | `pages/hosts-helpers.ts` | x:artifacts/web/src/pages/hosts-helpers.ts | done | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).

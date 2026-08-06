@@ -8,6 +8,7 @@ const {
   getLatencyColor,
   computeTotalLatency,
   mapSessionHttpStatus,
+  readHostPcSpecs,
   getMinGamePriceLzt,
   sortPublicHosts,
 } = await import("../src/pages/hosts-helpers.ts");
@@ -59,6 +60,24 @@ test("mapSessionHttpStatus maps API errors to session failure reasons", () => {
   assert.equal(mapSessionHttpStatus(404), "host_offline");
   assert.equal(mapSessionHttpStatus(500), "error");
   assert.equal(mapSessionHttpStatus(undefined), "error");
+});
+
+test("readHostPcSpecs returns null for missing or empty specs", () => {
+  assert.equal(readHostPcSpecs(undefined), null);
+  assert.equal(readHostPcSpecs(null), null);
+  assert.equal(readHostPcSpecs("bad"), null);
+  assert.equal(readHostPcSpecs({}), null);
+  assert.equal(readHostPcSpecs({ cpu: 123, gpu: true }), null);
+});
+
+test("readHostPcSpecs extracts known string and number fields", () => {
+  assert.deepEqual(readHostPcSpecs({ cpu: "Ryzen 7", gpu: "RTX 4070", ramGb: 32 }), {
+    cpu: "Ryzen 7",
+    gpu: "RTX 4070",
+    ramGb: 32,
+  });
+  assert.deepEqual(readHostPcSpecs({ cpu: "i5" }), { cpu: "i5" });
+  assert.deepEqual(readHostPcSpecs({ ramGb: 16 }), { ramGb: 16 });
 });
 
 test("getMinGamePriceLzt returns minimum LZT price or null", () => {

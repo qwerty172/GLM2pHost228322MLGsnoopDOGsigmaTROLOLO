@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-265 (2026-08-06 19:20 UTC) {#marathon-m-265}
+
+| Проверка | Результат |
+|---|---|
+| hosts.test.mjs | PASS (12 tests, +2: readHostPcSpecs null/empty + field extraction) |
+| marathon-coverage hosts-helpers.ts | 100% (79/79 строк) |
+
+**Изменения:** `artifacts/web/test/hosts.test.mjs` — покрытие `readHostPcSpecs` (null, invalid, partial specs).
+
+**Следующий pick:** marathon-scan --next.
+
 ## Marathon M-264 (2026-08-06 19:15 UTC) {#marathon-m-264}
 
 | Проверка | Результат |

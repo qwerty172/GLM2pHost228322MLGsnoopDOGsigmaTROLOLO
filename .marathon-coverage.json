@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-06T19:16:47.842Z",
+  "generatedAt": "2026-08-06T19:19:56.791Z",
   "tier": 90,
   "tiers": [
     50,
@@ -8,7 +8,7 @@
     90
   ],
   "measuredFiles": 61,
-  "belowTier": 1,
+  "belowTier": 0,
   "files": {
     "lib/db/src/schema/agentEvents.ts": {
       "lines": 38,
@@ -282,8 +282,8 @@
     },
     "artifacts/web/src/pages/hosts-helpers.ts": {
       "lines": 79,
-      "covered": 70,
-      "pct": 89
+      "covered": 78,
+      "pct": 99
     },
     "artifacts/web/src/pages/landing-helpers.ts": {
       "lines": 131,
