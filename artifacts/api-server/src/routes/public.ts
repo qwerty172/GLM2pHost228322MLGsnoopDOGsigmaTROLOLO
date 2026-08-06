@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq, gt, ilike, inArray, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gt, ilike, inArray, isNotNull, ne, sql } from "drizzle-orm";
 import {
   db,
   gamesTable,
@@ -85,10 +85,18 @@ router.get("/public/games", async (req, res): Promise<void> => {
     .orderBy(gamesTable.title);
 
   // Count live sessions per game via title match (backward compat).
+  // Exclude throwaway browser-host rows (no bound agent) — they are not
+  // discoverable catalog hosts and would inflate liveSessionCount.
   const liveSessions = await db
     .select({ appName: sessionsTable.appName, n: sql<number>`count(*)::int` })
     .from(sessionsTable)
-    .where(ne(sessionsTable.status, "ended"))
+    .innerJoin(hostsTable, eq(sessionsTable.hostId, hostsTable.id))
+    .where(
+      and(
+        ne(sessionsTable.status, "ended"),
+        isNotNull(hostsTable.agentPubkey),
+      ),
+    )
     .groupBy(sessionsTable.appName);
   const liveMap = new Map<string, number>();
   for (const r of liveSessions) liveMap.set(r.appName.toLowerCase(), Number(r.n));
@@ -116,7 +124,14 @@ router.get("/hosts", async (_req, res): Promise<void> => {
     })
     .from(sessionsTable)
     .innerJoin(hostsTable, eq(sessionsTable.hostId, hostsTable.id))
-    .where(ne(sessionsTable.status, "ended"))
+    .where(
+      and(
+        ne(sessionsTable.status, "ended"),
+        // Browser-host sessions mint a throwaway host row with no agent key.
+        // They must not appear in the public catalog or M-146 «Играть сейчас».
+        isNotNull(hostsTable.agentPubkey),
+      ),
+    )
     .orderBy(desc(sessionsTable.createdAt));
 
   const now = new Date();
@@ -360,13 +375,17 @@ router.post("/public/sessions", publicSessionsLimiter, async (req, res): Promise
     return;
   }
 
-  // Verify host exists.
+  // Verify host exists and is a real agent-backed catalog host.
   const [host] = await db
-    .select({ id: hostsTable.id })
+    .select({ id: hostsTable.id, agentPubkey: hostsTable.agentPubkey })
     .from(hostsTable)
     .where(eq(hostsTable.id, hostId));
 
   if (!host) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+  if (!host.agentPubkey) {
     res.status(404).json({ error: "Host not found" });
     return;
   }
