@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 const {
+  BROWSER_TITLE_HINTS,
   exeBasename,
   hostFromBoundUrl,
   findBrowserCaptureSource,
@@ -12,6 +13,7 @@ const {
   browserWindowStillOpen,
   looksLikeBrowserWindow,
   resolveTargetExeName,
+  windowSources,
 } = await import("../dist/main/shared/window-match.js");
 
 const sources = [
@@ -21,6 +23,18 @@ const sources = [
   { id: "window:3", name: "Discord" },
   { id: "window:4", name: "RogueFable3" },
 ];
+
+test("BROWSER_TITLE_HINTS lists common browser substrings", () => {
+  assert.ok(BROWSER_TITLE_HINTS.length > 0);
+  assert.ok(BROWSER_TITLE_HINTS.includes("chrome"));
+  assert.ok(BROWSER_TITLE_HINTS.includes("microsoft edge"));
+});
+
+test("windowSources excludes screen capture entries", () => {
+  const filtered = windowSources(sources);
+  assert.equal(filtered.length, 4);
+  assert.ok(filtered.every((s) => !s.id.startsWith("screen:")));
+});
 
 test("exeBasename strips path and .exe extension", () => {
   assert.equal(exeBasename("C:\\Steam\\steamapps\\common\\Game\\Game.EXE"), "game");

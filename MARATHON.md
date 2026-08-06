@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-06 00:31 UTC|
-| Task ID | M-254|
-| Результат | ui.test.mjs PASS: log export coverage|
+| Дата | 2026-08-06 00:34 UTC|
+| Task ID | M-255|
+| Результат | window-match.test.mjs +2 (BROWSER_TITLE_HINTS, windowSources) — 75 tests PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -607,7 +607,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-252 | V | тест не покрывает экспорты (12): session | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/session.ts | done | agent |
 | M-253 | V | тест не покрывает экспорты (2): steam | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/steam.ts | done | agent |
 | M-254 | V | тест не покрывает экспорты (1): ui | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/ui.ts | done | agent |
-| M-255 | V | тест не покрывает экспорты (2): window-match | `artifacts/host-agent/src/shared/window-match.ts` | v:artifacts/host-agent/src/shared/window-match.ts | pending | agent |
+| M-255 | V | тест не покрывает экспорты (2): window-match | `artifacts/host-agent/src/shared/window-match.ts` | v:artifacts/host-agent/src/shared/window-match.ts | done | agent |
 | M-256 | X | покрытие 41% → 50%: TouchOverlay.tsx | `artifacts/web/src/components/TouchOverlay.tsx` | x:artifacts/web/src/components/TouchOverlay.tsx | pending | agent |
 
 

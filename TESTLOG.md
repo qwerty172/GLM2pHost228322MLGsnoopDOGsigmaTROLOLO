@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-255 (2026-08-06 00:33 UTC) {#marathon-m-255}
+
+| Проверка | Результат |
+|---|---|
+| window-match.test.mjs | PASS (2 new tests) |
+
+**Изменения:** `artifacts/host-agent/test/window-match.test.mjs` — unit-тесты для экспортов `BROWSER_TITLE_HINTS` и `windowSources`.
+
+**Следующий pick:** M-256 (покрытие 41% → 50%: TouchOverlay.tsx).
+
 ## Marathon M-254 (2026-08-06 00:30 UTC) {#marathon-m-254}
 
 | Проверка | Результат |
@@ -23,7 +33,7 @@
 
 **Изменения:** `artifacts/host-agent/test/ui.test.mjs` — unit-тест для экспорта `log` (prepends stamped message to log element).
 
-**Следующий pick:** M-255 (тест не покрывает экспорты: window-match).
+**Следующий pick:** M-256 (покрытие 41% → 50%: TouchOverlay.tsx).
 
 ## Marathon M-253 (2026-08-06 00:30 UTC) {#marathon-m-253}
 
