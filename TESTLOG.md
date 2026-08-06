@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-259 (2026-08-06 12:52 UTC) {#marathon-m-259}
+
+| Проверка | Результат |
+|---|---|
+| webgl-video-shader.test.mjs | PASS (14 tests, +8 component tests) |
+| marathon-coverage webgl-video-shader.tsx | 93% (281/303 строк) |
+
+**Изменения:** `artifacts/web/test/webgl-video-shader.test.mjs` — happy-dom + mock WebGL: inactive canvas, compile/link errors, WebGL unavailable, readyState gate, cleanup on unmount.
+
+**Следующий pick:** marathon-scan --next (M-260 use-mobile coverage).
+
 ## Marathon M-258 (2026-08-06 12:46 UTC) {#marathon-m-258}
 
 | Проверка | Результат |

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-06T12:45:32.533Z",
+  "generatedAt": "2026-08-06T12:54:38.036Z",
   "tier": 80,
   "tiers": [
     50,
@@ -8,7 +8,7 @@
     90
   ],
   "measuredFiles": 61,
-  "belowTier": 3,
+  "belowTier": 2,
   "files": {
     "lib/db/src/schema/agentEvents.ts": {
       "lines": 38,
@@ -202,8 +202,8 @@
     },
     "artifacts/web/src/components/webgl-video-shader.tsx": {
       "lines": 303,
-      "covered": 206,
-      "pct": 68
+      "covered": 281,
+      "pct": 93
     },
     "artifacts/web/src/hooks/use-mobile.tsx": {
       "lines": 28,
