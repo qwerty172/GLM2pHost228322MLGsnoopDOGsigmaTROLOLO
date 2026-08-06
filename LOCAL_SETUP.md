@@ -70,11 +70,11 @@ pnpm dev
 
 Или напрямую: `scripts\setup-local.bat` → `scripts\dev-local.bat`
 
-### Smoke-тест
+### Smoke-тест и демо
 
 ```bash
 ./scripts/smoke-api.sh
-# Windows: scripts\smoke-api.bat
+pnpm demo    # тест-сессия + ссылка (нужен запущенный pnpm dev)
 ```
 
 ---

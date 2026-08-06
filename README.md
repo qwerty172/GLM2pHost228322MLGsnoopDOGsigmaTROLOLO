@@ -54,7 +54,7 @@ pnpm dev     # API :8080 + Web :5000
 | Web (каталог, дашборд) | http://localhost:5000 |
 | API health | http://localhost:8080/api/healthz |
 
-Smoke-тест: `./scripts/smoke-api.sh`
+Smoke-тест: `./scripts/smoke-api.sh` или `pnpm demo` (тест-сессия + ссылка)
 
 **На потом** (не нужны для первого запуска): TURN/coturn (WebRTC через NAT), Windows host-agent, Redis в проде, внешние API-ключи (VirusTotal, крипто-депозиты). См. [`infra/docker-compose.dev.yml`](./infra/docker-compose.dev.yml) и [`HOSTING.md`](./HOSTING.md).
 
@@ -86,6 +86,7 @@ Smoke-тест: `./scripts/smoke-api.sh`
 
 ```bash
 pnpm dev                    # API + Web (рекомендуется)
+pnpm demo                   # тест-сессия + ссылка для браузера
 ./scripts/dev-local.sh      # то же, напрямую
 pnpm setup -- --full        # setup + проверка типов
 pnpm infra:up               # только Docker Postgres + Redis
@@ -97,7 +98,7 @@ pnpm infra:up               # только Docker Postgres + Redis
 
 ```bash
 ./scripts/smoke-api.sh
-# или: ./scripts/smoke-api.sh http://localhost:8080
+# или: pnpm demo
 ```
 
 ### Сборка production
