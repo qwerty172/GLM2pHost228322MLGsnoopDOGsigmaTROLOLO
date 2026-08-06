@@ -26,6 +26,7 @@ import {
   PLAY_NOW_FALLBACK_HREF,
 } from "@/pages/landing-helpers";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { prewarmIce } from "@/lib/ice-prewarm";
 
 function LatencyBadge({ totalMs }: { totalMs: number | null }) {
   if (totalMs == null) return null;
@@ -243,6 +244,7 @@ function PlayButton({
       <button
         type="button"
         onClick={() => void handlePlay()}
+        onMouseEnter={() => void prewarmIce(hostId)}
         disabled={loading || (games.length > 1 && !selectedGame)}
         className="h-9 px-4 text-xs font-semibold rounded-md transition-colors disabled:opacity-60"
         style={{ background: "#0ea5e9", color: "#fff" }}
@@ -282,6 +284,7 @@ export default function HostsPage() {
       return;
     }
     if (!playerWalletToken) void registerGuest();
+    if (bestPlayableHost?.id) void prewarmIce(bestPlayableHost.id);
     navigate(playNowPath);
   };
 

@@ -18,7 +18,15 @@ import { putBlobToUrl } from "@/lib/put-external-blob";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Gamepad2, AlertCircle, Loader2, Wifi, WifiOff, VolumeX, Clock, TrendingDown, Activity, RefreshCw, Clapperboard, Settings2, X, Layers, ExternalLink, FlaskConical } from "lucide-react";
+import { Gamepad2, AlertCircle, Loader2, Wifi, WifiOff, VolumeX, Clock, TrendingDown, Activity, RefreshCw, Clapperboard, Settings2, X, Layers, ExternalLink, FlaskConical, MoreHorizontal } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { WebGLVideoShader, SHADER_PRESETS, type PresetKey } from "@/components/webgl-video-shader";
 import { TouchOverlay } from "@/components/TouchOverlay";
 import { KeyboardOverlay } from "@/components/KeyboardOverlay";
@@ -48,6 +56,7 @@ import {
   computeWalletBalanceForSession,
   isTouchCapableDevice,
 } from "./play-helpers";
+import { takePrewarmedConnection, prewarmIce } from "@/lib/ice-prewarm";
 
 const isDev = import.meta.env.DEV;
 const devLog = (...args: unknown[]) => {
@@ -214,6 +223,13 @@ export default function Play() {
   const sessionId = session?.id;
   const sessionStatus = session?.status;
   const sessionClaimedBy = session?.claimedByPlayerId;
+  const sessionHostId = session?.hostId;
+
+  useEffect(() => {
+    if (sessionHostId && playerToken && !isTestBrowserSession) {
+      void prewarmIce(sessionHostId);
+    }
+  }, [sessionHostId, playerToken, isTestBrowserSession]);
 
   const { playerWalletToken, registerGuest } = usePlayerWallet();
 
@@ -775,16 +791,21 @@ export default function Play() {
 
     // Fetch ICE server config (STUN + optional TURN) from the API.
     let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
-    try {
-      const cfgJson = await getPublicIceConfig();
-      if (Array.isArray(cfgJson.iceServers) && cfgJson.iceServers.length > 0) {
-        iceServers = cfgJson.iceServers;
+    const prewarmed = sessionHostId ? takePrewarmedConnection(sessionHostId) : null;
+    if (prewarmed) {
+      iceServers = prewarmed.iceServers;
+    } else {
+      try {
+        const cfgJson = await getPublicIceConfig();
+        if (Array.isArray(cfgJson.iceServers) && cfgJson.iceServers.length > 0) {
+          iceServers = cfgJson.iceServers;
+        }
+      } catch {
+        devWarn("[ice] Failed to fetch ICE config, using default STUN only");
       }
-    } catch {
-      devWarn("[ice] Failed to fetch ICE config, using default STUN only");
     }
 
-    const pc = new RTCPeerConnection({ iceServers });
+    const pc = prewarmed?.pc ?? new RTCPeerConnection({ iceServers });
     pcRef.current = pc;
 
     pc.onconnectionstatechange = () => {
@@ -875,7 +896,7 @@ export default function Play() {
     };
 
     connectWs(wsUrl, pc);
-  }, [session?.id, playerToken, playerWalletToken, cleanupConnection, connectWs, triggerIceRestart, initClipRecorder]);
+  }, [session?.id, sessionHostId, playerToken, playerWalletToken, cleanupConnection, connectWs, triggerIceRestart, initClipRecorder]);
 
   useEffect(() => {
     if (sessionClaimedBy) {
@@ -1601,120 +1622,81 @@ export default function Play() {
         })()}
 
         <div className="flex items-center gap-2">
-          {/* Clip button — only when DC is open */}
-          <div className="flex items-center gap-1 pointer-events-auto">
-            <Button
-              size="sm"
-              onClick={() => void saveClip()}
-              disabled={!dataChannelOpen || isSavingClip}
-              title={dataChannelOpen ? "Сохранить последние ~30 сек" : "Доступно после подключения"}
-              className="shadow-md gap-1.5"
-              style={{
-                background: dataChannelOpen ? "rgba(139,92,246,0.85)" : "rgba(100,100,100,0.4)",
-                color: "#fff",
-                opacity: dataChannelOpen ? 1 : 0.5,
-              }}
+          {/* Доп. инструменты — не мешают сразу играть */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                className="pointer-events-auto shadow-md gap-1.5"
+                style={{
+                  background: "rgba(255,255,255,0.08)",
+                  color: "#94a3b8",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                }}
+                data-testid="button-play-more"
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" />
+                Ещё
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="min-w-[200px]"
+              style={{ background: "#0a1018", border: "1px solid rgba(255,255,255,0.1)" }}
             >
-              {isSavingClip ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Clapperboard className="h-3.5 w-3.5" />
+              <DropdownMenuItem
+                disabled={!dataChannelOpen || isSavingClip}
+                onClick={() => void saveClip()}
+                className="gap-2 cursor-pointer"
+              >
+                {isSavingClip ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Clapperboard className="h-3.5 w-3.5" />
+                )}
+                Сохранить клип (~30 с)
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setShowClipSettings((v) => !v)}
+                className="gap-2 cursor-pointer"
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+                Настройки клипа
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
+                checked={gamepadOverlay}
+                onCheckedChange={(checked) => {
+                  setGamepadOverlay(checked);
+                  if (!checked) setGamepadEditMode(false);
+                }}
+                className="gap-2"
+              >
+                <Gamepad2 className="h-3.5 w-3.5" />
+                Виртуальный геймпад
+              </DropdownMenuCheckboxItem>
+              {gamepadOverlay && (
+                <DropdownMenuCheckboxItem
+                  checked={gamepadEditMode}
+                  onCheckedChange={setGamepadEditMode}
+                  className="gap-2 pl-8"
+                >
+                  Редактировать раскладку
+                </DropdownMenuCheckboxItem>
               )}
-              Клип
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setShowClipSettings((v) => !v)}
-              title="Настройки облачного сохранения"
-              className="shadow-md px-2"
-              style={{
-                background: showClipSettings ? "rgba(139,92,246,0.6)" : "rgba(255,255,255,0.07)",
-                color: "#fff",
-                border: "1px solid rgba(255,255,255,0.12)",
-              }}
-            >
-              <Settings2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-
-          {/* Gamepad overlay toggle */}
-          <button
-            onClick={() => {
-              setGamepadOverlay((v) => {
-                if (v) setGamepadEditMode(false);
-                return !v;
-              });
-            }}
-            className="pointer-events-auto"
-            title="Виртуальный геймпад"
-            style={{
-              background: gamepadOverlay ? "rgba(14,165,233,0.25)" : "rgba(255,255,255,0.08)",
-              border: gamepadOverlay ? "1px solid rgba(14,165,233,0.6)" : "1px solid rgba(255,255,255,0.15)",
-              borderRadius: 8,
-              padding: "5px 8px",
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-              color: gamepadOverlay ? "#38bdf8" : "#94a3b8",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            <Gamepad2 style={{ width: 15, height: 15 }} />
-            Геймпад
-          </button>
-
-          {/* Layout edit toggle — only shown when overlay is active */}
-          {gamepadOverlay && (
-            <button
-              onClick={() => setGamepadEditMode((v) => !v)}
-              className="pointer-events-auto"
-              title="Редактировать раскладку"
-              style={{
-                background: gamepadEditMode ? "rgba(234,179,8,0.25)" : "rgba(255,255,255,0.06)",
-                border: gamepadEditMode ? "1px solid rgba(234,179,8,0.7)" : "1px solid rgba(255,255,255,0.12)",
-                borderRadius: 8,
-                padding: "5px 8px",
-                color: gamepadEditMode ? "#fde047" : "#64748b",
-                fontSize: 11,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              {gamepadEditMode ? "✓ Готово" : "✎"}
-            </button>
-          )}
-
-
-          {/* Shader toggle button */}
-          <button
-            onClick={() => setShowShaderPanel((v) => !v)}
-            className="pointer-events-auto"
-            title="Шейдеры и пост-обработка"
-            style={{
-              background: shaderActive
-                ? "rgba(16,185,129,0.25)"
-                : showShaderPanel
-                  ? "rgba(255,255,255,0.12)"
-                  : "rgba(255,255,255,0.06)",
-              border: shaderActive
-                ? "1px solid rgba(16,185,129,0.6)"
-                : "1px solid rgba(255,255,255,0.12)",
-              borderRadius: 8,
-              padding: "5px 8px",
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-              color: shaderActive ? "#34d399" : "#64748b",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            <Layers style={{ width: 15, height: 15 }} />
-            {shaderActive ? SHADER_PRESETS[activePreset as Exclude<PresetKey, "custom">]?.label ?? "Кастом" : "Шейдер"}
-          </button>
+              <DropdownMenuCheckboxItem
+                checked={shaderActive || showShaderPanel}
+                onCheckedChange={(checked) => {
+                  setShowShaderPanel(checked);
+                  if (!checked) setActivePreset("none");
+                }}
+                className="gap-2"
+              >
+                <Layers className="h-3.5 w-3.5" />
+                Шейдеры и пост-обработка
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <Button
             size="sm"

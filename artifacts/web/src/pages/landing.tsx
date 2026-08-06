@@ -16,7 +16,7 @@ import {
   Server,
   Bell,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
   useGetPublicStats,
@@ -28,6 +28,7 @@ import {
 } from "@workspace/api-client-react";
 import { SiteNav } from "@/components/site-nav";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
+import { prewarmIce } from "@/lib/ice-prewarm";
 import {
   formatInt,
   formatUsd,
@@ -38,6 +39,7 @@ import {
   pickBestPlayableHost,
   resolvePlayNowInvitePath,
   PLAY_NOW_FALLBACK_HREF,
+  DEMO_GAME_HREF,
 } from "@/pages/landing-helpers";
 
 type LiveHost = {
@@ -67,6 +69,11 @@ export default function Landing() {
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [, navigate] = useLocation();
   const { playerWalletToken, registerGuest } = usePlayerWallet();
+
+  useEffect(() => {
+    if (!playerWalletToken) void registerGuest();
+  }, [playerWalletToken, registerGuest]);
+
   const { data: liveHosts } = useLiveHosts();
   const { data: stats } = useGetPublicStats({
     query: {
@@ -97,9 +104,12 @@ export default function Landing() {
 
   const handlePlayNow = (host: LiveHost) => {
     if (!host.inviteCode) return;
-    // Guest wallet создаётся на /play — не блокируем навигацию.
     if (!playerWalletToken) void registerGuest();
     navigate(`/play/i/${host.inviteCode}`);
+  };
+
+  const handlePlayNowHover = (host: LiveHost) => {
+    if (host.id) void prewarmIce(host.id);
   };
 
   const playableHosts = filterPlayableHosts(liveHosts);
@@ -112,6 +122,7 @@ export default function Landing() {
       return;
     }
     if (!playerWalletToken) void registerGuest();
+    if (bestPlayableHost?.id) void prewarmIce(bestPlayableHost.id);
     navigate(playNowPath);
   };
 
@@ -192,6 +203,16 @@ export default function Landing() {
               <Play className="w-3.5 h-3.5 mr-1.5" />
               {playNowPath ? "Играть сейчас" : "Смотреть каталог"}
             </Button>
+            <Link href={DEMO_GAME_HREF}>
+              <Button
+                variant="ghost"
+                className="h-9 px-5 text-sm text-teal-400 hover:text-teal-300 rounded-md border border-teal-500/20 hover:border-teal-500/40"
+                data-testid="button-demo-game"
+              >
+                <Gamepad2 className="w-3.5 h-3.5 mr-1.5" />
+                Попробовать демо
+              </Button>
+            </Link>
             <Link href="/host">
               <Button
                 variant="ghost"
@@ -330,6 +351,7 @@ export default function Landing() {
                       className="w-full h-7 rounded-md text-[11px] font-semibold flex items-center justify-center gap-1 transition-opacity hover:opacity-90"
                       style={{ background: "#0ea5e9", color: "#fff" }}
                       onClick={() => handlePlayNow(host)}
+                      onMouseEnter={() => handlePlayNowHover(host)}
                       data-testid={`button-play-now-${host.id}`}
                     >
                       <Play className="w-3 h-3" /> Играть

@@ -22,6 +22,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { usePlayNowHref, isPlayNavActive } from "@/hooks/use-play-now-href";
 import { useGetWallet, getGetWalletQueryKey } from "@workspace/api-client-react";
 import { usePlayerWallet } from "@/hooks/use-player-wallet";
 import { toast } from "sonner";
@@ -59,15 +60,15 @@ export function isSiteNavPathActive(
   return activePath === path;
 }
 
-/** Единая цель для «Играть» в шапке (десктоп и мобила). */
-export const SITE_NAV_PLAY_HREF = "/hosts" as const;
+/** Fallback для тестов и статических ссылок без live-хостов. */
+export const SITE_NAV_PLAY_HREF = "/games" as const;
 
 export function getSiteNavPlayHref(): typeof SITE_NAV_PLAY_HREF {
   return SITE_NAV_PLAY_HREF;
 }
 
 export function isSiteNavPlayActive(activePath?: string): boolean {
-  return isSiteNavPathActive(activePath, SITE_NAV_PLAY_HREF);
+  return isPlayNavActive(activePath);
 }
 
 export function isGuestUpgradeNameValid(name: string): boolean {
@@ -110,12 +111,18 @@ function BalanceChip({ walletToken }: { walletToken: string }) {
 
 export function SiteNav({ activePath }: Props) {
   const { hostToken, logout } = useAuth();
-  const { playerWalletToken, isGuest, upgradeGuest } = usePlayerWallet();
+  const { playerWalletToken, isGuest, upgradeGuest, registerGuest } = usePlayerWallet();
+  const playNowHref = usePlayNowHref();
   const [guestExpanded, setGuestExpanded] = useState(false);
   const [guestName, setGuestName] = useState("");
   const [upgrading, setUpgrading] = useState(false);
   const walletToken = playerWalletToken ?? hostToken ?? null;
   const [, navigate] = useLocation();
+
+  const handlePlayNav = () => {
+    if (!playerWalletToken) void registerGuest();
+    navigate(playNowHref);
+  };
 
   const isActive = (path: string) => isSiteNavPathActive(activePath, path);
   const isHostActive = isSiteNavHostActive(activePath);
@@ -148,18 +155,18 @@ export function SiteNav({ activePath }: Props) {
 
         {/* Primary nav — desktop */}
         <div className="hidden md:flex items-center gap-1 flex-1">
-          <Link href={getSiteNavPlayHref()}>
-            <span
-              className="flex items-center gap-1.5 text-[13px] font-semibold transition-colors cursor-pointer px-3 py-1.5 rounded-md"
-              style={{
-                color: isSiteNavPlayActive(activePath) ? "#38bdf8" : "#e2e8f0",
-                background: isSiteNavPlayActive(activePath) ? "rgba(14,165,233,0.08)" : "transparent",
-              }}
-              data-testid="link-nav-games"
-            >
-              <Gamepad2 className="w-3.5 h-3.5" /> Играть
-            </span>
-          </Link>
+          <button
+            type="button"
+            onClick={handlePlayNav}
+            className="flex items-center gap-1.5 text-[13px] font-semibold transition-colors cursor-pointer px-3 py-1.5 rounded-md"
+            style={{
+              color: isSiteNavPlayActive(activePath) ? "#38bdf8" : "#e2e8f0",
+              background: isSiteNavPlayActive(activePath) ? "rgba(14,165,233,0.08)" : "transparent",
+            }}
+            data-testid="link-nav-games"
+          >
+            <Gamepad2 className="w-3.5 h-3.5" /> Играть
+          </button>
 
           <Link href="/host">
             <span
@@ -355,6 +362,14 @@ export function SiteNav({ activePath }: Props) {
 
 function MobileMenu({ activePath }: { activePath?: string }) {
   const isHostActive = isSiteNavHostActive(activePath);
+  const playNowHref = usePlayNowHref();
+  const { playerWalletToken, registerGuest } = usePlayerWallet();
+  const [, navigate] = useLocation();
+
+  const handlePlayNav = () => {
+    if (!playerWalletToken) void registerGuest();
+    navigate(playNowHref);
+  };
 
   return (
     <div
@@ -362,15 +377,15 @@ function MobileMenu({ activePath }: { activePath?: string }) {
       style={{ borderColor: "rgba(255,255,255,0.05)" }}
     >
       {/* Primary: Играть */}
-      <Link href={getSiteNavPlayHref()}>
-        <span
-          className="flex items-center gap-1 text-[12px] font-semibold px-3 py-1 rounded whitespace-nowrap"
-          style={{ color: isSiteNavPlayActive(activePath) ? "#38bdf8" : "#e2e8f0" }}
-          data-testid="link-mobile-games"
-        >
-          <Gamepad2 className="w-3 h-3" /> Играть
-        </span>
-      </Link>
+      <button
+        type="button"
+        onClick={handlePlayNav}
+        className="flex items-center gap-1 text-[12px] font-semibold px-3 py-1 rounded whitespace-nowrap"
+        style={{ color: isSiteNavPlayActive(activePath) ? "#38bdf8" : "#e2e8f0" }}
+        data-testid="link-mobile-games"
+      >
+        <Gamepad2 className="w-3 h-3" /> Играть
+      </button>
 
       <div
         className="mx-1.5 h-3.5 w-px shrink-0"
