@@ -381,14 +381,25 @@ describe("POST /hosts/register", () => {
 describe("GET /hosts/:hostToken", () => {
   it("returns 404 when host is unknown", async () => {
     queueResults([]);
-    const res = await request("GET", `/hosts/${HOST_TOKEN}`);
+    const res = await request("GET", `/hosts/${HOST_TOKEN}`, {
+      headers: { Authorization: `Bearer ${HOST_TOKEN}` },
+    });
     expect(res.status).toBe(404);
     expect(res.json).toMatchObject({ error: "Host not found" });
   });
 
-  it("returns serialized host profile", async () => {
+  it("returns 401 without matching host auth header", async () => {
     queueResults([HOST_ROW]);
     const res = await request("GET", `/hosts/${HOST_TOKEN}`);
+    expect(res.status).toBe(401);
+    expect(res.json).toMatchObject({ error: "host_auth_required" });
+  });
+
+  it("returns serialized host profile when header matches path token", async () => {
+    queueResults([HOST_ROW]);
+    const res = await request("GET", `/hosts/${HOST_TOKEN}`, {
+      headers: { Authorization: `Bearer ${HOST_TOKEN}` },
+    });
     expect(res.status).toBe(200);
     expect(res.json).toMatchObject({
       id: HOST_ID,
@@ -402,6 +413,27 @@ describe("GET /hosts/:hostToken", () => {
       streamKeySet: false,
       agentKeyBound: false,
       isAdmin: false,
+    });
+  });
+});
+
+describe("GET /hosts/me", () => {
+  it("returns 401 without host auth", async () => {
+    const res = await request("GET", "/hosts/me");
+    expect(res.status).toBe(401);
+    expect(res.json).toMatchObject({ error: "hostToken required in Authorization or X-Host-Token" });
+  });
+
+  it("returns serialized host profile for authenticated host", async () => {
+    queueResults([HOST_ROW]);
+    const res = await request("GET", "/hosts/me", {
+      headers: { Authorization: `Bearer ${HOST_TOKEN}` },
+    });
+    expect(res.status).toBe(200);
+    expect(res.json).toMatchObject({
+      hostToken: HOST_TOKEN,
+      internalBalanceLzt: 100,
+      withdrawableBalanceLzt: 50,
     });
   });
 });
@@ -552,9 +584,18 @@ describe("GET /hosts/me/readiness", () => {
 describe("GET /hosts/:hostToken/stats", () => {
   it("returns 404 when host is unknown", async () => {
     queueResults([]);
-    const res = await request("GET", `/hosts/${HOST_TOKEN}/stats`);
+    const res = await request("GET", `/hosts/${HOST_TOKEN}/stats`, {
+      headers: { Authorization: `Bearer ${HOST_TOKEN}` },
+    });
     expect(res.status).toBe(404);
     expect(res.json).toMatchObject({ error: "Host not found" });
+  });
+
+  it("returns 401 without matching host auth header", async () => {
+    queueResults([HOST_ROW]);
+    const res = await request("GET", `/hosts/${HOST_TOKEN}/stats`);
+    expect(res.status).toBe(401);
+    expect(res.json).toMatchObject({ error: "host_auth_required" });
   });
 
   it("returns aggregated session stats", async () => {
@@ -579,7 +620,9 @@ describe("GET /hosts/:hostToken/stats", () => {
         },
       ],
     );
-    const res = await request("GET", `/hosts/${HOST_TOKEN}/stats`);
+    const res = await request("GET", `/hosts/${HOST_TOKEN}/stats`, {
+      headers: { Authorization: `Bearer ${HOST_TOKEN}` },
+    });
     expect(res.status).toBe(200);
     const body = res.json as {
       totalSessions: number;
@@ -672,9 +715,18 @@ describe("GET /hosts/me/stream-relay", () => {
 describe("GET /hosts/:hostToken/sessions", () => {
   it("returns 404 when host is unknown", async () => {
     queueResults([]);
-    const res = await request("GET", `/hosts/${HOST_TOKEN}/sessions`);
+    const res = await request("GET", `/hosts/${HOST_TOKEN}/sessions`, {
+      headers: { Authorization: `Bearer ${HOST_TOKEN}` },
+    });
     expect(res.status).toBe(404);
     expect(res.json).toMatchObject({ error: "Host not found" });
+  });
+
+  it("returns 401 without matching host auth header", async () => {
+    queueResults([HOST_ROW]);
+    const res = await request("GET", `/hosts/${HOST_TOKEN}/sessions`);
+    expect(res.status).toBe(401);
+    expect(res.json).toMatchObject({ error: "host_auth_required" });
   });
 
   it("returns host sessions with numeric ratePerMinute", async () => {
@@ -693,7 +745,9 @@ describe("GET /hosts/:hostToken/sessions", () => {
         },
       ],
     );
-    const res = await request("GET", `/hosts/${HOST_TOKEN}/sessions`);
+    const res = await request("GET", `/hosts/${HOST_TOKEN}/sessions`, {
+      headers: { Authorization: `Bearer ${HOST_TOKEN}` },
+    });
     expect(res.status).toBe(200);
     expect(res.json).toEqual([
       expect.objectContaining({

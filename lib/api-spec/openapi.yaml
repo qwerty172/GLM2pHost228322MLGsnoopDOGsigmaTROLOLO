@@ -154,11 +154,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/Host"
 
+  /hosts/me:
+    get:
+      operationId: getHostMe
+      tags: [hosts]
+      summary: Get the authenticated host profile
+      description: >
+        Authenticate with Authorization Bearer, X-Host-Token, or X-User-Token
+        (host token). Prefer this over GET /hosts/{hostToken}.
+      responses:
+        "200":
+          description: Host
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Host"
+        "401":
+          description: Host auth required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /hosts/{hostToken}:
     get:
       operationId: getHost
       tags: [hosts]
-      summary: Look up host by token
+      summary: "[Legacy] Look up host by token — prefer GET /hosts/me"
+      description: >
+        Legacy path-token route. Authorization Bearer, X-Host-Token, or
+        X-User-Token must match the path hostToken. Unauthenticated requests
+        are rejected to avoid leaking balances and admin status.
       parameters:
         - in: path
           name: hostToken
@@ -172,6 +204,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Host"
+        "401":
+          description: Host auth required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Not found
           content:

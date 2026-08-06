@@ -40,7 +40,9 @@ export async function validateExistingHostToken(
   const trimmed = token.trim();
   if (!isExistingHostTokenValid(trimmed)) return { ok: false };
   try {
-    const host = await lookup(trimmed);
+    const host = await lookup(trimmed, {
+      headers: { Authorization: `Bearer ${trimmed}` },
+    });
     return { ok: true, displayName: host.displayName };
   } catch {
     return { ok: false };
