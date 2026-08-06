@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-06T12:58:20.695Z",
-  "tier": 80,
+  "generatedAt": "2026-08-06T13:02:29.855Z",
+  "tier": 90,
   "tiers": [
     50,
     65,
@@ -8,7 +8,7 @@
     90
   ],
   "measuredFiles": 61,
-  "belowTier": 1,
+  "belowTier": 4,
   "files": {
     "lib/db/src/schema/agentEvents.ts": {
       "lines": 38,
@@ -212,8 +212,8 @@
     },
     "artifacts/web/src/hooks/use-platform-events.ts": {
       "lines": 34,
-      "covered": 23,
-      "pct": 68
+      "covered": 34,
+      "pct": 100
     },
     "artifacts/web/src/lib/agent-event-labels.ts": {
       "lines": 23,

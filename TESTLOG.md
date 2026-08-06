@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-261 (2026-08-06 13:00 UTC) {#marathon-m-261}
+
+| Проверка | Результат |
+|---|---|
+| use-platform-events.test.mjs | PASS (9 tests, +3 hook tests) |
+| marathon-coverage use-platform-events.ts | 100% (34/34 строк) |
+
+**Изменения:** `artifacts/web/test/use-platform-events.test.mjs` — happy-dom + usePlatformEvents: SSE subscribe/forward, enabled=false, cleanup on unmount. `use-platform-events.ts` — fallback `import.meta.env?.BASE_URL ?? "/"` для node-тестов.
+
+**Следующий pick:** marathon-scan --next.
+
 ## Marathon M-260 (2026-08-06 12:58 UTC) {#marathon-m-260}
 
 | Проверка | Результат |

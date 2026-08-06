@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import type { PlatformEvent } from "@/lib/platform-events-types";
 
-export function buildPlatformEventsStreamUrl(baseUrl = import.meta.env.BASE_URL): string {
+export function buildPlatformEventsStreamUrl(baseUrl = import.meta.env?.BASE_URL ?? "/"): string {
   return `${baseUrl}api/events/stream`;
 }
 
