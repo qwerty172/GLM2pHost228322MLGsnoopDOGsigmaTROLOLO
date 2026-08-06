@@ -53,7 +53,7 @@ CREATE DATABASE decentral_hub;
 ```bat
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
+git checkout main
 
 copy .env.example .env
 notepad .env
@@ -69,7 +69,10 @@ DATABASE_URL=postgresql://postgres:ВАШ_ПАРОЛЬ@localhost:5432/decentral_
 scripts\setup-local.bat
 scripts\dev-local.bat
 scripts\smoke-api.bat
+scripts\demo-local.bat
 ```
+
+`demo-local` создаёт тест-сессию и печатает ссылку — открой её в браузере и играй без ручной настройки.
 
 | Сервис | URL |
 |---|---|
@@ -83,7 +86,7 @@ scripts\smoke-api.bat
 ```bash
 git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
 cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
+git checkout main
 
 cp .env.example .env
 # отредактируй DATABASE_URL
@@ -92,6 +95,7 @@ chmod +x scripts/*.sh
 ./scripts/setup-local.sh
 ./scripts/dev-local.sh
 ./scripts/smoke-api.sh
+./scripts/demo-local.sh
 ```
 
 ---

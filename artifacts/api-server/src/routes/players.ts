@@ -42,6 +42,14 @@ const claimGuestLimiter = rateLimit({
 const GUEST_CREDIT_LIMIT_LZT = 500;
 const DEFAULT_CREDIT_LIMIT_LZT = 3000;
 
+/** В development гости получают стартовый баланс — можно играть без депозита. */
+function devGuestStarterLzt(): number {
+  if (process.env.NODE_ENV !== "development") return 0;
+  const raw = process.env.DEV_GUEST_STARTER_LZT ?? "2000";
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
 function serialize(p: typeof playersTable.$inferSelect) {
   return {
     id: p.id,
@@ -61,6 +69,7 @@ router.post("/players/register", registerLimiter, async (req, res): Promise<void
   if (isGuestRequest) {
     const playerToken = generateToken();
     const guestName = `Гость_${playerToken.slice(0, 6)}`;
+    const starterLzt = devGuestStarterLzt();
     const [player] = await db
       .insert(playersTable)
       .values({
@@ -68,6 +77,7 @@ router.post("/players/register", registerLimiter, async (req, res): Promise<void
         displayName: guestName,
         isGuest: true,
         creditLimitLzt: GUEST_CREDIT_LIMIT_LZT,
+        ...(starterLzt > 0 ? { internalBalanceLzt: starterLzt } : {}),
       })
       .returning();
 
