@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-06T12:54:38.036Z",
+  "generatedAt": "2026-08-06T12:58:20.695Z",
   "tier": 80,
   "tiers": [
     50,
@@ -8,7 +8,7 @@
     90
   ],
   "measuredFiles": 61,
-  "belowTier": 2,
+  "belowTier": 1,
   "files": {
     "lib/db/src/schema/agentEvents.ts": {
       "lines": 38,
@@ -207,8 +207,8 @@
     },
     "artifacts/web/src/hooks/use-mobile.tsx": {
       "lines": 28,
-      "covered": 19,
-      "pct": 68
+      "covered": 28,
+      "pct": 100
     },
     "artifacts/web/src/hooks/use-platform-events.ts": {
       "lines": 34,

@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-06 12:55 UTC|
-| Task ID | M-259|
-| Результат | webgl-video-shader.test.mjs +8 tests (WebGL mock, 93% coverage)|
+| Дата | 2026-08-06 12:58 UTC|
+| Task ID | M-260|
+| Результат | use-mobile.tsx coverage 68%→100%; 8 tests PASS (happy-dom useIsMobile)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -612,7 +612,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-257 | X | покрытие 50% → 65%: KeyboardOverlay.tsx | `artifacts/web/src/components/KeyboardOverlay.tsx` | x:artifacts/web/src/components/KeyboardOverlay.tsx | done | agent |
 | M-258 | V | тест не покрывает экспорты (1): use-play-now-href | `artifacts/web/src/hooks/use-play-now-href.ts` | v:artifacts/web/src/hooks/use-play-now-href.ts | done | agent |
 | M-259 | X | покрытие 68% → 80%: webgl-video-shader.tsx | `artifacts/web/src/components/webgl-video-shader.tsx` | x:artifacts/web/src/components/webgl-video-shader.tsx | done | agent |
-| M-260 | X | покрытие 68% → 80%: use-mobile.tsx | `artifacts/web/src/hooks/use-mobile.tsx` | x:artifacts/web/src/hooks/use-mobile.tsx | pending | agent |
+| M-260 | X | покрытие 68% → 80%: use-mobile.tsx | `artifacts/web/src/hooks/use-mobile.tsx` | x:artifacts/web/src/hooks/use-mobile.tsx | done | agent |
 | M-261 | X | покрытие 68% → 80%: use-platform-events.ts | `artifacts/web/src/hooks/use-platform-events.ts` | x:artifacts/web/src/hooks/use-platform-events.ts | pending | agent |
 
 

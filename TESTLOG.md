@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-260 (2026-08-06 12:58 UTC) {#marathon-m-260}
+
+| Проверка | Результат |
+|---|---|
+| use-mobile.test.mjs | PASS (8 tests, +4 hook tests) |
+| marathon-coverage use-mobile.tsx | 100% (28/28 строк) |
+
+**Изменения:** `artifacts/web/test/use-mobile.test.mjs` — happy-dom + useIsMobile: desktop/mobile viewport, matchMedia change, cleanup on unmount.
+
+**Следующий pick:** marathon-scan --next (M-261 use-platform-events coverage).
+
 ## Marathon M-259 (2026-08-06 12:52 UTC) {#marathon-m-259}
 
 | Проверка | Результат |
