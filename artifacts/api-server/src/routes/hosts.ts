@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, desc, and, sql, isNull as drizzleIsNull, inArray } from "drizzle-orm";
 import { z } from "zod/v4";
 import {
@@ -62,6 +62,24 @@ const hostReadLimiter = rateLimit({
 // Hosts can declare any rate, including negative ("loss-leader" promos), but
 // we cap the absolute value so a typo can't drain a wallet in one tick.
 const PRICE_ABS_LIMIT = 100; // USD
+
+/** Legacy path-token routes: header must match path (token-in-URL alone is rejected). */
+function rejectLegacyHostPathWithoutHeaderMatch(
+  req: Request,
+  res: Response,
+  pathToken: string,
+  preferredMePath: string,
+): boolean {
+  const headerTok = hostTokenFromRequest(req);
+  if (!headerTok || headerTok !== pathToken) {
+    res.status(401).json({
+      error: "host_auth_required",
+      message: `Use ${preferredMePath} with Authorization: Bearer <hostToken>`,
+    });
+    return false;
+  }
+  return true;
+}
 
 function serializeHost(h: typeof hostsTable.$inferSelect) {
   return {
@@ -137,10 +155,35 @@ router.post("/hosts/register", hostRegisterLimiter, async (req, res): Promise<vo
   res.status(201).json(GetHostResponse.parse(serializeHost(host)));
 });
 
+router.get(
+  "/hosts/me",
+  hostReadLimiter,
+  guardAndTrackFailures("hosts:read"),
+  async (req, res): Promise<void> => {
+    const auth = await requireHost(req);
+    if (!auth.ok) {
+      res.status(auth.status).json({ error: auth.error });
+      return;
+    }
+    res.json(GetHostResponse.parse(serializeHost(auth.host)));
+  },
+);
+
 router.get("/hosts/:hostToken", hostReadLimiter, guardAndTrackFailures("hosts:read"), async (req, res): Promise<void> => {
   const params = GetHostParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  if (
+    !rejectLegacyHostPathWithoutHeaderMatch(
+      req,
+      res,
+      params.data.hostToken,
+      "GET /hosts/me",
+    )
+  ) {
     return;
   }
 
@@ -396,6 +439,17 @@ router.get(
       return;
     }
 
+    if (
+      !rejectLegacyHostPathWithoutHeaderMatch(
+        req,
+        res,
+        params.data.hostToken,
+        "Authorization: Bearer <hostToken> required and must match path hostToken",
+      )
+    ) {
+      return;
+    }
+
     const [host] = await db
       .select()
       .from(hostsTable)
@@ -425,6 +479,17 @@ router.get("/hosts/:hostToken/stats", async (req, res): Promise<void> => {
   const params = GetHostStatsParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  if (
+    !rejectLegacyHostPathWithoutHeaderMatch(
+      req,
+      res,
+      params.data.hostToken,
+      "Authorization: Bearer <hostToken> required and must match path hostToken",
+    )
+  ) {
     return;
   }
 
@@ -500,6 +565,17 @@ router.get(
     const params = GetHostActivityParams.safeParse(req.params);
     if (!params.success) {
       res.status(400).json({ error: params.error.message });
+      return;
+    }
+
+    if (
+      !rejectLegacyHostPathWithoutHeaderMatch(
+        req,
+        res,
+        params.data.hostToken,
+        "Authorization: Bearer <hostToken> required and must match path hostToken",
+      )
+    ) {
       return;
     }
 

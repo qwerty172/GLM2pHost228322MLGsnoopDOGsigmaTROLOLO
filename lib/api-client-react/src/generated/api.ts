@@ -593,7 +593,76 @@ export const useRegisterHost = <
 };
 
 /**
- * @summary Look up host by token
+ * Authenticate with Authorization Bearer, X-Host-Token, or X-User-Token (host token). Prefer this over GET /hosts/{hostToken}.
+
+ * @summary Get the authenticated host profile
+ */
+export const getGetHostMeUrl = () => {
+  return `/api/hosts/me`;
+};
+
+export const getHostMe = async (options?: RequestInit): Promise<Host> => {
+  return customFetch<Host>(getGetHostMeUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetHostMeQueryKey = () => {
+  return [`/api/hosts/me`] as const;
+};
+
+export const getGetHostMeQueryOptions = <
+  TData = Awaited<ReturnType<typeof getHostMe>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getHostMe>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetHostMeQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getHostMe>>> = ({
+    signal,
+  }) => getHostMe({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getHostMe>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetHostMeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getHostMe>>
+>;
+export type GetHostMeQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get the authenticated host profile
+ */
+
+export function useGetHostMe<
+  TData = Awaited<ReturnType<typeof getHostMe>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getHostMe>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetHostMeQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Legacy path-token route. Authorization Bearer, X-Host-Token, or X-User-Token must match the path hostToken. Unauthenticated requests are rejected to avoid leaking balances and admin status.
+
+ * @summary [Legacy] Look up host by token — prefer GET /hosts/me
  */
 export const getGetHostUrl = (hostToken: string) => {
   return `/api/hosts/${hostToken}`;
@@ -647,7 +716,7 @@ export type GetHostQueryResult = NonNullable<
 export type GetHostQueryError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Look up host by token
+ * @summary [Legacy] Look up host by token — prefer GET /hosts/me
  */
 
 export function useGetHost<

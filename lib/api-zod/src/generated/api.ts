@@ -22,7 +22,148 @@ export const RegisterHostBody = zod.object({
 });
 
 /**
- * @summary Look up host by token
+ * Authenticate with Authorization Bearer, X-Host-Token, or X-User-Token (host token). Prefer this over GET /hosts/{hostToken}.
+
+ * @summary Get the authenticated host profile
+ */
+export const getHostMeResponseScheduleJsonItemDayMin = 0;
+export const getHostMeResponseScheduleJsonItemDayMax = 6;
+
+export const getHostMeResponseScheduleJsonItemStartMinMin = 0;
+export const getHostMeResponseScheduleJsonItemStartMinMax = 1440;
+
+export const getHostMeResponseScheduleJsonItemEndMinMin = 0;
+export const getHostMeResponseScheduleJsonItemEndMinMax = 1440;
+
+export const GetHostMeResponse = zod.object({
+  id: zod.string(),
+  hostToken: zod.string(),
+  displayName: zod.string(),
+  internalBalanceLzt: zod
+    .number()
+    .describe("РЎРёРЅРёР№ вЂ” internal LZT, cannot be withdrawn"),
+  withdrawableBalanceLzt: zod
+    .number()
+    .describe("Р—РµР»С‘РЅС‹Р№ вЂ” LZT convertible back to crypto at 200:1"),
+  gameId: zod
+    .string()
+    .nullable()
+    .describe("Catalog game this host is bound to"),
+  boundAppPath: zod
+    .string()
+    .describe("Absolute Windows path to the .exe the agent will launch"),
+  boundUrl: zod
+    .string()
+    .describe(
+      "URL of a browser game the agent will open. When set, takes precedence over boundAppPath.",
+    ),
+  boundAppLabel: zod
+    .string()
+    .describe("Friendly label shown in the games library"),
+  description: zod.string(),
+  tags: zod
+    .array(zod.string())
+    .describe("Capability tags shown as badges and used as library filters"),
+  launchPriceUsd: zod
+    .number()
+    .describe("Charged once when a player joins (may be negative)"),
+  minutePriceUsd: zod
+    .number()
+    .describe("Charged per minute while streaming (may be negative)"),
+  scheduleMode: zod.enum(["always", "scheduled"]),
+  scheduleJson: zod.array(
+    zod
+      .object({
+        day: zod
+          .number()
+          .min(getHostMeResponseScheduleJsonItemDayMin)
+          .max(getHostMeResponseScheduleJsonItemDayMax)
+          .describe("0 = Sunday вЂ¦ 6 = Saturday"),
+        startMin: zod
+          .number()
+          .min(getHostMeResponseScheduleJsonItemStartMinMin)
+          .max(getHostMeResponseScheduleJsonItemStartMinMax),
+        endMin: zod
+          .number()
+          .min(getHostMeResponseScheduleJsonItemEndMinMin)
+          .max(getHostMeResponseScheduleJsonItemEndMinMax),
+      })
+      .describe("A single weekly availability window (UTC)."),
+  ),
+  streamPlatform: zod
+    .string()
+    .describe('e.g. \"twitch\", \"youtube\", \"rtmp\"'),
+  streamUrl: zod.string(),
+  streamKeySet: zod
+    .boolean()
+    .describe(
+      "True if a stream key is stored. The key itself is never returned.",
+    ),
+  creditMinutesPerNewPlayer: zod
+    .number()
+    .describe(
+      "Host service credit policy вЂ” minutes of play extended on credit to new players who run out mid-session. 0 disables auto-credit.",
+    ),
+  creditMaxLztPerPlayer: zod
+    .number()
+    .describe("Per-borrower cap on host service credit, in LZT."),
+  createdAt: zod.coerce.date(),
+  lastSeenAt: zod.coerce.date(),
+  hostTier: zod
+    .enum(["below_min", "meets_min", "above_rec"])
+    .describe(
+      "Quick general strength badge vs the site-wide baseline hardware profile (not tied to a specific quota)",
+    ),
+  scheduleAutoDisabledReason: zod
+    .string()
+    .nullable()
+    .describe(
+      "Set by the schedule watchdog when it auto-deactivated this host's schedule due to a missed wake-up window. Null once cleared by the hoster saving config again.",
+    ),
+  scheduleAutoDisabledAt: zod.coerce.date().nullable(),
+  lastSubmissionStatus: zod
+    .string()
+    .nullable()
+    .describe(
+      "Latest game submission outcome (pending \/ approved \/ rejected)",
+    ),
+  lastSubmissionNote: zod
+    .string()
+    .describe("Human-readable note about the last submission outcome"),
+  gamesContributed: zod
+    .number()
+    .describe("Count of approved catalog submissions from this host"),
+  isAdmin: zod.boolean().describe("Platform administrator flag"),
+  agentKeyBound: zod
+    .boolean()
+    .describe(
+      "True when an Ed25519 agent public key is bound (key itself is never returned)",
+    ),
+  pcSpecs: zod
+    .object({
+      gpu: zod.string().optional(),
+      cpu: zod.string().optional(),
+      ramGb: zod.number().optional(),
+      cpuCores: zod.number().optional(),
+      downloadMbps: zod.number().optional(),
+      uploadMbps: zod.number().optional(),
+    })
+    .nullable()
+    .describe("PC hardware specs reported by the host agent"),
+  pingMs: zod
+    .number()
+    .nullish()
+    .describe(
+      "RTT from host agent to API (ms), null until first measured heartbeat",
+    ),
+  ratingAvg: zod.number().nullish(),
+  ratingCount: zod.number().optional(),
+});
+
+/**
+ * Legacy path-token route. Authorization Bearer, X-Host-Token, or X-User-Token must match the path hostToken. Unauthenticated requests are rejected to avoid leaking balances and admin status.
+
+ * @summary [Legacy] Look up host by token — prefer GET /hosts/me
  */
 export const GetHostParams = zod.object({
   hostToken: zod.coerce.string(),
