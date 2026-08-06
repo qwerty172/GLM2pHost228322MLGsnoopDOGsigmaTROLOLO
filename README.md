@@ -40,11 +40,20 @@ P2P-платформа: хосты стримят игры с Windows-ПК иг�
 
 ## Быстрый старт (локально)
 
+**Две команды — и можно пользоваться:**
+
+```bash
+pnpm setup   # .env, секреты, Docker Postgres/Redis, схема БД
+pnpm dev     # API :8080 + Web :5000
+```
+
+Открой http://localhost:5000 — демо без Windows-агента: http://localhost:5000/games/rogue-fable-3
+
+TURN, coturn, object storage и прочее — в `.env.example`, настраивается когда понадобится.
+
 Полный план тестирования — в [`TESTPLAN.md`](./TESTPLAN.md). Журнал багов — [`TESTLOG.md`](./TESTLOG.md).
 
-**Пошаговая инструкция:** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
-
-**Уже работает?** Если http://localhost:8080/api/healthz → `{"status":"ok"}` и http://localhost:5000 открывается — фазы 0–1 пройдены, начинайте **фазу 2** в TESTPLAN (обход страниц в браузере).
+**Пошаговая инструкция (альтернатива):** [`LOCAL_SETUP.md`](./LOCAL_SETUP.md)
 
 ### Требования
 
@@ -62,33 +71,14 @@ cd decentral-hub
 
 ### Первичная настройка
 
-**Windows (cmd или двойной клик):**
-
-```bat
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-copy .env.example .env
-notepad .env
-scripts\setup-local.bat
-scripts\dev-local.bat
-```
-
-**Git Bash / Linux / macOS:**
-
 ```bash
-git clone https://github.com/qwerty172/GLM2pHost228322MLGsnoopDOGsigmaTROLOLO.git
-cd GLM2pHost228322MLGsnoopDOGsigmaTROLOLO
-git checkout cursor/local-test-prep-9755
-cp .env.example .env
-# отредактируй DATABASE_URL
-
-chmod +x scripts/*.sh
-./scripts/setup-local.sh
-./scripts/dev-local.sh
+pnpm setup
+pnpm dev
 ```
 
-Подробнее — [LOCAL_SETUP.md](./LOCAL_SETUP.md).
+**Windows:** те же команды в cmd/PowerShell, либо `scripts\setup-local.bat` и `scripts\dev-local.bat`.
+
+**Git Bash / Linux / macOS:** `pnpm setup` и `pnpm dev`, либо `./scripts/setup-local.sh` и `./scripts/dev-local.sh`.
 
 ### Переменные окружения (`.env`)
 
