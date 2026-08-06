@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-246 (2026-08-06 00:05 UTC) {#marathon-m-246}
+
+| Проверка | Результат |
+|---|---|
+| agent-auth.test.mjs | PASS (6 new tests) |
+
+**Изменения:** `artifacts/host-agent/test/agent-auth.test.mjs` — unit-тесты для экспортов `fetchAgentKeyBound`, `tryAutoBindAgentKey`, `setConnectionTroubleshootVisible`.
+
+**Следующий pick:** M-247 (тест не покрывает экспорты: config).
+
 ## Marathon M-245 (2026-08-06 00:02 UTC) {#marathon-m-245}
 
 | Проверка | Результат |
