@@ -94,8 +94,7 @@ import {
   getAgentEventLevelStyle,
   buildPlayerPlayLink,
   resolveTestSessionOpenTarget,
-  buildTestSessionFullUrl,
-  buildBrowserHostStorageKeys,
+  openTestSessionResult,
   computeQuickStartSteps,
   resolveGuidedNextAction,
   hasCompletedFirstStream,
@@ -104,6 +103,10 @@ import {
   readHostAgentDownloaded,
   readHostGoOnlineAck,
   markHostGoOnlineAck,
+  readHostOnboardingMode,
+  writeHostOnboardingMode,
+  openTestSessionResult,
+  type HostOnboardingMode,
   HOST_AGENT_EXE_DOWNLOAD_URL,
   evaluateHostReadiness,
   evaluateAgentVersionCompatibility,
@@ -712,6 +715,9 @@ function HostQuickStartCard({
 }) {
   const [agentDownloaded, setAgentDownloaded] = useState(() => readHostAgentDownloaded());
   const [goOnlineAck, setGoOnlineAck] = useState(() => readHostGoOnlineAck());
+  const [onboardingMode, setOnboardingMode] = useState<HostOnboardingMode>(() =>
+    readHostOnboardingMode(),
+  );
   const { steps, allDone } = computeQuickStartSteps({
     agent,
     heartbeat,
@@ -731,9 +737,16 @@ function HostQuickStartCard({
     goOnlineAck,
     hasFirstStream,
     minSupportedAgentVersion,
+    onboardingMode,
   });
   const onboarding = !hasFirstStream && guided.phase !== "complete";
   const completedSteps = steps.filter((s) => s.done);
+  const isInstantMode = onboardingMode === "instant" && onboarding;
+
+  const switchOnboardingMode = (mode: HostOnboardingMode) => {
+    writeHostOnboardingMode(mode);
+    setOnboardingMode(mode);
+  };
 
   const handleDownloadAgent = () => {
     markHostAgentDownloaded();
@@ -779,6 +792,58 @@ function HostQuickStartCard({
       data-guided-phase={guided.phase}
     >
       <CardHeader className="pb-3">
+        {isInstantMode && (
+          <div
+            className="flex flex-wrap gap-2 mb-3"
+            data-testid="onboarding-mode-switch"
+          >
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="h-8 text-xs bg-sky-600/30 text-sky-200 border border-sky-500/40"
+              data-testid="onboarding-mode-instant"
+            >
+              Сейчас — из браузера
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-8 text-xs text-slate-400 hover:text-white"
+              data-testid="onboarding-mode-agent"
+              onClick={() => switchOnboardingMode("agent")}
+            >
+              Позже — Windows-агент
+            </Button>
+          </div>
+        )}
+        {!isInstantMode && onboarding && (
+          <div
+            className="flex flex-wrap gap-2 mb-3"
+            data-testid="onboarding-mode-switch"
+          >
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-8 text-xs text-slate-400 hover:text-white"
+              data-testid="onboarding-mode-instant"
+              onClick={() => switchOnboardingMode("instant")}
+            >
+              ← Быстрый стрим из браузера
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="h-8 text-xs bg-slate-700/50 text-slate-200"
+              data-testid="onboarding-mode-agent"
+            >
+              Windows-агент
+            </Button>
+          </div>
+        )}
         <CardDescription className="text-sky-400/80 text-xs font-medium">
           Шаг {guided.stepNumber} из {guided.totalSteps}
         </CardDescription>
@@ -877,11 +942,19 @@ function HostQuickStartCard({
             size="lg"
             className="w-full sm:w-auto gap-2 font-semibold bg-violet-600 hover:bg-violet-500 text-white"
             onClick={onTestStream}
-            disabled={testLoading || isAgentVersionBlockingStream(agent, minSupportedAgentVersion)}
+            disabled={
+              testLoading ||
+              (onboardingMode === "agent" &&
+                isAgentVersionBlockingStream(agent, minSupportedAgentVersion))
+            }
             data-testid="button-test-session"
           >
             <FlaskConical className="h-4 w-4" />
-            {testLoading ? "Создаём…" : "Проверить стрим"}
+            {testLoading
+              ? "Создаём…"
+              : isInstantMode
+                ? "Попробовать стрим"
+                : "Проверить стрим"}
           </Button>
         )}
 
@@ -1510,7 +1583,11 @@ export default function Dashboard() {
   const [testUrl, setTestUrl] = useState("");
   const handleTestSession = async () => {
     if (!hostToken) return;
-    if (isAgentVersionBlockingStream(agent, minSupportedAgentVersion)) {
+    const agentMode = readHostOnboardingMode() === "agent";
+    if (
+      agentMode &&
+      isAgentVersionBlockingStream(agent, minSupportedAgentVersion)
+    ) {
       const check = evaluateAgentVersionCompatibility(
         agent.status === "online" ? agent.version : null,
         minSupportedAgentVersion ?? "",
@@ -1533,29 +1610,21 @@ export default function Dashboard() {
       );
       refetchSessions();
       const target = resolveTestSessionOpenTarget(data);
-      if (target.kind === "host-play") {
-        // Arbitrary external site: iframes are blocked by most sites, so the
-        // honest test is a real WebRTC stream. Open the host streaming page
-        // where the host shares their tab; the guest link is shown there.
-        try {
-          const keys = buildBrowserHostStorageKeys(data.session.id);
-          localStorage.setItem(keys.hostTokenKey, hostToken);
-          localStorage.setItem(keys.browserHostUrlKey, data.hostBoundUrl ?? "");
-        } catch {
-          // localStorage unavailable — the host page will show an error
-        }
+      const { playerUrl, hostUrl } = openTestSessionResult({
+        origin: window.location.origin,
+        baseUrl: import.meta.env.BASE_URL,
+        target,
+        hostToken,
+        hostBoundUrl: data.hostBoundUrl,
+      });
+
+      if (hostUrl) {
         toast.success("Тест-сессия создана — поделись вкладкой со стримом");
+      } else if (playerUrl) {
+        toast.success("Демо открыто — ссылка для игрока скопирована");
       } else {
-        toast.success("Тест-сессия создана — открываю плеер");
+        toast.success("Тест-сессия создана");
       }
-      window.open(
-        buildTestSessionFullUrl(
-          window.location.origin,
-          import.meta.env.BASE_URL,
-          target,
-        ),
-        "_blank",
-      );
     } catch (err) {
       toast.error(formatApiError(err, "Ошибка сети при создании тест-сессии"));
     } finally {

@@ -190,7 +190,7 @@ export default function Landing() {
               data-testid="button-play-now-hero"
             >
               <Play className="w-3.5 h-3.5 mr-1.5" />
-              {playNowPath ? "Играть сейчас" : "Смотреть каталог"}
+              {playNowPath ? "Играть сейчас" : "Попробовать самому"}
             </Button>
             <Link href="/host">
               <Button
