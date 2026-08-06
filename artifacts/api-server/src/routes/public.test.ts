@@ -50,6 +50,7 @@ const HOST = {
   lastSeenAt: new Date(),
   pingMs: 25,
   pcSpecs: null,
+  agentPubkey: "aabbccdd",
 };
 
 const SESSION = {
@@ -117,7 +118,7 @@ function makeQueryableChain() {
 
 function makeFromChain() {
   const innerJoinChain = {
-    where: vi.fn(() => makeWhereChain()),
+    where: vi.fn(() => makeQueryableChain()),
   };
   return Object.assign(
     {
@@ -206,6 +207,7 @@ vi.mock("@workspace/db", () => ({
     lastSeenAt: "lastSeenAt",
     pingMs: "pingMs",
     pcSpecs: "pcSpecs",
+    agentPubkey: "agentPubkey",
   },
   hostGamesTable: {
     hostId: "hostId",
@@ -460,6 +462,13 @@ describe("GET /hosts", () => {
       ],
     });
   });
+
+  it("returns empty list when only browser-host sessions exist (no agentPubkey)", async () => {
+    queueResults([]);
+    const res = await request("GET", "/hosts");
+    expect(res.status).toBe(200);
+    expect(res.json).toEqual([]);
+  });
 });
 
 describe("GET /public/games/:slug/hosts", () => {
@@ -512,8 +521,17 @@ describe("POST /public/sessions", () => {
     expect(res.json).toMatchObject({ error: "Host not found" });
   });
 
+  it("returns 404 for browser-host throwaway rows (no agentPubkey)", async () => {
+    queueResults([{ id: HOST_ID, agentPubkey: null }]);
+    const res = await request("POST", "/public/sessions", {
+      body: { hostId: HOST_ID },
+    });
+    expect(res.status).toBe(404);
+    expect(res.json).toMatchObject({ error: "Host not found" });
+  });
+
   it("returns 503 when host has no active session", async () => {
-    queueResults([{ id: HOST_ID }], []);
+    queueResults([{ id: HOST_ID, agentPubkey: HOST.agentPubkey }], []);
     const res = await request("POST", "/public/sessions", {
       body: { hostId: HOST_ID },
     });
@@ -522,7 +540,7 @@ describe("POST /public/sessions", () => {
   });
 
   it("returns 409 when host is online for a different game", async () => {
-    queueResults([{ id: HOST_ID }], [], [{ id: SESSION_ID }]);
+    queueResults([{ id: HOST_ID, agentPubkey: HOST.agentPubkey }], [], [{ id: SESSION_ID }]);
     const res = await request("POST", "/public/sessions", {
       body: { hostId: HOST_ID, gameId: GAME_ID },
     });
@@ -535,7 +553,7 @@ describe("POST /public/sessions", () => {
 
   it("returns invite code for an active session", async () => {
     queueResults(
-      [{ id: HOST_ID }],
+      [{ id: HOST_ID, agentPubkey: HOST.agentPubkey }],
       [{ id: SESSION_ID, inviteCode: SESSION.inviteCode, status: "active" }],
     );
     const res = await request("POST", "/public/sessions", {
