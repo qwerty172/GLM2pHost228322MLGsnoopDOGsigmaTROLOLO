@@ -15,6 +15,7 @@ import { initRedis } from "./lib/redis";
 import { startOutboxWorker } from "./lib/outboxWorker";
 import { startMetricsWorker } from "./lib/metricsWorker";
 import { seedGames } from "./lib/seedGames";
+import { logDevQuickStart } from "./lib/devQuickStart";
 import { runLegacyBackfill } from "./lib/legacyBackfill";
 import { startPgNotifyListener, stopPgNotifyListener, emitPlatformEvent } from "./lib/pgNotify";
 import { initSentry } from "./lib/sentry";
@@ -90,6 +91,7 @@ function listen(): void {
   listenAttempt += 1;
   server.listen(port, () => {
     logger.info({ port }, "Server listening");
+    logDevQuickStart();
     startWorkers();
   });
 }

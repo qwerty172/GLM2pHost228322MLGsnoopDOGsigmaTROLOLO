@@ -125,6 +125,6 @@ test("resolvePlayNowInvitePath builds /play/i path", () => {
   assert.equal(resolvePlayNowInvitePath(null), null);
 });
 
-test("PLAY_NOW_FALLBACK_HREF points to games catalog", () => {
-  assert.equal(PLAY_NOW_FALLBACK_HREF, "/games");
+test("PLAY_NOW_FALLBACK_HREF points to browser demo game", () => {
+  assert.equal(PLAY_NOW_FALLBACK_HREF, "/games/rogue-fable-3");
 });

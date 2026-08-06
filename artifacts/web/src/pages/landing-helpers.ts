@@ -116,8 +116,10 @@ export function resolvePlayNowInvitePath(
   return `/play/i/${host.inviteCode}`;
 }
 
-/** Путь для главного CTA, когда онлайн-хостов нет. */
-export const PLAY_NOW_FALLBACK_HREF = "/games" as const;
+/** Путь для главного CTA, когда онлайн-хостов нет — демо-игра в браузере. */
+export const DEMO_GAME_SLUG = "rogue-fable-3" as const;
+export const DEMO_GAME_HREF = `/games/${DEMO_GAME_SLUG}` as const;
+export const PLAY_NOW_FALLBACK_HREF = DEMO_GAME_HREF;
 
 export function computeLztPerMin(
   firstGame: { pricePerMinuteLzt?: number } | undefined,

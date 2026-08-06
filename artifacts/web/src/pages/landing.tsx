@@ -38,6 +38,7 @@ import {
   pickBestPlayableHost,
   resolvePlayNowInvitePath,
   PLAY_NOW_FALLBACK_HREF,
+  DEMO_GAME_HREF,
 } from "@/pages/landing-helpers";
 
 type LiveHost = {
@@ -190,8 +191,19 @@ export default function Landing() {
               data-testid="button-play-now-hero"
             >
               <Play className="w-3.5 h-3.5 mr-1.5" />
-              {playNowPath ? "Играть сейчас" : "Смотреть каталог"}
+              {playNowPath ? "Играть сейчас" : "Попробовать демо"}
             </Button>
+            {!playNowPath && (
+              <Link href={DEMO_GAME_HREF}>
+                <Button
+                  variant="outline"
+                  className="h-9 px-5 text-sm rounded-md border-white/10 text-slate-300 hover:text-white"
+                  data-testid="button-demo-game"
+                >
+                  Rogue Fable III
+                </Button>
+              </Link>
+            )}
             <Link href="/host">
               <Button
                 variant="ghost"
