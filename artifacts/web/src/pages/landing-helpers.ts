@@ -60,8 +60,9 @@ export type PlayableHost = {
 };
 
 export function isPlayableHost(host: PlayableHost): boolean {
-  const online = host.status === "online" || host.isOnline === true;
-  return online && !!host.inviteCode;
+  // `status` reflects schedule availability; `isOnline` is agent heartbeat (<2 min).
+  // «Играть» must only target hosts whose agent is actually connected.
+  return host.isOnline === true && !!host.inviteCode;
 }
 
 export function filterPlayableHosts<T extends PlayableHost>(
