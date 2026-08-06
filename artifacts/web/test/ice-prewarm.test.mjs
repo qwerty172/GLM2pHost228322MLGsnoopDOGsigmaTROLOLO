@@ -25,7 +25,7 @@ class MockRTCPeerConnection {
 
 globalThis.RTCPeerConnection = MockRTCPeerConnection;
 
-const { prewarmIce, takePrewarmedConnection, discardPrewarm } = await import(
+const { prewarmIce, takePrewarmedIceServers, takePrewarmedConnection, discardPrewarm } = await import(
   "../src/lib/ice-prewarm.ts"
 );
 
@@ -79,11 +79,11 @@ test("prewarmIce fetches ICE config and caches a peer connection", async () => {
   assert.equal(createdPcs.length, 1);
   assert.deepEqual(createdPcs[0].iceServers, apiIceServers);
 
-  const taken = takePrewarmedConnection("host-1");
+  const taken = takePrewarmedIceServers("host-1");
   assert.ok(taken);
-  assert.equal(taken.pc, createdPcs[0]);
-  assert.deepEqual(taken.iceServers, apiIceServers);
-  assert.equal(takePrewarmedConnection("host-1"), null);
+  assert.deepEqual(taken, apiIceServers);
+  assert.equal(createdPcs[0].closed, true);
+  assert.equal(takePrewarmedIceServers("host-1"), null);
 });
 
 test("prewarmIce skips duplicate hostId while cached", async () => {
@@ -108,8 +108,9 @@ test("prewarmIce falls back to Google STUN when API fails", async () => {
   assert.equal(createdPcs.length, 1);
   assert.deepEqual(createdPcs[0].iceServers, fallbackIceServers);
 
-  const taken = takePrewarmedConnection("host-2");
-  assert.deepEqual(taken.iceServers, fallbackIceServers);
+  const taken = takePrewarmedIceServers("host-2");
+  assert.deepEqual(taken, fallbackIceServers);
+  assert.equal(createdPcs[0].closed, true);
 });
 
 test("prewarmIce falls back when API returns empty iceServers", async () => {
@@ -128,10 +129,10 @@ test("discardPrewarm closes and removes cached connection", async () => {
   discardPrewarm("host-3");
 
   assert.equal(pc.closed, true);
-  assert.equal(takePrewarmedConnection("host-3"), null);
+  assert.equal(takePrewarmedIceServers("host-3"), null);
 });
 
-test("takePrewarmedConnection evicts expired cache entries", async () => {
+test("takePrewarmedIceServers evicts expired cache entries", async () => {
   mockIceConfigFetch(() => jsonResponse({ iceServers: apiIceServers }));
 
   const realNow = Date.now;
@@ -142,9 +143,20 @@ test("takePrewarmedConnection evicts expired cache entries", async () => {
     await prewarmIce("host-1");
     now += 121_000;
 
-    assert.equal(takePrewarmedConnection("host-1"), null);
+    assert.equal(takePrewarmedIceServers("host-1"), null);
     assert.equal(createdPcs[0].closed, true);
   } finally {
     Date.now = realNow;
   }
+});
+
+test("takePrewarmedConnection compat wrapper returns iceServers only", async () => {
+  mockIceConfigFetch(() => jsonResponse({ iceServers: apiIceServers }));
+
+  await prewarmIce("host-1");
+
+  const taken = takePrewarmedConnection("host-1");
+  assert.ok(taken);
+  assert.deepEqual(taken.iceServers, apiIceServers);
+  assert.equal("pc" in taken, false);
 });

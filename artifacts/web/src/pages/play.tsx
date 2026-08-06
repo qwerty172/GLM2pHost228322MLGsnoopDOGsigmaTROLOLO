@@ -56,7 +56,7 @@ import {
   computeWalletBalanceForSession,
   isTouchCapableDevice,
 } from "./play-helpers";
-import { takePrewarmedConnection, prewarmIce } from "@/lib/ice-prewarm";
+import { takePrewarmedIceServers, prewarmIce } from "@/lib/ice-prewarm";
 
 const isDev = import.meta.env.DEV;
 const devLog = (...args: unknown[]) => {
@@ -791,9 +791,9 @@ export default function Play() {
 
     // Fetch ICE server config (STUN + optional TURN) from the API.
     let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
-    const prewarmed = sessionHostId ? takePrewarmedConnection(sessionHostId) : null;
-    if (prewarmed) {
-      iceServers = prewarmed.iceServers;
+    const prewarmedServers = sessionHostId ? takePrewarmedIceServers(sessionHostId) : null;
+    if (prewarmedServers) {
+      iceServers = prewarmedServers;
     } else {
       try {
         const cfgJson = await getPublicIceConfig();
@@ -805,7 +805,7 @@ export default function Play() {
       }
     }
 
-    const pc = prewarmed?.pc ?? new RTCPeerConnection({ iceServers });
+    const pc = new RTCPeerConnection({ iceServers });
     pcRef.current = pc;
 
     pc.onconnectionstatechange = () => {
