@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-248 (2026-08-06 00:13 UTC) {#marathon-m-248}
+
+| Проверка | Результат |
+|---|---|
+| input-guard.test.mjs | PASS (2 new tests) |
+
+**Изменения:** `artifacts/host-agent/test/input-guard.test.mjs` — unit-тесты для экспорта `startGuardPolling` (замена таймера, опрос agent status и обновление badge).
+
+**Следующий pick:** M-249 (тест не покрывает экспорты: input-mapping).
+
 ## Marathon M-247 (2026-08-06 00:06 UTC) {#marathon-m-247}
 
 | Проверка | Результат |

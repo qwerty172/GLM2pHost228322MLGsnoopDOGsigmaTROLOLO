@@ -13,9 +13,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-06 00:09 UTC|
-| Task ID | M-247|
-| Результат | config.test.mjs: setAppPath, refreshCaptureSources, loadFormFromConfig export coverage|
+| Дата | 2026-08-06 00:13 UTC|
+| Task ID | M-248|
+| Результат | input-guard.test.mjs PASS: startGuardPolling (timer replace + poll badge)|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -600,7 +600,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-245 | V | тест не покрывает экспорты (2): ping-server | `artifacts/host-agent/src/main/ping-server.ts` | v:artifacts/host-agent/src/main/ping-server.ts | done | agent |
 | M-246 | V | тест не покрывает экспорты (3): agent-auth | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/agent-auth.ts | done | agent |
 | M-247 | V | тест не покрывает экспорты (3): config | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/config.ts | done | agent |
-| M-248 | V | тест не покрывает экспорты (1): input-guard | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/input-guard.ts | pending | agent |
+| M-248 | V | тест не покрывает экспорты (1): input-guard | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/input-guard.ts | done | agent |
 | M-249 | V | тест не покрывает экспорты (1): input-mapping | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/input-mapping.ts | pending | agent |
 | M-250 | V | тест не покрывает экспорты (4): library | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/library.ts | pending | agent |
 | M-251 | V | тест не покрывает экспорты (1): preview | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/preview.ts | pending | agent |
