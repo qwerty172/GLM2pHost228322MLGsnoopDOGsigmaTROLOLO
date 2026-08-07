@@ -168,3 +168,14 @@ export function computeWalletBalanceForSession(
 export function isTouchCapableDevice(maxTouchPoints: number): boolean {
   return maxTouchPoints > 0;
 }
+
+/** True when ws-ticket mint failed because JWT_SECRET is unset (dev-only legacy path). */
+export function isJwtNotConfiguredWsTicketError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const status = (err as { status?: number }).status;
+  if (status !== 503) return false;
+  const data = (err as { data?: unknown }).data;
+  if (!data || typeof data !== "object") return false;
+  const message = (data as { error?: string }).error;
+  return message === "JWT auth not configured";
+}

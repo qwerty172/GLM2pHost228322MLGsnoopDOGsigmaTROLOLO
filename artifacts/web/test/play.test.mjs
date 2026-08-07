@@ -21,6 +21,7 @@ const {
   getConnectionBadgeLabel,
   computeWalletBalanceForSession,
   isTouchCapableDevice,
+  isJwtNotConfiguredWsTicketError,
 } = await import("../src/pages/play-helpers.ts");
 
 test("LZT_PER_USDT is stable", () => {
@@ -162,4 +163,17 @@ test("isTouchCapableDevice (U-25) enables overlays when maxTouchPoints > 0", () 
   assert.equal(isTouchCapableDevice(0), false);
   assert.equal(isTouchCapableDevice(1), true);
   assert.equal(isTouchCapableDevice(5), true);
+});
+
+test("isJwtNotConfiguredWsTicketError only matches JWT-not-configured 503", () => {
+  assert.equal(
+    isJwtNotConfiguredWsTicketError({ status: 503, data: { error: "JWT auth not configured" } }),
+    true,
+  );
+  assert.equal(
+    isJwtNotConfiguredWsTicketError({ status: 503, data: { error: "Service unavailable" } }),
+    false,
+  );
+  assert.equal(isJwtNotConfiguredWsTicketError({ status: 401 }), false);
+  assert.equal(isJwtNotConfiguredWsTicketError(null), false);
 });

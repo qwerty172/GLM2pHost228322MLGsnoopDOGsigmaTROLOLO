@@ -55,6 +55,7 @@ import {
   getConnectionBadgeLabel,
   computeWalletBalanceForSession,
   isTouchCapableDevice,
+  isJwtNotConfiguredWsTicketError,
 } from "./play-helpers";
 import { takePrewarmedConnection, prewarmIce } from "@/lib/ice-prewarm";
 
@@ -753,14 +754,10 @@ export default function Play() {
     // Wallet must be ready before we latch startedRef — otherwise a missing
     // token permanently blocks WebRTC for this page load.
     if (!playerToken || !playerWalletToken || startedRef.current) return;
-    startedRef.current = true;
-
-    setIsPlaying(true);
-    setConnectionState("connecting");
 
     // Prefer a short-lived WS ticket so long-lived tokens never appear in URLs
     // (server logs, browser history, referrer headers). Falls back to the
-    // legacy query-string path when JWT auth is not yet configured on the server.
+    // legacy query-string path only when JWT auth is not yet configured.
     let wsUrl: string;
     const wsSessionId = session?.id;
     const wsBase = {
@@ -781,12 +778,23 @@ export default function Play() {
           wsTicket,
           sessionId: wsSessionId,
         });
-      } catch {
-        wsUrl = buildPlayerSignalWsUrl(wsBase);
+      } catch (err) {
+        if (isJwtNotConfiguredWsTicketError(err)) {
+          wsUrl = buildPlayerSignalWsUrl(wsBase);
+        } else {
+          toast.error(
+            formatApiError(err, "Не удалось подключиться к сигналингу. Попробуй ещё раз."),
+          );
+          return;
+        }
       }
     } else {
       wsUrl = buildPlayerSignalWsUrl(wsBase);
     }
+
+    startedRef.current = true;
+    setIsPlaying(true);
+    setConnectionState("connecting");
     wsUrlRef.current = wsUrl;
 
     // Fetch ICE server config (STUN + optional TURN) from the API.
