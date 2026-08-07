@@ -23,17 +23,18 @@
 
 | Метрика | 7d |
 |---|---|
-| feat(marathon) | 234 |
-| commit-hash waste | 250 (52%) |
-| task hit rate | 29% |
+| feat(marathon) | 422 |
+| commit-hash waste | 250 (37%) |
+| task hit rate | 42% |
 | idle draft PRs | 41 |
-| pending M-NN | 16 |
+| pending M-NN | 0 |
 | branch lag (ahead main) | 0 |
 
 **Рекомендации:**
 - `no_hash_commits`: 250 отдельных commit-hash за 7д — используй scripts/marathon-efficiency.mjs --update-last-run в том же коммите
-- `close_idle_drafts`: 41 draft PR «Marathon idle» — закрыть: node scripts/marathon-efficiency.mjs --apply
-- `low_hit_rate`: Hit rate 29% (234 feat / 815 marathon commits) — см. idle-политику и push main
+- `ignore_draft_prs`: 41 draft PR «Marathon idle» — ИГНОР (не блокируют; закрывать не обязательно)
+- `ignore_marathon_drafts`: 199 draft marathon PR — ИГНОР (legacy мусор; pr_in_flight только non-draft)
+- `expand_scanner`: scanner_empty — немедленно расширить marathon-scan.mjs (не ждать idle streak)
 
 ---
 
@@ -618,6 +619,11 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-263 | X | покрытие 86% → 90%: refreshTokens.ts | `db/refreshTokens.ts` | x:lib/db/src/schema/refreshTokens.ts | done | agent |
 | M-264 | X | покрытие 89% → 90%: router.ts | `auth-verifier/router.ts` | x:lib/auth-verifier/src/router.ts | done | agent |
 | M-265 | X | покрытие 89% → 90%: hosts-helpers.ts | `pages/hosts-helpers.ts` | x:artifacts/web/src/pages/hosts-helpers.ts | done | agent |
+| M-266 | R | UX U-34 (P0): Привязка `.exe` одним кликом с дашборда, без ввода 6 цифр | `pages/host/dashboard.tsx` | r:U-34 | pending | agent |
+| M-267 | R | UX U-35 (P0): Честная разница между ZIP и `.exe` на дашборде | `pages/host/dashboard.tsx` | r:U-35 | pending | agent |
+| M-268 | R | UX U-36 (P0): Нет опубликованного релиза — понятный экран, а не пустая кно | `routes/downloads.ts` | r:U-36 | pending | agent |
+| M-269 | R | UX U-37 (P0): Предупреждение о проверке Windows до скачивания `.exe` | `pages/host/dashboard.tsx` | r:U-37 | pending | agent |
+| M-270 | R | UX U-46 (P0): Не хватает LZT — сумма и пополнение прямо перед запуском | `artifacts/web/src/components/pre-session-screen.tsx` | r:U-46 | pending | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).
