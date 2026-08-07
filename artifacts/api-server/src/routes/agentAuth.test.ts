@@ -210,6 +210,49 @@ describe("POST /auth/agent-bind-code", () => {
     expect(body.bindCode).toMatch(/^bind_/);
     expect(body.expiresAt).toBeGreaterThan(Date.now());
   });
+
+  it("stores bind codes in Redis when available (multi-instance safe)", async () => {
+    const store = new Map<string, string>();
+    const { getRedis } = await import("../lib/redis");
+    vi.mocked(getRedis).mockReturnValue({
+      get: vi.fn(async (key: string) => store.get(key) ?? null),
+      setex: vi.fn(async (key: string, _ttl: number, value: string) => {
+        store.set(key, value);
+      }),
+      del: vi.fn(async (...keys: string[]) => {
+        for (const key of keys) store.delete(key);
+      }),
+    } as never);
+
+    queueResults([
+      {
+        id: "host-1",
+        hostToken: HOST_TOKEN,
+        displayName: "Test Host",
+        agentPubkey: null,
+      },
+    ]);
+    const issueRes = await request("POST", "/auth/agent-bind-code", {
+      headers: { Authorization: `Bearer ${HOST_TOKEN}` },
+    });
+    const { bindCode } = issueRes.json as { bindCode: string };
+    expect(store.get(`agent:bind:${bindCode}`)).toBe("host-1");
+
+    const challenge = await fetchChallenge();
+    queueResults([{ id: "host-1", agentPubkey: PUBKEY_HEX }]);
+    const bindRes = await request("POST", "/auth/bind-agent-key", {
+      body: {
+        bindCode,
+        pubkey: PUBKEY_HEX,
+        challenge,
+        signature: signChallenge(challenge),
+      },
+    });
+    expect(bindRes.status).toBe(200);
+    expect(store.has(`agent:bind:${bindCode}`)).toBe(false);
+
+    vi.mocked(getRedis).mockReturnValue(null);
+  });
 });
 
 describe("POST /auth/bind-agent-key", () => {
@@ -262,6 +305,34 @@ describe("POST /auth/bind-agent-key", () => {
     });
     expect(res.status).toBe(401);
     expect(res.json).toMatchObject({ error: "Invalid signature" });
+  });
+
+  it("binds pubkey via bindCode (in-memory fallback)", async () => {
+    queueResults([
+      {
+        id: "host-1",
+        hostToken: HOST_TOKEN,
+        displayName: "Test Host",
+        agentPubkey: null,
+      },
+    ]);
+    const issueRes = await request("POST", "/auth/agent-bind-code", {
+      headers: { Authorization: `Bearer ${HOST_TOKEN}` },
+    });
+    const { bindCode } = issueRes.json as { bindCode: string };
+
+    const challenge = await fetchChallenge();
+    queueResults([{ id: "host-1", agentPubkey: PUBKEY_HEX }]);
+    const res = await request("POST", "/auth/bind-agent-key", {
+      body: {
+        bindCode,
+        pubkey: PUBKEY_HEX,
+        challenge,
+        signature: signChallenge(challenge),
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(res.json).toEqual({ ok: true });
   });
 
   it("binds pubkey via hostToken", async () => {

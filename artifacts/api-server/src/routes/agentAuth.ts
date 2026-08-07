@@ -126,6 +126,7 @@ const bindCodeIssueLimiter = rateLimit({
 });
 
 const BIND_CODE_TTL_MS = 10 * 60 * 1000;
+const BIND_CODE_TTL_SEC = Math.ceil(BIND_CODE_TTL_MS / 1000);
 
 interface BindCodeEntry {
   hostId: string;
@@ -133,7 +134,20 @@ interface BindCodeEntry {
 }
 const bindCodes = new Map<string, BindCodeEntry>();
 
-function issueBindCode(hostId: string): { bindCode: string; expiresAt: number } {
+async function storeBindCode(
+  bindCode: string,
+  hostId: string,
+  expiresAt: number,
+): Promise<void> {
+  const redis = getRedis();
+  if (redis) {
+    const hostKey = `agent:bind:host:${hostId}`;
+    const oldCode = await redis.get(hostKey);
+    if (oldCode) await redis.del(`agent:bind:${oldCode}`);
+    await redis.setex(`agent:bind:${bindCode}`, BIND_CODE_TTL_SEC, hostId);
+    await redis.setex(hostKey, BIND_CODE_TTL_SEC, bindCode);
+    return;
+  }
   const now = Date.now();
   for (const [k, v] of bindCodes) {
     if (v.expiresAt < now) bindCodes.delete(k);
@@ -141,18 +155,33 @@ function issueBindCode(hostId: string): { bindCode: string; expiresAt: number } 
   for (const [k, v] of bindCodes) {
     if (v.hostId === hostId) bindCodes.delete(k);
   }
-  const bindCode = `bind_${generateToken(18)}`;
-  const expiresAt = now + BIND_CODE_TTL_MS;
   bindCodes.set(bindCode, { hostId, expiresAt });
-  return { bindCode, expiresAt };
 }
 
-function consumeBindCode(bindCode: string): string | null {
+async function consumeBindCode(bindCode: string): Promise<string | null> {
+  const redis = getRedis();
+  if (redis) {
+    const key = `agent:bind:${bindCode}`;
+    const hostId = await redis.get(key);
+    if (!hostId) return null;
+    await redis.del(key);
+    await redis.del(`agent:bind:host:${hostId}`);
+    return hostId;
+  }
   const entry = bindCodes.get(bindCode);
   if (!entry) return null;
   bindCodes.delete(bindCode);
   if (entry.expiresAt < Date.now()) return null;
   return entry.hostId;
+}
+
+async function issueBindCode(
+  hostId: string,
+): Promise<{ bindCode: string; expiresAt: number }> {
+  const bindCode = `bind_${generateToken(18)}`;
+  const expiresAt = Date.now() + BIND_CODE_TTL_MS;
+  await storeBindCode(bindCode, hostId, expiresAt);
+  return { bindCode, expiresAt };
 }
 
 router.get("/auth/agent-challenge", (_req, res): void => {
@@ -166,7 +195,7 @@ router.post("/auth/agent-bind-code", bindCodeIssueLimiter, async (req, res): Pro
     res.status(auth.status).json({ error: auth.error });
     return;
   }
-  const { bindCode, expiresAt } = issueBindCode(auth.host.id);
+  const { bindCode, expiresAt } = await issueBindCode(auth.host.id);
   req.log.info({ hostId: auth.host.id }, "Agent bind code issued");
   res.json({ bindCode, expiresAt });
 });
@@ -203,7 +232,7 @@ router.post("/auth/bind-agent-key", bindLimiter, async (req, res): Promise<void>
 
   let hostId: string | null = null;
   if (bindCode) {
-    hostId = consumeBindCode(bindCode);
+    hostId = await consumeBindCode(bindCode);
     if (!hostId) {
       res.status(400).json({ error: "Bind code expired or already used" });
       return;
