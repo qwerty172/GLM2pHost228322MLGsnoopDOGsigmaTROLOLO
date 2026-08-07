@@ -12,7 +12,7 @@ import {
 } from "@workspace/db";
 import { logger } from "./logger";
 import { usdtToLztRound, pickPlayerBucket } from "./lzt";
-import { sendSignalingMessage } from "./signaling";
+import { sendSignalingMessage, endSessionSignaling } from "./signaling";
 import {
   computeQuotaEffect,
   decrementEscrow,
@@ -230,6 +230,7 @@ async function billOnceInner(): Promise<void> {
             { sessionId: session.id },
             "Embed session ended — dev key balance exhausted",
           );
+          endSessionSignaling(session.id, "key_balance_exhausted");
         }
       } catch (err) {
         logger.error({ err, sessionId: session.id }, "Dev-key billing tick failed");
@@ -709,8 +710,7 @@ async function billOnceInner(): Promise<void> {
 
       if (ended === "block_expired") {
         logger.info({ sessionId: session.id }, "Block session expired — block time exhausted");
-        // Notify the player via signaling
-        sendSignalingMessage(session.id, { type: "block-expired" });
+        endSessionSignaling(session.id, "block_expired");
       } else if (ended && typeof ended === "object" && "blockWarning" in ended) {
         if ((ended as { blockWarning?: boolean }).blockWarning) {
           sendSignalingMessage(session.id, { type: "block-warning", minsLeft: 2 });
@@ -720,6 +720,7 @@ async function billOnceInner(): Promise<void> {
           { sessionId: session.id },
           "Session ended — player out of LZT and no host-service credit available",
         );
+        endSessionSignaling(session.id, "balance_exhausted");
       }
     } catch (err) {
       logger.error({ err, sessionId: session.id }, "Billing tick failed");

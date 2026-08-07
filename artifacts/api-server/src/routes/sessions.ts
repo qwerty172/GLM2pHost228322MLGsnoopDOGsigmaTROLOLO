@@ -40,7 +40,7 @@ import {
   countSessionMinutesUsed,
   refundBlockRemainder,
 } from "../lib/sessionBilling";
-import { sendSignalingMessage } from "../lib/signaling";
+import { sendSignalingMessage, endSessionSignaling } from "../lib/signaling";
 import { submitSessionRating, recordBlockReserveLedger } from "../lib/ratings";
 import { writeLedger } from "../lib/economy";
 import { randomUUID } from "node:crypto";
@@ -952,6 +952,7 @@ router.patch("/sessions/:id/end", async (req, res): Promise<void> => {
   }
 
   req.log.info({ sessionId: session.id }, "Session ended");
+  endSessionSignaling(session.id, "session_ended");
   res.json(EndSessionResponse.parse(serialize(session)));
 });
 

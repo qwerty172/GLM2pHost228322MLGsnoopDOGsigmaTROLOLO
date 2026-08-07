@@ -467,6 +467,12 @@ export default function Play() {
     setDataChannelOpen(false);
   }, []);
 
+  useEffect(() => {
+    if (session?.status === "ended" && isPlaying) {
+      cleanupConnection();
+    }
+  }, [session?.status, isPlaying, cleanupConnection]);
+
   // Set up the DataChannel with ping/pong E2E RTT measurement.
   const setupDataChannel = useCallback((dc: RTCDataChannel) => {
     dcRef.current = dc;

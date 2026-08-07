@@ -154,6 +154,8 @@ export async function connect(cfg: HostConfig, gameId: string | null): Promise<v
       } catch {
         /* ignore */
       }
+    } else if (msg.type === "control" && msg["action"] === "reject") {
+      handleServerSessionEnd(String(msg["reason"] ?? "session_ended"));
     } else if (msg.type === "peer-left" && msg["role"] === "player") {
       // Player WS dropped — might be a transient reconnect; give 20s grace
       // before tearing down, in case the player's WS reconnects.
@@ -172,8 +174,12 @@ export async function connect(cfg: HostConfig, gameId: string | null): Promise<v
   // Without reconnect, a transient network blip kills the session even if ICE
   // would otherwise recover — the host needs WS alive to exchange re-offers.
   let wsReconnectDelay = 1000;
-  session.ws.onclose = () => {
+  session.ws.onclose = (ev) => {
     log("Сигналинг закрыт.");
+    if (!shouldReconnectSignalingAfterClose(ev.code, String(ev.reason ?? ""))) {
+      void teardown(String(ev.reason || "session_ended"));
+      return;
+    }
     if (!session.isStreaming) {
       teardownDeferred("Сигналинг закрыт", 8000);
       return;
@@ -258,6 +264,8 @@ export function attachWsHandlers(newWs: WebSocket, cfg: HostConfig, initialDelay
       } else {
         await onPlayerJoined(cfg);
       }
+    } else if (msg.type === "control" && msg["action"] === "reject") {
+      handleServerSessionEnd(String(msg["reason"] ?? "session_ended"));
     }
   };
 
@@ -265,7 +273,11 @@ export function attachWsHandlers(newWs: WebSocket, cfg: HostConfig, initialDelay
     log("[session.ws] Reconnected signaling error");
   };
 
-  newWs.onclose = () => {
+  newWs.onclose = (ev) => {
+    if (!shouldReconnectSignalingAfterClose(ev.code, String(ev.reason ?? ""))) {
+      void teardown(String(ev.reason || "session_ended"));
+      return;
+    }
     if (!session.isStreaming) {
       teardownDeferred("Сигналинг закрыт", 8000);
       return;
@@ -283,6 +295,30 @@ export function attachWsHandlers(newWs: WebSocket, cfg: HostConfig, initialDelay
       attachWsHandlers(nextWs, cfg, wsReconnectDelay);
     }, delay);
   };
+}
+
+const SESSION_END_WS_CODE = 4001;
+
+const TERMINAL_SIGNAL_REASONS = new Set([
+  "session_ended",
+  "balance_exhausted",
+  "block_expired",
+  "host_offline",
+  "key_balance_exhausted",
+]);
+
+function isTerminalSignalReason(reason: string): boolean {
+  return TERMINAL_SIGNAL_REASONS.has(reason);
+}
+
+function handleServerSessionEnd(reason: string): void {
+  if (!isTerminalSignalReason(reason)) return;
+  void teardown(reason);
+}
+
+function shouldReconnectSignalingAfterClose(code: number, reason: string): boolean {
+  if (code === SESSION_END_WS_CODE) return false;
+  return !isTerminalSignalReason(reason);
 }
 
 // Send a structured control message to the player via the signaling relay.
