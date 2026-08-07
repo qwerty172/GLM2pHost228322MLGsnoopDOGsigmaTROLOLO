@@ -103,9 +103,13 @@ import {
   downloadHostAgentBundle,
   markHostAgentDownloaded,
   readHostAgentDownloaded,
+  markHostAgentInstallMethod,
+  readHostAgentInstallMethod,
   readHostGoOnlineAck,
   markHostGoOnlineAck,
   HOST_AGENT_EXE_DOWNLOAD_URL,
+  HOST_AGENT_ZIP_DOWNLOAD_LABEL,
+  HOST_AGENT_EXE_DOWNLOAD_LABEL,
   buildAgentDeepLink,
   evaluateHostReadiness,
   evaluateAgentVersionCompatibility,
@@ -700,6 +704,12 @@ function HostQuickStartCard({
   onTestStream,
   testLoading,
   minSupportedAgentVersion,
+  agentDownloaded,
+  installMethod,
+  goOnlineAck,
+  onAgentDownloaded,
+  onInstallMethod,
+  onGoOnlineAck,
 }: {
   hostToken: string;
   agent: AgentState;
@@ -711,9 +721,13 @@ function HostQuickStartCard({
   onTestStream: () => void;
   testLoading: boolean;
   minSupportedAgentVersion?: string;
+  agentDownloaded: boolean;
+  installMethod: ReturnType<typeof readHostAgentInstallMethod>;
+  goOnlineAck: boolean;
+  onAgentDownloaded: () => void;
+  onInstallMethod: (method: "zip" | "exe") => void;
+  onGoOnlineAck: () => void;
 }) {
-  const [agentDownloaded, setAgentDownloaded] = useState(() => readHostAgentDownloaded());
-  const [goOnlineAck, setGoOnlineAck] = useState(() => readHostGoOnlineAck());
   const { steps, allDone } = computeQuickStartSteps({
     agent,
     heartbeat,
@@ -730,6 +744,7 @@ function HostQuickStartCard({
     libraryCount,
     hasActiveSession,
     agentDownloaded,
+    installMethod,
     goOnlineAck,
     hasFirstStream,
     minSupportedAgentVersion,
@@ -737,12 +752,22 @@ function HostQuickStartCard({
   const onboarding = !hasFirstStream && guided.phase !== "complete";
   const completedSteps = steps.filter((s) => s.done);
 
-  const handleDownloadAgent = () => {
+  const handleDownloadZip = () => {
+    markHostAgentInstallMethod("zip");
+    onInstallMethod("zip");
     markHostAgentDownloaded();
-    setAgentDownloaded(true);
+    onAgentDownloaded();
     void downloadHostAgentBundle().catch(() => {
       toast.error("Не удалось скачать агент");
     });
+  };
+
+  const handleDownloadExe = () => {
+    markHostAgentInstallMethod("exe");
+    onInstallMethod("exe");
+    markHostAgentDownloaded();
+    onAgentDownloaded();
+    window.open(HOST_AGENT_EXE_DOWNLOAD_URL, "_blank", "noopener,noreferrer");
   };
 
   if (!onboarding) {
@@ -808,31 +833,48 @@ function HostQuickStartCard({
         )}
 
         {guided.cta === "download" && (
-          <div className="space-y-2">
-            <Button
-              size="lg"
-              className="w-full sm:w-auto gap-2 font-semibold"
-              style={{ background: "#0ea5e9", color: "#fff" }}
-              data-testid="link-download-host-agent"
-              onClick={handleDownloadAgent}
-            >
-              <Download className="h-4 w-4" />
-              Скачать агент
-            </Button>
-            <p className="text-[11px] text-slate-500">
-              Или{" "}
-              <a
-                href={HOST_AGENT_EXE_DOWNLOAD_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-slate-500 hover:text-sky-400 underline-offset-2 hover:underline"
-                data-testid="link-download-host-agent-exe"
+          <div className="space-y-3" data-testid="host-agent-download-options">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Button
+                size="lg"
+                className="h-auto flex-col items-start gap-1 py-3 px-4 font-semibold text-left"
+                style={{ background: "#0ea5e9", color: "#fff" }}
+                data-testid="link-download-host-agent"
+                onClick={handleDownloadZip}
               >
-                .exe без Node.js
-              </a>{" "}
-              — после установки нажми «Открыть в агенте» в «Если не работает»
+                <span className="flex items-center gap-2 w-full">
+                  <Download className="h-4 w-4 shrink-0" />
+                  ZIP-архив
+                </span>
+                <span className="text-[11px] font-normal opacity-90">
+                  {HOST_AGENT_ZIP_DOWNLOAD_LABEL}
+                </span>
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="h-auto flex-col items-start gap-1 py-3 px-4 font-semibold text-left border-white/15 text-white hover:bg-white/5"
+                data-testid="link-download-host-agent-exe"
+                onClick={handleDownloadExe}
+              >
+                <span className="flex items-center gap-2 w-full">
+                  <Download className="h-4 w-4 shrink-0" />
+                  Установщик .exe
+                </span>
+                <span className="text-[11px] font-normal text-slate-400">
+                  {HOST_AGENT_EXE_DOWNLOAD_LABEL}
+                </span>
+              </Button>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              ZIP — распакуй и запусти start.bat, токен и привязка из config.json.
+              .exe — без Node.js, после установки привяжем ключ одной кнопкой.
             </p>
           </div>
+        )}
+
+        {guided.cta === "bind-agent" && (
+          <AgentBindCodeCard hostToken={hostToken} guided />
         )}
 
         {guided.cta === "wait" && (
@@ -860,7 +902,7 @@ function HostQuickStartCard({
             data-testid="guided-open-agent"
             onClick={() => {
               markHostGoOnlineAck();
-              setGoOnlineAck(true);
+              onGoOnlineAck();
             }}
           >
             <Button
@@ -893,8 +935,10 @@ function HostQuickStartCard({
               size="lg"
               className="w-full sm:w-auto gap-2 font-semibold bg-amber-600 hover:bg-amber-500 text-white"
               onClick={() => {
+                markHostAgentInstallMethod("exe");
+                onInstallMethod("exe");
                 markHostAgentDownloaded();
-                setAgentDownloaded(true);
+                onAgentDownloaded();
               }}
             >
               <Download className="h-4 w-4" />
@@ -1526,6 +1570,22 @@ export default function Dashboard() {
   const hasFirstStream = hasCompletedFirstStream(sessions);
   const onboarding = !hasFirstStream;
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [agentDownloaded, setAgentDownloaded] = useState(() => readHostAgentDownloaded());
+  const [installMethod, setInstallMethod] = useState(() => readHostAgentInstallMethod());
+  const [goOnlineAck, setGoOnlineAck] = useState(() => readHostGoOnlineAck());
+
+  const guided = resolveGuidedNextAction({
+    agent,
+    heartbeat,
+    agentKeyBound,
+    libraryCount,
+    hasActiveSession,
+    agentDownloaded,
+    installMethod,
+    goOnlineAck,
+    hasFirstStream,
+    minSupportedAgentVersion,
+  });
 
   const agentNeedsAttention = agentNeedsAdvancedPanel(agent, heartbeat);
 
@@ -1654,6 +1714,12 @@ export default function Dashboard() {
           onTestStream={() => void handleTestSession()}
           testLoading={testLoading}
           minSupportedAgentVersion={minSupportedAgentVersion}
+          agentDownloaded={agentDownloaded}
+          installMethod={installMethod}
+          goOnlineAck={goOnlineAck}
+          onAgentDownloaded={() => setAgentDownloaded(true)}
+          onInstallMethod={setInstallMethod}
+          onGoOnlineAck={() => setGoOnlineAck(true)}
         />
       )}
 
@@ -1771,7 +1837,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {hostToken && !agentKeyBound && (
+          {hostToken && !agentKeyBound && guided.phase !== "bind-agent" && (
             <AgentBindCodeCard hostToken={hostToken} />
           )}
         </div>

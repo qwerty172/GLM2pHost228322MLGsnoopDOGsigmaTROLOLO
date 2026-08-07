@@ -6,7 +6,10 @@ const {
   HOST_TOKEN_STORAGE_PREFIX,
   BROWSER_HOST_URL_STORAGE_PREFIX,
   HOST_AGENT_DOWNLOADED_STORAGE_KEY,
+  HOST_AGENT_INSTALL_METHOD_STORAGE_KEY,
   HOST_AGENT_EXE_DOWNLOAD_URL,
+  HOST_AGENT_ZIP_DOWNLOAD_LABEL,
+  HOST_AGENT_EXE_DOWNLOAD_LABEL,
   AUDIO_MODE_LABELS,
   EVENT_LEVEL_STYLES,
   getAgentDiagnosis,
@@ -25,6 +28,9 @@ const {
   ONBOARDING_TOTAL_STEPS,
   readHostAgentDownloaded,
   markHostAgentDownloaded,
+  readHostAgentInstallMethod,
+  markHostAgentInstallMethod,
+  onboardingTotalSteps,
   evaluateHostReadiness,
   resolveHostDiagnosticAction,
   findFirstFailedDiagnosticAction,
@@ -55,7 +61,10 @@ test("HEARTBEAT_FRESH_MS and storage prefixes are stable", () => {
   assert.equal(HOST_TOKEN_STORAGE_PREFIX, "streamline.browserHostToken:");
   assert.equal(BROWSER_HOST_URL_STORAGE_PREFIX, "streamline.browserHostUrl:");
   assert.equal(HOST_AGENT_DOWNLOADED_STORAGE_KEY, "streamline.hostAgentDownloaded");
+  assert.equal(HOST_AGENT_INSTALL_METHOD_STORAGE_KEY, "streamline.hostAgentInstallMethod");
   assert.equal(HOST_AGENT_EXE_DOWNLOAD_URL, "/api/downloads/host-agent.exe");
+  assert.equal(HOST_AGENT_ZIP_DOWNLOAD_LABEL, "Токен уже внутри");
+  assert.equal(HOST_AGENT_EXE_DOWNLOAD_LABEL, "Понадобится код привязки");
 });
 
 test("AUDIO_MODE_LABELS maps all audio modes to Russian labels", () => {
@@ -229,6 +238,68 @@ test("isAgentOnceSeen is true for online agent, fresh or stale heartbeat", () =>
   assert.equal(isAgentOnceSeen(onlineAgent, { status: "never" }), true);
   assert.equal(isAgentOnceSeen(offlineAgent, freshHeartbeat), true);
   assert.equal(isAgentOnceSeen(offlineAgent, staleHeartbeat), true);
+});
+
+test("readHostAgentInstallMethod and markHostAgentInstallMethod use localStorage (U-35)", () => {
+  const storage = { data: {}, getItem(k) { return this.data[k] ?? null; }, setItem(k, v) { this.data[k] = v; } };
+  assert.equal(readHostAgentInstallMethod(storage), null);
+  markHostAgentInstallMethod("exe", storage);
+  assert.equal(readHostAgentInstallMethod(storage), "exe");
+  markHostAgentInstallMethod("zip", storage);
+  assert.equal(readHostAgentInstallMethod(storage), "zip");
+});
+
+test("onboardingTotalSteps adds bind step for exe path (U-35)", () => {
+  assert.equal(onboardingTotalSteps(null), ONBOARDING_TOTAL_STEPS);
+  assert.equal(onboardingTotalSteps("zip"), ONBOARDING_TOTAL_STEPS);
+  assert.equal(onboardingTotalSteps("exe"), 6);
+});
+
+test("resolveGuidedNextAction shows bind-agent after exe when key not bound (U-35)", () => {
+  const bind = resolveGuidedNextAction({
+    agent: onlineAgent,
+    heartbeat: { status: "never" },
+    agentKeyBound: false,
+    libraryCount: 0,
+    hasActiveSession: false,
+    agentDownloaded: true,
+    installMethod: "exe",
+    hasFirstStream: false,
+  });
+  assert.equal(bind.phase, "bind-agent");
+  assert.equal(bind.cta, "bind-agent");
+  assert.equal(bind.stepNumber, 3);
+  assert.equal(bind.totalSteps, 6);
+  assert.match(bind.hint, /код привязки/i);
+});
+
+test("resolveGuidedNextAction skips bind for zip path (U-35)", () => {
+  const addGame = resolveGuidedNextAction({
+    agent: onlineAgent,
+    heartbeat: { status: "never" },
+    agentKeyBound: false,
+    libraryCount: 0,
+    hasActiveSession: false,
+    agentDownloaded: true,
+    installMethod: "zip",
+    hasFirstStream: false,
+  });
+  assert.equal(addGame.phase, "add-game");
+  assert.equal(addGame.stepNumber, 3);
+});
+
+test("resolveGuidedNextAction download hint mentions both install labels (U-35)", () => {
+  const download = resolveGuidedNextAction({
+    agent: offlineAgent,
+    heartbeat: { status: "never" },
+    agentKeyBound: false,
+    libraryCount: 0,
+    hasActiveSession: false,
+    agentDownloaded: false,
+    hasFirstStream: false,
+  });
+  assert.match(download.hint, /токен уже внутри/i);
+  assert.match(download.hint, /понадобится код привязки/i);
 });
 
 test("readHostAgentDownloaded and markHostAgentDownloaded use localStorage", () => {

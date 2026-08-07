@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-267 (2026-08-07 08:52 UTC) {#marathon-m-267}
+
+| Проверка | Результат |
+|---|---|
+| host-dashboard.test.mjs | PASS (+5 U-35: install method, bind-agent phase, download labels) |
+
+**Изменения:** две кнопки скачивания (ZIP «Токен уже внутри» / .exe «Понадобится код привязки»); после .exe guided-flow показывает шаг привязки автоматически.
+
+**Следующий pick:** marathon-scan --next.
+
 ## Marathon M-266 (2026-08-07 08:45 UTC) {#marathon-m-266}
 
 | Проверка | Результат |

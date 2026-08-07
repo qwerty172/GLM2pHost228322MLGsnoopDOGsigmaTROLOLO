@@ -5,7 +5,16 @@ export const HEARTBEAT_FRESH_MS = 45_000;
 export const HOST_TOKEN_STORAGE_PREFIX = "streamline.browserHostToken:";
 export const BROWSER_HOST_URL_STORAGE_PREFIX = "streamline.browserHostUrl:";
 export const HOST_AGENT_DOWNLOADED_STORAGE_KEY = "streamline.hostAgentDownloaded";
+export const HOST_AGENT_INSTALL_METHOD_STORAGE_KEY = "streamline.hostAgentInstallMethod";
 export const HOST_GO_ONLINE_ACK_STORAGE_KEY = "streamline.hostGoOnlineAck";
+
+/** How the host installed the agent — drives bind-step visibility (U-35). */
+export type HostAgentInstallMethod = "zip" | "exe";
+
+/** Short label on the ZIP download button (U-35). */
+export const HOST_AGENT_ZIP_DOWNLOAD_LABEL = "Токен уже внутри";
+/** Short label on the .exe download button (U-35). */
+export const HOST_AGENT_EXE_DOWNLOAD_LABEL = "Понадобится код привязки";
 
 /**
  * Installer download (U-31): no Node.js/npm install required, unlike the ZIP.
@@ -182,6 +191,24 @@ export function markHostAgentDownloaded(
   }
 }
 
+export function readHostAgentInstallMethod(
+  storage: Pick<Storage, "getItem"> = localStorage,
+): HostAgentInstallMethod | null {
+  const v = storage.getItem(HOST_AGENT_INSTALL_METHOD_STORAGE_KEY);
+  return v === "zip" || v === "exe" ? v : null;
+}
+
+export function markHostAgentInstallMethod(
+  method: HostAgentInstallMethod,
+  storage: Pick<Storage, "setItem"> = localStorage,
+): void {
+  try {
+    storage.setItem(HOST_AGENT_INSTALL_METHOD_STORAGE_KEY, method);
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
 export function readHostGoOnlineAck(
   storage: Pick<Storage, "getItem"> = localStorage,
 ): boolean {
@@ -271,6 +298,7 @@ export type QuickStartStep = { done: boolean; title: string; hint: string };
 export type OnboardingPhase =
   | "download"
   | "wait-agent"
+  | "bind-agent"
   | "add-game"
   | "go-online"
   | "update-agent"
@@ -287,6 +315,7 @@ export type GuidedNextAction = {
   cta:
     | "download"
     | "wait"
+    | "bind-agent"
     | "add-game"
     | "open-agent"
     | "update-agent"
@@ -294,7 +323,14 @@ export type GuidedNextAction = {
     | "none";
 };
 
+/** ZIP path: 5 steps. EXE path adds bind-agent (U-35). */
 export const ONBOARDING_TOTAL_STEPS = 5;
+
+export function onboardingTotalSteps(
+  installMethod: HostAgentInstallMethod | null | undefined,
+): number {
+  return installMethod === "exe" ? 6 : ONBOARDING_TOTAL_STEPS;
+}
 
 export function hasCompletedFirstStream(
   sessions: Array<{ status: string }> | null | undefined,
@@ -379,15 +415,19 @@ export function resolveGuidedNextAction(opts: {
   libraryCount: number;
   hasActiveSession: boolean;
   agentDownloaded?: boolean;
+  installMethod?: HostAgentInstallMethod | null;
   goOnlineAck?: boolean;
   hasFirstStream?: boolean;
   minSupportedAgentVersion?: string;
 }): GuidedNextAction {
+  const totalSteps = onboardingTotalSteps(opts.installMethod);
+  const exePath = opts.installMethod === "exe";
+
   if (opts.hasFirstStream) {
     return {
       phase: "complete",
-      stepNumber: ONBOARDING_TOTAL_STEPS,
-      totalSteps: ONBOARDING_TOTAL_STEPS,
+      stepNumber: totalSteps,
+      totalSteps,
       title: "Первый стрим готов",
       hint: "Можно принимать игроков и пользоваться полным дашбордом",
       cta: "none",
@@ -402,9 +442,11 @@ export function resolveGuidedNextAction(opts: {
     return {
       phase: "download",
       stepNumber: 1,
-      totalSteps: ONBOARDING_TOTAL_STEPS,
+      totalSteps,
       title: "Скачай агент",
-      hint: "Один ZIP с твоим токеном — распакуй на Windows-ПК и запусти start.bat",
+      hint: exePath
+        ? "Выбери ZIP (токен уже внутри) или установщик .exe (понадобится код привязки)"
+        : "ZIP — токен уже внутри. Установщик .exe — без Node.js, но понадобится код привязки",
       cta: "download",
     };
   }
@@ -413,18 +455,32 @@ export function resolveGuidedNextAction(opts: {
     return {
       phase: "wait-agent",
       stepNumber: 2,
-      totalSteps: ONBOARDING_TOTAL_STEPS,
+      totalSteps,
       title: "Дождись связи с агентом",
-      hint: "Запусти start.bat — здесь появится «Агент онлайн». Токен и привязка ключа из ZIP выполняются сами",
+      hint: exePath
+        ? "Установи и запусти агент — здесь появится «Агент онлайн», затем привяжем ключ"
+        : "Запусти start.bat — здесь появится «Агент онлайн». Токен и привязка ключа из ZIP выполняются сами",
       cta: "wait",
     };
   }
 
+  if (exePath && !opts.agentKeyBound) {
+    return {
+      phase: "bind-agent",
+      stepNumber: 3,
+      totalSteps,
+      title: "Привяжи ключ агента",
+      hint: "После .exe нужен код привязки — нажми «Открыть в агенте», цифры подставятся сами",
+      cta: "bind-agent",
+    };
+  }
+
+  const addGameStep = exePath ? 4 : 3;
   if (opts.libraryCount === 0) {
     return {
       phase: "add-game",
-      stepNumber: 3,
-      totalSteps: ONBOARDING_TOTAL_STEPS,
+      stepNumber: addGameStep,
+      totalSteps,
       title: "Добавь первую игру",
       hint: "Укажи путь к .exe и выбери игру из каталога",
       cta: "add-game",
@@ -432,12 +488,13 @@ export function resolveGuidedNextAction(opts: {
   }
 
   const goOnlineAck = Boolean(opts.goOnlineAck) || opts.hasActiveSession;
+  const goOnlineStep = exePath ? 5 : 4;
 
   if (!goOnlineAck) {
     return {
       phase: "go-online",
-      stepNumber: 4,
-      totalSteps: ONBOARDING_TOTAL_STEPS,
+      stepNumber: goOnlineStep,
+      totalSteps,
       title: "Выйди в онлайн",
       hint: "В агенте нажми «Выйти в онлайн» — игроки увидят тебя в каталоге",
       cta: "open-agent",
@@ -455,8 +512,8 @@ export function resolveGuidedNextAction(opts: {
     );
     return {
       phase: "update-agent",
-      stepNumber: ONBOARDING_TOTAL_STEPS,
-      totalSteps: ONBOARDING_TOTAL_STEPS,
+      stepNumber: totalSteps,
+      totalSteps,
       title: "Обнови агент",
       hint:
         versionCheck.message ??
@@ -465,10 +522,11 @@ export function resolveGuidedNextAction(opts: {
     };
   }
 
+  const testStreamStep = exePath ? 6 : 5;
   return {
     phase: "test-stream",
-    stepNumber: 5,
-    totalSteps: ONBOARDING_TOTAL_STEPS,
+    stepNumber: testStreamStep,
+    totalSteps,
     title: "Проверь стрим",
     hint: "Создай тест-сессию и убедись, что картинка и управление работают",
     cta: "test-stream",
