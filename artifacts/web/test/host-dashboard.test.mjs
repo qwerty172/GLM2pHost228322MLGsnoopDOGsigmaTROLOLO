@@ -12,6 +12,9 @@ const {
   HOST_AGENT_EXE_DOWNLOAD_LABEL,
   HOST_AGENT_EXE_UNAVAILABLE_TITLE,
   HOST_AGENT_EXE_UNAVAILABLE_HINT,
+  HOST_AGENT_EXE_WINDOWS_WARNING_TITLE,
+  HOST_AGENT_EXE_WINDOWS_WARNING_BODY,
+  HOST_AGENT_EXE_WAIT_SMARTSCREEN_HINT,
   probeHostAgentExeAvailability,
   AUDIO_MODE_LABELS,
   EVENT_LEVEL_STYLES,
@@ -87,6 +90,29 @@ test("probeHostAgentExeAvailability treats 302 as available (U-36)", async () =>
   const fetchImpl = async () => new Response(null, { status: 302 });
   const result = await probeHostAgentExeAvailability(fetchImpl);
   assert.equal(result.status, "available");
+});
+
+test("HOST_AGENT_EXE_WINDOWS_WARNING explains SmartScreen before download (U-37)", () => {
+  assert.match(HOST_AGENT_EXE_WINDOWS_WARNING_TITLE, /Windows/i);
+  assert.match(HOST_AGENT_EXE_WINDOWS_WARNING_BODY, /Подробнее/i);
+  assert.match(HOST_AGENT_EXE_WINDOWS_WARNING_BODY, /не означает поломку/i);
+  assert.match(HOST_AGENT_EXE_WAIT_SMARTSCREEN_HINT, /нормально/i);
+});
+
+test("resolveGuidedNextAction wait-agent hint mentions SmartScreen for exe path (U-37)", () => {
+  const wait = resolveGuidedNextAction({
+    agent: offlineAgent,
+    heartbeat: { status: "never" },
+    agentKeyBound: false,
+    libraryCount: 0,
+    hasActiveSession: false,
+    agentDownloaded: true,
+    installMethod: "exe",
+    hasFirstStream: false,
+  });
+  assert.equal(wait.phase, "wait-agent");
+  assert.match(wait.hint, /нормально/i);
+  assert.match(wait.hint, /Пуск/i);
 });
 
 test("AUDIO_MODE_LABELS maps all audio modes to Russian labels", () => {

@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-269 (2026-08-07 09:05 UTC) {#marathon-m-269}
+
+| Проверка | Результат |
+|---|---|
+| host-dashboard.test.mjs | PASS (+2 U-37: SmartScreen warning constants, exe wait-agent hint) |
+
+**Изменения:** перед скачиванием .exe — блок про подтверждение Windows (SmartScreen); в фазе ожидания после .exe — подсказка, что это не поломка; INSTALL.txt дополнен.
+
+**Следующий pick:** marathon-scan --next.
+
 ## Marathon M-268 (2026-08-07 09:00 UTC) {#marathon-m-268}
 
 | Проверка | Результат |

@@ -32,6 +32,18 @@ export const HOST_AGENT_EXE_UNAVAILABLE_TITLE = "Установщик .exe по�
 export const HOST_AGENT_EXE_UNAVAILABLE_HINT =
   "Готовый установщик ещё не опубликован (нет тега host-agent-v*). Скачайте ZIP-архив — токен уже внутри.";
 
+/** Title for Windows SmartScreen notice before .exe download (U-37). */
+export const HOST_AGENT_EXE_WINDOWS_WARNING_TITLE =
+  "Windows может запросить подтверждение";
+
+/** Body — SmartScreen/Defender prompt is expected, not an agent failure (U-37). */
+export const HOST_AGENT_EXE_WINDOWS_WARNING_BODY =
+  "При скачивании или первом запуске установщика Windows может показать «Защитник» или «Подтверждение». Нажмите «Подробнее» → «Выполнить в любом случае» — это ожидаемо и не означает поломку агента.";
+
+/** Hint while waiting for agent after .exe install — avoids dead-end panic (U-37). */
+export const HOST_AGENT_EXE_WAIT_SMARTSCREEN_HINT =
+  "Если Windows только что спрашивала разрешение — агент мог ещё не запуститься. Открой DecentralHub из меню «Пуск» или с рабочего стола; пока нет связи — это нормально, не ошибка.";
+
 export type HostAgentExeAvailability =
   | { status: "checking" }
   | { status: "available" }
@@ -502,7 +514,7 @@ export function resolveGuidedNextAction(opts: {
       totalSteps,
       title: "Дождись связи с агентом",
       hint: exePath
-        ? "Установи и запусти агент — здесь появится «Агент онлайн», затем привяжем ключ"
+        ? `Установи и запусти агент — здесь появится «Агент онлайн», затем привяжем ключ. ${HOST_AGENT_EXE_WAIT_SMARTSCREEN_HINT}`
         : "Запусти start.bat — здесь появится «Агент онлайн». Токен и привязка ключа из ZIP выполняются сами",
       cta: "wait",
     };

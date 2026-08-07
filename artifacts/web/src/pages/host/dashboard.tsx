@@ -111,6 +111,9 @@ import {
   HOST_AGENT_ZIP_DOWNLOAD_LABEL,
   HOST_AGENT_EXE_DOWNLOAD_LABEL,
   HOST_AGENT_EXE_UNAVAILABLE_TITLE,
+  HOST_AGENT_EXE_WINDOWS_WARNING_TITLE,
+  HOST_AGENT_EXE_WINDOWS_WARNING_BODY,
+  HOST_AGENT_EXE_WAIT_SMARTSCREEN_HINT,
   probeHostAgentExeAvailability,
   type HostAgentExeAvailability,
   buildAgentDeepLink,
@@ -902,6 +905,15 @@ function HostQuickStartCard({
                 </p>
               </div>
             )}
+            {exeAvailability.status === "available" && (
+              <div
+                className="rounded-lg border border-sky-500/25 bg-sky-500/10 px-3 py-2 text-xs text-sky-100/90"
+                data-testid="host-agent-exe-windows-warning"
+              >
+                <p className="font-medium">{HOST_AGENT_EXE_WINDOWS_WARNING_TITLE}</p>
+                <p className="mt-1 text-sky-200/80">{HOST_AGENT_EXE_WINDOWS_WARNING_BODY}</p>
+              </div>
+            )}
             <p className="text-[11px] text-slate-500">
               ZIP — распакуй и запусти start.bat, токен и привязка из config.json.
               .exe — без Node.js, после установки привяжем ключ одной кнопкой.
@@ -924,9 +936,26 @@ function HostQuickStartCard({
               Ждём агент на связи…
             </div>
             <p className="text-xs text-slate-400">
-              Запусти <span className="font-mono text-sky-400">start.bat</span> на Windows-ПК.
-              Окно уйдёт в трей — подробности в блоке «Диагностика» ниже.
+              {installMethod === "exe" ? (
+                <>
+                  Запусти DecentralHub из меню «Пуск» или с рабочего стола на Windows-ПК.
+                  Окно уйдёт в трей — подробности в блоке «Диагностика» ниже.
+                </>
+              ) : (
+                <>
+                  Запусти <span className="font-mono text-sky-400">start.bat</span> на Windows-ПК.
+                  Окно уйдёт в трей — подробности в блоке «Диагностика» ниже.
+                </>
+              )}
             </p>
+            {installMethod === "exe" && (
+              <p
+                className="text-xs text-sky-300/80 rounded border border-sky-500/20 bg-sky-500/5 px-3 py-2"
+                data-testid="host-agent-exe-wait-smartscreen-hint"
+              >
+                {HOST_AGENT_EXE_WAIT_SMARTSCREEN_HINT}
+              </p>
+            )}
           </div>
         )}
 
