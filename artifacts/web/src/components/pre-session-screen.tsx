@@ -1,6 +1,8 @@
 import { Link } from "wouter";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Clock, Loader2, Wifi, X } from "lucide-react";
+import { ArrowRight, Clock, Copy, Loader2, Wifi, X } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -14,14 +16,28 @@ import {
   resolveCoverImageUrl,
 } from "@/pages/game-detail-helpers";
 import type { PaymentSource } from "@/pages/play-helpers";
+import {
+  findUsdtTrc20Address,
+  formatUsdtAddressPreview,
+  LZT_PER_USDT,
+} from "@/pages/wallet-helpers";
 
 export const PRE_SESSION_DEFAULT_CREDIT_LZT = 3000;
+export const PRE_SESSION_TARGET_MINS = 30;
 
 export type PreSessionWalletLike = {
   internalBalanceLzt?: number;
   withdrawableBalanceLzt?: number;
   creditDebtLzt?: number;
   creditLimitLzt?: number;
+};
+
+export type PreSessionDepositAddress = {
+  currency: string;
+  label: string;
+  address: string;
+  network: string;
+  minDeposit: number;
 };
 
 export type PreSessionBlockChoice = "unlimited" | "10" | "15" | "25";
@@ -110,6 +126,47 @@ export function isPreSessionBlockOptionAffordable(
   return totalAvailableLzt >= blockMins * pricePerMinuteLzt;
 }
 
+export function computePreSessionTargetCostLzt(
+  pricePerMinuteLzt: number,
+  targetMins = PRE_SESSION_TARGET_MINS,
+): number {
+  return pricePerMinuteLzt * targetMins;
+}
+
+export function computePreSessionShortfallLzt(
+  totalAvailableLzt: number,
+  pricePerMinuteLzt: number,
+  targetMins = PRE_SESSION_TARGET_MINS,
+): number {
+  const needed = computePreSessionTargetCostLzt(pricePerMinuteLzt, targetMins);
+  return Math.max(0, needed - totalAvailableLzt);
+}
+
+export function needsPreSessionInlineTopUp(
+  minsAvailable: number,
+  blockAffordable: boolean,
+  targetMins = PRE_SESSION_TARGET_MINS,
+): boolean {
+  return minsAvailable < targetMins || !blockAffordable;
+}
+
+export function formatPreSessionShortfallHint(
+  totalAvailableLzt: number,
+  pricePerMinuteLzt: number,
+  targetMins = PRE_SESSION_TARGET_MINS,
+): string {
+  const needed = computePreSessionTargetCostLzt(pricePerMinuteLzt, targetMins);
+  const shortfall = computePreSessionShortfallLzt(
+    totalAvailableLzt,
+    pricePerMinuteLzt,
+    targetMins,
+  );
+  if (shortfall <= 0) {
+    return `На ${targetMins} минут нужно ${needed.toLocaleString("ru-RU")} LZT — баланс достаточен.`;
+  }
+  return `На ${targetMins} минут нужно ${needed.toLocaleString("ru-RU")} LZT — не хватает ${shortfall.toLocaleString("ru-RU")} LZT.`;
+}
+
 export function PreSessionScreen({
   hostDisplayName,
   gameTitle,
@@ -118,6 +175,7 @@ export function PreSessionScreen({
   resolution,
   bitrateKbps,
   wallet,
+  depositAddresses,
   initialBlockMinutes,
   isTest,
   claimError,
@@ -137,6 +195,7 @@ export function PreSessionScreen({
   resolution?: string;
   bitrateKbps?: number;
   wallet?: PreSessionWalletLike;
+  depositAddresses?: PreSessionDepositAddress[];
   initialBlockMinutes?: 10 | 15 | 25;
   isTest?: boolean;
   claimError?: string | null;
@@ -155,6 +214,14 @@ export function PreSessionScreen({
   const [blockChoice, setBlockChoice] = useState<PreSessionBlockChoice>(
     resolveInitialBlockChoice(initialBlockMinutes),
   );
+  const [topUpOpen, setTopUpOpen] = useState(false);
+
+  const copyDepositAddress = (address: string, label: string) => {
+    void navigator.clipboard.writeText(address).then(
+      () => toast.success(`${label} скопирован`),
+      () => toast.error("Не удалось скопировать в буфер обмена"),
+    );
+  };
 
   useEffect(() => {
     if (didPing.current) return;
@@ -178,6 +245,11 @@ export function PreSessionScreen({
     blockAffordable,
     isTest,
   );
+  const needsInlineTopUp = !isTest && needsPreSessionInlineTopUp(minsAvailable, blockAffordable);
+  const shortfallHint = !isTest
+    ? formatPreSessionShortfallHint(totalAvailableLzt, pricePerMinuteLzt)
+    : "";
+  const usdtDepositAddress = findUsdtTrc20Address(depositAddresses);
   const priceLabel = formatPreSessionPriceLabel(isTest, pricePerMinuteLzt);
   const cover = coverImageUrl
     ? resolveCoverImageUrl(coverImageUrl, import.meta.env.BASE_URL)
@@ -326,6 +398,124 @@ export function PreSessionScreen({
             </div>
           )}
 
+          {!isTest && needsInlineTopUp && pricePerMinuteLzt > 0 && (
+            <div
+              className="rounded-xl p-3 space-y-3"
+              style={{
+                background: "rgba(239,68,68,0.07)",
+                border: "1px solid rgba(239,68,68,0.25)",
+              }}
+              data-testid="pre-session-shortfall"
+            >
+              <div>
+                <p className="text-[10px] text-red-300/80 uppercase tracking-wider mb-1">
+                  Не хватает LZT
+                </p>
+                <p className="text-sm text-slate-200 leading-snug">{shortfallHint}</p>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  У вас {totalAvailableLzt.toLocaleString("ru-RU")} LZT для старта сессии
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                className="w-full text-xs font-semibold"
+                style={{ background: "#0ea5e9", color: "#fff" }}
+                data-testid="button-pre-session-topup"
+                onClick={() => setTopUpOpen((v) => !v)}
+              >
+                {topUpOpen ? "Свернуть пополнение" : "Пополнить здесь"}
+              </Button>
+              {topUpOpen && (
+                <div
+                  className="rounded-lg p-3 space-y-3"
+                  style={{
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                  }}
+                  data-testid="pre-session-inline-topup"
+                >
+                  <p className="text-[10px] text-slate-500 leading-relaxed">
+                    Отправь USDT, SOL или Nano — зачисление на «К выводу» по курсу{" "}
+                    {LZT_PER_USDT} LZT за 1 USDT. После пополнения баланс обновится
+                    автоматически.
+                  </p>
+                  {depositAddresses?.length ? (
+                    <div className="space-y-2">
+                      {depositAddresses.map((addr) => (
+                        <div
+                          key={addr.currency}
+                          className="flex items-center gap-3 p-2 rounded-lg"
+                          style={{
+                            background: "rgba(255,255,255,0.02)",
+                            border: "1px solid rgba(255,255,255,0.06)",
+                          }}
+                        >
+                          <div className="p-1 bg-white rounded shrink-0">
+                            <QRCodeSVG value={addr.address} size={48} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-white">{addr.label}</p>
+                            <p className="text-[10px] text-slate-500 font-mono truncate">
+                              {formatUsdtAddressPreview(addr.address)}
+                            </p>
+                            <div className="flex items-center justify-between mt-1">
+                              <span className="text-[9px] text-slate-500">
+                                мин. {addr.minDeposit} {addr.currency.split("_")[0]}
+                              </span>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-6 text-[10px] border-white/10 text-slate-300"
+                                onClick={() => copyDepositAddress(addr.address, addr.label)}
+                              >
+                                <Copy className="h-3 w-3 mr-1" />
+                                Копировать
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : usdtDepositAddress ? (
+                    <div
+                      className="flex items-center gap-3 p-2 rounded-lg"
+                      style={{
+                        background: "rgba(255,255,255,0.02)",
+                        border: "1px solid rgba(255,255,255,0.06)",
+                      }}
+                    >
+                      <div className="p-1 bg-white rounded shrink-0">
+                        <QRCodeSVG value={usdtDepositAddress} size={48} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-white">USDT</p>
+                        <p className="text-[10px] text-slate-500 font-mono truncate">
+                          {formatUsdtAddressPreview(usdtDepositAddress)}
+                        </p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-6 text-[10px] border-white/10 text-slate-300 mt-1"
+                          onClick={() => copyDepositAddress(usdtDepositAddress, "Адрес USDT")}
+                        >
+                          <Copy className="h-3 w-3 mr-1" />
+                          Копировать
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500 text-center py-2">
+                      Адрес пополнения загружается…
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {!isTest && pricePerMinuteLzt > 0 && (
             <div
               className="rounded-xl p-3"
@@ -430,12 +620,16 @@ export function PreSessionScreen({
                   {formatPreSessionMinsDisplay(minsAvailable)}
                 </p>
               </div>
-              {minsAvailable < 5 && (
-                <Link href="/wallet">
-                  <Button size="sm" variant="outline" className="text-xs border-white/10 text-slate-300">
-                    Пополнить
-                  </Button>
-                </Link>
+              {needsInlineTopUp && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="text-xs border-white/10 text-slate-300"
+                  onClick={() => setTopUpOpen(true)}
+                >
+                  Пополнить
+                </Button>
               )}
             </div>
           )}
@@ -520,14 +714,15 @@ export function PreSessionScreen({
               )}
             </Button>
           ) : minsAvailable < 1 || !blockAffordable ? (
-            <Link href="/wallet" className="block">
-              <Button
-                className="w-full h-11 font-bold text-sm rounded-xl"
-                style={{ background: "#0ea5e9", color: "#fff" }}
-              >
-                {!blockAffordable ? "Недостаточно для блока" : "Пополнить кошелёк"}
-              </Button>
-            </Link>
+            <Button
+              type="button"
+              className="w-full h-11 font-bold text-sm rounded-xl"
+              style={{ background: "#0ea5e9", color: "#fff" }}
+              data-testid="button-pre-session-topup-cta"
+              onClick={() => setTopUpOpen(true)}
+            >
+              {!blockAffordable ? "Недостаточно для блока — пополнить здесь" : "Пополнить здесь"}
+            </Button>
           ) : (
             <Button
               className="w-full h-11 font-bold text-sm rounded-xl"

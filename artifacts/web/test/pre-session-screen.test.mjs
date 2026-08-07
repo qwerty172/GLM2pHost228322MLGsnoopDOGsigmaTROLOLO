@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 const {
   PRE_SESSION_DEFAULT_CREDIT_LZT,
+  PRE_SESSION_TARGET_MINS,
   PRE_SESSION_BLOCK_OPTIONS,
   PreSessionScreen,
   resolveInitialBlockChoice,
@@ -14,6 +15,10 @@ const {
   formatPreSessionPriceLabel,
   getPreSessionStartButtonLabel,
   isPreSessionBlockOptionAffordable,
+  computePreSessionTargetCostLzt,
+  computePreSessionShortfallLzt,
+  needsPreSessionInlineTopUp,
+  formatPreSessionShortfallHint,
 } = await import("../src/components/pre-session-screen.tsx");
 
 test("PRE_SESSION_DEFAULT_CREDIT_LZT is 3000", () => {
@@ -111,6 +116,37 @@ test("getPreSessionStartButtonLabel reserves block cost when selected", () => {
 test("isPreSessionBlockOptionAffordable compares block cost to balance", () => {
   assert.equal(isPreSessionBlockOptionAffordable(100, 10, 8), true);
   assert.equal(isPreSessionBlockOptionAffordable(79, 10, 8), false);
+});
+
+test("PRE_SESSION_TARGET_MINS is 30 (U-46)", () => {
+  assert.equal(PRE_SESSION_TARGET_MINS, 30);
+});
+
+test("computePreSessionTargetCostLzt multiplies price by target minutes", () => {
+  assert.equal(computePreSessionTargetCostLzt(10), 300);
+  assert.equal(computePreSessionTargetCostLzt(8, 15), 120);
+});
+
+test("computePreSessionShortfallLzt returns deficit for 30-minute play", () => {
+  assert.equal(computePreSessionShortfallLzt(100, 10), 200);
+  assert.equal(computePreSessionShortfallLzt(300, 10), 0);
+});
+
+test("needsPreSessionInlineTopUp when under 30 minutes or block unaffordable", () => {
+  assert.equal(needsPreSessionInlineTopUp(29, true), true);
+  assert.equal(needsPreSessionInlineTopUp(30, true), false);
+  assert.equal(needsPreSessionInlineTopUp(60, false), true);
+});
+
+test("formatPreSessionShortfallHint explains 30-minute need in Russian (U-46)", () => {
+  assert.match(
+    formatPreSessionShortfallHint(50, 10),
+    /На 30 минут нужно 300 LZT — не хватает 250 LZT/,
+  );
+  assert.match(
+    formatPreSessionShortfallHint(400, 10),
+    /баланс достаточен/,
+  );
 });
 
 test("PreSessionScreen is a React component", () => {

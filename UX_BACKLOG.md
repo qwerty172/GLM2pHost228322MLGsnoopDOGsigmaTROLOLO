@@ -106,7 +106,7 @@
 
 | ID | Приор | Задача | Файлы | Критерий готовности | Status |
 |----|-------|--------|-------|---------------------|--------|
-| U-46 | P0 | Не хватает LZT — сумма и пополнение прямо перед запуском | `artifacts/web/src/components/pre-session-screen.tsx`, `artifacts/web/src/pages/play.tsx`, `artifacts/web/src/pages/wallet.tsx` | Показано, сколько нужно на 30 минут, и кнопка пополнения без ухода в пустой кошелёк; `deadEndCount` −1 | todo |
+| U-46 | P0 | Не хватает LZT — сумма и пополнение прямо перед запуском | `artifacts/web/src/components/pre-session-screen.tsx`, `artifacts/web/src/pages/play.tsx`, `artifacts/web/src/pages/wallet.tsx` | Показано, сколько нужно на 30 минут, и кнопка пополнения без ухода в пустой кошелёк; `deadEndCount` −1 | done |
 | U-47 | P1 | Ссылка-приглашение открывается по QR с телефона | `artifacts/web/src/pages/host/setup.tsx`, `artifacts/web/src/pages/host/dashboard.tsx` | Рядом со ссылкой есть QR; игрок заходит без пересылки текста; `manualInputCount` −1 | planned |
 | U-48 | P1 | Обрыв связи — кнопка «Переподключиться», без технических кодов | `artifacts/web/src/pages/play.tsx`, `artifacts/web/src/pages/play-helpers.ts` | При разрыве одна понятная кнопка и текст без состояний соединения; юнит-тест на текст по каждому состоянию | planned |
 | U-49 | P1 | Пополнение криптой — адрес с QR, а не длинная строка | `artifacts/web/src/pages/wallet.tsx`, `artifacts/api-server/src/routes/wallet.ts` | Для депозита показан QR и кнопка копирования; ручной перенос адреса не нужен; `manualInputCount` −1 | planned |

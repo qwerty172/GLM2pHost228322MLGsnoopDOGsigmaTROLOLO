@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-270 (2026-08-07 09:12 UTC) {#marathon-m-270}
+
+| Проверка | Результат |
+|---|---|
+| pre-session-screen.test.mjs | PASS (+5 U-46: 30-min target, shortfall, inline top-up helpers) |
+
+**Изменения (U-46):** на экране перед сессией — сумма на 30 минут, нехватка LZT и inline-пополнение (QR/копирование адреса) без редиректа в пустой кошелёк; play.tsx передаёт depositAddresses.
+
+**Следующий pick:** marathon-scan --next.
+
 ## Marathon M-269 (2026-08-07 09:05 UTC) {#marathon-m-269}
 
 | Проверка | Результат |

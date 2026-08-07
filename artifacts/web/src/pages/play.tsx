@@ -1351,6 +1351,7 @@ export default function Play() {
         resolution={session.resolution}
         bitrateKbps={session.bitrateKbps}
         wallet={wallet}
+        depositAddresses={wallet?.depositAddresses}
         initialBlockMinutes={blockMinutesParam}
         isTest={s.isTest}
         claimError={claimError}
