@@ -8,14 +8,17 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { publicPing } from "@workspace/api-client-react";
 import {
-  canAffordBlock,
-  computeMinsAvailable,
   formatDuration,
   getPingColor,
   getPingLabel,
   resolveCoverImageUrl,
 } from "@/pages/game-detail-helpers";
 import type { PaymentSource } from "@/pages/play-helpers";
+import {
+  computeMinsAffordableForClaim,
+  computeSourceBalance,
+  pickPlayerBucket,
+} from "@/pages/play-helpers";
 import {
   findUsdtTrc20Address,
   formatUsdtAddressPreview,
@@ -119,11 +122,18 @@ export function getPreSessionStartButtonLabel(
 }
 
 export function isPreSessionBlockOptionAffordable(
-  totalAvailableLzt: number,
+  paymentSource: PaymentSource,
+  greenLzt: number,
+  blueLzt: number,
   blockMins: 10 | 15 | 25,
   pricePerMinuteLzt: number,
 ): boolean {
-  return totalAvailableLzt >= blockMins * pricePerMinuteLzt;
+  return isPreSessionBlockAffordable(
+    paymentSource,
+    greenLzt,
+    blueLzt,
+    blockMins * pricePerMinuteLzt,
+  );
 }
 
 export function computePreSessionTargetCostLzt(
@@ -134,12 +144,16 @@ export function computePreSessionTargetCostLzt(
 }
 
 export function computePreSessionShortfallLzt(
-  totalAvailableLzt: number,
+  paymentSource: PaymentSource,
+  greenLzt: number,
+  blueLzt: number,
   pricePerMinuteLzt: number,
   targetMins = PRE_SESSION_TARGET_MINS,
 ): number {
   const needed = computePreSessionTargetCostLzt(pricePerMinuteLzt, targetMins);
-  return Math.max(0, needed - totalAvailableLzt);
+  if (pickPlayerBucket(paymentSource, needed, greenLzt, blueLzt) !== null) return 0;
+  const eligible = computeSourceBalance(paymentSource, greenLzt, blueLzt);
+  return Math.max(0, needed - eligible);
 }
 
 export function needsPreSessionInlineTopUp(
@@ -151,20 +165,34 @@ export function needsPreSessionInlineTopUp(
 }
 
 export function formatPreSessionShortfallHint(
-  totalAvailableLzt: number,
+  paymentSource: PaymentSource,
+  greenLzt: number,
+  blueLzt: number,
   pricePerMinuteLzt: number,
   targetMins = PRE_SESSION_TARGET_MINS,
 ): string {
   const needed = computePreSessionTargetCostLzt(pricePerMinuteLzt, targetMins);
   const shortfall = computePreSessionShortfallLzt(
-    totalAvailableLzt,
+    paymentSource,
+    greenLzt,
+    blueLzt,
     pricePerMinuteLzt,
     targetMins,
   );
   if (shortfall <= 0) {
-    return `На ${targetMins} минут нужно ${needed.toLocaleString("ru-RU")} LZT — баланс достаточен.`;
+    return `На ${targetMins} минут нужно ${needed.toLocaleString("ru-RU")} LZT в одном кошельке — баланс достаточен.`;
   }
-  return `На ${targetMins} минут нужно ${needed.toLocaleString("ru-RU")} LZT — не хватает ${shortfall.toLocaleString("ru-RU")} LZT.`;
+  return `На ${targetMins} минут нужно ${needed.toLocaleString("ru-RU")} LZT в одном кошельке — не хватает ${shortfall.toLocaleString("ru-RU")} LZT.`;
+}
+
+export function isPreSessionBlockAffordable(
+  paymentSource: PaymentSource,
+  greenLzt: number,
+  blueLzt: number,
+  blockCost: number | null,
+): boolean {
+  if (blockCost === null) return true;
+  return pickPlayerBucket(paymentSource, blockCost, greenLzt, blueLzt) !== null;
 }
 
 export function PreSessionScreen({
@@ -233,12 +261,25 @@ export function PreSessionScreen({
       .finally(() => setPinging(false));
   }, []);
 
-  const { totalAvailableLzt, creditAvailable } = computePreSessionWalletTotals(wallet);
-  const minsAvailable = computeMinsAvailable(totalAvailableLzt, pricePerMinuteLzt);
+  const { balanceLzt, creditAvailable } = computePreSessionWalletTotals(wallet);
+  const greenLzt = wallet?.withdrawableBalanceLzt ?? 0;
+  const blueLzt = wallet?.internalBalanceLzt ?? 0;
+  const claimEligibleLzt = computeSourceBalance(paymentSource, greenLzt, blueLzt);
+  const minsAvailable = computeMinsAffordableForClaim(
+    paymentSource,
+    greenLzt,
+    blueLzt,
+    pricePerMinuteLzt,
+  );
 
   const selectedBlockMins = computeSelectedBlockMins(blockChoice);
   const blockCost = selectedBlockMins ? selectedBlockMins * pricePerMinuteLzt : null;
-  const blockAffordable = canAffordBlock(totalAvailableLzt, blockCost);
+  const blockAffordable = isPreSessionBlockAffordable(
+    paymentSource,
+    greenLzt,
+    blueLzt,
+    blockCost,
+  );
   const canStart = computePreSessionCanStart(
     sessionEnded,
     minsAvailable,
@@ -247,7 +288,7 @@ export function PreSessionScreen({
   );
   const needsInlineTopUp = !isTest && needsPreSessionInlineTopUp(minsAvailable, blockAffordable);
   const shortfallHint = !isTest
-    ? formatPreSessionShortfallHint(totalAvailableLzt, pricePerMinuteLzt)
+    ? formatPreSessionShortfallHint(paymentSource, greenLzt, blueLzt, pricePerMinuteLzt)
     : "";
   const usdtDepositAddress = findUsdtTrc20Address(depositAddresses);
   const priceLabel = formatPreSessionPriceLabel(isTest, pricePerMinuteLzt);
@@ -389,9 +430,9 @@ export function PreSessionScreen({
                   className="flex justify-between items-center pt-1.5 border-t"
                   style={{ borderColor: "rgba(14,165,233,0.15)" }}
                 >
-                  <span className="text-slate-300 font-medium">Для старта сессии</span>
+                  <span className="text-slate-300 font-medium">Для старта (один кошелёк)</span>
                   <span className="font-mono font-bold text-sky-300">
-                    {totalAvailableLzt.toLocaleString("ru-RU")} LZT
+                    {claimEligibleLzt.toLocaleString("ru-RU")} LZT
                   </span>
                 </div>
               </div>
@@ -413,7 +454,7 @@ export function PreSessionScreen({
                 </p>
                 <p className="text-sm text-slate-200 leading-snug">{shortfallHint}</p>
                 <p className="text-[10px] text-slate-500 mt-1">
-                  У вас {totalAvailableLzt.toLocaleString("ru-RU")} LZT для старта сессии
+                  Доступно в одном кошельке: {claimEligibleLzt.toLocaleString("ru-RU")} LZT
                 </p>
               </div>
               <Button
@@ -544,7 +585,9 @@ export function PreSessionScreen({
                 {PRE_SESSION_BLOCK_OPTIONS.map((opt) => {
                   const cost = opt.mins * pricePerMinuteLzt;
                   const affordable = isPreSessionBlockOptionAffordable(
-                    totalAvailableLzt,
+                    paymentSource,
+                    greenLzt,
+                    blueLzt,
                     opt.mins,
                     pricePerMinuteLzt,
                   );

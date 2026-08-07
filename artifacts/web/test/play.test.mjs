@@ -11,6 +11,8 @@ const {
   computeSourceBalance,
   computeMinutesAffordable,
   needsSessionTopUp,
+  pickPlayerBucket,
+  computeMinsAffordableForClaim,
   sanitizeClipGameSlug,
   buildClipFilename,
   getControlRejectMessage,
@@ -70,10 +72,21 @@ test("computeRatePerMinLzt converts USD rate to LZT", () => {
   assert.equal(computeRatePerMinLzt(0.1), 20);
 });
 
-test("computeSourceBalance respects payment source", () => {
-  assert.equal(computeSourceBalance("auto", 100, 50), 150);
+test("computeSourceBalance respects payment source without combining auto buckets", () => {
+  assert.equal(computeSourceBalance("auto", 100, 50), 100);
   assert.equal(computeSourceBalance("green", 100, 50), 100);
   assert.equal(computeSourceBalance("blue", 100, 50), 50);
+});
+
+test("pickPlayerBucket mirrors api-server single-bucket rules", () => {
+  assert.equal(pickPlayerBucket("auto", 100, 100, 0), "green");
+  assert.equal(pickPlayerBucket("auto", 100, 50, 100), "blue");
+  assert.equal(pickPlayerBucket("auto", 100, 50, 50), null);
+});
+
+test("computeMinsAffordableForClaim uses best single bucket for auto", () => {
+  assert.equal(computeMinsAffordableForClaim("auto", 50, 80, 10), 8);
+  assert.equal(computeMinsAffordableForClaim("green", 50, 80, 10), 5);
 });
 
 test("computeMinutesAffordable and needsSessionTopUp", () => {
@@ -152,7 +165,7 @@ test("getConnectionBadgeLabel covers reconnecting and connection states", () => 
 
 test("computeWalletBalanceForSession uses payment source from session", () => {
   const wallet = { withdrawableBalanceLzt: 100, internalBalanceLzt: 40 };
-  assert.equal(computeWalletBalanceForSession(wallet, "auto"), 140);
+  assert.equal(computeWalletBalanceForSession(wallet, "auto"), 100);
   assert.equal(computeWalletBalanceForSession(wallet, "green"), 100);
   assert.equal(computeWalletBalanceForSession(wallet, "blue"), 40);
   assert.equal(computeWalletBalanceForSession(null, "auto"), 0);

@@ -19,6 +19,7 @@ const {
   computePreSessionShortfallLzt,
   needsPreSessionInlineTopUp,
   formatPreSessionShortfallHint,
+  isPreSessionBlockAffordable,
 } = await import("../src/components/pre-session-screen.tsx");
 
 test("PRE_SESSION_DEFAULT_CREDIT_LZT is 3000", () => {
@@ -114,8 +115,8 @@ test("getPreSessionStartButtonLabel reserves block cost when selected", () => {
 });
 
 test("isPreSessionBlockOptionAffordable compares block cost to balance", () => {
-  assert.equal(isPreSessionBlockOptionAffordable(100, 10, 8), true);
-  assert.equal(isPreSessionBlockOptionAffordable(79, 10, 8), false);
+  assert.equal(isPreSessionBlockOptionAffordable("auto", 100, 100, 10, 8), true);
+  assert.equal(isPreSessionBlockOptionAffordable("auto", 40, 40, 10, 8), false);
 });
 
 test("PRE_SESSION_TARGET_MINS is 30 (U-46)", () => {
@@ -127,9 +128,10 @@ test("computePreSessionTargetCostLzt multiplies price by target minutes", () => 
   assert.equal(computePreSessionTargetCostLzt(8, 15), 120);
 });
 
-test("computePreSessionShortfallLzt returns deficit for 30-minute play", () => {
-  assert.equal(computePreSessionShortfallLzt(100, 10), 200);
-  assert.equal(computePreSessionShortfallLzt(300, 10), 0);
+test("computePreSessionShortfallLzt uses single-bucket claim rules (auto)", () => {
+  assert.equal(computePreSessionShortfallLzt("auto", 300, 100, 10), 0);
+  assert.equal(computePreSessionShortfallLzt("auto", 100, 50, 10), 200);
+  assert.equal(computePreSessionShortfallLzt("green", 100, 50, 10), 200);
 });
 
 test("needsPreSessionInlineTopUp when under 30 minutes or block unaffordable", () => {
@@ -140,13 +142,18 @@ test("needsPreSessionInlineTopUp when under 30 minutes or block unaffordable", (
 
 test("formatPreSessionShortfallHint explains 30-minute need in Russian (U-46)", () => {
   assert.match(
-    formatPreSessionShortfallHint(50, 10),
-    /На 30 минут нужно 300 LZT — не хватает 250 LZT/,
+    formatPreSessionShortfallHint("auto", 50, 50, 10),
+    /На 30 минут нужно 300 LZT в одном кошельке — не хватает 250 LZT/,
   );
   assert.match(
-    formatPreSessionShortfallHint(400, 10),
+    formatPreSessionShortfallHint("auto", 300, 100, 10),
     /баланс достаточен/,
   );
+});
+
+test("isPreSessionBlockAffordable requires full block in one bucket", () => {
+  assert.equal(isPreSessionBlockAffordable("auto", 150, 150, 100), true);
+  assert.equal(isPreSessionBlockAffordable("auto", 80, 80, 100), false);
 });
 
 test("PreSessionScreen is a React component", () => {
