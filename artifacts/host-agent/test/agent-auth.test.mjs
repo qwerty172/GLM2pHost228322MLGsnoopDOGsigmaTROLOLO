@@ -1,6 +1,6 @@
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
-import { setupRendererEnv } from "./helpers/renderer-env.mjs";
+import { setupRendererEnv, resetAgentConfig, defaultHostConfig } from "./helpers/renderer-env.mjs";
 
 setupRendererEnv();
 const {
@@ -9,6 +9,8 @@ const {
   fetchAgentKeyBound,
   tryAutoBindAgentKey,
   setConnectionTroubleshootVisible,
+  bindWithDashboardCode,
+  handleAgentDeepLink,
 } = await import("../dist/renderer/renderer/agent-auth.js");
 
 test("initAgentKey auto-binds when hostToken present", async () => {
@@ -138,4 +140,50 @@ test("setConnectionTroubleshootVisible toggles details visibility", () => {
   setConnectionTroubleshootVisible(false);
   assert.equal(el.hidden, true);
   assert.equal(el.open, false);
+});
+
+test("bindWithDashboardCode binds via one-time code without hostToken", async () => {
+  resetAgentConfig();
+  Object.assign(defaultHostConfig, { hostToken: "", apiBaseUrl: "https://platform.example.com" });
+
+  const bindRestore = mock.method(window.agent, "bindAgentKey", async (hostToken, api, code) => {
+    assert.equal(hostToken, "");
+    assert.equal(api, "https://platform.example.com");
+    assert.equal(code, "bind_test_code");
+    return { ok: true };
+  });
+
+  try {
+    assert.equal(await bindWithDashboardCode("bind_test_code"), true);
+    assert.match(agentKeyStatusEl.textContent, /дашборда/i);
+  } finally {
+    bindRestore.mock.restore();
+    resetAgentConfig();
+  }
+});
+
+test("handleAgentDeepLink applies bind code when agent already running (M-266)", async () => {
+  resetAgentConfig();
+  Object.assign(defaultHostConfig, {
+    hostToken: "existing-host-token",
+    apiBaseUrl: "https://platform.example.com",
+  });
+
+  const bindRestore = mock.method(window.agent, "bindAgentKey", async (_hostToken, _api, code) => {
+    assert.equal(code, "bind_from_deeplink");
+    return { ok: true };
+  });
+
+  try {
+    await handleAgentDeepLink({
+      apiBaseUrl: "https://platform.example.com",
+      bindCode: "bind_from_deeplink",
+      pairCode: null,
+    });
+    assert.match(agentKeyStatusEl.textContent, /привязан/i);
+    assert.equal(bindRestore.mock.calls.length, 1);
+  } finally {
+    bindRestore.mock.restore();
+    resetAgentConfig();
+  }
 });

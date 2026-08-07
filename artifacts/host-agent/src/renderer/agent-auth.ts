@@ -53,6 +53,73 @@ export function setConnectionTroubleshootVisible(visible: boolean): void {
   }
 }
 
+/** Apply bind code from dashboard deep link (cold start or second-instance). */
+export async function bindWithDashboardCode(
+  bindCode: string,
+  apiBaseUrlHint?: string | null,
+): Promise<boolean> {
+  const code = bindCode.trim();
+  if (!code) return false;
+
+  let cfg = await window.agent.getConfig();
+  const bindCodeInput = document.getElementById("agentBindCode") as HTMLInputElement | null;
+  const apiBaseUrlInput = document.getElementById("apiBaseUrl") as HTMLInputElement | null;
+
+  const hintedApi = apiBaseUrlHint?.trim();
+  if (hintedApi && !cfg.apiBaseUrl?.trim()) {
+    cfg = await window.agent.setConfig({ ...cfg, apiBaseUrl: hintedApi });
+    if (apiBaseUrlInput) apiBaseUrlInput.value = hintedApi;
+  }
+
+  const apiBase = cfg.apiBaseUrl?.trim() || hintedApi;
+  if (!apiBase) {
+    agentKeyStatusEl.textContent =
+      "Сначала укажи URL платформы в расширенных настройках";
+    return false;
+  }
+
+  const hostToken = cfg.hostToken?.trim() ?? "";
+  const bindResult = await window.agent.bindAgentKey(hostToken, apiBase, code);
+  if (!bindResult.ok) {
+    agentKeyStatusEl.textContent = `Ошибка привязки: ${bindResult.error ?? "неизвестная ошибка"}`;
+    return false;
+  }
+
+  if (bindCodeInput) bindCodeInput.value = "";
+  log("Ключ агента привязан по коду из дашборда.");
+  const hasCredentials = Boolean(cfg.hostToken?.trim() && apiBase);
+  applyBoundAgentKeyUi(true, hasCredentials);
+  if (cfg.hostToken?.trim()) {
+    void runUploadSpeedtest(apiBase, cfg.hostToken);
+  }
+  return true;
+}
+
+/** Handle `agent:deep-link` IPC while agent is already running (M-266). */
+export async function handleAgentDeepLink(payload: {
+  apiBaseUrl: string | null;
+  bindCode: string | null;
+  pairCode: string | null;
+}): Promise<void> {
+  const apiBaseUrlInput = document.getElementById("apiBaseUrl") as HTMLInputElement | null;
+  const hintedApi = payload.apiBaseUrl?.trim();
+  if (hintedApi) {
+    try {
+      const cfg = await window.agent.getConfig();
+      if (apiBaseUrlInput) apiBaseUrlInput.value = hintedApi;
+      if (!cfg.apiBaseUrl?.trim()) {
+        await window.agent.setConfig({ ...cfg, apiBaseUrl: hintedApi });
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  if (payload.bindCode?.trim()) {
+    agentKeyStatusEl.textContent = "Код с дашборда — привязываем ключ…";
+    await bindWithDashboardCode(payload.bindCode, payload.apiBaseUrl);
+  }
+}
+
 function applyBoundAgentKeyUi(bound: boolean, hasCredentials: boolean): void {
   if (bound && hasCredentials) {
     agentKeyStatusEl.textContent = "Ключ привязан к аккаунту.";
@@ -138,26 +205,12 @@ export async function initAgentKey(): Promise<void> {
   let bound = false;
   const pendingBindCode = bindCodeInput?.value.trim() ?? "";
   if (!hasCredentials && pendingBindCode && cfg.apiBaseUrl?.trim()) {
-    const bindOnly = await window.agent.bindAgentKey("", cfg.apiBaseUrl, pendingBindCode);
-    if (bindOnly.ok) {
-      bound = true;
-      if (bindCodeInput) bindCodeInput.value = "";
-      log("Ключ агента привязан по коду из дашборда.");
-    }
+    bound = await bindWithDashboardCode(pendingBindCode, cfg.apiBaseUrl);
   }
   if (hasCredentials) {
     bound = await tryAutoBindAgentKey(cfg);
     if (!bound && bindCodeInput?.value.trim()) {
-      const manual = await window.agent.bindAgentKey(
-        cfg.hostToken,
-        cfg.apiBaseUrl,
-        bindCodeInput.value.trim(),
-      );
-      if (manual.ok) {
-        bound = true;
-        bindCodeInput.value = "";
-        log("Ключ агента привязан по коду из дашборда.");
-      }
+      bound = await bindWithDashboardCode(bindCodeInput.value.trim(), cfg.apiBaseUrl);
     }
     if (bound) {
       void runUploadSpeedtest(cfg.apiBaseUrl, cfg.hostToken);
@@ -166,6 +219,10 @@ export async function initAgentKey(): Promise<void> {
 
   applyBoundAgentKeyUi(bound, hasCredentials);
 }
+
+window.agent.onDeepLink((payload) => {
+  void handleAgentDeepLink(payload);
+});
 
 bindKeyBtn.addEventListener("click", async () => {
   const cfg = session.currentConfig ?? (await window.agent.getConfig());
