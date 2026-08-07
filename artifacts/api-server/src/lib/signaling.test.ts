@@ -189,4 +189,28 @@ describe("signaling", () => {
       sendSignalingMessage("missing-session", { type: "block-expired" }),
     ).not.toThrow();
   });
+
+  it("endSessionSignaling notifies player and closes the room", async () => {
+    await withSignaling(async (mod, _server, port) => {
+      const ws = await connectPlayer(port);
+
+      const received = waitForMessage(
+        ws,
+        (m) =>
+          (m as { type?: string; action?: string }).type === "control" &&
+          (m as { action?: string }).action === "reject",
+      );
+      const closed = new Promise<number>((resolve) => {
+        ws.once("close", (code) => resolve(code));
+      });
+
+      mod.endSessionSignaling(SESSION_ID, "balance_exhausted");
+      expect(await received).toEqual({
+        type: "control",
+        action: "reject",
+        reason: "balance_exhausted",
+      });
+      expect(await closed).toBe(4001);
+    });
+  });
 });

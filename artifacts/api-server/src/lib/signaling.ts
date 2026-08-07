@@ -21,6 +21,9 @@ interface Room {
 }
 
 const rooms = new Map<string, Room>();
+/** Sessions ended server-side — reject in-flight relay until sockets close. */
+const endedSessions = new Set<string>();
+const SESSION_END_WS_CODE = 4001;
 const MAX_SIGNAL_MESSAGE_BYTES = 4 * 1024;
 const INPUT_RATE_WINDOW_MS = 1_000;
 const INPUT_RATE_MAX = 120; // per peer per second
@@ -359,6 +362,24 @@ export function sendSignalingMessage(sessionId: string, payload: unknown): void 
   }
 }
 
+/** Notify both peers that the session ended and close the signaling room. */
+export function endSessionSignaling(sessionId: string, reason: string): void {
+  endedSessions.add(sessionId);
+  const room = rooms.get(sessionId);
+  if (!room) return;
+  const payload = { type: "control", action: "reject", reason };
+  for (const peer of room.peers.values()) {
+    send(peer.socket, payload);
+    try {
+      peer.socket.close(SESSION_END_WS_CODE, reason.slice(0, 123));
+    } catch {
+      /* noop */
+    }
+  }
+  room.peers.clear();
+  rooms.delete(sessionId);
+}
+
 let wssSingleton: WebSocketServer | null = null;
 let upgradeHandler: ((req: IncomingMessage, socket: import("node:stream").Duplex, head: Buffer) => void) | null = null;
 
@@ -380,6 +401,7 @@ export function closeSignaling(server: HttpServer): void {
     wssSingleton = null;
   }
   rooms.clear();
+  endedSessions.clear();
   previewRooms.clear();
   previewTokens.clear();
 }
@@ -619,6 +641,16 @@ function handleConnection(ws: WebSocket, auth: AuthResult): void {
     const rawStr = typeof raw === "string" ? raw : raw.toString();
     if (Buffer.byteLength(rawStr, "utf8") > MAX_SIGNAL_MESSAGE_BYTES) {
       send(ws, { type: "error", error: "message too large" });
+      return;
+    }
+
+    if (endedSessions.has(sessionId)) {
+      send(ws, { type: "control", action: "reject", reason: "session_ended" });
+      try {
+        ws.close(SESSION_END_WS_CODE, "session_ended");
+      } catch {
+        /* noop */
+      }
       return;
     }
 

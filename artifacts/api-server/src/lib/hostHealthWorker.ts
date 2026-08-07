@@ -1,6 +1,7 @@
 import { lt, eq, and, inArray, isNotNull, or, notInArray } from "drizzle-orm";
 import { db, sessionsTable, hostsTable, hostGamesTable } from "@workspace/db";
 import { logger } from "./logger";
+import { endSessionSignaling } from "./signaling";
 import {
   countSessionMinutesUsed,
   refundBlockRemainder,
@@ -99,6 +100,9 @@ async function sessionCheck(): Promise<void> {
   }
 
   if (ids.length > 0) {
+    for (const id of ids) {
+      endSessionSignaling(id, "host_offline");
+    }
     logger.warn(
       { count: ids.length, sessionIds: ids },
       "Terminated stale sessions — host offline (no heartbeat for >60s)",

@@ -238,6 +238,7 @@ vi.mock("../lib/sessionBilling", () => ({
 
 vi.mock("../lib/signaling", () => ({
   sendSignalingMessage: (...args: unknown[]) => mockSendSignalingMessage(...args),
+  endSessionSignaling: vi.fn(),
 }));
 
 vi.mock("../lib/ratings", () => ({
