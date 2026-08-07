@@ -14,6 +14,7 @@ const {
   sanitizeIceServers,
   buildBrowserHostSignalWsUrl,
   computeEarnedLzt,
+  shouldTeardownBrowserHostStream,
 } = await import("../src/pages/host/browser-play-helpers.ts");
 
 function mockStorage(initial = {}) {
@@ -133,6 +134,13 @@ test("buildBrowserHostSignalWsUrl encodes session and host token", () => {
     }),
     "ws://localhost:5173/app/api/signal?role=host&sessionId=s1&hostToken=h1",
   );
+});
+
+test("shouldTeardownBrowserHostStream is true only for ended sessions", () => {
+  assert.equal(shouldTeardownBrowserHostStream("ended"), true);
+  assert.equal(shouldTeardownBrowserHostStream("active"), false);
+  assert.equal(shouldTeardownBrowserHostStream("pending"), false);
+  assert.equal(shouldTeardownBrowserHostStream(undefined), false);
 });
 
 test("computeEarnedLzt projects linear earnings from session start", () => {

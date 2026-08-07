@@ -34,6 +34,7 @@ import {
   sanitizeIceServers,
   buildBrowserHostSignalWsUrl,
   computeEarnedLzt,
+  shouldTeardownBrowserHostStream,
 } from "./browser-play-helpers";
 
 const isDev = import.meta.env.DEV;
@@ -127,7 +128,7 @@ export default function BrowserPlay() {
     };
   }, [hostToken, session?.status]);
 
-  // Find the game's main canvas inside the iframe once it has loaded.
+  // Find the game's main canvas inside the iframe once the iframe has loaded.
   useEffect(() => {
     if (!iframeReady) return;
     let cancelled = false;
@@ -174,6 +175,16 @@ export default function BrowserPlay() {
     }
     streamingStartedRef.current = false;
   }, []);
+
+  // Tear down capture/signaling when billing or the API ends the session
+  // remotely (same pattern as embed.tsx).
+  useEffect(() => {
+    if (!shouldTeardownBrowserHostStream(session?.status)) return;
+    if (!streamingStartedRef.current) return;
+    cleanup();
+    setConnectionState("closed");
+    toast.info("Сессия завершена на сервере");
+  }, [session?.status, cleanup]);
 
   const startStreaming = useCallback(async (externalStream?: MediaStream) => {
     if (!sessionId || !hostToken || streamingStartedRef.current) return;
