@@ -90,6 +90,19 @@ export type AgentDeepLinkParams = {
   pairCode?: string | null;
 };
 
+/** Launch a custom-scheme deep link without navigating the dashboard SPA away (U-34). */
+export function openDecenthubDeepLink(deepLink: string, doc: Document = document): void {
+  const trimmed = deepLink.trim();
+  if (!trimmed) return;
+  const a = doc.createElement("a");
+  a.href = trimmed;
+  a.rel = "noopener noreferrer";
+  a.style.display = "none";
+  doc.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 /** Build `decenthub://bind?...` for one-click .exe pairing from the dashboard (U-34). */
 export function buildAgentDeepLink(params: AgentDeepLinkParams): string {
   const api = params.apiBaseUrl.trim();

@@ -117,6 +117,7 @@ import {
   probeHostAgentExeAvailability,
   type HostAgentExeAvailability,
   buildAgentDeepLink,
+  openDecenthubDeepLink,
   evaluateHostReadiness,
   evaluateAgentVersionCompatibility,
   isAgentVersionBlockingStream,
@@ -1079,7 +1080,7 @@ function AgentBindCodeCard({ hostToken, guided = false }: { hostToken: string; g
         bindCode: bindRes.bindCode,
         pairCode: pairRes.code,
       });
-      window.location.href = deepLink;
+      openDecenthubDeepLink(deepLink);
       toast.success("Открываем агент — код подставится сам, вводить цифры не нужно");
     } catch (err) {
       const msg = (err as { data?: { error?: string } }).data?.error;

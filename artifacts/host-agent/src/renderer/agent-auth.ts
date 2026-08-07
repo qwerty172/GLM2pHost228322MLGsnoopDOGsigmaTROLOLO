@@ -136,15 +136,9 @@ export async function initAgentKey(): Promise<void> {
 
   const hasCredentials = Boolean(cfg.hostToken?.trim() && cfg.apiBaseUrl?.trim());
   let bound = false;
-  const pendingBindCode = bindCodeInput?.value.trim() ?? "";
-  if (!hasCredentials && pendingBindCode && cfg.apiBaseUrl?.trim()) {
-    const bindOnly = await window.agent.bindAgentKey("", cfg.apiBaseUrl, pendingBindCode);
-    if (bindOnly.ok) {
-      bound = true;
-      if (bindCodeInput) bindCodeInput.value = "";
-      log("Ключ агента привязан по коду из дашборда.");
-    }
-  }
+  // Bind only after pairing (or ZIP) provides hostToken — bindCode alone does not
+  // mint a hostToken, and racing bind ahead of pairing can strand onboarding when
+  // agent-pair fails transiently while the server already shows agentKeyBound.
   if (hasCredentials) {
     bound = await tryAutoBindAgentKey(cfg);
     if (!bound && bindCodeInput?.value.trim()) {

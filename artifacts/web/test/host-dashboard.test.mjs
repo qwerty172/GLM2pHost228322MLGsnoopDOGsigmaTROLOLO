@@ -49,6 +49,7 @@ const {
   DIAGNOSTIC_REDACTED,
   DECENTHUB_PROTOCOL_SCHEME,
   buildAgentDeepLink,
+  openDecenthubDeepLink,
   parseAgentDeepLink,
 } = await import("../src/pages/host/dashboard-helpers.ts");
 
@@ -670,4 +671,22 @@ test("buildAgentDeepLink without codes falls back to decenthub://open (U-34)", (
     buildAgentDeepLink({ apiBaseUrl: "https://app.example" }),
     "decenthub://open",
   );
+});
+
+test("openDecenthubDeepLink launches via hidden anchor without replacing location (U-34)", () => {
+  const clicks = [];
+  const doc = {
+    body: { appendChild: () => {}, removeChild: () => {} },
+    createElement: (tag) => {
+      const el = { tag, href: "", rel: "", style: {}, click: () => clicks.push(el.href) };
+      return el;
+    },
+  };
+  doc.body.appendChild = (el) => {
+    doc.body.last = el;
+  };
+  doc.body.removeChild = () => {};
+  openDecenthubDeepLink("decenthub://bind?api=https%3A%2F%2Fx.test", doc);
+  assert.equal(clicks.length, 1);
+  assert.equal(clicks[0], "decenthub://bind?api=https%3A%2F%2Fx.test");
 });
