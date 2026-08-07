@@ -15,6 +15,7 @@ import "./pairing.js";
 
 import { loadFormFromConfig } from "./config.js";
 import { initAgentKey, setConnectionTroubleshootVisible } from "./agent-auth.js";
+import { initPairingFromDeepLink } from "./pairing.js";
 import { loadLibrary, startLibraryPolling } from "./library.js";
 import { showSigninBanner, validateHostToken } from "./auth.js";
 import { showAutoQuotaCard, applyQuotaStatus, autoQuotaCheckbox } from "./quota.js";
@@ -30,6 +31,7 @@ void loadFormFromConfig().then(async (cfg) => {
     teardown("Паника: ввод заблокирован хостом");
   });
   log("Интерфейс агента загружен.");
+  await initPairingFromDeepLink();
   void initAgentKey();
   initUpdateBanner();
   void window.agent.getInjectorStatus().then((st) => {

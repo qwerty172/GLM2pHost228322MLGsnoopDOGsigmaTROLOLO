@@ -112,4 +112,3 @@ window.agent.onDeepLink((payload) => {
   }
 });
 
-void initPairingFromDeepLink();

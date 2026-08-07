@@ -1,6 +1,6 @@
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
-import { setupRendererEnv } from "./helpers/renderer-env.mjs";
+import { setupRendererEnv, resetAgentConfig, defaultHostConfig } from "./helpers/renderer-env.mjs";
 
 setupRendererEnv();
 const {
@@ -138,4 +138,25 @@ test("setConnectionTroubleshootVisible toggles details visibility", () => {
   setConnectionTroubleshootVisible(false);
   assert.equal(el.hidden, true);
   assert.equal(el.open, false);
+});
+
+test("initAgentKey skips bind-agent-key until hostToken exists (deep-link race)", async () => {
+  resetAgentConfig();
+  const bindRestore = mock.method(window.agent, "bindAgentKey", async () => ({ ok: true }));
+  const configRestore = mock.method(window.agent, "getConfig", async () => ({
+    ...defaultHostConfig,
+    hostToken: "",
+    apiBaseUrl: "https://platform.example.com",
+  }));
+  const consumeRestore = mock.method(window.agent, "consumePendingBindCode", async () => "bind_test");
+  document.getElementById("agentBindCode").value = "";
+
+  await initAgentKey();
+
+  assert.equal(bindRestore.mock.calls.length, 0);
+
+  bindRestore.mock.restore();
+  configRestore.mock.restore();
+  consumeRestore.mock.restore();
+  resetAgentConfig();
 });
