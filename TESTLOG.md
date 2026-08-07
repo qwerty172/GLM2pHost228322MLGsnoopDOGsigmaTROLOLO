@@ -15,6 +15,16 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-271 (2026-08-07 09:20 UTC) {#marathon-m-271}
+
+| Проверка | Результат |
+|---|---|
+| pairing.test.mjs | PASS (+3: initPairingFromDeepLink export, no-op, auto-submit) |
+
+**Изменения:** тесты покрывают экспорт `initPairingFromDeepLink` — bootstrap pairing-кода из deep link (U-34).
+
+**Следующий pick:** marathon-scan --next.
+
 ## Marathon M-270 (2026-08-07 09:12 UTC) {#marathon-m-270}
 
 | Проверка | Результат |

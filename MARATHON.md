@@ -624,7 +624,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-268 | R | UX U-36 (P0): Нет опубликованного релиза — понятный экран, а не пустая кно | `routes/downloads.ts` | r:U-36 | done | agent |
 | M-269 | R | UX U-37 (P0): Предупреждение о проверке Windows до скачивания `.exe` | `pages/host/dashboard.tsx` | r:U-37 | done | agent |
 | M-270 | R | UX U-46 (P0): Не хватает LZT — сумма и пополнение прямо перед запуском | `artifacts/web/src/components/pre-session-screen.tsx` | r:U-46 | done | agent |
-| M-271 | V | тест не покрывает экспорты (1): pairing | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/pairing.ts | pending | agent |
+| M-271 | V | тест не покрывает экспорты (1): pairing | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/pairing.ts | done | agent |
 
 
 > Automation: `--sync-marathon` пересобирает 161e0d7 из сканера (сохраняет done/in_progress).
