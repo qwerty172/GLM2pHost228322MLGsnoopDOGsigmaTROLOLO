@@ -93,8 +93,27 @@ export async function initAgentKey(): Promise<void> {
   agentLoginBtn.disabled = false;
   updatePcSpecsBtn.disabled = false;
 
+  let cfg;
+  try {
+    cfg = await window.agent.getConfig();
+  } catch {
+    cfg = undefined;
+  }
+
   const bindCodeInput = document.getElementById("agentBindCode") as HTMLInputElement | null;
-  if (bindCodeInput && !bindCodeInput.value.trim()) {
+  const apiBaseUrlInput = document.getElementById("apiBaseUrl") as HTMLInputElement | null;
+  if (cfg && bindCodeInput && !bindCodeInput.value.trim()) {
+    try {
+      const pendingApi = await window.agent.consumePendingApiBaseUrl();
+      if (pendingApi) {
+        if (apiBaseUrlInput) apiBaseUrlInput.value = pendingApi;
+        if (!cfg.apiBaseUrl?.trim()) {
+          cfg = await window.agent.setConfig({ ...cfg, apiBaseUrl: pendingApi });
+        }
+      }
+    } catch {
+      /* ignore */
+    }
     try {
       const pending = await window.agent.consumePendingBindCode();
       if (pending) bindCodeInput.value = pending;
@@ -107,15 +126,25 @@ export async function initAgentKey(): Promise<void> {
     }
   }
 
-  let cfg: { hostToken: string; apiBaseUrl: string } = { hostToken: "", apiBaseUrl: "" };
-  try {
-    cfg = await window.agent.getConfig();
-  } catch {
-    /* ignore */
+  if (!cfg) {
+    try {
+      cfg = await window.agent.getConfig();
+    } catch {
+      cfg = { hostToken: "", apiBaseUrl: "" };
+    }
   }
 
   const hasCredentials = Boolean(cfg.hostToken?.trim() && cfg.apiBaseUrl?.trim());
   let bound = false;
+  const pendingBindCode = bindCodeInput?.value.trim() ?? "";
+  if (!hasCredentials && pendingBindCode && cfg.apiBaseUrl?.trim()) {
+    const bindOnly = await window.agent.bindAgentKey("", cfg.apiBaseUrl, pendingBindCode);
+    if (bindOnly.ok) {
+      bound = true;
+      if (bindCodeInput) bindCodeInput.value = "";
+      log("Ключ агента привязан по коду из дашборда.");
+    }
+  }
   if (hasCredentials) {
     bound = await tryAutoBindAgentKey(cfg);
     if (!bound && bindCodeInput?.value.trim()) {

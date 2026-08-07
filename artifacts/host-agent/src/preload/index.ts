@@ -135,6 +135,28 @@ const api = {
     ipcRenderer.invoke("agent:bind-key", hostToken, apiBaseUrl, bindCode),
   consumePendingBindCode: (): Promise<string | null> =>
     ipcRenderer.invoke("agent:consume-pending-bind-code"),
+  consumePendingPairCode: (): Promise<string | null> =>
+    ipcRenderer.invoke("agent:consume-pending-pair-code"),
+  consumePendingApiBaseUrl: (): Promise<string | null> =>
+    ipcRenderer.invoke("agent:consume-pending-api-base-url"),
+  onDeepLink: (
+    cb: (payload: {
+      apiBaseUrl: string | null;
+      bindCode: string | null;
+      pairCode: string | null;
+    }) => void,
+  ): (() => void) => {
+    const handler = (
+      _e: Electron.IpcRendererEvent,
+      payload: {
+        apiBaseUrl: string | null;
+        bindCode: string | null;
+        pairCode: string | null;
+      },
+    ) => cb(payload);
+    ipcRenderer.on("agent:deep-link", handler);
+    return () => ipcRenderer.off("agent:deep-link", handler);
+  },
   // Opens the web dashboard in the browser, authenticated via key signature.
   agentLogin: (
     apiBaseUrl: string,

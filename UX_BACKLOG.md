@@ -86,7 +86,7 @@
 
 | ID | Приор | Задача | Файлы | Критерий готовности | Status |
 |----|-------|--------|-------|---------------------|--------|
-| U-34 | P0 | Привязка `.exe` одним кликом с дашборда, без ввода 6 цифр | `artifacts/web/src/pages/host/dashboard.tsx`, `artifacts/host-agent/src/main/index.ts`, `artifacts/host-agent/src/renderer/pairing.ts` | Кнопка «Открыть в агенте» передаёт код привязки в уже установленный агент; ручной ввод остаётся резервным путём; `manualInputCount` −2 | todo |
+| U-34 | P0 | Привязка `.exe` одним кликом с дашборда, без ввода 6 цифр | `artifacts/web/src/pages/host/dashboard.tsx`, `artifacts/host-agent/src/main/index.ts`, `artifacts/host-agent/src/renderer/pairing.ts` | Кнопка «Открыть в агенте» передаёт код привязки в уже установленный агент; ручной ввод остаётся резервным путём; `manualInputCount` −2 | done |
 | U-35 | P0 | Честная разница между ZIP и `.exe` на дашборде | `artifacts/web/src/pages/host/dashboard.tsx`, `artifacts/web/src/pages/host/dashboard-helpers.ts` | У каждой кнопки подпись «токен уже внутри» / «понадобится код привязки»; после `.exe` шаг привязки показывается сам; `deadEndCount` −1 | todo |
 | U-36 | P0 | Нет опубликованного релиза — понятный экран, а не пустая кнопка | `artifacts/api-server/src/routes/downloads.ts`, `artifacts/web/src/pages/host/dashboard.tsx` | Пока тега `host-agent-v*` нет, кнопка `.exe` объясняет это по-русски и предлагает ZIP; тест на ответ без релиза | todo |
 | U-37 | P0 | Предупреждение о проверке Windows до скачивания `.exe` | `artifacts/web/src/pages/host/dashboard.tsx`, `artifacts/host-agent/INSTALL.txt` | Перед скачиванием один короткий блок про подтверждение запуска; после установки хост не считает это поломкой; `deadEndCount` −1 | todo |

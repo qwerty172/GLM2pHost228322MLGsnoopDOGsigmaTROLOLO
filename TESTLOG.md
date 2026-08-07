@@ -15,6 +15,18 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-266 (2026-08-07 08:45 UTC) {#marathon-m-266}
+
+| Проверка | Результат |
+|---|---|
+| host-dashboard.test.mjs | PASS (+2 U-34: buildAgentDeepLink / parseAgentDeepLink) |
+| host-agent deep-link.test.mjs | PASS (5 tests) |
+| host-agent pairing.test.mjs | PASS (+1 export submitPairingCode) |
+
+**Изменения:** кнопка «Открыть в агенте» на дашборде выдаёт bind+pair коды и открывает `decenthub://bind?...`; агент регистрирует протокол, автоподставляет коды без ручного ввода 6 цифр.
+
+**Следующий pick:** marathon-scan --next.
+
 ## Marathon M-265 (2026-08-06 19:20 UTC) {#marathon-m-265}
 
 | Проверка | Результат |

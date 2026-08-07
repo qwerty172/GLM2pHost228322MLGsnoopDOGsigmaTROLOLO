@@ -22,6 +22,7 @@ import {
   getGetHostCurrentQuotaQueryKey,
   getListHostLibraryQueryKey,
   issueAgentBindCode,
+  issueAgentPairingCode,
   createTestSession,
   getHostReadiness,
   type HostLibraryEntry,
@@ -105,6 +106,7 @@ import {
   readHostGoOnlineAck,
   markHostGoOnlineAck,
   HOST_AGENT_EXE_DOWNLOAD_URL,
+  buildAgentDeepLink,
   evaluateHostReadiness,
   evaluateAgentVersionCompatibility,
   isAgentVersionBlockingStream,
@@ -828,7 +830,7 @@ function HostQuickStartCard({
               >
                 .exe без Node.js
               </a>{" "}
-              — понадобится код привязки в «Если не работает»
+              — после установки нажми «Открыть в агенте» в «Если не работает»
             </p>
           </div>
         )}
@@ -909,16 +911,17 @@ function AgentBindCodeCard({ hostToken, guided = false }: { hostToken: string; g
   const [bindCode, setBindCode] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [openingAgent, setOpeningAgent] = useState(false);
+
+  const authHeaders = {
+    Authorization: `Bearer ${hostToken}`,
+    "X-User-Token": hostToken,
+  };
 
   const issueCode = async () => {
     setLoading(true);
     try {
-      const json = await issueAgentBindCode({
-        headers: {
-          Authorization: `Bearer ${hostToken}`,
-          "X-User-Token": hostToken,
-        },
-      });
+      const json = await issueAgentBindCode({ headers: authHeaders });
       if (!json.bindCode) {
         toast.error("Не удалось выдать код");
         return;
@@ -931,6 +934,34 @@ function AgentBindCodeCard({ hostToken, guided = false }: { hostToken: string; g
       toast.error(msg ?? "Нет соединения");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openInAgent = async () => {
+    setOpeningAgent(true);
+    try {
+      const [bindRes, pairRes] = await Promise.all([
+        issueAgentBindCode({ headers: authHeaders }),
+        issueAgentPairingCode({ headers: authHeaders }),
+      ]);
+      if (!bindRes.bindCode || !pairRes.code) {
+        toast.error("Не удалось выдать код привязки");
+        return;
+      }
+      setBindCode(bindRes.bindCode);
+      setExpiresAt(bindRes.expiresAt ?? null);
+      const deepLink = buildAgentDeepLink({
+        apiBaseUrl: window.location.origin,
+        bindCode: bindRes.bindCode,
+        pairCode: pairRes.code,
+      });
+      window.location.href = deepLink;
+      toast.success("Открываем агент — код подставится сам, вводить цифры не нужно");
+    } catch (err) {
+      const msg = (err as { data?: { error?: string } }).data?.error;
+      toast.error(msg ?? "Не удалось открыть агент");
+    } finally {
+      setOpeningAgent(false);
     }
   };
 
@@ -978,12 +1009,28 @@ function AgentBindCodeCard({ hostToken, guided = false }: { hostToken: string; g
               : "Код ещё не создан. Действует короткое время и сгорает после использования."}
         </p>
       )}
-      <Button
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size={guided ? "lg" : "sm"}
+          className={`gap-1.5 font-semibold ${guided ? "w-full sm:w-auto" : "h-8 text-xs"}`}
+          style={{ background: "#0ea5e9", color: "#fff" }}
+          onClick={() => void openInAgent()}
+          disabled={openingAgent || loading}
+          data-testid="button-open-agent-bind"
+        >
+          {openingAgent ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <ExternalLink className="h-3.5 w-3.5" />
+          )}
+          Открыть в агенте
+        </Button>
+        <Button
         size={guided ? "lg" : "sm"}
+        variant="outline"
         className={`gap-1.5 font-semibold ${guided ? "w-full sm:w-auto" : "h-8 text-xs"}`}
-        style={{ background: "#0ea5e9", color: "#fff" }}
         onClick={() => void issueCode()}
-        disabled={loading}
+        disabled={loading || openingAgent}
         data-testid="button-issue-bind-code"
       >
         {loading ? (
@@ -991,8 +1038,9 @@ function AgentBindCodeCard({ hostToken, guided = false }: { hostToken: string; g
         ) : (
           <RefreshCw className="h-3.5 w-3.5" />
         )}
-        {bindCode && !expired ? "Выдать новый код" : "Получить код привязки"}
+        {bindCode && !expired ? "Выдать новый код" : "Показать код вручную"}
       </Button>
+      </div>
     </div>
   );
 
@@ -1006,7 +1054,7 @@ function AgentBindCodeCard({ hostToken, guided = false }: { hostToken: string; g
           Код привязки агента
         </CardTitle>
         <CardDescription className="text-slate-500">
-          Одноразовый код — только если ставили .exe или ZIP без токена. Основной путь: скачай ZIP с дашборда.
+          Для .exe: нажми «Открыть в агенте» — код подставится сам. Ручной ввод — только запасной путь.
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-0">{body}</CardContent>

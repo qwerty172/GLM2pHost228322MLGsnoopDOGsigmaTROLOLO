@@ -41,6 +41,13 @@ import { log } from "./logger";
 import { getAgentVersion } from "./agent-version";
 import { parseInputEvent, parseGamepadState } from "../shared/input";
 import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry, SteamScanResult, QuotaStatusEvent, SaveSyncRequest, SaveSyncResult } from "../shared/messages";
+import {
+  DECENTHUB_PROTOCOL_SCHEME,
+  findDecenthubUrlInArgv,
+  parseDecenthubUrl,
+  toPendingPayload,
+  type PendingDeepLinkPayload,
+} from "./deep-link";
 
 let mainWindow: BrowserWindow | null = null;
 let updateDownloaded = false;
@@ -86,6 +93,16 @@ function allowedCorsOriginsFromConfig(cfg: HostConfig | null): string[] {
 const singleInstance = app.requestSingleInstanceLock();
 if (!singleInstance) {
   app.quit();
+}
+
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient(DECENTHUB_PROTOCOL_SCHEME, process.execPath, [
+      path.resolve(process.argv[1] ?? ""),
+    ]);
+  }
+} else {
+  app.setAsDefaultProtocolClient(DECENTHUB_PROTOCOL_SCHEME);
 }
 
 // ── Startup diagnostics ──────────────────────────────────────────────────────
@@ -203,6 +220,25 @@ void app.whenReady().then(() =>
 );
 
 let pendingBindCode: string | null = null;
+let pendingPairCode: string | null = null;
+let pendingApiBaseUrl: string | null = null;
+
+function applyPendingDeepLink(payload: PendingDeepLinkPayload): void {
+  if (payload.apiBaseUrl) pendingApiBaseUrl = payload.apiBaseUrl;
+  if (payload.bindCode) pendingBindCode = payload.bindCode;
+  if (payload.pairCode) pendingPairCode = payload.pairCode;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("agent:deep-link", payload);
+  }
+}
+
+function handleDecenthubUrl(raw: string): void {
+  const parsed = parseDecenthubUrl(raw);
+  if (!parsed) return;
+  const payload = toPendingPayload(parsed);
+  applyPendingDeepLink(payload);
+  log("info", `[deep-link] Received ${parsed.action} from dashboard`);
+}
 
 function parseBindCodeFromArgv(): string | null {
   for (const arg of process.argv) {
@@ -214,11 +250,19 @@ function parseBindCodeFromArgv(): string | null {
   return null;
 }
 
+function bootstrapDeepLinkFromArgv(): void {
+  const fromFlag = parseBindCodeFromArgv();
+  if (fromFlag) pendingBindCode = fromFlag;
+  const url = findDecenthubUrlInArgv(process.argv);
+  if (url) handleDecenthubUrl(url);
+}
+
 async function startAgent(): Promise<void> {
   initSentryMain();
   initInputInjector();
   initGamepadInjector();
   pendingBindCode = parseBindCodeFromArgv();
+  bootstrapDeepLinkFromArgv();
   const config = await loadConfig();
   applyAutoLaunch(config);
   void syncScheduleFromServer();
@@ -259,6 +303,18 @@ async function startAgent(): Promise<void> {
     const code = pendingBindCode;
     pendingBindCode = null;
     return code;
+  });
+
+  ipcMain.handle("agent:consume-pending-pair-code", (): string | null => {
+    const code = pendingPairCode;
+    pendingPairCode = null;
+    return code;
+  });
+
+  ipcMain.handle("agent:consume-pending-api-base-url", (): string | null => {
+    const url = pendingApiBaseUrl;
+    pendingApiBaseUrl = null;
+    return url;
   });
 
   ipcMain.handle("config:set", async (_e, next: unknown) => {
@@ -1120,9 +1176,19 @@ async function startAgent(): Promise<void> {
   }
 }
 
-app.on("second-instance", () => {
+app.on("second-instance", (_event, argv) => {
+  const url = findDecenthubUrlInArgv(argv);
+  if (url) handleDecenthubUrl(url);
   createWindow();
 });
+
+if (process.platform === "darwin") {
+  app.on("open-url", (event, url) => {
+    event.preventDefault();
+    handleDecenthubUrl(url);
+    createWindow();
+  });
+}
 
 app.on("window-all-closed", () => {
   // Keep the agent running in the tray on Windows even when no window exists;

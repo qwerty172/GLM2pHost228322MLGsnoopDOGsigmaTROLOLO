@@ -84,6 +84,15 @@ declare global {
         bindCode?: string,
       ) => Promise<{ ok: boolean; error?: string }>;
       consumePendingBindCode: () => Promise<string | null>;
+      consumePendingPairCode: () => Promise<string | null>;
+      consumePendingApiBaseUrl: () => Promise<string | null>;
+      onDeepLink: (
+        cb: (payload: {
+          apiBaseUrl: string | null;
+          bindCode: string | null;
+          pairCode: string | null;
+        }) => void,
+      ) => () => void;
       agentLogin: (apiBaseUrl: string) => Promise<{ ok: boolean; error?: string }>;
       updatePcSpecs: (hostToken: string, apiBaseUrl: string) => Promise<{ ok: boolean; error?: string; pcSpecs?: { gpu: string; cpu: string; ramGb: number } }>;
       getPcSpecs: () => Promise<{ gpu: string; cpu: string; ramGb: number }>;

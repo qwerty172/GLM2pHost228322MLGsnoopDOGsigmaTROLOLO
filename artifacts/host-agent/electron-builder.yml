@@ -20,6 +20,11 @@ extraResources:
   - from: native/ViGEmClient.dll
     to: ViGEmClient.dll
 
+protocols:
+  - name: DecentralHub
+    schemes:
+      - decenthub
+
 win:
   target:
     - target: nsis

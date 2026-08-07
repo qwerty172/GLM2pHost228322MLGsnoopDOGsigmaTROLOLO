@@ -35,6 +35,9 @@ const {
   redactDiagnosticSecrets,
   buildHostDiagnosticReport,
   DIAGNOSTIC_REDACTED,
+  DECENTHUB_PROTOCOL_SCHEME,
+  buildAgentDeepLink,
+  parseAgentDeepLink,
 } = await import("../src/pages/host/dashboard-helpers.ts");
 
 const offlineAgent = { status: "offline" };
@@ -526,4 +529,26 @@ test("buildHostDiagnosticReport includes safe check codes without secrets (U-19)
   assert.doesNotMatch(report, /super-secret/);
   assert.doesNotMatch(report, /ABCDEF12/);
   assert.doesNotMatch(report, /hostToken/);
+});
+
+test("buildAgentDeepLink encodes bind and pair codes for one-click .exe bind (U-34)", () => {
+  const url = buildAgentDeepLink({
+    apiBaseUrl: "https://app.example",
+    bindCode: "bind_abc123",
+    pairCode: "123456",
+  });
+  assert.equal(DECENTHUB_PROTOCOL_SCHEME, "decenthub");
+  assert.match(url, /^decenthub:\/\/bind\?/);
+  const parsed = parseAgentDeepLink(url);
+  assert.equal(parsed?.action, "bind");
+  assert.equal(parsed?.apiBaseUrl, "https://app.example");
+  assert.equal(parsed?.bindCode, "bind_abc123");
+  assert.equal(parsed?.pairCode, "123456");
+});
+
+test("buildAgentDeepLink without codes falls back to decenthub://open (U-34)", () => {
+  assert.equal(
+    buildAgentDeepLink({ apiBaseUrl: "https://app.example" }),
+    "decenthub://open",
+  );
 });

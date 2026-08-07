@@ -16,6 +16,54 @@ export const HOST_GO_ONLINE_ACK_STORAGE_KEY = "streamline.hostGoOnlineAck";
  */
 export const HOST_AGENT_EXE_DOWNLOAD_URL = "/api/downloads/host-agent.exe";
 
+/** Custom URL scheme handled by the Windows host agent (U-34). */
+export const DECENTHUB_PROTOCOL_SCHEME = "decenthub";
+
+export type AgentDeepLinkParams = {
+  apiBaseUrl: string;
+  bindCode?: string | null;
+  pairCode?: string | null;
+};
+
+/** Build `decenthub://bind?...` for one-click .exe pairing from the dashboard (U-34). */
+export function buildAgentDeepLink(params: AgentDeepLinkParams): string {
+  const api = params.apiBaseUrl.trim();
+  if (!api) {
+    throw new Error("apiBaseUrl required");
+  }
+  const search = new URLSearchParams();
+  search.set("api", api);
+  const bind = params.bindCode?.trim();
+  const pair = params.pairCode?.trim();
+  if (bind) search.set("bind", bind);
+  if (pair) search.set("pair", pair);
+  if (!bind && !pair) {
+    return `${DECENTHUB_PROTOCOL_SCHEME}://open`;
+  }
+  return `${DECENTHUB_PROTOCOL_SCHEME}://bind?${search.toString()}`;
+}
+
+/** Parse deep links emitted by the dashboard — shared with host-agent tests (U-34). */
+export function parseAgentDeepLink(
+  raw: string,
+): { action: "open" | "bind"; apiBaseUrl: string | null; bindCode: string | null; pairCode: string | null } | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== `${DECENTHUB_PROTOCOL_SCHEME}:`) return null;
+  const action = url.hostname === "bind" ? "bind" : url.hostname === "open" ? "open" : null;
+  if (!action) return null;
+  const apiBaseUrl = url.searchParams.get("api")?.trim() || null;
+  const bindCode = url.searchParams.get("bind")?.trim() || null;
+  const pairCode = url.searchParams.get("pair")?.trim() || null;
+  return { action, apiBaseUrl, bindCode, pairCode };
+}
+
 export type AudioMode = "off" | "voice" | "standard" | "quality";
 
 export type AgentState =
