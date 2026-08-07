@@ -155,6 +155,38 @@ function consumeBindCode(bindCode: string): string | null {
   return entry.hostId;
 }
 
+const DEEP_LINK_TICKET_TTL_MS = 5 * 60 * 1000;
+
+interface DeepLinkTicketEntry {
+  hostId: string;
+  bindCode: string;
+  expiresAt: number;
+}
+const deepLinkTickets = new Map<string, DeepLinkTicketEntry>();
+
+function issueDeepLinkTicket(hostId: string): { ticket: string; expiresAt: number } {
+  const now = Date.now();
+  for (const [k, v] of deepLinkTickets) {
+    if (v.expiresAt < now) deepLinkTickets.delete(k);
+  }
+  for (const [k, v] of deepLinkTickets) {
+    if (v.hostId === hostId) deepLinkTickets.delete(k);
+  }
+  const { bindCode, expiresAt: bindExpires } = issueBindCode(hostId);
+  const expiresAt = Math.min(bindExpires, now + DEEP_LINK_TICKET_TTL_MS);
+  const ticket = `dl_${generateToken(24)}`;
+  deepLinkTickets.set(ticket, { hostId, bindCode, expiresAt });
+  return { ticket, expiresAt };
+}
+
+function consumeDeepLinkTicket(ticket: string): DeepLinkTicketEntry | null {
+  const entry = deepLinkTickets.get(ticket);
+  if (!entry) return null;
+  deepLinkTickets.delete(ticket);
+  if (entry.expiresAt < Date.now()) return null;
+  return entry;
+}
+
 router.get("/auth/agent-challenge", (_req, res): void => {
   const { challenge, expiresAt } = issueChallenge();
   res.json({ challenge, expiresAt });
@@ -169,6 +201,87 @@ router.post("/auth/agent-bind-code", bindCodeIssueLimiter, async (req, res): Pro
   const { bindCode, expiresAt } = issueBindCode(auth.host.id);
   req.log.info({ hostId: auth.host.id }, "Agent bind code issued");
   res.json({ bindCode, expiresAt });
+});
+
+// Opaque ticket for decenthub:// deep links — bind/pair secrets never go in the URL (U-34).
+router.post("/auth/agent-deeplink-ticket", bindCodeIssueLimiter, async (req, res): Promise<void> => {
+  const auth = await requireHost(req);
+  if (!auth.ok) {
+    res.status(auth.status).json({ error: auth.error });
+    return;
+  }
+  const { ticket, expiresAt } = issueDeepLinkTicket(auth.host.id);
+  req.log.info({ hostId: auth.host.id }, "Agent deep-link ticket issued");
+  res.json({ ticket, expiresAt });
+});
+
+const RedeemDeepLinkTicketBody = z.object({
+  ticket: z.string().min(1),
+  pubkey: z.string().regex(/^[0-9a-f]+$/i, "pubkey must be hex"),
+  challenge: z.string().min(1),
+  signature: z.string().regex(/^[0-9a-f]+$/i, "signature must be hex"),
+});
+
+router.post("/auth/agent-deeplink-redeem", bindLimiter, async (req, res): Promise<void> => {
+  const parsed = RedeemDeepLinkTicketBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { ticket, pubkey, challenge, signature } = parsed.data;
+
+  if (!(await consumeChallenge(challenge))) {
+    res.status(400).json({ error: "Challenge expired or already used" });
+    return;
+  }
+
+  if (!verifyEd25519(pubkey, challenge, signature)) {
+    res.status(401).json({ error: "Invalid signature" });
+    return;
+  }
+
+  const entry = consumeDeepLinkTicket(ticket);
+  if (!entry) {
+    res.status(400).json({ error: "Deep-link ticket expired or already used" });
+    return;
+  }
+
+  const hostId = consumeBindCode(entry.bindCode);
+  if (!hostId || hostId !== entry.hostId) {
+    res.status(400).json({ error: "Deep-link ticket expired or already used" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(hostsTable)
+    .set({ agentPubkey: pubkey })
+    .where(
+      sql`${hostsTable.id} = ${hostId} AND (${hostsTable.agentPubkey} IS NULL OR ${hostsTable.agentPubkey} = '' OR ${hostsTable.agentPubkey} = ${pubkey})`,
+    )
+    .returning({ id: hostsTable.id });
+
+  if (!updated) {
+    res
+      .status(409)
+      .json({ error: "A different key is already bound to this account" });
+    return;
+  }
+
+  const [host] = await db
+    .select({
+      hostToken: hostsTable.hostToken,
+      displayName: hostsTable.displayName,
+    })
+    .from(hostsTable)
+    .where(eq(hostsTable.id, hostId));
+
+  if (!host) {
+    res.status(404).json({ error: "Host not found" });
+    return;
+  }
+
+  req.log.info({ hostId }, "Agent deep-link ticket redeemed");
+  res.json({ hostToken: host.hostToken, displayName: host.displayName });
 });
 
 const BindAgentKeyBody = z

@@ -139,9 +139,21 @@ const api = {
     ipcRenderer.invoke("agent:consume-pending-pair-code"),
   consumePendingApiBaseUrl: (): Promise<string | null> =>
     ipcRenderer.invoke("agent:consume-pending-api-base-url"),
+  consumePendingDeeplinkTicket: (): Promise<string | null> =>
+    ipcRenderer.invoke("agent:consume-pending-deeplink-ticket"),
+  redeemDeeplinkTicket: (
+    apiBaseUrl: string,
+    ticket: string,
+  ): Promise<{
+    ok: boolean;
+    hostToken?: string;
+    displayName?: string;
+    error?: string;
+  }> => ipcRenderer.invoke("agent:redeem-deeplink-ticket", apiBaseUrl, ticket),
   onDeepLink: (
     cb: (payload: {
       apiBaseUrl: string | null;
+      ticket: string | null;
       bindCode: string | null;
       pairCode: string | null;
     }) => void,
@@ -150,6 +162,7 @@ const api = {
       _e: Electron.IpcRendererEvent,
       payload: {
         apiBaseUrl: string | null;
+        ticket: string | null;
         bindCode: string | null;
         pairCode: string | null;
       },

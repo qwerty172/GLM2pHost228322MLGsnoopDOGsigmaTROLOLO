@@ -650,17 +650,30 @@ test("buildHostDiagnosticReport includes safe check codes without secrets (U-19)
   assert.doesNotMatch(report, /hostToken/);
 });
 
-test("buildAgentDeepLink encodes bind and pair codes for one-click .exe bind (U-34)", () => {
+test("buildAgentDeepLink encodes opaque ticket for one-click .exe bind (U-34)", () => {
   const url = buildAgentDeepLink({
     apiBaseUrl: "https://app.example",
-    bindCode: "bind_abc123",
-    pairCode: "123456",
+    ticket: "dl_opaque_ticket",
   });
   assert.equal(DECENTHUB_PROTOCOL_SCHEME, "decenthub");
   assert.match(url, /^decenthub:\/\/bind\?/);
   const parsed = parseAgentDeepLink(url);
   assert.equal(parsed?.action, "bind");
   assert.equal(parsed?.apiBaseUrl, "https://app.example");
+  assert.equal(parsed?.ticket, "dl_opaque_ticket");
+  assert.equal(parsed?.bindCode, null);
+  assert.equal(parsed?.pairCode, null);
+  assert.doesNotMatch(url, /bind=/);
+  assert.doesNotMatch(url, /pair=/);
+});
+
+test("buildAgentDeepLink legacy bind/pair still supported", () => {
+  const url = buildAgentDeepLink({
+    apiBaseUrl: "https://app.example",
+    bindCode: "bind_abc123",
+    pairCode: "123456",
+  });
+  const parsed = parseAgentDeepLink(url);
   assert.equal(parsed?.bindCode, "bind_abc123");
   assert.equal(parsed?.pairCode, "123456");
 });

@@ -16,6 +16,8 @@ export * from "./adminListGameSubmissionsStatus";
 export * from "./adminPatchGameBody";
 export * from "./adminRejectSubmissionBody";
 export * from "./adminRejectSubmissionResponse";
+export * from "./agentDeeplinkRedeemBody";
+export * from "./agentDeeplinkTicketResponse";
 export * from "./agentEventItem";
 export * from "./agentLogin200";
 export * from "./agentLoginBody";

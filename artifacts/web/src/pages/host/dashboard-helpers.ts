@@ -86,7 +86,10 @@ export const DECENTHUB_PROTOCOL_SCHEME = "decenthub";
 
 export type AgentDeepLinkParams = {
   apiBaseUrl: string;
+  ticket?: string | null;
+  /** @deprecated Use ticket — secrets must not appear in URLs */
   bindCode?: string | null;
+  /** @deprecated Use ticket — secrets must not appear in URLs */
   pairCode?: string | null;
 };
 
@@ -98,6 +101,11 @@ export function buildAgentDeepLink(params: AgentDeepLinkParams): string {
   }
   const search = new URLSearchParams();
   search.set("api", api);
+  const ticket = params.ticket?.trim();
+  if (ticket) {
+    search.set("ticket", ticket);
+    return `${DECENTHUB_PROTOCOL_SCHEME}://bind?${search.toString()}`;
+  }
   const bind = params.bindCode?.trim();
   const pair = params.pairCode?.trim();
   if (bind) search.set("bind", bind);
@@ -111,7 +119,13 @@ export function buildAgentDeepLink(params: AgentDeepLinkParams): string {
 /** Parse deep links emitted by the dashboard — shared with host-agent tests (U-34). */
 export function parseAgentDeepLink(
   raw: string,
-): { action: "open" | "bind"; apiBaseUrl: string | null; bindCode: string | null; pairCode: string | null } | null {
+): {
+  action: "open" | "bind";
+  apiBaseUrl: string | null;
+  ticket: string | null;
+  bindCode: string | null;
+  pairCode: string | null;
+} | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
   let url: URL;
@@ -124,9 +138,10 @@ export function parseAgentDeepLink(
   const action = url.hostname === "bind" ? "bind" : url.hostname === "open" ? "open" : null;
   if (!action) return null;
   const apiBaseUrl = url.searchParams.get("api")?.trim() || null;
+  const ticket = url.searchParams.get("ticket")?.trim() || null;
   const bindCode = url.searchParams.get("bind")?.trim() || null;
   const pairCode = url.searchParams.get("pair")?.trim() || null;
-  return { action, apiBaseUrl, bindCode, pairCode };
+  return { action, apiBaseUrl, ticket, bindCode, pairCode };
 }
 
 export type AudioMode = "off" | "voice" | "standard" | "quality";

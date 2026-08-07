@@ -5,12 +5,16 @@ export const DECENTHUB_PROTOCOL_SCHEME = "decenthub";
 export type DecenthubDeepLink = {
   action: "open" | "bind";
   apiBaseUrl: string | null;
+  ticket: string | null;
+  /** @deprecated Legacy — secrets must not appear in URLs */
   bindCode: string | null;
+  /** @deprecated Legacy — secrets must not appear in URLs */
   pairCode: string | null;
 };
 
 export type PendingDeepLinkPayload = {
   apiBaseUrl: string | null;
+  ticket: string | null;
   bindCode: string | null;
   pairCode: string | null;
 };
@@ -31,6 +35,7 @@ export function parseDecenthubUrl(raw: string): DecenthubDeepLink | null {
   return {
     action,
     apiBaseUrl: url.searchParams.get("api")?.trim() || null,
+    ticket: url.searchParams.get("ticket")?.trim() || null,
     bindCode: url.searchParams.get("bind")?.trim() || null,
     pairCode: url.searchParams.get("pair")?.trim() || null,
   };
@@ -45,10 +50,11 @@ export function findDecenthubUrlInArgv(argv: string[]): string | null {
 
 export function toPendingPayload(link: DecenthubDeepLink): PendingDeepLinkPayload {
   if (link.action === "open") {
-    return { apiBaseUrl: null, bindCode: null, pairCode: null };
+    return { apiBaseUrl: null, ticket: null, bindCode: null, pairCode: null };
   }
   return {
     apiBaseUrl: link.apiBaseUrl,
+    ticket: link.ticket,
     bindCode: link.bindCode,
     pairCode: link.pairCode,
   };
