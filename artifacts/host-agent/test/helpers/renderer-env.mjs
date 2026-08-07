@@ -83,6 +83,8 @@ export function setupRendererEnv() {
     consumePendingBindCode: async () => null,
     consumePendingPairCode: async () => null,
     consumePendingApiBaseUrl: async () => null,
+    consumePendingDeeplinkTicket: async () => null,
+    redeemDeeplinkTicket: async () => ({ ok: false, error: "no ticket" }),
     onDeepLink: () => () => {},
     bindAgentKey: async () => ({ ok: true }),
     markSteamGamesAdded: async () => {},

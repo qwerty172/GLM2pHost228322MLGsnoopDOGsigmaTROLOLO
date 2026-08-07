@@ -22,7 +22,7 @@ import {
   getGetHostCurrentQuotaQueryKey,
   getListHostLibraryQueryKey,
   issueAgentBindCode,
-  issueAgentPairingCode,
+  issueAgentDeeplinkTicket,
   createTestSession,
   getHostReadiness,
   type HostLibraryEntry,
@@ -1064,23 +1064,17 @@ function AgentBindCodeCard({ hostToken, guided = false }: { hostToken: string; g
   const openInAgent = async () => {
     setOpeningAgent(true);
     try {
-      const [bindRes, pairRes] = await Promise.all([
-        issueAgentBindCode({ headers: authHeaders }),
-        issueAgentPairingCode({ headers: authHeaders }),
-      ]);
-      if (!bindRes.bindCode || !pairRes.code) {
+      const ticketRes = await issueAgentDeeplinkTicket({ headers: authHeaders });
+      if (!ticketRes.ticket) {
         toast.error("Не удалось выдать код привязки");
         return;
       }
-      setBindCode(bindRes.bindCode);
-      setExpiresAt(bindRes.expiresAt ?? null);
       const deepLink = buildAgentDeepLink({
         apiBaseUrl: window.location.origin,
-        bindCode: bindRes.bindCode,
-        pairCode: pairRes.code,
+        ticket: ticketRes.ticket,
       });
       window.location.href = deepLink;
-      toast.success("Открываем агент — код подставится сам, вводить цифры не нужно");
+      toast.success("Открываем агент — привязка выполнится автоматически");
     } catch (err) {
       const msg = (err as { data?: { error?: string } }).data?.error;
       toast.error(msg ?? "Не удалось открыть агент");

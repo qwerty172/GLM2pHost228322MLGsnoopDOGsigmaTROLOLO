@@ -86,9 +86,20 @@ declare global {
       consumePendingBindCode: () => Promise<string | null>;
       consumePendingPairCode: () => Promise<string | null>;
       consumePendingApiBaseUrl: () => Promise<string | null>;
+      consumePendingDeeplinkTicket: () => Promise<string | null>;
+      redeemDeeplinkTicket: (
+        apiBaseUrl: string,
+        ticket: string,
+      ) => Promise<{
+        ok: boolean;
+        hostToken?: string;
+        displayName?: string;
+        error?: string;
+      }>;
       onDeepLink: (
         cb: (payload: {
           apiBaseUrl: string | null;
+          ticket: string | null;
           bindCode: string | null;
           pairCode: string | null;
         }) => void,

@@ -4798,6 +4798,33 @@ export const AgentPairResponse = zod.object({
 });
 
 /**
+ * @summary Issue an opaque ticket for decenthub:// deep-link pairing (no secrets in URL)
+ */
+export const IssueAgentDeeplinkTicketHeader = zod.object({
+  Authorization: zod.string().describe("Bearer host token"),
+});
+
+export const IssueAgentDeeplinkTicketResponse = zod.object({
+  ticket: zod.string(),
+  expiresAt: zod.number().describe("Unix epoch ms"),
+});
+
+/**
+ * @summary Agent redeems a deep-link ticket with a signed challenge
+ */
+export const RedeemAgentDeeplinkTicketBody = zod.object({
+  ticket: zod.string(),
+  pubkey: zod.string(),
+  challenge: zod.string(),
+  signature: zod.string(),
+});
+
+export const RedeemAgentDeeplinkTicketResponse = zod.object({
+  hostToken: zod.string(),
+  displayName: zod.string(),
+});
+
+/**
  * @summary Host agent pushes noteworthy events (startup, fatal errors, injector failures)
  */
 export const PostAgentTelemetryHeader = zod.object({

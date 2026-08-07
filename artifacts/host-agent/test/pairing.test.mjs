@@ -28,22 +28,55 @@ test("initPairingFromDeepLink is exported for dashboard deep-link bootstrap (U-3
   assert.equal(typeof initPairingFromDeepLink, "function");
 });
 
-test("initPairingFromDeepLink no-ops when agent has no pending pair code", async () => {
+test("initPairingFromDeepLink no-ops when agent has no pending pair code or ticket", async () => {
   const pairingCodeInput = document.getElementById("pairing-code");
   const pairingStatusEl = document.getElementById("pairing-status");
   pairingCodeInput.value = "999999";
   pairingStatusEl.textContent = "unchanged";
 
   const agent = window.agent;
-  const origConsume = agent.consumePendingPairCode;
+  const origConsumePair = agent.consumePendingPairCode;
+  const origConsumeTicket = agent.consumePendingDeeplinkTicket;
   agent.consumePendingPairCode = async () => null;
+  agent.consumePendingDeeplinkTicket = async () => null;
 
   try {
     await initPairingFromDeepLink();
     assert.equal(pairingCodeInput.value, "999999");
     assert.equal(pairingStatusEl.textContent, "unchanged");
   } finally {
-    agent.consumePendingPairCode = origConsume;
+    agent.consumePendingPairCode = origConsumePair;
+    agent.consumePendingDeeplinkTicket = origConsumeTicket;
+  }
+});
+
+test("initPairingFromDeepLink redeems pending deep-link ticket (U-34)", async () => {
+  resetAgentConfig();
+  const pairingStatusEl = document.getElementById("pairing-status");
+
+  const agent = window.agent;
+  const origConsumeTicket = agent.consumePendingDeeplinkTicket;
+  const origRedeem = agent.redeemDeeplinkTicket;
+  agent.consumePendingDeeplinkTicket = async () => "dl_test_ticket";
+  agent.redeemDeeplinkTicket = async () => ({
+    ok: true,
+    hostToken: "ticket-host-token",
+    displayName: "Ticket Host",
+  });
+
+  try {
+    pairingStatusEl.textContent = "";
+    await initPairingFromDeepLink();
+    assert.match(pairingStatusEl.textContent, /Подключено/);
+    assert.equal(document.getElementById("hostToken").value, "ticket-host-token");
+  } finally {
+    agent.consumePendingDeeplinkTicket = origConsumeTicket;
+    agent.redeemDeeplinkTicket = origRedeem;
+    if (session.libraryRefreshTimer) {
+      clearInterval(session.libraryRefreshTimer);
+      session.libraryRefreshTimer = null;
+    }
+    resetAgentConfig();
   }
 });
 

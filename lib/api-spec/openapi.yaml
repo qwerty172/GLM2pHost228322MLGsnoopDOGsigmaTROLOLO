@@ -3935,6 +3935,69 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /auth/agent-deeplink-ticket:
+    post:
+      operationId: issueAgentDeeplinkTicket
+      tags: [auth]
+      summary: Issue an opaque ticket for decenthub:// deep-link pairing (no secrets in URL)
+      parameters:
+        - in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+          description: Bearer host token
+      responses:
+        "200":
+          description: Deep-link ticket issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentDeeplinkTicketResponse"
+        "401":
+          description: Host auth required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/agent-deeplink-redeem:
+    post:
+      operationId: redeemAgentDeeplinkTicket
+      tags: [auth]
+      summary: Agent redeems a deep-link ticket with a signed challenge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentDeeplinkRedeemBody"
+      responses:
+        "200":
+          description: Paired and key bound
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentPairResponse"
+        "400":
+          description: Invalid or expired ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid signature
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Different agent key already bound
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /agent-telemetry:
     post:
       operationId: postAgentTelemetry
@@ -6159,6 +6222,29 @@ components:
         hostToken:
           type: string
         displayName:
+          type: string
+
+    AgentDeeplinkTicketResponse:
+      type: object
+      required: [ticket, expiresAt]
+      properties:
+        ticket:
+          type: string
+        expiresAt:
+          type: integer
+          description: Unix epoch ms
+
+    AgentDeeplinkRedeemBody:
+      type: object
+      required: [ticket, pubkey, challenge, signature]
+      properties:
+        ticket:
+          type: string
+        pubkey:
+          type: string
+        challenge:
+          type: string
+        signature:
           type: string
 
     AgentTelemetryBody:

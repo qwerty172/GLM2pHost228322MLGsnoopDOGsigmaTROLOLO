@@ -222,9 +222,11 @@ void app.whenReady().then(() =>
 let pendingBindCode: string | null = null;
 let pendingPairCode: string | null = null;
 let pendingApiBaseUrl: string | null = null;
+let pendingDeepLinkTicket: string | null = null;
 
 function applyPendingDeepLink(payload: PendingDeepLinkPayload): void {
   if (payload.apiBaseUrl) pendingApiBaseUrl = payload.apiBaseUrl;
+  if (payload.ticket) pendingDeepLinkTicket = payload.ticket;
   if (payload.bindCode) pendingBindCode = payload.bindCode;
   if (payload.pairCode) pendingPairCode = payload.pairCode;
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -315,6 +317,12 @@ async function startAgent(): Promise<void> {
     const url = pendingApiBaseUrl;
     pendingApiBaseUrl = null;
     return url;
+  });
+
+  ipcMain.handle("agent:consume-pending-deeplink-ticket", (): string | null => {
+    const ticket = pendingDeepLinkTicket;
+    pendingDeepLinkTicket = null;
+    return ticket;
   });
 
   ipcMain.handle("config:set", async (_e, next: unknown) => {
@@ -843,6 +851,57 @@ async function startAgent(): Promise<void> {
         }
         log("info", "[agent-key] Key bound to account successfully");
         return { ok: true };
+      } catch (err) {
+        return { ok: false, error: String(err) };
+      }
+    },
+  );
+
+  ipcMain.handle(
+    "agent:redeem-deeplink-ticket",
+    async (
+      _e,
+      apiBaseUrl: string,
+      ticket: string,
+    ): Promise<{ ok: boolean; hostToken?: string; displayName?: string; error?: string }> => {
+      if (!keyStore) return { ok: false, error: "Key pair not available" };
+      const base = apiBaseUrl.replace(/\/$/, "");
+      const trimmedTicket = ticket.trim();
+      if (!trimmedTicket) return { ok: false, error: "Ticket required" };
+      try {
+        const challengeResp = await fetch(`${base}/api/auth/agent-challenge`);
+        if (!challengeResp.ok) {
+          return { ok: false, error: `Challenge fetch failed (${challengeResp.status})` };
+        }
+        const { challenge } = (await challengeResp.json()) as { challenge: string };
+        const signature = signChallenge(keyStore.privateKeyHex, challenge);
+        const redeemResp = await fetch(`${base}/api/auth/agent-deeplink-redeem`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            ticket: trimmedTicket,
+            pubkey: keyStore.publicKeyHex,
+            challenge,
+            signature,
+          }),
+        });
+        if (!redeemResp.ok) {
+          const errBody = (await redeemResp.json()) as { error?: string };
+          return { ok: false, error: errBody.error ?? `HTTP ${redeemResp.status}` };
+        }
+        const data = (await redeemResp.json()) as {
+          hostToken?: string;
+          displayName?: string;
+        };
+        if (!data.hostToken) {
+          return { ok: false, error: "Missing hostToken in response" };
+        }
+        log("info", "[deep-link] Ticket redeemed — host paired");
+        return {
+          ok: true,
+          hostToken: data.hostToken,
+          displayName: data.displayName,
+        };
       } catch (err) {
         return { ok: false, error: String(err) };
       }

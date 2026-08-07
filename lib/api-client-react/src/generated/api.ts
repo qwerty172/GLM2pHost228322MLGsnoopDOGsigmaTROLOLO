@@ -26,6 +26,8 @@ import type {
   AdminPatchGameBody,
   AdminRejectSubmissionBody,
   AdminRejectSubmissionResponse,
+  AgentDeeplinkRedeemBody,
+  AgentDeeplinkTicketResponse,
   AgentEventItem,
   AgentLogin200,
   AgentLoginBody,
@@ -10239,6 +10241,177 @@ export const useAgentPair = <
   TContext
 > => {
   return useMutation(getAgentPairMutationOptions(options));
+};
+
+/**
+ * @summary Issue an opaque ticket for decenthub:// deep-link pairing (no secrets in URL)
+ */
+export const getIssueAgentDeeplinkTicketUrl = () => {
+  return `/api/auth/agent-deeplink-ticket`;
+};
+
+export const issueAgentDeeplinkTicket = async (
+  options?: RequestInit,
+): Promise<AgentDeeplinkTicketResponse> => {
+  return customFetch<AgentDeeplinkTicketResponse>(
+    getIssueAgentDeeplinkTicketUrl(),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getIssueAgentDeeplinkTicketMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof issueAgentDeeplinkTicket>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof issueAgentDeeplinkTicket>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["issueAgentDeeplinkTicket"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof issueAgentDeeplinkTicket>>,
+    void
+  > = () => {
+    return issueAgentDeeplinkTicket(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type IssueAgentDeeplinkTicketMutationResult = NonNullable<
+  Awaited<ReturnType<typeof issueAgentDeeplinkTicket>>
+>;
+
+export type IssueAgentDeeplinkTicketMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Issue an opaque ticket for decenthub:// deep-link pairing (no secrets in URL)
+ */
+export const useIssueAgentDeeplinkTicket = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof issueAgentDeeplinkTicket>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof issueAgentDeeplinkTicket>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getIssueAgentDeeplinkTicketMutationOptions(options));
+};
+
+/**
+ * @summary Agent redeems a deep-link ticket with a signed challenge
+ */
+export const getRedeemAgentDeeplinkTicketUrl = () => {
+  return `/api/auth/agent-deeplink-redeem`;
+};
+
+export const redeemAgentDeeplinkTicket = async (
+  agentDeeplinkRedeemBody: AgentDeeplinkRedeemBody,
+  options?: RequestInit,
+): Promise<AgentPairResponse> => {
+  return customFetch<AgentPairResponse>(getRedeemAgentDeeplinkTicketUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(agentDeeplinkRedeemBody),
+  });
+};
+
+export const getRedeemAgentDeeplinkTicketMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof redeemAgentDeeplinkTicket>>,
+    TError,
+    { data: BodyType<AgentDeeplinkRedeemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof redeemAgentDeeplinkTicket>>,
+  TError,
+  { data: BodyType<AgentDeeplinkRedeemBody> },
+  TContext
+> => {
+  const mutationKey = ["redeemAgentDeeplinkTicket"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof redeemAgentDeeplinkTicket>>,
+    { data: BodyType<AgentDeeplinkRedeemBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return redeemAgentDeeplinkTicket(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RedeemAgentDeeplinkTicketMutationResult = NonNullable<
+  Awaited<ReturnType<typeof redeemAgentDeeplinkTicket>>
+>;
+export type RedeemAgentDeeplinkTicketMutationBody =
+  BodyType<AgentDeeplinkRedeemBody>;
+export type RedeemAgentDeeplinkTicketMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Agent redeems a deep-link ticket with a signed challenge
+ */
+export const useRedeemAgentDeeplinkTicket = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof redeemAgentDeeplinkTicket>>,
+    TError,
+    { data: BodyType<AgentDeeplinkRedeemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof redeemAgentDeeplinkTicket>>,
+  TError,
+  { data: BodyType<AgentDeeplinkRedeemBody> },
+  TContext
+> => {
+  return useMutation(getRedeemAgentDeeplinkTicketMutationOptions(options));
 };
 
 /**

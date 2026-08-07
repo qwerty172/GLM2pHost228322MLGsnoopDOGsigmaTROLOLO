@@ -212,6 +212,82 @@ describe("POST /auth/agent-bind-code", () => {
   });
 });
 
+describe("POST /auth/agent-deeplink-ticket", () => {
+  it("returns 401 without host authentication", async () => {
+    const res = await request("POST", "/auth/agent-deeplink-ticket");
+    expect(res.status).toBe(401);
+  });
+
+  it("issues an opaque ticket for an authenticated host", async () => {
+    queueResults([
+      {
+        id: "host-1",
+        hostToken: HOST_TOKEN,
+        displayName: "Test Host",
+        agentPubkey: null,
+      },
+    ]);
+    const res = await request("POST", "/auth/agent-deeplink-ticket", {
+      headers: { Authorization: `Bearer ${HOST_TOKEN}` },
+    });
+    expect(res.status).toBe(200);
+    const body = res.json as { ticket: string; expiresAt: number };
+    expect(body.ticket).toMatch(/^dl_/);
+    expect(body.expiresAt).toBeGreaterThan(Date.now());
+  });
+});
+
+describe("POST /auth/agent-deeplink-redeem", () => {
+  it("rejects unknown ticket", async () => {
+    const challenge = await fetchChallenge();
+    const res = await request("POST", "/auth/agent-deeplink-redeem", {
+      body: {
+        ticket: "dl_unknown",
+        pubkey: PUBKEY_HEX,
+        challenge,
+        signature: signChallenge(challenge),
+      },
+    });
+    expect(res.status).toBe(400);
+    expect(res.json).toMatchObject({
+      error: "Deep-link ticket expired or already used",
+    });
+  });
+
+  it("redeems ticket, binds pubkey, and returns host credentials", async () => {
+    queueResults([
+      {
+        id: "host-1",
+        hostToken: HOST_TOKEN,
+        displayName: "Test Host",
+        agentPubkey: null,
+      },
+    ]);
+    const ticketRes = await request("POST", "/auth/agent-deeplink-ticket", {
+      headers: { Authorization: `Bearer ${HOST_TOKEN}` },
+    });
+    const { ticket } = ticketRes.json as { ticket: string };
+    const challenge = await fetchChallenge();
+    queueResults(
+      [{ id: "host-1", agentPubkey: PUBKEY_HEX }],
+      [{ hostToken: HOST_TOKEN, displayName: "Test Host" }],
+    );
+    const res = await request("POST", "/auth/agent-deeplink-redeem", {
+      body: {
+        ticket,
+        pubkey: PUBKEY_HEX,
+        challenge,
+        signature: signChallenge(challenge),
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(res.json).toEqual({
+      hostToken: HOST_TOKEN,
+      displayName: "Test Host",
+    });
+  });
+});
+
 describe("POST /auth/bind-agent-key", () => {
   it("rejects body without bindCode or hostToken", async () => {
     const challenge = await fetchChallenge();

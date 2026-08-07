@@ -1109,6 +1109,19 @@ export interface AgentPairResponse {
   displayName: string;
 }
 
+export interface AgentDeeplinkTicketResponse {
+  ticket: string;
+  /** Unix epoch ms */
+  expiresAt: number;
+}
+
+export interface AgentDeeplinkRedeemBody {
+  ticket: string;
+  pubkey: string;
+  challenge: string;
+  signature: string;
+}
+
 export type AgentTelemetryBodyEventsItemLevel =
   (typeof AgentTelemetryBodyEventsItemLevel)[keyof typeof AgentTelemetryBodyEventsItemLevel];
 

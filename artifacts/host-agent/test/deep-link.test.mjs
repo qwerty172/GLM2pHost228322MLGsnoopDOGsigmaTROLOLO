@@ -10,10 +10,19 @@ const {
 
 test("parseDecenthubUrl reads bind deep links from dashboard (U-34)", () => {
   const url =
-    "decenthub://bind?api=https%3A%2F%2Fapp.example&bind=bind_abc&pair=123456";
+    "decenthub://bind?api=https%3A%2F%2Fapp.example&ticket=dl_abc123";
   const parsed = parseDecenthubUrl(url);
   assert.equal(parsed?.action, "bind");
   assert.equal(parsed?.apiBaseUrl, "https://app.example");
+  assert.equal(parsed?.ticket, "dl_abc123");
+  assert.equal(parsed?.bindCode, null);
+  assert.equal(parsed?.pairCode, null);
+});
+
+test("parseDecenthubUrl still accepts legacy bind/pair params", () => {
+  const url =
+    "decenthub://bind?api=https%3A%2F%2Fapp.example&bind=bind_abc&pair=123456";
+  const parsed = parseDecenthubUrl(url);
   assert.equal(parsed?.bindCode, "bind_abc");
   assert.equal(parsed?.pairCode, "123456");
 });
@@ -22,6 +31,7 @@ test("parseDecenthubUrl accepts open action", () => {
   assert.deepEqual(parseDecenthubUrl("decenthub://open"), {
     action: "open",
     apiBaseUrl: null,
+    ticket: null,
     bindCode: null,
     pairCode: null,
   });
@@ -36,6 +46,7 @@ test("findDecenthubUrlInArgv locates protocol argument", () => {
 test("toPendingPayload strips open-only links", () => {
   assert.deepEqual(toPendingPayload(parseDecenthubUrl("decenthub://open")), {
     apiBaseUrl: null,
+    ticket: null,
     bindCode: null,
     pairCode: null,
   });
