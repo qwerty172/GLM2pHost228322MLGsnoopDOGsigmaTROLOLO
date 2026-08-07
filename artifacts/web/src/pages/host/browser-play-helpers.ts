@@ -98,3 +98,10 @@ export function computeEarnedLzt(
   const elapsedMin = Math.max(0, (nowMs - startMs) / 60000);
   return Math.floor(elapsedMin * ratePerMinLzt);
 }
+
+/** Stop browser-host capture/signaling when the API reports the session ended. */
+export function shouldTeardownBrowserHostStream(
+  sessionStatus: string | null | undefined,
+): boolean {
+  return sessionStatus === "ended";
+}
