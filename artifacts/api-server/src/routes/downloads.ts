@@ -315,6 +315,10 @@ export function resetHostAgentExeUrlCacheForTests(): void {
   releaseLookupInFlight = null;
 }
 
+/** Russian message when no `host-agent-v*` release is published (U-36). */
+export const HOST_AGENT_EXE_UNAVAILABLE_MESSAGE =
+  "Установщик .exe пока не опубликован (нет релиза с тегом host-agent-v*). Скачайте ZIP-архив с дашборда — токен хоста уже внутри.";
+
 /** True when a release asset filename looks like the Windows installer. */
 function isInstallerAsset(name: string | undefined): boolean {
   return typeof name === "string" && /\.exe$/i.test(name);
@@ -389,8 +393,7 @@ router.get("/downloads/host-agent.exe", async (_req, res): Promise<void> => {
     return;
   }
   res.status(503).json({
-    error:
-      "Установщик пока не опубликован. Используйте /api/downloads/host-agent.zip, либо соберите релиз через .github/workflows/agent-build.yml (тег host-agent-v*).",
+    error: HOST_AGENT_EXE_UNAVAILABLE_MESSAGE,
   });
 });
 

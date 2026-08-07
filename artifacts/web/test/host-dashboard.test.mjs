@@ -10,6 +10,9 @@ const {
   HOST_AGENT_EXE_DOWNLOAD_URL,
   HOST_AGENT_ZIP_DOWNLOAD_LABEL,
   HOST_AGENT_EXE_DOWNLOAD_LABEL,
+  HOST_AGENT_EXE_UNAVAILABLE_TITLE,
+  HOST_AGENT_EXE_UNAVAILABLE_HINT,
+  probeHostAgentExeAvailability,
   AUDIO_MODE_LABELS,
   EVENT_LEVEL_STYLES,
   getAgentDiagnosis,
@@ -65,6 +68,25 @@ test("HEARTBEAT_FRESH_MS and storage prefixes are stable", () => {
   assert.equal(HOST_AGENT_EXE_DOWNLOAD_URL, "/api/downloads/host-agent.exe");
   assert.equal(HOST_AGENT_ZIP_DOWNLOAD_LABEL, "Токен уже внутри");
   assert.equal(HOST_AGENT_EXE_DOWNLOAD_LABEL, "Понадобится код привязки");
+  assert.match(HOST_AGENT_EXE_UNAVAILABLE_TITLE, /недоступен/i);
+  assert.match(HOST_AGENT_EXE_UNAVAILABLE_HINT, /ZIP/i);
+});
+
+test("probeHostAgentExeAvailability detects unavailable installer (U-36)", async () => {
+  const fetchImpl = async () =>
+    new Response(JSON.stringify({ error: "Установщик .exe пока не опубликован" }), {
+      status: 503,
+      headers: { "content-type": "application/json" },
+    });
+  const result = await probeHostAgentExeAvailability(fetchImpl);
+  assert.equal(result.status, "unavailable");
+  assert.match(result.message, /не опубликован/i);
+});
+
+test("probeHostAgentExeAvailability treats 302 as available (U-36)", async () => {
+  const fetchImpl = async () => new Response(null, { status: 302 });
+  const result = await probeHostAgentExeAvailability(fetchImpl);
+  assert.equal(result.status, "available");
 });
 
 test("AUDIO_MODE_LABELS maps all audio modes to Russian labels", () => {

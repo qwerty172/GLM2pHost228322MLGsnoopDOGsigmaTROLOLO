@@ -243,6 +243,16 @@ describe("GET /downloads/host-agent.exe", () => {
     });
   });
 
+  it("returns Russian ZIP fallback when installer is not published (U-36)", async () => {
+    githubReleaseResponse = { status: 404, body: { message: "Not Found" } };
+    const res = await request("GET", "/downloads/host-agent.exe");
+    expect(res.status).toBe(503);
+    const body = res.json as { error?: string };
+    expect(body.error).toMatch(/не опубликован/i);
+    expect(body.error).toMatch(/ZIP/i);
+    expect(body.error).toMatch(/host-agent-v/);
+  });
+
   it("redirects to HOST_AGENT_EXE_URL override even when a release exists", async () => {
     process.env.HOST_AGENT_EXE_URL =
       "https://cdn.example.com/host-agent.exe";

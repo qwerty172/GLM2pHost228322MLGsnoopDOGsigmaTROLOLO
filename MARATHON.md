@@ -7,15 +7,15 @@
 > **Memory:** выключить в Automation — только этот файл в репо  
 > **Хостинг / окна / тесты:** [HOSTING.md](./HOSTING.md)  
 > **Ручной MVP-тест на Windows (не cloud):** [MVP_MANUAL_TEST.md](./MVP_MANUAL_TEST.md)  
-> **Последнее обновление:** 2026-08-07 (M-267 done; честная разница ZIP vs .exe на дашборде)
+> **Последнее обновление:** 2026-08-07 (M-268 done; понятный экран без релиза .exe)
 
 ## Last run (automation)
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-07 08:55 UTC|
-| Task ID | M-267|
-| Результат | ZIP/.exe labels + bind-agent guided step; host-dashboard +5 tests PASS|
+| Дата | 2026-08-07 09:00 UTC|
+| Task ID | M-268|
+| Результат | U-36: exe unavailable UI + probe; downloads + host-dashboard tests PASS|
 
 **Поле Commit удалено навсегда.** Хэш коммита нельзя записать внутрь него самого — это породило 250+ коммитов «fix hash». Поиск задачи: `git log --grep="M-NN"`.
 
@@ -621,7 +621,7 @@ Automation **каждый run** создаёт и выполняет одну н
 | M-265 | X | покрытие 89% → 90%: hosts-helpers.ts | `pages/hosts-helpers.ts` | x:artifacts/web/src/pages/hosts-helpers.ts | done | agent |
 | M-266 | R | UX U-34 (P0): Привязка `.exe` одним кликом с дашборда, без ввода 6 цифр | `pages/host/dashboard.tsx` | r:U-34 | done | agent |
 | M-267 | R | UX U-35 (P0): Честная разница между ZIP и `.exe` на дашборде | `pages/host/dashboard.tsx` | r:U-35 | done | agent |
-| M-268 | R | UX U-36 (P0): Нет опубликованного релиза — понятный экран, а не пустая кно | `routes/downloads.ts` | r:U-36 | pending | agent |
+| M-268 | R | UX U-36 (P0): Нет опубликованного релиза — понятный экран, а не пустая кно | `routes/downloads.ts` | r:U-36 | done | agent |
 | M-269 | R | UX U-37 (P0): Предупреждение о проверке Windows до скачивания `.exe` | `pages/host/dashboard.tsx` | r:U-37 | pending | agent |
 | M-270 | R | UX U-46 (P0): Не хватает LZT — сумма и пополнение прямо перед запуском | `artifacts/web/src/components/pre-session-screen.tsx` | r:U-46 | pending | agent |
 | M-271 | V | тест не покрывает экспорты (1): pairing | `renderer/*.ts` | v:artifacts/host-agent/src/renderer/pairing.ts | pending | agent |

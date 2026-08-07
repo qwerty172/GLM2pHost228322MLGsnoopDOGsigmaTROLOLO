@@ -110,6 +110,9 @@ import {
   HOST_AGENT_EXE_DOWNLOAD_URL,
   HOST_AGENT_ZIP_DOWNLOAD_LABEL,
   HOST_AGENT_EXE_DOWNLOAD_LABEL,
+  HOST_AGENT_EXE_UNAVAILABLE_TITLE,
+  probeHostAgentExeAvailability,
+  type HostAgentExeAvailability,
   buildAgentDeepLink,
   evaluateHostReadiness,
   evaluateAgentVersionCompatibility,
@@ -751,6 +754,22 @@ function HostQuickStartCard({
   });
   const onboarding = !hasFirstStream && guided.phase !== "complete";
   const completedSteps = steps.filter((s) => s.done);
+  const needsExeProbe = guided.cta === "download" || guided.cta === "update-agent";
+  const [exeAvailability, setExeAvailability] = useState<HostAgentExeAvailability>({
+    status: "checking",
+  });
+
+  useEffect(() => {
+    if (!needsExeProbe) return;
+    let cancelled = false;
+    setExeAvailability({ status: "checking" });
+    void probeHostAgentExeAvailability().then((result) => {
+      if (!cancelled) setExeAvailability(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [needsExeProbe]);
 
   const handleDownloadZip = () => {
     markHostAgentInstallMethod("zip");
@@ -856,16 +875,33 @@ function HostQuickStartCard({
                 className="h-auto flex-col items-start gap-1 py-3 px-4 font-semibold text-left border-white/15 text-white hover:bg-white/5"
                 data-testid="link-download-host-agent-exe"
                 onClick={handleDownloadExe}
+                disabled={
+                  exeAvailability.status === "checking" ||
+                  exeAvailability.status === "unavailable"
+                }
               >
                 <span className="flex items-center gap-2 w-full">
                   <Download className="h-4 w-4 shrink-0" />
                   Установщик .exe
                 </span>
                 <span className="text-[11px] font-normal text-slate-400">
-                  {HOST_AGENT_EXE_DOWNLOAD_LABEL}
+                  {exeAvailability.status === "unavailable"
+                    ? HOST_AGENT_EXE_UNAVAILABLE_TITLE
+                    : HOST_AGENT_EXE_DOWNLOAD_LABEL}
                 </span>
               </Button>
             </div>
+            {exeAvailability.status === "unavailable" && (
+              <div
+                className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-100/90"
+                data-testid="host-agent-exe-unavailable"
+              >
+                <p>{exeAvailability.message}</p>
+                <p className="mt-1 text-amber-200/80">
+                  Пока релиз не вышел — скачай ZIP выше: токен и привязка уже внутри.
+                </p>
+              </div>
+            )}
             <p className="text-[11px] text-slate-500">
               ZIP — распакуй и запусти start.bat, токен и привязка из config.json.
               .exe — без Node.js, после установки привяжем ключ одной кнопкой.
@@ -929,23 +965,38 @@ function HostQuickStartCard({
           </Button>
         )}
 
-        {guided.cta === "update-agent" && (
-          <a href={HOST_AGENT_EXE_DOWNLOAD_URL} data-testid="guided-update-agent">
-            <Button
-              size="lg"
-              className="w-full sm:w-auto gap-2 font-semibold bg-amber-600 hover:bg-amber-500 text-white"
-              onClick={() => {
-                markHostAgentInstallMethod("exe");
-                onInstallMethod("exe");
-                markHostAgentDownloaded();
-                onAgentDownloaded();
-              }}
-            >
-              <Download className="h-4 w-4" />
-              Обновить агент
-            </Button>
-          </a>
-        )}
+        {guided.cta === "update-agent" &&
+          (exeAvailability.status === "unavailable" ? (
+            <div className="space-y-2" data-testid="guided-update-agent-unavailable">
+              <p className="text-sm text-amber-100/90">{exeAvailability.message}</p>
+              <Button
+                size="lg"
+                className="w-full sm:w-auto gap-2 font-semibold"
+                style={{ background: "#0ea5e9", color: "#fff" }}
+                onClick={handleDownloadZip}
+              >
+                <Download className="h-4 w-4" />
+                Скачать ZIP-архив
+              </Button>
+            </div>
+          ) : (
+            <a href={HOST_AGENT_EXE_DOWNLOAD_URL} data-testid="guided-update-agent">
+              <Button
+                size="lg"
+                className="w-full sm:w-auto gap-2 font-semibold bg-amber-600 hover:bg-amber-500 text-white"
+                disabled={exeAvailability.status === "checking"}
+                onClick={() => {
+                  markHostAgentInstallMethod("exe");
+                  onInstallMethod("exe");
+                  markHostAgentDownloaded();
+                  onAgentDownloaded();
+                }}
+              >
+                <Download className="h-4 w-4" />
+                Обновить агент
+              </Button>
+            </a>
+          ))}
       </CardContent>
     </Card>
   );
@@ -1313,8 +1364,18 @@ function HostDiagnosticsCard({
         });
         break;
       case "update-agent":
-        markHostAgentDownloaded();
-        window.open(HOST_AGENT_EXE_DOWNLOAD_URL, "_blank", "noopener,noreferrer");
+        void probeHostAgentExeAvailability().then((avail) => {
+          if (avail.status === "unavailable") {
+            toast.error(avail.message);
+            markHostAgentDownloaded();
+            void downloadHostAgentBundle().catch(() => {
+              toast.error("Не удалось скачать агент");
+            });
+            return;
+          }
+          markHostAgentDownloaded();
+          window.open(HOST_AGENT_EXE_DOWNLOAD_URL, "_blank", "noopener,noreferrer");
+        });
         break;
       case "open-agent":
         markHostGoOnlineAck();

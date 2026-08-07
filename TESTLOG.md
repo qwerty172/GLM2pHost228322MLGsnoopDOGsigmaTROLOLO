@@ -15,6 +15,17 @@
 | 7 | agent done | Регресс CI + MARATHON backlog |
 | **marathon** | **2026-07-27** | 4-cycle audit: SSE auth, save-sync, RU/a11y, CI hardening — см. MARATHON.md |
 
+## Marathon M-268 (2026-08-07 09:00 UTC) {#marathon-m-268}
+
+| Проверка | Результат |
+|---|---|
+| downloads.test.ts | PASS (+1 U-36: 503 с ZIP fallback) |
+| host-dashboard.test.mjs | PASS (+2 U-36: probeHostAgentExeAvailability) |
+
+**Изменения:** API 503 с русским текстом и ZIP; дашборд проверяет доступность .exe и показывает пояснение вместо пустой кнопки; обновление агента fallback на ZIP.
+
+**Следующий pick:** marathon-scan --next.
+
 ## Marathon M-267 (2026-08-07 08:52 UTC) {#marathon-m-267}
 
 | Проверка | Результат |

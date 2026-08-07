@@ -25,6 +25,50 @@ export const HOST_AGENT_EXE_DOWNLOAD_LABEL = "Понадобится код пр
  */
 export const HOST_AGENT_EXE_DOWNLOAD_URL = "/api/downloads/host-agent.exe";
 
+/** Title when the Windows installer has not been published yet (U-36). */
+export const HOST_AGENT_EXE_UNAVAILABLE_TITLE = "Установщик .exe пока недоступен";
+
+/** Default hint when probe fails or API returns no message (U-36). */
+export const HOST_AGENT_EXE_UNAVAILABLE_HINT =
+  "Готовый установщик ещё не опубликован (нет тега host-agent-v*). Скачайте ZIP-архив — токен уже внутри.";
+
+export type HostAgentExeAvailability =
+  | { status: "checking" }
+  | { status: "available" }
+  | { status: "unavailable"; message: string };
+
+/**
+ * Checks whether `/downloads/host-agent.exe` would redirect to a real installer (U-36).
+ * Uses `redirect: manual` so the browser does not follow GitHub URLs.
+ */
+export async function probeHostAgentExeAvailability(
+  fetchImpl: typeof fetch = fetch,
+): Promise<Exclude<HostAgentExeAvailability, { status: "checking" }>> {
+  try {
+    const res = await fetchImpl(HOST_AGENT_EXE_DOWNLOAD_URL, {
+      method: "GET",
+      redirect: "manual",
+      credentials: "same-origin",
+    });
+    if (res.status === 302 || res.type === "opaqueredirect") {
+      return { status: "available" };
+    }
+    if (res.status === 503) {
+      let message = HOST_AGENT_EXE_UNAVAILABLE_HINT;
+      try {
+        const json = (await res.json()) as { error?: string };
+        if (json.error?.trim()) message = json.error.trim();
+      } catch {
+        // keep default hint
+      }
+      return { status: "unavailable", message };
+    }
+    return { status: "unavailable", message: HOST_AGENT_EXE_UNAVAILABLE_HINT };
+  } catch {
+    return { status: "unavailable", message: HOST_AGENT_EXE_UNAVAILABLE_HINT };
+  }
+}
+
 /** Custom URL scheme handled by the Windows host agent (U-34). */
 export const DECENTHUB_PROTOCOL_SCHEME = "decenthub";
 
