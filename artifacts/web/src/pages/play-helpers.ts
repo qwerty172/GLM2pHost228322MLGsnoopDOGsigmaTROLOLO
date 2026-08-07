@@ -42,15 +42,52 @@ export function computeRatePerMinLzt(ratePerMinuteUsd: number): number {
   return Math.round(ratePerMinuteUsd * LZT_PER_USDT);
 }
 
+/**
+ * Which bucket can cover `amountLzt` — mirrors api-server `pickPlayerBucket`.
+ * Auto never combines green + blue (claim/billing debit a single bucket).
+ */
+export function pickPlayerBucket(
+  paymentSource: PaymentSource | string,
+  amountLzt: number,
+  greenLzt: number,
+  blueLzt: number,
+): "green" | "blue" | null {
+  if (amountLzt <= 0) return paymentSource === "blue" ? "blue" : "green";
+  if (paymentSource === "blue") return blueLzt >= amountLzt ? "blue" : null;
+  if (paymentSource === "green") return greenLzt >= amountLzt ? "green" : null;
+  if (greenLzt >= amountLzt) return "green";
+  if (blueLzt >= amountLzt) return "blue";
+  return null;
+}
+
+/** Balance visible for claim/billing in the selected payment source. */
 export function computeSourceBalance(
   paymentSource: PaymentSource,
   greenLzt: number,
   blueLzt: number,
 ): number {
-  const totalLzt = greenLzt + blueLzt;
   if (paymentSource === "blue") return blueLzt;
   if (paymentSource === "green") return greenLzt;
-  return totalLzt;
+  return Math.max(greenLzt, blueLzt);
+}
+
+export function computeMinsAffordableForClaim(
+  paymentSource: PaymentSource,
+  greenLzt: number,
+  blueLzt: number,
+  ratePerMinLzt: number,
+): number {
+  if (ratePerMinLzt <= 0) return 9999;
+  if (paymentSource === "green") {
+    return Math.floor(greenLzt / ratePerMinLzt);
+  }
+  if (paymentSource === "blue") {
+    return Math.floor(blueLzt / ratePerMinLzt);
+  }
+  return Math.max(
+    Math.floor(greenLzt / ratePerMinLzt),
+    Math.floor(blueLzt / ratePerMinLzt),
+  );
 }
 
 export function computeMinutesAffordable(sourceBalance: number, ratePerMinLzt: number): number {
@@ -158,10 +195,8 @@ export function computeWalletBalanceForSession(
   if (!wallet) return 0;
   const greenLzt = wallet.withdrawableBalanceLzt ?? 0;
   const blueLzt = wallet.internalBalanceLzt ?? 0;
-  const src = paymentSource ?? "auto";
-  if (src === "blue") return blueLzt;
-  if (src === "green") return greenLzt;
-  return greenLzt + blueLzt;
+  const src = (paymentSource ?? "auto") as PaymentSource;
+  return computeSourceBalance(src, greenLzt, blueLzt);
 }
 
 /** U-25: touch overlays (gamepad + on-screen keyboard) default on when maxTouchPoints > 0. */
