@@ -422,7 +422,7 @@ describe("POST /auth/agent-pair", () => {
 
   it("pairs agent and returns host credentials", async () => {
     queueResults(
-      [{ id: "pc-1", hostId: "host-1" }],
+      [{ hostId: "host-1" }],
       [{ hostToken: HOST_TOKEN, displayName: "Test Host" }],
     );
     const res = await request("POST", "/auth/agent-pair", {
