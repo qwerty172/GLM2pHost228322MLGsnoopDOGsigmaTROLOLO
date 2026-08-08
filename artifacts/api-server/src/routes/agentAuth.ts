@@ -393,20 +393,21 @@ router.post(
     const { code, agentPubkey } = parsed.data;
     const now = new Date();
 
-    // Atomic redeem — concurrent requests with the same code cannot both succeed.
-    const [redeemed] = await db
-      .update(agentPairingCodesTable)
-      .set({ usedAt: now, agentPubkey: agentPubkey ?? null })
+    const [row] = await db
+      .select({
+        id: agentPairingCodesTable.id,
+        hostId: agentPairingCodesTable.hostId,
+      })
+      .from(agentPairingCodesTable)
       .where(
         and(
           eq(agentPairingCodesTable.code, code),
           isNull(agentPairingCodesTable.usedAt),
           gt(agentPairingCodesTable.expiresAt, now),
         ),
-      )
-      .returning({ hostId: agentPairingCodesTable.hostId });
+      );
 
-    if (!redeemed) {
+    if (!row) {
       res.status(401).json({ error: "Invalid or expired pairing code" });
       return;
     }
@@ -417,22 +418,27 @@ router.post(
         displayName: hostsTable.displayName,
       })
       .from(hostsTable)
-      .where(eq(hostsTable.id, redeemed.hostId));
+      .where(eq(hostsTable.id, row.hostId));
 
     if (!host) {
       res.status(404).json({ error: "Host not found" });
       return;
     }
 
+    await db
+      .update(agentPairingCodesTable)
+      .set({ usedAt: now, agentPubkey: agentPubkey ?? null })
+      .where(eq(agentPairingCodesTable.id, row.id));
+
     if (agentPubkey) {
       await db
         .update(hostsTable)
         .set({ agentPubkey: agentPubkey })
-        .where(eq(hostsTable.id, redeemed.hostId));
+        .where(eq(hostsTable.id, row.hostId));
     }
 
     await clearFailedAttempts("agent:pair", req);
-    req.log.info({ hostId: redeemed.hostId }, "Agent paired via 6-digit code");
+    req.log.info({ hostId: row.hostId }, "Agent paired via 6-digit code");
     res.json({ hostToken: host.hostToken, displayName: host.displayName });
   },
 );
