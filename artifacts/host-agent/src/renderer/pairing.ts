@@ -11,9 +11,24 @@ export const pairingCard =
   (document.getElementById("pairing-card") as HTMLElement | null) ??
   (document.getElementById("pairing-card-inner") as HTMLElement);
 
-async function applyPendingApiBaseUrl(): Promise<string> {
+/** Resolve API base URL for pairing — optional deep-link hint avoids double consume races. */
+async function resolvePairingApiBaseUrl(hint?: string | null): Promise<string> {
   const cfg = await window.agent.getConfig();
   let apiBaseUrl = ($("apiBaseUrl") as HTMLInputElement).value.trim() || cfg.apiBaseUrl;
+  const fromHint = hint?.trim();
+  if (fromHint) {
+    apiBaseUrl = fromHint;
+    ($("apiBaseUrl") as HTMLInputElement).value = fromHint;
+    if (!cfg.apiBaseUrl?.trim()) {
+      await window.agent.setConfig({ ...cfg, apiBaseUrl: fromHint });
+    }
+    try {
+      await window.agent.consumePendingApiBaseUrl();
+    } catch {
+      /* ignore */
+    }
+    return apiBaseUrl;
+  }
   try {
     const pending = await window.agent.consumePendingApiBaseUrl();
     if (pending) {
@@ -30,10 +45,13 @@ async function applyPendingApiBaseUrl(): Promise<string> {
 }
 
 /** Submit a 6-digit pairing code — auto-filled from dashboard deep link (U-34). */
-export async function submitPairingCode(forcedCode?: string): Promise<void> {
+export async function submitPairingCode(
+  forcedCode?: string,
+  apiBaseUrlHint?: string | null,
+): Promise<void> {
   const code = (forcedCode ?? pairingCodeInput.value).trim();
   const cfg = await window.agent.getConfig();
-  const apiBaseUrl = await applyPendingApiBaseUrl();
+  const apiBaseUrl = await resolvePairingApiBaseUrl(apiBaseUrlHint);
   if (!/^\d{6}$/.test(code)) {
     pairingStatusEl.textContent = "Введи 6 цифр с сайта";
     return;
@@ -93,7 +111,24 @@ export async function initPairingFromDeepLink(): Promise<void> {
   if (!pending) return;
   pairingCodeInput.value = pending;
   pairingStatusEl.textContent = "Код с дашборда — подключаем…";
-  await submitPairingCode(pending);
+  let apiHint: string | null = null;
+  try {
+    apiHint = await window.agent.consumePendingApiBaseUrl();
+  } catch {
+    apiHint = null;
+  }
+  await submitPairingCode(pending, apiHint);
+}
+
+/** Handle live `agent:deep-link` while the agent is already running (M-266). */
+export async function handlePairingDeepLink(payload: {
+  apiBaseUrl: string | null;
+  pairCode: string | null;
+}): Promise<void> {
+  if (!payload.pairCode?.trim()) return;
+  pairingCodeInput.value = payload.pairCode;
+  pairingStatusEl.textContent = "Код с дашборда — подключаем…";
+  await submitPairingCode(payload.pairCode, payload.apiBaseUrl);
 }
 
 pairingSubmitBtn.addEventListener("click", () => void submitPairingCode());
@@ -102,14 +137,7 @@ pairingCodeInput.addEventListener("keydown", (e) => {
 });
 
 window.agent.onDeepLink((payload) => {
-  if (payload.apiBaseUrl) {
-    void applyPendingApiBaseUrl();
-  }
-  if (payload.pairCode) {
-    pairingCodeInput.value = payload.pairCode;
-    pairingStatusEl.textContent = "Код с дашборда — подключаем…";
-    void submitPairingCode(payload.pairCode);
-  }
+  void handlePairingDeepLink(payload);
 });
 
 void initPairingFromDeepLink();
