@@ -17,6 +17,8 @@ const {
   isPreSessionBlockOptionAffordable,
   computePreSessionTargetCostLzt,
   computePreSessionShortfallLzt,
+  computePreSessionLaunchMinimumLzt,
+  computePreSessionPlayableBalanceLzt,
   needsPreSessionInlineTopUp,
   formatPreSessionShortfallHint,
 } = await import("../src/components/pre-session-screen.tsx");
@@ -74,11 +76,12 @@ test("computeSelectedBlockMins returns null for unlimited choice", () => {
 });
 
 test("computePreSessionCanStart requires balance, affordable block and non-test session", () => {
-  assert.equal(computePreSessionCanStart(false, 10, true, false), true);
-  assert.equal(computePreSessionCanStart(true, 10, true, false), false);
-  assert.equal(computePreSessionCanStart(false, 0, true, false), false);
-  assert.equal(computePreSessionCanStart(false, 10, false, false), false);
-  assert.equal(computePreSessionCanStart(false, 10, true, true), false);
+  assert.equal(computePreSessionCanStart(false, 10, true, false, true), true);
+  assert.equal(computePreSessionCanStart(true, 10, true, false, true), false);
+  assert.equal(computePreSessionCanStart(false, 0, true, false, true), false);
+  assert.equal(computePreSessionCanStart(false, 10, false, false, true), false);
+  assert.equal(computePreSessionCanStart(false, 10, true, true, true), false);
+  assert.equal(computePreSessionCanStart(false, 10, true, false, false), false);
 });
 
 test("getPreSessionMinsAvailableColor uses green, yellow and red thresholds", () => {
@@ -116,6 +119,8 @@ test("getPreSessionStartButtonLabel reserves block cost when selected", () => {
 test("isPreSessionBlockOptionAffordable compares block cost to balance", () => {
   assert.equal(isPreSessionBlockOptionAffordable(100, 10, 8), true);
   assert.equal(isPreSessionBlockOptionAffordable(79, 10, 8), false);
+  assert.equal(isPreSessionBlockOptionAffordable(99, 10, 8, 20), false);
+  assert.equal(isPreSessionBlockOptionAffordable(120, 10, 8, 20), true);
 });
 
 test("PRE_SESSION_TARGET_MINS is 30 (U-46)", () => {
@@ -125,11 +130,23 @@ test("PRE_SESSION_TARGET_MINS is 30 (U-46)", () => {
 test("computePreSessionTargetCostLzt multiplies price by target minutes", () => {
   assert.equal(computePreSessionTargetCostLzt(10), 300);
   assert.equal(computePreSessionTargetCostLzt(8, 15), 120);
+  assert.equal(computePreSessionTargetCostLzt(10, 30, 200), 500);
 });
 
 test("computePreSessionShortfallLzt returns deficit for 30-minute play", () => {
   assert.equal(computePreSessionShortfallLzt(100, 10), 200);
   assert.equal(computePreSessionShortfallLzt(300, 10), 0);
+  assert.equal(computePreSessionShortfallLzt(250, 10, 30, 200), 250);
+});
+
+test("computePreSessionLaunchMinimumLzt includes launch fee and first minute", () => {
+  assert.equal(computePreSessionLaunchMinimumLzt(100, 200, null), 300);
+  assert.equal(computePreSessionLaunchMinimumLzt(100, 200, 10), 1200);
+});
+
+test("computePreSessionPlayableBalanceLzt subtracts launch fee", () => {
+  assert.equal(computePreSessionPlayableBalanceLzt(250, 200), 50);
+  assert.equal(computePreSessionPlayableBalanceLzt(150, 200), 0);
 });
 
 test("needsPreSessionInlineTopUp when under 30 minutes or block unaffordable", () => {
@@ -146,6 +163,10 @@ test("formatPreSessionShortfallHint explains 30-minute need in Russian (U-46)", 
   assert.match(
     formatPreSessionShortfallHint(400, 10),
     /баланс достаточен/,
+  );
+  assert.match(
+    formatPreSessionShortfallHint(250, 10, 30, 200),
+    /включая 200 LZT за запуск/,
   );
 });
 

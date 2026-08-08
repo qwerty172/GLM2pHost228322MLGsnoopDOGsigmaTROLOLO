@@ -348,9 +348,9 @@ export default function Play() {
   useEffect(() => {
     if (!wallet || !session) return;
     const src = (session as typeof session & { paymentSource?: string }).paymentSource;
-    const bal = computeWalletBalanceForSession(wallet, src);
-    setEstimatedBalanceLzt(bal);
     const rateLztPerMin = Math.round(Number(session.ratePerMinute) * LZT_PER_USDT);
+    const bal = computeWalletBalanceForSession(wallet, src, rateLztPerMin);
+    setEstimatedBalanceLzt(bal);
     ratePerSecLztRef.current = rateLztPerMin / 60;
   }, [wallet, session]);
 
@@ -1326,6 +1326,7 @@ export default function Play() {
       gameTitle?: string | null;
       hostDisplayName?: string;
       pricePerMinuteLzt?: number;
+      launchPriceLzt?: number;
       isTest?: boolean;
     };
 
@@ -1348,6 +1349,7 @@ export default function Play() {
         gameTitle={s.gameTitle || session.appName}
         coverImageUrl={s.gameCoverImageUrl}
         pricePerMinuteLzt={s.pricePerMinuteLzt ?? computeRatePerMinLzt(session.ratePerMinute)}
+        launchFeeLzt={s.launchPriceLzt ?? 0}
         resolution={session.resolution}
         bitrateKbps={session.bitrateKbps}
         wallet={wallet}

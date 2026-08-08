@@ -79,8 +79,15 @@ export function computePreSessionCanStart(
   minsAvailable: number,
   blockAffordable: boolean,
   isTest: boolean | undefined,
+  meetsLaunchMinimum: boolean,
 ): boolean {
-  return !sessionEnded && minsAvailable >= 1 && blockAffordable && !isTest;
+  return (
+    !sessionEnded &&
+    minsAvailable >= 1 &&
+    blockAffordable &&
+    meetsLaunchMinimum &&
+    !isTest
+  );
 }
 
 export function getPreSessionMinsAvailableColor(minsAvailable: number): string {
@@ -122,23 +129,49 @@ export function isPreSessionBlockOptionAffordable(
   totalAvailableLzt: number,
   blockMins: 10 | 15 | 25,
   pricePerMinuteLzt: number,
+  launchFeeLzt = 0,
 ): boolean {
-  return totalAvailableLzt >= blockMins * pricePerMinuteLzt;
+  return totalAvailableLzt >= launchFeeLzt + blockMins * pricePerMinuteLzt;
+}
+
+export function computePreSessionLaunchMinimumLzt(
+  pricePerMinuteLzt: number,
+  launchFeeLzt: number,
+  blockMins: number | null,
+): number {
+  const streamingLzt =
+    blockMins !== null && pricePerMinuteLzt > 0
+      ? blockMins * pricePerMinuteLzt
+      : pricePerMinuteLzt;
+  return launchFeeLzt + Math.max(0, streamingLzt);
+}
+
+export function computePreSessionPlayableBalanceLzt(
+  totalAvailableLzt: number,
+  launchFeeLzt: number,
+): number {
+  return Math.max(0, totalAvailableLzt - launchFeeLzt);
 }
 
 export function computePreSessionTargetCostLzt(
   pricePerMinuteLzt: number,
   targetMins = PRE_SESSION_TARGET_MINS,
+  launchFeeLzt = 0,
 ): number {
-  return pricePerMinuteLzt * targetMins;
+  return launchFeeLzt + pricePerMinuteLzt * targetMins;
 }
 
 export function computePreSessionShortfallLzt(
   totalAvailableLzt: number,
   pricePerMinuteLzt: number,
   targetMins = PRE_SESSION_TARGET_MINS,
+  launchFeeLzt = 0,
 ): number {
-  const needed = computePreSessionTargetCostLzt(pricePerMinuteLzt, targetMins);
+  const needed = computePreSessionTargetCostLzt(
+    pricePerMinuteLzt,
+    targetMins,
+    launchFeeLzt,
+  );
   return Math.max(0, needed - totalAvailableLzt);
 }
 
@@ -154,17 +187,27 @@ export function formatPreSessionShortfallHint(
   totalAvailableLzt: number,
   pricePerMinuteLzt: number,
   targetMins = PRE_SESSION_TARGET_MINS,
+  launchFeeLzt = 0,
 ): string {
-  const needed = computePreSessionTargetCostLzt(pricePerMinuteLzt, targetMins);
+  const needed = computePreSessionTargetCostLzt(
+    pricePerMinuteLzt,
+    targetMins,
+    launchFeeLzt,
+  );
   const shortfall = computePreSessionShortfallLzt(
     totalAvailableLzt,
     pricePerMinuteLzt,
     targetMins,
+    launchFeeLzt,
   );
+  const launchHint =
+    launchFeeLzt > 0
+      ? ` (включая ${launchFeeLzt.toLocaleString("ru-RU")} LZT за запуск)`
+      : "";
   if (shortfall <= 0) {
-    return `На ${targetMins} минут нужно ${needed.toLocaleString("ru-RU")} LZT — баланс достаточен.`;
+    return `На ${targetMins} минут нужно ${needed.toLocaleString("ru-RU")} LZT${launchHint} — баланс достаточен.`;
   }
-  return `На ${targetMins} минут нужно ${needed.toLocaleString("ru-RU")} LZT — не хватает ${shortfall.toLocaleString("ru-RU")} LZT.`;
+  return `На ${targetMins} минут нужно ${needed.toLocaleString("ru-RU")} LZT${launchHint} — не хватает ${shortfall.toLocaleString("ru-RU")} LZT.`;
 }
 
 export function PreSessionScreen({
@@ -172,6 +215,7 @@ export function PreSessionScreen({
   gameTitle,
   coverImageUrl,
   pricePerMinuteLzt,
+  launchFeeLzt = 0,
   resolution,
   bitrateKbps,
   wallet,
@@ -192,6 +236,7 @@ export function PreSessionScreen({
   gameTitle: string;
   coverImageUrl?: string | null;
   pricePerMinuteLzt: number;
+  launchFeeLzt?: number;
   resolution?: string;
   bitrateKbps?: number;
   wallet?: PreSessionWalletLike;
@@ -234,20 +279,34 @@ export function PreSessionScreen({
   }, []);
 
   const { totalAvailableLzt, creditAvailable } = computePreSessionWalletTotals(wallet);
-  const minsAvailable = computeMinsAvailable(totalAvailableLzt, pricePerMinuteLzt);
+  const playableBalanceLzt = computePreSessionPlayableBalanceLzt(
+    totalAvailableLzt,
+    launchFeeLzt,
+  );
+  const minsAvailable = computeMinsAvailable(playableBalanceLzt, pricePerMinuteLzt);
 
   const selectedBlockMins = computeSelectedBlockMins(blockChoice);
   const blockCost = selectedBlockMins ? selectedBlockMins * pricePerMinuteLzt : null;
-  const blockAffordable = canAffordBlock(totalAvailableLzt, blockCost);
+  const blockAffordable = canAffordBlock(
+    totalAvailableLzt,
+    blockCost !== null ? launchFeeLzt + blockCost : null,
+  );
+  const launchMinimumLzt = computePreSessionLaunchMinimumLzt(
+    pricePerMinuteLzt,
+    launchFeeLzt,
+    selectedBlockMins,
+  );
+  const meetsLaunchMinimum = totalAvailableLzt >= launchMinimumLzt;
   const canStart = computePreSessionCanStart(
     sessionEnded,
     minsAvailable,
     blockAffordable,
     isTest,
+    meetsLaunchMinimum,
   );
   const needsInlineTopUp = !isTest && needsPreSessionInlineTopUp(minsAvailable, blockAffordable);
   const shortfallHint = !isTest
-    ? formatPreSessionShortfallHint(totalAvailableLzt, pricePerMinuteLzt)
+    ? formatPreSessionShortfallHint(totalAvailableLzt, pricePerMinuteLzt, PRE_SESSION_TARGET_MINS, launchFeeLzt)
     : "";
   const usdtDepositAddress = findUsdtTrc20Address(depositAddresses);
   const priceLabel = formatPreSessionPriceLabel(isTest, pricePerMinuteLzt);
@@ -347,6 +406,11 @@ export function PreSessionScreen({
                 {priceLabel.price} LZT
               </p>
               <p className="text-[10px] text-slate-500 mt-0.5">{priceLabel.subtitle}</p>
+              {!isTest && launchFeeLzt > 0 && (
+                <p className="text-[10px] text-amber-400/90 mt-1">
+                  + {launchFeeLzt.toLocaleString("ru-RU")} LZT за запуск
+                </p>
+              )}
             </div>
           </div>
 
@@ -547,6 +611,7 @@ export function PreSessionScreen({
                     totalAvailableLzt,
                     opt.mins,
                     pricePerMinuteLzt,
+                    launchFeeLzt,
                   );
                   return (
                     <button
@@ -584,9 +649,10 @@ export function PreSessionScreen({
                 <p className="text-[10px] text-slate-500 mt-2">
                   Стоимость блока:{" "}
                   <span className="text-sky-400 font-mono">
-                    {blockCost.toLocaleString("ru-RU")} LZT
-                  </span>{" "}
-                  — резервируется заранее, остаток возвращается.
+                    {(launchFeeLzt + blockCost).toLocaleString("ru-RU")} LZT
+                  </span>
+                  {launchFeeLzt > 0 ? " (запуск + блок)" : ""} — резервируется заранее, остаток
+                  возвращается.
                 </p>
               )}
             </div>
@@ -713,7 +779,7 @@ export function PreSessionScreen({
                 </>
               )}
             </Button>
-          ) : minsAvailable < 1 || !blockAffordable ? (
+          ) : minsAvailable < 1 || !blockAffordable || !meetsLaunchMinimum ? (
             <Button
               type="button"
               className="w-full h-11 font-bold text-sm rounded-xl"

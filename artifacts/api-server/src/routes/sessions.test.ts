@@ -634,6 +634,7 @@ describe("GET /sessions/by-player-token/:playerToken", () => {
           browserHostUrl: GAME_ROW.browserHostUrl,
         },
         hostBoundUrl: null,
+        launchPriceUsd: "1",
       },
     ]);
     const res = await request("GET", `/sessions/by-player-token/${PLAYER_TOKEN}`);
@@ -644,6 +645,7 @@ describe("GET /sessions/by-player-token/:playerToken", () => {
       gameSlug: GAME_ROW.slug,
       gameTitle: GAME_ROW.title,
       gameBrowserHostUrl: GAME_ROW.browserHostUrl,
+      launchPriceLzt: 200,
     });
   });
 });

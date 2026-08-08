@@ -548,6 +548,7 @@ router.get(
           browserHostUrl: gamesTable.browserHostUrl,
         },
         hostBoundUrl: hostsTable.boundUrl,
+        launchPriceUsd: hostsTable.launchPriceUsd,
       })
       .from(sessionsTable)
       .leftJoin(gamesTable, eq(sessionsTable.gameId, gamesTable.id))
@@ -559,7 +560,10 @@ router.get(
       return;
     }
 
-    const { session, game, hostBoundUrl } = rows[0];
+    const { session, game, hostBoundUrl, launchPriceUsd } = rows[0];
+    const launchPriceLzt = Math.round(
+      Math.max(0, Number(launchPriceUsd ?? 0)) * 200,
+    );
 
     // For self-test sessions the host's own bound browser URL wins over the
     // catalog game's URL — the host is testing exactly what they configured.
@@ -581,6 +585,8 @@ router.get(
       gameSlug: game?.slug ?? null,
       gameCoverImageUrl: game?.coverImageUrl ?? null,
       gameTitle: session.isTest ? session.appName : game?.title ?? null,
+      // One-time host launch fee in LZT — required for pre-session affordability UI.
+      launchPriceLzt,
       // For isTest sessions with a browser game, the play page renders an
       // iframe directly (no WebRTC / no agent needed).
       gameBrowserHostUrl: effectiveBrowserUrl,

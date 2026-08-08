@@ -152,7 +152,7 @@ test("getConnectionBadgeLabel covers reconnecting and connection states", () => 
 
 test("computeWalletBalanceForSession uses payment source from session", () => {
   const wallet = { withdrawableBalanceLzt: 100, internalBalanceLzt: 40 };
-  assert.equal(computeWalletBalanceForSession(wallet, "auto"), 140);
+  assert.equal(computeWalletBalanceForSession(wallet, "auto", 100), 100);
   assert.equal(computeWalletBalanceForSession(wallet, "green"), 100);
   assert.equal(computeWalletBalanceForSession(wallet, "blue"), 40);
   assert.equal(computeWalletBalanceForSession(null, "auto"), 0);

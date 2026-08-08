@@ -154,6 +154,7 @@ export function computeWalletBalanceForSession(
     | null
     | undefined,
   paymentSource: string | null | undefined,
+  ratePerMinLzt = 0,
 ): number {
   if (!wallet) return 0;
   const greenLzt = wallet.withdrawableBalanceLzt ?? 0;
@@ -161,7 +162,14 @@ export function computeWalletBalanceForSession(
   const src = paymentSource ?? "auto";
   if (src === "blue") return blueLzt;
   if (src === "green") return greenLzt;
-  return greenLzt + blueLzt;
+  // Billing never combines buckets — estimate billable LZT per bucket, then sum.
+  if (ratePerMinLzt > 0) {
+    return (
+      Math.floor(greenLzt / ratePerMinLzt) * ratePerMinLzt +
+      Math.floor(blueLzt / ratePerMinLzt) * ratePerMinLzt
+    );
+  }
+  return Math.max(greenLzt, blueLzt);
 }
 
 /** U-25: touch overlays (gamepad + on-screen keyboard) default on when maxTouchPoints > 0. */
