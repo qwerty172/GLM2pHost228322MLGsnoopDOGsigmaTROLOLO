@@ -7,6 +7,36 @@ import type {
 
 export type SessionFailureReason = "game_unavailable" | "host_offline" | "error";
 
+export type SessionConnectResult =
+  | { ok: true; inviteCode: string }
+  | { ok: false; reason: SessionFailureReason };
+
+export type SessionConnectNavigation =
+  | { action: "play"; inviteCode: string }
+  | { action: "game_page"; slug: string };
+
+/**
+ * Where to navigate after POST /public/sessions from the hosts catalog.
+ * On game_unavailable the host is live for a different title — do not fall
+ * back to the list invite or the player lands in the wrong session/rate.
+ */
+export function resolveSessionConnectNavigation(
+  result: SessionConnectResult,
+  gameSlug: string,
+  fallbackInviteCode: string | null,
+): SessionConnectNavigation {
+  if (result.ok) {
+    return { action: "play", inviteCode: result.inviteCode };
+  }
+  if (result.reason === "game_unavailable") {
+    return { action: "game_page", slug: gameSlug };
+  }
+  if (fallbackInviteCode) {
+    return { action: "play", inviteCode: fallbackInviteCode };
+  }
+  return { action: "game_page", slug: gameSlug };
+}
+
 export function formatPrice(usd: number): string {
   const sign = usd < 0 ? "−" : "";
   return `${sign}$${Math.abs(usd).toFixed(2)}`;
