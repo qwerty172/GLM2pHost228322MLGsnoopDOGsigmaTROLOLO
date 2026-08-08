@@ -1,6 +1,6 @@
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
-import { setupRendererEnv } from "./helpers/renderer-env.mjs";
+import { setupRendererEnv, resetAgentConfig, defaultHostConfig } from "./helpers/renderer-env.mjs";
 
 setupRendererEnv();
 const {
@@ -24,6 +24,52 @@ test("initAgentKey prefills bind code from URL hash", async () => {
   await initAgentKey();
   assert.equal(document.getElementById("agentBindCode").value, "ABC123");
   window.location.hash = "";
+});
+
+test("initAgentKey re-binds when pairing saves hostToken during init", async () => {
+  resetAgentConfig();
+  Object.assign(defaultHostConfig, { hostToken: "", apiBaseUrl: "https://platform.example.com" });
+  document.getElementById("agentBindCode").value = "";
+
+  const agent = window.agent;
+  const bindCalls = [];
+  const origGetConfig = agent.getConfig;
+  let getConfigCalls = 0;
+  agent.getConfig = async () => {
+    getConfigCalls += 1;
+    const base = {
+      ...defaultHostConfig,
+      apiBaseUrl: "https://platform.example.com",
+    };
+    return getConfigCalls === 1
+      ? { ...base, hostToken: "" }
+      : { ...base, hostToken: "late-paired-token" };
+  };
+  agent.bindAgentKey = async (...args) => {
+    bindCalls.push(args);
+    return { ok: true };
+  };
+
+  const fetchRestore = mock.method(globalThis, "fetch", async (url) => {
+    if (String(url).includes("/api/hosts/")) {
+      return {
+        ok: true,
+        json: async () => ({ agentKeyBound: false }),
+      };
+    }
+    return { ok: false, json: async () => ({}) };
+  });
+
+  try {
+    await initAgentKey();
+    assert.equal(bindCalls.length, 1);
+    assert.equal(bindCalls[0][0], "late-paired-token");
+    assert.match(agentKeyStatusEl.textContent, /привязан/i);
+  } finally {
+    agent.getConfig = origGetConfig;
+    fetchRestore.mock.restore();
+    resetAgentConfig();
+  }
 });
 
 test("fetchAgentKeyBound returns true when host reports agentKeyBound", async () => {
