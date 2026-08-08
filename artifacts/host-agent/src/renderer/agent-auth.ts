@@ -164,7 +164,35 @@ export async function initAgentKey(): Promise<void> {
     }
   }
 
-  applyBoundAgentKeyUi(bound, hasCredentials);
+  // Deep-link pairing may finish after we snapshot hasCredentials — re-read once.
+  let effectiveHasCredentials = hasCredentials;
+  if (!bound) {
+    const freshCfg = await window.agent.getConfig();
+    effectiveHasCredentials = Boolean(
+      freshCfg.hostToken?.trim() && freshCfg.apiBaseUrl?.trim(),
+    );
+    if (effectiveHasCredentials) {
+      bound = await tryAutoBindAgentKey(freshCfg);
+      if (bound) {
+        void runUploadSpeedtest(freshCfg.apiBaseUrl, freshCfg.hostToken);
+      }
+    }
+  }
+
+  applyBoundAgentKeyUi(bound, effectiveHasCredentials);
+}
+
+/** Bind agent pubkey after pairing saves hostToken (deep-link .exe onboarding). */
+export async function bindAgentKeyAfterCredentials(cfg: {
+  hostToken: string;
+  apiBaseUrl: string;
+}): Promise<boolean> {
+  const bound = await tryAutoBindAgentKey(cfg);
+  applyBoundAgentKeyUi(bound, true);
+  if (bound) {
+    void runUploadSpeedtest(cfg.apiBaseUrl, cfg.hostToken);
+  }
+  return bound;
 }
 
 bindKeyBtn.addEventListener("click", async () => {

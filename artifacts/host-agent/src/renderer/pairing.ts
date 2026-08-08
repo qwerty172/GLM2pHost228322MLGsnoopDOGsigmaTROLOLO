@@ -1,6 +1,7 @@
 import { $ } from "./dom.js";
 import { loadLibrary, startLibraryPolling } from "./library.js";
 import { showSigninBanner } from "./auth.js";
+import { bindAgentKeyAfterCredentials } from "./agent-auth.js";
 import { showAutoQuotaCard } from "./quota.js";
 import { log } from "./ui.js";
 
@@ -70,6 +71,7 @@ export async function submitPairingCode(forcedCode?: string): Promise<void> {
     if (pairingCard) pairingCard.hidden = true;
     if (data.displayName) showSigninBanner(data.displayName, apiBaseUrl);
     log(`Вход по коду выполнен: ${data.displayName ?? data.hostToken.slice(0, 8)}…`);
+    await bindAgentKeyAfterCredentials(newCfg);
     await loadLibrary(newCfg);
     startLibraryPolling(newCfg);
     showAutoQuotaCard();
