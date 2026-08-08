@@ -18,6 +18,7 @@ import {
   mapSessionHttpStatus,
   readHostPcSpecs,
   resolveCoverImageUrl,
+  resolveSessionConnectNavigation,
   sortPublicHosts,
 } from "@/pages/hosts-helpers";
 import {
@@ -169,24 +170,18 @@ function PlayButton({
     games.find((g) => g.gameId === selectedGameId) ?? games[0] ?? null;
 
   // Connect to the host for a specific game via POST /api/public/sessions.
-  // - On success → navigate to /play/i/:inviteCode.
-  // - On game_unavailable → toast + fall back to list inviteCode when present.
-  // - On host_offline / error → same fallback, else game detail page.
   const connectToGame = async (game: PublicHostListItemGamesItem) => {
     setLoading(true);
     try {
       const result = await requestSession(hostId, game.gameId);
-      if (result.ok) {
-        navigate(`/play/i/${result.inviteCode}`);
-        return;
-      }
-      if (result.reason === "game_unavailable") {
+      if (!result.ok && result.reason === "game_unavailable") {
         toast.warning(`Игра «${game.title}» сейчас недоступна у этого хоста`);
       }
-      if (fallbackInviteCode) {
-        navigate(`/play/i/${fallbackInviteCode}`);
+      const next = resolveSessionConnectNavigation(result, game.slug, fallbackInviteCode);
+      if (next.action === "play") {
+        navigate(`/play/i/${next.inviteCode}`);
       } else {
-        navigate(`/games/${game.slug}`);
+        navigate(`/games/${next.slug}`);
       }
     } finally {
       setLoading(false);

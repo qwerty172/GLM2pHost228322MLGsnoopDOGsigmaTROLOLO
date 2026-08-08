@@ -8,6 +8,7 @@ const {
   getLatencyColor,
   computeTotalLatency,
   mapSessionHttpStatus,
+  resolveSessionConnectNavigation,
   readHostPcSpecs,
   getMinGamePriceLzt,
   sortPublicHosts,
@@ -60,6 +61,28 @@ test("mapSessionHttpStatus maps API errors to session failure reasons", () => {
   assert.equal(mapSessionHttpStatus(404), "host_offline");
   assert.equal(mapSessionHttpStatus(500), "error");
   assert.equal(mapSessionHttpStatus(undefined), "error");
+});
+
+test("resolveSessionConnectNavigation does not fallback on game_unavailable", () => {
+  const unavailable = { ok: false, reason: "game_unavailable" };
+  assert.deepEqual(resolveSessionConnectNavigation(unavailable, "cyberpunk", "other-invite"), {
+    action: "game_page",
+    slug: "cyberpunk",
+  });
+});
+
+test("resolveSessionConnectNavigation uses invite on success", () => {
+  assert.deepEqual(
+    resolveSessionConnectNavigation({ ok: true, inviteCode: "abc123" }, "cyberpunk", null),
+    { action: "play", inviteCode: "abc123" },
+  );
+});
+
+test("resolveSessionConnectNavigation falls back to list invite on host_offline", () => {
+  assert.deepEqual(
+    resolveSessionConnectNavigation({ ok: false, reason: "host_offline" }, "cyberpunk", "list-inv"),
+    { action: "play", inviteCode: "list-inv" },
+  );
 });
 
 test("readHostPcSpecs returns null for missing or empty specs", () => {
