@@ -3,9 +3,8 @@ import assert from "node:assert/strict";
 import { setupRendererEnv, resetAgentConfig } from "./helpers/renderer-env.mjs";
 
 setupRendererEnv();
-const { pairingCard, submitPairingCode, initPairingFromDeepLink } = await import(
-  "../dist/renderer/renderer/pairing.js"
-);
+const { pairingCard, submitPairingCode, initPairingFromDeepLink, handlePairingDeepLink } =
+  await import("../dist/renderer/renderer/pairing.js");
 const { session } = await import("../dist/renderer/renderer/state.js");
 
 test("pairing module exposes pairing inputs inside troubleshoot panel", () => {
@@ -75,6 +74,49 @@ test("initPairingFromDeepLink auto-submits pending pair code from agent (U-34)",
     assert.equal(document.getElementById("hostToken").value, "new-host-token");
   } finally {
     agent.consumePendingPairCode = origConsume;
+    fetchRestore.mock.restore();
+    if (session.libraryRefreshTimer) {
+      clearInterval(session.libraryRefreshTimer);
+      session.libraryRefreshTimer = null;
+    }
+    resetAgentConfig();
+  }
+});
+
+test("handlePairingDeepLink uses api hint when pending URL was already consumed (M-266 race)", async () => {
+  resetAgentConfig();
+  const pairingCodeInput = document.getElementById("pairing-code");
+  const pairingStatusEl = document.getElementById("pairing-status");
+  const apiInput = document.getElementById("apiBaseUrl");
+
+  const agent = window.agent;
+  const origConsumeApi = agent.consumePendingApiBaseUrl;
+  agent.consumePendingApiBaseUrl = async () => null;
+
+  const fetchRestore = mock.method(globalThis, "fetch", async (url) => {
+    if (String(url).includes("/api/auth/agent-pair")) {
+      assert.equal(String(url).startsWith("https://platform.example.com"), true);
+      return {
+        ok: true,
+        json: async () => ({ hostToken: "hint-host-token", displayName: "Hint Host" }),
+      };
+    }
+    return { ok: false, json: async () => ({}) };
+  });
+
+  try {
+    apiInput.value = "";
+    pairingCodeInput.value = "";
+    pairingStatusEl.textContent = "";
+    await handlePairingDeepLink({
+      apiBaseUrl: "https://platform.example.com",
+      pairCode: "112233",
+    });
+    assert.equal(apiInput.value, "https://platform.example.com");
+    assert.match(pairingStatusEl.textContent, /Подключено/);
+    assert.equal(document.getElementById("hostToken").value, "hint-host-token");
+  } finally {
+    agent.consumePendingApiBaseUrl = origConsumeApi;
     fetchRestore.mock.restore();
     if (session.libraryRefreshTimer) {
       clearInterval(session.libraryRefreshTimer);
