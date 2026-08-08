@@ -88,7 +88,18 @@ async function consumePendingPairCode(): Promise<string | null> {
   }
 }
 
+/** True when config already has a host token — deep-link pair must not overwrite it. */
+export async function agentAlreadyHasHostToken(): Promise<boolean> {
+  try {
+    const cfg = await window.agent.getConfig();
+    return Boolean(cfg.hostToken?.trim());
+  } catch {
+    return false;
+  }
+}
+
 export async function initPairingFromDeepLink(): Promise<void> {
+  if (await agentAlreadyHasHostToken()) return;
   const pending = await consumePendingPairCode();
   if (!pending) return;
   pairingCodeInput.value = pending;
@@ -106,9 +117,16 @@ window.agent.onDeepLink((payload) => {
     void applyPendingApiBaseUrl();
   }
   if (payload.pairCode) {
-    pairingCodeInput.value = payload.pairCode;
-    pairingStatusEl.textContent = "Код с дашборда — подключаем…";
-    void submitPairingCode(payload.pairCode);
+    void (async () => {
+      if (await agentAlreadyHasHostToken()) {
+        pairingStatusEl.textContent =
+          "Агент уже привязан — код из ссылки не применён. Используй свой дашборд.";
+        return;
+      }
+      pairingCodeInput.value = payload.pairCode!;
+      pairingStatusEl.textContent = "Код с дашборда — подключаем…";
+      await submitPairingCode(payload.pairCode!);
+    })();
   }
 });
 
