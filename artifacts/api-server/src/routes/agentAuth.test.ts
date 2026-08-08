@@ -423,7 +423,8 @@ describe("POST /auth/agent-pair", () => {
   it("pairs agent and returns host credentials", async () => {
     queueResults(
       [{ id: "pc-1", hostId: "host-1" }],
-      [{ hostToken: HOST_TOKEN, displayName: "Test Host" }],
+      [{ hostToken: HOST_TOKEN, displayName: "Test Host", agentPubkey: null }],
+      [{ id: "host-1" }],
     );
     const res = await request("POST", "/auth/agent-pair", {
       body: { code: "654321", agentPubkey: PUBKEY_HEX },
@@ -432,6 +433,27 @@ describe("POST /auth/agent-pair", () => {
     expect(res.json).toEqual({
       hostToken: HOST_TOKEN,
       displayName: "Test Host",
+    });
+  });
+
+  it("rejects pairing when a different agent key is already bound", async () => {
+    const otherPubkey = "aa".repeat(32);
+    queueResults(
+      [{ id: "pc-1", hostId: "host-1" }],
+      [
+        {
+          hostToken: HOST_TOKEN,
+          displayName: "Test Host",
+          agentPubkey: otherPubkey,
+        },
+      ],
+    );
+    const res = await request("POST", "/auth/agent-pair", {
+      body: { code: "654321", agentPubkey: PUBKEY_HEX },
+    });
+    expect(res.status).toBe(409);
+    expect(res.json).toMatchObject({
+      error: "A different key is already bound to this account",
     });
   });
 });

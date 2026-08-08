@@ -416,6 +416,7 @@ router.post(
       .select({
         hostToken: hostsTable.hostToken,
         displayName: hostsTable.displayName,
+        agentPubkey: hostsTable.agentPubkey,
       })
       .from(hostsTable)
       .where(eq(hostsTable.id, row.hostId));
@@ -425,16 +426,36 @@ router.post(
       return;
     }
 
+    if (agentPubkey) {
+      const existing = host.agentPubkey?.trim();
+      if (existing && existing !== agentPubkey) {
+        res
+          .status(409)
+          .json({ error: "A different key is already bound to this account" });
+        return;
+      }
+    }
+
     await db
       .update(agentPairingCodesTable)
       .set({ usedAt: now, agentPubkey: agentPubkey ?? null })
       .where(eq(agentPairingCodesTable.id, row.id));
 
     if (agentPubkey) {
-      await db
+      const [updated] = await db
         .update(hostsTable)
         .set({ agentPubkey: agentPubkey })
-        .where(eq(hostsTable.id, row.hostId));
+        .where(
+          sql`${hostsTable.id} = ${row.hostId} AND (${hostsTable.agentPubkey} IS NULL OR ${hostsTable.agentPubkey} = '' OR ${hostsTable.agentPubkey} = ${agentPubkey})`,
+        )
+        .returning({ id: hostsTable.id });
+
+      if (!updated) {
+        res
+          .status(409)
+          .json({ error: "A different key is already bound to this account" });
+        return;
+      }
     }
 
     await clearFailedAttempts("agent:pair", req);
