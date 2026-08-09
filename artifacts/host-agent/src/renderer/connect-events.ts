@@ -12,11 +12,12 @@ connectBtn.addEventListener("click", async () => {
     return;
   }
 
-  const cfg = await window.agent.setConfig(readForm());
-  if (!cfg.hostToken || !cfg.apiBaseUrl) {
+  const formCfg = readForm();
+  if (!formCfg.hostToken || !formCfg.apiBaseUrl) {
     setStatus("error", "Нужны токен хоста и URL платформы (или код привязки)");
     return;
   }
+  const cfg = await window.agent.setConfig(formCfg);
 
   const enabledLibGames = session.libraryEntries.filter(
     (e) => e.enabled && (e.boundUrl || e.localAvailable),
@@ -51,7 +52,12 @@ confirmGameBtn.addEventListener("click", async () => {
   }
   gamePickerCard.hidden = true;
   connectBtn.disabled = false;
-  const cfg = await window.agent.setConfig(readForm());
+  const formCfg = readForm();
+  if (!formCfg.hostToken || !formCfg.apiBaseUrl) {
+    log("Нужны токен хоста и URL платформы.");
+    return;
+  }
+  const cfg = await window.agent.setConfig(formCfg);
   session.currentGameId = gameId;
   await connect(cfg, gameId);
 });

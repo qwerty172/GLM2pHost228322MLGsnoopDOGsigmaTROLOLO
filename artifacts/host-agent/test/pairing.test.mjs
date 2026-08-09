@@ -83,3 +83,42 @@ test("initPairingFromDeepLink auto-submits pending pair code from agent (U-34)",
     resetAgentConfig();
   }
 });
+
+test("initPairingFromDeepLink then loadFormFromConfig keeps paired hostToken (startup race)", async () => {
+  resetAgentConfig();
+  const { loadFormFromConfig } = await import("../dist/renderer/renderer/config.js");
+  const pairingCodeInput = document.getElementById("pairing-code");
+  const pairingStatusEl = document.getElementById("pairing-status");
+
+  const agent = window.agent;
+  const origConsume = agent.consumePendingPairCode;
+  agent.consumePendingPairCode = async () => "654321";
+
+  const fetchRestore = mock.method(globalThis, "fetch", async (url) => {
+    if (String(url).includes("/api/auth/agent-pair")) {
+      return {
+        ok: true,
+        json: async () => ({ hostToken: "paired-host-token", displayName: "Paired Host" }),
+      };
+    }
+    return { ok: false, json: async () => ({}) };
+  });
+
+  try {
+    pairingCodeInput.value = "";
+    pairingStatusEl.textContent = "";
+    document.getElementById("hostToken").value = "";
+    await initPairingFromDeepLink();
+    const cfg = await loadFormFromConfig();
+    assert.equal(cfg.hostToken, "paired-host-token");
+    assert.equal(document.getElementById("hostToken").value, "paired-host-token");
+  } finally {
+    agent.consumePendingPairCode = origConsume;
+    fetchRestore.mock.restore();
+    if (session.libraryRefreshTimer) {
+      clearInterval(session.libraryRefreshTimer);
+      session.libraryRefreshTimer = null;
+    }
+    resetAgentConfig();
+  }
+});
