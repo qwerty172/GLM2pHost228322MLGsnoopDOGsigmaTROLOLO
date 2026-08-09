@@ -111,5 +111,3 @@ window.agent.onDeepLink((payload) => {
     void submitPairingCode(payload.pairCode);
   }
 });
-
-void initPairingFromDeepLink();

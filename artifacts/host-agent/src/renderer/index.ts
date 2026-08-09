@@ -14,6 +14,7 @@ import "./agent-auth.js";
 import "./pairing.js";
 
 import { loadFormFromConfig } from "./config.js";
+import { initPairingFromDeepLink } from "./pairing.js";
 import { initAgentKey, setConnectionTroubleshootVisible } from "./agent-auth.js";
 import { loadLibrary, startLibraryPolling } from "./library.js";
 import { showSigninBanner, validateHostToken } from "./auth.js";
@@ -23,7 +24,9 @@ import { teardown } from "./session.js";
 import { log } from "./ui.js";
 import { initUpdateBanner } from "./update-banner.js";
 
-void loadFormFromConfig().then(async (cfg) => {
+void (async () => {
+  await initPairingFromDeepLink();
+  const cfg = await loadFormFromConfig();
   window.agent.onInputPanic(() => {
     log("[panic] Ввод заблокирован — завершаем сессию");
     window.agent.killApp();
@@ -69,4 +72,4 @@ void loadFormFromConfig().then(async (cfg) => {
     log("Первый запуск — скачай агент с дашборда (ZIP с токеном). Если не вышло — «Если не подключается» ниже.");
     setConnectionTroubleshootVisible(true);
   }
-});
+})();
