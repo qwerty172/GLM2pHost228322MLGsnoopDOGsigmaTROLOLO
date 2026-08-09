@@ -62,3 +62,8 @@ CREATE INDEX IF NOT EXISTS "ledger_owner_created_idx"
 
 CREATE INDEX IF NOT EXISTS "loans_status_due_at_idx"
   ON "loans" USING btree ("status", "due_at");
+
+-- Active agent pairing codes must be globally unique (redeem is code-only).
+CREATE UNIQUE INDEX IF NOT EXISTS "agent_pairing_codes_active_code_unique_idx"
+  ON "agent_pairing_codes" USING btree ("code")
+  WHERE "used_at" IS NULL;

@@ -83,6 +83,17 @@ function generatePairingCode(): string {
   return String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
 }
 
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: string }).code === "23505"
+  );
+}
+
+const PAIRING_CODE_ISSUE_ATTEMPTS = 8;
+
 async function resolveHostFromHeader(req: import("express").Request) {
   const hostToken = headerUserToken(req);
   if (!hostToken) return null;
@@ -303,27 +314,28 @@ router.post("/auth/agent-pairing-code", async (req, res): Promise<void> => {
       ),
     );
 
-  let code = generatePairingCode();
-  for (let i = 0; i < 5; i++) {
-    const [conflict] = await db
-      .select({ id: agentPairingCodesTable.id })
-      .from(agentPairingCodesTable)
-      .where(
-        and(
-          eq(agentPairingCodesTable.code, code),
-          isNull(agentPairingCodesTable.usedAt),
-          gt(agentPairingCodesTable.expiresAt, now),
-        ),
-      );
-    if (!conflict) break;
-    code = generatePairingCode();
+  let code: string | null = null;
+  for (let attempt = 0; attempt < PAIRING_CODE_ISSUE_ATTEMPTS; attempt++) {
+    const candidate = generatePairingCode();
+    try {
+      await db.insert(agentPairingCodesTable).values({
+        hostId: host.id,
+        code: candidate,
+        expiresAt,
+      });
+      code = candidate;
+      break;
+    } catch (err) {
+      if (isUniqueViolation(err)) continue;
+      throw err;
+    }
   }
 
-  await db.insert(agentPairingCodesTable).values({
-    hostId: host.id,
-    code,
-    expiresAt,
-  });
+  if (!code) {
+    req.log.error({ hostId: host.id }, "Failed to issue unique pairing code");
+    res.status(503).json({ error: "Could not issue pairing code — try again" });
+    return;
+  }
 
   res.json({ code, expiresAt: expiresAt.toISOString() });
 });
@@ -393,53 +405,87 @@ router.post(
     const { code, agentPubkey } = parsed.data;
     const now = new Date();
 
-    const [row] = await db
-      .select({
-        id: agentPairingCodesTable.id,
-        hostId: agentPairingCodesTable.hostId,
-      })
-      .from(agentPairingCodesTable)
-      .where(
-        and(
-          eq(agentPairingCodesTable.code, code),
-          isNull(agentPairingCodesTable.usedAt),
-          gt(agentPairingCodesTable.expiresAt, now),
-        ),
-      );
+    type PairResult =
+      | { kind: "ok"; hostToken: string; displayName: string | null; hostId: string }
+      | { kind: "not_found" }
+      | { kind: "ambiguous" };
 
-    if (!row) {
+    let pairResult: PairResult;
+    try {
+      pairResult = await db.transaction(async (tx) => {
+        const rows = await tx
+          .select({
+            id: agentPairingCodesTable.id,
+            hostId: agentPairingCodesTable.hostId,
+          })
+          .from(agentPairingCodesTable)
+          .where(
+            and(
+              eq(agentPairingCodesTable.code, code),
+              isNull(agentPairingCodesTable.usedAt),
+              gt(agentPairingCodesTable.expiresAt, now),
+            ),
+          )
+          .for("update");
+
+        if (rows.length === 0) return { kind: "not_found" as const };
+        if (rows.length > 1) return { kind: "ambiguous" as const };
+
+        const row = rows[0]!;
+
+        const [host] = await tx
+          .select({
+            hostToken: hostsTable.hostToken,
+            displayName: hostsTable.displayName,
+          })
+          .from(hostsTable)
+          .where(eq(hostsTable.id, row.hostId));
+
+        if (!host) {
+          throw new Error("Host not found for pairing code");
+        }
+
+        await tx
+          .update(agentPairingCodesTable)
+          .set({ usedAt: now, agentPubkey: agentPubkey ?? null })
+          .where(eq(agentPairingCodesTable.id, row.id));
+
+        if (agentPubkey) {
+          await tx
+            .update(hostsTable)
+            .set({ agentPubkey })
+            .where(eq(hostsTable.id, row.hostId));
+        }
+
+        return {
+          kind: "ok" as const,
+          hostToken: host.hostToken,
+          displayName: host.displayName,
+          hostId: row.hostId,
+        };
+      });
+    } catch (err) {
+      req.log.error({ err, code }, "Agent pair transaction failed");
+      res.status(500).json({ error: "Pairing failed" });
+      return;
+    }
+
+    if (pairResult.kind === "not_found") {
       res.status(401).json({ error: "Invalid or expired pairing code" });
       return;
     }
-
-    const [host] = await db
-      .select({
-        hostToken: hostsTable.hostToken,
-        displayName: hostsTable.displayName,
-      })
-      .from(hostsTable)
-      .where(eq(hostsTable.id, row.hostId));
-
-    if (!host) {
-      res.status(404).json({ error: "Host not found" });
+    if (pairResult.kind === "ambiguous") {
+      req.log.error({ code }, "Ambiguous active pairing code");
+      res.status(409).json({ error: "Pairing code conflict — request a new code" });
       return;
     }
 
-    await db
-      .update(agentPairingCodesTable)
-      .set({ usedAt: now, agentPubkey: agentPubkey ?? null })
-      .where(eq(agentPairingCodesTable.id, row.id));
-
-    if (agentPubkey) {
-      await db
-        .update(hostsTable)
-        .set({ agentPubkey: agentPubkey })
-        .where(eq(hostsTable.id, row.hostId));
-    }
-
     await clearFailedAttempts("agent:pair", req);
-    req.log.info({ hostId: row.hostId }, "Agent paired via 6-digit code");
-    res.json({ hostToken: host.hostToken, displayName: host.displayName });
+    req.log.info({ hostId: pairResult.hostId }, "Agent paired via 6-digit code");
+    res.json({
+      hostToken: pairResult.hostToken,
+      displayName: pairResult.displayName,
+    });
   },
 );
 
