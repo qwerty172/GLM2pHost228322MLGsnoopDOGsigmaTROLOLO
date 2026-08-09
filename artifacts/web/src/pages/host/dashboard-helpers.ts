@@ -90,6 +90,34 @@ export type AgentDeepLinkParams = {
   pairCode?: string | null;
 };
 
+/** Bind + pair codes issued together for `decenthub://bind` one-click onboarding. */
+export type AgentDeepLinkBundle = {
+  bindCode: string;
+  pairCode: string;
+  expiresAt: number;
+};
+
+/** Reuse window — avoid re-issuing codes on repeat «Открыть в агенте» (invalidates prior link). */
+export const AGENT_DEEP_LINK_REUSE_MIN_MS = 60_000;
+
+export function canReuseAgentDeepLinkBundle(
+  bundle: AgentDeepLinkBundle | null | undefined,
+  nowMs: number = Date.now(),
+): bundle is AgentDeepLinkBundle {
+  if (!bundle) return false;
+  return bundle.expiresAt > nowMs + AGENT_DEEP_LINK_REUSE_MIN_MS;
+}
+
+export function pickAgentDeepLinkBundleExpiry(
+  bindExpiresAt: number | undefined | null,
+  pairExpiresAt: string | undefined | null,
+): number {
+  const bindMs = bindExpiresAt ?? 0;
+  const pairMs = pairExpiresAt ? new Date(pairExpiresAt).getTime() : 0;
+  if (bindMs > 0 && pairMs > 0) return Math.min(bindMs, pairMs);
+  return bindMs || pairMs || Date.now() + 10 * 60_000;
+}
+
 /** Build `decenthub://bind?...` for one-click .exe pairing from the dashboard (U-34). */
 export function buildAgentDeepLink(params: AgentDeepLinkParams): string {
   const api = params.apiBaseUrl.trim();

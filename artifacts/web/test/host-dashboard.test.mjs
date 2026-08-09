@@ -50,6 +50,9 @@ const {
   DECENTHUB_PROTOCOL_SCHEME,
   buildAgentDeepLink,
   parseAgentDeepLink,
+  canReuseAgentDeepLinkBundle,
+  pickAgentDeepLinkBundleExpiry,
+  AGENT_DEEP_LINK_REUSE_MIN_MS,
 } = await import("../src/pages/host/dashboard-helpers.ts");
 
 const offlineAgent = { status: "offline" };
@@ -669,5 +672,34 @@ test("buildAgentDeepLink without codes falls back to decenthub://open (U-34)", (
   assert.equal(
     buildAgentDeepLink({ apiBaseUrl: "https://app.example" }),
     "decenthub://open",
+  );
+});
+
+test("canReuseAgentDeepLinkBundle reuses valid bundle with >1min left", () => {
+  const now = 1_700_000_000_000;
+  const bundle = {
+    bindCode: "bind_x",
+    pairCode: "123456",
+    expiresAt: now + AGENT_DEEP_LINK_REUSE_MIN_MS + 5_000,
+  };
+  assert.equal(canReuseAgentDeepLinkBundle(bundle, now), true);
+});
+
+test("canReuseAgentDeepLinkBundle rejects bundle expiring within reuse window", () => {
+  const now = 1_700_000_000_000;
+  const bundle = {
+    bindCode: "bind_x",
+    pairCode: "123456",
+    expiresAt: now + AGENT_DEEP_LINK_REUSE_MIN_MS - 1,
+  };
+  assert.equal(canReuseAgentDeepLinkBundle(bundle, now), false);
+});
+
+test("pickAgentDeepLinkBundleExpiry uses earliest bind/pair expiry", () => {
+  const bindMs = 1_700_000_600_000;
+  const pairIso = new Date(1_700_000_300_000).toISOString();
+  assert.equal(
+    pickAgentDeepLinkBundleExpiry(bindMs, pairIso),
+    1_700_000_300_000,
   );
 });
