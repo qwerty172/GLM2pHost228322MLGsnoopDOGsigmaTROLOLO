@@ -44,6 +44,7 @@ function makeWhereChain() {
   const chain = {
     orderBy: orderByResult,
     limit: limitResult,
+    for: vi.fn(async () => nextResult()),
     then(
       resolve: (value: QueryResult) => void,
       reject?: (reason: unknown) => void,
@@ -85,6 +86,7 @@ const mockDb = {
       where: vi.fn(() => makeWhere()),
     })),
   })),
+  transaction: vi.fn(async (fn: (tx: typeof mockDb) => Promise<unknown>) => fn(mockDb)),
 };
 
 vi.mock("@workspace/db", () => ({
@@ -432,6 +434,20 @@ describe("POST /auth/agent-pair", () => {
     expect(res.json).toEqual({
       hostToken: HOST_TOKEN,
       displayName: "Test Host",
+    });
+  });
+
+  it("returns 409 when multiple active rows share the same pairing code", async () => {
+    queueResults([
+      { id: "pc-1", hostId: "host-1" },
+      { id: "pc-2", hostId: "host-2" },
+    ]);
+    const res = await request("POST", "/auth/agent-pair", {
+      body: { code: "111111" },
+    });
+    expect(res.status).toBe(409);
+    expect(res.json).toMatchObject({
+      error: "Pairing code conflict — request a new code",
     });
   });
 });
