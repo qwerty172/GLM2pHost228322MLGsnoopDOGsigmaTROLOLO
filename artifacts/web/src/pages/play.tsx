@@ -399,15 +399,14 @@ export default function Play() {
     };
   }, [session?.status, (session as typeof session & { endReason?: string | null })?.endReason, isPlaying, ratingSubmitted, hasClaimed]);
 
-  // Initialize block countdown from session data when session loads
+  // Initialize block countdown from server-reported remaining minutes (survives page refresh).
   useEffect(() => {
     if (!session || !isPlaying) return;
-    const s = session as typeof session & { blockMinutes?: number | null };
-    if (!s.blockMinutes) return;
+    if (!session.blockMinutes) return;
     if (blockMinsLeft === null) {
-      setBlockMinsLeft(s.blockMinutes);
+      setBlockMinsLeft(session.blockMinsRemaining ?? session.blockMinutes);
     }
-  }, [session?.id, isPlaying]);
+  }, [session?.id, session?.blockMinsRemaining, session?.blockMinutes, isPlaying, blockMinsLeft]);
 
   // Client-side block countdown: ticks every minute in sync with billing
   useEffect(() => {
@@ -721,9 +720,14 @@ export default function Play() {
           toast.info("Время блока закончилось");
           // Полноэкранную панель покажем когда API подтвердит status=ended
         } else if (type === "block-renewed") {
+          const remaining = (msg["minsRemaining"] as number | null | undefined) ?? null;
           const total = (msg["blockMinutes"] as number) ?? null;
           const added = (msg["addedMinutes"] as number) ?? 0;
-          if (total != null) setBlockMinsLeft(total);
+          if (remaining != null) {
+            setBlockMinsLeft(remaining);
+          } else if (total != null) {
+            setBlockMinsLeft(total);
+          }
           blockWarningShownRef.current = false;
           setPlayDock("none");
           toast.success(`Блок продлён на ${added} мин`);

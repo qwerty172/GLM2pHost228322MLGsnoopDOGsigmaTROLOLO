@@ -695,6 +695,12 @@ export const ListHostSessionsResponseItem = zod.object({
     .describe(
       "Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.",
     ),
+  blockMinsRemaining: zod
+    .number()
+    .nullish()
+    .describe(
+      "Minutes left in the prepaid block (null when blockMinutes is unset). Decreases as billing ticks accrue.",
+    ),
   blockReservedLzt: zod
     .number()
     .nullish()
@@ -1488,6 +1494,12 @@ export const GetSessionResponse = zod.object({
     .describe(
       "Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.",
     ),
+  blockMinsRemaining: zod
+    .number()
+    .nullish()
+    .describe(
+      "Minutes left in the prepaid block (null when blockMinutes is unset). Decreases as billing ticks accrue.",
+    ),
   blockReservedLzt: zod
     .number()
     .nullish()
@@ -1545,6 +1557,12 @@ export const GetSessionByPlayerTokenResponse = zod.object({
     .nullish()
     .describe(
       "Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.",
+    ),
+  blockMinsRemaining: zod
+    .number()
+    .nullish()
+    .describe(
+      "Minutes left in the prepaid block (null when blockMinutes is unset). Decreases as billing ticks accrue.",
     ),
   blockReservedLzt: zod
     .number()
@@ -1670,6 +1688,12 @@ export const GetSessionByInviteResponse = zod
       .describe(
         "Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.",
       ),
+    blockMinsRemaining: zod
+      .number()
+      .nullish()
+      .describe(
+        "Minutes left in the prepaid block (null when blockMinutes is unset). Decreases as billing ticks accrue.",
+      ),
     blockReservedLzt: zod
       .number()
       .nullish()
@@ -1768,6 +1792,12 @@ export const ClaimSessionResponse = zod.object({
     .describe(
       "Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.",
     ),
+  blockMinsRemaining: zod
+    .number()
+    .nullish()
+    .describe(
+      "Minutes left in the prepaid block (null when blockMinutes is unset). Decreases as billing ticks accrue.",
+    ),
   blockReservedLzt: zod
     .number()
     .nullish()
@@ -1831,6 +1861,12 @@ export const RenewSessionBlockResponse = zod.object({
     .describe(
       "Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.",
     ),
+  blockMinsRemaining: zod
+    .number()
+    .nullish()
+    .describe(
+      "Minutes left in the prepaid block (null when blockMinutes is unset). Decreases as billing ticks accrue.",
+    ),
   blockReservedLzt: zod
     .number()
     .nullish()
@@ -1892,6 +1928,12 @@ export const EndSessionResponse = zod.object({
     .nullish()
     .describe(
       "Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.",
+    ),
+  blockMinsRemaining: zod
+    .number()
+    .nullish()
+    .describe(
+      "Minutes left in the prepaid block (null when blockMinutes is unset). Decreases as billing ticks accrue.",
     ),
   blockReservedLzt: zod
     .number()

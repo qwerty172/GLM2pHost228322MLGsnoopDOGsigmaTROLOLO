@@ -5882,6 +5882,9 @@ components:
         blockMinutes:
           type: ["integer", "null"]
           description: Block size in minutes chosen at session start (10, 15, or 25). Null means unlimited per-minute billing.
+        blockMinsRemaining:
+          type: ["integer", "null"]
+          description: Minutes left in the prepaid block (null when blockMinutes is unset). Decreases as billing ticks accrue.
         blockReservedLzt:
           type: ["integer", "null"]
           description: Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.
