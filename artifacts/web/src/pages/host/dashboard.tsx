@@ -117,6 +117,9 @@ import {
   probeHostAgentExeAvailability,
   type HostAgentExeAvailability,
   buildAgentDeepLink,
+  canReuseAgentDeepLinkBundle,
+  pickAgentDeepLinkBundleExpiry,
+  type AgentDeepLinkBundle,
   evaluateHostReadiness,
   evaluateAgentVersionCompatibility,
   isAgentVersionBlockingStream,
@@ -1034,6 +1037,7 @@ function HostQuickStartCard({
 function AgentBindCodeCard({ hostToken, guided = false }: { hostToken: string; guided?: boolean }) {
   const [bindCode, setBindCode] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
+  const [deepLinkBundle, setDeepLinkBundle] = useState<AgentDeepLinkBundle | null>(null);
   const [loading, setLoading] = useState(false);
   const [openingAgent, setOpeningAgent] = useState(false);
 
@@ -1052,6 +1056,7 @@ function AgentBindCodeCard({ hostToken, guided = false }: { hostToken: string; g
       }
       setBindCode(json.bindCode);
       setExpiresAt(json.expiresAt ?? null);
+      setDeepLinkBundle(null);
       toast.success("Код привязки создан — вставь в агент или запусти с --bind-code=…");
     } catch (err) {
       const msg = (err as { data?: { error?: string } }).data?.error;
@@ -1062,22 +1067,32 @@ function AgentBindCodeCard({ hostToken, guided = false }: { hostToken: string; g
   };
 
   const openInAgent = async () => {
+    if (openingAgent) return;
     setOpeningAgent(true);
     try {
-      const [bindRes, pairRes] = await Promise.all([
-        issueAgentBindCode({ headers: authHeaders }),
-        issueAgentPairingCode({ headers: authHeaders }),
-      ]);
-      if (!bindRes.bindCode || !pairRes.code) {
-        toast.error("Не удалось выдать код привязки");
-        return;
+      let bundle = deepLinkBundle;
+      if (!canReuseAgentDeepLinkBundle(bundle)) {
+        const [bindRes, pairRes] = await Promise.all([
+          issueAgentBindCode({ headers: authHeaders }),
+          issueAgentPairingCode({ headers: authHeaders }),
+        ]);
+        if (!bindRes.bindCode || !pairRes.code) {
+          toast.error("Не удалось выдать код привязки");
+          return;
+        }
+        bundle = {
+          bindCode: bindRes.bindCode,
+          pairCode: pairRes.code,
+          expiresAt: pickAgentDeepLinkBundleExpiry(bindRes.expiresAt, pairRes.expiresAt),
+        };
+        setDeepLinkBundle(bundle);
       }
-      setBindCode(bindRes.bindCode);
-      setExpiresAt(bindRes.expiresAt ?? null);
+      setBindCode(bundle.bindCode);
+      setExpiresAt(bundle.expiresAt);
       const deepLink = buildAgentDeepLink({
         apiBaseUrl: window.location.origin,
-        bindCode: bindRes.bindCode,
-        pairCode: pairRes.code,
+        bindCode: bundle.bindCode,
+        pairCode: bundle.pairCode,
       });
       window.location.href = deepLink;
       toast.success("Открываем агент — код подставится сам, вводить цифры не нужно");
