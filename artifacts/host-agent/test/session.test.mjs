@@ -234,6 +234,29 @@ test("teardownAsync ends session on server and resets UI", async () => {
   assert.equal(session.currentSessionId, null);
 });
 
+test("teardownAsync retries PATCH /end before clearing local session", async () => {
+  session.currentSessionId = "sess-retry";
+  session.currentConfig = { ...defaultHostConfig };
+  window.agent.clearInputBlock = () => {};
+  window.agent.setCaptureSource = () => {};
+  let attempts = 0;
+  globalThis.fetch = async (url, opts) => {
+    if (url.includes("/end") && opts?.method === "PATCH") {
+      attempts += 1;
+      if (attempts < 2) {
+        return { ok: false, status: 503 };
+      }
+      return { ok: true };
+    }
+    return { ok: true };
+  };
+
+  await teardownAsync("retry stop");
+
+  assert.equal(attempts, 2);
+  assert.equal(session.currentSessionId, null);
+});
+
 test("uploadHostStats posts metrics when peer connection exists", async () => {
   session.currentSessionId = "sess-stats";
   let metricsPosted = false;

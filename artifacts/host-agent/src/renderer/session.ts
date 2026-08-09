@@ -831,6 +831,40 @@ export function teardown(reason: string): Promise<void> {
   return teardownAsync(reason);
 }
 
+const END_SESSION_MAX_ATTEMPTS = 3;
+
+/** PATCH /end with retries — must succeed before local session id is cleared. */
+async function endSessionOnServer(
+  sessionId: string,
+  hostToken: string,
+  apiBaseUrl: string,
+): Promise<boolean> {
+  const base = apiBaseUrl.replace(/\/$/, "");
+  const url = `${base}/api/sessions/${encodeURIComponent(sessionId)}/end`;
+  const body = JSON.stringify({ hostToken });
+  for (let attempt = 1; attempt <= END_SESSION_MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
+      if (res.ok) return true;
+      log(
+        `Не удалось завершить сессию на сервере (HTTP ${res.status}), попытка ${attempt}/${END_SESSION_MAX_ATTEMPTS}`,
+      );
+    } catch (err) {
+      log(
+        `Не удалось завершить сессию на сервере: ${String(err)}, попытка ${attempt}/${END_SESSION_MAX_ATTEMPTS}`,
+      );
+    }
+    if (attempt < END_SESSION_MAX_ATTEMPTS) {
+      await new Promise((r) => setTimeout(r, 1000 * attempt));
+    }
+  }
+  return false;
+}
+
 export async function teardownAsync(reason: string): Promise<void> {
   cancelDeferredTeardown();
   if (session.wsReconnectTimer) {
@@ -871,14 +905,18 @@ export async function teardownAsync(reason: string): Promise<void> {
     }
   }
 
+  let serverEndOk = true;
   if (session.currentSessionId && session.currentConfig?.hostToken && session.currentConfig.apiBaseUrl) {
-    const sid = session.currentSessionId;
-    const base = session.currentConfig.apiBaseUrl.replace(/\/$/, "");
-    void fetch(`${base}/api/sessions/${encodeURIComponent(sid)}/end`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ hostToken: session.currentConfig.hostToken }),
-    }).catch((err) => log(`Не удалось завершить сессию на сервере: ${String(err)}`));
+    serverEndOk = await endSessionOnServer(
+      session.currentSessionId,
+      session.currentConfig.hostToken,
+      session.currentConfig.apiBaseUrl,
+    );
+    if (!serverEndOk) {
+      log(
+        "Сессия на сервере могла остаться активной — проверь дашборд или перезапусти агент",
+      );
+    }
   }
   try { session.dataChannel?.close(); } catch { /* */ }
   session.dataChannel = null;

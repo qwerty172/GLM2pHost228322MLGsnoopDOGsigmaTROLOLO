@@ -7,6 +7,7 @@ import { logger } from "./logger";
 import { pickPlayerBucket } from "./lzt";
 import { getRedis, getRedisSubscriber, isRedisAvailable } from "./redis";
 import { verifyWsTicket } from "./jwt";
+import { countSessionMinutesUsed } from "./sessionBilling";
 import { generateToken } from "./tokens";
 
 type Role = "host" | "player";
@@ -274,6 +275,14 @@ async function authenticate(
   // Self-test sessions are free — billing worker skips them; don't block WS.
   if (session.isTest) {
     return { ok: true, result: { sessionId: session.id, role } };
+  }
+  // Block sessions debit the full reserve at claim — liquid balance can be 0
+  // while prepaid minutes remain. Legacy WS auth (no wsTicket) must not reject.
+  if (session.blockMinutes && session.blockReservedLzt) {
+    const minutesUsed = await countSessionMinutesUsed(db, session.id);
+    if (minutesUsed < session.blockMinutes) {
+      return { ok: true, result: { sessionId: session.id, role } };
+    }
   }
   const rateLzt = Math.round(Number(session.ratePerMinute) * 200);
   if (rateLzt > 0) {
@@ -741,3 +750,6 @@ function sanitizeControlMessage(
   }
   return out;
 }
+
+/** @internal test-only export */
+export { authenticate as authenticateSignalingForTest };
