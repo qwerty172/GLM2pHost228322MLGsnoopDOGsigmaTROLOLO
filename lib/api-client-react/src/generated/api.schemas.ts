@@ -919,6 +919,11 @@ export interface Session {
    */
   blockMinutes?: number | null;
   /**
+   * Minutes left in the prepaid block (null when blockMinutes is unset). Decreases as billing ticks accrue.
+   * @nullable
+   */
+  blockMinsRemaining?: number | null;
+  /**
    * Total LZT reserved for the block at session start. Unused reserve is refunded on early exit.
    * @nullable
    */
