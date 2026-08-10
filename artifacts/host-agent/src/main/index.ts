@@ -43,6 +43,7 @@ import { parseInputEvent, parseGamepadState } from "../shared/input";
 import type { AgentStatus, HostConfig, InputEvent, GameEntryLaunch, LibraryEntry, SteamScanResult, QuotaStatusEvent, SaveSyncRequest, SaveSyncResult } from "../shared/messages";
 import {
   DECENTHUB_PROTOCOL_SCHEME,
+  deepLinkShouldRevealAgentWindow,
   findDecenthubUrlInArgv,
   parseDecenthubUrl,
   toPendingPayload,
@@ -238,6 +239,11 @@ function handleDecenthubUrl(raw: string): void {
   const payload = toPendingPayload(parsed);
   applyPendingDeepLink(payload);
   log("info", `[deep-link] Received ${parsed.action} from dashboard`);
+  // Match second-instance/open-url: cold-start with hostToken would otherwise
+  // stay tray-only and never run pairing/bind UI before codes expire.
+  if (deepLinkShouldRevealAgentWindow(parsed)) {
+    createWindow();
+  }
 }
 
 function parseBindCodeFromArgv(): string | null {

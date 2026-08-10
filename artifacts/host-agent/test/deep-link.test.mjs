@@ -6,6 +6,7 @@ const {
   parseDecenthubUrl,
   findDecenthubUrlInArgv,
   toPendingPayload,
+  deepLinkShouldRevealAgentWindow,
 } = await import("../dist/main/main/deep-link.js");
 
 test("parseDecenthubUrl reads bind deep links from dashboard (U-34)", () => {
@@ -43,4 +44,17 @@ test("toPendingPayload strips open-only links", () => {
 
 test("DECENTHUB_PROTOCOL_SCHEME is stable", () => {
   assert.equal(DECENTHUB_PROTOCOL_SCHEME, "decenthub");
+});
+
+test("deepLinkShouldRevealAgentWindow for dashboard open/bind links (U-34)", () => {
+  assert.equal(deepLinkShouldRevealAgentWindow({ action: "open", apiBaseUrl: null, bindCode: null, pairCode: null }), true);
+  assert.equal(
+    deepLinkShouldRevealAgentWindow({
+      action: "bind",
+      apiBaseUrl: "https://app.example",
+      bindCode: "bind_abc",
+      pairCode: "123456",
+    }),
+    true,
+  );
 });

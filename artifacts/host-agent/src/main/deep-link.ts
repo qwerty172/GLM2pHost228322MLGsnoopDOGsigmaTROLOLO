@@ -53,3 +53,8 @@ export function toPendingPayload(link: DecenthubDeepLink): PendingDeepLinkPayloa
     pairCode: link.pairCode,
   };
 }
+
+/** Dashboard deep links must surface the agent window (pairing/bind or go-online UI). */
+export function deepLinkShouldRevealAgentWindow(link: DecenthubDeepLink): boolean {
+  return link.action === "open" || link.action === "bind";
+}
