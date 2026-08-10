@@ -44,11 +44,11 @@ test("getStoredHostToken prefers session-scoped key over global host token", () 
   assert.equal(getStoredHostToken("sess-1", storage), "session-tok");
 });
 
-test("getStoredHostToken falls back to global host token", () => {
+test("getStoredHostToken does not fall back to dashboard host token (browser-host mints per-session token)", () => {
   const storage = mockStorage({
     [GLOBAL_HOST_TOKEN_KEY]: "global-tok",
   });
-  assert.equal(getStoredHostToken("sess-1", storage), "global-tok");
+  assert.equal(getStoredHostToken("sess-1", storage), null);
 });
 
 test("getStoredBrowserHostUrl reads session-scoped browser host URL", () => {
