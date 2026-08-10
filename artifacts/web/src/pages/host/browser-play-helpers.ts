@@ -2,15 +2,13 @@ export const HOST_TOKEN_STORAGE_PREFIX = "streamline.browserHostToken:";
 export const BROWSER_HOST_URL_STORAGE_PREFIX = "streamline.browserHostUrl:";
 export const GLOBAL_HOST_TOKEN_KEY = "streamline.hostToken";
 
+/** Session-scoped only — browser-host mints a fresh hostToken per session. */
 export function getStoredHostToken(
   sessionId: string,
   storage: Pick<Storage, "getItem"> = localStorage,
 ): string | null {
   try {
-    return (
-      storage.getItem(HOST_TOKEN_STORAGE_PREFIX + sessionId) ||
-      storage.getItem(GLOBAL_HOST_TOKEN_KEY)
-    );
+    return storage.getItem(HOST_TOKEN_STORAGE_PREFIX + sessionId);
   } catch {
     return null;
   }

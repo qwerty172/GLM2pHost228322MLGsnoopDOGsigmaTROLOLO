@@ -1,4 +1,4 @@
-import { lt, eq, and, inArray, isNotNull, or, notInArray } from "drizzle-orm";
+import { lt, eq, and, inArray, isNotNull, isNull, or, notInArray } from "drizzle-orm";
 import { db, sessionsTable, hostsTable, hostGamesTable } from "@workspace/db";
 import { logger } from "./logger";
 import {
@@ -6,7 +6,14 @@ import {
   refundBlockRemainder,
 } from "./sessionBilling";
 
-const HEALTH_INTERVAL_MS = 30_000;
+/** Whether a host row should be treated as offline for session cleanup. */
+export function isHostHeartbeatStale(
+  lastSeenAt: Date | null | undefined,
+  cutoff: Date,
+): boolean {
+  return lastSeenAt == null || lastSeenAt < cutoff;
+}
+
 
 // Session timeout: end active sessions after host misses this many ms of heartbeats.
 const HOST_TIMEOUT_MS = 60_000;
@@ -55,7 +62,7 @@ async function sessionCheck(): Promise<void> {
           isNotNull(sessionsTable.claimedByPlayerId),
           isNotNull(sessionsTable.devKeyId),
         ),
-        lt(hostsTable.lastSeenAt, cutoff),
+        or(isNull(hostsTable.lastSeenAt), lt(hostsTable.lastSeenAt, cutoff)),
       ),
     );
 
@@ -120,7 +127,7 @@ async function libraryCleanup(): Promise<void> {
     .selectDistinct({ hostId: hostGamesTable.hostId })
     .from(hostGamesTable)
     .innerJoin(hostsTable, eq(hostGamesTable.hostId, hostsTable.id))
-    .where(lt(hostsTable.lastSeenAt, cutoff));
+    .where(or(isNull(hostsTable.lastSeenAt), lt(hostsTable.lastSeenAt, cutoff)));
 
   if (staleHosts.length === 0) return;
 
