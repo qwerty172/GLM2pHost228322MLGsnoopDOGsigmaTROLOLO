@@ -56,6 +56,106 @@ let pingPortInUse = PING_PORT;
 /** Window title currently captured by WebRTC — used to sync RTMP gdigrab. */
 let currentCaptureTitle = "";
 const lifetimeIntervals: ReturnType<typeof setInterval>[] = [];
+let keyStore: { privateKeyHex: string; publicKeyHex: string } | null = null;
+let preWindowIpcRegistered = false;
+
+async function ensureKeyStore(): Promise<void> {
+  if (keyStore) return;
+  try {
+    keyStore = await loadOrGenerateKeyPair();
+    log("info", `Agent pubkey: ${keyStore.publicKeyHex.slice(0, 16)}…`);
+  } catch (err) {
+    log("warn", `Failed to load/generate key pair: ${String(err)}`);
+  }
+}
+
+/** IPC the renderer needs before the first window loads (deep-link pairing U-34). */
+function registerPreWindowIpcHandlers(): void {
+  if (preWindowIpcRegistered) return;
+  preWindowIpcRegistered = true;
+
+  ipcMain.handle("config:get", async () => loadConfig());
+
+  ipcMain.handle("agent:consume-pending-bind-code", (): string | null => {
+    const code = pendingBindCode;
+    pendingBindCode = null;
+    return code;
+  });
+
+  ipcMain.handle("agent:consume-pending-pair-code", (): string | null => {
+    const code = pendingPairCode;
+    pendingPairCode = null;
+    return code;
+  });
+
+  ipcMain.handle("agent:consume-pending-api-base-url", (): string | null => {
+    const url = pendingApiBaseUrl;
+    pendingApiBaseUrl = null;
+    return url;
+  });
+
+  ipcMain.handle("config:set", async (_e, next: unknown) => {
+    if (!isHostConfig(next)) {
+      throw new Error("Invalid HostConfig payload");
+    }
+    const saved = await saveConfig(next);
+    applyAutoLaunch(saved);
+    void syncScheduleFromServer();
+    return saved;
+  });
+
+  ipcMain.handle("agent:get-pubkey", (): string | null => {
+    return keyStore?.publicKeyHex ?? null;
+  });
+
+  ipcMain.handle(
+    "agent:bind-key",
+    async (
+      _e,
+      hostToken: string,
+      apiBaseUrl: string,
+      bindCode?: string,
+    ): Promise<{ ok: boolean; error?: string }> => {
+      if (!keyStore) return { ok: false, error: "Key pair not available" };
+      const base = apiBaseUrl.replace(/\/$/, "");
+      const code =
+        typeof bindCode === "string" && bindCode.trim() ? bindCode.trim() : "";
+      const token =
+        typeof hostToken === "string" && hostToken.trim() ? hostToken.trim() : "";
+      if (!code && !token) {
+        return { ok: false, error: "Нужен код привязки или host token" };
+      }
+      try {
+        const challengeResp = await fetch(`${base}/api/auth/agent-challenge`);
+        if (!challengeResp.ok) {
+          return { ok: false, error: `Challenge fetch failed (${challengeResp.status})` };
+        }
+        const { challenge } = (await challengeResp.json()) as { challenge: string };
+        const signature = signChallenge(keyStore.privateKeyHex, challenge);
+        const body: Record<string, string> = {
+          pubkey: keyStore.publicKeyHex,
+          challenge,
+          signature,
+        };
+        if (code) body.bindCode = code;
+        else body.hostToken = token;
+        const bindResp = await fetch(`${base}/api/auth/bind-agent-key`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!bindResp.ok) {
+          const errBody = (await bindResp.json()) as { error?: string };
+          return { ok: false, error: errBody.error ?? `HTTP ${bindResp.status}` };
+        }
+        log("info", "[agent-key] Key bound to account successfully");
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: String(err) };
+      }
+    },
+  );
+}
 
 function trackInterval(handle: ReturnType<typeof setInterval>): void {
   lifetimeIntervals.push(handle);
@@ -268,6 +368,11 @@ async function startAgent(): Promise<void> {
   void syncScheduleFromServer();
   void checkAgentVersionPolicy(config);
 
+  // Deep-link pairing runs as soon as the renderer loads — key store and IPC
+  // handlers must exist before createWindow() or agent-pair ships without pubkey.
+  await ensureKeyStore();
+  registerPreWindowIpcHandlers();
+
   createTray(() => {
     createWindow();
   });
@@ -294,38 +399,6 @@ async function startAgent(): Promise<void> {
   }
 
   initAutoUpdater();
-
-  ipcMain.handle("config:get", async () => {
-    return loadConfig();
-  });
-
-  ipcMain.handle("agent:consume-pending-bind-code", (): string | null => {
-    const code = pendingBindCode;
-    pendingBindCode = null;
-    return code;
-  });
-
-  ipcMain.handle("agent:consume-pending-pair-code", (): string | null => {
-    const code = pendingPairCode;
-    pendingPairCode = null;
-    return code;
-  });
-
-  ipcMain.handle("agent:consume-pending-api-base-url", (): string | null => {
-    const url = pendingApiBaseUrl;
-    pendingApiBaseUrl = null;
-    return url;
-  });
-
-  ipcMain.handle("config:set", async (_e, next: unknown) => {
-    if (!isHostConfig(next)) {
-      throw new Error("Invalid HostConfig payload");
-    }
-    const saved = await saveConfig(next);
-    applyAutoLaunch(saved);
-    void syncScheduleFromServer();
-    return saved;
-  });
 
   ipcMain.on("input:inject", (_e, event: unknown) => {
     const parsed = parseInputEvent(event);
@@ -760,14 +833,7 @@ async function startAgent(): Promise<void> {
   );
 
   // ── Crypto key & PC binding ───────────────────────────────────────────────
-  // Load (or generate) the Ed25519 key pair on startup.
-  let keyStore: { privateKeyHex: string; publicKeyHex: string } | null = null;
-  try {
-    keyStore = await loadOrGenerateKeyPair();
-    log("info", `Agent pubkey: ${keyStore.publicKeyHex.slice(0, 16)}…`);
-  } catch (err) {
-    log("warn", `Failed to load/generate key pair: ${String(err)}`);
-  }
+  // Key pair is loaded in ensureKeyStore() before the renderer window opens.
 
   // Collect local PC specs (GPU via wmic on Windows, CPU + RAM from Node os).
   function collectPcSpecs(): { gpu: string; cpu: string; ramGb: number } {
@@ -793,61 +859,6 @@ async function startAgent(): Promise<void> {
     }
     return { gpu, cpu, ramGb };
   }
-
-  // Returns the hex-encoded public key (or null when no key is available).
-  ipcMain.handle("agent:get-pubkey", (): string | null => {
-    return keyStore?.publicKeyHex ?? null;
-  });
-
-  // Fetches a challenge from the server, signs it, and binds the public key
-  // to the host account identified by `hostToken`.
-  ipcMain.handle(
-    "agent:bind-key",
-    async (
-      _e,
-      hostToken: string,
-      apiBaseUrl: string,
-      bindCode?: string,
-    ): Promise<{ ok: boolean; error?: string }> => {
-      if (!keyStore) return { ok: false, error: "Key pair not available" };
-      const base = apiBaseUrl.replace(/\/$/, "");
-      const code =
-        typeof bindCode === "string" && bindCode.trim() ? bindCode.trim() : "";
-      const token =
-        typeof hostToken === "string" && hostToken.trim() ? hostToken.trim() : "";
-      if (!code && !token) {
-        return { ok: false, error: "Нужен код привязки или host token" };
-      }
-      try {
-        const challengeResp = await fetch(`${base}/api/auth/agent-challenge`);
-        if (!challengeResp.ok) {
-          return { ok: false, error: `Challenge fetch failed (${challengeResp.status})` };
-        }
-        const { challenge } = (await challengeResp.json()) as { challenge: string };
-        const signature = signChallenge(keyStore.privateKeyHex, challenge);
-        const body: Record<string, string> = {
-          pubkey: keyStore.publicKeyHex,
-          challenge,
-          signature,
-        };
-        if (code) body.bindCode = code;
-        else body.hostToken = token;
-        const bindResp = await fetch(`${base}/api/auth/bind-agent-key`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (!bindResp.ok) {
-          const errBody = (await bindResp.json()) as { error?: string };
-          return { ok: false, error: errBody.error ?? `HTTP ${bindResp.status}` };
-        }
-        log("info", "[agent-key] Key bound to account successfully");
-        return { ok: true };
-      } catch (err) {
-        return { ok: false, error: String(err) };
-      }
-    },
-  );
 
   // Fetches a challenge, signs it, and calls agent-login to get a hostToken.
   // Does NOT put the long-lived token in the browser URL (history/Referer leak).
