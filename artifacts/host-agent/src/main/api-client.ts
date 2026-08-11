@@ -3,6 +3,7 @@
 // fetch (available since Electron 22 / Node 18).
 
 import type { LibraryEntry, ScheduleSlot } from "../shared/messages";
+import { getAgentVersion } from "./agent-version";
 import { log } from "./logger";
 import { isAgentVersionSupported } from "./agent-version-policy";
 
@@ -80,7 +81,7 @@ export async function sendHeartbeat(
         "content-type": "application/json",
         "x-host-token": hostToken,
       },
-      body: JSON.stringify({ hostToken, pingMs }),
+      body: JSON.stringify({ hostToken, pingMs, agentVersion: getAgentVersion() }),
     });
   } catch {
     // Intentionally silent — network blips should not log noise.

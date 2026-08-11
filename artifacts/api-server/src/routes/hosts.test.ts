@@ -427,6 +427,36 @@ describe("POST /hosts/heartbeat", () => {
     queueResults([{ id: HOST_ID }]);
     const res = await request("POST", "/hosts/heartbeat", {
       headers: { "X-Host-Token": HOST_TOKEN },
+      body: { hostToken: HOST_TOKEN, pingMs: 42, agentVersion: "0.2.0" },
+    });
+    expect(res.status).toBe(200);
+    expect(res.json).toEqual({ ok: true });
+  });
+
+  it("returns 426 when agentVersion is below platform minimum", async () => {
+    const prev = process.env.MIN_SUPPORTED_AGENT_VERSION;
+    process.env.MIN_SUPPORTED_AGENT_VERSION = "1.0.0";
+    try {
+      queueResults([{ id: HOST_ID }]);
+      const res = await request("POST", "/hosts/heartbeat", {
+        headers: { "X-Host-Token": HOST_TOKEN },
+        body: { hostToken: HOST_TOKEN, pingMs: 42, agentVersion: "0.5.0" },
+      });
+      expect(res.status).toBe(426);
+      expect(res.json).toMatchObject({
+        error: "agent_version_unsupported",
+        minSupportedAgentVersion: "1.0.0",
+      });
+    } finally {
+      if (prev === undefined) delete process.env.MIN_SUPPORTED_AGENT_VERSION;
+      else process.env.MIN_SUPPORTED_AGENT_VERSION = prev;
+    }
+  });
+
+  it("allows heartbeat without agentVersion for legacy agents", async () => {
+    queueResults([{ id: HOST_ID }]);
+    const res = await request("POST", "/hosts/heartbeat", {
+      headers: { "X-Host-Token": HOST_TOKEN },
       body: { hostToken: HOST_TOKEN, pingMs: 42 },
     });
     expect(res.status).toBe(200);

@@ -40,7 +40,10 @@ import { generalHostTier, computeHostTier, specsFromPcSpecs, BASELINE_REC, BASEL
 import { isQuotaActiveNow } from "../lib/quotaEngine";
 import { rateLimit, ipKey, failedAttemptGuard, guardAndTrackFailures } from "../lib/rateLimit";
 import type { Request, Response } from "express";
-import { getMinSupportedAgentVersion } from "../lib/agentVersionPolicy";
+import {
+  getMinSupportedAgentVersion,
+  isAgentVersionSupported,
+} from "../lib/agentVersionPolicy";
 
 const router: IRouter = Router();
 
@@ -1337,7 +1340,20 @@ router.post("/hosts/heartbeat", async (req, res): Promise<void> => {
     return;
   }
 
-  const body = req.body as { hostToken?: string; pingMs?: number };
+  const body = req.body as {
+    hostToken?: string;
+    pingMs?: number;
+    agentVersion?: string;
+  };
+  const agentVersion =
+    typeof body.agentVersion === "string" ? body.agentVersion.trim() : "";
+  if (agentVersion && !isAgentVersionSupported(agentVersion)) {
+    res.status(426).json({
+      error: "agent_version_unsupported",
+      minSupportedAgentVersion: getMinSupportedAgentVersion(),
+    });
+    return;
+  }
   const update: Partial<typeof hostsTable.$inferInsert> = { lastSeenAt: new Date() };
   if (typeof body.pingMs === "number" && Number.isFinite(body.pingMs) && body.pingMs >= 0) {
     update.pingMs = Math.round(body.pingMs);
