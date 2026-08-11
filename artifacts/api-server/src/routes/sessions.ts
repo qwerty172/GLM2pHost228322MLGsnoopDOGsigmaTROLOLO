@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, or, isNull, ne, sql } from "drizzle-orm";
+import { eq, and, or, isNull, isNotNull, lt, ne, sql } from "drizzle-orm";
 import {
   db,
   gamesTable,
@@ -217,6 +217,20 @@ router.post("/sessions", async (req, res): Promise<void> => {
       await tx.execute(
         sql`SELECT id FROM hosts WHERE id = ${host.id} FOR UPDATE`,
       );
+      const now = new Date();
+      await tx
+        .update(sessionsTable)
+        .set({ status: "ended", endedAt: now, endReason: "invite_expired" })
+        .where(
+          and(
+            eq(sessionsTable.hostId, host.id),
+            ne(sessionsTable.status, "ended"),
+            isNull(sessionsTable.claimedByPlayerId),
+            isNull(sessionsTable.devKeyId),
+            isNotNull(sessionsTable.inviteExpiresAt),
+            lt(sessionsTable.inviteExpiresAt, now),
+          ),
+        );
       const [existingActive] = await tx
         .select({ id: sessionsTable.id })
         .from(sessionsTable)

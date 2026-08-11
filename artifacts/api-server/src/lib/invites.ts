@@ -15,3 +15,21 @@ export function isInviteExpired(expiresAt: Date | null | undefined, now = new Da
   if (!expiresAt) return false;
   return now.getTime() > new Date(expiresAt).getTime();
 }
+
+export type InviteSessionLike = {
+  status: string;
+  claimedByPlayerId: string | null;
+  devKeyId?: string | null;
+  inviteExpiresAt: Date | null;
+};
+
+/** Unclaimed lobby with expired invite — blocks host_busy but is not joinable. */
+export function isStaleUnclaimedInviteSession(
+  session: InviteSessionLike,
+  now = new Date(),
+): boolean {
+  if (session.status === "ended") return false;
+  if (session.claimedByPlayerId) return false;
+  if (session.devKeyId) return false;
+  return isInviteExpired(session.inviteExpiresAt, now);
+}
