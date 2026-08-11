@@ -19,7 +19,9 @@ async function applyPendingApiBaseUrl(): Promise<string> {
     if (pending) {
       apiBaseUrl = pending;
       ($("apiBaseUrl") as HTMLInputElement).value = pending;
-      if (!cfg.apiBaseUrl?.trim()) {
+      // Dashboard deep link always wins — stale apiBaseUrl from an old ZIP/install
+      // would otherwise send fresh bind/pair codes to the wrong environment.
+      if (cfg.apiBaseUrl?.trim() !== pending) {
         await window.agent.setConfig({ ...cfg, apiBaseUrl: pending });
       }
     }

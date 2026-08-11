@@ -1,6 +1,6 @@
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
-import { setupRendererEnv, resetAgentConfig } from "./helpers/renderer-env.mjs";
+import { setupRendererEnv, resetAgentConfig, defaultHostConfig } from "./helpers/renderer-env.mjs";
 
 setupRendererEnv();
 const { pairingCard, submitPairingCode, initPairingFromDeepLink } = await import(
@@ -44,6 +44,43 @@ test("initPairingFromDeepLink no-ops when agent has no pending pair code", async
     assert.equal(pairingStatusEl.textContent, "unchanged");
   } finally {
     agent.consumePendingPairCode = origConsume;
+  }
+});
+
+test("submitPairingCode overwrites stale apiBaseUrl from dashboard deep link (U-34)", async () => {
+  resetAgentConfig();
+  defaultHostConfig.apiBaseUrl = "https://staging.example.com";
+  defaultHostConfig.hostToken = "";
+
+  const pairingCodeInput = document.getElementById("pairing-code");
+  const apiBaseUrlInput = document.getElementById("apiBaseUrl");
+  apiBaseUrlInput.value = "https://staging.example.com";
+
+  const agent = window.agent;
+  const origConsumeApi = agent.consumePendingApiBaseUrl;
+  agent.consumePendingApiBaseUrl = async () => "https://production.example.com";
+
+  let pairUrl = "";
+  const fetchRestore = mock.method(globalThis, "fetch", async (url) => {
+    pairUrl = String(url);
+    if (pairUrl.includes("/api/auth/agent-pair")) {
+      return {
+        ok: true,
+        json: async () => ({ hostToken: "prod-host-token", displayName: "Prod Host" }),
+      };
+    }
+    return { ok: false, json: async () => ({}) };
+  });
+
+  try {
+    await submitPairingCode("112233");
+    assert.equal(pairUrl, "https://production.example.com/api/auth/agent-pair");
+    assert.equal(defaultHostConfig.apiBaseUrl, "https://production.example.com");
+    assert.equal(document.getElementById("hostToken").value, "prod-host-token");
+  } finally {
+    agent.consumePendingApiBaseUrl = origConsumeApi;
+    fetchRestore.mock.restore();
+    resetAgentConfig();
   }
 });
 
