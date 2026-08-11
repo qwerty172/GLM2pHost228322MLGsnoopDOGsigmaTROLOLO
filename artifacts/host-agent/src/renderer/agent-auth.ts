@@ -107,7 +107,7 @@ export async function initAgentKey(): Promise<void> {
       const pendingApi = await window.agent.consumePendingApiBaseUrl();
       if (pendingApi) {
         if (apiBaseUrlInput) apiBaseUrlInput.value = pendingApi;
-        if (!cfg.apiBaseUrl?.trim()) {
+        if (cfg.apiBaseUrl?.trim() !== pendingApi) {
           cfg = await window.agent.setConfig({ ...cfg, apiBaseUrl: pendingApi });
         }
       }
