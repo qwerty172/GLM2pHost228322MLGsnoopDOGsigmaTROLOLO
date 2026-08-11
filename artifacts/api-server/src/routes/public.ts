@@ -16,7 +16,7 @@ import {
 import { isHostAvailableNow } from "../lib/schedule";
 import { generalHostTier } from "../lib/hostTier";
 import { mintPreviewToken } from "../lib/signaling";
-import { generateInviteCode, defaultInviteExpiresAt } from "../lib/invites";
+import { generateInviteCode, defaultInviteExpiresAt, isStaleUnclaimedInviteSession } from "../lib/invites";
 import { rateLimit, ipKey } from "../lib/rateLimit";
 import { getMinSupportedAgentVersion } from "../lib/agentVersionPolicy";
 
@@ -386,6 +386,9 @@ router.post("/public/sessions", publicSessionsLimiter, async (req, res): Promise
       id: sessionsTable.id,
       inviteCode: sessionsTable.inviteCode,
       status: sessionsTable.status,
+      inviteExpiresAt: sessionsTable.inviteExpiresAt,
+      claimedByPlayerId: sessionsTable.claimedByPlayerId,
+      devKeyId: sessionsTable.devKeyId,
     })
     .from(sessionsTable)
     .where(and(...conditions))
@@ -417,7 +420,21 @@ router.post("/public/sessions", publicSessionsLimiter, async (req, res): Promise
     return;
   }
 
-  let inviteCode = sessions[0].inviteCode;
+  const sessionRow = sessions[0];
+  if (isStaleUnclaimedInviteSession(sessionRow)) {
+    await db
+      .update(sessionsTable)
+      .set({
+        status: "ended",
+        endedAt: new Date(),
+        endReason: "invite_expired",
+      })
+      .where(eq(sessionsTable.id, sessionRow.id));
+    res.status(503).json({ error: "host_offline" });
+    return;
+  }
+
+  let inviteCode = sessionRow.inviteCode;
   if (!inviteCode) {
     // Backfill invite for legacy sessions that predate invite codes.
     inviteCode = generateInviteCode();
@@ -427,7 +444,7 @@ router.post("/public/sessions", publicSessionsLimiter, async (req, res): Promise
         inviteCode,
         inviteExpiresAt: defaultInviteExpiresAt(),
       })
-      .where(eq(sessionsTable.id, sessions[0].id));
+      .where(eq(sessionsTable.id, sessionRow.id));
   }
 
   res.json({ inviteCode, playPath: `/play/i/${inviteCode}` });

@@ -148,6 +148,10 @@ function makeWhere() {
   });
 }
 
+const { mockIsStaleUnclaimedInviteSession } = vi.hoisted(() => ({
+  mockIsStaleUnclaimedInviteSession: vi.fn(() => false),
+}));
+
 const mockDb = {
   select: vi.fn(() => chainSelect()),
   update: vi.fn(() => ({
@@ -172,6 +176,8 @@ vi.mock("../lib/signaling", () => ({
 vi.mock("../lib/invites", () => ({
   generateInviteCode: vi.fn(() => "NEWCODE1"),
   defaultInviteExpiresAt: vi.fn(() => new Date("2030-01-01T00:00:00.000Z")),
+  isStaleUnclaimedInviteSession: (...args: unknown[]) =>
+    mockIsStaleUnclaimedInviteSession(...args),
 }));
 
 vi.mock("@workspace/db", () => ({
@@ -292,6 +298,7 @@ beforeEach(() => {
       where: vi.fn(() => makeWhere()),
     })),
   }));
+  mockIsStaleUnclaimedInviteSession.mockReturnValue(false);
   delete process.env.TURN_URL;
   delete process.env.TURN_USERNAME;
   delete process.env.TURN_CREDENTIAL;
@@ -536,7 +543,16 @@ describe("POST /public/sessions", () => {
   it("returns invite code for an active session", async () => {
     queueResults(
       [{ id: HOST_ID }],
-      [{ id: SESSION_ID, inviteCode: SESSION.inviteCode, status: "active" }],
+      [
+        {
+          id: SESSION_ID,
+          inviteCode: SESSION.inviteCode,
+          status: "active",
+          inviteExpiresAt: new Date("2030-01-01T00:00:00.000Z"),
+          claimedByPlayerId: "player-1",
+          devKeyId: null,
+        },
+      ],
     );
     const res = await request("POST", "/public/sessions", {
       body: { hostId: HOST_ID, gameId: GAME_ID },
@@ -546,6 +562,29 @@ describe("POST /public/sessions", () => {
       inviteCode: SESSION.inviteCode,
       playPath: `/play/i/${SESSION.inviteCode}`,
     });
+  });
+
+  it("returns host_offline and ends session when invite expired and unclaimed", async () => {
+    queueResults(
+      [{ id: HOST_ID }],
+      [
+        {
+          id: SESSION_ID,
+          inviteCode: SESSION.inviteCode,
+          status: "pending",
+          inviteExpiresAt: new Date("2020-01-01T00:00:00.000Z"),
+          claimedByPlayerId: null,
+          devKeyId: null,
+        },
+      ],
+    );
+    mockIsStaleUnclaimedInviteSession.mockReturnValueOnce(true);
+    const res = await request("POST", "/public/sessions", {
+      body: { hostId: HOST_ID, gameId: GAME_ID },
+    });
+    expect(res.status).toBe(503);
+    expect(res.json).toMatchObject({ error: "host_offline" });
+    expect(mockDb.update).toHaveBeenCalled();
   });
 });
 

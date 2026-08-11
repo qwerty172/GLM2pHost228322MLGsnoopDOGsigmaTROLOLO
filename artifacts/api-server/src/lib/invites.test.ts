@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { defaultInviteExpiresAt, generateInviteCode, isInviteExpired } from "./invites";
+import {
+  defaultInviteExpiresAt,
+  generateInviteCode,
+  isInviteExpired,
+  isStaleUnclaimedInviteSession,
+} from "./invites";
 
 describe("invites", () => {
   it("generates url-safe invite codes", () => {
@@ -18,5 +23,39 @@ describe("invites", () => {
     expect(isInviteExpired(null)).toBe(false);
     expect(isInviteExpired(new Date(Date.now() + 60_000))).toBe(false);
     expect(isInviteExpired(new Date(Date.now() - 60_000))).toBe(true);
+  });
+
+  it("flags stale unclaimed sessions with expired invites", () => {
+    const expired = new Date(Date.now() - 60_000);
+    const fresh = new Date(Date.now() + 60_000);
+    expect(
+      isStaleUnclaimedInviteSession({
+        status: "pending",
+        claimedByPlayerId: null,
+        inviteExpiresAt: expired,
+      }),
+    ).toBe(true);
+    expect(
+      isStaleUnclaimedInviteSession({
+        status: "pending",
+        claimedByPlayerId: null,
+        inviteExpiresAt: fresh,
+      }),
+    ).toBe(false);
+    expect(
+      isStaleUnclaimedInviteSession({
+        status: "active",
+        claimedByPlayerId: "player-1",
+        inviteExpiresAt: expired,
+      }),
+    ).toBe(false);
+    expect(
+      isStaleUnclaimedInviteSession({
+        status: "pending",
+        claimedByPlayerId: null,
+        devKeyId: "embed-key",
+        inviteExpiresAt: expired,
+      }),
+    ).toBe(false);
   });
 });

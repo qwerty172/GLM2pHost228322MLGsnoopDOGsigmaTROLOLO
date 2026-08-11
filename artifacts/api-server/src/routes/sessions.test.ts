@@ -151,6 +151,11 @@ function makeTx() {
         returning: vi.fn(async () => nextResult()),
       })),
     })),
+    update: vi.fn(() => ({
+      set: vi.fn(() => ({
+        where: vi.fn(async () => []),
+      })),
+    })),
   };
 }
 
@@ -469,6 +474,16 @@ describe("POST /sessions", () => {
     });
     expect(res.status).toBe(409);
     expect(res.json).toEqual({ error: "host_busy" });
+  });
+
+  it("creates a session when the only open lobby has an expired unclaimed invite", async () => {
+    const created = { ...SESSION_ROW, playerToken: "new-session-token" };
+    queueResults([HOST_ROW], [], [created]);
+    const res = await request("POST", "/sessions", {
+      body: { hostToken: HOST_TOKEN, appName: "Test Game" },
+    });
+    expect(res.status).toBe(201);
+    expect(res.json).toMatchObject({ playerToken: "new-session-token" });
   });
 
   it("returns 500 when session transaction yields no row", async () => {

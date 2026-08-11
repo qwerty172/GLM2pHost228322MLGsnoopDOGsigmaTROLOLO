@@ -1,4 +1,4 @@
-import { lt, eq, and, inArray, isNotNull, or, notInArray } from "drizzle-orm";
+import { lt, eq, and, inArray, isNotNull, or, notInArray, isNull, ne } from "drizzle-orm";
 import { db, sessionsTable, hostsTable, hostGamesTable } from "@workspace/db";
 import { logger } from "./logger";
 import {
@@ -30,10 +30,37 @@ async function healthCheck(): Promise<void> {
   if (isChecking) return;
   isChecking = true;
   try {
+    await staleInviteCheck();
     await sessionCheck();
     await libraryCleanup();
   } finally {
     isChecking = false;
+  }
+}
+
+// ── 0. End unclaimed lobbies whose invite TTL passed ────────────────────────
+
+async function staleInviteCheck(): Promise<void> {
+  const now = new Date();
+  const ended = await db
+    .update(sessionsTable)
+    .set({ status: "ended", endedAt: now, endReason: "invite_expired" })
+    .where(
+      and(
+        ne(sessionsTable.status, "ended"),
+        isNull(sessionsTable.claimedByPlayerId),
+        isNull(sessionsTable.devKeyId),
+        isNotNull(sessionsTable.inviteExpiresAt),
+        lt(sessionsTable.inviteExpiresAt, now),
+      ),
+    )
+    .returning({ id: sessionsTable.id });
+
+  if (ended.length > 0) {
+    logger.info(
+      { count: ended.length, sessionIds: ended.map((r) => r.id) },
+      "Ended sessions with expired unclaimed invites",
+    );
   }
 }
 
