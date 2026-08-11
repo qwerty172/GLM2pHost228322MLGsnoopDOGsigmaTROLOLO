@@ -6,7 +6,12 @@ import Module from "node:module";
 const load = Module._load;
 Module._load = function (request, parent, isMain) {
   if (request === "electron") {
-    return { app: { getAppPath: () => "/tmp/test-agent" } };
+    return {
+      app: {
+        getAppPath: () => "/tmp/test-agent",
+        getVersion: () => "1.0.0-test",
+      },
+    };
   }
   return load.apply(this, arguments);
 };
@@ -111,6 +116,7 @@ test("sendHeartbeat probes ping then posts heartbeat with pingMs", async () => {
     const body = JSON.parse(calls[1].init.body);
     assert.equal(body.hostToken, TOKEN);
     assert.equal(typeof body.pingMs, "number");
+    assert.equal(body.agentVersion, "1.0.0-test");
   } finally {
     restore.mock.restore();
   }
