@@ -83,3 +83,32 @@ test("initPairingFromDeepLink auto-submits pending pair code from agent (U-34)",
     resetAgentConfig();
   }
 });
+
+test("submitPairingCode includes agentPubkey when key is available (U-34)", async () => {
+  resetAgentConfig();
+  const agent = window.agent;
+  const testPubkey = "a".repeat(64);
+  agent.getAgentPubkey = async () => testPubkey;
+  agent.consumePendingApiBaseUrl = async () => "https://platform.example.com";
+
+  let pairBody = null;
+  const fetchRestore = mock.method(globalThis, "fetch", async (url, init) => {
+    if (String(url).includes("/api/auth/agent-pair")) {
+      pairBody = JSON.parse(init.body);
+      return {
+        ok: true,
+        json: async () => ({ hostToken: "paired-token", displayName: "Host" }),
+      };
+    }
+    return { ok: false, json: async () => ({}) };
+  });
+
+  try {
+    await submitPairingCode("112233");
+    assert.equal(pairBody?.code, "112233");
+    assert.equal(pairBody?.agentPubkey, testPubkey);
+  } finally {
+    fetchRestore.mock.restore();
+    resetAgentConfig();
+  }
+});
