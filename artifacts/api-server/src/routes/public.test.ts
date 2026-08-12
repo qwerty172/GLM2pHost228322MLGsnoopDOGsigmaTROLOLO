@@ -494,6 +494,35 @@ describe("GET /public/games/:slug/hosts", () => {
       },
     ]);
   });
+
+  it("does not expose invite when session exists but agent heartbeat is stale", async () => {
+    const staleHost = {
+      ...HOST,
+      lastSeenAt: new Date(Date.now() - 10 * 60 * 1000),
+    };
+    queueResults(
+      [{ id: GAME_ID, title: GAME.title }],
+      [{ hg: { pricePerMinuteLzt: 10 }, host: staleHost }],
+      [{ hostId: HOST_ID, inviteCode: SESSION.inviteCode, status: "active" }],
+    );
+    const res = await request("GET", `/public/games/${GAME_SLUG}/hosts`);
+    expect(res.status).toBe(200);
+    expect(res.json).toEqual([
+      {
+        hostId: HOST_ID,
+        displayName: HOST.displayName,
+        tags: HOST.tags,
+        description: HOST.description,
+        pricePerMinuteLzt: 10,
+        pricePerMinuteUsd: 0.05,
+        status: "available",
+        inviteCode: null,
+        scheduleMode: HOST.scheduleMode,
+        pingMs: HOST.pingMs,
+        hostTier: "meets_min",
+      },
+    ]);
+  });
 });
 
 describe("POST /public/sessions", () => {
