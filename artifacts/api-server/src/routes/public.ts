@@ -281,6 +281,8 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
   const hostIds = libraryRows.map((r) => r.host.id);
 
   // Active sessions for these hosts tied to this specific game.
+  // Newest first — mirrors GET /hosts so a stale zombie session cannot win
+  // over the host's current live session when both are non-ended.
   const sessionRows = await db
     .select({
       hostId: sessionsTable.hostId,
@@ -294,7 +296,8 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
         eq(sessionsTable.gameId, game.id),
         inArray(sessionsTable.hostId, hostIds),
       ),
-    );
+    )
+    .orderBy(desc(sessionsTable.createdAt));
 
   const sessionByHost = new Map<string, string | null>();
   for (const s of sessionRows) {
@@ -302,6 +305,7 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
   }
 
   const now = new Date();
+  const TWO_MINUTES_MS = 2 * 60 * 1000;
   const result = libraryRows
     .map(({ hg, host: h }) => {
       const inviteCode = sessionByHost.get(h.id) ?? null;
@@ -310,6 +314,10 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
         h.scheduleJson ?? [],
         now,
       );
+      const isAgentOnline =
+        h.lastSeenAt != null &&
+        now.getTime() - new Date(h.lastSeenAt).getTime() < TWO_MINUTES_MS;
+      const isLive = inviteCode != null && isAgentOnline;
       return {
         hostId: h.id,
         displayName: h.displayName,
@@ -317,8 +325,8 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
         description: h.description,
         pricePerMinuteLzt: hg.pricePerMinuteLzt,
         pricePerMinuteUsd: hg.pricePerMinuteLzt / 200,
-        status: inviteCode ? "online" : (available ? "available" : "scheduled"),
-        inviteCode,
+        status: isLive ? "online" : (available ? "available" : "scheduled"),
+        inviteCode: isLive ? inviteCode : null,
         scheduleMode: h.scheduleMode,
         // Host-to-server RTT measured at last heartbeat (null until first measurement).
         pingMs: h.pingMs ?? null,
