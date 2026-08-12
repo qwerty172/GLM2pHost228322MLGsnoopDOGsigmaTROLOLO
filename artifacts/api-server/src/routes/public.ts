@@ -219,6 +219,8 @@ router.get("/hosts", async (_req, res): Promise<void> => {
       isOnline,
       // Capability URL code — never expose raw playerToken on public lists.
       inviteCode: s.inviteCode,
+      // Game tied to the live session behind inviteCode (may differ from games[0]).
+      sessionGameId: s.gameId,
       // New: multi-game library entries for this host.
       games,
       // Host-to-server RTT measured at last heartbeat (null until first measurement).

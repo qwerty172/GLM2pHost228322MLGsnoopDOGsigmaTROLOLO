@@ -71,21 +71,46 @@ export function filterPlayableHosts<T extends PlayableHost>(
   return (hosts ?? []).filter(isPlayableHost).slice(0, limit);
 }
 
+export type HostLibraryGame = {
+  gameId?: string;
+  slug?: string;
+  title?: string;
+  coverImageUrl?: string;
+  genre?: string;
+  pricePerMinuteLzt?: number;
+};
+
 export type RankablePlayableHost = PlayableHost & {
   hostTier?: string;
   pingMs?: number | null;
   minutePriceUsd?: number;
-  games?: Array<{ pricePerMinuteLzt?: number }>;
+  sessionGameId?: string | null;
+  boundAppLabel?: string;
+  games?: HostLibraryGame[];
 };
+
+/** Game shown for the live session behind inviteCode — not always games[0]. */
+export function resolveLiveSessionGame<T extends HostLibraryGame>(
+  host: { sessionGameId?: string | null; games?: T[] } | null | undefined,
+): T | undefined {
+  const games = host?.games ?? [];
+  if (games.length === 0) return undefined;
+  const sessionGameId = host?.sessionGameId?.trim();
+  if (sessionGameId) {
+    const match = games.find((g) => g.gameId === sessionGameId);
+    if (match) return match;
+  }
+  return games[0];
+}
 
 function hostTierRank(tier: unknown): number {
   return tier === "above_rec" ? 0 : 1;
 }
 
 function hostPlayRank<T extends RankablePlayableHost>(host: T): number {
-  const firstGame = host.games?.[0];
+  const liveGame = resolveLiveSessionGame(host);
   return (
-    firstGame?.pricePerMinuteLzt ??
+    liveGame?.pricePerMinuteLzt ??
     Math.round((host.minutePriceUsd ?? 0) * LZT_PER_USD)
   );
 }

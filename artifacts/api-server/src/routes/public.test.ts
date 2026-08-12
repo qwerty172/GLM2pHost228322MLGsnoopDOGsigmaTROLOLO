@@ -446,6 +446,7 @@ describe("GET /hosts", () => {
       boundAppLabel: HOST.boundAppLabel,
       boundUrlHost: "stream.example.com",
       inviteCode: SESSION.inviteCode,
+      sessionGameId: SESSION.gameId,
       isOnline: true,
       hostTier: "meets_min",
       games: [

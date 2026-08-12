@@ -12,6 +12,7 @@ const {
   computeLztPerMin,
   isPlayableHost,
   pickBestPlayableHost,
+  resolveLiveSessionGame,
   resolvePlayNowInvitePath,
   PLAY_NOW_FALLBACK_HREF,
   DEMO_GAME_HREF,
@@ -93,6 +94,55 @@ test("filterPlayableHosts keeps online hosts with invite codes up to limit", () 
 test("computeLztPerMin prefers game price over host minute USD", () => {
   assert.equal(computeLztPerMin({ pricePerMinuteLzt: 15 }, 0.04), 15);
   assert.equal(computeLztPerMin(undefined, 0.04), 8);
+});
+
+test("resolveLiveSessionGame matches sessionGameId instead of games[0]", () => {
+  const host = {
+    sessionGameId: "game-b",
+    games: [
+      { gameId: "game-a", title: "First", pricePerMinuteLzt: 5 },
+      { gameId: "game-b", title: "Live", pricePerMinuteLzt: 12 },
+    ],
+  };
+  const live = resolveLiveSessionGame(host);
+  assert.equal(live?.gameId, "game-b");
+  assert.equal(live?.title, "Live");
+  assert.equal(live?.pricePerMinuteLzt, 12);
+});
+
+test("resolveLiveSessionGame falls back to games[0] when session game missing", () => {
+  const host = {
+    sessionGameId: "unknown",
+    games: [{ gameId: "game-a", title: "First", pricePerMinuteLzt: 5 }],
+  };
+  assert.equal(resolveLiveSessionGame(host)?.gameId, "game-a");
+});
+
+test("pickBestPlayableHost uses live session game price for ranking", () => {
+  const hosts = [
+    {
+      id: "cheap-display",
+      status: "online",
+      inviteCode: "a",
+      hostTier: "above_rec",
+      pingMs: 20,
+      sessionGameId: "expensive",
+      games: [
+        { gameId: "cheap", pricePerMinuteLzt: 5 },
+        { gameId: "expensive", pricePerMinuteLzt: 20 },
+      ],
+    },
+    {
+      id: "actually-cheap",
+      status: "online",
+      inviteCode: "b",
+      hostTier: "above_rec",
+      pingMs: 20,
+      sessionGameId: "cheap",
+      games: [{ gameId: "cheap", pricePerMinuteLzt: 8 }],
+    },
+  ];
+  assert.equal(pickBestPlayableHost(hosts)?.id, "actually-cheap");
 });
 
 test("isPlayableHost accepts status or isOnline with invite code", () => {
