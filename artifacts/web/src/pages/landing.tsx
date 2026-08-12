@@ -37,6 +37,7 @@ import {
   filterPlayableHosts,
   computeLztPerMin,
   pickBestPlayableHost,
+  resolveLiveSessionGame,
   resolvePlayNowInvitePath,
   PLAY_NOW_FALLBACK_HREF,
   DEMO_GAME_HREF,
@@ -50,8 +51,16 @@ type LiveHost = {
   minutePriceUsd: number;
   status: string;
   inviteCode: string | null;
+  sessionGameId?: string | null;
   tags: string[];
-  games: Array<{ slug: string; title: string; coverImageUrl: string; genre: string; pricePerMinuteLzt: number }>;
+  games: Array<{
+    gameId?: string;
+    slug: string;
+    title: string;
+    coverImageUrl: string;
+    genre: string;
+    pricePerMinuteLzt: number;
+  }>;
 };
 
 function useLiveHosts() {
@@ -300,12 +309,12 @@ export default function Landing() {
         {playableHosts.length > 0 ? (
           <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
             {playableHosts.map((host) => {
-              const firstGame = host.games?.[0];
-              const cover = firstGame?.coverImageUrl
-                ? resolveCoverImageUrl(firstGame.coverImageUrl, import.meta.env.BASE_URL)
+              const liveGame = resolveLiveSessionGame(host);
+              const cover = liveGame?.coverImageUrl
+                ? resolveCoverImageUrl(liveGame.coverImageUrl, import.meta.env.BASE_URL)
                 : null;
-              const gameTitle = firstGame?.title ?? host.boundAppLabel ?? "Игра";
-              const lztPerMin = computeLztPerMin(firstGame, host.minutePriceUsd);
+              const gameTitle = liveGame?.title ?? host.boundAppLabel ?? "Игра";
+              const lztPerMin = computeLztPerMin(liveGame, host.minutePriceUsd);
               return (
                 <div
                   key={host.id}
