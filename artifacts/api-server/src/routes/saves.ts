@@ -11,6 +11,7 @@ import {
 } from "@workspace/db";
 import {
   ObjectStorageService,
+  ObjectNotFoundError,
   ObjectStorageNotConfiguredError,
 } from "../lib/objectStorage";
 import {
@@ -395,6 +396,17 @@ router.post(
 
     const version = parsed.data.version ?? (existing ? existing.version + 1 : 1);
     const objectPath = `/objects/${parsed.data.storageKey}`;
+
+    try {
+      await storage.getObjectEntityFile(objectPath);
+    } catch (error) {
+      if (error instanceof ObjectNotFoundError) {
+        res.status(404).json({ error: "save_upload_not_found" });
+        return;
+      }
+      handleStorageError(req, res, error, "Failed to verify save upload");
+      return;
+    }
 
     await tryApplyObjectAcl(objectPath, {
       owner: `player:${player.id}`,

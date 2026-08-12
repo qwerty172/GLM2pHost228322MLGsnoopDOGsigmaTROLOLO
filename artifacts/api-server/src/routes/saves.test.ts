@@ -114,6 +114,7 @@ const {
   mockGetSaveUploadURL,
   mockGetObjectDownloadURL,
   mockGetObjectUploadURLForKey,
+  mockGetObjectEntityFile,
 } = vi.hoisted(() => ({
   mockResolveHostIdFromRequest: vi.fn(),
   mockGetSaveFile: vi.fn(),
@@ -122,6 +123,7 @@ const {
   mockGetSaveUploadURL: vi.fn(),
   mockGetObjectDownloadURL: vi.fn(),
   mockGetObjectUploadURLForKey: vi.fn(),
+  mockGetObjectEntityFile: vi.fn(),
 }));
 
 vi.mock("../lib/objectStorage", () => ({
@@ -133,10 +135,14 @@ vi.mock("../lib/objectStorage", () => ({
       getSaveUploadURL: mockGetSaveUploadURL,
       getObjectDownloadURL: mockGetObjectDownloadURL,
       getObjectUploadURLForKey: mockGetObjectUploadURLForKey,
+      getObjectEntityFile: mockGetObjectEntityFile,
     };
   }),
   ObjectStorageNotConfiguredError: class ObjectStorageNotConfiguredError extends Error {
     name = "ObjectStorageNotConfiguredError";
+  },
+  ObjectNotFoundError: class ObjectNotFoundError extends Error {
+    name = "ObjectNotFoundError";
   },
 }));
 
@@ -527,6 +533,10 @@ describe("POST /players/me/saves/:gameId/upload-url", () => {
 describe("POST /players/me/saves/:gameId/commit", () => {
   const storageKey = `saves/${PLAYER_ID}/${GAME_ID}/upload-uuid-1234.zip`;
 
+  beforeEach(() => {
+    mockGetObjectEntityFile.mockResolvedValue({});
+  });
+
   it("returns 403 for storageKey outside player namespace", async () => {
     queueResults([{ id: PLAYER_ID }]);
     const res = await request(
@@ -596,5 +606,22 @@ describe("POST /players/me/saves/:gameId/commit", () => {
         sizeBytes: 2048,
       }),
     });
+  });
+
+  it("returns 404 when commit references a missing upload (prevents save pointer loss)", async () => {
+    const { ObjectNotFoundError } = await import("../lib/objectStorage");
+    mockGetObjectEntityFile.mockRejectedValueOnce(new ObjectNotFoundError());
+    queueResults([{ id: PLAYER_ID }], [SAVE_ROW]);
+    const res = await request(
+      "POST",
+      `/players/me/saves/${GAME_ID}/commit`,
+      {
+        headers: { "X-Player-Wallet-Token": PLAYER_TOKEN },
+        body: { storageKey, sizeBytes: 2048 },
+      },
+    );
+    expect(res.status).toBe(404);
+    expect(res.json).toEqual({ error: "save_upload_not_found" });
+    expect(mockDb.update).not.toHaveBeenCalled();
   });
 });
