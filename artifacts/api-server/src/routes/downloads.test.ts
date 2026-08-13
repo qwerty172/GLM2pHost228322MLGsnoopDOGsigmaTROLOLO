@@ -324,6 +324,27 @@ describe("GET /downloads/host-agent.exe", () => {
     expect(res.status).toBe(503);
   });
 
+  it("does not cache transient GitHub failures — next lookup retries the API", async () => {
+    githubReleaseResponse = { status: 500, body: { message: "boom" } };
+    await request("GET", "/downloads/host-agent.exe");
+    const callsAfterError = githubApiCallCount();
+    githubReleaseResponse = {
+      status: 200,
+      body: [
+        {
+          tag_name: "host-agent-v3.0.0",
+          assets: [{ name: "host-agent-Setup-3.0.0.exe", browser_download_url: "https://github.com/x/3.0.0.exe" }],
+        },
+      ],
+    };
+    const res = await request("GET", "/downloads/host-agent.exe", {
+      redirect: "manual",
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("https://github.com/x/3.0.0.exe");
+    expect(githubApiCallCount()).toBeGreaterThan(callsAfterError);
+  });
+
   it("shares a single GitHub lookup between concurrent cold-cache requests", async () => {
     githubReleaseResponse = {
       status: 200,

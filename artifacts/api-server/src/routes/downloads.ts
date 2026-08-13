@@ -336,7 +336,11 @@ export function pickInstallerUrlFromReleases(
   return null;
 }
 
-async function fetchInstallerUrlFromGithub(): Promise<string | null> {
+type GithubInstallerLookup =
+  | { kind: "ok"; url: string | null }
+  | { kind: "transient_error" };
+
+async function fetchInstallerUrlFromGithub(): Promise<GithubInstallerLookup> {
   // GitHub returns releases newest-first, so the first tag-matching release
   // with an installer asset is the one we want.
   const res = await fetch(
@@ -346,10 +350,10 @@ async function fetchInstallerUrlFromGithub(): Promise<string | null> {
       signal: AbortSignal.timeout(RELEASE_FETCH_TIMEOUT_MS),
     },
   );
-  if (!res.ok) return null;
+  if (!res.ok) return { kind: "transient_error" };
   const body = (await res.json()) as GithubRelease[] | GithubRelease;
   const releases = Array.isArray(body) ? body : [body];
-  return pickInstallerUrlFromReleases(releases);
+  return { kind: "ok", url: pickInstallerUrlFromReleases(releases) };
 }
 
 /**
@@ -368,17 +372,25 @@ export async function resolveHostAgentExeUrl(): Promise<string | null> {
   if (releaseLookupInFlight) return releaseLookupInFlight;
 
   releaseLookupInFlight = (async () => {
-    let url: string | null = null;
     try {
-      url = await fetchInstallerUrlFromGithub();
+      const lookup = await fetchInstallerUrlFromGithub();
+      if (lookup.kind === "transient_error") {
+        releaseLookupInFlight = null;
+        return null;
+      }
+      const url = lookup.url;
+      // Negative *definitive* results are cached: without that, every download
+      // attempt before the first release is published would hit the GitHub API.
+      // Transient GitHub errors/timeouts are not cached so a rate-limit blip
+      // does not disable the .exe probe for five minutes.
+      releaseCache = { url, expiresAt: Date.now() + RELEASE_CACHE_TTL_MS };
+      releaseLookupInFlight = null;
+      return url;
     } catch (err) {
       logger.warn({ err }, "GitHub release lookup failed for host-agent.exe");
+      releaseLookupInFlight = null;
+      return null;
     }
-    // Negative results are cached too: without that, every download attempt
-    // before the first release is published would hit the GitHub API.
-    releaseCache = { url, expiresAt: Date.now() + RELEASE_CACHE_TTL_MS };
-    releaseLookupInFlight = null;
-    return url;
   })();
 
   return releaseLookupInFlight;
