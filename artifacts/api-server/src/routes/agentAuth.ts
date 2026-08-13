@@ -46,14 +46,14 @@ async function consumeChallenge(challenge: string): Promise<boolean> {
   return true;
 }
 
-function issueChallenge(): { challenge: string; expiresAt: number } {
+async function issueChallenge(): Promise<{ challenge: string; expiresAt: number }> {
   const now = Date.now();
   for (const [k, v] of challenges) {
     if (v.expiresAt < now) challenges.delete(k);
   }
   const challenge = crypto.randomBytes(32).toString("hex");
   const expiresAt = now + CHALLENGE_TTL_MS;
-  void storeChallenge(challenge, expiresAt);
+  await storeChallenge(challenge, expiresAt);
   return { challenge, expiresAt };
 }
 
@@ -155,8 +155,8 @@ function consumeBindCode(bindCode: string): string | null {
   return entry.hostId;
 }
 
-router.get("/auth/agent-challenge", (_req, res): void => {
-  const { challenge, expiresAt } = issueChallenge();
+router.get("/auth/agent-challenge", async (_req, res): Promise<void> => {
+  const { challenge, expiresAt } = await issueChallenge();
   res.json({ challenge, expiresAt });
 });
 
