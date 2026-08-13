@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq, gt, ilike, inArray, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gt, ilike, inArray, isNull, ne, sql } from "drizzle-orm";
 import {
   db,
   gamesTable,
@@ -21,6 +21,12 @@ import { rateLimit, ipKey } from "../lib/rateLimit";
 import { getMinSupportedAgentVersion } from "../lib/agentVersionPolicy";
 
 const router: IRouter = Router();
+
+/** Non-ended sessions a stranger can still claim (excludes in-progress play). */
+const joinablePublicSession = and(
+  ne(sessionsTable.status, "ended"),
+  isNull(sessionsTable.claimedByPlayerId),
+);
 
 const publicSessionsLimiter = rateLimit({
   scope: "public:sessions",
@@ -116,7 +122,7 @@ router.get("/hosts", async (_req, res): Promise<void> => {
     })
     .from(sessionsTable)
     .innerJoin(hostsTable, eq(sessionsTable.hostId, hostsTable.id))
-    .where(ne(sessionsTable.status, "ended"))
+    .where(joinablePublicSession)
     .orderBy(desc(sessionsTable.createdAt));
 
   const now = new Date();
@@ -290,7 +296,7 @@ router.get("/public/games/:slug/hosts", async (req, res): Promise<void> => {
     .from(sessionsTable)
     .where(
       and(
-        ne(sessionsTable.status, "ended"),
+        joinablePublicSession,
         eq(sessionsTable.gameId, game.id),
         inArray(sessionsTable.hostId, hostIds),
       ),
@@ -372,10 +378,7 @@ router.post("/public/sessions", publicSessionsLimiter, async (req, res): Promise
   }
 
   // Find the best active session for this host, preferring the requested game.
-  const conditions = [
-    ne(sessionsTable.status, "ended"),
-    eq(sessionsTable.hostId, hostId),
-  ];
+  const conditions = [joinablePublicSession, eq(sessionsTable.hostId, hostId)];
 
   if (gameId) {
     conditions.push(eq(sessionsTable.gameId, gameId));
@@ -398,12 +401,7 @@ router.post("/public/sessions", publicSessionsLimiter, async (req, res): Promise
       const fallbackSessions = await db
         .select({ id: sessionsTable.id })
         .from(sessionsTable)
-        .where(
-          and(
-            ne(sessionsTable.status, "ended"),
-            eq(sessionsTable.hostId, hostId),
-          ),
-        )
+        .where(and(joinablePublicSession, eq(sessionsTable.hostId, hostId)))
         .orderBy(desc(sessionsTable.createdAt))
         .limit(1);
 

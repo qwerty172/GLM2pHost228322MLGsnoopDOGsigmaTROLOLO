@@ -460,6 +460,13 @@ describe("GET /hosts", () => {
       ],
     });
   });
+
+  it("omits hosts whose only live session is already claimed", async () => {
+    queueResults([], []);
+    const res = await request("GET", "/hosts");
+    expect(res.status).toBe(200);
+    expect(res.json).toEqual([]);
+  });
 });
 
 describe("GET /public/games/:slug/hosts", () => {
@@ -546,6 +553,15 @@ describe("POST /public/sessions", () => {
       inviteCode: SESSION.inviteCode,
       playPath: `/play/i/${SESSION.inviteCode}`,
     });
+  });
+
+  it("returns 503 when host only has a claimed session", async () => {
+    queueResults([{ id: HOST_ID }], []);
+    const res = await request("POST", "/public/sessions", {
+      body: { hostId: HOST_ID, gameId: GAME_ID },
+    });
+    expect(res.status).toBe(503);
+    expect(res.json).toMatchObject({ error: "host_offline" });
   });
 });
 
