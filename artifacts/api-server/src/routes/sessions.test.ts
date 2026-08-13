@@ -151,6 +151,11 @@ function makeTx() {
         returning: vi.fn(async () => nextResult()),
       })),
     })),
+    update: vi.fn(() => ({
+      set: vi.fn(() => ({
+        where: vi.fn(() => makeWhere()),
+      })),
+    })),
   };
 }
 
@@ -231,9 +236,13 @@ vi.mock("../lib/quotaEngine", () => ({
   isQuotaActiveNow: vi.fn(() => true),
 }));
 
+const { mockRefundBlockRemainder } = vi.hoisted(() => ({
+  mockRefundBlockRemainder: vi.fn(async () => undefined),
+}));
+
 vi.mock("../lib/sessionBilling", () => ({
   countSessionMinutesUsed: vi.fn(async () => 0),
-  refundBlockRemainder: vi.fn(async () => undefined),
+  refundBlockRemainder: (...args: unknown[]) => mockRefundBlockRemainder(...args),
 }));
 
 vi.mock("../lib/signaling", () => ({
@@ -782,6 +791,23 @@ describe("PATCH /sessions/:id/end", () => {
       id: SESSION_ID,
       status: "ended",
     });
+  });
+
+  it("returns 500 when block refund fails and does not end session", async () => {
+    const blockSession = {
+      ...SESSION_ROW,
+      status: "active",
+      claimedByPlayerId: PLAYER_ID,
+      blockMinutes: 10,
+      blockReservedLzt: 100,
+    };
+    mockRefundBlockRemainder.mockRejectedValueOnce(new Error("ledger write failed"));
+    queueResults([HOST_ROW], [blockSession]);
+    const res = await request("PATCH", `/sessions/${SESSION_ID}/end`, {
+      body: { hostToken: HOST_TOKEN },
+    });
+    expect(res.status).toBe(500);
+    expect(res.json).toEqual({ error: "Failed to end session" });
   });
 });
 
