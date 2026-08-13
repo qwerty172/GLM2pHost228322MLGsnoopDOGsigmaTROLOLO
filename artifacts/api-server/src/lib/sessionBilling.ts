@@ -47,9 +47,17 @@ export async function countSessionMinutesUsed(
 
 export async function refundBlockRemainder(
   tx: Tx,
-  session: typeof sessionsTable.$inferSelect,
+  sessionId: string,
   minutesUsed: number,
 ): Promise<void> {
+  // Re-read under row lock so a concurrent renew-block cannot leave refund
+  // based on a stale blockReservedLzt snapshot (renew commits before end/refund).
+  const [session] = await tx
+    .select()
+    .from(sessionsTable)
+    .where(eq(sessionsTable.id, sessionId))
+    .for("update");
+  if (!session) return;
   if (!session.blockMinutes || !session.blockReservedLzt || !session.claimedByPlayerId)
     return;
   const costPerMinute = Math.round(session.blockReservedLzt / session.blockMinutes);

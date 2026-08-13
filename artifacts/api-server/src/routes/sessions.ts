@@ -923,28 +923,38 @@ router.patch("/sessions/:id/end", async (req, res): Promise<void> => {
 
   const now = new Date();
 
-  // Block session early-exit refund via shared billing helper (includes ledger).
-  if (
-    existing.blockMinutes &&
-    existing.blockReservedLzt &&
-    existing.claimedByPlayerId &&
-    existing.status === "active"
-  ) {
-    try {
-      await db.transaction(async (tx) => {
-        const minutesUsed = await countSessionMinutesUsed(tx, existing.id);
-        await refundBlockRemainder(tx, existing, minutesUsed);
-      });
-    } catch (err) {
-      req.log.error({ err, sessionId: existing.id }, "Block refund failed during session end");
-    }
-  }
+  let session: typeof existing | null;
+  try {
+    session = await db.transaction(async (tx) => {
+      const [locked] = await tx
+        .select()
+        .from(sessionsTable)
+        .where(eq(sessionsTable.id, params.data.id))
+        .for("update");
+      if (!locked) return null;
 
-  const [session] = await db
-    .update(sessionsTable)
-    .set({ status: "ended", endedAt: now })
-    .where(eq(sessionsTable.id, params.data.id))
-    .returning();
+      if (
+        locked.blockMinutes &&
+        locked.blockReservedLzt &&
+        locked.claimedByPlayerId &&
+        locked.status === "active"
+      ) {
+        const minutesUsed = await countSessionMinutesUsed(tx, locked.id);
+        await refundBlockRemainder(tx, locked.id, minutesUsed);
+      }
+
+      const [ended] = await tx
+        .update(sessionsTable)
+        .set({ status: "ended", endedAt: now })
+        .where(eq(sessionsTable.id, params.data.id))
+        .returning();
+      return ended;
+    });
+  } catch (err) {
+    req.log.error({ err, sessionId: existing.id }, "Block refund failed during session end");
+    res.status(500).json({ error: "Failed to end session" });
+    return;
+  }
 
   if (!session) {
     res.status(404).json({ error: "Session not found" });
@@ -1049,6 +1059,17 @@ router.post(
         : playersTable.internalBalanceLzt;
 
     const updated = await db.transaction(async (tx) => {
+      const [locked] = await tx
+        .select()
+        .from(sessionsTable)
+        .where(
+          and(eq(sessionsTable.id, session.id), eq(sessionsTable.status, "active")),
+        )
+        .for("update");
+      if (!locked || !locked.blockMinutes) {
+        return null;
+      }
+
       if (addReserve > 0) {
         const debited = await tx
           .update(playersTable)
@@ -1076,7 +1097,7 @@ router.post(
             bucket: bucket === "green" ? "cash" : "balance",
             deltaLzt: -addReserve,
             refType: "session",
-            refId: session.id,
+            refId: locked.id,
             note: `block renew: +${blockMinutes} мин`,
           },
         ]);
@@ -1085,10 +1106,12 @@ router.post(
       const [row] = await tx
         .update(sessionsTable)
         .set({
-          blockMinutes: (session.blockMinutes ?? 0) + blockMinutes,
-          blockReservedLzt: (session.blockReservedLzt ?? 0) + addReserve,
+          blockMinutes: (locked.blockMinutes ?? 0) + blockMinutes,
+          blockReservedLzt: (locked.blockReservedLzt ?? 0) + addReserve,
         })
-        .where(eq(sessionsTable.id, session.id))
+        .where(
+          and(eq(sessionsTable.id, locked.id), eq(sessionsTable.status, "active")),
+        )
         .returning();
       return row ?? null;
     });
