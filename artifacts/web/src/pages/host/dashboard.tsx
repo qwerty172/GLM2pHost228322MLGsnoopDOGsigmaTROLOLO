@@ -777,11 +777,14 @@ function HostQuickStartCard({
   const handleDownloadZip = () => {
     markHostAgentInstallMethod("zip");
     onInstallMethod("zip");
-    markHostAgentDownloaded();
-    onAgentDownloaded();
-    void downloadHostAgentBundle().catch(() => {
-      toast.error("Не удалось скачать агент");
-    });
+    void downloadHostAgentBundle()
+      .then(() => {
+        markHostAgentDownloaded();
+        onAgentDownloaded();
+      })
+      .catch(() => {
+        toast.error("Не удалось скачать агент");
+      });
   };
 
   const handleDownloadExe = () => {
@@ -1009,22 +1012,16 @@ function HostQuickStartCard({
               </Button>
             </div>
           ) : (
-            <a href={HOST_AGENT_EXE_DOWNLOAD_URL} data-testid="guided-update-agent">
-              <Button
-                size="lg"
-                className="w-full sm:w-auto gap-2 font-semibold bg-amber-600 hover:bg-amber-500 text-white"
-                disabled={exeAvailability.status === "checking"}
-                onClick={() => {
-                  markHostAgentInstallMethod("exe");
-                  onInstallMethod("exe");
-                  markHostAgentDownloaded();
-                  onAgentDownloaded();
-                }}
-              >
-                <Download className="h-4 w-4" />
-                Обновить агент
-              </Button>
-            </a>
+            <Button
+              size="lg"
+              className="w-full sm:w-auto gap-2 font-semibold bg-amber-600 hover:bg-amber-500 text-white"
+              disabled={exeAvailability.status === "checking"}
+              data-testid="guided-update-agent"
+              onClick={handleDownloadExe}
+            >
+              <Download className="h-4 w-4" />
+              Обновить агент
+            </Button>
           ))}
       </CardContent>
     </Card>
@@ -1387,19 +1384,25 @@ function HostDiagnosticsCard({
         window.location.reload();
         break;
       case "download-agent":
-        markHostAgentDownloaded();
-        void downloadHostAgentBundle().catch(() => {
-          toast.error("Не удалось скачать агент");
-        });
+        void downloadHostAgentBundle()
+          .then(() => {
+            markHostAgentDownloaded();
+          })
+          .catch(() => {
+            toast.error("Не удалось скачать агент");
+          });
         break;
       case "update-agent":
         void probeHostAgentExeAvailability().then((avail) => {
           if (avail.status === "unavailable") {
             toast.error(avail.message);
-            markHostAgentDownloaded();
-            void downloadHostAgentBundle().catch(() => {
-              toast.error("Не удалось скачать агент");
-            });
+            void downloadHostAgentBundle()
+              .then(() => {
+                markHostAgentDownloaded();
+              })
+              .catch(() => {
+                toast.error("Не удалось скачать агент");
+              });
             return;
           }
           markHostAgentDownloaded();
