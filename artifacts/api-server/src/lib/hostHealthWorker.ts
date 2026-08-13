@@ -86,7 +86,7 @@ async function sessionCheck(): Promise<void> {
           session.claimedByPlayerId
         ) {
           const minutesUsed = await countSessionMinutesUsed(tx, session.id);
-          await refundBlockRemainder(tx, session, minutesUsed);
+          await refundBlockRemainder(tx, session.id, minutesUsed);
         }
       });
       ids.push(session.id);

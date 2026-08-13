@@ -137,18 +137,25 @@ function makeWhere() {
 }
 
 function makeTx() {
+  const txSelectWhere = () => ({
+    limit: vi.fn(async () => nextResult()),
+    for: vi.fn(async () => nextResult()),
+  });
   return {
     execute: vi.fn(async () => undefined),
     select: vi.fn(() => ({
       from: vi.fn(() => ({
-        where: vi.fn(() => ({
-          limit: vi.fn(async () => nextResult()),
-        })),
+        where: vi.fn(() => txSelectWhere()),
       })),
     })),
     insert: vi.fn(() => ({
       values: vi.fn(() => ({
         returning: vi.fn(async () => nextResult()),
+      })),
+    })),
+    update: vi.fn(() => ({
+      set: vi.fn(() => ({
+        where: vi.fn(() => makeWhere()),
       })),
     })),
   };
@@ -772,8 +779,9 @@ describe("PATCH /sessions/:id/end", () => {
   });
 
   it("ends an active session", async () => {
-    const ended = { ...SESSION_ROW, status: "ended", endedAt: new Date() };
-    queueResults([HOST_ROW], [SESSION_ROW], [ended]);
+    const active = { ...SESSION_ROW, status: "active" };
+    const ended = { ...active, status: "ended", endedAt: new Date() };
+    queueResults([HOST_ROW], [active], [active], [ended]);
     const res = await request("PATCH", `/sessions/${SESSION_ID}/end`, {
       body: { hostToken: HOST_TOKEN },
     });
