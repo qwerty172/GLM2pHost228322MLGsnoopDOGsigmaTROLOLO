@@ -40,6 +40,9 @@ const previewSessionLimiter = rateLimit({
 const previewHostCooldown = new Map<string, number>();
 const PREVIEW_HOST_COOLDOWN_MS = 5_000;
 
+/** Agent heartbeat freshness — matches catalog `isOnline` and host liveness policy. */
+const HOST_HEARTBEAT_FRESH_MS = 2 * 60 * 1000;
+
 function urlHostname(url: string | null | undefined): string {
   if (!url) return "";
   try {
@@ -360,14 +363,26 @@ router.post("/public/sessions", publicSessionsLimiter, async (req, res): Promise
     return;
   }
 
-  // Verify host exists.
+  // Verify host exists and the agent is heartbeating (same 2-minute window as catalog).
   const [host] = await db
-    .select({ id: hostsTable.id })
+    .select({ id: hostsTable.id, lastSeenAt: hostsTable.lastSeenAt })
     .from(hostsTable)
     .where(eq(hostsTable.id, hostId));
 
   if (!host) {
     res.status(404).json({ error: "Host not found" });
+    return;
+  }
+
+  const nowMs = Date.now();
+  if (
+    !host.lastSeenAt ||
+    nowMs - new Date(host.lastSeenAt).getTime() >= HOST_HEARTBEAT_FRESH_MS
+  ) {
+    res.status(503).json({
+      error: "host_offline",
+      reason: "Host agent not recently active",
+    });
     return;
   }
 

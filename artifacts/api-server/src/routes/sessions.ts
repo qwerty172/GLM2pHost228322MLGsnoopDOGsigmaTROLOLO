@@ -923,28 +923,34 @@ router.patch("/sessions/:id/end", async (req, res): Promise<void> => {
 
   const now = new Date();
 
-  // Block session early-exit refund via shared billing helper (includes ledger).
-  if (
-    existing.blockMinutes &&
-    existing.blockReservedLzt &&
-    existing.claimedByPlayerId &&
-    existing.status === "active"
-  ) {
-    try {
-      await db.transaction(async (tx) => {
+  let session: typeof sessionsTable.$inferSelect | undefined;
+  try {
+    session = await db.transaction(async (tx) => {
+      // Block refund and session end must be atomic — a failed refund must not
+      // leave the session ended without crediting unused prepaid block LZT.
+      if (
+        existing.blockMinutes &&
+        existing.blockReservedLzt &&
+        existing.claimedByPlayerId &&
+        existing.status === "active"
+      ) {
         const minutesUsed = await countSessionMinutesUsed(tx, existing.id);
         await refundBlockRemainder(tx, existing, minutesUsed);
-      });
-    } catch (err) {
-      req.log.error({ err, sessionId: existing.id }, "Block refund failed during session end");
-    }
-  }
+      }
 
-  const [session] = await db
-    .update(sessionsTable)
-    .set({ status: "ended", endedAt: now })
-    .where(eq(sessionsTable.id, params.data.id))
-    .returning();
+      const [ended] = await tx
+        .update(sessionsTable)
+        .set({ status: "ended", endedAt: now })
+        .where(eq(sessionsTable.id, params.data.id))
+        .returning();
+
+      return ended;
+    });
+  } catch (err) {
+    req.log.error({ err, sessionId: existing.id }, "Session end failed");
+    res.status(500).json({ error: "Failed to end session" });
+    return;
+  }
 
   if (!session) {
     res.status(404).json({ error: "Session not found" });

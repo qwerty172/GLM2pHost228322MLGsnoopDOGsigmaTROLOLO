@@ -513,7 +513,7 @@ describe("POST /public/sessions", () => {
   });
 
   it("returns 503 when host has no active session", async () => {
-    queueResults([{ id: HOST_ID }], []);
+    queueResults([{ id: HOST_ID, lastSeenAt: new Date() }], []);
     const res = await request("POST", "/public/sessions", {
       body: { hostId: HOST_ID },
     });
@@ -521,8 +521,25 @@ describe("POST /public/sessions", () => {
     expect(res.json).toMatchObject({ error: "host_offline" });
   });
 
+  it("returns 503 when host agent heartbeat is stale", async () => {
+    queueResults([
+      {
+        id: HOST_ID,
+        lastSeenAt: new Date("2020-01-01T00:00:00.000Z"),
+      },
+    ]);
+    const res = await request("POST", "/public/sessions", {
+      body: { hostId: HOST_ID },
+    });
+    expect(res.status).toBe(503);
+    expect(res.json).toEqual({
+      error: "host_offline",
+      reason: "Host agent not recently active",
+    });
+  });
+
   it("returns 409 when host is online for a different game", async () => {
-    queueResults([{ id: HOST_ID }], [], [{ id: SESSION_ID }]);
+    queueResults([{ id: HOST_ID, lastSeenAt: new Date() }], [], [{ id: SESSION_ID }]);
     const res = await request("POST", "/public/sessions", {
       body: { hostId: HOST_ID, gameId: GAME_ID },
     });
@@ -535,7 +552,7 @@ describe("POST /public/sessions", () => {
 
   it("returns invite code for an active session", async () => {
     queueResults(
-      [{ id: HOST_ID }],
+      [{ id: HOST_ID, lastSeenAt: new Date() }],
       [{ id: SESSION_ID, inviteCode: SESSION.inviteCode, status: "active" }],
     );
     const res = await request("POST", "/public/sessions", {
