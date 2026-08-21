@@ -57,15 +57,30 @@ export async function prewarmIce(hostId: string): Promise<void> {
   }
 }
 
-/** Take a prewarmed PC (closes cache entry). Returns null if none/expired. */
-export function takePrewarmedConnection(
-  hostId: string,
-): { pc: RTCPeerConnection; iceServers: RTCIceServer[] } | null {
+/**
+ * Take prewarmed ICE servers (closes the throwaway PC).
+ * The cached PC must not be reused — it already has a local offer and a
+ * "prewarm" data channel, which breaks host-offer / player-answer signaling.
+ */
+export function takePrewarmedIceServers(hostId: string): RTCIceServer[] | null {
   evictStale();
   const entry = cache.get(hostId);
   if (!entry) return null;
   cache.delete(hostId);
-  return { pc: entry.pc, iceServers: entry.iceServers };
+  try {
+    entry.pc.close();
+  } catch {
+    /* ignore */
+  }
+  return entry.iceServers;
+}
+
+/** @deprecated Use takePrewarmedIceServers — PC reuse breaks WebRTC negotiation. */
+export function takePrewarmedConnection(
+  hostId: string,
+): { iceServers: RTCIceServer[] } | null {
+  const iceServers = takePrewarmedIceServers(hostId);
+  return iceServers ? { iceServers } : null;
 }
 
 export function discardPrewarm(hostId: string): void {
